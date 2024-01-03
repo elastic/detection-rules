@@ -6,14 +6,13 @@
 """Test util time functions."""
 import random
 import time
-import unittest
 
 from detection_rules.utils import normalize_timing_and_sort, cached
 from detection_rules.eswrap import RtaEvents
 from detection_rules.ecs import get_kql_schema
 
 
-class TestTimeUtils(unittest.TestCase):
+class TestTimeUtils:
     """Test util time functions."""
 
     @staticmethod
@@ -41,10 +40,11 @@ class TestTimeUtils(unittest.TestCase):
 
         return {fmt: _get_data(func) for fmt, func in date_formats.items()}
 
-    def assert_sort(self, normalized_events, date_format):
+    @staticmethod
+    def assert_sort(normalized_events, date_format):
         """Assert normalize and sort."""
         order = [e['id'] for e in normalized_events]
-        self.assertListEqual([1, 2, 3, 4, 5, 6], order, 'Sorting failed for date_format: {}'.format(date_format))
+        assert order == [1, 2, 3, 4, 5, 6], f'Sorting failed for date_format: {date_format}'
 
     def test_time_normalize(self):
         """Test normalize_timing_from_date_format."""
@@ -63,8 +63,8 @@ class TestTimeUtils(unittest.TestCase):
     def test_schema_multifields(self):
         """Tests that schemas are loading multifields correctly."""
         schema = get_kql_schema(version="1.4.0")
-        self.assertEqual(schema.get("process.name"), "keyword")
-        self.assertEqual(schema.get("process.name.text"), "text")
+        assert schema.get("process.name") == "keyword"
+        assert schema.get("process.name.text") == "text"
 
     def test_caching(self):
         """Test that caching is working."""
@@ -77,27 +77,27 @@ class TestTimeUtils(unittest.TestCase):
             counter += 1
             return counter
 
-        self.assertEqual(increment(), 1)
-        self.assertEqual(increment(), 1)
-        self.assertEqual(increment(), 1)
+        assert increment() == 1
+        assert increment() == 1
+        assert increment() == 1
 
-        self.assertEqual(increment(["hello", "world"]), 2)
-        self.assertEqual(increment(["hello", "world"]), 2)
-        self.assertEqual(increment(["hello", "world"]), 2)
+        assert increment(["hello", "world"]) == 2
+        assert increment(["hello", "world"]) == 2
+        assert increment(["hello", "world"]) == 2
 
-        self.assertEqual(increment(), 1)
-        self.assertEqual(increment(["hello", "world"]), 2)
+        assert increment() == 1
+        assert increment(["hello", "world"]) == 2
 
-        self.assertEqual(increment({"hello": [("world", )]}), 3)
-        self.assertEqual(increment({"hello": [("world", )]}), 3)
+        assert increment({"hello": [("world", )]}) == 3
+        assert increment({"hello": [("world", )]}) == 3
 
-        self.assertEqual(increment(), 1)
-        self.assertEqual(increment(["hello", "world"]), 2)
-        self.assertEqual(increment({"hello": [("world", )]}), 3)
+        assert increment() == 1
+        assert increment(["hello", "world"]) == 2
+        assert increment({"hello": [("world", )]}) == 3
 
         increment.clear()
-        self.assertEqual(increment({"hello": [("world", )]}), 4)
-        self.assertEqual(increment(["hello", "world"]), 5)
-        self.assertEqual(increment(), 6)
-        self.assertEqual(increment(None), 7)
-        self.assertEqual(increment(1), 8)
+        assert increment({"hello": [("world", )]}) == 4
+        assert increment(["hello", "world"]) == 5
+        assert increment() == 6
+        assert increment(None) == 7
+        assert increment(1) == 8

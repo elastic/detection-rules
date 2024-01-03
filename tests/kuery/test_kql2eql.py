@@ -3,16 +3,16 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import unittest
 import eql
+import pytest
 
 import kql
 
 
-class TestKql2Eql(unittest.TestCase):
+class TestKql2Eql:
 
     def validate(self, kql_source, eql_source, schema=None):
-        self.assertEqual(kql.to_eql(kql_source, schema=schema), eql.parse_expression(eql_source))
+        assert kql.to_eql(kql_source, schema=schema) == eql.parse_expression(eql_source)
 
     def test_field_equals(self):
         self.validate("field:value", "field == 'value'")
@@ -36,7 +36,7 @@ class TestKql2Eql(unittest.TestCase):
         self.validate("field:value and field2:value2", "field == 'value' and field2 == 'value2'")
 
     def test_nested_query(self):
-        with self.assertRaisesRegex(kql.KqlParseError, "Unable to convert nested query to EQL"):
+        with pytest.raises(kql.KqlParseError, match="Unable to convert nested query to EQL"):
             kql.to_eql("field:{outer:1 and middle:{inner:2}}")
 
     def test_not_query(self):
@@ -55,7 +55,7 @@ class TestKql2Eql(unittest.TestCase):
 
     def test_lone_value(self):
         for value in ["1", "-1.4", "true", "\"string test\""]:
-            with self.assertRaisesRegex(kql.KqlParseError, "Value not tied to field"):
+            with pytest.raises(kql.KqlParseError, match="Value not tied to field"):
                 kql.to_eql(value)
 
     def test_schema(self):
@@ -78,22 +78,22 @@ class TestKql2Eql(unittest.TestCase):
         self.validate("dest:192.168.0.0/16", "cidrMatch(dest, '192.168.0.0/16')", schema=schema)
         self.validate("dest:\"192.168.0.0/16\"", "cidrMatch(dest, '192.168.0.0/16')", schema=schema)
 
-        with self.assertRaises(eql.EqlSemanticError):
+        with pytest.raises(eql.EqlSemanticError):
             self.validate("top.text : \"hello\"", "top.text == 'hello'", schema=schema)
 
-        with self.assertRaises(eql.EqlSemanticError):
+        with pytest.raises(eql.EqlSemanticError):
             self.validate("top.text : 1 ", "top.text == '1'", schema=schema)
 
-        with self.assertRaisesRegex(kql.KqlParseError, r"Value doesn't match top.middle's type: nested"):
+        with pytest.raises(kql.KqlParseError, match=r"Value doesn't match top.middle's type: nested"):
             kql.to_eql("top.middle : 1", schema=schema)
 
-        with self.assertRaisesRegex(kql.KqlParseError, "Unable to convert nested query to EQL"):
+        with pytest.raises(kql.KqlParseError, match="Unable to convert nested query to EQL"):
             kql.to_eql("top:{keyword : 1}", schema=schema)
 
-        with self.assertRaisesRegex(kql.KqlParseError, "Unable to convert nested query to EQL"):
+        with pytest.raises(kql.KqlParseError, match="Unable to convert nested query to EQL"):
             kql.to_eql("top:{middle:{bool: true}}", schema=schema)
 
         invalid_ips = ["192.168.0.256", "192.168.0.256/33", "1", "\"1\""]
         for ip in invalid_ips:
-            with self.assertRaisesRegex(kql.KqlParseError, r"Value doesn't match dest's type: ip"):
-                kql.to_eql("dest:{ip}".format(ip=ip), schema=schema)
+            with pytest.raises(kql.KqlParseError, match=r"Value doesn't match dest's type: ip"):
+                kql.to_eql(f"dest:{ip}", schema=schema)

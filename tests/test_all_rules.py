@@ -5,8 +5,8 @@
 
 """Test that all rules have valid metadata and syntax."""
 import os
+import pytest
 import re
-import unittest
 import uuid
 import warnings
 from collections import defaultdict
@@ -34,30 +34,31 @@ from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_pat
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
-from .base import BaseRuleTest
+from tests.conftest import TestBaseRule
 
 PACKAGE_STACK_VERSION = Version.parse(current_stack_version(), optional_minor_and_patch=True)
 
 
-class TestValidRules(BaseRuleTest):
+class TestValidRules(TestBaseRule):
     """Test that all detection rules load properly without duplicates."""
 
     def test_schema_and_dupes(self):
         """Ensure that every rule matches the schema and there are no duplicates."""
-        self.assertGreaterEqual(len(self.all_rules), 1, 'No rules were loaded from rules directory!')
+        assert len(self.all_rules) >= 1, 'No rules were loaded from rules directory!'
+
 
     def test_file_names(self):
         """Test that the file names meet the requirement."""
         file_pattern = FILE_PATTERN
 
-        self.assertIsNone(re.match(file_pattern, 'NotValidRuleFile.toml'),
-                          f'Incorrect pattern for verifying rule names: {file_pattern}')
-        self.assertIsNone(re.match(file_pattern, 'still_not_a_valid_file_name.not_json'),
-                          f'Incorrect pattern for verifying rule names: {file_pattern}')
+        assert re.match(file_pattern, 'NotValidRuleFile.toml') is None, \
+            f'Incorrect pattern for verifying rule names: {file_pattern}'
+        assert re.match(file_pattern, 'still_not_a_valid_file_name.not_json') is None, \
+            f'Incorrect pattern for verifying rule names: {file_pattern}'
 
         for rule in self.all_rules:
             file_name = str(rule.path.name)
-            self.assertIsNotNone(re.match(file_pattern, file_name), f'Invalid file name for {rule.path}')
+            assert re.match(file_pattern, file_name) is not None, f'Invalid file name for {rule.path}'
 
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
@@ -72,7 +73,7 @@ class TestValidRules(BaseRuleTest):
                 optimized = tree.optimize(recursive=True)
                 err_message = f'\n{self.rule_str(rule)} Query not optimized for rule\n' \
                               f'Expected: {optimized}\nActual: {source}'
-                self.assertEqual(tree, optimized, err_message)
+                assert tree == optimized, err_message
 
     def test_production_rules_have_rta(self):
         """Ensure that all production rules have RTAs."""
@@ -83,11 +84,11 @@ class TestValidRules(BaseRuleTest):
             if isinstance(rule.contents.data, QueryRuleData) and rule.id in mappings:
                 matching_rta = mappings[rule.id].get('rta_name')
 
-                self.assertIsNotNone(matching_rta, f'{self.rule_str(rule)} does not have RTAs')
+                assert matching_rta is not None, f'{self.rule_str(rule)} does not have RTAs'
 
                 rta_name, ext = os.path.splitext(matching_rta)
                 if rta_name not in ttp_names:
-                    self.fail(f'{self.rule_str(rule)} references unknown RTA: {rta_name}')
+                    pytest.fail(f'{self.rule_str(rule)} references unknown RTA: {rta_name}')
 
     def test_duplicate_file_names(self):
         """Test that no file names are duplicated."""
@@ -98,7 +99,7 @@ class TestValidRules(BaseRuleTest):
 
         duplicates = {name: paths for name, paths in name_map.items() if len(paths) > 1}
         if duplicates:
-            self.fail(f"Found duplicated file names: {duplicates}")
+            pytest.fail(f"Found duplicated file names: {duplicates}")
 
     def test_rule_type_changes(self):
         """Test that a rule type did not change for a locked version"""
@@ -142,14 +143,14 @@ class TestValidRules(BaseRuleTest):
 
         build_rule(query=query)
 
-        with self.assertRaises(ValidationError):
+        with pytest.raises(ValidationError):
             build_rule(query=query, bbr_type="invalid")
 
-        with self.assertRaises(ValidationError):
+        with pytest.raises(ValidationError):
             build_rule(query=query, from_field="now-10m", interval="10m")
 
 
-class TestThreatMappings(BaseRuleTest):
+class TestThreatMappings(TestBaseRule):
     """Test threat mapping data for rules."""
 
     def test_technique_deprecations(self):
@@ -171,7 +172,7 @@ class TestThreatMappings(BaseRuleTest):
 
             if revoked_techniques:
                 old_new_mapping = "\n".join(f'Actual: {k} -> Expected {v}' for k, v in revoked_techniques.items())
-                self.fail(f'{self.rule_str(rule)} Using deprecated ATT&CK techniques: \n{old_new_mapping}')
+                pytest.fail(f'{self.rule_str(rule)} Using deprecated ATT&CK techniques: \n{old_new_mapping}')
 
     def test_tactic_to_technique_correlations(self):
         """Ensure rule threat info is properly related to a single tactic and technique."""
@@ -184,52 +185,52 @@ class TestThreatMappings(BaseRuleTest):
 
                     mismatched = [t.id for t in techniques if t.id not in attack.matrix[tactic.name]]
                     if mismatched:
-                        self.fail(f'mismatched ATT&CK techniques for rule: {self.rule_str(rule)} '
-                                  f'{", ".join(mismatched)} not under: {tactic["name"]}')
+                        pytest.fail(f'mismatched ATT&CK techniques for rule: {self.rule_str(rule)} ' \
+                            f'{", ".join(mismatched)} not under: {tactic["name"]}')
 
                     # tactic
                     expected_tactic = attack.tactics_map[tactic.name]
-                    self.assertEqual(expected_tactic, tactic.id,
-                                     f'ATT&CK tactic mapping error for rule: {self.rule_str(rule)}\n'
-                                     f'expected:  {expected_tactic} for {tactic.name}\n'
-                                     f'actual: {tactic.id}')
+                    assert expected_tactic == tactic.id, \
+                        f'ATT&CK tactic mapping error for rule: {self.rule_str(rule)}\n' \
+                        f'expected:  {expected_tactic} for {tactic.name}\n' \
+                        f'actual: {tactic.id}'
 
                     tactic_reference_id = tactic.reference.rstrip('/').split('/')[-1]
-                    self.assertEqual(tactic.id, tactic_reference_id,
-                                     f'ATT&CK tactic mapping error for rule: {self.rule_str(rule)}\n'
-                                     f'tactic ID {tactic.id} does not match the reference URL ID '
-                                     f'{tactic.reference}')
+                    assert tactic.id == tactic_reference_id, \
+                        f'ATT&CK tactic mapping error for rule: {self.rule_str(rule)}\n' \
+                        f'tactic ID {tactic.id} does not match the reference URL ID ' \
+                        f'{tactic.reference}'
 
                     # techniques
                     for technique in techniques:
                         expected_technique = attack.technique_lookup[technique.id]['name']
-                        self.assertEqual(expected_technique, technique.name,
-                                         f'ATT&CK technique mapping error for rule: {self.rule_str(rule)}\n'
-                                         f'expected: {expected_technique} for {technique.id}\n'
-                                         f'actual: {technique.name}')
+                        assert expected_technique == technique.name, \
+                            f'ATT&CK technique mapping error for rule: {self.rule_str(rule)}\n' \
+                            f'expected: {expected_technique} for {technique.id}\n' \
+                            f'actual: {technique.name}'
 
                         technique_reference_id = technique.reference.rstrip('/').split('/')[-1]
-                        self.assertEqual(technique.id, technique_reference_id,
-                                         f'ATT&CK technique mapping error for rule: {self.rule_str(rule)}\n'
-                                         f'technique ID {technique.id} does not match the reference URL ID '
-                                         f'{technique.reference}')
+                        assert technique.id == technique_reference_id, \
+                            f'ATT&CK technique mapping error for rule: {self.rule_str(rule)}\n' \
+                            f'technique ID {technique.id} does not match the reference URL ID ' \
+                            f'{technique.reference}'
 
                         # sub-techniques
                         sub_techniques = technique.subtechnique or []
                         if sub_techniques:
                             for sub_technique in sub_techniques:
                                 expected_sub_technique = attack.technique_lookup[sub_technique.id]['name']
-                                self.assertEqual(expected_sub_technique, sub_technique.name,
-                                                 f'ATT&CK sub-technique mapping error for rule: {self.rule_str(rule)}\n'
-                                                 f'expected: {expected_sub_technique} for {sub_technique.id}\n'
-                                                 f'actual: {sub_technique.name}')
+                                assert expected_sub_technique == sub_technique.name, \
+                                    f'ATT&CK sub-technique mapping error for rule: {self.rule_str(rule)}\n' \
+                                    f'expected: {expected_sub_technique} for {sub_technique.id}\n' \
+                                    f'actual: {sub_technique.name}'
 
                                 sub_technique_reference_id = '.'.join(
                                     sub_technique.reference.rstrip('/').split('/')[-2:])
-                                self.assertEqual(sub_technique.id, sub_technique_reference_id,
-                                                 f'ATT&CK sub-technique mapping error for rule: {self.rule_str(rule)}\n'
-                                                 f'sub-technique ID {sub_technique.id} does not match the reference URL ID '  # noqa: E501
-                                                 f'{sub_technique.reference}')
+                                assert sub_technique.id == sub_technique_reference_id, \
+                                    f'ATT&CK sub-technique mapping error for rule: {self.rule_str(rule)}\n' \
+                                    f'sub-technique ID {sub_technique.id} does not match the reference URL ID ' \
+                                    f'{sub_technique.reference}'
 
     def test_duplicated_tactics(self):
         """Check that a tactic is only defined once."""
@@ -239,12 +240,12 @@ class TestThreatMappings(BaseRuleTest):
             duplicates = sorted(set(t for t in tactics if tactics.count(t) > 1))
 
             if duplicates:
-                self.fail(f'{self.rule_str(rule)} duplicate tactics defined for {duplicates}. '
-                          f'Flatten to a single entry per tactic')
+                pytest.fail(f'{self.rule_str(rule)} duplicate tactics defined for {duplicates}. ' \
+                    f'Flatten to a single entry per tactic')
 
 
-@unittest.skipIf(os.environ.get('DR_BYPASS_TAGS_VALIDATION') is not None, "Skipping tag validation")
-class TestRuleTags(BaseRuleTest):
+@pytest.mark.skipif(os.environ.get('DR_BYPASS_TAGS_VALIDATION') is not None, reason="Skipping tag validation")
+class TestRuleTags(TestBaseRule):
     """Test tags data for rules."""
 
     def test_casing_and_spacing(self):
@@ -263,7 +264,7 @@ class TestRuleTags(BaseRuleTest):
                     error_msg = f'{self.rule_str(rule)} Invalid casing for expected tags\n'
                     error_msg += f'Actual tags: {", ".join(invalid_tags)}\n'
                     error_msg += f'Expected tags: {", ".join(invalid_tags.values())}'
-                    self.fail(error_msg)
+                    pytest.fail(error_msg)
 
     def test_required_tags(self):
         """Test that expected tags are present within rules."""
@@ -314,7 +315,7 @@ class TestRuleTags(BaseRuleTest):
             error_msg += f'\nMissing any of: {", " .join(consolidated_optional_tags)}' if is_missing_any_tags else ''
 
             if missing_required_tags or is_missing_any_tags:
-                self.fail(error_msg)
+                pytest.fail(error_msg)
 
     def test_primary_tactic_as_tag(self):
         """Test that the primary tactic is present as a tag."""
@@ -354,7 +355,7 @@ class TestRuleTags(BaseRuleTest):
 
         if invalid:
             err_msg = '\n'.join(invalid)
-            self.fail(f'Rules with misaligned tags and tactics:\n{err_msg}')
+            pytest.fail(f'Rules with misaligned tags and tactics:\n{err_msg}')
 
     def test_os_tags(self):
         """Test that OS tags are present within rules."""
@@ -376,7 +377,7 @@ class TestRuleTags(BaseRuleTest):
 
         if invalid:
             err_msg = '\n'.join(invalid)
-            self.fail(f'Rules with missing OS tags:\n{err_msg}')
+            pytest.fail(f'Rules with missing OS tags:\n{err_msg}')
 
     def test_ml_rule_type_tags(self):
         """Test that ML rule type tags are present within rules."""
@@ -397,9 +398,9 @@ class TestRuleTags(BaseRuleTest):
 
         if invalid:
             err_msg = '\n'.join(invalid)
-            self.fail(f'Rules with misaligned ML rule type tags:\n{err_msg}')
+            pytest.fail(f'Rules with misaligned ML rule type tags:\n{err_msg}')
 
-    @unittest.skip("Skipping until all Investigation Guides follow the proper format.")
+    @pytest.mark.skip(reason="Skipping until all Investigation Guides follow the proper format.")
     def test_investigation_guide_tag(self):
         """Test that investigation guide tags are present within rules."""
         invalid = []
@@ -415,7 +416,7 @@ class TestRuleTags(BaseRuleTest):
                         invalid.append(err_msg)
         if invalid:
             err_msg = '\n'.join(invalid)
-            self.fail(f'Rules with missing Investigation tag:\n{err_msg}')
+            pytest.fail(f'Rules with missing Investigation tag:\n{err_msg}')
 
     def test_tag_prefix(self):
         """Ensure all tags have a prefix from an expected list."""
@@ -427,7 +428,7 @@ class TestRuleTags(BaseRuleTest):
             [invalid.append(f"{self.rule_str(rule)}-{tag}") for tag in rule_tags
              if not any(prefix in tag for prefix in expected_prefixes)]
         if invalid:
-            self.fail(f'Rules with invalid tags:\n{invalid}')
+            pytest.fail(f'Rules with invalid tags:\n{invalid}')
 
     def test_no_duplicate_tags(self):
         """Ensure no rules have duplicate tags."""
@@ -439,10 +440,10 @@ class TestRuleTags(BaseRuleTest):
                 invalid.append(self.rule_str(rule))
 
         if invalid:
-            self.fail(f'Rules with duplicate tags:\n{invalid}')
+            pytest.fail(f'Rules with duplicate tags:\n{invalid}')
 
 
-class TestRuleTimelines(BaseRuleTest):
+class TestRuleTimelines(TestBaseRule):
     """Test timelines in rules are valid."""
 
     def test_timeline_has_title(self):
@@ -455,21 +456,21 @@ class TestRuleTimelines(BaseRuleTest):
 
             if (timeline_title or timeline_id) and not (timeline_title and timeline_id):
                 missing_err = f'{self.rule_str(rule)} timeline "title" and "id" required when timelines are defined'
-                self.fail(missing_err)
+                pytest.fail(missing_err)
 
             if timeline_id:
                 unknown_id = f'{self.rule_str(rule)} Unknown timeline_id: {timeline_id}.'
                 unknown_id += f' replace with {", ".join(TIMELINE_TEMPLATES)} ' \
                               f'or update this unit test with acceptable ids'
-                self.assertIn(timeline_id, list(TIMELINE_TEMPLATES), unknown_id)
+                assert timeline_id in list(TIMELINE_TEMPLATES), unknown_id
 
                 unknown_title = f'{self.rule_str(rule)} unknown timeline_title: {timeline_title}'
                 unknown_title += f' replace with {", ".join(TIMELINE_TEMPLATES.values())}'
                 unknown_title += ' or update this unit test with acceptable titles'
-                self.assertEqual(timeline_title, TIMELINE_TEMPLATES[timeline_id], unknown_title)
+                assert timeline_title == TIMELINE_TEMPLATES[timeline_id], unknown_title
 
 
-class TestRuleFiles(BaseRuleTest):
+class TestRuleFiles(TestBaseRule):
     """Test the expected file names."""
 
     def test_rule_file_name_tactic(self):
@@ -497,32 +498,32 @@ class TestRuleFiles(BaseRuleTest):
         if bad_name_rules:
             error_msg = 'filename does not start with the primary tactic - update the tactic or the rule filename'
             rule_err_str = '\n'.join(bad_name_rules)
-            self.fail(f'{error_msg}:\n{rule_err_str}')
+            pytest.fail(f'{error_msg}:\n{rule_err_str}')
 
     def test_bbr_in_correct_dir(self):
         """Ensure that BBR are in the correct directory."""
         for rule in self.bbr:
             # Is the rule a BBR
-            self.assertEqual(rule.contents.data.building_block_type, 'default',
-                             f'{self.rule_str(rule)} should have building_block_type = "default"')
+            assert rule.contents.data.building_block_type == 'default', \
+                f'{self.rule_str(rule)} should have building_block_type = "default"'
 
             # Is the rule in the rules_building_block directory
-            self.assertEqual(rule.path.parent.name, 'rules_building_block',
-                             f'{self.rule_str(rule)} should be in the rules_building_block directory')
+            assert rule.path.parent.name == 'rules_building_block', \
+                f'{self.rule_str(rule)} should be in the rules_building_block directory'
 
     def test_non_bbr_in_correct_dir(self):
         """Ensure that non-BBR are not in BBR directory."""
         proper_directory = 'rules_building_block'
         for rule in self.all_rules:
             if rule.path.parent.name == 'rules_building_block':
-                self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the {proper_directory}')
+                assert rule in self.bbr, f'{self.rule_str(rule)} should be in the {proper_directory}'
             else:
                 # Is the rule of type BBR and not in the correct directory
-                self.assertEqual(rule.contents.data.building_block_type, None,
-                                 f'{self.rule_str(rule)} should be in {proper_directory}')
+                assert rule.contents.data.building_block_type is None, \
+                    f'{self.rule_str(rule)} should be in {proper_directory}'
 
 
-class TestRuleMetadata(BaseRuleTest):
+class TestRuleMetadata(TestBaseRule):
     """Test the metadata of rules."""
 
     def test_updated_date_newer_than_creation(self):
@@ -538,7 +539,7 @@ class TestRuleMetadata(BaseRuleTest):
         if invalid:
             rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in invalid)
             err_msg = f'The following rules have an updated_date older than the creation_date\n {rules_str}'
-            self.fail(err_msg)
+            pytest.fail(err_msg)
 
     def test_deprecated_rules(self):
         """Test that deprecated rules are properly handled."""
@@ -559,7 +560,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         misplaced = '\n'.join(f'{self.rule_str(r)} {r.contents.metadata.maturity}' for r in misplaced_rules)
         err_str = f'The following rules are stored in {deprecated_path} but are not marked as deprecated:\n{misplaced}'
-        self.assertListEqual(misplaced_rules, [], err_str)
+        assert misplaced_rules == [], err_str
 
         for rule in self.deprecated_rules:
             meta = rule.contents.metadata
@@ -567,18 +568,18 @@ class TestRuleMetadata(BaseRuleTest):
             deprecated_rules[rule.id] = rule
             err_msg = f'{self.rule_str(rule)} cannot be deprecated if it has not been version locked. ' \
                       f'Convert to `development` or delete the rule file instead'
-            self.assertIn(rule.id, versions, err_msg)
+            assert rule.id in versions, err_msg
 
             rule_path = rule.path.relative_to(rules_path)
             err_msg = f'{self.rule_str(rule)} deprecated rules should be stored in ' \
                       f'"{deprecated_path}" folder'
-            self.assertEqual('_deprecated', rule_path.parts[-2], err_msg)
+            assert '_deprecated' == rule_path.parts[-2], err_msg
 
             err_msg = f'{self.rule_str(rule)} missing deprecation date'
-            self.assertIsNotNone(meta['deprecation_date'], err_msg)
+            assert meta['deprecation_date'] is not None, err_msg
 
             err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
-            self.assertEqual(meta['deprecation_date'], meta['updated_date'], err_msg)
+            assert meta['deprecation_date'] == meta['updated_date'], err_msg
 
         # skip this so the lock file can be shared across branches
         #
@@ -587,7 +588,7 @@ class TestRuleMetadata(BaseRuleTest):
         # err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
         #           f'The following rules have been version locked and are missing. ' \
         #           f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
-        # self.assertEqual([], missing_rules, err_msg)
+        # assert missing_rules == [], err_msg
 
         for rule_id, entry in deprecations.items():
             # if a rule is deprecated and not backported in order to keep the rule active in older branches, then it
@@ -598,10 +599,10 @@ class TestRuleMetadata(BaseRuleTest):
                 continue
 
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
-            self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
+            assert rule_id in deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing'
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
-                     "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
+    @pytest.mark.skipif(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
+                        reason="Test only applicable to 8.3+ stacks regarding related integrations build time field.")
     def test_integration_tag(self):
         """Test integration rules defined by metadata tag."""
         failures = []
@@ -682,7 +683,7 @@ class TestRuleMetadata(BaseRuleTest):
                 Try updating the integrations manifest file:
                     - `python -m detection_rules dev integrations build-manifests`\n
                 """
-            self.fail(err_msg + '\n'.join(failures))
+            pytest.fail(err_msg + '\n'.join(failures))
 
     def test_invalid_queries(self):
         invalid_queries_eql = [
@@ -797,22 +798,22 @@ class TestRuleMetadata(BaseRuleTest):
             build_rule(query, "eql")
 
         for query in invalid_queries_eql:
-            with self.assertRaises(eql.EqlSchemaError):
+            with pytest.raises(eql.EqlSchemaError):
                 build_rule(query, "eql")
 
         for query in invalid_integration_queries_eql:
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError):
                 build_rule(query, "eql")
         # kql
         for query in valid_queries_kql:
             build_rule(query, "kuery")
 
         for query in invalid_queries_kql:
-            with self.assertRaises(kql.KqlParseError):
+            with pytest.raises(kql.KqlParseError):
                 build_rule(query, "kuery")
 
         for query in invalid_integration_queries_kql:
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError):
                 build_rule(query, "kuery")
 
     def test_event_dataset(self):
@@ -844,10 +845,10 @@ class TestRuleMetadata(BaseRuleTest):
                             raise validation_integrations_check
 
 
-class TestIntegrationRules(BaseRuleTest):
+class TestIntegrationRules(TestBaseRule):
     """Test integration rules."""
 
-    @unittest.skip("8.3+ Stacks Have Related Integrations Feature")
+    @pytest.mark.skip(reason="8.3+ Stacks Have Related Integrations Feature")
     def test_integration_guide(self):
         """Test that rules which require a config note are using standard verbiage."""
         config = '## Setup\n\n'
@@ -869,10 +870,10 @@ class TestIntegrationRules(BaseRuleTest):
             note_str = integration_notes.get(integration)
 
             if note_str:
-                self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
+                assert rule.contents.data.note, f'{self.rule_str(rule)} note required for config information'
 
                 if note_str not in rule.contents.data.note:
-                    self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
+                    pytest.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
                               f'Expected: {note_str}\n\n'
                               f'Actual: {rule.contents.data.note}')
 
@@ -889,7 +890,7 @@ class TestIntegrationRules(BaseRuleTest):
 
         if failures:
             err_msg = '\n'.join(failures)
-            self.fail(f'The following rules have been improperly demoted:\n{err_msg}')
+            pytest.fail(f'The following rules have been improperly demoted:\n{err_msg}')
 
     def test_all_min_stack_rules_have_comment(self):
         failures = []
@@ -901,7 +902,7 @@ class TestIntegrationRules(BaseRuleTest):
 
         if failures:
             err_msg = '\n'.join(failures)
-            self.fail(f'The following ({len(failures)}) rules have a `min_stack_version` defined but missing comments:'
+            pytest.fail(f'The following ({len(failures)}) rules have a `min_stack_version` defined but missing comments:'
                       f'\n{err_msg}')
 
     def test_ml_integration_jobs_exist(self):
@@ -942,12 +943,12 @@ class TestIntegrationRules(BaseRuleTest):
 
         if failures:
             err_msg = '\n'.join(failures)
-            self.fail(
+            pytest.fail(
                 f'The following ({len(failures)}) rules are missing a valid `machine_learning_job_id`:\n{err_msg}'
             )
 
 
-class TestRuleTiming(BaseRuleTest):
+class TestRuleTiming(TestBaseRule):
     """Test rule timing and timestamps."""
 
     def test_event_override(self):
@@ -1036,7 +1037,7 @@ class TestRuleTiming(BaseRuleTest):
                     continue
                 err_strings.append(f'({len(type_errors)}) {errors_by_type["msg"]}')
                 err_strings.extend([f'  - {e}' for e in type_errors])
-            self.fail('\n'.join(err_strings))
+            pytest.fail('\n'.join(err_strings))
 
     def test_required_lookback(self):
         """Ensure endpoint rules have the proper lookback time."""
@@ -1053,7 +1054,7 @@ class TestRuleTiming(BaseRuleTest):
         if missing:
             rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in missing)
             err_msg = f'The following rules should have a longer `from` defined, due to indexes used\n {rules_str}'
-            self.fail(err_msg)
+            pytest.fail(err_msg)
 
     def test_eql_lookback(self):
         """Ensure EQL rules lookback => max_span, when defined."""
@@ -1080,7 +1081,7 @@ class TestRuleTiming(BaseRuleTest):
 
         if invalids:
             invalids_str = '\n'.join(invalids)
-            self.fail(f'The following rules have longer max_spans than lookbacks:\n{invalids_str}')
+            pytest.fail(f'The following rules have longer max_spans than lookbacks:\n{invalids_str}')
 
     def test_eql_interval_to_maxspan(self):
         """Check the ratio of interval to maxspan for eql rules."""
@@ -1102,10 +1103,10 @@ class TestRuleTiming(BaseRuleTest):
 
         if invalids:
             invalids_str = '\n'.join(invalids)
-            self.fail(f'The following rules have intervals too short for their given max_spans (ms):\n{invalids_str}')
+            pytest.fail(f'The following rules have intervals too short for their given max_spans (ms):\n{invalids_str}')
 
 
-class TestLicense(BaseRuleTest):
+class TestLicense(TestBaseRule):
     """Test rule license."""
 
     def test_elastic_license_only_v2(self):
@@ -1114,10 +1115,10 @@ class TestLicense(BaseRuleTest):
             rule_license = rule.contents.data.license
             if 'elastic license' in rule_license.lower():
                 err_msg = f'{self.rule_str(rule)} If Elastic License is used, only v2 should be used'
-                self.assertEqual(rule_license, 'Elastic License v2', err_msg)
+                assert rule_license == 'Elastic License v2', err_msg
 
 
-class TestIncompatibleFields(BaseRuleTest):
+class TestIncompatibleFields(TestBaseRule):
     """Test stack restricted fields do not backport beyond allowable limits."""
 
     def test_rule_backports_for_restricted_fields(self):
@@ -1133,10 +1134,10 @@ class TestIncompatibleFields(BaseRuleTest):
             invalid_str = '\n'.join(invalid_rules)
             err_msg = 'The following rules have min_stack_versions lower than allowed for restricted fields:\n'
             err_msg += invalid_str
-            self.fail(err_msg)
+            pytest.fail(err_msg)
 
 
-class TestBuildTimeFields(BaseRuleTest):
+class TestBuildTimeFields(TestBaseRule):
     """Test validity of build-time fields."""
 
     def test_build_fields_min_stack(self):
@@ -1161,10 +1162,10 @@ class TestBuildTimeFields(BaseRuleTest):
                                 f' to be set: {err_str}')
 
             if invalids:
-                self.fail(invalids)
+                pytest.fail(invalids)
 
 
-class TestRiskScoreMismatch(BaseRuleTest):
+class TestRiskScoreMismatch(TestBaseRule):
     """Test that severity and risk_score fields contain corresponding values"""
 
     def test_rule_risk_score_severity_mismatch(self):
@@ -1188,10 +1189,10 @@ class TestRiskScoreMismatch(BaseRuleTest):
             invalid_str = '\n'.join(invalid_list)
             err_msg = 'The following rules have mismatches between Severity and Risk Score field values:\n'
             err_msg += invalid_str
-            self.fail(err_msg)
+            pytest.fail(err_msg)
 
 
-class TestNoteMarkdownPlugins(BaseRuleTest):
+class TestNoteMarkdownPlugins(TestBaseRule):
     """Test if a guide containing Osquery Plugin syntax contains the version note."""
 
     def test_note_has_osquery_warning(self):
@@ -1211,12 +1212,12 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
 
             osquery = rule.contents.transform.get('osquery')
             if osquery and osquery_note_pattern not in rule.contents.data.note:
-                self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
+                pytest.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
                           f'the following note:\n{osquery_note_pattern}')
 
             investigate = rule.contents.transform.get('investigate')
             if investigate and invest_note_pattern not in rule.contents.data.note:
-                self.fail(f'{self.rule_str(rule)} Investigation guides using the Investigate Markdown must contain '
+                pytest.fail(f'{self.rule_str(rule)} Investigation guides using the Investigate Markdown must contain '
                           f'the following note:\n{invest_note_pattern}')
 
     def test_plugin_placeholders_match_entries(self):
@@ -1228,7 +1229,7 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
 
             if has_transform:
                 if not has_note:
-                    self.fail(f'{self.rule_str(rule)} transformed defined with no note')
+                    pytest.fail(f'{self.rule_str(rule)} transformed defined with no note')
             else:
                 if not has_note:
                     continue
@@ -1238,7 +1239,7 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
 
             if not has_transform:
                 if identifiers:
-                    self.fail(f'{self.rule_str(rule)} note contains plugin placeholders with no transform entries')
+                    pytest.fail(f'{self.rule_str(rule)} note contains plugin placeholders with no transform entries')
                 else:
                     continue
 
@@ -1259,7 +1260,7 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
                     note_counts[plugin] += 1
 
             err_msg = f'{self.rule_str(rule)} plugin entry count mismatch between transform and note'
-            self.assertDictEqual(transform_counts, note_counts, err_msg)
+            assert transform_counts == note_counts, err_msg
 
     def test_if_plugins_explicitly_defined(self):
         """Check if plugins are explicitly defined with the pattern in note vs using transform."""
@@ -1268,24 +1269,24 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
             if note is not None:
                 results = re.search(r'(!{osquery|!{investigate)', note, re.I | re.M)
                 err_msg = f'{self.rule_str(rule)} investigation guide plugin pattern detected! Use Transform'
-                self.assertIsNone(results, err_msg)
+                assert results is None, err_msg
 
 
-class TestAlertSuppression(BaseRuleTest):
+class TestAlertSuppression(TestBaseRule):
     """Test rule alert suppression."""
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.8.0"),
-                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
+    @pytest.mark.skipif(PACKAGE_STACK_VERSION < Version.parse("8.8.0"),
+                        reason="Test only applicable to 8.6+ stacks for rule alert suppression feature.")
     def test_group_length(self):
         """Test to ensure the rule alert suppression group_by does not exceed 3 elements."""
         for rule in self.production_rules:
             if rule.contents.data.get('alert_suppression'):
                 group_length = len(rule.contents.data.alert_suppression.group_by)
                 if group_length > 3:
-                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with more than 3 elements.')
+                    pytest.fail(f'{self.rule_str(rule)} has rule alert suppression with more than 3 elements.')
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.8.0"),
-                     "Test only applicable to 8.8+ stacks for rule alert suppression feature.")
+    @pytest.mark.skipif(PACKAGE_STACK_VERSION < Version.parse("8.8.0"),
+                        reason="Test only applicable to 8.8+ stacks for rule alert suppression feature.")
     def test_group_field_in_schemas(self):
         """Test to ensure the fields are defined is in ECS/Beats/Integrations schema."""
         for rule in self.production_rules:
@@ -1312,5 +1313,5 @@ class TestAlertSuppression(BaseRuleTest):
                             schema.update(**int_schema[data_source])
                 for fld in group_by_fields:
                     if fld not in schema.keys():
-                        self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
+                        pytest.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
                             found in ECS, Beats, or non-ecs schemas")

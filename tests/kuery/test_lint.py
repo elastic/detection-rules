@@ -3,14 +3,16 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import unittest
+import pytest
+
 import kql
 
 
-class LintTests(unittest.TestCase):
+class TestLint:
 
-    def validate(self, source, linted, *args):
-        self.assertEqual(kql.lint(source), linted, *args)
+    def validate(self, source, linted, msg=None):
+        actual = kql.lint(source)
+        assert actual == linted, msg if msg is not None else f"Expected {linted}, got {actual}"
 
     def test_lint_field(self):
         self.validate("a : b", "a:b")
@@ -31,7 +33,7 @@ class LintTests(unittest.TestCase):
         ]
 
         for q in queries:
-            with self.assertRaises(kql.KqlParseError):
+            with pytest.raises(kql.KqlParseError):
                 kql.parse(q)
 
     def test_lint_precedence(self):

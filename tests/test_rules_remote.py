@@ -3,15 +3,17 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import unittest
+import pytest
 
-from .base import BaseRuleTest
 from detection_rules.misc import get_default_config
+
+from tests.conftest import TestBaseRule
+
 # from detection_rules.remote_validation import RemoteValidator
 
 
-@unittest.skipIf(get_default_config() is None, 'Skipping remote validation due to missing config')
-class TestRemoteRules(BaseRuleTest):
+@pytest.mark.skipif(get_default_config() is None, reason='Skipping remote validation due to missing config')
+class TestRemoteRules(TestBaseRule):
     """Test rules against a remote Elastic stack instance."""
 
     # def test_esql_rules(self):

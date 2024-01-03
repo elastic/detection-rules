@@ -5,7 +5,6 @@
 
 """Tests for GitHub workflow functionality."""
 
-import unittest
 from pathlib import Path
 
 import yaml
@@ -17,7 +16,7 @@ GITHUB_FILES = Path(get_path()) / '.github'
 GITHUB_WORKFLOWS = GITHUB_FILES / 'workflows'
 
 
-class TestWorkflows(unittest.TestCase):
+class TestWorkflows:
     """Test GitHub workflow functionality."""
 
     def test_matrix_to_lock_version_defaults(self):
@@ -28,4 +27,4 @@ class TestWorkflows(unittest.TestCase):
 
         matrix_versions = get_stack_versions(drop_patch=True)
         err_msg = 'lock-versions workflow default does not match current matrix in stack-schema-map'
-        self.assertListEqual(lock_versions, matrix_versions[:-1], err_msg)
+        assert lock_versions == matrix_versions[:-1], err_msg
