@@ -14,6 +14,7 @@ from detection_rules.utils import get_etc_path
 
 tmp_file = Path('tmp_file.toml')
 
+
 class TestRuleTomlFormatter:
     """Test that the custom toml formatting is not compromising the integrity of the data."""
 

@@ -5,6 +5,7 @@
 
 import kql
 
+
 class TestEvaluator:
     document = {
         "number": 1,

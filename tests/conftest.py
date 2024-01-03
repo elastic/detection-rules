@@ -59,7 +59,6 @@ class TestBaseRule:
     RULE_LOADER_FAIL_MSG = None
     RULE_LOADER_FAIL_RAISED = False
 
-
     @staticmethod
     def rule_str(rule: Union[DeprecatedRule, TOMLRule], trailer=' ->') -> str:
         return f'{rule.id} - {rule.name}{trailer or ""}'

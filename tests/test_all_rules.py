@@ -46,7 +46,6 @@ class TestValidRules(TestBaseRule):
         """Ensure that every rule matches the schema and there are no duplicates."""
         assert len(self.all_rules) >= 1, 'No rules were loaded from rules directory!'
 
-
     def test_file_names(self):
         """Test that the file names meet the requirement."""
         file_pattern = FILE_PATTERN
@@ -185,8 +184,8 @@ class TestThreatMappings(TestBaseRule):
 
                     mismatched = [t.id for t in techniques if t.id not in attack.matrix[tactic.name]]
                     if mismatched:
-                        pytest.fail(f'mismatched ATT&CK techniques for rule: {self.rule_str(rule)} ' \
-                            f'{", ".join(mismatched)} not under: {tactic["name"]}')
+                        pytest.fail(f'mismatched ATT&CK techniques for rule: {self.rule_str(rule)} '
+                                    f'{", ".join(mismatched)} not under: {tactic["name"]}')
 
                     # tactic
                     expected_tactic = attack.tactics_map[tactic.name]
@@ -240,8 +239,8 @@ class TestThreatMappings(TestBaseRule):
             duplicates = sorted(set(t for t in tactics if tactics.count(t) > 1))
 
             if duplicates:
-                pytest.fail(f'{self.rule_str(rule)} duplicate tactics defined for {duplicates}. ' \
-                    f'Flatten to a single entry per tactic')
+                pytest.fail(f'{self.rule_str(rule)} duplicate tactics defined for {duplicates}. '
+                            f'Flatten to a single entry per tactic')
 
 
 @pytest.mark.skipif(os.environ.get('DR_BYPASS_TAGS_VALIDATION') is not None, reason="Skipping tag validation")
@@ -874,8 +873,8 @@ class TestIntegrationRules(TestBaseRule):
 
                 if note_str not in rule.contents.data.note:
                     pytest.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
-                              f'Expected: {note_str}\n\n'
-                              f'Actual: {rule.contents.data.note}')
+                                f'Expected: {note_str}\n\n'
+                                f'Actual: {rule.contents.data.note}')
 
     def test_rule_demotions(self):
         """Test to ensure a locked rule is not dropped to development, only deprecated"""
@@ -902,8 +901,8 @@ class TestIntegrationRules(TestBaseRule):
 
         if failures:
             err_msg = '\n'.join(failures)
-            pytest.fail(f'The following ({len(failures)}) rules have a `min_stack_version` defined but missing comments:'
-                      f'\n{err_msg}')
+            pytest.fail(f'The following ({len(failures)}) rules have a `min_stack_version` defined but '
+                        f'missing comments: \n{err_msg}')
 
     def test_ml_integration_jobs_exist(self):
         """Test that machine learning jobs exist in the integration."""
@@ -1213,12 +1212,12 @@ class TestNoteMarkdownPlugins(TestBaseRule):
             osquery = rule.contents.transform.get('osquery')
             if osquery and osquery_note_pattern not in rule.contents.data.note:
                 pytest.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
-                          f'the following note:\n{osquery_note_pattern}')
+                            f'the following note:\n{osquery_note_pattern}')
 
             investigate = rule.contents.transform.get('investigate')
             if investigate and invest_note_pattern not in rule.contents.data.note:
                 pytest.fail(f'{self.rule_str(rule)} Investigation guides using the Investigate Markdown must contain '
-                          f'the following note:\n{invest_note_pattern}')
+                            f'the following note:\n{invest_note_pattern}')
 
     def test_plugin_placeholders_match_entries(self):
         """Test that the number of plugin entries match their respective placeholders in note."""
