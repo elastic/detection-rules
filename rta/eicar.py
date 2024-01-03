@@ -3,8 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
+import sys
+
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="c8efd8c9-b32c-482a-90ff-f2d366a2af45",
@@ -16,8 +17,7 @@ metadata = RtaMetadata(
 
 
 @common.requires_os(*metadata.platforms)
-def main():
-
+def main() -> None:
     masquerade = "/tmp/bash"
     if common.CURRENT_OS in ["linux", "macos"]:
         if common.CURRENT_OS == "linux":
@@ -33,7 +33,6 @@ def main():
         # cleanup
         common.remove_file(masquerade)
     else:
-
         cmd = "C:\\Windows\\System32\\cmd.exe"
 
         # Execute command
@@ -42,4 +41,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())
