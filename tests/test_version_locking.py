@@ -28,9 +28,8 @@ class TestVersionLock:
 
         # This should only ever happen when bumping the backport matrix support up, which is based on the
         # stack-schema-map
-        pytest.fail(
-            f'The following version.lock entries have previous locked versions which are lower than the '
-            f'currently supported min_stack ({min_version}). To address this, run the '
-            f'`dev trim-version-lock {min_version}` command.\n\n' +  # noqa: W504
-            '\n'.join(f'{k}: {", ".join(v)}' for k, v in errors.items())
-        )
+        if errors:
+            err_str = '\n'.join(f'{k}: {", ".join(v)}' for k, v in errors.items())
+            pytest.fail(f'The following version.lock entries have previous locked versions which are lower than the '
+                        f'currently supported min_stack ({min_version}). To address this, run the '
+                        f'`dev trim-version-lock {min_version}` command.\n\n{err_str}')
