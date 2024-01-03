@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/12/21"
 
 [transform]
 [[transform.osquery]]
@@ -103,7 +103,19 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.name : "fltMC.exe" and process.args : "unload"
+  process.name : "fltMC.exe" and process.args : "unload" and
+  not
+  (
+    (
+      process.executable : "?:\\Program Files (x86)\\ManageEngine\\UEMS_Agent\\bin\\DCFAService64.exe" and
+      process.args : ("DFMFilter", "DRMFilter")
+    ) or
+    (
+      process.executable : "?:\\Windows\\SysWOW64\\msiexec.exe" and
+      process.args : ("BrFilter_*", "BrCow_*") and
+      user.id : "S-1-5-18"
+    )
+  )
 '''
 
 

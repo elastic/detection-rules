@@ -2,7 +2,7 @@
 creation_date = "2021/10/15"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2023/10/23"
+updated_date = "2023/12/18"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -134,16 +134,17 @@ event.category:process and host.os.type:windows and
   powershell.file.script_block_text : (
     "[System.Reflection.Assembly]::Load" or
     "[Reflection.Assembly]::Load"
-  ) and not 
-  powershell.file.script_block_text : (
-    ("CommonWorkflowParameters" or "RelatedLinksHelpInfo") and
-    "HelpDisplayStrings"
-  ) and not 
-  (powershell.file.script_block_text :
-    ("Get-SolutionFiles" or "Get-VisualStudio" or "Select-MSBuildPath") and
-    not file.name : "PathFunctions.ps1"
-  )
-  and not user.id : "S-1-5-18"
+  ) and
+  not powershell.file.script_block_text : (
+        ("CommonWorkflowParameters" or "RelatedLinksHelpInfo") and
+        "HelpDisplayStrings"
+  ) and
+  not (powershell.file.script_block_text :
+        ("Get-SolutionFiles" or "Get-VisualStudio" or "Select-MSBuildPath") and
+        file.name : "PathFunctions.ps1"
+  ) and
+  not file.path : C\:\\\\Program?Files\\\\Microsoft?Monitoring?Agent\\\\Agent\\\\Health?Service?State\\\\Monitoring?Host?Temporary?Files*\\\\AvailabilityGroupMonitoring.ps1 and
+  not user.id : "S-1-5-18"
 '''
 
 
