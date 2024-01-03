@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2023/12/15"
+integration = ["system", "windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/12/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies multiple Windows Filtering Platform block events and where the process name is related to 
+an endpoint security software. Adversaries may add malicious WFP rules to prevent Endpoint security 
+from sending telemetry.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*", "logs-system.security-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Evasion via Windows Filtering Platform"
+references = [
+ "https://github.com/dsnezhkov/shutter/tree/main",
+ "https://github.com/netero1010/EDRSilencer/tree/main", 
+ "https://www.mdsec.co.uk/2023/09/nighthawk-0-2-6-three-wise-monkeys/",
+ "https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-5157", 
+ "https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-5152"
+]
+risk_score = 47
+rule_id = "92d3a04e-6487-4b62-892d-70e640a590dc"
+setup="""
+
+The 'Filtering Platform Connection' logging policy must be configured for (Success, Failure).
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Policies >
+Windows Settings >
+Security Settings >
+Advanced Audit Policies Configuration >
+Audit Policies >
+Object Access >
+Filtering Platform Connection (Success,Failure)
+```
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+
+query = '''
+sequence by winlog.computer_name with maxspan=1m
+ [network where host.os.type == "windows" and 
+  event.action : ("windows-firewall-packet-block", "windows-firewall-packet-drop") and 
+  process.name : (
+        "bdagent.exe", "bdreinit.exe", "pdscan.exe", "pdiface.exe", "BDSubWiz.exe", "ProductAgentService.exe",
+        "ProductAgentUI.exe", "WatchDog.exe", "CarbonBlackClientSetup.exe", "TrGUI.exe", "TracCAPI.exe", "cpmsi_tool.exe",
+        "trac.exe", "vna_install64.exe", "vna_utils.exe", "TracSrvWrapper.exe", "vsmon.exe", "p95tray.exe",
+        "CybereasonRansomFreeServiceHost.exe", "CrAmTray.exe", "minionhost.exe", "CybereasonSensor.exe", "CylanceUI.exe",
+        "CylanceProtectSetup.exe", "cylancesvc.exe", "cyupdate.exe", "elastic-agent.exe", "elastic-endpoint.exe",
+        "egui.exe", "minodlogin.exe", "emu-rep.exe", "emu_install.exe", "emu-cci.exe", "emu-gui.exe", "emu-uninstall.exe",
+        "ndep.exe", "spike.exe", "ecls.exe", "ecmd.exe", "ecomserver.exe", "eeclnt.exe", "eh64.exe", "EHttpSrv.exe",
+        "xagt.exe", "collectoragent.exe", "FSAEConfig.exe", "uninstalldcagent.exe", "rmon.exe", "fccomint.exe",
+        "fclanguageselector.exe", "fortifw.exe", "fcreg.exe", "fortitray.exe", "fcappdb.exe", "fcwizard.exe", "submitv.exe",
+        "av_task.exe", "fortiwf.exe", "fortiwadbd.exe", "fcauth.exe", "fcdblog.exe", "fcmgr.exe", "fortiwad.exe",
+        "fortiproxy.exe", "fortiscand.exe", "fortivpnst.exe", "ipsec.exe", "fcwscd7.exe", "fcasc.exe", "fchelper.exe",
+        "forticlient.exe","fcwsc.exe", "FortiClient.exe", "fmon.exe", "FSSOMA.exe", "FCVbltScan.exe", "FortiESNAC.exe",
+        "EPCUserAvatar.exe", "FortiAvatar.exe", "FortiClient_Diagnostic_Tool.exe", "FortiSSLVPNdaemon.exe", "avp.exe",
+        "FCConfig.exe", "avpsus.exe", "klnagent.exe", "klnsacwsrv.exe", "kl_platf.exe", "stpass.exe", "klnagwds.exe",
+        "mbae.exe", "mbae64.exe", "mbae-svc.exe", "mbae-uninstaller.exe", "mbaeLoader32.exe", "mbaeloader64.exe",
+        "mbam-dor.exe", "mbamgui.exe", "mbamservice.exe", "mbamtrayctrl.exe", "mbampt.exe", "mbamscheduler.exe",
+        "Coreinst.exe", "mbae-setup.exe", "mcupdate.exe", "ProtectedModuleHost.exe", "ESConfigTool.exe", "FWInstCheck.exe",
+        "FwWindowsFirewallHandler.exe", "mfeesp.exe", "mfefw.exe", "mfeProvisionModeUtility.exe", "mfetp.exe", "avpui.exe", 
+        "WscAVExe.exe", "mcshield.exe", "McChHost.exe", "mfewc.exe", "mfewch.exe", "mfewcui.exe", "fwinfo.exe",
+        "mfecanary.exe", "mfefire.exe", "mfehidin.exe", "mfemms.exe", "mfevtps.exe", "mmsinfo.exe", "vtpinfo.exe",
+        "MarSetup.exe", "mctray.exe", "masvc.exe", "macmnsvc.exe", "McAPExe.exe", "McPvTray.exe", "mcods.exe",
+        "mcuicnt.exe", "mcuihost.exe", "xtray.exe", "McpService.exe", "epefprtrainer.exe", "mfeffcoreservice.exe",
+        "MfeEpeSvc.exe", "qualysagent.exe", "QualysProxy.exe", "QualysAgentUI.exe", "SVRTgui.exe", "SVRTcli.exe",
+        "SVRTcli.exe", "SVRTgui.exe", "SCTCleanupService.exe", "SVRTservice.exe", "native.exe", "SCTBootTasks.exe",
+        "ALMon.exe", "SAA.exe", "SUMService.exe", "ssp.exe", "SCFService.exe", "SCFManager.exe", "spa.exe", "cabarc.exe",
+        "sargui.exe", "sntpservice.exe", "McsClient.exe", "McsAgent.exe", "McsHeartbeat.exe", "SAVAdminService.exe",
+        "sav32cli.exe", "ForceUpdateAlongSideSGN.exe", "SAVCleanupService.exe", "SavMain.exe", "SavProgress.exe", 
+        "SavProxy.exe", "SavService.exe", "swc_service.exe", "swi_di.exe", "swi_service.exe", "swi_filter.exe",
+        "ALUpdate.exe", "SophosUpdate.exe", "ALsvc.exe", "SophosAlert.exe", "osCheck.exe", "N360Downloader.exe",
+        "InstWrap.exe", "symbos.exe", "nss.exe", "symcorpui.exe", "isPwdSvc.exe", "ccsvchst.exe", "ntrmv.exe",
+        "pccntmon.exe", "AosUImanager.exe", "NTRTScan.exe", "TMAS_OL.exe", "TMAS_OLImp.exe", "TMAS_OLSentry.exe",
+        "ufnavi.exe", "Clnrbin.exe", "vizorhtmldialog.exe", "pwmConsole.exe", "PwmSvc.exe", "coreServiceShell.exe",
+        "ds_agent.exe", "SfCtlCom.exe", "MBAMHelper.exe", "cb.exe", "smc.exe", "tda.exe", "xagtnotif.exe", "ekrn.exe",
+        "dsa.exe", "Notifier.exe", "rphcp.exe", "lc_sensor.exe", "CSFalconService.exe", "CSFalconController.exe",
+        "SenseSampleUploader.exe", "windefend.exe", "MSASCui.exe", "MSASCuiL.exe", "msmpeng.exe", "msmpsvc.exe",
+        "MsSense.exe", "esensor.exe", "sentinelone.exe", "tmccsf.exe", "csfalconcontainer.exe", "sensecncproxy.exe",
+        "splunk.exe", "sysmon.exe", "sysmon64.exe", "taniumclient.exe"
+    )] with runs=5
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.004"
+name = "Disable or Modify System Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
