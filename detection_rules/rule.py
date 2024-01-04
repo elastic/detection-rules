@@ -1161,11 +1161,12 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def to_api_format(self, include_version: bool = True, include_metadata: bool = False) -> dict:
         """Convert the TOML rule to the API format."""
-        converted_data = self.to_dict()['rule']
+        rule_dict = self.to_dict()
+        converted_data = rule_dict['rule']
         converted = self._post_dict_conversion(converted_data)
 
         if include_metadata:
-            converted["meta"] = self.to_dict()['metadata']
+            converted["meta"] = rule_dict['metadata']
 
         if include_version:
             converted["version"] = self.autobumped_version
