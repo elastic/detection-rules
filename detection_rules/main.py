@@ -282,7 +282,8 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
               help='If `--stack-version` is passed, skip rule types which are unsupported '
                    '(an error will be raised otherwise)')
 @click.option('--include-metadata', type=bool, is_flag=True, default=False, help='Add metadata to the exported rules')
-def export_rules(rules, outfile: Path, replace_id, stack_version, skip_unsupported, include_metadata: bool) -> RuleCollection:
+def export_rules(rules, outfile: Path, replace_id, stack_version,
+                 skip_unsupported, include_metadata: bool) -> RuleCollection:
     """Export rule(s) into an importable ndjson file."""
     assert len(rules) > 0, "No rules found"
 
