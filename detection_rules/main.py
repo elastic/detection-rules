@@ -233,7 +233,7 @@ def view_rule(ctx, rule_file, api_format):
 
 
 def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optional[definitions.SemVer] = None,
-                  verbose=True, skip_unsupported=False, add_metadata: bool = False):
+                  verbose=True, skip_unsupported=False, include_metadata: bool = False):
     """Export rules into a consolidated ndjson file."""
     from .rule import downgrade_contents_from_rule
 
@@ -247,7 +247,7 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
             for rule in rules:
                 try:
                     output_lines.append(json.dumps(downgrade_contents_from_rule(rule, downgrade_version,
-                                                                                add_metadata=add_metadata),
+                                                                                include_metadata=include_metadata),
                                                    sort_keys=True))
                 except ValueError as e:
                     unsupported.append(f'{e}: {rule.id} - {rule.name}')
@@ -255,10 +255,10 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
 
         else:
             output_lines = [json.dumps(downgrade_contents_from_rule(r, downgrade_version,
-                                                                    add_metadata=add_metadata), sort_keys=True)
+                                                                    include_metadata=include_metadata), sort_keys=True)
                             for r in rules]
     else:
-        output_lines = [json.dumps(r.contents.to_api_format(include_metadata=add_metadata),
+        output_lines = [json.dumps(r.contents.to_api_format(include_metadata=include_metadata),
                                    sort_keys=True) for r in rules]
 
     outfile.write_text('\n'.join(output_lines) + '\n')
@@ -282,7 +282,7 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
               help='If `--stack-version` is passed, skip rule types which are unsupported '
                    '(an error will be raised otherwise)')
 @click.option('--add-metadata', type=bool, is_flag=True, default=False, help='Add metadata to the exported rules')
-def export_rules(rules, outfile: Path, replace_id, stack_version, skip_unsupported, add_metadata) -> RuleCollection:
+def export_rules(rules, outfile: Path, replace_id, stack_version, skip_unsupported, include_metadata) -> RuleCollection:
     """Export rule(s) into an importable ndjson file."""
     assert len(rules) > 0, "No rules found"
 
@@ -299,7 +299,7 @@ def export_rules(rules, outfile: Path, replace_id, stack_version, skip_unsupport
 
     outfile.parent.mkdir(exist_ok=True)
     _export_rules(rules=rules, outfile=outfile, downgrade_version=stack_version,
-                  skip_unsupported=skip_unsupported, add_metadata=add_metadata)
+                  skip_unsupported=skip_unsupported, include_metadata=include_metadata)
 
     return rules
 

@@ -1299,7 +1299,7 @@ class DeprecatedRule(dict):
 
 
 def downgrade_contents_from_rule(rule: TOMLRule, target_version: str,
-                                 replace_id: bool = True, add_metadata: bool = False) -> dict:
+                                 replace_id: bool = True, include_metadata: bool = False) -> dict:
     """Generate the downgraded contents from a rule."""
     rule_dict = rule.contents.to_dict()["rule"]
     min_stack_version = target_version or rule.contents.metadata.min_stack_version or "8.3.0"
@@ -1318,7 +1318,7 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str,
         rule_contents_dict["transform"] = rule.contents.transform.to_dict()
 
     rule_contents = TOMLRuleContents.from_dict(rule_contents_dict)
-    payload = rule_contents.to_api_format(include_metadata=add_metadata)
+    payload = rule_contents.to_api_format(include_metadata=include_metadata)
     payload = strip_non_public_fields(min_stack_version, payload)
     return payload
 
