@@ -233,7 +233,7 @@ def view_rule(ctx, rule_file, api_format):
 
 
 def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optional[definitions.SemVer] = None,
-                  verbose=True, skip_unsupported=False, add_metadata=False):
+                  verbose=True, skip_unsupported=False, add_metadata: bool = False):
     """Export rules into a consolidated ndjson file."""
     from .rule import downgrade_contents_from_rule
 
