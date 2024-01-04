@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2023/07/04"
+deprecation_date = "2023/11/02"
 integration = ["endpoint"]
-maturity = "production"
+maturity = "deprecated"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 updated_date = "2023/11/02"
@@ -10,8 +11,8 @@ updated_date = "2023/11/02"
 author = ["Elastic"]
 description = """
 This detection rule detects the creation of a shell through a suspicious parent child relationship. Any reverse shells
-spawned by the specified utilities that use a forked process to initialize the connection attempt will be captured 
-through this rule. Attackers may spawn reverse shells to establish persistence onto a target system. 
+spawned by the specified utilities that use a forked process to initialize the connection attempt will be captured
+through this rule. Attackers may spawn reverse shells to establish persistence onto a target system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -20,12 +21,11 @@ license = "Elastic License v2"
 name = "Deprecated - Potential Reverse Shell via Suspicious Parent Process"
 note = "This rule was deprecated due to its addition to the umbrella `Potential Reverse Shell via Suspicious Child Process` (76e4d92b-61c1-4a95-ab61-5fd94179a1ee) rule."
 references = [
-    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
+    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md",
 ]
 risk_score = 47
 rule_id = "4b1a807a-4e7b-414e-8cea-24bf580f6fc5"
 setup = """
-
 This rule requires data coming in from Elastic Defend.
 
 ### Elastic Defend Integration Setup
@@ -51,8 +51,15 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.parent.entity_id with maxspan=1s
 [ process where host.os.type == "linux" and event.type == "start" and event.action == "fork" and (
@@ -71,33 +78,34 @@ sequence by host.id, process.parent.entity_id with maxspan=1s
   destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" ]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+
 
 [rule.threat.tactic]
-name = "Command and Control"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
 id = "TA0011"
+name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat.technique]]
-name = "Application Layer Protocol"
-id = "T1071"
-reference = "https://attack.mitre.org/techniques/T1071/"
