@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/09/14"
-integration = ["dga","endpoint","network_traffic"]
+integration = ["dga", "endpoint", "network_traffic"]
 maturity = "production"
 min_stack_comments = "DGA package job ID and rule removal updates"
 min_stack_version = "8.9.0"
-updated_date = "2023/10/16"
+updated_date = "2023/12/12"
 
 [rule]
 author = ["Elastic"]
@@ -17,13 +17,55 @@ index = ["logs-endpoint.events.*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Machine Learning Detected a DNS Request With a High DGA Probability Score"
-note = """## Setup
+setup = """
+The rule requires the Domain Generation Algorithm (DGA) Detection integration assets to be installed, as well as DNS events collected by integrations such as Elastic Defend, Network Packet Capture, or Packetbeat.  
 
-The Domain Generation Algorithm (DGA) integration must be enabled and related ML jobs configured for this rule to be effective. Please refer to this rule's references for more information.
+### DGA Detection Setup
+The DGA Detection integration consists of an ML-based framework to detect DGA activity in DNS events.
+
+#### Prerequisite Requirements:
+- Fleet is required for DGA Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- DNS events collected by the [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint), [Network Packet Capture](https://docs.elastic.co/integrations/network_traffic) integration, or [Packetbeat](https://www.elastic.co/guide/en/beats/packetbeat/current/packetbeat-overview.html).
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+- To add the Network Packet Capture integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+- To set up and run Packetbeat, follow [this](https://www.elastic.co/guide/en/beats/packetbeat/current/setting-up-and-running.html) guide.
+
+#### The following steps should be executed to install assets associated with the DGA Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Domain Generation Algorithm Detection and select the integration to see more details about it.
+- Under Settings, click Install Domain Generation Algorithm Detection assets and follow the prompts to install the assets.
+
+#### Ingest Pipeline Setup
+Before you can enable this rule, you'll need to enrich DNS events with predictions from the Supervised DGA Detection model. This is done via the ingest pipeline named `<package_version>-ml_dga_ingest_pipeline` installed with the DGA Detection package.
+- If using an Elastic Beat such as Packetbeat, add the DGA ingest pipeline to it by adding a simple configuration [setting](https://www.elastic.co/guide/en/elasticsearch/reference/current/ingest.html#pipelines-for-beats) to `packetbeat.yml`.
+- If adding the DGA ingest pipeline to an existing pipeline, use a [pipeline processor](https://www.elastic.co/guide/en/elasticsearch/reference/current/pipeline-processor.html).
+
+#### Adding Custom Mappings
+- Go to the Kibana homepage. Under Management, click Stack Management.
+- Under Data click Index Management and navigate to the Component Templates tab.
+- Templates that can be edited to add custom components will be marked with a @custom suffix. Edit the @custom component template corresponding to the beat/integration you added the DGA ingest pipeline to, by pasting the following JSON blob in the "Load JSON" flyout:
+```
+{
+  "properties": {
+    "ml_is_dga": {
+      "properties": {
+        "malicious_prediction": {
+          "type": "long"
+        },
+        "malicious_probability": {
+          "type": "float"
+        }
+      }
+    }
+  }
+}
+```
 """
 references = [
     "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
-    "https://docs.elastic.co/en/integrations/dga"
+    "https://docs.elastic.co/en/integrations/dga",
+    "https://www.elastic.co/security-labs/detect-domain-generation-algorithm-activity-with-new-kibana-integration",
 ]
 risk_score = 21
 rule_id = "da7f5803-1cd4-42fd-a890-0173ae80ac69"

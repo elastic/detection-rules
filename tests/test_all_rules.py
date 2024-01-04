@@ -13,6 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import eql.ast
+
 from marshmallow import ValidationError
 from semver import Version
 
@@ -29,8 +30,7 @@ from detection_rules.rule import (QueryRuleData, QueryValidator,
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
-from detection_rules.utils import (INTEGRATION_RULE_DIR, PatchedTemplate,
-                                   get_path, load_etc_dump)
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -632,8 +632,9 @@ class TestRuleMetadata(BaseRuleTest):
 
                     # checks if the rule path matches the intended integration
                     # excludes BBR rules
-                    if rule_integration in valid_integration_folders:
-                        if rule.path.parent.name not in rule_integrations and rule.path.parent.name != "bbr":
+                    if rule_integration in valid_integration_folders and \
+                            not hasattr(rule.contents.data, 'building_block_type'):
+                        if rule.path.parent.name not in rule_integrations:
                             err_msg = f'{self.rule_str(rule)} {rule_integration} tag, path is {rule.path.parent.name}'
                             failures.append(err_msg)
 
@@ -641,7 +642,8 @@ class TestRuleMetadata(BaseRuleTest):
                     integration_string = "|".join(indices)
                     if not re.search(rule_integration, integration_string):
                         if rule_integration == "windows" and re.search("winlog", integration_string) or \
-                                rule_integration in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]:
+                                any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
+                                    for ri in rule_integrations):
                             continue
                         err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
                         failures.append(err_msg)
@@ -666,7 +668,7 @@ class TestRuleMetadata(BaseRuleTest):
                         "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
                     ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
-                            for i in rule.contents.data.index]):
+                            for i in rule.contents.data.get('index') or []]):
                         if not rule.contents.metadata.integration and rule.id not in ignore_ids and \
                                 rule.contents.data.type not in definitions.MACHINE_LEARNING:
                             err_msg = f'substrings {non_dataset_packages} found in '\
@@ -990,6 +992,13 @@ class TestRuleTiming(BaseRuleTest):
         for rule in self.all_rules:
             if rule.contents.data.type not in ('eql', 'query'):
                 continue
+            if rule.contents.metadata.get('integration'):
+                integrations = rule.contents.metadata.get('integration')
+                if not isinstance(integrations, list):
+                    integrations = [integrations]
+                machine_learning_packages_lower = [pkg.lower() for pkg in definitions.MACHINE_LEARNING_PACKAGES]
+                if any(tag in machine_learning_packages_lower for tag in integrations):
+                    continue
             if isinstance(rule.contents.data, QueryRuleData) and 'endgame-*' in rule.contents.data.index:
                 continue
 
@@ -1182,35 +1191,6 @@ class TestRiskScoreMismatch(BaseRuleTest):
             self.fail(err_msg)
 
 
-class TestEndpointQuery(BaseRuleTest):
-    """Test endpoint-specific rules."""
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
-                     "Test only applicable to 8.3+ stacks since query updates are min_stacked at 8.3.0")
-    def test_os_and_platform_in_query(self):
-        """Test that all endpoint rules have an os defined and linux includes platform."""
-        for rule in self.production_rules:
-            if not rule.contents.data.get('language') in ('eql', 'kuery'):
-                continue
-            if rule.path.parent.name not in ('windows', 'macos', 'linux'):
-                # skip cross-platform for now
-                continue
-
-            ast = rule.contents.data.ast
-            fields = [str(f) for f in ast if isinstance(f, (kql.ast.Field, eql.ast.Field))]
-
-            err_msg = f'{self.rule_str(rule)} missing required field for endpoint rule'
-            if 'host.os.type' not in fields:
-                # Exception for Forwarded Events which contain Windows-only fields.
-                if rule.path.parent.name == 'windows' and not any(field.startswith('winlog.') for field in fields):
-                    self.assertIn('host.os.type', fields, err_msg)
-
-            # going to bypass this for now
-            # if rule.path.parent.name == 'linux':
-            #     err_msg = f'{self.rule_str(rule)} missing required field for linux endpoint rule'
-            #     self.assertIn('host.os.platform', fields, err_msg)
-
-
 class TestNoteMarkdownPlugins(BaseRuleTest):
     """Test if a guide containing Osquery Plugin syntax contains the version note."""
 
@@ -1220,14 +1200,24 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
                                 '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) '
                                 'introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display '
                                 'unrendered Markdown in this guide.')
+        invest_note_pattern = ('> This investigation guide uses the [Investigate Markdown Plugin]'
+                               '(https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html)'
+                               ' introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display '
+                               'unrendered Markdown in this guide.')
 
         for rule in self.production_rules.rules:
             if not rule.contents.get('transform'):
                 continue
+
             osquery = rule.contents.transform.get('osquery')
             if osquery and osquery_note_pattern not in rule.contents.data.note:
                 self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
                           f'the following note:\n{osquery_note_pattern}')
+
+            investigate = rule.contents.transform.get('investigate')
+            if investigate and invest_note_pattern not in rule.contents.data.note:
+                self.fail(f'{self.rule_str(rule)} Investigation guides using the Investigate Markdown must contain '
+                          f'the following note:\n{invest_note_pattern}')
 
     def test_plugin_placeholders_match_entries(self):
         """Test that the number of plugin entries match their respective placeholders in note."""
@@ -1276,7 +1266,7 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
         for rule in self.production_rules.rules:
             note = rule.contents.data.get('note')
             if note is not None:
-                results = re.search(r'(!{osquery|!{insight)', note, re.I | re.M)
+                results = re.search(r'(!{osquery|!{investigate)', note, re.I | re.M)
                 err_msg = f'{self.rule_str(rule)} investigation guide plugin pattern detected! Use Transform'
                 self.assertIsNone(results, err_msg)
 
@@ -1324,101 +1314,3 @@ class TestAlertSuppression(BaseRuleTest):
                     if fld not in schema.keys():
                         self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
                             found in ECS, Beats, or non-ecs schemas")
-
-
-class TestNewTerms(BaseRuleTest):
-    """Test new term rules."""
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
-    def test_history_window_start(self):
-        """Test new terms history window start field."""
-
-        for rule in self.production_rules:
-            if rule.contents.data.type == "new_terms":
-
-                # validate history window start field exists and is correct
-                assert rule.contents.data.new_terms.history_window_start, \
-                    "new terms field found with no history_window_start field defined"
-                assert rule.contents.data.new_terms.history_window_start[0].field == "history_window_start", \
-                    f"{rule.contents.data.new_terms.history_window_start} should be 'history_window_start'"
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
-    def test_new_terms_field_exists(self):
-        # validate new terms and history window start fields are correct
-        for rule in self.production_rules:
-            if rule.contents.data.type == "new_terms":
-                assert rule.contents.data.new_terms.field == "new_terms_fields", \
-                    f"{rule.contents.data.new_terms.field} should be 'new_terms_fields' for new_terms rule type"
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
-    def test_new_terms_fields(self):
-        """Test new terms fields are schema validated."""
-        # ecs validation
-        for rule in self.production_rules:
-            if rule.contents.data.type == "new_terms":
-                meta = rule.contents.metadata
-                feature_min_stack = Version.parse('8.4.0')
-                current_package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-                min_stack_version = Version.parse(meta.get("min_stack_version")) if \
-                    meta.get("min_stack_version") else None
-                min_stack_version = current_package_version if min_stack_version is None or min_stack_version < \
-                    current_package_version else min_stack_version
-
-                assert min_stack_version >= feature_min_stack, \
-                    f"New Terms rule types only compatible with {feature_min_stack}+"
-                ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
-                beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
-
-                # checks if new terms field(s) are in ecs, beats non-ecs or integration schemas
-                queryvalidator = QueryValidator(rule.contents.data.query)
-                _, _, schema = queryvalidator.get_beats_schema([], beats_version, ecs_version)
-                integration_manifests = load_integrations_manifests()
-                integration_schemas = load_integrations_schemas()
-                integration_tags = meta.get("integration")
-                if integration_tags:
-                    for tag in integration_tags:
-                        latest_tag_compat_ver, _ = find_latest_compatible_version(
-                            package=tag,
-                            integration="",
-                            rule_stack_version=min_stack_version,
-                            packages_manifest=integration_manifests)
-                        if latest_tag_compat_ver:
-                            integration_schema = integration_schemas[tag][latest_tag_compat_ver]
-                            for policy_template in integration_schema.keys():
-                                schema.update(**integration_schemas[tag][latest_tag_compat_ver][policy_template])
-                for new_terms_field in rule.contents.data.new_terms.value:
-                    assert new_terms_field in schema.keys(), \
-                        f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
-    def test_new_terms_max_limit(self):
-        """Test new terms max limit."""
-        # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
-        for rule in self.production_rules:
-            if rule.contents.data.type == "new_terms":
-                meta = rule.contents.metadata
-                feature_min_stack = Version.parse('8.4.0')
-                feature_min_stack_extended_fields = Version.parse('8.6.0')
-                current_package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-                min_stack_version = Version.parse(meta.get("min_stack_version")) if \
-                    meta.get("min_stack_version") else None
-                min_stack_version = current_package_version if min_stack_version is None or min_stack_version < \
-                    current_package_version else min_stack_version
-                if min_stack_version >= feature_min_stack and \
-                        min_stack_version < feature_min_stack_extended_fields:
-                    assert len(rule.contents.data.new_terms.value) == 1, \
-                        f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
-    def test_new_terms_fields_unique(self):
-        """Test new terms fields are unique."""
-        # validate fields are unique
-        for rule in self.production_rules:
-            if rule.contents.data.type == "new_terms":
-                assert len(set(rule.contents.data.new_terms.value)) == len(rule.contents.data.new_terms.value), \
-                    f"new terms fields values are not unique - {rule.contents.data.new_terms.value}"

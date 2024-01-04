@@ -10,7 +10,7 @@ import json
 import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import Generator, Tuple, Union, Optional
+from typing import Generator, List, Tuple, Union, Optional
 
 import requests
 from semver import Version
@@ -27,6 +27,7 @@ from .schemas import definitions
 
 MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
 SCHEMA_FILE_PATH = Path(get_etc_path('integration-schemas.json.gz'))
+_notified_integrations = set()
 
 
 @cached
@@ -152,7 +153,7 @@ def build_integrations_schemas(overwrite: bool, integration: str = None) -> None
                         final_integration_schemas[package][version][integration_name].update(flat_data)
 
                     # add machine learning jobs to the schema
-                    if integration in list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)):
+                    if package in list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)):
                         if glob.fnmatch.fnmatch(file, '*/ml_module/*ml.json'):
                             ml_module = json.loads(file_data_bytes)
                             job_ids = [job['id'] for job in ml_module['attributes']['jobs']]
@@ -304,9 +305,6 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
     if (isinstance(data, QueryRuleData) or isinstance(data, ESQLRuleData)) \
        and data.language != 'lucene' and meta.maturity == "production":
 
-        # flag to only warn once per integration for available upgrades
-        notify_update_available = True
-
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             ecs_version = mapping['ecs']
             endgame_version = mapping['endgame']
@@ -321,36 +319,75 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 min_stack = meta.min_stack_version or load_current_package_version()
                 min_stack = Version.parse(min_stack, optional_minor_and_patch=True)
 
-                package_version, notice = find_latest_compatible_version(package=package,
-                                                                         integration=integration,
-                                                                         rule_stack_version=min_stack,
-                                                                         packages_manifest=packages_manifest)
-
-                if notify_update_available and notice and data.get("notify", False):
-                    # Notify for now, as to not lock rule stacks to integrations
-                    notify_update_available = False
-                    print(f"\n{data.get('name')}")
-                    print(*notice)
-
-                schema = {}
-                if integration is None:
-                    # Use all fields from each dataset
-                    for dataset in integrations_schemas[package][package_version]:
-                        # ignore jobs from machine learning packages
-                        if dataset != "jobs":
-                            schema.update(integrations_schemas[package][package_version][dataset])
-                else:
-                    if integration not in integrations_schemas[package][package_version]:
-                        raise ValueError(f"Integration {integration} not found in package {package} "
-                                         f"version {package_version}")
-                    schema = integrations_schemas[package][package_version][integration]
-                schema.update(ecs_schema)
-                integration_schema = {k: kql.parser.elasticsearch_type_family(v) for k, v in schema.items()}
+                # Extract the integration schema fields
+                integration_schema, package_version = get_integration_schema_fields(integrations_schemas, package,
+                                                                                    integration, min_stack,
+                                                                                    packages_manifest, ecs_schema,
+                                                                                    data)
 
                 data = {"schema": integration_schema, "package": package, "integration": integration,
                         "stack_version": stack_version, "ecs_version": ecs_version,
                         "package_version": package_version, "endgame_version": endgame_version}
                 yield data
+
+
+def get_integration_schema_fields(integrations_schemas: dict, package: str, integration: str,
+                                  min_stack: Version, packages_manifest: dict,
+                                  ecs_schema: dict, data: dict) -> dict:
+    """Extracts the integration fields to schema based on package integrations."""
+    package_version, notice = find_latest_compatible_version(package, integration, min_stack, packages_manifest)
+    notify_user_if_update_available(data, notice, integration)
+
+    schema = collect_schema_fields(integrations_schemas, package, package_version, integration)
+    schema.update(ecs_schema)
+
+    integration_schema = {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
+    return integration_schema, package_version
+
+
+def notify_user_if_update_available(data: dict, notice: list, integration: str) -> None:
+    """Notifies the user if an update is available, only once per integration."""
+
+    global _notified_integrations
+    if notice and data.get("notify", False) and integration not in _notified_integrations:
+
+        # flag to only warn once per integration for available upgrades
+        _notified_integrations.add(integration)
+
+        print(f"\n{data.get('name')}")
+        print('\n'.join(notice))
+
+
+def collect_schema_fields(integrations_schemas: dict, package: str, package_version: str,
+                          integration: Optional[str] = None) -> dict:
+    """Collects the schema fields for a given integration."""
+    if integration is None:
+        return {field: value for dataset in integrations_schemas[package][package_version] if dataset != "jobs"
+                for field, value in integrations_schemas[package][package_version][dataset].items()}
+
+    if integration not in integrations_schemas[package][package_version]:
+        raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
+
+    return integrations_schemas[package][package_version][integration]
+
+
+def parse_datasets(datasets: list, package_manifest: dict) -> List[Optional[dict]]:
+    """Parses datasets into packaged integrations from rule data."""
+    packaged_integrations = []
+    for value in sorted(datasets):
+
+        # cleanup extra quotes pulled from ast field
+        value = value.strip('"')
+
+        integration = 'Unknown'
+        if '.' in value:
+            package, integration = value.split('.', 1)
+        else:
+            package = value
+
+        if package in list(package_manifest):
+            packaged_integrations.append({"package": package, "integration": integration})
+    return packaged_integrations
 
 
 class SecurityDetectionEngine:

@@ -1,0 +1,37 @@
+[metadata]
+creation_date = "2023/11/20"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "ES|QL Rule"
+min_stack_version = "8.11.0"
+updated_date = "2023/11/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Sample ES|QL rule for unit tests.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Sample ES|QL rule for unit tests"
+risk_score = 47
+rule_id = "24220495-cffe-45a1-996c-37b599ba0e43"
+severity = "medium"
+tags = ["Data Source: Elastic Endpoint", "Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from .ds-logs-endpoint.events.process-default-*
+    | where event.action == "start" and process.code_signature.subject_name like "Microsoft*" and process.parent.name in ("winword.exe", "WINWORD.EXE", "EXCEL.EXE", "excel.exe")
+    | eval process_path = replace(process.executable, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9\.\-\_\$]+\\""", "C:\\\\users\\\\user\\\\")
+    | stats cc = count(*) by process_path, process.parent.name | where cc <= 5
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
