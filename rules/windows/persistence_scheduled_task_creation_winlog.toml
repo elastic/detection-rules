@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2024/01/05"
 
 [rule]
 author = ["Elastic"]
@@ -33,11 +33,16 @@ iam where event.action == "scheduled-task-created" and
  not user.name : "*$" and
 
  /* TaskContent is not parsed, exclude by full taskname noisy ones */
- not winlog.event_data.TaskName :
-             ("\\OneDrive Standalone Update Task-S-1-5-21*",
-              "\\OneDrive Standalone Update Task-S-1-12-1-*",
+ not winlog.event_data.TaskName : (
+              "\\CreateExplorerShellUnelevatedTask",
+              "\\Hewlett-Packard\\HPDeviceCheck",
+              "\\Hewlett-Packard\\HP Support Assistant\\WarrantyChecker",
+              "\\Hewlett-Packard\\HP Support Assistant\\WarrantyChecker_backup",
               "\\Hewlett-Packard\\HP Web Products Detection",
-              "\\Hewlett-Packard\\HPDeviceCheck")
+              "\\Microsoft\\VisualStudio\\Updates\\BackgroundDownload",
+              "\\OneDrive Standalone Update Task-S-1-5-21*",
+              "\\OneDrive Standalone Update Task-S-1-12-1-*"
+ )
 '''
 
 
