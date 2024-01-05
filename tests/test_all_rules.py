@@ -990,43 +990,44 @@ class TestRuleTiming(BaseRuleTest):
                            '`event.ingested` to @timestamp for this rule to work.')
 
         for rule in self.all_rules:
-            if rule.contents.data.type not in ('eql', 'query'):
-                continue
-            if rule.contents.metadata.get('integration'):
-                integrations = rule.contents.metadata.get('integration')
-                if not isinstance(integrations, list):
-                    integrations = [integrations]
-                machine_learning_packages_lower = [pkg.lower() for pkg in definitions.MACHINE_LEARNING_PACKAGES]
-                if any(tag in machine_learning_packages_lower for tag in integrations):
+            if hasattr(rule.contents.data, 'language'):
+                if rule.contents.data.language not in ('eql', 'kuery'):
                     continue
-            if isinstance(rule.contents.data, QueryRuleData) and 'endgame-*' in rule.contents.data.index:
-                continue
+                if rule.contents.metadata.get('integration'):
+                    integrations = rule.contents.metadata.get('integration')
+                    if not isinstance(integrations, list):
+                        integrations = [integrations]
+                    machine_learning_packages_lower = [pkg.lower() for pkg in definitions.MACHINE_LEARNING_PACKAGES]
+                    if any(tag in machine_learning_packages_lower for tag in integrations):
+                        continue
+                if isinstance(rule.contents.data, QueryRuleData) and 'endgame-*' in rule.contents.data.index:
+                    continue
 
-            has_event_ingested = rule.contents.data.timestamp_override == 'event.ingested'
-            indexes = rule.contents.data.get('index', [])
-            beats_indexes = parse_beats_from_index(indexes)
-            min_stack_is_less_than_82 = Version.parse(rule.contents.metadata.min_stack_version or '7.13.0',
-                                                      optional_minor_and_patch=True) < Version.parse("8.2.0")
-            config = rule.contents.data.get('note') or ''
-            rule_str = self.rule_str(rule, trailer=None)
+                has_event_ingested = rule.contents.data.timestamp_override == 'event.ingested'
+                indexes = rule.contents.data.get('index', [])
+                beats_indexes = parse_beats_from_index(indexes)
+                min_stack_is_less_than_82 = Version.parse(rule.contents.metadata.min_stack_version or '7.13.0',
+                                                        optional_minor_and_patch=True) < Version.parse("8.2.0")
+                config = rule.contents.data.get('note') or ''
+                rule_str = self.rule_str(rule, trailer=None)
 
-            if rule.contents.data.type == 'query':
-                if not has_event_ingested:
-                    errors['query']['errors'].append(rule_str)
-            # eql rules depends
-            elif rule.contents.data.type == 'eql':
-                if rule.contents.data.is_sequence:
-                    if has_event_ingested:
-                        errors['eql_sq']['errors'].append(rule_str)
-                else:
-                    if min_stack_is_less_than_82:
-                        if not beats_indexes and not has_event_ingested:
-                            errors['lt_82_eql']['errors'].append(rule_str)
-                        elif beats_indexes and has_event_ingested and pipeline_config not in config:
-                            errors['lt_82_eql_beats']['errors'].append(rule_str)
+                if rule.contents.data.language == 'kuery':
+                    if not has_event_ingested:
+                        errors['query']['errors'].append(rule_str)
+                # eql rules depends
+                elif rule.contents.data.language == 'eql':
+                    if rule.contents.data.is_sequence:
+                        if has_event_ingested:
+                            errors['eql_sq']['errors'].append(rule_str)
                     else:
-                        if not has_event_ingested:
-                            errors['gte_82_eql']['errors'].append(rule_str)
+                        if min_stack_is_less_than_82:
+                            if not beats_indexes and not has_event_ingested:
+                                errors['lt_82_eql']['errors'].append(rule_str)
+                            elif beats_indexes and has_event_ingested and pipeline_config not in config:
+                                errors['lt_82_eql_beats']['errors'].append(rule_str)
+                        else:
+                            if not has_event_ingested:
+                                errors['gte_82_eql']['errors'].append(rule_str)
 
         if any([v['errors'] for k, v in errors.items()]):
             err_strings = ['errors with `timestamp_override = "event.ingested"`']
