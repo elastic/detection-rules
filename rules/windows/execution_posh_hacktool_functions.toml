@@ -2,9 +2,34 @@
 creation_date = "2023/01/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2023/10/23"
+updated_date = "2023/11/03"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve DNS Cache"
+query = "SELECT * FROM dns_cache"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve All Services"
+query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Services Running on User Accounts"
+query = """
+SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
+NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
+user_account == null)
+"""
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
+query = """
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
+services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
+authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
+"""
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +42,71 @@ index = ["winlogbeat-*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential PowerShell HackTool Script by Function Names"
+note = """## Triage and analysis
+
+### Investigating Potential PowerShell HackTool Script by Function Names
+
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
+
+Adversaries often exploit PowerShell's capabilities to execute malicious scripts and perform various attacks. This rule identifies known offensive tooling function names in PowerShell scripts, as attackers commonly use out-of-the-box tools without modifying the code. By monitoring these specific function names, the rule aims to detect and alert potential malicious PowerShell activity.
+
+> **Note**:
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+
+### Possible investigation steps
+
+- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Examine the script's execution context, such as the user account, privileges, the role of the system on which it was executed, and any relevant timestamps.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Evaluate whether the user needs to use PowerShell to complete tasks.
+- Investigate the origin of the PowerShell script, including its source, download method, and any associated URLs or IP addresses.
+- Examine the host for derived artifacts that indicate suspicious activities:
+  - Analyze the script using a private sandboxed analysis system.
+  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
+    - Attempts to contact external domains and addresses.
+      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process's `process.entity_id`.
+      - Examine the DNS cache for suspicious or anomalous entries.
+        - $osquery_0
+    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
+    - Examine the host services for suspicious or anomalous entries.
+      - $osquery_1
+      - $osquery_2
+      - $osquery_3
+  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+- Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
+
+
+### False positive analysis
+
+- This rule may generate false positives if legitimate scripts or tools used by administrators contain any of the listed function names. These function names are commonly associated with offensive tooling, but they may also be present in benign scripts or tools.
+- To handle these false positives consider adding exceptions - preferably with a combination of full file path and users.
+
+### Related Rules
+
+- PowerShell Invoke-NinjaCopy script - b8386923-b02c-4b94-986a-d223d9b01f88
+- PowerShell Suspicious Discovery Related Windows API Functions - 61ac3638-40a3-44b2-855a-985636ca985e
+- Potential Process Injection via PowerShell - 2e29e96a-b67c-455a-afe4-de6183431d0d
+- PowerShell Keylogging Script - bd2c86a0-8b61-4457-ab38-96943984e889
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+  - If malicious activity is confirmed, perform a broader investigation to identify the scope of the compromise and determine the appropriate remediation steps.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Reimage the host operating system or restore the compromised files to clean versions.
+- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 references = [
     "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
     "https://github.com/BC-SECURITY/Empire"
