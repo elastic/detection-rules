@@ -2,7 +2,7 @@
 creation_date = "2023/01/13"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/06/22"
+updated_date = "2023/12/21"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -22,23 +22,31 @@ references = [
     "https://lolbas-project.github.io/lolbas/OtherMSBinaries/Wsl/",
     "https://blog.qualys.com/vulnerabilities-threat-research/2022/03/22/implications-of-windows-subsystem-for-linux-for-adversaries-defenders-part-1"
 ]
-risk_score = 47
+risk_score = 21
 rule_id = "3e0eeb75-16e8-4f2f-9826-62461ca128b7"
-severity = "medium"
+severity = "low"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type : "start" and
- (
-  ((process.executable : "?:\\Windows\\System32\\bash.exe" or process.pe.original_file_name == "Bash.exe") and 
-  not process.command_line : ("bash", "bash.exe")) or 
-  process.executable : "?:\\Users\\*\\AppData\\Local\\Packages\\*\\rootfs\\usr\\bin\\bash" or 
-  (process.parent.name : "wsl.exe" and process.parent.command_line : "bash*" and not process.name : "wslhost.exe") or 
-  (process.name : "wsl.exe" and process.args : ("curl", "/etc/shadow", "/etc/passwd", "cat","--system", "root", "-e", "--exec", "bash", "/mnt/c/*"))
+  (
+    (
+      (process.executable : "?:\\Windows\\System32\\bash.exe" or process.pe.original_file_name == "Bash.exe") and 
+      not process.command_line : ("bash", "bash.exe")
+    ) or 
+    process.executable : "?:\\Users\\*\\AppData\\Local\\Packages\\*\\rootfs\\usr\\bin\\bash" or 
+    (
+      process.parent.name : "wsl.exe" and process.parent.command_line : "bash*" and not process.name : "wslhost.exe"
+    ) or 
+    (
+      process.name : "wsl.exe" and process.args : (
+        "curl", "/etc/shadow", "/etc/passwd", "cat", "--system", "root", "-e", "--exec", "bash", "/mnt/c/*"
+      ) and not process.args : ("wsl-bootstrap", "docker-desktop-data", "*.vscode-server*")
+    )
   ) and 
-  not process.parent.executable : ("?:\\Program Files\\Docker\\*.exe", "?:\\Program Files (x86)\\Docker\\*.exe")
+    not process.parent.executable : ("?:\\Program Files\\Docker\\*.exe", "?:\\Program Files (x86)\\Docker\\*.exe")
 '''
 
 
