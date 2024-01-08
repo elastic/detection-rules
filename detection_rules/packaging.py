@@ -169,7 +169,8 @@ class Package(object):
         """Get a consolidated package of the rules in a single file."""
         full_package = []
         for rule in self.rules:
-            full_package.append(rule.contents.to_api_format() if as_api else rule.contents.to_dict())
+            full_package.append(rule.contents.to_api_format(include_metadata=True)
+                                if as_api else rule.contents.to_dict())
 
         return json.dumps(full_package, sort_keys=True)
 
