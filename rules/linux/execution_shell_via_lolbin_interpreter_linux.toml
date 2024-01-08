@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2023/12/13"
 
 [rule]
 author = ["Elastic"]
@@ -76,9 +76,8 @@ sequence by host.id, process.entity_id with maxspan=1s
     (process.name : "php*" and process.args : "-r" and process.args : "*fsockopen*" and process.args : "*/bin/*sh*") or 
     (process.name : ("awk", "gawk", "mawk", "nawk") and process.args : "*/inet/tcp/*") or
     (process.name : "openssl" and process.args : "-connect") or
-    (process.name : ("nc", "ncat", "netcat") and process.args_count >= 3 and not process.args in (
-      "-z", "-zv", "-vz", "-v"
-    )) or
+    (process.name : ("nc", "ncat", "netcat") and process.args == "-e" and process.args_count >= 3 and 
+     not process.args == "-z") or
     (process.name : "telnet" and process.args_count >= 3)
   ) and process.parent.name : (
     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "php*", "perl", "ruby", "lua*",

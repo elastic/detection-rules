@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2023/12/12"
 
 [rule]
 author = ["Elastic"]
@@ -64,29 +64,36 @@ For versions <8.2, you need to add a custom ingest pipeline to populate `event.i
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Defense Evasion",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "linux" and event.type == "start" and user.name == "root" and
   process.executable : "/usr/bin/chattr" and process.args : ("-*i*", "+*i*") and
-  not process.parent.executable: ("/lib/systemd/systemd", "/usr/local/uems_agent/bin/*", "/usr/lib/systemd/systemd")
+  not process.parent.executable: ("/lib/systemd/systemd", "/usr/local/uems_agent/bin/*", "/usr/lib/systemd/systemd") and
+  not process.parent.name in ("systemd", "cf-agent", "ntpdate", "xargs", "px", "preinst", "auth")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1222"
 name = "File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1222.002"
 name = "Linux and Mac File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/002/"
-
-
 
 [rule.threat.tactic]
 id = "TA0005"
