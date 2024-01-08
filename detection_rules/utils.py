@@ -214,7 +214,7 @@ def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f
 
         return t
 
-    def _event_sort(event):
+    def _event_sort(event: dict) -> datetime:
         """Calculates the sort key for an event as a datetime object."""
         t = round_microseconds(event[timestamp])
 
