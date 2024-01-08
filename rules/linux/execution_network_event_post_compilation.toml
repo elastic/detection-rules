@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2023/12/13"
 
 [rule]
 author = ["Elastic"]
@@ -47,7 +47,13 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Data Source: Elastic Defend"
+        ]
 type = "eql"
 query = '''
 sequence by host.id with maxspan=1m
@@ -55,7 +61,8 @@ sequence by host.id with maxspan=1m
    process.name in ("gcc", "g++", "cc")] by process.args
   [file where host.os.type == "linux" and event.action == "creation" and process.name == "ld"] by file.name
   [process where host.os.type == "linux" and event.action == "exec" and event.type == "start"] by process.name
-  [network where host.os.type == "linux" and event.action == "connection_attempted"] by process.name
+  [network where host.os.type == "linux" and event.action == "connection_attempted" and destination.ip != null and 
+   not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")] by process.name
 '''
 
 [[rule.threat]]
