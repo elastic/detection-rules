@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/06/22"
+updated_date = "2023/12/21"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -27,19 +27,16 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type : "start" and
- process.parent.executable : 
-    ("?:\\Windows\\System32\\wsl.exe", 
-     "?:\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wsl.exe", 
-     "?:\\Windows\\System32\\wslhost.exe", 
-     "?:\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wslhost.exe") and 
-  not process.executable : 
-           ("?:\\Windows\\System32\\conhost.exe", 
-            "?:\\Windows\\System32\\lxss\\wslhost.exe", 
-            "?:\\Windows\\Sys*\\wslconfig.exe", 
-            "?:\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wsl*.exe", 
-            "?:\\Windows\\System32\\WerFault.exe", 
-            "?:\\Program Files\\*", 
-            "?:\\Program Files (x86)\\*")
+  process.parent.name : ("wsl.exe", "wslhost.exe") and
+  not process.executable : (
+        "?:\\Program Files (x86)\\*",
+        "?:\\Program Files\\*",
+        "?:\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wsl*.exe",
+        "?:\\Windows\\System32\\conhost.exe",
+        "?:\\Windows\\System32\\lxss\\wslhost.exe",
+        "?:\\Windows\\System32\\WerFault.exe",
+        "?:\\Windows\\Sys*\\wslconfig.exe"
+  )
 '''
 
 
