@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
+updated_date = "2023/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -75,7 +75,7 @@ type = "eql"
 query = '''
 process where event.type == "start" and
 process.name : "grep" and user.id != "0" and
- not process.parent.executable : "/Library/Application Support/*" and
+ not process.parent.executable : ("/Library/Application Support/*", "/opt/McAfee/agent/scripts/ma") and
    process.args :
          ("Little Snitch*",
           "Avast*",
@@ -115,7 +115,12 @@ process.name : "grep" and user.id != "0" and
        "grep -i McAfee Web Gateway Core version:",
        "grep --color=auto ESET Command-line scanner, version %s -A2"
        )
-      )
+     ) or
+     (process.parent.command_line : (
+       """sh -c printf "command_start_%s"*; perl -pe 's/[^ -~]/\n/g' < /opt/eset/esets/sbin/esets_scan | grep 'ESET Command-line scanner, version %s' -A2 | tail -1; printf "command_done_%s*""",
+       """bash -c perl -pe 's/[^ -~]/\n/g' < /opt/eset/esets/sbin/esets_scan | grep 'ESET Command-line scanner, version %s' -A2 | tail -1"""
+       )
+     )
     )
 '''
 
