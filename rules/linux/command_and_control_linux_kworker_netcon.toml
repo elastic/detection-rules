@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/10/30"
+updated_date = "2023/12/12"
 
 [rule]
 author = ["Elastic"]
@@ -58,10 +58,19 @@ tags = [
         ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 host.os.type:linux and event.category:network and event.action:(connection_attempted or connection_accepted) and 
-process.name:kworker*
+process.name:kworker* and not destination.ip:(
+  10.0.0.0/8 or
+  127.0.0.0/8 or
+  169.254.0.0/16 or
+  172.16.0.0/12 or
+  192.168.0.0/16 or
+  224.0.0.0/4 or
+  "::1" or
+  "FE80::/10" or
+  "FF00::/8"
+)
 '''
 
 [[rule.threat]]
@@ -105,7 +114,7 @@ framework = "MITRE ATT&CK"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["destination.ip", "process.name", "host.id"]
+value = ["host.id", "process.name", "destination.ip"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
