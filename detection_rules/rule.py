@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import eql
+from datetime import datetime
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
@@ -73,6 +74,22 @@ class RuleMeta(MarshmallowDataclassMixin):
         stack_versions = get_stack_schemas(self.min_stack_version)
         return stack_versions
 
+    @validates_schema
+    def validate_date_format(self, data, **kwargs):
+        """Validate that the date fields are in the correct ISO 8601 format."""
+        invalid_fields = []
+
+        for field, value in data.items():
+            if field.endswith('_date') and value:
+                try:
+                    datetime.strptime(value, '%Y-%m-%d')
+                except ValueError:
+                    invalid_fields.append(field)
+
+        if invalid_fields:
+            raise ValidationError(
+                f"Invalid date format for {', '.join(invalid_fields)}. Please use ISO 8601 format."
+            )
 
 @dataclass(frozen=True)
 class RuleTransform(MarshmallowDataclassMixin):
@@ -985,6 +1002,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # rule type transforms
         self.data.transform(obj) if hasattr(self.data, 'transform') else False
 
+        # rule dates
+        self._convert_add_date_fields(obj, self.metadata.to_dict())
+
         return obj
 
     def _convert_add_related_integrations(self, obj: dict) -> None:
@@ -1088,6 +1108,12 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                 setup.append(self._convert_get_setup_content(child.children))
 
         return "".join(setup).strip()
+
+    def _convert_add_date_fields(self, obj: dict, metadata: dict) -> None:
+        """Add metadata date fields to the obj."""
+        for field_name in ["creation_date", "updated_date"]:
+            if field_name not in obj:
+                obj.setdefault(field_name, metadata[field_name])
 
     def check_explicit_restricted_field_version(self, field_name: str) -> bool:
         """Explicitly check restricted fields against global min and max versions."""
