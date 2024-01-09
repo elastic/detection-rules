@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/22"
+updated_date = "2023/12/12"
 
 [rule]
 author = ["Elastic"]
@@ -47,7 +47,13 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Defense Evasion",
+        "Data Source: Elastic Defend"
+        ]
 type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
@@ -76,7 +82,7 @@ sequence by host.id, process.entity_id with maxspan=1s
   ) and not process.parent.name in ("dracut-install", "apticron", "generate-from-dir", "platform-python")]
   [file where host.os.type == "linux" and event.action == "creation" and file.path : (
     "/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*"
-  ) and not file.path : "/tmp/rear*"]
+  ) and not file.path : ("/tmp/rear*", "/var/tmp/dracut*")]
 '''
 
 [[rule.threat]]
