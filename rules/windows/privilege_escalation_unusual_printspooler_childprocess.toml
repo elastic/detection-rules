@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/09"
 
 [rule]
 author = ["Elastic"]
@@ -51,7 +51,11 @@ process where host.os.type == "windows" and event.type == "start" and
  not (process.name : "net.exe" and process.command_line : ("*stop*", "*start*")) and
  not (process.name : ("cmd.exe", "powershell.exe") and process.command_line : ("*.spl*", "*\\program files*", "*route add*")) and
  not (process.name : "netsh.exe" and process.command_line : ("*add portopening*", "*rule name*")) and
- not (process.name : "regsvr32.exe" and process.command_line : "*PrintConfig.dll*")
+ not (process.name : "regsvr32.exe" and process.command_line : "*PrintConfig.dll*") and
+ not process.executable : (
+    "?:\\Program Files (x86)\\CutePDF Writer\\CPWriter2.exe",
+    "?:\\Program Files (x86)\\GPLGS\\gswin32c.exe"
+ )
 '''
 
 
