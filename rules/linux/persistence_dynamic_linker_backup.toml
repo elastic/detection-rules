@@ -189,8 +189,11 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=1m
-[process where host.os.type == "linux" and event.type == "start" and process.name : ("cp", "rsync") and
-   process.args : ("/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload")]
+[process where host.os.type == "linux" and event.type == "start" and process.name in ("cp", "rsync") and
+   process.args in (
+     "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload", "/lib64/ld-linux-x86-64.so.2",
+     "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/usr/lib64/ld-linux-x86-64.so.2"
+    )]
 [file where host.os.type == "linux" and event.action == "creation" and file.extension == "so"]
 '''
 

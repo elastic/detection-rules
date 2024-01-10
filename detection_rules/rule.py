@@ -1159,10 +1159,14 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         flattened.update(self.metadata.to_dict())
         return flattened
 
-    def to_api_format(self, include_version=True) -> dict:
+    def to_api_format(self, include_version: bool = True, include_metadata: bool = False) -> dict:
         """Convert the TOML rule to the API format."""
-        converted_data = self.to_dict()['rule']
+        rule_dict = self.to_dict()
+        converted_data = rule_dict['rule']
         converted = self._post_dict_conversion(converted_data)
+
+        if include_metadata:
+            converted["meta"] = rule_dict['metadata']
 
         if include_version:
             converted["version"] = self.autobumped_version
@@ -1295,7 +1299,8 @@ class DeprecatedRule(dict):
         return self.contents.name
 
 
-def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id: bool = True) -> dict:
+def downgrade_contents_from_rule(rule: TOMLRule, target_version: str,
+                                 replace_id: bool = True, include_metadata: bool = False) -> dict:
     """Generate the downgraded contents from a rule."""
     rule_dict = rule.contents.to_dict()["rule"]
     min_stack_version = target_version or rule.contents.metadata.min_stack_version or "8.3.0"
@@ -1314,7 +1319,7 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id
         rule_contents_dict["transform"] = rule.contents.transform.to_dict()
 
     rule_contents = TOMLRuleContents.from_dict(rule_contents_dict)
-    payload = rule_contents.to_api_format()
+    payload = rule_contents.to_api_format(include_metadata=include_metadata)
     payload = strip_non_public_fields(min_stack_version, payload)
     return payload
 

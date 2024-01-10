@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/11/02"
+updated_date = "2023/12/13"
 
 [transform]
 [[transform.osquery]]
@@ -154,13 +154,27 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Data Source: Elastic Endgame",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and 
-file.path : /etc/init.d/* and not process.name : ("dpkg" or "dockerd" or "rpm" or "dnf" or "chef-client" or "apk" or "yum" or 
-"rpm" or "vmis-launcher" or "exe") and not file.extension : ("swp" or "swx")
+file.path : /etc/init.d/* and not (
+  (process.name : ("dpkg" or "dockerd" or "rpm" or "dnf" or "chef-client" or "apk" or "yum" or "rpm" or
+  "vmis-launcher" or "exe" or "platform-python" or "executor" or "podman")) or
+  (file.extension : ("swp" or "swpx")) or
+  (process.name:mv and file.name:*.dpkg-remove) or
+  (process.name:sed and file.name:sed*) or
+  (process.name:systemd and file.name:*.dpkg-new)
+)
 '''
 
 [[rule.threat]]
