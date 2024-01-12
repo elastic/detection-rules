@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -39,16 +39,19 @@ file where host.os.type == "windows" and event.code : "2" and
  not process.executable : 
           ("?:\\Program Files\\*", 
            "?:\\Program Files (x86)\\*", 
+           "?:\\Windows\\system32\\cleanmgr.exe",
            "?:\\Windows\\system32\\msiexec.exe", 
            "?:\\Windows\\syswow64\\msiexec.exe", 
            "?:\\Windows\\system32\\svchost.exe", 
            "?:\\WINDOWS\\system32\\backgroundTaskHost.exe",
            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe", 
+           "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
            "?:\\Users\\*\\AppData\\Local\\slack\\app-*\\slack.exe", 
            "?:\\Users\\*\\AppData\\Local\\GitHubDesktop\\app-*\\GitHubDesktop.exe",
            "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe", 
            "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe") and 
- not file.extension : ("tmp", "~tmp", "xml") and not user.name : ("SYSTEM", "Local Service", "Network Service")
+ not file.extension : ("temp", "tmp", "~tmp", "xml", "newcfg") and not user.name : ("SYSTEM", "Local Service", "Network Service") and
+ not file.name : ("LOG", "temp-index", "license.rtf", "iconcache_*.db")
 '''
 
 
