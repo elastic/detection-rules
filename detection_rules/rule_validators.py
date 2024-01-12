@@ -138,7 +138,7 @@ class KQLValidator(QueryValidator):
                 kql.parse(self.query, schema=integration_schema)
             except kql.KqlParseError as exc:
                 if exc.error_msg == "Unknown field":
-                    field = extract_error_field(exc)
+                    field = extract_error_field(self.query, exc)
                     trailer = (
                         f"\n\tTry adding event.module or event.dataset to specify integration module\n\t"
                         f"Will check against integrations {meta.integration} combined.\n\t"
@@ -177,6 +177,7 @@ class KQLValidator(QueryValidator):
                     # Compare against the schema directly if there's no integration
                     if error_package != package and field in integrations_or_schema:
                         del error_fields[field]
+                        break
                 else:
                     # Compare against integration schemas
                     for integration, schema in integrations_or_schema.items():
@@ -335,7 +336,7 @@ class EQLValidator(QueryValidator):
             if isinstance(exc, eql.EqlParseError):
                 message = exc.error_msg
                 if message == "Unknown field" or "Field not recognized" in message:
-                    field = extract_error_field(exc)
+                    field = extract_error_field(self.query, exc)
                     trailer = (
                         f"\n\tTry adding event.module or event.dataset to specify integration module\n\t"
                         f"Will check against integrations {meta.integration} combined.\n\t"
@@ -456,9 +457,9 @@ class ESQLValidator(QueryValidator):
         pass
 
 
-def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
+def extract_error_field(source: str, exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
     """Extract the field name from an EQL or KQL parse error."""
-    lines = exc.source.splitlines()
+    lines = source.splitlines()
     mod = -1 if exc.line == len(lines) else 0
     line = lines[exc.line + mod]
     start = exc.column
