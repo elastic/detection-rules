@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/09"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies Component Object Model (COM) hijacking via registry modification. Adv
 executing malicious content triggered by hijacked references to COM objects.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Component Object Model Hijacking"
@@ -84,39 +84,110 @@ registry where host.os.type == "windows" and
   user.domain != "NT AUTHORITY" and
   (
     (
-      registry.path : ("HK*\\InprocServer32\\", "\\REGISTRY\\*\\InprocServer32\\") and
-      registry.data.strings: ("scrobj.dll", "C:\\*\\scrobj.dll") and
+      registry.path : "HK*\\InprocServer32\\" and
+      registry.data.strings: ("scrobj.dll", "?:\\*\\scrobj.dll") and
       not registry.path : "*\\{06290BD*-48AA-11D2-8432-006008C3FBFC}\\*"
     ) or
 
-    /* in general COM Registry changes on Users Hive is less noisy and worth alerting */
-    (registry.path : (
-        "HKEY_USERS\\*\\InprocServer32\\",
-        "HKEY_USERS\\*\\LocalServer32\\",
-        "HKEY_USERS\\*\\DelegateExecute*",
-        "HKEY_USERS\\*\\TreatAs*",
-        "HKEY_USERS\\*\\ScriptletURL*",
-        "\\REGISTRY\\USER\\*\\InprocServer32\\",
-        "\\REGISTRY\\USER\\*\\LocalServer32\\",
-        "\\REGISTRY\\USER\\*\\DelegateExecute*",
-        "\\REGISTRY\\USER\\*\\TreatAs*", 
-        "\\REGISTRY\\USER\\*\\ScriptletURL*"
-    ) and not 
     (
-      process.executable : "?:\\Program Files*\\Veeam\\Backup and Replication\\Console\\veeam.backup.shell.exe" and
-        registry.path : (
-          "HKEY_USERS\\S-1-*_Classes\\CLSID\\*\\LocalServer32\\",
-          "\\REGISTRY\\USER\\S-1-*_Classes\\CLSID\\*\\LocalServer32\\"))
+      registry.path : "HKLM\\*\\InProcServer32\\*" and
+        registry.data.strings : ("*\\Users\\*", "*\\ProgramData\\*")
     ) or
 
+    /* in general COM Registry changes on Users Hive is less noisy and worth alerting */
     (
-      registry.path : ("HKLM\\*\\InProcServer32\\*", "\\REGISTRY\\MACHINE\\*\\InProcServer32\\*") and
-        registry.data.strings : ("*\\Users\\*", "*\\ProgramData\\*")
+      registry.path : (
+        "HKEY_USERS\\*\\InprocServer32\\",
+        "HKEY_USERS\\*\\LocalServer32\\",
+        "HKEY_USERS\\*\\DelegateExecute",
+        "HKEY_USERS\\*\\TreatAs\\",
+        "HKEY_USERS\\*\\ScriptletURL*"
+      ) and
+      not 
+      (
+        (
+          process.name : "svchost.exe" and
+            process.code_signature.trusted == true and process.code_signature.subject_name == "Microsoft Windows Publisher" and
+            registry.value : "DelegateExecute" and
+            registry.data.strings : (
+              /* https://strontic.github.io/xcyclopedia/library/clsid_4ED3A719-CEA8-4BD9-910D-E252F997AFC2.html */
+              "{4ED3A719-CEA8-4BD9-910D-E252F997AFC2}",
+
+              /* https://strontic.github.io/xcyclopedia/library/clsid_A56A841F-E974-45C1-8001-7E3F8A085917.html */
+              "{A56A841F-E974-45C1-8001-7E3F8A085917}",
+
+              /* https://strontic.github.io/xcyclopedia/library/clsid_BFEC0C93-0B7D-4F2C-B09C-AFFFC4BDAE78.html */
+              "{BFEC0C93-0B7D-4F2C-B09C-AFFFC4BDAE78}",
+              "%SystemRoot%\\system32\\shdocvw.dll"
+            )
+        ) or
+        (
+          process.name : "veeam.backup.shell.exe" and
+            registry.path : "HKEY_USERS\\S-1-*_Classes\\CLSID\\*\\LocalServer32\\" and
+            process.code_signature.trusted == true and process.code_signature.subject_name == "Veeam Software Group GmbH"
+        ) or 
+        (
+          process.name : ("ADNotificationManager.exe", "Creative Cloud.exe") and
+            process.code_signature.trusted == true and process.code_signature.subject_name == "Adobe Inc." and
+            registry.data.strings : (
+              "\"?:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\ADNotificationManager.exe\" -ToastActivated",
+              "\"?:\\Program Files (x86)\\Adobe\\Acrobat DC\\Acrobat\\ADNotificationManager.exe\" -ToastActivated",
+              "\"?:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\ADNotificationManager.exe\" -ToastActivated",
+              "\"?:\\Program Files\\Adobe\\Acrobat Reader DC\\Reader\\ADNotificationManager.exe\" -ToastActivated",
+              "\"?:\\Program Files\\Adobe\\Adobe Creative Cloud\\ACC\\Creative Cloud.exe\" -ToastActivated"
+            )
+        ) or 
+        (
+          process.name : ("IslandUpdateComRegisterShell64.exe", "IslandUpdate.exe", "GoogleUpdateComRegisterShell64.exe") and
+            process.code_signature.trusted == true and
+            process.code_signature.subject_name in ("Island Technology Inc.", "Google LLC") and
+            registry.data.strings : (
+              "*?:\\Users\\*\\AppData\\Local\\Island\\Update\\*",
+              "*?:\\Users\\*\\AppData\\Local\\Google\\Update\\*"
+            )
+        ) or 
+        (
+          process.name : ("SelfService.exe", "WfShell.exe") and
+            process.code_signature.trusted == true and process.code_signature.subject_name == "Citrix Systems, Inc." and
+            registry.data.strings : (
+              "\"?:\\Program Files (x86)\\Citrix\\ICA Client\\SelfServicePlugin\\SelfService.exe\" -ToastActivated",
+              "%SystemRoot%\\system32\\shdocvw.dll",
+              "%SystemRoot%\\sysWOW64\\shdocvw.dll"
+            )
+        ) or 
+        (
+          process.name : ("msrdcw.exe") and
+            process.code_signature.trusted == true and process.code_signature.subject_name == "Microsoft Corporation" and
+            registry.data.strings : (
+              "\"?:\\Program Files\\Remote Desktop\\msrdcw.exe\" -ToastActivated",
+              "\"?:\\Users\\*\\AppData\\Local\\Apps\\Remote Desktop\\msrdcw.exe\" -ToastActivated"
+            )
+        ) or 
+        (
+          process.name : ("ssvagent.exe") and
+            process.code_signature.trusted == true and process.code_signature.subject_name == "Oracle America, Inc." and
+            registry.data.strings : (
+              "?:\\Program Files\\Java\\jre*\\bin\\jp2iexp.dll",
+              "?:\\Program Files (x86)\\Java\\jre*\\bin\\jp2iexp.dll"
+            )
+        ) or 
+        (
+          process.name : ("hpnotifications.exe") and
+            process.code_signature.trusted == true and process.code_signature.subject_name == "HP Inc." and
+            registry.data.strings : (
+              "\"?:\\Windows\\System32\\DriverStore\\FileRepository\\hpsvcsscancomp.inf_amd64_*\\x64\\hpnotifications.exe\" -ToastActivated"
+            )
+        )
+      )
     )
   ) and
 
   /* removes false-positives generated by OneDrive and Teams */
-  not process.name: ("OneDrive.exe", "OneDriveSetup.exe", "FileSyncConfig.exe", "Teams.exe") and
+  not
+  (
+    process.name: ("OneDrive.exe", "OneDriveSetup.exe", "FileSyncConfig.exe", "Teams.exe") and
+    process.code_signature.trusted == true and process.code_signature.subject_name in ("Microsoft Windows", "Microsoft Corporation")
+  ) and
 
   /* Teams DLL loaded by regsvr */
   not (process.name: "regsvr32.exe" and registry.data.strings : "*Microsoft.Teams.*.dll")
