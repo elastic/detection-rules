@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/20"
+updated_date = "2024/01/03"
 
 [rule]
 author = ["Elastic"]
@@ -76,10 +76,21 @@ type = "new_terms"
 query = '''
 host.os.type:windows and event.category:library and 
   dll.name:("System.Management.Automation.dll" or "System.Management.Automation.ni.dll") and 
-  not (process.code_signature.subject_name:("Microsoft Corporation" or "Microsoft Dynamic Code Publisher" or "Microsoft Windows") and process.code_signature.trusted:true and not process.name.caseless:("regsvr32.exe" or "rundll32.exe")) and 
-  not (process.executable.caseless:(?\:\\\\Program?Files?\(x86\)\\\\*.exe or ?\:\\\\Program?Files\\\\*.exe) and process.code_signature.trusted:true) and 
-  not (process.executable.caseless:?\:\\\\Windows\\\\Lenovo\\\\*.exe and process.code_signature.subject_name:"Lenovo" and 
-  process.code_signature.trusted:true) and not process.executable.caseless : "C:\\Windows\\System32\\powershell.exe"
+  not (
+    process.code_signature.subject_name:("Microsoft Corporation" or "Microsoft Dynamic Code Publisher" or "Microsoft Windows") and process.code_signature.trusted:true and not process.name.caseless:("regsvr32.exe" or "rundll32.exe")
+  ) and 
+  not (
+    process.executable.caseless:(?\:\\\\Program?Files?\(x86\)\\\\*.exe or ?\:\\\\Program?Files\\\\*.exe) and
+    process.code_signature.trusted:true
+  ) and 
+  not (
+    process.executable.caseless:?\:\\\\Windows\\\\Lenovo\\\\*.exe and process.code_signature.subject_name:"Lenovo" and 
+    process.code_signature.trusted:true
+  ) and 
+  not (
+    process.executable.caseless:?\:\\\\ProgramData\\\\chocolatey\\\\choco.exe* and
+    process.code_signature.subject_name:"Chocolatey Software, Inc." and process.code_signature.trusted:true
+  ) and not process.executable.caseless : "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
 '''
 
 [[rule.threat]]
