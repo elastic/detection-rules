@@ -960,7 +960,7 @@ class TestRuleTiming(BaseRuleTest):
 
         for rule in self.all_rules:
             # skip ML rules, non-EQL or KQL rules, and rules with advanced analytic packages
-            if hasattr(rule.contents.data, 'language'):
+            if isinstance(rule.contents.data, QueryRuleData):
                 rule_language = rule.contents.data.language
                 rule_integrations = rule.contents.metadata.get('integration')
                 rule_indexes = rule.contents.data.get('index', [])
