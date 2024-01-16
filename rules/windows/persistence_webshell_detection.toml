@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/09"
 
 [rule]
 author = ["Elastic"]
@@ -87,7 +87,17 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : ("w3wp.exe", "httpd.exe", "nginx.exe", "php.exe", "php-cgi.exe", "tomcat.exe") and
-  process.name : ("cmd.exe", "cscript.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe", "wmic.exe", "wscript.exe")
+  process.name : ("cmd.exe", "cscript.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe", "wmic.exe", "wscript.exe") and
+  not 
+  (
+    process.parent.name : ("php.exe", "httpd.exe") and process.name : "cmd.exe" and
+    process.command_line : (
+      "cmd.exe /c mode CON",
+      "cmd.exe /s /c \"mode CON\"",
+      "cmd.exe /c \"mode\"",
+      "cmd.exe /s /c \"tput colors 2>&1\""
+    )
+  )
 '''
 
 
