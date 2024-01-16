@@ -962,9 +962,9 @@ class TestRuleTiming(BaseRuleTest):
             # skip ML rules, non-EQL or KQL rules, and rules with advanced analytic packages
             if hasattr(rule.contents.data, 'language'):
                 rule_language = rule.contents.data.language
-                rule_integrations = rule.contents.metadata.get('integration', None)
-                rule_indexes = rule.contents.data.get('index', None)
-                if rule_integrations and not isinstance(rule_integrations, list):
+                rule_integrations = rule.contents.metadata.get('integration')
+                rule_indexes = rule.contents.data.get('index', [])
+                if isinstance(rule_integrations, str):
                     rule_integrations = [rule_integrations]
                 rule_query = rule.contents.data.get('query')
                 has_event_ingested = rule.contents.data.get('timestamp_override') == 'event.ingested'
