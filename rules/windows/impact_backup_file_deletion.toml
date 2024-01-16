@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/03"
 
 [rule]
 author = ["Elastic"]
@@ -79,20 +79,31 @@ type = "eql"
 query = '''
 file where host.os.type == "windows" and event.type == "deletion" and
   (
-  /* Veeam Related Backup Files */
-  (file.extension : ("VBK", "VIB", "VBM") and
+    /* Veeam Related Backup Files */
+    (
+      file.extension : ("VBK", "VIB", "VBM") and
+      not (
+        process.executable : ("?:\\Windows\\*", "?:\\Program Files\\*", "?:\\Program Files (x86)\\*") and
+        (process.code_signature.trusted == true and process.code_signature.subject_name : ("Veeam Software Group GmbH", "Veeam Software AG"))
+      )
+    ) or
+    /* Veritas Backup Exec Related Backup File */
+    (
+      file.extension : "BKF" and
+        not process.executable : (
+          "?:\\Program Files\\Veritas\\Backup Exec\\*",
+          "?:\\Program Files (x86)\\Veritas\\Backup Exec\\*"
+        )
+    )
+  ) and
   not (
-    process.executable : ("?:\\Windows\\*", "?:\\Program Files\\*", "?:\\Program Files (x86)\\*") and
-    (process.code_signature.trusted == true and process.code_signature.subject_name : "Veeam Software Group GmbH")
-  )) or
-
-  /* Veritas Backup Exec Related Backup File */
-  (file.extension : "BKF" and
-  not process.executable : ("?:\\Program Files\\Veritas\\Backup Exec\\*",
-                            "?:\\Program Files (x86)\\Veritas\\Backup Exec\\*") and
-  not file.path : ("?:\\ProgramData\\Trend Micro\\*",
-                   "?:\\Program Files (x86)\\Trend Micro\\*",
-                   "?:\\$RECYCLE.BIN\\*"))
+    process.name : ("MSExchangeMailboxAssistants.exe", "Microsoft.PowerBI.EnterpriseGateway.exe") and
+      (process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
+  ) and
+  not file.path : (
+    "?:\\ProgramData\\Trend Micro\\*",
+    "?:\\Program Files (x86)\\Trend Micro\\*",
+    "?:\\$RECYCLE.BIN\\*"
   )
 '''
 
