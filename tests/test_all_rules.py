@@ -959,7 +959,8 @@ class TestRuleTiming(BaseRuleTest):
         errors = []
 
         for rule in self.all_rules:
-            # skip ML rules, non-EQL or KQL rules, and rules with advanced analytic packages
+            # skip rules that do not leverage queries (i.e. machine learning)
+            # filters to acceptable query languages in definitions.FilterLanguages
             if isinstance(rule.contents.data, QueryRuleData):
                 rule_language = rule.contents.data.language
                 rule_integrations = rule.contents.metadata.get('integration')
@@ -973,11 +974,16 @@ class TestRuleTiming(BaseRuleTest):
                 ml_integration_names = list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
 
                 if not has_event_ingested:
-                    if rule_language not in ('eql', 'kuery') or \
-                            "sequence" in rule_query or \
-                            "endgame-*" in rule_indexes or \
+                    # TODO: determine if we expand this to ES|QL
+                    # ignores any rule that does not use EQL or KQL
+                    if (rule_language not in ('eql', 'kuery') or  # noqa: W504
+                            # ignores any rule that uses EQL with sequences
+                            "sequence" in rule_query or  # noqa: W504
+                            # ignores any rule that searches in the `endgame-*` indexes
+                            "endgame-*" in rule_indexes or  # noqa: W504
+                            # ignores any ML-related rule that leverages queries (advanced analytic)
                             (rule_integrations and any(tag in ml_integration_names
-                                                       for tag in rule_integrations)):
+                                                       for tag in rule_integrations))):
                         continue
                     else:
                         errors.append(f'{rule_str} - rule must have `timestamp_override: event.ingested`')
