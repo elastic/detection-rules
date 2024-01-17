@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/12/04"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/17"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ bindings that execute code when a defined event occurs. Adversaries may use the 
 event and execute arbitrary code when that event occurs, providing persistence on a system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via WMI Event Subscription"
@@ -36,7 +36,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "wmic.exe" or process.pe.original_file_name == "wmic.exe") and
+  (process.name : "wmic.exe" or ?process.pe.original_file_name == "wmic.exe") and
   process.args : "create" and
   process.args : ("ActiveScriptEventConsumer", "CommandLineEventConsumer")
 '''
