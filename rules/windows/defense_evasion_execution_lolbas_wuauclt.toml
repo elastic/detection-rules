@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/10/13"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
@@ -38,7 +38,7 @@ Identifies abuse of the Windows Update Auto Update Client (wuauclt.exe) to load 
 as a defense evasion technique to blend-in malicious activity with legitimate Windows software.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "ImageLoad via Windows Update Auto Update Client"
@@ -120,7 +120,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.pe.original_file_name == "wuauclt.exe" or process.name : "wuauclt.exe") and
+  (?process.pe.original_file_name == "wuauclt.exe" or process.name : "wuauclt.exe") and
    /* necessary windows update client args to load a dll */
    process.args : "/RunHandlerComServer" and process.args : "/UpdateDeploymentProvider" and
    /* common paths writeable by a standard user where the target DLL can be placed */
