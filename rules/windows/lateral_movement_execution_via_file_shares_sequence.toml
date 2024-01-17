@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2023/10/09"
+updated_date = "2024/01/03"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -102,7 +102,22 @@ query = '''
 sequence with maxspan=1m
   [file where host.os.type == "windows" and event.type in ("creation", "change") and 
    process.pid == 4 and (file.extension : "exe" or file.Ext.header_bytes : "4d5a*")] by host.id, file.path
-  [process where host.os.type == "windows" and event.type == "start"] by host.id, process.executable
+  [process where host.os.type == "windows" and event.type == "start" and
+    not (
+      /* Veeam related processes */
+      (
+        process.name : (
+          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe", "Veeam.VSS.Sharepoint2010.exe"
+        ) and process.code_signature.trusted == true and process.code_signature.subject_name : "Veeam Software Group GmbH"
+      ) or
+      /* PDQ related processes */
+      (
+        process.name : (
+          "PDQInventoryScanner.exe", "PDQInventoryMonitor.exe", "PDQInventory-Scanner-?.exe", "PDQInventoryWakeCommand-?.exe"
+        ) and process.code_signature.trusted == true and process.code_signature.subject_name : "PDQ.com Corporation"
+      )
+    )
+  ] by host.id, process.executable
 '''
 
 
