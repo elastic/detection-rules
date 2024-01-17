@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/12/04"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/12/21"
+updated_date = "2024/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies instances of lower privilege accounts enumerating Administrator accou
 tools.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Enumeration of Administrator Accounts"
@@ -77,15 +77,15 @@ process where host.os.type == "windows" and event.type == "start" and
 (
   (
     (
-      (process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
-      ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and not process.parent.name : "net.exe")
+      (process.name : "net.exe" or ?process.pe.original_file_name == "net.exe") or
+      ((process.name : "net1.exe" or ?process.pe.original_file_name == "net1.exe") and not process.parent.name : "net.exe")
     ) and
     process.args : ("group", "user", "localgroup") and
     process.args : ("*admin*", "Domain Admins", "Remote Desktop Users", "Enterprise Admins", "Organization Management")
     and not process.args : ("/add", "/delete")
   ) or
   (
-    (process.name : "wmic.exe" or process.pe.original_file_name == "wmic.exe") and
+    (process.name : "wmic.exe" or ?process.pe.original_file_name == "wmic.exe") and
     process.args : ("group", "useraccount")
   )
 ) and not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20")

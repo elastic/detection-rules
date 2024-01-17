@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/04"
 
 [rule]
 author = ["Elastic"]
@@ -38,8 +38,7 @@ any where host.os.type == "windows" and
  (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and
  (dll.name : "mstscax.dll" or file.name : "mstscax.dll") and
    /* depending on noise in your env add here extra paths  */
-  process.executable :
-    (
+  process.executable : (
     "C:\\Windows\\*",
     "C:\\Users\\Public\\*",
     "C:\\Users\\Default\\*",
@@ -48,9 +47,15 @@ any where host.os.type == "windows" and
     "C:\\ProgramData\\*",
     "\\Device\\Mup\\*",
     "\\\\*"
-    ) and
-    /* add here FPs */
-  not process.executable : ("C:\\Windows\\System32\\mstsc.exe", "C:\\Windows\\SysWOW64\\mstsc.exe")
+  ) and
+  /* add here FPs */
+  not process.executable : (
+    "?:\\Windows\\System32\\mstsc.exe",
+    "?:\\Windows\\SysWOW64\\mstsc.exe",
+    "?:\\Windows\\System32\\vmconnect.exe",
+    "?:\\Windows\\System32\\WindowsSandboxClient.exe",
+    "?:\\Windows\\System32\\hvsirdpclient.exe"
+  )
 '''
 
 
