@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/10/23"
+updated_date = "2023/12/21"
 
 [transform]
 [[transform.osquery]]
@@ -131,8 +131,10 @@ host.os.type:windows and event.category:iam and event.action:user-member-enumera
     group.name:(*Admin* or "RemoteDesktopUsers") or
     winlog.event_data.TargetSid:("S-1-5-32-544" or "S-1-5-32-555")
   ) and 
-  not (winlog.event_data.SubjectUserName: (*$ or "LOCAL SERVICE" or "NETWORK SERVICE") or 
-  winlog.event_data.CallerProcessName:("-" or 
+  not (
+    winlog.event_data.SubjectUserName: *$ or
+    winlog.event_data.SubjectUserSid: ("S-1-5-19" or "S-1-5-20") or 
+    winlog.event_data.CallerProcessName:("-" or 
                                        *\:\\\\Windows\\\\System32\\\\VSSVC.exe or 
                                        *\:\\\\Windows\\\\System32\\\\SearchIndexer.exe or 
                                        *\:\\\\Windows\\\\System32\\\\CompatTelRunner.exe or 
@@ -142,6 +144,7 @@ host.os.type:windows and event.category:iam and event.action:user-member-enumera
                                        *\:\\\\Windows\\\\System32\\\\Netplwiz.exe or 
                                        *\:\\\\Windows\\\\System32\\\\msiexec.exe or
                                        *\:\\\\Windows\\\\System32\\\\CloudExperienceHostBroker.exe or
+                                       *\:\\\\Windows\\\\System32\\\\RuntimeBroker.exe or
                                        *\:\\\\Windows\\\\System32\\\\wbem\\\\WmiPrvSE.exe or
                                        *\:\\\\Windows\\\\System32\\\\SrTasks.exe or
                                        *\:\\\\Windows\\\\System32\\\\diskshadow.exe or
