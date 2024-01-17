@@ -954,36 +954,28 @@ class TestRuleTiming(BaseRuleTest):
         # kql: always require (fallback to @timestamp enabled)
         # eql:
         #   sequences: never
-        #   min_stack_version < 8.2: only where event.ingested defined (no beats) or add config to update pipeline
         #   min_stack_version >= 8.2: any - fallback to @timestamp enabled https://github.com/elastic/kibana/pull/127989
+        #  if 'event.ingested' is missing, '@timestamp' will be default
         errors = []
 
         for rule in self.all_rules:
             # skip rules that do not leverage queries (i.e. machine learning)
             # filters to acceptable query languages in definitions.FilterLanguages
+            # QueryRuleData should inheritenly ignore machine learning rules
             if isinstance(rule.contents.data, QueryRuleData):
                 rule_language = rule.contents.data.language
                 rule_integrations = rule.contents.metadata.get('integration')
-                rule_indexes = rule.contents.data.get('index', [])
                 if isinstance(rule_integrations, str):
                     rule_integrations = [rule_integrations]
                 rule_query = rule.contents.data.get('query')
                 has_event_ingested = rule.contents.data.get('timestamp_override') == 'event.ingested'
-
                 rule_str = self.rule_str(rule, trailer=None)
-                ml_integration_names = list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
 
                 if not has_event_ingested:
                     # TODO: determine if we expand this to ES|QL
-                    # ignores any rule that does not use EQL or KQL
-                    if (rule_language not in ('eql', 'kuery') or  # noqa: W504
-                            # ignores any rule that uses EQL with sequences
-                            "sequence" in rule_query or  # noqa: W504
-                            # ignores any rule that searches in the `endgame-*` indexes
-                            "endgame-*" in rule_indexes or  # noqa: W504
-                            # ignores any ML-related rule that leverages queries (advanced analytic)
-                            (rule_integrations and any(tag in ml_integration_names
-                                                       for tag in rule_integrations))):
+                    # ignores any rule that does not use EQL or KQL queries specifically
+                    # this does not avoid rule types where variants of KQL are used (e.g. new terms)
+                    if rule_language not in ('eql', 'kuery') or "sequence" in rule_query:
                         continue
                     else:
                         errors.append(f'{rule_str} - rule must have `timestamp_override: event.ingested`')
