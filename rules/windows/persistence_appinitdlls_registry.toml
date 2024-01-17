@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/04"
 
 [transform]
 [[transform.osquery]]
@@ -125,16 +125,22 @@ type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and
-   registry.path : (
-      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
-      "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
-      "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
-      "\\REGISTRY\\MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls"
-   ) and not process.executable : (
-      "C:\\Windows\\System32\\msiexec.exe",
-      "C:\\Windows\\SysWOW64\\msiexec.exe",
-      "C:\\Program Files\\Commvault\\ContentStore*\\Base\\cvd.exe",
-      "C:\\Program Files (x86)\\Commvault\\ContentStore*\\Base\\cvd.exe")
+  registry.path : (
+     "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
+     "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
+     "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
+     "\\REGISTRY\\MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls"
+  ) and
+  not process.executable : (
+     "?:\\Windows\\System32\\DriverStore\\FileRepository\\*\\Display.NvContainer\\NVDisplay.Container.exe",
+     "?:\\Windows\\System32\\msiexec.exe",
+     "?:\\Windows\\SysWOW64\\msiexec.exe",
+     "?:\\Program Files\\Commvault\\Base\\cvd.exe",
+     "?:\\Program Files\\Commvault\\ContentStore*\\Base\\cvd.exe",
+     "?:\\Program Files (x86)\\Commvault\\Base\\cvd.exe",
+     "?:\\Program Files (x86)\\Commvault\\ContentStore*\\Base\\cvd.exe",
+     "?:\\Program Files\\NVIDIA Corporation\\Display.NvContainer\\NVDisplay.Container.exe"
+  )
 '''
 
 
