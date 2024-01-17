@@ -2,7 +2,7 @@
 creation_date = "2020/11/16"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/06/22"
+updated_date = "2024/01/04"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -114,35 +114,36 @@ sequence with maxspan=1s
    ] by host.id, process.entity_id
    [process where host.os.type == "windows" and 
        event.type == "start" and process.parent.name : "services.exe" and
-       not (process.executable : "?:\\Windows\\System32\\svchost.exe" and process.args : "tiledatamodelsvc") and
        not (process.executable : "?:\\Windows\\System32\\msiexec.exe" and process.args : "/V") and
-       not process.executable :
-               ("?:\\Windows\\ADCR_Agent\\adcrsvc.exe",
-                "?:\\Windows\\System32\\VSSVC.exe",
-                "?:\\Windows\\servicing\\TrustedInstaller.exe",
-                "?:\\Windows\\System32\\svchost.exe",
-                "?:\\Program Files (x86)\\*.exe",
-                "?:\\Program Files\\*.exe",
-                "?:\\Windows\\PSEXESVC.EXE",
-                "?:\\Windows\\System32\\sppsvc.exe",
-                "?:\\Windows\\System32\\wbem\\WmiApSrv.exe",
-                "?:\\WINDOWS\\RemoteAuditService.exe",
-                "?:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe",
-                "?:\\Windows\\VeeamLogShipper\\VeeamLogShipper.exe",
-                "?:\\Windows\\CAInvokerService.exe",
-                "?:\\Windows\\System32\\upfc.exe",
-                "?:\\Windows\\AdminArsenal\\PDQ*.exe",
-                "?:\\Windows\\System32\\vds.exe",
-                "?:\\Windows\\Veeam\\Backup\\VeeamDeploymentSvc.exe",
-                "?:\\Windows\\ProPatches\\Scheduler\\STSchedEx.exe",
-                "?:\\Windows\\System32\\certsrv.exe",
-                "?:\\Windows\\eset-remote-install-service.exe",
-                "?:\\Pella Corporation\\Pella Order Management\\GPAutoSvc.exe",
+       not process.executable : (
                 "?:\\Pella Corporation\\OSCToGPAutoService\\OSCToGPAutoSvc.exe",
                 "?:\\Pella Corporation\\Pella Order Management\\GPAutoSvc.exe",
+                "?:\\Pella Corporation\\Pella Order Management\\GPAutoSvc.exe",
+                "?:\\Program Files (x86)\\*.exe",
+                "?:\\Program Files\\*.exe",
+                "?:\\Windows\\ADCR_Agent\\adcrsvc.exe",
+                "?:\\Windows\\AdminArsenal\\PDQ*.exe",
+                "?:\\Windows\\CAInvokerService.exe",
+                "?:\\Windows\\ccmsetup\\ccmsetup.exe",
+                "?:\\Windows\\eset-remote-install-service.exe",
+                "?:\\Windows\\ProPatches\\Scheduler\\STSchedEx.exe",
+                "?:\\Windows\\PSEXESVC.EXE",
+                "?:\\Windows\\RemoteAuditService.exe",
+                "?:\\Windows\\servicing\\TrustedInstaller.exe",
+                "?:\\Windows\\System32\\certsrv.exe",
+                "?:\\Windows\\System32\\sppsvc.exe",
+                "?:\\Windows\\System32\\srmhost.exe",
+                "?:\\Windows\\System32\\svchost.exe",
+                "?:\\Windows\\System32\\taskhostex.exe",
+                "?:\\Windows\\System32\\upfc.exe",
+                "?:\\Windows\\System32\\vds.exe",
+                "?:\\Windows\\System32\\VSSVC.exe",
+                "?:\\Windows\\System32\\wbem\\WmiApSrv.exe",
                 "?:\\Windows\\SysWOW64\\NwxExeSvc\\NwxExeSvc.exe",
-                "?:\\Windows\\System32\\taskhostex.exe")
-   ] by host.id, process.parent.entity_id
+                "?:\\Windows\\Veeam\\Backup\\VeeamDeploymentSvc.exe",
+                "?:\\Windows\\VeeamLogShipper\\VeeamLogShipper.exe",
+                "?:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe"
+       )] by host.id, process.parent.entity_id
 '''
 
 
