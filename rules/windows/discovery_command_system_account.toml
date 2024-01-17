@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2023/12/21"
 
 [rule]
 author = ["Elastic"]
@@ -66,8 +66,12 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   (?process.Ext.token.integrity_level_name : "System" or
   ?winlog.event_data.IntegrityLevel : "System") and
-  (process.name : "whoami.exe" or
-  (process.name : "net1.exe" and not process.parent.name : "net.exe"))
+  (
+    process.name : "whoami.exe" or
+    (
+      process.name : "net1.exe" and not process.parent.name : "net.exe" and not process.args : ("start", "stop", "/active:*")
+    )
+  )
 '''
 
 
