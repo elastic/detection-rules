@@ -3,7 +3,7 @@ creation_date = "2022/07/22"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/22"
+updated_date = "2023/12/13"
 integration = ["endpoint"]
 
 [transform]
@@ -191,7 +191,9 @@ process where host.os.type == "linux" and event.action in ("exec", "exec_event")
 ( 
   (process.executable : "/usr/sbin/chkconfig" and process.args : "--add") or
   (process.args : "*chkconfig" and process.args : "--add")
-)
+) and 
+not process.parent.name in ("rpm", "qualys-scan-util", "qualys-cloud-agent", "update-alternatives") and
+not process.parent.args : ("/var/tmp/rpm*", "/var/lib/waagent/*")
 '''
 
 [[rule.threat]]

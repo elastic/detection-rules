@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2023/12/13"
 
 [rule]
 author = ["Elastic"]
@@ -60,18 +60,22 @@ type = "eql"
 query = '''
 sequence by host.id with maxspan=5s
   [network where host.os.type == "linux" and event.action in ("connection_accepted", "connection_attempted") and 
-   process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
-   destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1"
-  ] by process.entity_id
-  [process where host.os.type == "linux" and event.action == "exec" and process.parent.executable : (
-    "/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*"
-  ) and process.parent.args : "-jar" and process.name in (
-    "bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
-  ) and not process.args : (
-    "-xe", "/tmp/jenkins*.sh", "*/var/lib/jenkins/workspace/*", "vmstat*", "asterisk*", "mpstat*", "/usr/bin/ps*", "umask", "*yum*", "uptime -s",
-    "df -h . | awk '{print $2}'", "free | awk \"/Mem:/\" | awk '{print $2}'"
-  )
-  ] by process.parent.entity_id
+   process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and 
+   not (destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
+     destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
+     "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+     "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10",
+     "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
+     "FF00::/8"
+    )
+  )] by process.entity_id
+  [process where host.os.type == "linux" and event.action == "exec" and 
+   process.parent.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
+   process.parent.args : "-jar" and process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
+   and not process.parent.args in (
+     "/usr/share/java/jenkins.war", "/etc/remote-iot/services/remoteiot.jar",
+     "/usr/lib64/NetExtender.jar", "/usr/lib/jenkins/jenkins.war"
+   )] by process.parent.entity_id
 '''
 
 [[rule.threat]]
