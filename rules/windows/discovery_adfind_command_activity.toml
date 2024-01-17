@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/10/19"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ leveraged by threat actors to perform post-exploitation Active Directory reconna
 observed in Trickbot, Ryuk, Maze, and FIN6 campaigns. For Winlogbeat, this rule requires Sysmon.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AdFind Command Activity"
@@ -79,7 +79,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "AdFind.exe" or process.pe.original_file_name == "AdFind.exe") and
+  (process.name : "AdFind.exe" or ?process.pe.original_file_name == "AdFind.exe") and
   process.args : ("objectcategory=computer", "(objectcategory=computer)",
                   "objectcategory=person", "(objectcategory=person)",
                   "objectcategory=subnet", "(objectcategory=subnet)",
