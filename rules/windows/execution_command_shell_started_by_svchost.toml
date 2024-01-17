@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/16"
 
 [transform]
 [[transform.osquery]]
@@ -35,7 +35,7 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 author = ["Elastic"]
 description = "Identifies a suspicious parent child process relationship with cmd.exe descending from svchost.exe"
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "logs-system.security*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Svchost spawning Cmd"
@@ -117,8 +117,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and process.parent.name:"svchost.exe" and 
-process.name.caseless:"cmd.exe"
+host.os.type:windows and event.category:process and event.type:start and process.parent.name:"svchost.exe" and process.name:("cmd.exe" or "Cmd.exe" or "CMD.EXE")
 '''
 
 [[rule.threat]]
