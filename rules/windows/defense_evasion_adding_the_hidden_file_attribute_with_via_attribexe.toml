@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2024/01/16"
 
 [transform]
 [[transform.osquery]]
@@ -35,7 +35,7 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 author = ["Elastic"]
 description = "Adversaries can add the 'hidden' attribute to files to hide them from the user in an attempt to evade detection."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Adding Hidden File Attribute via Attrib"
@@ -103,11 +103,8 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "attrib.exe" or process.pe.original_file_name == "ATTRIB.EXE") and process.args : "+h" and
-  not
-  (process.parent.name: "cmd.exe" and
-    process.command_line: "attrib  +R +H +S +A *.cui" and
-    process.parent.command_line: "?:\\WINDOWS\\system32\\cmd.exe /c \"?:\\WINDOWS\\system32\\*.bat\"")
+  (process.name : "attrib.exe" or ?process.pe.original_file_name == "ATTRIB.EXE") and process.args : "+h" and
+  not (process.parent.name: "cmd.exe" and process.command_line: "attrib  +R +H +S +A *.cui")
 '''
 
 
