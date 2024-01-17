@@ -5,15 +5,14 @@
 
 """Test version locking of rules."""
 
-import unittest
-
+import pytest
 from semver import Version
 
 from detection_rules.schemas import get_min_supported_stack_version
 from detection_rules.version_lock import default_version_lock
 
 
-class TestVersionLock(unittest.TestCase):
+class TestVersionLock:
     """Test version locking."""
 
     def test_previous_entries_gte_current_min_stack(self):
@@ -31,6 +30,6 @@ class TestVersionLock(unittest.TestCase):
         # stack-schema-map
         if errors:
             err_str = '\n'.join(f'{k}: {", ".join(v)}' for k, v in errors.items())
-            self.fail(f'The following version.lock entries have previous locked versions which are lower than the '
-                      f'currently supported min_stack ({min_version}). To address this, run the '
-                      f'`dev trim-version-lock {min_version}` command.\n\n{err_str}')
+            pytest.fail(f'The following version.lock entries have previous locked versions which are lower than the '
+                        f'currently supported min_stack ({min_version}). To address this, run the '
+                        f'`dev trim-version-lock {min_version}` command.\n\n{err_str}')

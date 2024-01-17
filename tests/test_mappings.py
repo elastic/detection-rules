@@ -5,16 +5,16 @@
 
 """Test that all rules appropriately match against expected data sets."""
 import copy
-import unittest
 import warnings
 
-from . import get_data_files, get_fp_data_files
 from detection_rules.utils import combine_sources, evaluate, load_etc_dump
 from rta import get_available_tests
-from .base import BaseRuleTest
+from tests.conftest import TestBaseRule
+
+from . import get_data_files, get_fp_data_files
 
 
-class TestMappings(BaseRuleTest):
+class TestMappings(TestBaseRule):
     """Test that all rules appropriately match against expected data sets."""
 
     FP_FILES = get_fp_data_files()
@@ -22,7 +22,7 @@ class TestMappings(BaseRuleTest):
     def evaluate(self, documents, rule, expected, msg):
         """KQL engine to evaluate."""
         filtered = evaluate(rule, documents)
-        self.assertEqual(expected, len(filtered), msg)
+        assert expected == len(filtered), msg
         return filtered
 
     def test_true_positives(self):
@@ -41,7 +41,7 @@ class TestMappings(BaseRuleTest):
                 rta_file = mapping['rta_name']
 
                 # ensure sources is defined and not empty; schema allows it to not be set since 'pending' bypasses
-                self.assertTrue(sources, 'No sources defined for: {} - {} '.format(rule.id, rule.name))
+                assert sources, f'No sources defined for: {rule.id} - {rule.name}'
                 msg = 'Expected TP results did not match for: {} - {}'.format(rule.id, rule.name)
 
                 data_files = [get_data_files('true_positives', rta_file).get(s) for s in sources]
@@ -70,7 +70,7 @@ class TestMappings(BaseRuleTest):
                     self.evaluate(copy.deepcopy(merged_data), rule, 0, msg)
 
 
-class TestRTAs(unittest.TestCase):
+class TestRTAs:
     """Test that all RTAs have appropriate fields added."""
 
     def test_rtas_with_triggered_rules_have_uuid(self):
@@ -79,8 +79,7 @@ class TestRTAs(unittest.TestCase):
         rule_keys = ["rule_id", "rule_name"]
         for rta_test in sorted(get_available_tests().values(), key=lambda r: r['name']):
 
-            self.assertIsNotNone(rta_test.get("uuid"), f'RTA {rta_test.get("name")} missing uuid')
+            assert rta_test.get("uuid") is not None, f'RTA {rta_test.get("name")} missing uuid'
             for rule_info in rta_test.get("siem"):
                 for rule_key in rule_keys:
-                    self.assertIsNotNone(rule_info.get(rule_key),
-                                         f'RTA {rta_test.get("name")} - {rta_test.get("uuid")} missing {rule_key}')
+                    assert rule_info.get(rule_key) is not None, f'RTA {rta_test.get("name")} - {rta_test.get("uuid")} missing {rule_key}'  # noqa: E501

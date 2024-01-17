@@ -3,17 +3,18 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import unittest
 from copy import deepcopy
 from pathlib import Path
 
 import eql.ast
-
+import pytest
 from semver import Version
 
 import kql
 from detection_rules.integrations import (
-    find_latest_compatible_version, load_integrations_manifests, load_integrations_schemas
+    find_latest_compatible_version,
+    load_integrations_manifests,
+    load_integrations_schemas,
 )
 from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
@@ -22,15 +23,16 @@ from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import get_stack_schemas
 from detection_rules.utils import get_path, load_rule_contents
 
-from .base import BaseRuleTest
+from tests.conftest import TestBaseRule
+
 PACKAGE_STACK_VERSION = Version.parse(current_stack_version(), optional_minor_and_patch=True)
 
 
-class TestEndpointQuery(BaseRuleTest):
+class TestEndpointQuery(TestBaseRule):
     """Test endpoint-specific rules."""
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
-                     "Test only applicable to 8.3+ stacks since query updates are min_stacked at 8.3.0")
+    @pytest.mark.skipif(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
+                        reason="Test only applicable to 8.3+ stacks since query updates are min_stacked at 8.3.0")
     def test_os_and_platform_in_query(self):
         """Test that all endpoint rules have an os defined and linux includes platform."""
         for rule in self.production_rules:
@@ -47,19 +49,19 @@ class TestEndpointQuery(BaseRuleTest):
             if 'host.os.type' not in fields:
                 # Exception for Forwarded Events which contain Windows-only fields.
                 if rule.path.parent.name == 'windows' and not any(field.startswith('winlog.') for field in fields):
-                    self.assertIn('host.os.type', fields, err_msg)
+                    assert 'host.os.type' in fields, err_msg
 
             # going to bypass this for now
             # if rule.path.parent.name == 'linux':
             #     err_msg = f'{self.rule_str(rule)} missing required field for linux endpoint rule'
-            #     self.assertIn('host.os.platform', fields, err_msg)
+            #     assert 'host.os.platform' in fields, err_msg
 
 
-class TestNewTerms(BaseRuleTest):
+class TestNewTerms(TestBaseRule):
     """Test new term rules."""
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
+    @pytest.mark.skipif(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
+                        reason="Test only applicable to 8.4+ stacks for new terms feature.")
     def test_history_window_start(self):
         """Test new terms history window start field."""
 
@@ -72,8 +74,8 @@ class TestNewTerms(BaseRuleTest):
                 assert rule.contents.data.new_terms.history_window_start[0].field == "history_window_start", \
                     f"{rule.contents.data.new_terms.history_window_start} should be 'history_window_start'"
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
+    @pytest.mark.skipif(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
+                        reason="Test only applicable to 8.4+ stacks for new terms feature.")
     def test_new_terms_field_exists(self):
         # validate new terms and history window start fields are correct
         for rule in self.production_rules:
@@ -81,8 +83,8 @@ class TestNewTerms(BaseRuleTest):
                 assert rule.contents.data.new_terms.field == "new_terms_fields", \
                     f"{rule.contents.data.new_terms.field} should be 'new_terms_fields' for new_terms rule type"
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
+    @pytest.mark.skipif(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
+                        reason="Test only applicable to 8.4+ stacks for new terms feature.")
     def test_new_terms_fields(self):
         """Test new terms fields are schema validated."""
         # ecs validation
@@ -122,8 +124,8 @@ class TestNewTerms(BaseRuleTest):
                     assert new_terms_field in schema.keys(), \
                         f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
+    @pytest.mark.skipif(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
+                        reason="Test only applicable to 8.4+ stacks for new terms feature.")
     def test_new_terms_max_limit(self):
         """Test new terms max limit."""
         # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
@@ -141,8 +143,8 @@ class TestNewTerms(BaseRuleTest):
                     assert len(rule.contents.data.new_terms.value) == 1, \
                         f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
+    @pytest.mark.skipif(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
+                        reason="Test only applicable to 8.4+ stacks for new terms feature.")
     def test_new_terms_fields_unique(self):
         """Test new terms fields are unique."""
         # validate fields are unique
@@ -152,7 +154,7 @@ class TestNewTerms(BaseRuleTest):
                     f"new terms fields values are not unique - {rule.contents.data.new_terms.value}"
 
 
-class TestESQLRules(BaseRuleTest):
+class TestESQLRules(TestBaseRule):
     """Test ESQL Rules."""
 
     def run_esql_test(self, esql_query, expectation, message):
@@ -182,5 +184,6 @@ class TestESQLRules(BaseRuleTest):
         #     ('from .ds-logs-endpoint.events.process-default-* | where process.name like "Microsoft*"',
         #      does_not_raise(), None),
         # ]
+        # TODO: Refactor to use pytest parameterization when we want to enable these tests
         # for esql_query, expectation, message in test_cases:
         #     self.run_esql_test(esql_query, expectation, message)

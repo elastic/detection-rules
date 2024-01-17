@@ -4,14 +4,15 @@
 # 2.0.
 
 import eql
-import unittest
+import pytest
+
 import kql
 
 
-class TestEql2Kql(unittest.TestCase):
+class TestEql2Kql:
 
     def validate(self, kql_source, eql_source):
-        self.assertEqual(kql_source, str(kql.from_eql(eql_source)))
+        assert kql_source == str(kql.from_eql(eql_source))
 
     def test_field_equals(self):
         self.validate("field:value", "field == 'value'")
@@ -58,6 +59,7 @@ class TestEql2Kql(unittest.TestCase):
             self.validate('field:value-*', 'field : "value-*"')
             self.validate('field:value-?', 'field : "value-?"')
 
-        with eql.parser.elasticsearch_validate_optional_fields, self.assertRaises(AssertionError):
+        # pytest.raises is used to handle exceptions in pytest
+        with eql.parser.elasticsearch_validate_optional_fields, pytest.raises(AssertionError):
             self.validate('field:"value-*"', 'field == "value-*"')
             self.validate('field:"value-?"', 'field == "value-?"')

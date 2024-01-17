@@ -5,24 +5,25 @@
 
 """Test stack versioned schemas."""
 import copy
-import unittest
 import uuid
-from semver import Version
 
 import eql
+import pytest
+from marshmallow import ValidationError
+from semver import Version
+
 from detection_rules import utils
 from detection_rules.misc import load_current_package_version
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.schemas import downgrade
 from detection_rules.version_lock import VersionLockFile
-from marshmallow import ValidationError
 
 
-class TestSchemas(unittest.TestCase):
+class TestSchemas:
     """Test schemas and downgrade functions."""
 
     @classmethod
-    def setUpClass(cls):
+    def setup_class(cls):
         cls.current_version = load_current_package_version()
 
         # expected contents for a downgraded rule
@@ -102,20 +103,20 @@ class TestSchemas(unittest.TestCase):
         if Version.parse(self.current_version, optional_minor_and_patch=True).major > 7:
             return
 
-        self.assertDictEqual(downgrade(self.v711_kql, "7.11"), self.v711_kql)
-        self.assertDictEqual(downgrade(self.v711_kql, "7.9"), self.v79_kql)
-        self.assertDictEqual(downgrade(self.v711_kql, "7.9.2"), self.v79_kql)
-        self.assertDictEqual(downgrade(self.v711_kql, "7.8.1"), self.v78_kql)
-        self.assertDictEqual(downgrade(self.v79_kql, "7.8"), self.v78_kql)
-        self.assertDictEqual(downgrade(self.v79_kql, "7.8"), self.v78_kql)
+        assert downgrade(self.v711_kql, "7.11") == self.v711_kql
+        assert downgrade(self.v711_kql, "7.9") == self.v79_kql
+        assert downgrade(self.v711_kql, "7.9.2") == self.v79_kql
+        assert downgrade(self.v711_kql, "7.8.1") == self.v78_kql
+        assert downgrade(self.v79_kql, "7.8") == self.v78_kql
+        assert downgrade(self.v79_kql, "7.8") == self.v78_kql
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             downgrade(self.v711_kql, "7.7")
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             downgrade(self.v79_kql, "7.7")
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             downgrade(self.v78_kql, "7.7", current_version="7.8")
 
     def test_versioned_downgrade_7_x(self):
@@ -124,16 +125,16 @@ class TestSchemas(unittest.TestCase):
             return
 
         api_contents = self.v79_kql
-        self.assertDictEqual(downgrade(api_contents, "7.9"), api_contents)
-        self.assertDictEqual(downgrade(api_contents, "7.9.2"), api_contents)
+        assert downgrade(api_contents, "7.9") == api_contents
+        assert downgrade(api_contents, "7.9.2") == api_contents
 
         api_contents78 = api_contents.copy()
         api_contents78.pop("author")
         api_contents78.pop("license")
 
-        self.assertDictEqual(downgrade(api_contents, "7.8"), api_contents78)
+        assert downgrade(api_contents, "7.8") == api_contents78
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             downgrade(api_contents, "7.7")
 
     def test_threshold_downgrade_7_x(self):
@@ -142,27 +143,27 @@ class TestSchemas(unittest.TestCase):
             return
 
         api_contents = self.v712_threshold_rule
-        self.assertDictEqual(downgrade(api_contents, '7.13'), api_contents)
-        self.assertDictEqual(downgrade(api_contents, '7.13.1'), api_contents)
+        assert downgrade(api_contents, '7.13') == api_contents
+        assert downgrade(api_contents, '7.13.1') == api_contents
 
         exc_msg = 'Cannot downgrade a threshold rule that has multiple threshold fields defined'
-        with self.assertRaisesRegex(ValueError, exc_msg):
+        with pytest.raises(ValueError, exc_msg):
             downgrade(api_contents, '7.9')
 
         v712_threshold_contents_single_field = copy.deepcopy(api_contents)
         v712_threshold_contents_single_field['threshold']['field'].pop()
 
-        with self.assertRaisesRegex(ValueError, "Cannot downgrade a threshold rule that has a defined cardinality"):
+        with pytest.raises(ValueError, "Cannot downgrade a threshold rule that has a defined cardinality"):
             downgrade(v712_threshold_contents_single_field, "7.9")
 
         v712_no_cardinality = copy.deepcopy(v712_threshold_contents_single_field)
         v712_no_cardinality['threshold'].pop('cardinality')
-        self.assertEqual(downgrade(v712_no_cardinality, "7.9"), self.v79_threshold_contents)
+        assert downgrade(v712_no_cardinality, "7.9") == self.v79_threshold_contents
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             downgrade(v712_no_cardinality, "7.7")
 
-        with self.assertRaisesRegex(ValueError, "Unsupported rule type"):
+        with pytest.raises(ValueError, "Unsupported rule type"):
             downgrade(v712_no_cardinality, "7.8")
 
     def test_query_downgrade_8_x(self):
@@ -216,32 +217,32 @@ class TestSchemas(unittest.TestCase):
                                'file.target_path.text', 'host.os.full.text', 'host.os.name.text',
                                'host.user.full_name.text', 'host.user.name.text']
         for text_field in example_text_fields:
-            with self.assertRaises(eql.parser.EqlSchemaError):
+            with pytest.raises(eql.parser.EqlSchemaError):
                 build_rule(f"""
                         any where {text_field} == "some string field"
                 """)
 
-        with self.assertRaises(eql.EqlSyntaxError):
+        with pytest.raises(eql.EqlSyntaxError):
             build_rule("""
                     process where process.name == this!is$not#v@lid
             """)
 
-        with self.assertRaises(eql.EqlSemanticError):
+        with pytest.raises(eql.EqlSemanticError):
             build_rule("""
                     process where process.invalid_field == "hello world"
             """)
 
-        with self.assertRaises(eql.EqlTypeMismatchError):
+        with pytest.raises(eql.EqlTypeMismatchError):
             build_rule("""
                     process where process.pid == "some string field"
             """)
 
 
-class TestVersionLockSchema(unittest.TestCase):
+class TestVersionLockSchema:
     """Test that the version lock has proper entries."""
 
     @classmethod
-    def setUpClass(cls):
+    def setup_class(cls):
         cls.version_lock_contents = {
             "33f306e8-417c-411b-965c-c2812d6d3f4d": {
                 "rule_name": "Remote File Download via PowerShell",
@@ -274,13 +275,13 @@ class TestVersionLockSchema(unittest.TestCase):
     def test_version_lock_has_nested_previous(self):
         """Fail field validation on version lock with nested previous fields"""
         version_lock_contents = copy.deepcopy(self.version_lock_contents)
-        with self.assertRaises(ValidationError):
+        with pytest.raises(ValidationError):
             previous = version_lock_contents["34fde489-94b0-4500-a76f-b8a157cf9269"]["previous"]
             version_lock_contents["34fde489-94b0-4500-a76f-b8a157cf9269"]["previous"]["previous"] = previous
             VersionLockFile.from_dict(dict(data=version_lock_contents))
 
 
-class TestVersions(unittest.TestCase):
+class TestVersions:
     """Test that schema versioning aligns."""
 
     def test_stack_schema_map(self):
@@ -288,4 +289,4 @@ class TestVersions(unittest.TestCase):
         package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         stack_map = utils.load_etc_dump('stack-schema-map.yaml')
         err_msg = f'There is no entry defined for the current package ({package_version}) in the stack-schema-map'
-        self.assertIn(package_version, [Version.parse(v) for v in stack_map], err_msg)
+        assert package_version in [Version.parse(v) for v in stack_map], err_msg

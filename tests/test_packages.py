@@ -4,23 +4,25 @@
 # 2.0.
 
 """Test that the packages are built correctly."""
-import unittest
 import uuid
-from semver import Version
+
+import pytest
 from marshmallow import ValidationError
+from semver import Version
 
 from detection_rules import rule_loader
-from detection_rules.schemas.registry_package import (RegistryPackageManifestV1,
-                                                      RegistryPackageManifestV3)
 from detection_rules.packaging import PACKAGE_FILE, Package
 from detection_rules.rule_loader import RuleCollection
-
-from tests.base import BaseRuleTest
+from detection_rules.schemas.registry_package import (
+    RegistryPackageManifestV1,
+    RegistryPackageManifestV3,
+)
+from tests.conftest import TestBaseRule
 
 package_configs = Package.load_configs()
 
 
-class TestPackages(BaseRuleTest):
+class TestPackages(TestBaseRule):
     """Test package building and saving."""
 
     @staticmethod
@@ -72,8 +74,8 @@ class TestPackages(BaseRuleTest):
         post_bump_hashes = []
 
         # test that no rules have versions defined
-        for rule in rules:
-            self.assertGreaterEqual(rule.contents.autobumped_version, 1, '{} - {}: version is not being set in package')
+        for rule in rules.rules:
+            assert rule.contents.autobumped_version >= 1, '{} - {}: version is not being set in package'
             original_hashes.append(rule.contents.sha256())
 
         package = Package(rules, 'test-package')
@@ -81,22 +83,21 @@ class TestPackages(BaseRuleTest):
         # test that all rules have versions defined
         # package.bump_versions(save_changes=False)
         for rule in package.rules:
-            self.assertGreaterEqual(rule.contents.autobumped_version, 1, '{} - {}: version is not being set in package')
+            assert rule.contents.autobumped_version >= 1, '{} - {}: version is not being set in package'
 
         # test that rules validate with version
         for rule in package.rules:
             post_bump_hashes.append(rule.contents.sha256())
 
         # test that no hashes changed as a result of the version bumps
-        self.assertListEqual(original_hashes, post_bump_hashes, 'Version bumping modified the hash of a rule')
+        assert original_hashes == post_bump_hashes, 'Version bumping modified the hash of a rule'
 
 
-class TestRegistryPackage(unittest.TestCase):
+class TestRegistryPackage:
     """Test the OOB registry package."""
 
     @classmethod
-    def setUpClass(cls) -> None:
-
+    def setup_class(cls):
         assert 'registry_data' in package_configs, f'Missing registry_data in {PACKAGE_FILE}'
         cls.registry_config = package_configs['registry_data']
         stack_version = Version.parse(cls.registry_config['conditions']['kibana.version'].strip("^"),
@@ -111,5 +112,5 @@ class TestRegistryPackage(unittest.TestCase):
         registry_config = self.registry_config.copy()
         registry_config['version'] += '7.1.1.'
 
-        with self.assertRaises(ValidationError):
+        with pytest.raises(ValidationError):
             RegistryPackageManifestV1.from_dict(registry_config)

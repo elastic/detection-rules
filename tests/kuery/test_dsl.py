@@ -3,15 +3,14 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import unittest
 import kql
 
 
-class TestKQLtoDSL(unittest.TestCase):
+class TestKQLtoDSL:
     def validate(self, kql_source, dsl, **kwargs):
         actual_dsl = kql.to_dsl(kql_source, **kwargs)
-        self.assertListEqual(list(actual_dsl), ["bool"])
-        self.assertDictEqual(actual_dsl["bool"], dsl)
+        assert list(actual_dsl) == ["bool"]
+        assert actual_dsl["bool"] == dsl
 
     def test_field_match(self):
         def match(**kv):

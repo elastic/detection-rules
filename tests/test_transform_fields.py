@@ -5,7 +5,6 @@
 
 """Test fields in TOML [transform]."""
 import copy
-import unittest
 from pathlib import Path
 from textwrap import dedent
 
@@ -18,11 +17,11 @@ from detection_rules.rule_loader import RuleCollection
 RULES_DIR = Path(__file__).parent.parent / 'rules'
 
 
-class TestGuideMarkdownPlugins(unittest.TestCase):
+class TestGuideMarkdownPlugins:
     """Test the Markdown plugin features within the investigation guide."""
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setup_class(cls) -> None:
         cls.osquery_patterns = [
             """!{osquery{"label":"Osquery - Retrieve DNS Cache","query":"SELECT * FROM dns_cache"}}""",
             """!{osquery{"label":"Osquery - Retrieve All Services","query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"}}""",  # noqa: E501
@@ -95,7 +94,7 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
         rendered_note = new_rule.contents.to_api_format()['note']
 
         for pattern in self.osquery_patterns:
-            self.assertIn(pattern, rendered_note)
+            assert pattern in rendered_note
 
     def test_plugin_conversion(self):
         """Test the conversion function to ensure parsing is correct."""
@@ -111,4 +110,4 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
             new_rule = TOMLRule(path=sample_rule.path, contents=new_rule_contents)
             rendered_note = new_rule.contents.to_api_format()['note']
 
-            self.assertIn(pattern, rendered_note)
+            assert pattern in rendered_note
