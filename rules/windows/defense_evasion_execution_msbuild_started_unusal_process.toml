@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/03/25"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "logs-system.security*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft Build Engine Started an Unusual Process"
@@ -47,8 +47,8 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and process.parent.name:"MSBuild.exe" and
-process.name.caseless:("csc.exe" or "iexplore.exe" or "powershell.exe")
+host.os.type:windows and event.category:process and event.type:start and process.parent.name:("MSBuild.exe" or "msbuild.exe") and
+process.name:("csc.exe" or "iexplore.exe" or "powershell.exe")
 '''
 
 [[rule.threat]]
@@ -82,7 +82,7 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "user.name", "process.parent.command_line"]
+value = ["host.id", "user.name"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
