@@ -4,7 +4,7 @@ integration = ["endpoint", "system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2023/12/21"
 
 [rule]
 author = ["Elastic"]
@@ -74,21 +74,29 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and process.name : "whoami.exe" and
 (
-
- (/* scoped for whoami execution under system privileges */
-  (user.domain : ("NT AUTHORITY", "NT-AUTORITÄT", "AUTORITE NT", "IIS APPPOOL") or user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20")) and
-
-   not (process.parent.name : "cmd.exe" and
-        process.parent.args : ("chcp 437>nul 2>&1 & C:\\WINDOWS\\System32\\whoami.exe  /groups",
-                               "chcp 437>nul 2>&1 & %systemroot%\\system32\\whoami /user",
-                               "C:\\WINDOWS\\System32\\whoami.exe /groups",
-                               "*WINDOWS\\system32\\config\\systemprofile*")) and
-   not (process.parent.executable : "C:\\Windows\\system32\\inetsrv\\appcmd.exe" and process.parent.args : "LIST") and
-   not process.parent.executable : ("C:\\Program Files\\Microsoft Monitoring Agent\\Agent\\MonitoringHost.exe",
-                                    "C:\\Program Files\\Cohesity\\cohesity_windows_agent_service.exe")) or
-
+  (
+    /* scoped for whoami execution under system privileges */
+    (
+      user.domain : ("NT *", "* NT", "IIS APPPOOL") and
+      user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20", "S-1-5-82-*") and
+      not ?winlog.event_data.SubjectUserName : "*$"
+    ) and
+    not (
+      process.parent.name : "cmd.exe" and
+      process.parent.args : (
+          "chcp 437>nul 2>&1 & C:\\WINDOWS\\System32\\whoami.exe  /groups",
+          "chcp 437>nul 2>&1 & %systemroot%\\system32\\whoami /user",
+          "C:\\WINDOWS\\System32\\whoami.exe /groups",
+          "*WINDOWS\\system32\\config\\systemprofile*"
+      )
+    ) and
+    not (process.parent.executable : "C:\\Windows\\system32\\inetsrv\\appcmd.exe" and process.parent.args : "LIST") and
+    not process.parent.executable : (
+        "C:\\Program Files\\Microsoft Monitoring Agent\\Agent\\MonitoringHost.exe",
+        "C:\\Program Files\\Cohesity\\cohesity_windows_agent_service.exe"
+    )
+  ) or
   process.parent.name : ("wsmprovhost.exe", "w3wp.exe", "wmiprvse.exe", "rundll32.exe", "regsvr32.exe")
-
 )
 '''
 
