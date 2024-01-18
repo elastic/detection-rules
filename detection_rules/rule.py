@@ -35,7 +35,7 @@ from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas,
                       strip_non_public_fields)
 from .schemas.stack_compat import get_restricted_fields
-from .utils import cached, convert_time_span, PatchedTemplate
+from .utils import cached, convert_time_span, PatchedTemplate, convert_date_to_iso8601
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
@@ -1209,8 +1209,9 @@ class TOMLRule:
 
     def get_asset(self) -> dict:
         """Generate the relevant fleet compatible asset."""
-        return {"id": self.id, "attributes": self.contents.to_api_format(include_metadata=True),
-                "type": definitions.SAVED_OBJECT_TYPE}
+        return {"id": self.id, "attributes": self.contents.to_api_format(),
+                "type": definitions.SAVED_OBJECT_TYPE,
+                "elastic_update_date": convert_date_to_iso8601(self.contents.metadata.updated_date)}
 
     def save_toml(self):
         assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"
