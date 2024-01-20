@@ -4,7 +4,56 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/26"
+updated_date = "2023/12/19"
+
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve File Listing Information"
+query = """
+SELECT * FROM file WHERE path = {{file.path}}
+"""
+[[transform.osquery]]
+label = "Osquery - Retrieve Additional File Listing Information"
+query = """
+SELECT
+  f.path,
+  u.username AS file_owner,
+  g.groupname AS group_owner,
+  datetime(f.atime, 'unixepoch') AS file_last_access_time,
+  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
+  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
+  datetime(f.btime, 'unixepoch') AS file_created_time,
+  f.size AS size_bytes
+FROM
+  file f
+  LEFT JOIN users u ON f.uid = u.uid
+  LEFT JOIN groups g ON f.gid = g.gid
+WHERE path = {{file.path}}
+"""
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Running Processes by User"
+query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER BY username"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Crontab Information"
+query = "SELECT * FROM crontab"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Listening Ports"
+query = "SELECT pid, address, port, socket, protocol, path FROM listening_ports"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Open Sockets"
+query = "SELECT pid, family, remote_address, remote_port, socket, state FROM process_open_sockets"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Information for a Specific User"
+query = "SELECT * FROM users WHERE username = {{user.name}}"
+
+[[transform.osquery]]
+label = "Osquery - Investigate the Account Authentication Status"
+query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
 
 [rule]
 author = ["Elastic"]
@@ -19,6 +68,73 @@ index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious File Creation via Kworker"
+note = """## Triage and analysis
+
+### Investigating Suspicious File Creation via Kworker
+
+Kworker, or kernel worker, processes are part of the kernel's workqueue mechanism. They are responsible for executing work that has been scheduled to be done in kernel space, which might include tasks like handling interrupts, background activities, and other kernel-related tasks.
+
+Attackers may attempt to evade detection by masquerading as a kernel worker process.
+
+This rule monitors for suspicious file creation events through the kworker process. This is not common, and could indicate malicious behaviour.
+
+> **Note**:
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
+
+#### Possible Investigation Steps
+
+- Investigate the file that was created or modified through OSQuery.
+  - $osquery_0
+  - $osquery_1
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence and whether they are located in expected locations.
+  - $osquery_2
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
+- Investigate whether the altered scripts call other malicious scripts elsewhere on the file system. 
+  - If scripts or executables were dropped, retrieve the files and determine if they are malicious:
+    - Use a private sandboxed malware analysis system to perform analysis.
+      - Observe and collect information about the following activities:
+        - Attempts to contact external domains and addresses.
+          - Check if the domain is newly registered or unexpected.
+          - Check the reputation of the domain or IP address.
+        - File access, modification, and creation activities.
+        - Cron jobs, services and other persistence mechanisms.
+            - $osquery_3
+- Investigate abnormal behaviors by the subject process/user such as network connections, file modifications, and any other spawned child processes.
+  - Investigate listening ports and open sockets to look for potential command and control traffic or data exfiltration.
+    - $osquery_4
+    - $osquery_5
+  - Identify the user account that performed the action, analyze it, and check whether it should perform this kind of action.
+    - $osquery_6
+- Investigate whether the user is currently logged in and active.
+    - $osquery_7
+
+### False Positive Analysis
+
+- If this activity is related to new benign software installation activity, consider adding exceptions — preferably with a combination of user and command line conditions.
+- If this activity is related to a system administrator that performed these actions for administrative purposes, consider adding exceptions for this specific administrator user account. 
+- Try to understand the context of the execution by thinking about the user, machine, or business purpose. A small number of endpoints, such as servers with unique software, might appear unusual but satisfy a specific business need.
+
+### Related Rules
+
+- Suspicious Kworker UID Elevation - 7dfaaa17-425c-4fe7-bd36-83705fde7c2b
+- Network Activity Detected via Kworker - 25d917c4-aa3c-4111-974c-286c0312ff95
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 risk_score = 47
 rule_id = "ae343298-97bc-47bc-9ea2-5f2ad831c16e"
 setup = """## Setup
