@@ -1209,9 +1209,9 @@ class TOMLRule:
 
     def get_asset(self) -> dict:
         """Generate the relevant fleet compatible asset."""
-        return {"id": self.id, "attributes": self.contents.to_api_format(),
-                "type": definitions.SAVED_OBJECT_TYPE,
-                "elastic_update_date": convert_date_to_iso8601(self.contents.metadata.updated_date)}
+        attributes = self.contents.to_api_format()
+        attributes.setdefault("elastic_update_date", convert_date_to_iso8601(self.contents.metadata.updated_date))
+        return {"id": self.id, "attributes": attributes, "type": definitions.SAVED_OBJECT_TYPE}
 
     def save_toml(self):
         assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"
