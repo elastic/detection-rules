@@ -93,6 +93,7 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
                   update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
+    registry_data = config['registry_data']
     add_historical = True if add_historical == "yes" else False
 
     if generate_navigator:
@@ -111,7 +112,8 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     package.save(verbose=verbose)
 
     if add_historical:
-        previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga", config['name'])
+        previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga",
+                                                               registry_data['conditions']['kibana.version'].strip("^"))
         sde = SecurityDetectionEngine()
         historical_rules = sde.load_integration_assets(previous_pkg_version)
         historical_rules = sde.transform_legacy_assets(historical_rules)
@@ -192,7 +194,7 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     """Bump the versions"""
 
     pkg_data = load_etc_dump('packages.yml')['package']
-    kibana_ver = Version.parse(pkg_data["name"], optional_minor_and_patch=True)
+    kibana_ver = Version.parse(pkg_data['name'], optional_minor_and_patch=True)
     pkg_ver = Version.parse(pkg_data["registry_data"]["version"])
     pkg_kibana_ver = Version.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
     if major_release:
@@ -207,7 +209,7 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
         pkg_data["registry_data"]["version"] = str(pkg_ver.bump_minor().bump_prerelease("beta"))
     if patch_release:
         latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
-                                                                   maturity, pkg_data["name"])
+                                                                   maturity, pkg_kibana_ver)
 
         # if an existing minor or major does not have a package, bump from the last
         # example is 8.10.0-beta.1 is last, but on 9.0.0 major
