@@ -2,7 +2,7 @@
 creation_date = "2020/08/14"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/10/23"
+updated_date = "2024/01/09"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -98,7 +98,7 @@ The Print Spooler service has some known vulnerabilities that attackers can abus
 
 """
 references = ["https://safebreach.com/Post/How-we-bypassed-CVE-2020-1048-Patch-and-got-CVE-2020-1337"]
-risk_score = 73
+risk_score = 47
 rule_id = "a7ccae7b-9d2c-44b2-a061-98e5946971fa"
 setup="""
 
@@ -108,7 +108,7 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 `event.ingested` to @timestamp.
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
-severity = "high"
+severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Use Case: Vulnerability", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -122,7 +122,8 @@ file where host.os.type == "windows" and event.type != "deletion" and
                       "PrintIsolationHost.exe",
                       "splwow64.exe",
                       "msiexec.exe",
-                      "poqexec.exe") and
+                      "poqexec.exe",
+                      "System") and
   not user.id : "S-1-5-18" and
   not process.executable :
             ("?:\\Windows\\System32\\mmc.exe",
@@ -135,7 +136,8 @@ file where host.os.type == "windows" and event.type != "deletion" and
              "?:\\Program Files\\*.exe",
              "?:\\Program Files (x86)\\*.exe",
              "?:\\PROGRA~1\\*.exe",
-             "?:\\PROGRA~2\\*.exe")
+             "?:\\PROGRA~2\\*.exe",
+             "?:\\Windows\\System32\\rundll32.exe")
 '''
 
 
