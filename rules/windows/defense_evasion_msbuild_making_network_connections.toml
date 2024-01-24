@@ -107,7 +107,8 @@ query = '''
 sequence by process.entity_id
   [process where host.os.type == "windows" and process.name : "MSBuild.exe" and event.type == "start"]
   [network where host.os.type == "windows" and process.name : "MSBuild.exe" and
-     not cidrmatch(destination.ip, "127.0.0.1", "::1", "localhost")]
+     not cidrmatch(destination.ip, "127.0.0.1", "::1") and
+     not dns.question.name : "localhost"]
 '''
 
 
