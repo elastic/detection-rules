@@ -227,7 +227,8 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
                 latest_patch_release_ver = latest_patch_release_ver.bump_patch()
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_prerelease("beta"))
 
-        if 'release' in pkg_data['registry_data']: pkg_data['registry_data']['release'] = maturity
+        if 'release' in pkg_data['registry_data']:
+            pkg_data['registry_data']['release'] = maturity
 
     click.echo(f"Kibana version: {pkg_data['name']}")
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
