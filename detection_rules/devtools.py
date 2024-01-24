@@ -221,13 +221,13 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
 
         if maturity == "ga":
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
-            pkg_data["registry_data"]["release"] = maturity
         else:
             # passing in true or false from GH actions; not using eval() for security purposes
             if new_package == "true":
                 latest_patch_release_ver = latest_patch_release_ver.bump_patch()
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_prerelease("beta"))
-            pkg_data["registry_data"]["release"] = maturity
+
+        if 'release' in pkg_data['registry_data']: pkg_data['registry_data']['release'] = maturity
 
     click.echo(f"Kibana version: {pkg_data['name']}")
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
