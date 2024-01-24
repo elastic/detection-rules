@@ -51,7 +51,7 @@ jobs:
           run: |
             cd detection-rules
             COMMIT_HASH=$(git log --grep="Lock versions for releases" -1 --format="%H")
-            echo "::set-output name=commit_hash::$COMMIT_HASH"
+            echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
           shell: bash
 
     fleet-pr:
@@ -97,7 +97,7 @@ jobs:
             COMMIT_HASH: ${{ needs.extract-commit-hash.outputs.commit_hash }}
           run: |
             cd detection-rules
-            git checkout $COMMIT_HASH
+            git checkout ${{ env.COMMIT_HASH }}
 
         - name: Bump prebuilt rules package version
           env:
