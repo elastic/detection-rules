@@ -194,7 +194,7 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     """Bump the versions"""
 
     pkg_data = load_etc_dump('packages.yml')['package']
-    kibana_ver = Version.parse(pkg_data['name'], optional_minor_and_patch=True)
+    kibana_ver = Version.parse(pkg_data["name"], optional_minor_and_patch=True)
     pkg_ver = Version.parse(pkg_data["registry_data"]["version"])
     pkg_kibana_ver = Version.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
     if major_release:
