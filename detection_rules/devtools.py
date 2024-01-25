@@ -86,7 +86,7 @@ def dev_group():
 @click.option('--update-version-lock', '-u', is_flag=True,
               help='Save version.lock.json file with updated rule versions in the package')
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
-@click.option('--add-historical', type=str, required=True, default="no",
+@click.option('--add-historical', type=str, required=True, default="yes",
               help='Generate historical package-registry files')
 @click.option('--update-message', type=str, help='Update message for new package')
 def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
