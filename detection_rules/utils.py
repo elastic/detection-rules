@@ -16,7 +16,6 @@ import json
 import os
 import shutil
 import subprocess
-import time
 import zipfile
 from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
@@ -215,12 +214,12 @@ def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f
 
         return t
 
-    def _event_sort(event):
-        """Calculates the sort key for an event."""
+    def _event_sort(event: dict) -> datetime:
+        """Calculates the sort key for an event as a datetime object."""
         t = round_microseconds(event[timestamp])
 
-        # Return the timestamp in seconds, adjusted for microseconds and then scaled to milliseconds
-        return (time.mktime(time.strptime(t, date_format)) + int(t.split('.')[-1][:-1]) / 1000) * 1000
+        # Return the timestamp as a datetime object for comparison
+        return datetime.strptime(t, date_format)
 
     return sorted(events, key=_event_sort, reverse=not asc)
 

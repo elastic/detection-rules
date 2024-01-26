@@ -50,17 +50,23 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Data Source: Elastic Defend"
+        ]
 type = "eql"
 query = '''
-sequence by host.id with maxspan=1s
-  [network where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
-   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and 
-   destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1"] by process.entity_id
-  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "fork") and 
-   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
-   process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and not 
-   process.args : "*imunify360-agent*"] by process.parent.entity_id
+sequence by host.id with maxspan=5s
+  [network where event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
+   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and destination.ip != null and 
+   not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")] by process.entity_id
+  [process where event.type == "start" and event.action in ("exec", "fork") and 
+   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
+     (process.args : ("-i", "-l")) or (process.parent.name == "socat" and process.parent.args : "*exec*")
+   )] by process.parent.entity_id
 '''
 
 [[rule.threat]]
