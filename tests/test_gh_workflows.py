@@ -22,6 +22,8 @@ class TestWorkflows(unittest.TestCase):
 
     def test_matrix_to_lock_version_defaults(self):
         """Test that the default versions in the lock-versions workflow mirror those from the schema-map."""
+        # TODO: when adding test exemption, this should be avoided for non Elastic by default since packages may
+        #   not align
         lock_workflow_file = GITHUB_WORKFLOWS / 'lock-versions.yml'
         lock_workflow = yaml.safe_load(lock_workflow_file.read_text())
         lock_versions = lock_workflow[True]['workflow_dispatch']['inputs']['branches']['default'].split(',')

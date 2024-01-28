@@ -924,9 +924,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     @cached_property
     def version_lock(self):
         # VersionLock
-        from .version_lock import default_version_lock
+        from .version_lock import loaded_version_lock
 
-        return getattr(self, '_version_lock', None) or default_version_lock
+        return getattr(self, '_version_lock', None) or loaded_version_lock
 
     def set_version_lock(self, value):
         from .version_lock import VersionLock
@@ -1233,9 +1233,9 @@ class DeprecatedRuleContents(BaseRuleContents):
     @cached_property
     def version_lock(self):
         # VersionLock
-        from .version_lock import default_version_lock
+        from .version_lock import loaded_version_lock
 
-        return getattr(self, '_version_lock', None) or default_version_lock
+        return getattr(self, '_version_lock', None) or loaded_version_lock
 
     def set_version_lock(self, value):
         from .version_lock import VersionLock

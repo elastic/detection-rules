@@ -8,13 +8,16 @@ import os
 import re
 import time
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
-
 from functools import wraps
-from typing import NoReturn, Optional
+from typing import Dict, NoReturn, Optional
 
 import click
 import requests
+import yaml
+from eql.utils import load_dump
+
 
 # this is primarily for type hinting - all use of the github client should come from GithubClient class
 try:
@@ -29,7 +32,7 @@ except ImportError:
     GitRelease = None  # noqa: N806
     GitReleaseAsset = None  # noqa: N806
 
-from .utils import add_params, cached, get_path, load_etc_dump
+from .utils import add_params, cached, get_path, load_etc_dump, get_etc_path
 
 _CONFIG = {}
 
@@ -47,6 +50,9 @@ JS_LICENSE = """
 {}
  */
 """.strip().format("\n".join(' * ' + line for line in LICENSE_LINES))
+
+
+CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
 
 
 class ClientError(click.ClickException):
@@ -267,7 +273,7 @@ def get_kibana_rules(*rule_paths, repo='elastic/kibana', branch='master', verbos
 @cached
 def load_current_package_version() -> str:
     """Load the current package version from config file."""
-    return load_etc_dump('packages.yml')['package']['name']
+    return parse_rules_config().packages['package']['name']
 
 
 def get_default_config() -> Optional[Path]:
@@ -275,7 +281,7 @@ def get_default_config() -> Optional[Path]:
 
 
 @cached
-def parse_config():
+def parse_user_config():
     """Parse a default config file."""
     import eql
 
@@ -290,10 +296,45 @@ def parse_config():
     return config
 
 
+@dataclass
+class RulesConfig:
+    """Detection rules config file."""
+    deprecated_rules_file: Path
+    deprecated_rules: Dict[str, dict]
+    packages_file: Path
+    packages: Dict[str, dict]
+    stack_schema_map_file: Path
+    stack_schema_map: Dict[str, dict]
+    version_lock_file: Path
+    version_lock: Dict[str, dict]
+
+
+@cached
+def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
+    """Parse the _config.yaml file for default or custom rules."""
+    if path:
+        assert path.exists(), f'rules config file does not exist: {path}'
+        loaded = yaml.safe_load(path.read_text())['files']
+    elif CUSTOM_RULES_DIR:
+        path = Path(CUSTOM_RULES_DIR) / '_config.yaml'
+        assert path.exists(), f'_config.yaml file missing in {CUSTOM_RULES_DIR}'
+        loaded = yaml.safe_load(path.read_text())['files']
+    else:
+        path = Path(get_etc_path('_config.yaml'))
+        loaded = load_etc_dump('_config.yaml')['files']
+
+    base_dir = path.resolve().parent
+    files = {f'{k}_file': base_dir.joinpath(v) for k, v in loaded.items()}
+    contents = {k: load_dump(str(base_dir.joinpath(v))) for k, v in loaded.items()}
+    contents.update(**files)
+    rules_config = RulesConfig(**contents)
+    return rules_config
+
+
 def getdefault(name):
     """Callback function for `default` to get an environment variable."""
     envvar = f"DR_{name.upper()}"
-    config = parse_config()
+    config = parse_user_config()
     return lambda: os.environ.get(envvar, config.get(name))
 
 
