@@ -9,9 +9,9 @@ updated_date = "2024/01/29"
 [rule]
 author = ["Elastic"]
 description = """
-Monitors for /proc/*/maps file reads through the cat utility. The /proc/*/maps file in Linux provides a memory map for a
-specific process, detailing the memory segments, permissions, and what files are mapped to these segments. Attackers may
-read a process's memory map to identify memory addresses for code injection or process hijacking.
+Monitors for /proc/*/maps file reads. The /proc/*/maps file in Linux provides a memory map for a specific process,
+detailing the memory segments, permissions, and what files are mapped to these segments. Attackers may read a process's
+memory map to identify memory addresses for code injection or process hijacking.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -58,7 +58,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
-process.name == "cat" and process.args : "/proc/*/maps" and process.entry_leader.name in (
+process.name in ("cat", "grep") and process.args : "/proc/*/maps" and process.entry_leader.name in (
   "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
 )
 '''
