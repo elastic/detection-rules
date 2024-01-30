@@ -1127,8 +1127,8 @@ def package_updates(ctx, versions, summary, details):
         show_frequencies(first_pkg_deduped, second_pkg_deduped, details)
         ctx.exit(1)
 
-    print(tabulate(table, headers=['Rule ID', 'Rule Name', 'Type', 'MITRE Tactic', 'Data Source', 'Version'], tablefmt='grid',
-                   maxcolwidths=[None, 50]))
+    print(tabulate(table, headers=['Rule ID', 'Rule Name', 'Type', 'MITRE Tactic', 'Data Source', 'Version'],
+                   tablefmt='grid', maxcolwidths=[None, 50]))
     ctx.exit(1)
 
 
