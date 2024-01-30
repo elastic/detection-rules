@@ -33,7 +33,9 @@ from .rule_loader import RuleCollection
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
 from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents
 
+
 RULES_DIR = get_path('rules')
+ROOT_DIR = Path(RULES_DIR).parent
 RULES_CONFIG = parse_rules_config()
 
 
@@ -415,8 +417,16 @@ def test_rules(ctx):
     """Run unit tests over all of the rules."""
     import pytest
 
+    rules_config = ctx.obj['rules_config']
+    test_config = rules_config.test_config
+    tests, skipped = test_config.get_test_names(formatted=True)
+
+    if skipped:
+        click.echo(f'Tests skipped per config ({len(skipped)}):')
+        click.echo('\n'.join(skipped))
+
     clear_caches()
-    ctx.exit(pytest.main(["-v"]))
+    ctx.exit(pytest.main(['-v'] + tests))
 
 
 @root.group('typosquat')
