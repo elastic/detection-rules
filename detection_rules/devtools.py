@@ -1127,7 +1127,7 @@ def package_updates(ctx, versions, summary, details):
         show_frequencies(first_pkg_deduped, second_pkg_deduped, details)
         ctx.exit(1)
 
-    print(tabulate(table, headers=['Rule ID', 'Rule Name', 'MITRE Tactic', 'Data Source'], tablefmt='grid',
+    print(tabulate(table, headers=['Rule ID', 'Rule Name', 'Type', 'MITRE Tactic', 'Data Source', 'Version'], tablefmt='grid',
                    maxcolwidths=[None, 50]))
     ctx.exit(1)
 
@@ -1170,8 +1170,9 @@ def format_details(rules: dict) -> list:
     rows = []
     for rule_id, contents in rules.items():
         data_source = extract_data_source(contents.get('tags', []))
-        row = [rule_id, contents['name'],
-               contents.get('threat', [{}])[0].get('tactic', {}).get('name', 'Unknown'), data_source]
+        row = [rule_id, contents['name'], contents['type'],
+               contents.get('threat', [{}])[0].get('tactic', {}).get('name', 'Unknown'),
+               data_source, contents['version']]
         rows.append(row)
     return rows
 
