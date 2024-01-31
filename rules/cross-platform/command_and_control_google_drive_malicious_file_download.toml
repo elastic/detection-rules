@@ -1,86 +1,47 @@
 [metadata]
 creation_date = "2023/06/19"
-integration = ["endpoint"]
+integration = ["endpoint", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/16"
+updated_date = "2024/01/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies potential malicious file download and execution from Google Drive. The rule checks for download activity from
-Google Drive URL, followed by the creation of files commonly leveraged by or for malware. This could indicate an attempt
-to run malicious scripts, executables or payloads.
+Identifies suspicious file download activity from a Google Drive URL. This could indicate an attempt 
+to deliver phishing payloads via a trusted webservice.
 """
 false_positives = [
     "Approved third-party applications that use Google Drive download URLs.",
     "Legitimate publicly shared files from Google Drive.",
 ]
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint*"]
+index = ["auditbeat-*", "logs-endpoint*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Malicious File Downloaded from Google Drive"
+name = "Suspicious File Downloaded from Google Drive"
 references = ["https://intelligence.abnormalsecurity.com/blog/google-drive-matanbuchus-malware"]
-risk_score = 73
+risk_score = 47
 rule_id = "a8afdce2-0ec1-11ee-b843-f661ea17fbcd"
-severity = "high"
+severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "OS: Windows", "OS: macOS", "Use Case: Threat Detection", "Tactic: Command and Control"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id, process.entity_id with maxspan=30s
-[any where
+process where
 
-    /* Look for processes started or libraries loaded from untrusted or unsigned Windows, Linux or macOS binaries */
-    (event.action in ("exec", "fork", "start", "load")) or
+    /* common browser processes  */
+    event.action in ("exec", "fork", "start") and 
+
+    process.name : ("Microsoft Edge", "chrome.exe", "Google Chrome", "google-chrome-stable", 
+                    "google-chrome-beta", "google-chrome", "msedge.exe", "firefox.exe", "brave.exe", 
+                    "whale.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "opera.exe", "firefox", 
+                    "powershell.exe", "curl", "curl.exe", "wget", "wget.exe") and 
 
     /* Look for Google Drive download URL with AV flag skipping */
-    (process.args : "*drive.google.com*" and process.args : "*export=download*" and process.args : "*confirm=no_antivirus*")
-
-    /* ignore trusted processes */
-    and not (
-        process.code_signature.trusted == true and
-        process.code_signature.subject_name:
-            ("Mozilla Corporation",
-            "Google LLC",
-            "Google Inc",
-            "Bitdefender SRL",
-            "Microsoft Corporation",
-            "Netskope, Inc.",
-            "Avast Software s.r.o.",
-            "Microsoft Windows",
-            "AVG Technologies USA, LLC",
-            "Symantec Corporation",
-            "Trend Micro, Inc.",
-            "Palo Alto Networks (Netherlands) B.V.",
-            "Docker Inc"))
-
-    /* ignore common benign processes */
-    and not process.executable:
-        ("/bin/terraform",
-        "*/bin/dockerd",
-        "/usr/local/bin/docker-init",
-        "*/bin/go",
-        "?:\\Program Files*\\Mozilla Firefox\firefox.exe",
-        "?:\\Program Files*\\Google\\Chrome\\Application\\chrome.exe")
-
-    /* ignore shellscripts + go install from legitimate repository*/
-    and not (process.executable == "/bin/sh" and process.args : "go install google.golang.org*")]
-
-[network where
-    /* Look for DNS requests for Google Drive */
-    (dns.question.name : "drive.google.com" and dns.question.type : "A") or
-
-    /* Look for connection attempts to address that resolves to Google */
-    (destination.as.organization.name : "GOOGLE" and event.action == "connection_attempted")]
-
-/* Identify the creation of files following Google Drive connection with extensions commonly used for executables or libraries */
-[file where event.action == "creation" and
-    file.extension :
-        ("exe", "dll", "scr", "jar", "pif", "app", "dmg",
-        "pkg", "elf", "so", "bin", "deb", "rpm","sh","hta","lnk")]
+    (process.command_line : "*drive.google.com*" and process.command_line : "*export=download*" and process.command_line : "*confirm=no_antivirus*")
 '''
 
 
