@@ -39,6 +39,7 @@ UNQUOTED_CHAR: "\\" /[trn]/              // escaped whitespace
              | "\\" /[\\():<>"*{}]/      // escaped specials
              | "\\" (AND | OR | NOT)     // escaped keywords
              | "*"                       // wildcard
+             | /\*.+?\*/                 // string between wildcards
              | /[^\\():<>"*{} \t\r\n]/   // anything else
 
 QUOTED_STRING: /"(\\[tnr"\\]|[^\r\n"])*"/
