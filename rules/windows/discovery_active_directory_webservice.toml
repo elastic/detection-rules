@@ -38,7 +38,7 @@ sequence by process.entity_id with maxspan=3m
                  "?:\\program files\\microsoft monitoring agent\\*.exe", 
                  "?:\\windows\\adws\\microsoft.activedirectory.webservices.exe")]
  [network where host.os.type == "windows" and destination.port == 9389 and source.port >= 49152 and
-  network.direction == "egress" and network.transport == "tcp" and not destination.address : ("127.*", "::1")]
+  network.direction == "egress" and network.transport == "tcp" and not cidrmatch(destination.ip, "127.0.0.0/8", "::1/128")]
 '''
 
 [[rule.threat]]
