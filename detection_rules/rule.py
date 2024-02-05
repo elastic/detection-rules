@@ -16,7 +16,6 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import eql
-from datetime import datetime
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
@@ -994,10 +993,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def _convert_add_elastic_last_update_date(self, obj: dict) -> None:
         """Add restricted field elastic_last_update to the obj."""
         if self.check_explicit_restricted_field_version('elastic_last_update'):
-            updated_date = datetime.strptime(self.metadata.updated_date, '%Y/%m/%d').replace(tzinfo=timezone.utc)
-            updated_date_iso = updated_date.isoformat()
-            if not updated_date_iso.endswith('Z'):
-                updated_date_iso += 'Z'
+            updated_date = f"{self.metadata.updated_date}T00:00:00.000Z"
             obj.setdefault("elastic_last_update", updated_date_iso)
 
     def _convert_add_related_integrations(self, obj: dict) -> None:

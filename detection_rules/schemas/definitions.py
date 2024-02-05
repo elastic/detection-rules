@@ -15,7 +15,7 @@ ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
 DATE_PATTERN = r'^\d{4}/\d{2}/\d{2}$'
-ELASTIC_LAST_UPDATE_PATTERN = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$'
+ELASTIC_LAST_UPDATE_PATTERN = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$'
 MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
 OS_OPTIONS = ['windows', 'linux', 'macos']
 NAME_PATTERN = r'^[a-zA-Z0-9].+?[a-zA-Z0-9()]$'
