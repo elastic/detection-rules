@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/09"
 
 [rule]
 author = ["Elastic"]
@@ -35,25 +35,31 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-     process.parent.name : "svchost.exe" and
+  process.parent.name : "svchost.exe" and
 
-     /* based on svchost service arguments -s svcname where the service is known to be childless */
+  /* based on svchost service arguments -s svcname where the service is known to be childless */
+  process.parent.args : (
+    "WdiSystemHost", "LicenseManager", "StorSvc", "CDPSvc", "cdbhsvc", "BthAvctpSvc", "SstpSvc", "WdiServiceHost",
+    "imgsvc", "TrkWks", "WpnService", "IKEEXT", "PolicyAgent", "CryptSvc", "netprofm", "ProfSvc", "StateRepository",
+    "camsvc", "LanmanWorkstation", "NlaSvc", "EventLog", "hidserv", "DisplayEnhancementService", "ShellHWDetection",
+    "AppHostSvc", "fhsvc", "CscService", "PushToInstall"
+  ) and
 
-    process.parent.args : ("WdiSystemHost","LicenseManager",
-      "StorSvc","CDPSvc","cdbhsvc","BthAvctpSvc","SstpSvc","WdiServiceHost",
-      "imgsvc","TrkWks","WpnService","IKEEXT","PolicyAgent","CryptSvc",
-      "netprofm","ProfSvc","StateRepository","camsvc","LanmanWorkstation",
-      "NlaSvc","EventLog","hidserv","DisplayEnhancementService","ShellHWDetection",
-      "AppHostSvc","fhsvc","CscService","PushToInstall") and
-
-      /* unknown FPs can be added here */
-
-     not process.name : ("WerFault.exe","WerFaultSecure.exe","wermgr.exe") and
-     not (process.executable : "?:\\Windows\\System32\\RelPost.exe" and process.parent.args : "WdiSystemHost") and
-     not (process.name : "rundll32.exe" and
-          process.args : "?:\\WINDOWS\\System32\\winethc.dll,ForceProxyDetectionOnNextRun" and process.parent.args : "WdiServiceHost") and
-     not (process.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\Windows\\System32\\Kodak\\kds_i4x50\\lib\\lexexe.exe") and
-          process.parent.args : "imgsvc")
+  /* unknown FPs can be added here */
+  not process.name : ("WerFault.exe", "WerFaultSecure.exe", "wermgr.exe") and
+  not (process.executable : "?:\\Windows\\System32\\RelPost.exe" and process.parent.args : "WdiSystemHost") and
+  not (
+    process.name : "rundll32.exe" and
+    process.args : "?:\\WINDOWS\\System32\\winethc.dll,ForceProxyDetectionOnNextRun" and
+    process.parent.args : "WdiServiceHost"
+  ) and
+  not (
+    process.executable : (
+      "?:\\Program Files\\*",
+      "?:\\Program Files (x86)\\*",
+      "?:\\Windows\\System32\\Kodak\\kds_?????\\lib\\lexexe.exe"
+    ) and process.parent.args : "imgsvc"
+  )
 '''
 
 

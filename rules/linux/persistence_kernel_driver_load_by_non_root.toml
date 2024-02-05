@@ -1,0 +1,96 @@
+[metadata]
+creation_date = "2024/01/10"
+integration = ["auditd_manager"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/01/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the loading of a Linux kernel module by a non-root user through system calls. Threat actors may leverage Linux
+kernel modules to load a rootkit on a system providing them with complete control and the ability to hide from security
+products. As other rules monitor for the addition of Linux kernel modules through system utilities or .ko files, this
+rule covers the gap that evasive rootkits leverage by monitoring for kernel module additions on the lowest level through
+auditd_manager. 
+"""
+from = "now-9m"
+index = ["logs-auditd_manager.auditd-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Kernel Driver Load by non-root User"
+risk_score = 47
+rule_id = "ba81c182-4287-489d-af4d-8ae834b06040"
+setup = """
+
+This rule requires data coming in from Auditd Manager.
+
+### Auditd Manager Integration Setup
+The Auditd Manager Integration receives audit events from the Linux Audit Framework which is a part of the Linux kernel.
+Auditd Manager provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "auditd_manager" on a Linux System:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “Auditd Manager” and select the integration to see more details about it.
+- Click “Add Auditd Manager”.
+- Configure the integration name and optionally add a description.
+- Review optional and advanced settings accordingly.
+- Add the newly installed “auditd manager” to an existing or a new agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
+
+#### Rule Specific Setup Note
+Auditd Manager subscribes to the kernel and receives events as they occur without any additional configuration.
+However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+- For this detection rule the following additional audit rules are required to be added to the integration:
+  -- "-a always,exit -F arch=b64 -S finit_module -S init_module -S delete_module -F auid!=-1 -k modules"
+  -- "-a always,exit -F arch=b32 -S finit_module -S init_module -S delete_module -F auid!=-1 -k modules"
+
+"""
+severity = "medium"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Tactic: Defense Evasion"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+driver where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and 
+event.action == "loaded-kernel-module" and auditd.data.syscall in ("init_module", "finit_module") and user.id != "0"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat.technique]]
+name = "Rootkit"
+id = "T1014"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
