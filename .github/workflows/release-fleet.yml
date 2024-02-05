@@ -34,26 +34,8 @@ on:
           - "false"
 
 jobs:
-    extract-commit-hash:
-      name: Extract version lock commit hash
-      runs-on: ubuntu-latest
-      outputs:
-        commit_hash: ${{ steps.extract_commit_hash.outputs.commit_hash }}
-      steps:
-        - name: Checkout detection-rules
-          uses: actions/checkout@v3
-          with:
-            path: detection-rules
-            fetch-depth: 0
-        - id: extract_commit_hash
-          name: Extract commit hash
-          run: |
-            cd detection-rules
-            echo "commit_hash=$(git log --grep='Lock versions for releases' -1 --format='%H')" >> $GITHUB_OUTPUT
-
     fleet-pr:
       name: Build package and create PR to integrations
-      needs: extract-commit-hash
       runs-on: ubuntu-latest
       steps:
         - name: Validate the source branch
@@ -69,11 +51,19 @@ jobs:
             path: detection-rules
             fetch-depth: 0
 
+        - name: Extract version lock commit hash
+          id: extract_commit_hash
+          run: |
+            cd detection-rules
+            COMMIT_HASH=$(git log --grep='Lock versions for releases' -1 --format='%H')
+            echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
+            echo "Extracted commit hash: $COMMIT_HASH"
+
         - name: Checkout commit hash
           run: |
             cd detection-rules
-            echo "Checking out commit hash ${{ needs.extract-commit-hash.outputs.commit_hash }}"
-            git checkout ${{ needs.extract-commit-hash.outputs.commit_hash }}
+            echo "Checking out commit hash $COMMIT_HASH"
+            git checkout $COMMIT_HASH
 
         - name: Checkout elastic/integrations
           uses: actions/checkout@v3
