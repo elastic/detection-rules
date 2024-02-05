@@ -241,7 +241,6 @@ def convert_time_span(span: str) -> int:
     return eql.ast.TimeRange(amount, unit).as_milliseconds()
 
 
-
 def evaluate(rule, events):
     """Evaluate a query against events."""
     evaluator = kql.get_evaluator(kql.parse(rule.query))
