@@ -41,6 +41,7 @@ _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
 BUILD_FIELD_VERSIONS = {
+    "elastic_last_update": (Version.parse('8.12.0'), None),
     "related_integrations": (Version.parse('8.3.0'), None),
     "required_fields": (Version.parse('8.3.0'), None),
     "setup": (Version.parse('8.3.0'), None)
@@ -248,6 +249,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     author: List[str]
     building_block_type: Optional[definitions.BuildingBlockType]
     description: str
+    elastic_last_update: Optional[definitions.ELASTIC_LAST_UPDATE_PATTERN] = field(metadata=dict(metadata=dict(min_compat="8.12")))
     enabled: Optional[bool]
     exceptions_list: Optional[list]
     license: Optional[str]
@@ -974,6 +976,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         super()._post_dict_conversion(obj)
 
         # build time fields
+        self._convert_add_elastic_last_update_date(obj)
         self._convert_add_related_integrations(obj)
         self._convert_add_required_fields(obj)
         self._convert_add_setup(obj)
@@ -987,6 +990,15 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         self.data.transform(obj) if hasattr(self.data, 'transform') else False
 
         return obj
+
+    def _convert_add_elastic_last_update_date(self, obj: dict) -> None:
+        """Add restricted field elastic_last_update to the obj."""
+        if self.check_explicit_restricted_field_version('elastic_last_update'):
+            updated_date = datetime.strptime(self.metadata.updated_date, '%Y/%m/%d').replace(tzinfo=timezone.utc)
+            updated_date_iso = updated_date.isoformat()
+            if not updated_date_iso.endswith('Z'):
+                updated_date_iso += 'Z'
+            obj.setdefault("elastic_last_update", updated_date_iso)
 
     def _convert_add_related_integrations(self, obj: dict) -> None:
         """Add restricted field related_integrations to the obj."""
@@ -1210,7 +1222,6 @@ class TOMLRule:
     def get_asset(self) -> dict:
         """Generate the relevant fleet compatible asset."""
         attributes = self.contents.to_api_format()
-        attributes.setdefault("elastic_update_date", convert_date_to_iso8601(self.contents.metadata.updated_date))
         return {"id": self.id, "attributes": attributes, "type": definitions.SAVED_OBJECT_TYPE}
 
     def save_toml(self):

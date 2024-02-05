@@ -241,10 +241,6 @@ def convert_time_span(span: str) -> int:
     return eql.ast.TimeRange(amount, unit).as_milliseconds()
 
 
-def convert_date_to_iso8601(date: str) -> str:
-    """Convert date to ISO8601 format."""
-    return datetime.strptime(date, '%Y/%m/%d').isoformat()
-
 
 def evaluate(rule, events):
     """Evaluate a query against events."""
