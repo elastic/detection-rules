@@ -35,7 +35,6 @@ on:
 
 jobs:
     extract-commit-hash:
-      name: Extract Commit Hash
       runs-on: ubuntu-latest
       outputs:
         commit_hash: ${{ steps.extract_commit_hash.outputs.commit_hash }}
@@ -45,14 +44,11 @@ jobs:
           with:
             path: detection-rules
             fetch-depth: 0
-
-        - name: Extract commit hash
-          id: extract_commit_hash
+        - id: extract_commit_hash
+          name: Extract commit hash
           run: |
             cd detection-rules
-            COMMIT_HASH=$(git log --grep="Lock versions for releases" -1 --format="%H")
-            echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
-          shell: bash
+            echo "commit_hash=$(git log --grep='Lock versions for releases' -1 --format='%H')" >> $GITHUB_OUTPUT
 
     fleet-pr:
       name: Fleet PR
@@ -66,12 +62,17 @@ jobs:
               if ('refs/heads/main' === '${{github.ref}}') {
                 core.setFailed('Forbidden branch')
               }
-
         - name: Checkout detection-rules
           uses: actions/checkout@v3
           with:
             path: detection-rules
             fetch-depth: 0
+
+        - name: Checkout commit hash
+          run: |
+            cd detection-rules
+            echo "Checking out commit hash ${{ needs.extract-commit-hash.outputs.commit_hash }}"
+            git checkout ${{ needs.extract-commit-hash.outputs.commit_hash }}
 
         - name: Checkout elastic/integrations
           uses: actions/checkout@v3
@@ -92,13 +93,6 @@ jobs:
             pip cache purge
             pip install .[dev]
 
-        - name: Checkout commit hash
-          env:
-            COMMIT_HASH: ${{ needs.extract-commit-hash.outputs.commit_hash }}
-          run: |
-            cd detection-rules
-            git checkout ${{ env.COMMIT_HASH }}
-
         - name: Bump prebuilt rules package version
           env:
             PACKAGE_MATURITY: "${{github.event.inputs.package_maturity}}"
@@ -111,19 +105,18 @@ jobs:
               --maturity $PACKAGE_MATURITY
 
         - name: Store release tag
-          if: ${{github.event.inputs.package_maturity}} == "ga"
-          id: packages-version
+          if: github.event.inputs.package_maturity == 'ga'
           run: |
             cd detection-rules
             output=$(cat detection_rules/etc/packages.yml | grep -oP '(?<=\sversion: )\S+')
-            echo "::set-output name=pkg_version::$output"
+            echo "pkg_version=$output" >> $GITHUB_ENV
 
         - name: Create release tag
-          if: ${{github.event.inputs.package_maturity}} == "ga"
-          env:
-            RELEASE_TAG: "integration-v${{ steps.packages-version.outputs.pkg_version }}"
+          if: github.event.inputs.package_maturity == 'ga'
           run: |
             cd detection-rules
+            RELEASE_TAG="integration-v${{ env.pkg_version }}"
+            echo "Creating release tag: $RELEASE_TAG"
             git tag $RELEASE_TAG
             git push origin $RELEASE_TAG
 

@@ -118,12 +118,12 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
         historical_rules = sde.load_integration_assets(previous_pkg_version)
         historical_rules = sde.transform_legacy_assets(historical_rules)
 
-        docs = IntegrationSecurityDocsMDX(config['registry_data']['version'], Path(f'releases/{config["name"]}-docs'),
+        docs = IntegrationSecurityDocsMDX(registry_data['version'], Path(f'releases/{config["name"]}-docs'),
                                           True, historical_rules, package, note=update_message)
         docs.generate()
 
         click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
-        package.add_historical_rules(historical_rules, config['registry_data']['version'])
+        package.add_historical_rules(historical_rules, registry_data['version'])
 
     if verbose:
         package.get_package_hash(verbose=verbose)
