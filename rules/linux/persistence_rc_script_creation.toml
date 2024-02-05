@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/11/02"
+updated_date = "2024/01/05"
 
 [transform]
 [[transform.osquery]]
@@ -29,9 +29,9 @@ description = """
 This rule monitors the creation/alteration of the rc.local file by a previously unknown process executable
 through the use of the new terms rule type. The /etc/rc.local file is used to start custom applications,
 services, scripts or commands during start-up. The rc.local file has mostly been replaced by Systemd.
-However, through the "systemd-rc-local-generator", rc.local files can be converted to services that run at 
-boot. Adversaries may alter rc.local to execute malicious code at start-up, and gain persistence onto the 
-system. 
+However, through the "systemd-rc-local-generator", rc.local files can be converted to services that run at
+boot. Adversaries may alter rc.local to execute malicious code at start-up, and gain persistence onto the
+system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -42,11 +42,11 @@ note = """## Triage and analysis
 
 ### Investigating Potential Persistence Through Run Control Detected
 
-The `rc.local` file executes custom commands or scripts during system startup on Linux systems. `rc.local` has been deprecated in favor of the use of `systemd services`, and more recent Unix distributions no longer leverage this method of on-boot script execution. 
+The `rc.local` file executes custom commands or scripts during system startup on Linux systems. `rc.local` has been deprecated in favor of the use of `systemd services`, and more recent Unix distributions no longer leverage this method of on-boot script execution.
 
-There might still be users that use `rc.local` in a benign matter, so investigation to see whether the file is malicious is vital. 
+There might still be users that use `rc.local` in a benign matter, so investigation to see whether the file is malicious is vital.
 
-Detection alerts from this rule indicate the creation of a new `/etc/rc.local` file. 
+Detection alerts from this rule indicate the creation of a new `/etc/rc.local` file.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -66,7 +66,7 @@ Detection alerts from this rule indicate the creation of a new `/etc/rc.local` f
     - If logs are found, it's likely that the contents of the `rc.local` file have been executed. Analyze the logs. In case several syslog log files are available, use a wildcard to search through all of the available logs.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Validate whether this activity is related to planned patches, updates, network administrator activity, or legitimate software installations.
-- Investigate whether the altered scripts call other malicious scripts elsewhere on the file system. 
+- Investigate whether the altered scripts call other malicious scripts elsewhere on the file system.
   - If scripts or executables were dropped, retrieve the files and determine if they are malicious:
     - Use a private sandboxed malware analysis system to perform analysis.
       - Observe and collect information about the following activities:
@@ -80,7 +80,7 @@ Detection alerts from this rule indicate the creation of a new `/etc/rc.local` f
 ### False Positive Analysis
 
 - If this activity is related to new benign software installation activity, consider adding exceptions — preferably with a combination of user and command line conditions.
-- If this activity is related to a system administrator who uses `rc.local` for administrative purposes, consider adding exceptions for this specific administrator user account. 
+- If this activity is related to a system administrator who uses `rc.local` for administrative purposes, consider adding exceptions for this specific administrator user account.
 - Try to understand the context of the execution by thinking about the user, machine, or business purpose. A small number of endpoints, such as servers with unique software, might appear unusual but satisfy a specific business need.
 
 ### Response and remediation
@@ -143,8 +143,9 @@ tags = [
         "Data Source: Elastic Defend"
         ]
 type = "new_terms"
+timestamp_override = "event.ingested"
 query = '''
-host.os.type : "linux" and event.category : "file" and 
+host.os.type : "linux" and event.category : "file" and
 event.type : ("change" or "file_modify_event" or "creation" or "file_create_event") and
 file.path : "/etc/rc.local" and not process.name : (
   "dockerd" or "docker" or "dnf" or "dnf-automatic" or "yum" or "rpm" or "dpkg"
