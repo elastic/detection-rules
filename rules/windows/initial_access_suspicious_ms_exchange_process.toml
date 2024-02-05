@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2021/03/04"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/16"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -19,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Exchange Server UM Spawning Suspicious Processes"
@@ -49,8 +49,12 @@ process where host.os.type == "windows" and event.type == "start" and
               ("?:\\Windows\\System32\\werfault.exe",
                "?:\\Windows\\System32\\wermgr.exe",
                "?:\\Program Files\\Microsoft\\Exchange Server\\V??\\Bin\\UMWorkerProcess.exe",
+               "?:\\Program Files\\Microsoft\\Exchange Server\\Bin\\UMWorkerProcess.exe",
                "D:\\Exchange 2016\\Bin\\UMWorkerProcess.exe",
-               "E:\\ExchangeServer\\Bin\\UMWorkerProcess.exe")
+               "E:\\ExchangeServer\\Bin\\UMWorkerProcess.exe",
+               "D:\\Exchange\\Bin\\UMWorkerProcess.exe",
+               "D:\\Exchange Server\\Bin\\UMWorkerProcess.exe",
+               "E:\\Exchange Server\\V15\\Bin\\UMWorkerProcess.exe")
 '''
 
 
