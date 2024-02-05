@@ -40,6 +40,9 @@ class ParserTests(unittest.TestCase):
         self.validate('a.text:"1"', FieldComparison(Field("a.text"), String("1")), schema=schema)
         self.validate('a.keyword:"1"', FieldComparison(Field("a.keyword"), String("1")), schema=schema)
 
+        self.validate('a.text:*hello world*', FieldComparison(Field("a.text"), String("1")), schema=schema)
+        self.validate('a.keyword:*hello world*', FieldComparison(Field("a.keyword"), String("1")), schema=schema)
+
     def test_conversion(self):
         schema = {"num": "long", "text": "text"}
 
