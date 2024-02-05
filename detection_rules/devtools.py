@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Tuple
 from itertools import groupby
 
 import click
+from dataclasses import fields
 import pytoml
 import requests.exceptions
 from semver import Version
@@ -53,7 +54,8 @@ from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package, current_stack_version)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
-                   RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
+                   RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents,
+                   EQLRuleData)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import (dict_hash, get_etc_path, get_path, load_dump,
@@ -1059,29 +1061,40 @@ def endpoint_by_attack(ctx: click.Context, pre: str, post: str, force: bool, rem
 
 @diff_group.command('rule-history')
 @click.option('--rule-id', type=str, required=True, help='rule id to diff')
-@click.option('--attribute', type=str, required=True, help='rule attribute to diff')
-@click.option('--max', type=str, required=True, help='previous rules package version')
-@click.option('--table-format', type=str, default='github', help='table format for tabulate')
+@click.option('--attributes', '-a', type=str,
+              default="name,type,query,language,from_,interval,tactic,severity_mapping,version",
+              help='Comma-separated rule attributes to pull history on (default: specific fields)')
+@click.option('--stack-version', type=str, required=True, help='max stack version to pull historical rules from; \
+              historically we track from the inception')
 @click.pass_context
-def rule_history(ctx: click.Context, rule_id: str, attribute: str, max: str, table_format: str):
+def rule_history(ctx: click.Context, rule_id: str, attributes: str, stack_version: str):
     """Rule diffs across released prebuilt rules packages."""
 
+    assert Version.parse(stack_version), 'Invalid semantic version'
+    attributes_list = [attr.strip() for attr in attributes.split(',')]
+    assert all(attr in get_rule_fields() for attr in attributes_list), \
+        'Invalid attribute, must be one of: {}'.format(', '.join(get_rule_fields()))
     click.echo("analyzing rule history for rule: {}".format(rule_id))
+
+    attributes = attributes.split(',')
     sde = SecurityDetectionEngine()
-    ga_packages = get_integration_manifests(integration="security_detection_engine", kibana_version=max)
+    ga_packages = get_integration_manifests(integration="security_detection_engine", kibana_version=stack_version)
     history = {}
-    for gp in ga_packages:
-        history[gp['version']] = {k.split("_")[0]: v for k, v in sde.load_integration_assets(gp['version']).items()}
+    for pkg in ga_packages:
+        history[pkg['version']] = {k.split("_")[0]: v for k, v in sde.load_integration_assets(pkg['version']).items()}
     for ver in history.keys():
-        if rule_id not in history[ver]:
-            history.pop(ver)
-    click.echo("rule found in {} packages".format(len(history.keys())))
-    click.echo("package versions: {}".format(history.keys()))
+        history[ver] = {k: v for k, v in history[ver].items() if k in attributes}
 
-    for ver in history.keys():
-        click.echo(f"attribute {attribute} for rule {rule_id} \
-                   in version {ver} is {history[ver][rule_id]['attributes'][attribute]}")
+    click.echo(f'rule found in {len(history.keys())} packages from inception to {stack_version}')
+    ...
 
+def get_rule_fields() -> list[str]:
+    """Get EQL and KQL rule fields."""
+    rule_fields = ['version','tactic']
+    rule_fields.extend([field.name for field in fields(BaseRuleData)])
+    rule_fields.extend([field.name for field in fields(QueryRuleData)])
+    rule_fields.extend([field.name for field in fields(EQLRuleData)])
+    return list(set(rule_fields))
 
 @diff_group.command('package-updates')
 @click.pass_context
