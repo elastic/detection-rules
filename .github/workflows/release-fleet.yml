@@ -35,6 +35,7 @@ on:
 
 jobs:
     extract-commit-hash:
+      name: Extract version lock commit hash
       runs-on: ubuntu-latest
       outputs:
         commit_hash: ${{ steps.extract_commit_hash.outputs.commit_hash }}
@@ -51,7 +52,7 @@ jobs:
             echo "commit_hash=$(git log --grep='Lock versions for releases' -1 --format='%H')" >> $GITHUB_OUTPUT
 
     fleet-pr:
-      name: Fleet PR
+      name: Build package and create PR to integrations
       needs: extract-commit-hash
       runs-on: ubuntu-latest
       steps:
