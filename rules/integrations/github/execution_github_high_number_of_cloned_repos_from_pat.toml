@@ -1,0 +1,56 @@
+[metadata]
+creation_date = "2023/10/11"
+integration = ["github"]
+maturity = "production"
+min_stack_comments = "New fields added to GitHub Integration"
+min_stack_version = "8.8.0"
+updated_date = "2023/12/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a high number of unique private repo clone events originating from a single personal access token within a short time period.
+"""
+from = "now-6m"
+index = ["logs-github.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "High Number of Cloned GitHub Repos From PAT"
+risk_score = 21
+rule_id = "fb0afac5-bbd6-49b0-b4f8-44e5381e1587"
+severity = "low"
+tags = ["Domain: Cloud",
+        "Use Case: Threat Detection",
+        "Use Case: UEBA",        
+        "Tactic: Execution",
+        "Data Source: Github"
+        ]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+event.dataset:"github.audit" and event.category:"configuration" and event.action:"git.clone" and 
+github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token") and 
+github.repository_public:false
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.threshold]
+field = ["github.hashed_token"]
+value = 1
+
+[[rule.threshold.cardinality]]
+field = "github.repo"
+value = 10
