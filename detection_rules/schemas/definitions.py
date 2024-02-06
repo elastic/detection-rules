@@ -33,7 +33,7 @@ ELASTICSEARCH_EQL_FEATURES = {
     "allow_sample": (Version.parse('8.6.0'), None),
     "elasticsearch_validate_optional_fields": (Version.parse('7.16.0'), None)
 }
-NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows', 'cloud_defend', 'network_traffic']
+NON_DATASET_PACKAGES = ['apm', 'auditd_manager', 'cloud_defend', 'endpoint', 'network_traffic', 'system', 'windows']
 NON_PUBLIC_FIELDS = {
     "related_integrations": (Version.parse('8.3.0'), None),
     "required_fields": (Version.parse('8.3.0'), None),
@@ -66,6 +66,7 @@ TIMELINE_TEMPLATES: Final[dict] = {
 }
 
 EXPECTED_RULE_TAGS = [
+    'Data Source: Auditd Manager',
     'Data Source: Active Directory',
     'Data Source: Amazon Web Services',
     'Data Source: AWS',
