@@ -14,7 +14,7 @@ as kthreadd and kworker typically do not have process.executable fields associat
 hide their malicious programs by masquerading as legitimate kernel processes.  
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Executable Masquerading as Kernel Process"
@@ -55,12 +55,13 @@ tags = [
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
+process where host.os.type == "linux" and event.action in ("exec", "exec_event") and event.type == "start" and
 process.name : ("kworker*", "kthread*") and process.executable != null
 '''
 
