@@ -110,7 +110,7 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     package.save(verbose=verbose)
 
     previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga",
-                                                            registry_data['conditions']['kibana.version'].strip("^"))
+                                                           registry_data['conditions']['kibana.version'].strip("^"))
     sde = SecurityDetectionEngine()
     historical_rules = sde.load_integration_assets(previous_pkg_version)
     historical_rules = sde.transform_legacy_assets(historical_rules)
@@ -125,7 +125,6 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
         docs = IntegrationSecurityDocsMDX(registry_data['version'], Path(f'releases/{config["name"]}-docs'),
                                           True, historical_rules, package, note=update_message)
         docs.generate()
-
 
     if verbose:
         package.get_package_hash(verbose=verbose)

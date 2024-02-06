@@ -552,7 +552,7 @@ class IntegrationRuleDetail:
             # TODO: find https references to elastic and remove formatting
             page.extend([self.guide_str(), ''])
         if 'setup' in self.rule:
-            page.extend ([self.setup_str(), ''])
+            page.extend([self.setup_str(), ''])
             # TODO: find https references to elastic and remove formatting
         if 'query' in self.rule:
             page.extend([self.query_str(), ''])
