@@ -86,13 +86,14 @@ def dev_group():
 @click.option('--update-version-lock', '-u', is_flag=True,
               help='Save version.lock.json file with updated rule versions in the package')
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
-@click.option('--add-historical', type=str, required=True, default="no",
+@click.option('--add-historical', type=str, required=True, default="yes",
               help='Generate historical package-registry files')
 @click.option('--update-message', type=str, help='Update message for new package')
 def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
                   update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
+    registry_data = config['registry_data']
     add_historical = True if add_historical == "yes" else False
 
     if generate_navigator:
@@ -111,17 +112,18 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     package.save(verbose=verbose)
 
     if add_historical:
-        previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga", config['name'])
+        previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga",
+                                                               registry_data['conditions']['kibana.version'].strip("^"))
         sde = SecurityDetectionEngine()
         historical_rules = sde.load_integration_assets(previous_pkg_version)
         historical_rules = sde.transform_legacy_assets(historical_rules)
 
-        docs = IntegrationSecurityDocsMDX(config['registry_data']['version'], Path(f'releases/{config["name"]}-docs'),
+        docs = IntegrationSecurityDocsMDX(registry_data['version'], Path(f'releases/{config["name"]}-docs'),
                                           True, historical_rules, package, note=update_message)
         docs.generate()
 
         click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
-        package.add_historical_rules(historical_rules, config['registry_data']['version'])
+        package.add_historical_rules(historical_rules, registry_data['version'])
 
     if verbose:
         package.get_package_hash(verbose=verbose)
@@ -207,7 +209,7 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
         pkg_data["registry_data"]["version"] = str(pkg_ver.bump_minor().bump_prerelease("beta"))
     if patch_release:
         latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
-                                                                   maturity, pkg_data["name"])
+                                                                   maturity, pkg_kibana_ver)
 
         # if an existing minor or major does not have a package, bump from the last
         # example is 8.10.0-beta.1 is last, but on 9.0.0 major
@@ -219,13 +221,14 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
 
         if maturity == "ga":
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
-            pkg_data["registry_data"]["release"] = maturity
         else:
             # passing in true or false from GH actions; not using eval() for security purposes
             if new_package == "true":
                 latest_patch_release_ver = latest_patch_release_ver.bump_patch()
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_prerelease("beta"))
-            pkg_data["registry_data"]["release"] = maturity
+
+        if 'release' in pkg_data['registry_data']:
+            pkg_data['registry_data']['release'] = maturity
 
     click.echo(f"Kibana version: {pkg_data['name']}")
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
