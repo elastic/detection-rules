@@ -530,6 +530,7 @@ class IntegrationRuleDetail:
         self.changelog = changelog
         self.package = package_str
         self.rule_title = f'prebuilt-rule-{self.package}-{name_to_title(self.rule["name"])}'
+        self.hyperlink_pattern = r'\[.*?\]\((.*?)\)'
 
         # set some defaults
         self.rule.setdefault('max_signals', 100)
@@ -548,7 +549,11 @@ class IntegrationRuleDetail:
             ''
         ]
         if 'note' in self.rule:
+            # TODO: find https references to elastic and remove formatting
             page.extend([self.guide_str(), ''])
+        if 'setup' in self.rule:
+            page.extend ([self.setup_str(), ''])
+            # TODO: find https references to elastic and remove formatting
         if 'query' in self.rule:
             page.extend([self.query_str(), ''])
         if 'threat' in self.rule:
@@ -589,10 +594,14 @@ class IntegrationRuleDetail:
         return '\n'.join(values)
 
     def guide_str(self) -> str:
-        return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.code(self.rule["note"], code="markdown")}'
+        guide = re.sub(self.hyperlink_pattern, r'\1', self.rule['note'])
+        return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.code(guide, code="markdown")}'
+
+    def setup_str(self) -> str:
+        setup = re.sub(self.hyperlink_pattern, r'\1', self.rule['setup'])
+        return f'{AsciiDoc.title(4, "Setup")}\n\n\n{AsciiDoc.code(setup, code="markdown")}'
 
     def query_str(self) -> str:
-        # TODO: code=sql - would require updating existing
         return f'{AsciiDoc.title(4, "Rule query")}\n\n\n{AsciiDoc.code(self.rule["query"])}'
 
     def threat_mapping_str(self) -> str:

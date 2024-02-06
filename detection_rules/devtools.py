@@ -86,15 +86,13 @@ def dev_group():
 @click.option('--update-version-lock', '-u', is_flag=True,
               help='Save version.lock.json file with updated rule versions in the package')
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
-@click.option('--add-historical', type=str, required=True, default="yes",
-              help='Generate historical package-registry files')
+@click.option('--generate-docs', is_flag=True, default=False, help='Generate markdown documentation')
 @click.option('--update-message', type=str, help='Update message for new package')
-def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
+def build_release(config_file, update_version_lock: bool, generate_navigator: bool, generate_docs: str,
                   update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
     registry_data = config['registry_data']
-    add_historical = True if add_historical == "yes" else False
 
     if generate_navigator:
         config['generate_navigator'] = True
@@ -105,25 +103,29 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     if verbose:
         click.echo(f'[+] Building package {config.get("name")}')
 
-    package = Package.from_config(config, verbose=verbose, historical=add_historical)
+    package = Package.from_config(config, verbose=verbose)
 
     if update_version_lock:
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
     package.save(verbose=verbose)
 
-    if add_historical:
-        previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga",
-                                                               registry_data['conditions']['kibana.version'].strip("^"))
-        sde = SecurityDetectionEngine()
-        historical_rules = sde.load_integration_assets(previous_pkg_version)
-        historical_rules = sde.transform_legacy_assets(historical_rules)
+    previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga",
+                                                            registry_data['conditions']['kibana.version'].strip("^"))
+    sde = SecurityDetectionEngine()
+    historical_rules = sde.load_integration_assets(previous_pkg_version)
+    historical_rules = sde.transform_legacy_assets(historical_rules)
+    package.add_historical_rules(historical_rules, registry_data['version'])
+    click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
 
+    # TODO: adjust code according to new security docs initiative
+    # NOTE: this is a temporary fix to avoid breaking the build
+    # NOTE: this code was introduced but is not used with the current implementation
+    if generate_docs:
+        click.echo(f'[+] Generating security docs for {registry_data["version"]} package')
         docs = IntegrationSecurityDocsMDX(registry_data['version'], Path(f'releases/{config["name"]}-docs'),
                                           True, historical_rules, package, note=update_message)
         docs.generate()
 
-        click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
-        package.add_historical_rules(historical_rules, registry_data['version'])
 
     if verbose:
         package.get_package_hash(verbose=verbose)
