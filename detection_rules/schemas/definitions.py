@@ -66,9 +66,9 @@ TIMELINE_TEMPLATES: Final[dict] = {
 }
 
 EXPECTED_RULE_TAGS = [
-    'Data Source: Auditd Manager',
     'Data Source: Active Directory',
     'Data Source: Amazon Web Services',
+    'Data Source: Auditd Manager',
     'Data Source: AWS',
     'Data Source: APM',
     'Data Source: Azure',
