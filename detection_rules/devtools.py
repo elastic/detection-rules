@@ -156,12 +156,12 @@ def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
 
 @dev_group.command('build-integration-docs')
 @click.argument('registry-version')
-@click.option('--pre', required=True, help='Tag for pre-existing rules')
-@click.option('--post', required=True, help='Tag for rules post updates')
+@click.option('--pre', required=True, type=str, help='Tag for pre-existing rules')
+@click.option('--post', required=True, type=str, help='Tag for rules post updates')
 @click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
 @click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
 @click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
-@click.option('--update-message', default='Rule Updates.', help='Update message for new package')
+@click.option('--update-message', default='Rule Updates.', type=str, help='Update message for new package')
 @click.pass_context
 def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str,
                            directory: Path, force: bool, update_message: str,
