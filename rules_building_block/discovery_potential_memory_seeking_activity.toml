@@ -1,7 +1,7 @@
 [metadata]
 bypass_bbr_timing = true
 creation_date = "2024/02/01"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
@@ -15,7 +15,7 @@ Monitors for the execution of Unix utilities that may be leveraged as memory add
 built-in utilities to seek specific memory addresses, allowing for potential future manipulation/exploitation.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Memory Seeking Activity"
@@ -29,12 +29,14 @@ tags = [
         "Use Case: Threat Detection",
         "Tactic: Discovery",
         "Rule Type: BBR",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and (
+process where host.os.type == "linux" and event.action in ("exec", "exec_event", "executed") and
+event.type == "start" and (
   (process.name == "tail" and process.args == "-c") or
   (process.name == "cmp" and process.args == "-i") or
   (process.name in ("hexdump", "xxd") and process.args == "-s") or
