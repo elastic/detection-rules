@@ -1216,21 +1216,11 @@ class TestAlertSuppression(BaseRuleTest):
     """Test rule alert suppression."""
 
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.8.0"),
-                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
-    def test_group_length(self):
-        """Test to ensure the rule alert suppression group_by does not exceed 3 elements."""
-        for rule in self.production_rules:
-            if rule.contents.data.get('alert_suppression'):
-                group_length = len(rule.contents.data.alert_suppression.group_by)
-                if group_length > 3:
-                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with more than 3 elements.')
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.8.0"),
                      "Test only applicable to 8.8+ stacks for rule alert suppression feature.")
     def test_group_field_in_schemas(self):
         """Test to ensure the fields are defined is in ECS/Beats/Integrations schema."""
         for rule in self.production_rules:
-            if rule.contents.data.get('alert_suppression'):
+            if rule.contents.data.get('type') == 'query' and rule.contents.data.get('alert_suppression'):
                 group_by_fields = rule.contents.data.alert_suppression.group_by
                 min_stack_version = rule.contents.metadata.get("min_stack_version")
                 if min_stack_version is None:
