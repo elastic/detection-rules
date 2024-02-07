@@ -232,7 +232,7 @@ class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
 
 
 @dataclass(frozen=True)
-class ThresholdAlertSuppression(MarshmallowDataclassMixin, StackCompatMixin):
+class ThresholdAlertSuppression:
     """Mapping to alert suppression."""
 
     duration: Optional[AlertSuppressionDuration]

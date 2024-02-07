@@ -24,8 +24,8 @@ from detection_rules.integrations import (find_latest_compatible_version,
                                           load_integrations_schemas)
 from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
-from detection_rules.rule import (QueryRuleData, QueryValidator,
-                                  TOMLRuleContents)
+from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryValidator,
+                                  ThresholdAlertSuppression, TOMLRuleContents)
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
@@ -1220,13 +1220,22 @@ class TestAlertSuppression(BaseRuleTest):
     def test_group_field_in_schemas(self):
         """Test to ensure the fields are defined is in ECS/Beats/Integrations schema."""
         for rule in self.production_rules:
-            if rule.contents.data.get('type') == 'query' and rule.contents.data.get('alert_suppression'):
-                group_by_fields = rule.contents.data.alert_suppression.group_by
+            rule_type = rule.contents.data.get('type')
+            if rule_type in ('query', 'threshold') and rule.contents.data.get('alert_suppression'):
+                if isinstance(rule.contents.data.alert_suppression, AlertSuppressionMapping):
+                    group_by_fields = rule.contents.data.alert_suppression.group_by
+                elif isinstance(rule.contents.data.alert_suppression, ThresholdAlertSuppression):
+                    group_by_fields = rule.contents.data.threshold.field
                 min_stack_version = rule.contents.metadata.get("min_stack_version")
                 if min_stack_version is None:
                     min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
                 else:
                     min_stack_version = Version.parse(min_stack_version)
+
+                if min_stack_version < Version.parse("8.12.0") and rule_type == 'threshold':
+                    self.fail(f"{self.rule_str(rule)} threshold rule with alert suppression requires \
+                              min_stack_version 8.12")
+
                 integration_tag = rule.contents.metadata.get("integration")
                 ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
                 beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
