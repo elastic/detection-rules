@@ -137,14 +137,14 @@ def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
                      ) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, DeprecatedRule]):
     """Build documents from two git tags for an integration package."""
     pre_rules = RuleCollection()
-    pre_rules.load_git_tag(pre, remote, skip_query_validation=True)
+    pre_rules.load_git_tag(f'integration-v{pre}', remote, skip_query_validation=True)
 
     if pre_rules.errors:
         click.echo(f'error loading {len(pre_rules.errors)} rule(s) from: {pre}, skipping:')
         click.echo(' - ' + '\n - '.join([str(p) for p in pre_rules.errors]))
 
     post_rules = RuleCollection()
-    post_rules.load_git_tag(post, remote, skip_query_validation=True)
+    post_rules.load_git_tag(f'integration-v{post}', remote, skip_query_validation=True)
 
     if post_rules.errors:
         click.echo(f'error loading {len(post_rules.errors)} rule(s) from: {post}, skipping:')
@@ -170,6 +170,10 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
     if not force:
         if not click.confirm(f'This will refresh tags and may overwrite local tags for: {pre} and {post}. Continue?'):
             ctx.exit(1)
+
+    assert Version.parse(pre) < Version.parse(post), f'pre: {pre} is not less than post: {post}'
+    assert Version.parse(pre), f'pre: {pre} is not a valid semver'
+    assert Version.parse(post), f'post: {post} is not a valid semver'
 
     rules_changes = get_release_diff(pre, post, remote)
     docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes, update_message=update_message)
