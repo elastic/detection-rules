@@ -641,10 +641,10 @@ class ThresholdQueryRuleData(QueryRuleData):
     class ThresholdMapping(MarshmallowDataclassMixin):
         @dataclass(frozen=True)
         class ThresholdCardinality:
-            field: Optional[Union[str, List[str]]]
+            field: str
             value: definitions.ThresholdValue
 
-        field: str
+        field: definitions.CardinalityFields
         value: definitions.ThresholdValue
         cardinality: Optional[List[ThresholdCardinality]]
 
