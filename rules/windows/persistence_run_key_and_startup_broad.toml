@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/15"
+updated_date = "2024/01/05"
 
 [transform]
 [[transform.osquery]]
@@ -135,8 +135,17 @@ registry where host.os.type == "windows" and registry.data.strings != null and
     /* Logitech G Hub */
     (
       process.code_signature.trusted == true and process.code_signature.subject_name == "Logitech Inc" and
-      process.name : "lghub_agent.exe" and registry.data.strings : (
-        "\"?:\\Program Files\\LGHUB\\lghub.exe\" --background"
+      (
+        process.name : "lghub_agent.exe" and registry.data.strings : (
+          "\"?:\\Program Files\\LGHUB\\lghub.exe\" --background",
+          "\"?:\\Program Files\\LGHUB\\system_tray\\lghub_system_tray.exe\" --minimized"
+        )
+      ) or
+      (
+        process.name : "LogiBolt.exe" and registry.data.strings : (
+          "?:\\Program Files\\Logi\\LogiBolt\\LogiBolt.exe --startup",
+          "?:\\Users\\*\\AppData\\Local\\Logi\\LogiBolt\\LogiBolt.exe --startup"
+        )
       )
     ) or
 
@@ -164,11 +173,14 @@ registry where host.os.type == "windows" and registry.data.strings != null and
       process.code_signature.trusted == true and process.code_signature.subject_name in ("Microsoft Windows", "Microsoft Corporation") and
       (
         process.name : "msedge.exe" and registry.data.strings : (
-          "\"?:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --no-startup-window --win-session-start /prefetch:5"
+          "\"?:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --no-startup-window --win-session-start /prefetch:5",
+          "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --win-session-start",
+          "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --no-startup-window --win-session-start"
         ) or
 
         process.name : ("Update.exe", "Teams.exe") and registry.data.strings : (
-          "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\Update.exe --processStart \"Teams.exe\" --process-start-args \"--system-initiated\""
+          "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\Update.exe --processStart \"Teams.exe\" --process-start-args \"--system-initiated\"",
+          "?:\\ProgramData\\*\\Microsoft\\Teams\\Update.exe --processStart \"Teams.exe\" --process-start-args \"--system-initiated\""
         ) or
 
         process.name : "OneDriveStandaloneUpdater.exe" and registry.data.strings : (
@@ -176,15 +188,32 @@ registry where host.os.type == "windows" and registry.data.strings != null and
         ) or
 
         process.name : "OneDriveSetup.exe" and
-          registry.value : (
-            "Delete Cached Standalone Update Binary", "Delete Cached Update Binary", "amd64", "Uninstall *", "i386", "OneDrive"
-          ) and
           registry.data.strings : (
             "?:\\Windows\\system32\\cmd.exe /q /c * \"?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\*\"",
-            "?:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe /background *",
-            "\"?:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe\" /background *",
-            "?:\\Program Files\\Microsoft OneDrive\\OneDrive.exe /background *"
-          )
+            "?:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe /background*",
+            "\"?:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe\" /background*",
+            "?:\\Program Files\\Microsoft OneDrive\\OneDrive.exe /background *",
+            "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\??.???.????.????\\Microsoft.SharePoint.exe"
+          ) or
+        
+        process.name : "OneDrive.exe" and registry.data.strings : (
+          "\"?:\\Program Files\\Microsoft OneDrive\\OneDrive.exe\" /background",
+          "\"?:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe\" /background",
+          "\"?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe\" /background"
+        ) or
+        
+        process.name : "Microsoft.SharePoint.exe" and registry.data.strings : (
+          "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\??.???.????.????\\Microsoft.SharePoint.exe"
+        ) or
+        
+        process.name : "MicrosoftEdgeUpdate.exe" and registry.data.strings : (
+          "\"?:\\Users\\Expedient\\AppData\\Local\\Microsoft\\EdgeUpdate\\*\\MicrosoftEdgeUpdateCore.exe\""
+        ) or
+        
+        process.executable : "?:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\*\\Installer\\setup.exe" and
+        registry.data.strings : (
+          "\"?:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\*\\Installer\\setup.exe\" --msedgewebview --delete-old-versions --system-level --verbose-logging --on-logon"
+        )
       )
     ) or
 
@@ -193,15 +222,78 @@ registry where host.os.type == "windows" and registry.data.strings != null and
       process.code_signature.trusted == true and process.code_signature.subject_name in (
        "Slack Technologies, Inc.", "Slack Technologies, LLC"
       ) and process.name : "slack.exe" and registry.data.strings : (
-        "\"?:\\Users\\*\\AppData\\Local\\slack\\slack.exe\" --process-start-args --startup"
+        "\"?:\\Users\\*\\AppData\\Local\\slack\\slack.exe\" --process-start-args --startup",
+        "\"?:\\ProgramData\\*\\slack\\slack.exe\" --process-start-args --startup",
+        "\"?:\\Program Files\\Slack\\slack.exe\" --process-start-args --startup"
       )
     ) or
 
-    /* WebEx */
+    /* Cisco */
     (
       process.code_signature.trusted == true and process.code_signature.subject_name in ("Cisco WebEx LLC", "Cisco Systems, Inc.") and
-      process.name : "WebexHost.exe" and registry.data.strings : (
-        "\"?:\\Users\\*\\AppData\\Local\\WebEx\\WebexHost.exe\" /daemon /runFrom=autorun"
+      (
+        process.name : "WebexHost.exe" and registry.data.strings : (
+          "\"?:\\Users\\*\\AppData\\Local\\WebEx\\WebexHost.exe\" /daemon /runFrom=autorun"
+        )
+      ) or
+      (
+        process.name : "CiscoJabber.exe" and registry.data.strings : (
+          "\"?:\\Program Files (x86)\\Cisco Systems\\Cisco Jabber\\CiscoJabber.exe\" /min"
+        )
+      )
+    ) or
+
+    /* Loom */
+    (
+      process.code_signature.trusted == true and process.code_signature.subject_name == "Loom, Inc." and
+      process.name : "Loom.exe" and registry.data.strings : (
+        "?:\\Users\\*\\AppData\\Local\\Programs\\Loom\\Loom.exe --process-start-args \"--loomHidden\""
+      )
+    ) or
+
+    /* Adobe */
+    (
+      process.code_signature.trusted == true and process.code_signature.subject_name == "Adobe Inc." and
+      process.name : ("Acrobat.exe", "FlashUtil32_*_Plugin.exe") and registry.data.strings : (
+        "\"?:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\AdobeCollabSync.exe\"",
+        "\"?:\\Program Files (x86)\\Adobe\\Acrobat DC\\Acrobat\\AdobeCollabSync.exe\"",
+        "?:\\WINDOWS\\SysWOW64\\Macromed\\Flash\\FlashUtil32_*_Plugin.exe -update plugin"
+      )
+    ) or
+
+    /* CCleaner */
+    (
+      process.code_signature.trusted == true and process.code_signature.subject_name == "PIRIFORM SOFTWARE LIMITED" and
+      process.name : ("CCleanerBrowser.exe", "CCleaner64.exe") and registry.data.strings : (
+        "\"C:\\Program Files (x86)\\CCleaner Browser\\Application\\CCleanerBrowser.exe\" --check-run=src=logon --auto-launch-at-startup --profile-directory=\"Default\"",
+        "\"C:\\Program Files\\CCleaner\\CCleaner64.exe\" /MONITOR"
+      )
+    ) or
+
+    /* Opera */
+    (
+      process.code_signature.trusted == true and process.code_signature.subject_name == "Opera Norway AS" and
+      process.name : "opera.exe" and registry.data.strings : (
+        "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\launcher.exe",
+        "?:\\Users\\*\\AppData\\Local\\Programs\\Opera GX\\launcher.exe"
+      )
+    ) or
+
+    /* Avast */
+    (
+      process.code_signature.trusted == true and process.code_signature.subject_name == "Avast Software s.r.o." and
+      process.name : "AvastBrowser.exe" and registry.data.strings : (
+        "\"?:\\Users\\*\\AppData\\Local\\AVAST Software\\Browser\\Application\\AvastBrowser.exe\" --check-run=src=logon --auto-launch-at-startup*",
+        "\"?:\\Program Files (x86)\\AVAST Software\\Browser\\Application\\AvastBrowser.exe\" --check-run=src=logon --auto-launch-at-startup*",
+        ""
+      )
+    ) or
+
+    /* Grammarly */
+    (
+      process.code_signature.trusted == true and process.code_signature.subject_name == "Grammarly, Inc." and
+      process.name : "GrammarlyInstaller.exe" and registry.data.strings : (
+        "?:\\Users\\*\\AppData\\Local\\Grammarly\\DesktopIntegrations\\Grammarly.Desktop.exe"
       )
     )
   )
