@@ -644,7 +644,7 @@ class ThresholdQueryRuleData(QueryRuleData):
             field: Optional[Union[str, List[str]]]
             value: definitions.ThresholdValue
 
-        field: definitions.CardinalityFields
+        field: str
         value: definitions.ThresholdValue
         cardinality: Optional[List[ThresholdCardinality]]
 
