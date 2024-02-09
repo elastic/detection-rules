@@ -530,7 +530,7 @@ class IntegrationRuleDetail:
         self.changelog = changelog
         self.package = package_str
         self.rule_title = f'prebuilt-rule-{self.package}-{name_to_title(self.rule["name"])}'
-        self.hyperlink_pattern = r'\[.*?\]\((.*?)\)'
+        self.elastic_hyperlink_pattern = r'\[.*?\]\((https://docs\.elastic\.co/.*?)\)'
 
         # set some defaults
         self.rule.setdefault('max_signals', 100)
@@ -592,11 +592,11 @@ class IntegrationRuleDetail:
         return '\n'.join(values)
 
     def guide_str(self) -> str:
-        guide = re.sub(self.hyperlink_pattern, r'\1', self.rule['note'])
+        guide = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['note'])
         return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.code(guide, code="markdown")}'
 
     def setup_str(self) -> str:
-        setup = re.sub(self.hyperlink_pattern, r'\1', self.rule['setup'])
+        setup = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['setup'])
         return f'{AsciiDoc.title(4, "Setup")}\n\n\n{AsciiDoc.code(setup, code="markdown")}'
 
     def query_str(self) -> str:
