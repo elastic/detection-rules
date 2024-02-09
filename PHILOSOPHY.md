@@ -2,6 +2,10 @@
 
 Rule development can be hotly debated and there are many ideas for what makes a detection rule *good*. We hear about arguments between *Indicators of Compromise* vs. *Indicators of Attack* and *signatures* vs. *rules*. Instead of boring ourselves with those re-hashed discussions, we want to share our approach for rule writing and our expectations of this repository.
 
+### The Zen of Security Rules
+
+We incorporate the [Zen of Security Rules](https://zenofsecurity.io/rules) into all of our rule development and planning. We strive to follow these principles to ensure practical rule design for resiliency at scale. 
+
 
 ## Approach
 
