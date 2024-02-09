@@ -530,7 +530,8 @@ class IntegrationRuleDetail:
         self.changelog = changelog
         self.package = package_str
         self.rule_title = f'prebuilt-rule-{self.package}-{name_to_title(self.rule["name"])}'
-        self.elastic_hyperlink_pattern = r'\[.*?\]\((https://docs\.elastic\.co/.*?)\)'
+        self.elastic_hyperlink_pattern = \
+            r'\[.*?\]\((https://www\.elastic\.co/.*?|https://elastic\.co/.*?|https://docs\.elastic\.co/.*?)\)'
 
         # set some defaults
         self.rule.setdefault('max_signals', 100)
