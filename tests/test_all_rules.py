@@ -1232,10 +1232,6 @@ class TestAlertSuppression(BaseRuleTest):
                 else:
                     min_stack_version = Version.parse(min_stack_version)
 
-                if min_stack_version < Version.parse("8.12.0") and rule_type == 'threshold':
-                    self.fail(f"{self.rule_str(rule)} threshold rule with alert suppression requires \
-                              min_stack_version 8.12")
-
                 integration_tag = rule.contents.metadata.get("integration")
                 ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
                 beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
