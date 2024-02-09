@@ -622,7 +622,7 @@ class QueryRuleData(BaseRuleData):
         """Custom validation for query rule type and subclasses."""
         # alert suppression is only valid for query rule type and not any of its subclasses
         if data.get('alert_suppression') and data['type'] not in ('query', 'threshold'):
-            raise ValidationError("Alert suppression is only valid for query rule type.")
+            raise ValidationError("Alert suppression is only valid for query and threshold rule types.")
 
 
 @dataclass(frozen=True)

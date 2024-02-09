@@ -1231,7 +1231,6 @@ class TestAlertSuppression(BaseRuleTest):
                     min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
                 else:
                     min_stack_version = Version.parse(min_stack_version)
-
                 integration_tag = rule.contents.metadata.get("integration")
                 ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
                 beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
