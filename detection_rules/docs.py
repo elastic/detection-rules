@@ -531,7 +531,7 @@ class IntegrationRuleDetail:
         self.package = package_str
         self.rule_title = f'prebuilt-rule-{self.package}-{name_to_title(self.rule["name"])}'
         self.elastic_hyperlink_pattern = \
-            r'\[.*?\]\((https://www\.elastic\.co/.*?|https://elastic\.co/.*?|https://docs\.elastic\.co/.*?)\)'
+            r'\[.*?\]\(((?:https://(?:www\.)?elastic\.co|https://docs\.elastic\.co)/.*?)\)'
 
         # set some defaults
         self.rule.setdefault('max_signals', 100)
@@ -561,6 +561,7 @@ class IntegrationRuleDetail:
         return '\n'.join(page)
 
     def metadata_str(self) -> str:
+        """Add the metadata section to the rule detail page."""
         fields = {
             'type': 'Rule type',
             'index': 'Rule indices',
@@ -593,17 +594,21 @@ class IntegrationRuleDetail:
         return '\n'.join(values)
 
     def guide_str(self) -> str:
+        """Add the guide section to the rule detail page."""
         guide = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['note'])
         return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.code(guide, code="markdown")}'
 
     def setup_str(self) -> str:
+        """Add the setup section to the rule detail page."""
         setup = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['setup'])
         return f'{AsciiDoc.title(4, "Setup")}\n\n\n{AsciiDoc.code(setup, code="markdown")}'
 
     def query_str(self) -> str:
+        """Add the query section to the rule detail page."""
         return f'{AsciiDoc.title(4, "Rule query")}\n\n\n{AsciiDoc.code(self.rule["query"])}'
 
     def threat_mapping_str(self) -> str:
+        """Add the threat mapping section to the rule detail page."""
         values = [AsciiDoc.bold_kv('Framework', 'MITRE ATT&CK^TM^'), '']
 
         for entry in self.rule['threat']:

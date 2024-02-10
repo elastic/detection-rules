@@ -117,9 +117,7 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     package.add_historical_rules(historical_rules, registry_data['version'])
     click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
 
-    # TODO: adjust code according to new security docs initiative
-    # NOTE: this is a temporary fix to avoid breaking the build
-    # NOTE: this code was introduced but is not used with the current implementation
+    # NOTE: stopgap solution until security doc migration
     if generate_docs:
         click.echo(f'[+] Generating security docs for {registry_data["version"]} package')
         docs = IntegrationSecurityDocsMDX(registry_data['version'], Path(f'releases/{config["name"]}-docs'),
