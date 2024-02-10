@@ -530,6 +530,9 @@ class IntegrationRuleDetail:
         self.changelog = changelog
         self.package = package_str
         self.rule_title = f'prebuilt-rule-{self.package}-{name_to_title(self.rule["name"])}'
+
+        # NOTE: This pattern is used to replace markdown links with asciidoc compatible links
+        # upstream in security-docs repo where CI checks fail if markdown links are used
         self.elastic_hyperlink_pattern = \
             r'\[.*?\]\(((?:https://(?:www\.)?elastic\.co|https://docs\.elastic\.co)/.*?)\)'
 
