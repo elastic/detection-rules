@@ -22,7 +22,6 @@ from typing import Dict, List, Optional, Tuple
 from itertools import groupby
 
 import click
-from dataclasses import fields
 import pytoml
 import requests.exceptions
 from semver import Version
@@ -47,15 +46,13 @@ from .integrations import (SecurityDetectionEngine,
                            build_integrations_schemas,
                            find_latest_compatible_version,
                            find_latest_integration_version,
-                           load_integrations_manifests,
-                           get_integration_manifests)
+                           load_integrations_manifests)
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package, current_stack_version)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
-                   RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents,
-                   EQLRuleData)
+                   RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import (dict_hash, get_etc_path, get_path, load_dump,
@@ -1042,18 +1039,18 @@ def endpoint_by_attack(ctx: click.Context, pre: str, post: str, force: bool, rem
 
         return rows
 
-    fields = ['tactic', 'linux', 'macos', 'windows', 'total']
+    table_fields = ['tactic', 'linux', 'macos', 'windows', 'total']
 
     changed_stats = delta_stats(changed)
-    table = Table.from_list(fields, changed_stats)
+    table = Table.from_list(table_fields, changed_stats)
     click.echo(f'Changed rules {len(changed)}\n{table}\n')
 
     new_stats = delta_stats(new)
-    table = Table.from_list(fields, new_stats)
+    table = Table.from_list(table_fields, new_stats)
     click.echo(f'New rules {len(new)}\n{table}\n')
 
     dep_stats = delta_stats(deprecated)
-    table = Table.from_list(fields, dep_stats)
+    table = Table.from_list(table_fields, dep_stats)
     click.echo(f'Deprecated rules {len(deprecated)}\n{table}\n')
 
     return changed_stats, new_stats, dep_stats
