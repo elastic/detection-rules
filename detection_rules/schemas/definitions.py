@@ -126,12 +126,12 @@ EXPECTED_RULE_TAGS = [
     'Use Case: UEBA',
     'Use Case: Vulnerability'
 ]
-
+NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 MACHINE_LEARNING_PACKAGES = ['LMD', 'DGA', 'DED', 'ProblemChild', 'Beaconing']
-
+AlertSuppressionGroupBy = NewType('AlertSuppressionGroupBy', List[NonEmptyStr], validate=validate.Length(min=1, max=3))
 AlertSuppressionMissing = NewType('AlertSuppressionMissing', str,
                                   validate=validate.OneOf(['suppress', 'doNotSuppress']))
-NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
+AlertSuppressionValue = NewType("AlertSupressionValue", int, validate=validate.Range(min=1))
 TimeUnits = Literal['s', 'm', 'h']
 BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
 CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=validate.Length(min=0, max=3))
