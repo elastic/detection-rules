@@ -1,6 +1,6 @@
 ---
 name: Kibana schema update feature request
-about: 'Suggest an idea for this project (Note: this does not include rule logic)'
+about: 'New Kibana schema feature request.'
 title: "[FR] Update schemas to support <name of new feature>"
 labels: "Area: DED,Team: TRADE,schema,python,enhancement"
 assignees: ''
