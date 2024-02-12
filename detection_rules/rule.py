@@ -216,17 +216,26 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
 
 
 @dataclass(frozen=True)
+class AlertSuppressionDuration:
+    """Mapping to alert suppression duration."""
+    unit: definitions.TimeUnits
+    value: definitions.AlertSuppressionValue
+
+
+@dataclass(frozen=True)
 class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
     """Mapping to alert suppression."""
-    @dataclass
-    class AlertSuppressionDuration:
-        """Mapping to allert suppression duration."""
-        unit: definitions.TimeUnits
-        value: int
 
-    group_by: List[definitions.NonEmptyStr]
+    group_by: definitions.AlertSuppressionGroupBy
     duration: Optional[AlertSuppressionDuration]
     missing_fields_strategy: definitions.AlertSuppressionMissing
+
+
+@dataclass(frozen=True)
+class ThresholdAlertSuppression:
+    """Mapping to alert suppression."""
+
+    duration: AlertSuppressionDuration
 
 
 @dataclass(frozen=True)
@@ -612,8 +621,8 @@ class QueryRuleData(BaseRuleData):
     def validates_query_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
         # alert suppression is only valid for query rule type and not any of its subclasses
-        if data.get('alert_suppression') and data['type'] != 'query':
-            raise ValidationError("Alert suppression is only valid for query rule type.")
+        if data.get('alert_suppression') and data['type'] not in ('query', 'threshold'):
+            raise ValidationError("Alert suppression is only valid for query and threshold rule types.")
 
 
 @dataclass(frozen=True)
@@ -641,6 +650,7 @@ class ThresholdQueryRuleData(QueryRuleData):
 
     type: Literal["threshold"]
     threshold: ThresholdMapping
+    alert_suppression: Optional[ThresholdAlertSuppression] = field(metadata=dict(metadata=dict(min_compat="8.12")))
 
 
 @dataclass(frozen=True)
