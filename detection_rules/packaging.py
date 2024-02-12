@@ -223,7 +223,7 @@ class Package(object):
         return sha256
 
     @classmethod
-    def from_config(cls, config: dict = None, verbose: bool = False, historical: bool = False) -> 'Package':
+    def from_config(cls, config: dict = None, verbose: bool = False, historical: bool = True) -> 'Package':
         """Load a rules package given a config."""
         all_rules = RuleCollection.default()
         config = config or {}
