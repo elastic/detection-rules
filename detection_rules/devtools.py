@@ -1059,43 +1059,6 @@ def endpoint_by_attack(ctx: click.Context, pre: str, post: str, force: bool, rem
     return changed_stats, new_stats, dep_stats
 
 
-@diff_group.command('rule-history')
-@click.option('--rule-id', type=str, required=True, help='rule id to diff')
-@click.option('--attributes', '-a', type=str,
-              default="name,type,query,language,from_,interval,tactic,severity_mapping,version",
-              help='Comma-separated rule attributes to pull history on (default: specific fields)')
-@click.option('--stack-version', type=str, required=True, help='max stack version to pull historical rules from; \
-              historically we track from the inception')
-@click.pass_context
-def rule_history(ctx: click.Context, rule_id: str, attributes: str, stack_version: str):
-    """Rule diffs across released prebuilt rules packages."""
-
-    assert Version.parse(stack_version), 'Invalid semantic version'
-    attributes_list = [attr.strip() for attr in attributes.split(',')]
-    assert all(attr in get_rule_fields() for attr in attributes_list), \
-        'Invalid attribute, must be one of: {}'.format(', '.join(get_rule_fields()))
-    click.echo("analyzing rule history for rule: {}".format(rule_id))
-
-    attributes = attributes.split(',')
-    sde = SecurityDetectionEngine()
-    ga_packages = get_integration_manifests(integration="security_detection_engine", kibana_version=stack_version)
-    history = {}
-    for pkg in ga_packages:
-        history[pkg['version']] = {k.split("_")[0]: v for k, v in sde.load_integration_assets(pkg['version']).items()}
-    for ver in history.keys():
-        history[ver] = {k: v for k, v in history[ver].items() if k in attributes}
-
-    click.echo(f'rule found in {len(history.keys())} packages from inception to {stack_version}')
-    ...
-
-def get_rule_fields() -> list[str]:
-    """Get EQL and KQL rule fields."""
-    rule_fields = ['version','tactic']
-    rule_fields.extend([field.name for field in fields(BaseRuleData)])
-    rule_fields.extend([field.name for field in fields(QueryRuleData)])
-    rule_fields.extend([field.name for field in fields(EQLRuleData)])
-    return list(set(rule_fields))
-
 @diff_group.command('package-updates')
 @click.pass_context
 @click.option('--versions', '-v', nargs=2, type=click.Tuple([str, str]), required=True,
