@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/14"
+updated_date = "2024/01/09"
 
 [transform]
 [[transform.osquery]]
@@ -108,7 +108,12 @@ registry where host.os.type == "windows" and event.type:"change" and
     "HKLM\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*",
     "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*"
   ) and
-  registry.data.strings:"*.dll"
+  registry.data.strings:"*.dll" and
+  not
+  (
+    process.executable : "?:\\Windows\\System32\\msiexec.exe" and
+    registry.data.strings : "?:\\Program Files\\VMware\\VMware Tools\\vmwTimeProvider\\vmwTimeProvider.dll"
+  )
 '''
 
 

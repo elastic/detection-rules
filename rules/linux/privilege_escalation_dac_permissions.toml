@@ -1,0 +1,71 @@
+[metadata]
+creation_date = "2024/01/08"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
+min_stack_version = "8.11.0"
+updated_date = "2024/01/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies potential privilege escalation exploitation of DAC (Discretionary access control) file permissions. The rule
+identifies exploitation of DAC checks on sensitive file paths via suspicious processes whose capabilities
+include CAP_DAC_OVERRIDE (where a process can bypass all read write and execution checks) or
+CAP_DAC_READ_SEARCH (where a process can read any file or perform any executable permission on the directories).
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Privilege Escalation via Linux DAC permissions"
+risk_score = 47
+rule_id = "f7c70f2e-4616-439c-85ac-5b98415042fe"
+setup = """
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+"""
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+(process.thread.capabilities.permitted: "CAP_DAC_*" or process.thread.capabilities.effective: "CAP_DAC_*") and
+process.command_line : ("*sudoers*", "*passwd*", "*shadow*", "*/root/*") and user.id != "0"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

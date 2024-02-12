@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/11/02"
+updated_date = "2023/12/13"
 
 [rule]
 author = ["Elastic"]
@@ -122,7 +122,9 @@ user.id:0 and file.extension:(pid or lock or reboot) and file.path:(/var/run/* o
   process.executable : (
     ./* or /tmp/* or /var/tmp/* or /dev/shm/* or /var/run/* or /boot/* or /srv/* or /run/*
   ))
-) and not process.name : (go or git or containerd* or snap-confine)
+) and not process.name : (go or git or containerd* or snap-confine or cron or crond or sshd or unattended-upgrade or 
+vzctl or ifup or rpcbind) and
+not file.name : (jem.*.pid)
 '''
 
 [[rule.threat]]
