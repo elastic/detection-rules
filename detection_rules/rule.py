@@ -1358,8 +1358,8 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
     if language in ('kuery', 'eql'):
         # TODO: remove once py-eql supports ipv6 for cidrmatch
 
-        config = set_eql_config(rule.contents.metadata.get('min_stack_version'))
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
+        cfg = set_eql_config(rule.contents.metadata.get('min_stack_version'))
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, eql.parser.skip_optimizations, cfg:
             parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
 
         return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
