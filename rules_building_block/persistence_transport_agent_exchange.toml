@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
+updated_date = "2024/01/12"
 
 [rule]
 author = ["Elastic"]
@@ -49,7 +49,13 @@ event.category: "process" and host.os.type:windows and
     "Install-TransportAgent" or
     "Enable-TransportAgent"
     )
-  ) and not user.id : "S-1-5-18"
+  ) and
+  not user.id : "S-1-5-18" and
+  not powershell.file.script_block_text : (
+    "'Install-TransportAgent', 'Invoke-MonitoringProbe', 'Mount-Database', 'Move-ActiveMailboxDatabase'," or
+    "'Enable-TransportAgent', 'Enable-TransportRule', 'Export-ActiveSyncLog', 'Export-AutoDiscoverConfig'," or
+    ("scriptCmd.GetSteppablePipeline" and "ForwardHelpTargetName Install-TransportAgent")
+  )
 '''
 
 
