@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2024/01/11"
 
 [rule]
 author = ["Elastic"]
@@ -57,6 +57,9 @@ event.category:process and host.os.type:windows and
   ) and
   not file.path : (
     ?\:\\\\*\\\\system32\\\\WindowsPowerShell\\\\v1.0\\\\Modules\\\\Microsoft.PowerShell.Management\\\\*.psd1
+  ) and
+  not powershell.file.script_block_text : (
+    "CmdletsToExport=@(\"Add-Content\""
   )
 '''
 
