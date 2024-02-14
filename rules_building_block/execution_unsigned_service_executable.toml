@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/19"
+updated_date = "2024/01/12"
 bypass_bbr_timing = true
 
 [rule]
@@ -36,7 +36,8 @@ type = "new_terms"
 query = '''
 host.os.type:windows and event.category:process and event.type:start and 
 process.parent.executable:"C:\\Windows\\System32\\services.exe" and 
-(process.code_signature.exists:false or process.code_signature.trusted:false)
+(process.code_signature.exists:false or process.code_signature.trusted:false) and
+not process.code_signature.status : (errorCode_endpoint* or "errorChaining")
 '''
 
 [[rule.threat]]
