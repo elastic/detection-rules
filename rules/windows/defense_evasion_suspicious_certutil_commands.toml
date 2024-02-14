@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2024/01/16"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,7 @@ Certificate Services. CertUtil is often abused by attackers to live off the land
 data exfiltration.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious CertUtil Commands"
@@ -110,7 +110,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "certutil.exe" or process.pe.original_file_name == "CertUtil.exe") and
+  (process.name : "certutil.exe" or ?process.pe.original_file_name == "CertUtil.exe") and
   process.args : ("?decode", "?encode", "?urlcache", "?verifyctl", "?encodehex", "?decodehex", "?exportPFX")
 '''
 
