@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2024/01/11"
 bypass_bbr_timing = true
 
 [rule]
@@ -37,11 +37,13 @@ process where host.os.type == "windows" and event.type == "start" and
             "?:\\Program Files\\*",
             "?:\\Program Files (x86)\\*",
             "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-            "?:\\Users\\*\\AppData\\Roaming\\Zoom\\bin\\Zoom.exe",
+            "?:\\Users\\*\\AppData\\Local\\Island\\Island\\Application\\Island.exe",
+            "?:\\Users\\*\\AppData\\Roaming\\Zoom\\bin*\\Zoom.exe",
             "?:\\Windows\\System32\\rundll32.exe",
             "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
             "?:\\Windows\\System32\\notepad.exe",
-            "?:\\Windows\\System32\\WerFault.exe"
+            "?:\\Windows\\System32\\WerFault.exe",
+            "?:\\Windows\\SysWOW64\\WerFault.exe"
           ) and process.code_signature.trusted == true  
         ) or
         (
@@ -84,7 +86,11 @@ process where host.os.type == "windows" and event.type == "start" and
           process.executable : (
             "?:\\Program Files\\*",
             "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe"
+            "?:\\Windows\\System32\\WerFault.exe",
+            "?:\\Windows\\SysWOW64\\WerFault.exe",
+            "?:\\Windows\\BrowserCore\\BrowserCore.exe",
+            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe"
           ) and process.code_signature.trusted == true  
         ) or
         (
@@ -106,9 +112,11 @@ process where host.os.type == "windows" and event.type == "start" and
           process.executable : (
             "?:\\Program Files\\*",
             "?:\\Program Files (x86)\\*",
+            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
             "?:\\Windows\\System32\\reg.exe",
             "?:\\Windows\\SysWOW64\\reg.exe",
-            "?:\\Windows\\System32\\WerFault.exe"
+            "?:\\Windows\\System32\\WerFault.exe",
+            "?:\\Windows\\SysWOW64\\WerFault.exe"
           ) and process.code_signature.trusted == true  
         ) or
         (
@@ -117,9 +125,16 @@ process where host.os.type == "windows" and event.type == "start" and
           ) and process.code_signature.trusted == true
         ) or
         (
-          process.name : "cmd.exe" and process.command_line : (
-            "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"chcp\"",
-            "C:\\WINDOWS\\system32\\cmd.exe /q /d /s /c \"C:\\Program^ Files\\NVIDIA^ Corporation\\NVSMI\\nvidia-smi.exe\""
+          process.name : "cmd.exe" and 
+          (
+            process.command_line : (
+              "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"chcp\"",
+              "C:\\WINDOWS\\system32\\cmd.exe /q /d /s /c \"C:\\Program^ Files\\NVIDIA^ Corporation\\NVSMI\\nvidia-smi.exe\""
+            ) or
+            process.args : (
+              "C:\\WINDOWS/System32/nvidia-smi.exe",
+              "C:\\WINDOWS\\System32\\nvidia-smi.exe"
+            )
           )
         )
       )
@@ -158,6 +173,8 @@ process where host.os.type == "windows" and event.type == "start" and
             "?:\\Program Files\\*",
             "?:\\Program Files (x86)\\*",
             "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+            "?:\\Users\\*\\AppData\\Local\\Island\\Island\\Application\\Island.exe",
+            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
             "?:\\Windows\\System32\\WerFault.exe"
           ) and process.code_signature.trusted == true  
         ) or
@@ -177,16 +194,25 @@ process where host.os.type == "windows" and event.type == "start" and
             "?:\\Program Files\\*",
             "?:\\Program Files (x86)\\*",
             "?:\\Windows\\System32\\WerFault.exe",
+            "?:\\Windows\\SysWOW64\\WerFault.exe",
+            "?:\\Windows\\system32\\wermgr.exe",
             "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe",
             "?:\\Users\\*\\AppData\\Local\\Temp\\NewOutlookInstall\\NewOutlookInstaller.exe",
             "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+            "?:\\Users\\*\\AppData\\Local\\Island\\Island\\Application\\Island.exe",
+            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
             "?:\\Users\\*\\AppData\\Roaming\\Zoom\\bin\\Zoom.exe",
             "?:\\Windows\\System32\\IME\\SHARED\\IMEWDBLD.EXE",
             "?:\\Windows\\System32\\spool\\drivers\\x64\\*",
             "?:\\Windows\\System32\\prevhost.exe",
             "?:\\Windows\\System32\\dwwin.exe",
+            "?:\\Windows\\System32\\mspaint.exe",
+            "?:\\Windows\\SysWOW64\\mspaint.exe",
             "?:\\Windows\\System32\\notepad.exe",
-            "?:\\Windows\\explorer.exe"
+            "?:\\Windows\\SysWOW64\\notepad.exe",
+            "?:\\Windows\\System32\\smartscreen.exe",
+            "?:\\Windows\\explorer.exe",
+            "?:\\Windows\\splwow64.exe"
           ) and process.code_signature.trusted == true  
         )
       )
@@ -199,7 +225,8 @@ process where host.os.type == "windows" and event.type == "start" and
           process.executable : (
             "?:\\Program Files\\*",
             "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe"
+            "?:\\Windows\\System32\\WerFault.exe",
+            "?:\\Windows\\splwow64.exe"
           ) and process.code_signature.trusted == true  
         ) or
         (
