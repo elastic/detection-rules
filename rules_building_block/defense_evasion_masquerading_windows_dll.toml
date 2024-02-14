@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: dll.Ext.relative_file_creation_time is populated in Elastic Endpoint 8.4 and above."
 min_stack_version = "8.4.0"
-updated_date = "2023/10/13"
+updated_date = "2024/01/11"
 bypass_bbr_timing = true
 
 [rule]
@@ -69,7 +69,7 @@ library where event.action == "load" and dll.Ext.relative_file_creation_time <= 
       ) or
       (
         dll.name : "libcrypto.dll" and dll.code_signature.subject_name in (
-          "NoMachine S.a.r.l.", "Bitdefender SRL", "Oculus VR, LLC"
+          "NoMachine S.a.r.l.", "Oculus VR, LLC"
         ) and dll.code_signature.trusted == true
       ) or
       (
@@ -77,8 +77,11 @@ library where event.action == "load" and dll.Ext.relative_file_creation_time <= 
           "Proofpoint, Inc.", "Rapid7 LLC", "Eclipse.org Foundation, Inc.", "Amazon.com Services LLC", "Windows Phone"
         ) and dll.code_signature.trusted == true
       ) or
+      (
+        dll.name : ("libcrypto.dll", "wmi.dll", "geolocation.dll", "kerberos.dll") and
+        dll.code_signature.subject_name == "Bitdefender SRL" and dll.code_signature.trusted == true
+      ) or
       (dll.name : "ICMP.dll" and dll.code_signature.subject_name == "Paessler AG" and dll.code_signature.trusted == true) or
-      (dll.name : "kerberos.dll" and dll.code_signature.subject_name == "Bitdefender SRL" and dll.code_signature.trusted == true) or
       (dll.name : "dbghelp.dll" and dll.code_signature.trusted == true) or
       (dll.name : "DirectML.dll" and dll.code_signature.subject_name == "Adobe Inc." and dll.code_signature.trusted == true) or
       (
