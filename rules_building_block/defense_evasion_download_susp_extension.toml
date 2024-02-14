@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/09/27"
+updated_date = "2024/01/11"
 
 [rule]
 author = ["Elastic"]
@@ -37,7 +37,11 @@ file where host.os.type == "windows" and event.type == "creation" and
   ) and file.Ext.windows.zone_identifier > 1 and
   not
   (
-    file.extension : "msix" and file.path : "?:\\Users\\*\\AppData\\Local\\Temp\\WinGet\\Microsoft.Winget.Source*"
+    file.extension : "msix" and 
+    file.path : (
+      "?:\\Users\\*\\AppData\\Local\\Temp\\WinGet\\Microsoft.Winget.Source*",
+      "?:\\Windows\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WinGet\\State\\defaultState\\Microsoft.PreIndexed.Package\\Microsoft.Winget.Source*"
+    )
   )
 '''
 
