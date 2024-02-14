@@ -1,4 +1,4 @@
-name: release-fleet
+name: Release Fleet
 on:
   workflow_dispatch:
     inputs:
@@ -28,162 +28,129 @@ on:
         type: choice
         description: 'New Package'
         required: true
+        default: "true"
         options:
           - "true"
           - "false"
-      add_historical:
-        type: choice
-        description: 'Add Historical Rules'
-        required: true
-        options:
-          - "yes"
-          - "no"
-      commit_hash:
-        description: 'Commit hash'
-        required: true
 
 jobs:
-  check-commit:
-    name: Check Commit Hash
-    runs-on: ubuntu-latest
-    outputs:
-      is_locked_commit: ${{ steps.check_commit.outputs.check_message }}
-    steps:
-      - name: Checkout detection-rules
-        uses: actions/checkout@v3
-        with:
-          path: detection-rules
-          fetch-depth: 0
+    fleet-pr:
+      name: Build package and create PR to integrations
+      runs-on: ubuntu-latest
+      steps:
+        - name: Validate the source branch
+          uses: actions/github-script@v3
+          with:
+            script: |
+              if ('refs/heads/main' === '${{github.ref}}') {
+                core.setFailed('Forbidden branch')
+              }
+        - name: Checkout detection-rules
+          uses: actions/checkout@v3
+          with:
+            path: detection-rules
+            fetch-depth: 0
 
-      - name: Check commit message
-        id: check_commit
-        env:
-          COMMIT_HASH: "${{github.event.inputs.commit_hash}}"
-        run: |
-          cd detection-rules
-          COMMIT_MESSAGE=$(git show -s --format=%B $COMMIT_HASH | grep "Lock versions for releases" || true)
-          if [ -z "$COMMIT_MESSAGE" ]; then
-            echo "::set-output name=check_message::false"
-          else
-            echo "::set-output name=check_message::true"
-          fi
-        shell: bash
+        - name: Extract version lock commit hash
+          run: |
+            cd detection-rules
+            COMMIT_HASH=$(git log --grep='Lock versions for releases' -1 --format='%H')
+            echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
+            echo "Extracted commit hash: $COMMIT_HASH"
 
-  fleet-pr:
-    name: Fleet PR
-    needs: check-commit
-    if: needs.check-commit.outputs.is_locked_commit == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate the source branch
-        uses: actions/github-script@v3
-        with:
-          script: |
-            if ('refs/heads/main' === '${{github.ref}}') {
-              core.setFailed('Forbidden branch')
-            }
+        - name: Checkout commit hash
+          run: |
+            cd detection-rules
+            echo "Current branch is $GITHUB_REF"
+            echo "Checking out commit hash $COMMIT_HASH"
+            git checkout $COMMIT_HASH
 
-      - name: Checkout detection-rules
-        uses: actions/checkout@v3
-        with:
-          path: detection-rules
-          fetch-depth: 0
+        - name: Checkout elastic/integrations
+          uses: actions/checkout@v3
+          with:
+            token: ${{ secrets.READ_WRITE_RELEASE_FLEET }}
+            repository: ${{github.event.inputs.target_repo}}
+            path: integrations
+            fetch-depth: 0
 
-      - name: Checkout elastic/integrations
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.READ_WRITE_RELEASE_FLEET }}
-          repository: ${{github.event.inputs.target_repo}}
-          path: integrations
+        - name: Set up Python 3.8
+          uses: actions/setup-python@v2
+          with:
+            python-version: 3.8
 
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
+        - name: Install Python dependencies
+          run: |
+            cd detection-rules
+            python -m pip install --upgrade pip
+            pip cache purge
+            pip install .[dev]
 
-      - name: Install Python dependencies
-        run: |
-          cd detection-rules
-          python -m pip install --upgrade pip
-          pip cache purge
-          pip install .[dev]
+        - name: Bump prebuilt rules package version
+          env:
+            PACKAGE_MATURITY: "${{github.event.inputs.package_maturity}}"
+            NEW_PACKAGE: "${{github.event.inputs.new_package}}"
+          run: |
+            cd detection-rules
+            python -m detection_rules dev bump-pkg-versions \
+              --patch-release                               \
+              --new-package $NEW_PACKAGE                    \
+              --maturity $PACKAGE_MATURITY
 
-      - name: Checkout commit hash
-        env:
-          COMMIT_HASH: ${{github.event.inputs.commit_hash}}
-        run: |
-          cd detection-rules
-          git checkout $COMMIT_HASH
+        - name: Store release tag
+          if: github.event.inputs.package_maturity == 'ga'
+          run: |
+            cd detection-rules
+            output=$(cat detection_rules/etc/packages.yml | grep -oP '(?<=\sversion: )\S+')
+            echo "pkg_version=$output" >> $GITHUB_ENV
 
-      - name: Bump prebuilt rules package version
-        env:
-          PACKAGE_MATURITY: "${{github.event.inputs.package_maturity}}"
-          NEW_PACKAGE: "${{github.event.inputs.new_package}}"
-        run: |
-          cd detection-rules
-          python -m detection_rules dev bump-pkg-versions \
-            --patch-release                               \
-            --new-package $NEW_PACKAGE                    \
-            --maturity $PACKAGE_MATURITY
+        - name: Create release tag
+          if: github.event.inputs.package_maturity == 'ga'
+          run: |
+            cd detection-rules
+            RELEASE_TAG="integration-v${{ env.pkg_version }}"
+            echo "Creating release tag: $RELEASE_TAG"
+            git tag $RELEASE_TAG
+            git push origin $RELEASE_TAG
 
-      - name: Store release tag
-        if: ${{github.event.inputs.package_maturity}} == "ga"
-        id: packages-version
-        run: |
-          cd detection-rules
-          output=$(cat detection_rules/etc/packages.yml | grep -oP '(?<=\sversion: )\S+')
-          echo "::set-output name=pkg_version::$output"
+        - name: Build release package
+          run: |
+            cd detection-rules
+            python -m detection_rules dev build-release
 
-      - name: Create release tag
-        if: ${{github.event.inputs.package_maturity}} == "ga"
-        env:
-          RELEASE_TAG: "integration-v${{ steps.packages-version.outputs.pkg_version }}"
-        run: |
-          cd detection-rules
-          git tag $RELEASE_TAG
-          git push origin $RELEASE_TAG
+        - name: Set github config
+          run: |
+            git config --global user.email "72879786+protectionsmachine@users.noreply.github.com"
+            git config --global user.name "protectionsmachine"
 
-      - name: Build release package
-        env:
-          HISTORICAL: "${{github.event.inputs.add_historical}}"
-        run: |
-          cd detection-rules
-          python -m detection_rules dev build-release --add-historical $HISTORICAL
+        - name: Setup go
+          uses: actions/setup-go@v3
+          with:
+            go-version: '^1.20.1'
+            check-latest: true
 
-      - name: Set github config
-        run: |
-          git config --global user.email "72879786+protectionsmachine@users.noreply.github.com"
-          git config --global user.name "protectionsmachine"
+        - name: Build elastic-package
+          run: |
+            go install github.com/elastic/elastic-package@latest
 
-      - name: Setup go
-        uses: actions/setup-go@v3
-        with:
-          go-version: '^1.20.1'
-          check-latest: true
+        - name: Create the PR to Integrations
+          env:
+            DRAFT_ARGS: "${{startsWith(github.event.inputs.draft,'y') && '--draft' || ' '}}"
+            TARGET_REPO: "${{github.event.inputs.target_repo}}"
+            TARGET_BRANCH: "${{github.event.inputs.target_branch}}"
+            LOCAL_REPO: "../integrations"
+            GITHUB_TOKEN: "${{ secrets.READ_WRITE_RELEASE_FLEET }}"
+          run: |
+            cd detection-rules
+            python -m detection_rules dev integrations-pr \
+              $LOCAL_REPO                                 \
+              --github-repo $TARGET_REPO                  \
+              --base-branch $TARGET_BRANCH                \
+              --assign ${{github.actor}}                  \
+              $DRAFT_ARGS
 
-      - name: Build elastic-package
-        run: |
-          go install github.com/elastic/elastic-package@latest
-
-      - name: Create the PR to Integrations
-        env:
-          DRAFT_ARGS: "${{startsWith(github.event.inputs.draft,'y') && '--draft' || ' '}}"
-          TARGET_REPO: "${{github.event.inputs.target_repo}}"
-          TARGET_BRANCH: "${{github.event.inputs.target_branch}}"
-          LOCAL_REPO: "../integrations"
-          GITHUB_TOKEN: "${{ secrets.READ_WRITE_RELEASE_FLEET }}"
-        run: |
-          cd detection-rules
-          python -m detection_rules dev integrations-pr \
-            $LOCAL_REPO                                 \
-            --github-repo $TARGET_REPO                  \
-            --base-branch $TARGET_BRANCH                \
-            --assign ${{github.actor}}                  \
-            $DRAFT_ARGS
-
-      - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: release-files
-          path: |
-            detection-rules/releases
+        - name: Archive production artifacts
+          uses: actions/upload-artifact@v3
+          with:
+            name: release-files
+            path: |
+              detection-rules/releases
