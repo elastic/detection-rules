@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2024/01/12"
 bypass_bbr_timing = true
 
 [rule]
@@ -42,11 +42,27 @@ process where event.type == "start" and host.os.type == "windows" and
     "SQLWriter", "winmgmt"
   ) and user.domain : "NT SERVICE" and
   not (
-    process.name : (
+    (
+      process.name : (
         "sqlceip.exe", "sqlservr.exe", "sqlagent.exe",
         "msmdsrv.exe", "ReportingServicesService.exe",
-        "MsDtsSrvr.exe", "sqlbrowser.exe"
-    ) and (process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
+        "MsDtsSrvr.exe", "sqlbrowser.exe", "DTExec.exe",
+        "SQLPS.exe", "fdhost.exe", "fdlauncher.exe",
+        "SqlDumper.exe", "sqlsqm.exe", "DatabaseMail.exe"
+      ) or
+      process.executable : (
+        "?:\\Windows\\System32\\wermgr.exe",
+        "?:\\Windows\\System32\\conhost.exe",
+        "?:\\Windows\\System32\\WerFault.exe"
+      )
+    ) and
+    (
+      process.code_signature.subject_name : ("Microsoft Corporation", "Microsoft Windows") and
+      process.code_signature.trusted == true
+    )
+  ) and
+  not (
+    process.name : "cmd.exe" and process.parent.name : "sqlservr.exe"
   )
 '''
 
