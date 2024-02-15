@@ -1067,7 +1067,7 @@ def endpoint_by_attack(ctx: click.Context, pre: str, post: str, force: bool, rem
 @click.option('--versions', '-v', nargs=2, type=click.Tuple([str, str]), required=True,
               help='Specify EPR package versions to pull')
 @click.option('--summary', '-s', is_flag=True, help='Show summary of updates')
-@click.option('--details', '-d', type=click.Choice(['new', 'removed', 'content', 'query', 'tactic', 'datasource']),
+@click.option('--details', '-d', type=click.Choice(['new', 'removed', 'content', 'query', 'tactic', 'technique', 'subtechnique','datasource']),
               help='Specify details to show')
 def package_updates(ctx, versions, summary, details):
     """Get prebuilt rule updates between two packages."""
@@ -1091,7 +1091,8 @@ def package_updates(ctx, versions, summary, details):
     updates = get_updates(first_pkg_deduped, second_pkg_deduped)
 
     if summary:
-        show_summary(updates)
+        total_rule_count = len(list(second_pkg_deduped.keys()))
+        show_summary(updates, total_count=total_rule_count)
         ctx.exit(1)
 
     if details == 'new':
@@ -1102,7 +1103,7 @@ def package_updates(ctx, versions, summary, details):
         table = format_details(updates['content_changes'])
     elif details == 'query':
         table = format_details(updates['query_changes'])
-    elif details in ['tactic', 'datasource']:
+    elif details in ['tactic', 'technique', 'subtechnique','datasource']:
         show_frequencies(first_pkg_deduped, second_pkg_deduped, details)
         ctx.exit(1)
 
@@ -1122,6 +1123,13 @@ def calculate_frequencies(rules: dict, key: str) -> dict:
         elif key == 'tactic':
             tactic_name = contents['attributes'].get('threat', [{}])[0].get('tactic', {}).get('name', 'Unknown')
             frequencies[tactic_name] = frequencies.get(tactic_name, 0) + 1
+        elif key == 'technique':
+            for technique in contents['attributes'].get('threat', [{}])[0].get('technique', []):
+                frequencies[technique.get('name', 'Unknown')] = frequencies.get(technique.get('name', 'Unknown'), 0) + 1
+        elif key == 'subtechnique':
+            for technique in contents['attributes'].get('threat', [{}])[0].get('technique', []):
+                for subtechnique in technique.get('subtechnique', []):
+                    frequencies[subtechnique.get('name', 'Unknown')] = frequencies.get(subtechnique.get('name', 'Unknown'), 0) + 1
     return frequencies
 
 
@@ -1187,8 +1195,9 @@ def get_updates(first_pkg: dict, second_pkg: dict) -> dict:
     return updates
 
 
-def show_summary(updates: dict) -> None:
+def show_summary(updates: dict, total_count: int) -> None:
     """Show summary of updates."""
+    click.echo(f'Total rules: {total_count}')
     summary_data = [
         ['New Rules', len(updates['new'].keys())],
         ['Deprecated Rules', len(updates['deprecated'].keys())],
