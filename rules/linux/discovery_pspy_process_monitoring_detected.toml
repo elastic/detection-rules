@@ -4,7 +4,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -48,13 +48,18 @@ However, if more advanced configuration is required to detect specific behavior,
 
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery"]
+tags = [
+        "Data Source: Auditd Manager",
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery"
+        ]
 type = "eql"
 query = '''
 sequence by process.pid, host.id with maxspan=5s
-[ file where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and 
-  auditd.data.syscall == "openat" and file.path == "/proc" and auditd.data.a0 : ("ffffffffffffff9c", "ffffff9c") and 
-  auditd.data.a2 : ("80000", "88000") ] with runs=10
+  [file where host.os.type == "linux" and auditd.data.syscall == "openat" and file.path == "/proc" and
+   auditd.data.a0 : ("ffffffffffffff9c", "ffffff9c") and auditd.data.a2 : ("80000", "88000") ] with runs=10
 '''
 
 [[rule.threat]]
