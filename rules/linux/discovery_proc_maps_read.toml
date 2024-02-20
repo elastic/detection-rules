@@ -1,30 +1,26 @@
 [metadata]
-creation_date = "2023/04/26"
+creation_date = "2024/01/29"
 integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/02/20"
+updated_date = "2024/01/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of the mimipenguin exploit script which is linux adaptation of Windows tool mimikatz.
-Mimipenguin exploit script is used to dump clear text passwords from a currently logged-in user. The tool exploits
-a known vulnerability CVE-2018-20781. Malicious actors can exploit the cleartext credentials in memory by
-dumping the process and extracting lines that have a high probability of containing cleartext passwords.
+Monitors for /proc/*/maps file reads. The /proc/*/maps file in Linux provides a memory map for a specific process,
+detailing the memory segments, permissions, and what files are mapped to these segments. Attackers may read a process's
+memory map to identify memory addresses for code injection or process hijacking.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Linux Credential Dumping via Proc Filesystem"
-references = [
-    "https://github.com/huntergregal/mimipenguin",
-    "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-20781"
-]
-risk_score = 47
-rule_id = "ef100a2e-ecd4-4f72-9d1e-2f779ff3c311"
+name = "Suspicious /proc/maps Discovery"
+references = ["https://github.com/arget13/DDexec"]
+risk_score = 21
+rule_id = "2f95540c-923e-4f57-9dae-de30169c68b9"
 setup = """
 
 This rule requires data coming in from Elastic Defend.
@@ -51,43 +47,32 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 
 """
-severity = "medium"
+severity = "low"
 tags = [
         "Domain: Endpoint",
         "OS: Linux",
         "Use Case: Threat Detection",
-        "Tactic: Credential Access",
-        "Use Case: Vulnerability",
+        "Tactic: Discovery",
         "Data Source: Elastic Defend"
         ]
+timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-sequence by host.id, process.parent.name with maxspan=1m
-  [process where host.os.type == "linux" and process.name == "ps" and event.action == "exec"
-   and process.args in ("-eo", "pid", "command")]
-  [process where host.os.type == "linux" and process.name == "strings" and event.action == "exec"
-   and process.args : "/tmp/*"]
+process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
+process.name in ("cat", "grep") and process.args : "/proc/*/maps" and process.entry_leader.name in (
+  "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
+)
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1003"
-name = "OS Credential Dumping"
-reference = "https://attack.mitre.org/techniques/T1003/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1003.007"
-name = "Proc Filesystem"
-reference = "https://attack.mitre.org/techniques/T1003/007/"
-
-[[rule.threat.technique]]
-id = "T1212"
-name = "Exploitation for Credential Access"
-reference = "https://attack.mitre.org/techniques/T1212/"
+id = "T1057"
+name = "Process Discovery"
+reference = "https://attack.mitre.org/techniques/T1057/"
 
 [rule.threat.tactic]
-id = "TA0006"
-name = "Credential Access"
-reference = "https://attack.mitre.org/tactics/TA0006/"
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
