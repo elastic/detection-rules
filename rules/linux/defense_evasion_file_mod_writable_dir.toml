@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/12/12"
+updated_date = "2024/02/20"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "File Permission Modification in Writable Directory"
@@ -73,12 +73,10 @@ tags = [
         ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 host.os.type:linux and event.category:process and event.type:start and
-process.name:((chattr or chgrp or chmod or chown) and
-not (apt-key or update-motd-updates-available)) and
-process.working_directory:(/dev/shm or /tmp or /var/tmp)
+process.name:(chattr or chgrp or chmod or chown) and process.working_directory:(/dev/shm or /tmp or /var/tmp) and
+not process.parent.name:(apt-key or update-motd-updates-available)
 '''
 
 [[rule.threat]]
