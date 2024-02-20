@@ -5,7 +5,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/26"
+updated_date = "2024/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -46,6 +46,7 @@ Add the newly installed `auditd manager` to an agent policy, and deploy the agen
 """
 severity = "low"
 tags = [
+        "Data Source: Auditd Manager",
         "Domain: Endpoint",
         "OS: Linux",
         "Use Case: Threat Detection",
@@ -56,8 +57,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-driver where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and 
-event.action == "loaded-kernel-module" and auditd.data.syscall in ("init_module", "finit_module")
+driver where host.os.type == "linux" and event.action == "loaded-kernel-module" and
+auditd.data.syscall in ("init_module", "finit_module")
 '''
 
 [[rule.threat]]
