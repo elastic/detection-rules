@@ -4,7 +4,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/10"
+updated_date = "2024/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -50,6 +50,7 @@ However, if more advanced configuration is required to detect specific behavior,
 """
 severity = "medium"
 tags = [
+        "Data Source: Auditd Manager",
         "Domain: Endpoint",
         "OS: Linux",
         "Use Case: Threat Detection",
@@ -59,8 +60,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-driver where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and 
-event.action == "loaded-kernel-module" and auditd.data.syscall in ("init_module", "finit_module") and user.id != "0"
+driver where host.os.type == "linux" and event.action == "loaded-kernel-module" and
+auditd.data.syscall in ("init_module", "finit_module") and user.id != "0"
 '''
 
 [[rule.threat]]
