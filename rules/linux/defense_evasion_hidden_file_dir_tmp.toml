@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/12/12"
+updated_date = "2024/02/20"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 max_signals = 33
@@ -80,7 +80,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.working_directory in ("/tmp", "/var/tmp", "/dev/shm") and
 process.args regex~ """\.[a-z0-9_\-][a-z0-9_\-\.]{1,254}""" and
 not process.name in ("ls", "find", "grep", "git", "jq", "basename")
