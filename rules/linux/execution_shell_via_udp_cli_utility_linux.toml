@@ -4,7 +4,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "The sampling feature within EQL was introduced in 8.6.0"
 min_stack_version = "8.6.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -62,6 +62,7 @@ However, if more advanced configuration is required to detect specific behavior,
 """
 severity = "medium"
 tags = [
+    "Data Source: Auditd Manager",
     "Domain: Endpoint",
     "OS: Linux",
     "Use Case: Threat Detection",
@@ -71,19 +72,22 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 sample by host.id, process.pid, process.parent.pid
-[process where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and 
- auditd.data.syscall == "execve" and process.name : ("bash", "dash", "sh", "tcsh",
- "csh", "zsh", "ksh", "fish", "perl", "python*", "nc", "ncat", "netcat", "php*", "ruby",
- "openssl", "awk", "telnet", "lua*", "socat")]
-[process where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and 
- auditd.data.syscall == "socket" and process.name : ("bash", "dash", "sh", "tcsh", "csh",
- "zsh", "ksh", "fish", "perl", "python*", "nc", "ncat", "netcat", "php*", "ruby", "openssl",
- "awk", "telnet", "lua*", "socat") and auditd.data.a0 == "2" and auditd.data.a1 : ("2", "802")]
-[network where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and 
- auditd.data.syscall == "connect" and process.name : ("bash", "dash", "sh", "tcsh", "csh",
- "zsh", "ksh", "fish", "perl", "python*", "nc", "ncat", "netcat", "php*", "ruby", "openssl",
- "awk", "telnet", "lua*", "socat") and network.direction == "egress" and destination.ip != null and 
- destination.ip != "127.0.0.1" and destination.ip != "127.0.0.53" and destination.ip != "::1"]
+  [process where host.os.type == "linux" and auditd.data.syscall == "execve" and process.name : (
+     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl", "python*", "nc", "ncat", "netcat", "php*",
+     "ruby", "openssl", "awk", "telnet", "lua*", "socat"
+   )
+  ]
+  [process where host.os.type == "linux" and auditd.data.syscall == "socket" and process.name : (
+     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl", "python*", "nc", "ncat", "netcat", "php*",
+     "ruby", "openssl", "awk", "telnet", "lua*", "socat"
+   ) and
+   auditd.data.a0 == "2" and auditd.data.a1 : ("2", "802")]
+[network where host.os.type == "linux" and auditd.data.syscall == "connect" and process.name : (
+   "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl", "python*", "nc", "ncat", "netcat", "php*",
+   "ruby", "openssl", "awk", "telnet", "lua*", "socat"
+ ) and
+ network.direction == "egress" and destination.ip != null and destination.ip != "127.0.0.1" and
+ destination.ip != "127.0.0.53" and destination.ip != "::1"]
 '''
 
 [[rule.threat]]
