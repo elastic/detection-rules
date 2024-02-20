@@ -2,9 +2,35 @@
 creation_date = "2020/11/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2023/01/03"
+updated_date = "2023/10/13"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve DNS Cache"
+query = "SELECT * FROM dns_cache"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve All Services"
+query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Services Running on User Accounts"
+query = """
+SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
+NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
+user_account == null)
+"""
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
+query = """
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
+services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
+authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
+"""
+
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +52,7 @@ The Windows Startup folder is a special folder in Windows. Programs added to thi
 This rule looks for unsigned processes writing to the Startup folder locations.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -34,18 +60,18 @@ This rule looks for unsigned processes writing to the Startup folder locations.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Validate if the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
       - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
       - Examine the DNS cache for suspicious or anomalous entries.
-        - !{osquery{"query":"SELECT * FROM dns_cache", "label":"Osquery - Retrieve DNS Cache"}}
+        - $osquery_0
     - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
     - Examine the host services for suspicious or anomalous entries.
-      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services","label":"Osquery - Retrieve All Services"}}
-      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR user_account == null)","label":"Osquery - Retrieve Services Running on User Accounts"}}
-      - !{osquery{"query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'","label":"Osquery - Retrieve Service Unsigned Executables with Virustotal Link"}}
+      - $osquery_1
+      - $osquery_2
+      - $osquery_3
   - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 - Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
 
@@ -76,12 +102,12 @@ This rule looks for unsigned processes writing to the Startup folder locations.
 risk_score = 47
 rule_id = "2fba96c0-ade5-4bce-b92f-a5df2509da3f"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan=5s
-  [process where event.type == "start" and process.code_signature.trusted == false and
+  [process where host.os.type == "windows" and event.type == "start" and process.code_signature.trusted == false and
   /* suspicious paths can be added here  */
    process.executable : ("C:\\Users\\*.exe",
                          "C:\\ProgramData\\*.exe",
@@ -90,7 +116,7 @@ sequence by host.id, process.entity_id with maxspan=5s
                          "C:\\Intel\\*.exe",
                          "C:\\PerfLogs\\*.exe")
    ]
-   [file where event.type != "deletion" and user.domain != "NT AUTHORITY" and
+   [file where host.os.type == "windows" and event.type != "deletion" and user.domain != "NT AUTHORITY" and
     file.path : ("C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*",
                  "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp\\*")
    ]
@@ -114,4 +140,21 @@ reference = "https://attack.mitre.org/techniques/T1547/001/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.001"
+name = "Invalid Code Signature"
+reference = "https://attack.mitre.org/techniques/T1036/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

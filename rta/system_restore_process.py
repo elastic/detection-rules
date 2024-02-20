@@ -8,19 +8,23 @@
 # ATT&CK: T1158
 # Description: Copies mock malware into the System Volume Information directory and executes.
 
-import os
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
+from . import RtaMetadata, common
 
-
-metadata = RtaMetadata(uuid="0fcf5aeb-cebd-466d-8a2e-ddb710ec845d", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(
+    uuid="0fcf5aeb-cebd-466d-8a2e-ddb710ec845d",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
 SYSTEM_RESTORE = "c:\\System Volume Information"
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(common.PS_EXEC)
 def main():
     status = common.run_system()
@@ -36,7 +40,7 @@ def main():
         common.log("No writeable directories in System Restore. Exiting...", "-")
         return common.UNSUPPORTED_RTA
 
-    target_path = os.path.join(target_directory, "restore-process.exe")
+    target_path = Path(target_directory) / "restore-process.exe"
     common.copy_file(program_path, target_path)
     common.execute(target_path)
 

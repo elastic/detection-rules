@@ -12,10 +12,16 @@ from . import common
 from . import RtaMetadata
 
 
-metadata = RtaMetadata(uuid="cda5b0b4-5b9c-4285-8adc-f89b375e5485", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(
+    uuid="cda5b0b4-5b9c-4285-8adc-f89b375e5485",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Suspicious DLL Registration by Regsvr32")
 

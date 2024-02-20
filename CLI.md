@@ -36,6 +36,10 @@ EX: `DR_USER=joe`
 
 Using the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE` will bypass the Detection Rules validation on the `note` field in toml files.
 
+Using the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION` will bypass the Detection Rules lookback and interval validation
+on the building block rules.
+
+Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detection Rules Unit Tests on the `tags` field in toml files.
 
 ## Importing rules into the repo
 
@@ -60,7 +64,7 @@ Usage: detection_rules create-rule [OPTIONS] PATH
 Options:
   -c, --config FILE               Rule or config file
   --required-only                 Only prompt for required fields
-  -t, --rule-type [machine_learning|saved_query|query|threshold]
+  -t, --rule-type [machine_learning|query|threshold]
                                   Type of rule to create
   -h, --help                      Show this message and exit.
 ```
@@ -317,3 +321,62 @@ you can define `"debug": true` in your config file, or run `python -m detection-
 
 Precedence goes to the flag over the config file, so if debug is enabled in your config and you run
 `python -m detection-rules --no-debug`, debugging will be disabled.
+
+
+## Using `transform` in rule toml
+
+A transform is any data that will be incorporated into _existing_ rule fields at build time, from within the
+`TOMLRuleContents.to_dict` method. _How_ to process each transform should be defined within the `Transform` class as a
+method specific to the transform type.
+
+### CLI support for investigation guide plugins
+
+This applies to osquery and insights for the moment but could expand in the future.
+
+```
+(venv38) ➜  detection-rules-fork git:(2597-validate-osquery-insights) python -m detection_rules dev transforms -h
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+Usage: detection_rules dev transforms [OPTIONS] COMMAND [ARGS]...
+
+  Commands for managing TOML [transform].
+
+Options:
+  -h, --help  Show this message and exit.
+
+Commands:
+  guide-plugin-convert  Convert investigation guide plugin format to toml
+  guide-plugin-to-rule  Convert investigation guide plugin format to toml
+```
+
+`guide-plugin-convert` will print out the formatted toml.
+
+
+```
+(venv38) ➜  detection-rules-fork git:(2597-validate-osquery-insights) python -m detection_rules dev transforms guide-plugin-convert
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+Enter plugin contents []: !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services\nWHERE NOT (user_account LIKE \"%LocalSystem\" OR user_account LIKE \"%LocalService\" OR user_account LIKE \"%NetworkService\" OR user_account == null)","label":"label2","ecs_mapping":{"labels":{"field":"description"},"agent.build.original":{"value":"fast"}}}}
+[transform]
+
+[[transform.osquery]]
+query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services\nWHERE NOT (user_account LIKE \"%LocalSystem\" OR user_account LIKE \"%LocalService\" OR user_account LIKE \"%NetworkService\" OR user_account == null)"
+label = "label2"
+
+[transform.osquery.ecs_mapping]
+
+[transform.osquery.ecs_mapping.labels]
+field = "description"
+
+[transform.osquery.ecs_mapping."agent.build.original"]
+value = "fast"
+```
+
+The easiest way to _update_ a rule with existing transform entries is to use `guide-plugin-convert` and manually add it
+to the rule.

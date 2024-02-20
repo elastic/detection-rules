@@ -1,0 +1,125 @@
+[metadata]
+creation_date = "2023/01/31"
+integration = ["endpoint", "windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/10/09"
+
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve All Non-Microsoft Drivers with Virustotal Link"
+query = """
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image, issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image = authenticode.path JOIN hash ON drivers.image = hash.path WHERE NOT (provider == "Microsoft" AND signed == "1")
+"""
+
+[[transform.osquery]]
+label = "Osquery - Retrieve All Unsigned Drivers with Virustotal Link"
+query = """
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image, issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image = authenticode.path JOIN hash ON drivers.image = hash.path WHERE signed == "0"
+"""
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to disable the code signing policy through the registry. Code signing provides authenticity on a
+program, and grants the user with the ability to check whether the program has been tampered with. By allowing the
+execution of unsigned or self-signed code, threat actors can craft and execute malicious code. 
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Code Signing Policy Modification Through Registry"
+note = """## Triage and analysis
+
+### Investigating Code Signing Policy Modification Through Registry
+
+Microsoft created the Windows Driver Signature Enforcement (DSE) security feature to prevent drivers with invalid signatures from loading and executing into the kernel (ring 0). DSE aims to protect systems by blocking attackers from loading malicious drivers on targets. 
+
+This protection is essential for maintaining system security. However, attackers or administrators can disable DSE and load untrusted drivers, which can put the system at risk. Therefore, it's important to keep this feature enabled and only load drivers from trusted sources to ensure system integrity and security.
+
+This rule identifies registry modifications that can disable DSE.
+
+> **Note**:
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+
+#### Possible investigation steps
+
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Use Osquery and endpoint driver events (`event.category = "driver"`) to investigate if suspicious drivers were loaded into the system after the registry was modified.
+  - $osquery_0
+  - $osquery_1
+- Identify the driver's `Device Name` and `Service Name`.
+- Check for alerts from the rules specified in the `Related Rules` section.
+
+### False positive analysis
+
+- This activity should not happen legitimately. The security team should address any potential benign true positive (B-TP), as this configuration can put the user and the domain at risk.
+
+### Related Rules
+
+- First Time Seen Driver Loaded - df0fd41e-5590-4965-ad5e-cd079ec22fa9
+- Untrusted Driver Loaded - d8ab1ec1-feeb-48b9-89e7-c12e189448aa
+- Code Signing Policy Modification Through Built-in tools - b43570de-a908-4f7f-8bdb-b2df6ffd8c80
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Disable and uninstall all suspicious drivers found in the system. This can be done via Device Manager. (Note that this step may require you to boot the system into Safe Mode.)
+- Remove the related services and registry keys found in the system. Note that the service will probably not stop if the driver is still installed.
+  - This can be done via PowerShell `Remove-Service` cmdlet.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Remove and block malicious artifacts identified during triage.
+- Ensure that the Driver Signature Enforcement is enabled on the system.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+risk_score = 47
+rule_id = "da7733b1-fe08-487e-b536-0a04c6d8b0cd"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type : ("creation", "change") and
+(
+  registry.path : "HKEY_USERS\\*\\Software\\Policies\\Microsoft\\Windows NT\\Driver Signing\\BehaviorOnFailedVerify" and
+  registry.value: "BehaviorOnFailedVerify" and
+  registry.data.strings : ("0", "0x00000000", "1", "0x00000001")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1553"
+name = "Subvert Trust Controls"
+reference = "https://attack.mitre.org/techniques/T1553/"
+[[rule.threat.technique.subtechnique]]
+id = "T1553.006"
+name = "Code Signing Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1553/006/"
+
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

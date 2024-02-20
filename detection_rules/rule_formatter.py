@@ -217,8 +217,10 @@ def toml_write(rule_contents, outfile=None):
             needs_close = True
             outfile = open(outfile, 'w')
 
-        for data in ('metadata', 'rule'):
+        for data in ('metadata', 'transform', 'rule'):
             _contents = contents.get(data, {})
+            if not _contents:
+                continue
             order_rule(_contents)
             _do_write(data, _contents)
 

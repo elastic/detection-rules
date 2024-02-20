@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/01/05"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -32,8 +32,8 @@ Attackers can abuse PowerShell capabilities to capture user keystrokes with the 
 - Examine file or network events from the involved PowerShell process for suspicious behavior.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Evaluate whether the user needs to use PowerShell to complete tasks.
-- Investigate if the script stores the captured data locally.
-- Investigate if the script contains exfiltration capabilities and the destination of this exfiltration.
+- Determine whether the script stores the captured data locally.
+- Investigate whether the script contains exfiltration capabilities and identify the exfiltration server.
 - Assess network data to determine if the host communicated with the exfiltration server.
 
 ### False positive analysis
@@ -48,14 +48,21 @@ Attackers can abuse PowerShell capabilities to capture user keystrokes with the 
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved hosts to prevent further post-compromise behavior.
-- The response must be prioritized if this alert involves key executives or potentially valuable targets for espionage.
+- Prioritize the response if this alert involves key executives or potentially valuable targets for espionage.
 - Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
+"""
+references = [
+    "https://github.com/EmpireProject/Empire/blob/master/data/module_source/collection/Get-Keystrokes.ps1",
+    "https://github.com/MojtabaTajik/FunnyKeylogger/blob/master/FunnyLogger.ps1",
+]
+risk_score = 47
+rule_id = "bd2c86a0-8b61-4457-ab38-96943984e889"
+setup="""
 
 The 'PowerShell Script Block Logging' logging policy must be enabled.
 Steps to implement the logging policy with with Advanced Audit Configuration:
@@ -73,26 +80,23 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-references = [
-    "https://github.com/EmpireProject/Empire/blob/master/data/module_source/collection/Get-Keystrokes.ps1",
-    "https://github.com/MojtabaTajik/FunnyKeylogger/blob/master/FunnyLogger.ps1",
-]
-risk_score = 47
-rule_id = "bd2c86a0-8b61-4457-ab38-96943984e889"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection", "Investigation Guide", "PowerShell"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Resources: Investigation Guide", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and
+event.category:process and host.os.type:windows and
   (
    powershell.file.script_block_text : (GetAsyncKeyState or NtUserGetAsyncKeyState or GetKeyboardState or "Get-Keystrokes") or
    powershell.file.script_block_text : (
         (SetWindowsHookA or SetWindowsHookW or SetWindowsHookEx or SetWindowsHookExA or NtUserSetWindowsHookEx) and
-        (GetForegroundWindow or GetWindowTextA or GetWindowTextW or "WM_KEYBOARD_LL")
+        (GetForegroundWindow or GetWindowTextA or GetWindowTextW or "WM_KEYBOARD_LL" or "WH_MOUSE_LL")
    )
    ) and not user.id : "S-1-5-18"
+  and not powershell.file.script_block_text : (
+    "sentinelbreakpoints" and "Set-PSBreakpoint"
+  )
 '''
 
 
@@ -124,6 +128,11 @@ id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
 
+
+[[rule.threat.technique]]
+id = "T1106"
+name = "Native API"
+reference = "https://attack.mitre.org/techniques/T1106/"
 
 
 [rule.threat.tactic]

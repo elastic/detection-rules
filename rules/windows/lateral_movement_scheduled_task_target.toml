@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -45,18 +45,18 @@ note = """## Triage and analysis
 risk_score = 47
 rule_id = "954ee7c8-5437-49ae-b2d6-2960883898e9"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 /* Task Scheduler service incoming connection followed by TaskCache registry modification  */
 
 sequence by host.id, process.entity_id with maxspan = 1m
-   [network where process.name : "svchost.exe" and
+   [network where host.os.type == "windows" and process.name : "svchost.exe" and
    network.direction : ("incoming", "ingress") and source.port >= 49152 and destination.port >= 49152 and
    source.ip != "127.0.0.1" and source.ip != "::1"
    ]
-   [registry where registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
+   [registry where host.os.type == "windows" and registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
 '''
 
 

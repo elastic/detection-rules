@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/10/13"
 
 [rule]
 author = ["Elastic"]
@@ -47,7 +47,7 @@ This rule identifies PsExec execution by looking for the creation of `PsExec.exe
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-  - Prioritize accordingly with the role of the servers and users involved.
+  - Prioritize cases involving critical servers and users.
 - Isolate the involved hosts to prevent further post-compromise behavior.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
@@ -58,12 +58,12 @@ This rule identifies PsExec execution by looking for the creation of `PsExec.exe
 risk_score = 21
 rule_id = "55d551c6-333b-4665-ab7e-5d14a59715ce"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution", "Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Tactic: Lateral Movement", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where process.name : "PsExec.exe" and event.type == "start" and
+  [process where host.os.type == "windows" and process.name : "PsExec.exe" and event.type == "start" and
 
    /* This flag suppresses the display of the license dialog and may
       indicate that psexec executed for the first time in the machine */
@@ -74,7 +74,7 @@ sequence by process.entity_id
                              "?:\\Program Files\\Docusnap X\\Bin\\psexec.exe",
                              "?:\\Program Files\\Docusnap X\\Tools\\dsDNS.exe") and
    not process.parent.executable : "?:\\Program Files (x86)\\Cynet\\Cynet Scanner\\CynetScanner.exe"]
-  [network where process.name : "PsExec.exe"]
+  [network where host.os.type == "windows" and process.name : "PsExec.exe"]
 '''
 
 
@@ -97,6 +97,21 @@ name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.002"
+name = "SMB/Windows Admin Shares"
+reference = "https://attack.mitre.org/techniques/T1021/002/"
+
+[[rule.threat.technique]]
+id = "T1570"
+name = "Lateral Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1570/"
 
 [rule.threat.tactic]
 id = "TA0008"

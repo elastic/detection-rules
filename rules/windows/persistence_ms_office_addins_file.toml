@@ -4,30 +4,34 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
 description = "Detects attempts to establish persistence on an endpoint by abusing Microsoft Office add-ins."
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Microsoft Office AddIns"
-note = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-"""
-references = ["https://labs.mwrinfosecurity.com/blog/add-in-opportunities-for-office-persistence/"]
+references = ["https://labs.withsecure.com/publications/add-in-opportunities-for-office-persistence"]
 risk_score = 73
 rule_id = "f44fa4b6-524c-4e87-8d9e-a32599e4fb7c"
+setup = """
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type != "deletion" and
+file where host.os.type == "windows" and event.type != "deletion" and
  file.extension : ("wll","xll","ppa","ppam","xla","xlam") and
  file.path :
     (
@@ -45,6 +49,10 @@ id = "T1137"
 name = "Office Application Startup"
 reference = "https://attack.mitre.org/techniques/T1137/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1137.006"
+name = "Add-ins"
+reference = "https://attack.mitre.org/techniques/T1137/006/"
 
 [rule.threat.tactic]
 id = "TA0003"

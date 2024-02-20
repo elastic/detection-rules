@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/11/12"
-integration = ["windows"]
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/21"
+updated_date = "2023/12/14"
 
 [rule]
 author = ["Elastic", "Anabella Cristaldi"]
@@ -51,12 +51,13 @@ This rule looks for the occurrence of clear actions on the `security` event log.
 risk_score = 21
 rule_id = "45ac4800-840f-414c-b221-53dd36a5aaf7"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:("audit-log-cleared" or "Log clear")
+event.action:("audit-log-cleared" or "Log clear") and winlog.api:"wineventlog" and
+  not winlog.provider_name:"AD FS Auditing"
 '''
 
 

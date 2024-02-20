@@ -9,23 +9,27 @@
 # Description: Calls PowerShell with suspicious command line arguments.
 
 import base64
-import os
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
+from . import RtaMetadata, common
 
-
-metadata = RtaMetadata(uuid="5efc844c-0c11-4f84-a904-ada611315298", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(
+    uuid="5efc844c-0c11-4f84-a904-ada611315298",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
 def encode(command):
     return base64.b64encode(command.encode("utf-16le"))
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("PowerShell Suspicious Commands")
-    temp_script = os.path.abspath("tmp.ps1")
+    temp_script = Path("tmp.ps1").resolve()
 
     # Create an empty script
     with open(temp_script, "w") as f:

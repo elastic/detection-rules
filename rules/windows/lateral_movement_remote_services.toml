@@ -2,9 +2,35 @@
 creation_date = "2020/11/16"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/03"
+updated_date = "2024/01/04"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve DNS Cache"
+query = "SELECT * FROM dns_cache"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve All Services"
+query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Services Running on User Accounts"
+query = """
+SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
+NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
+user_account == null)
+"""
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
+query = """
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
+services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
+authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
+"""
+
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +52,7 @@ The Service Control Manager Remote Protocol is a client/server protocol used for
 This rule detects the remote creation or start of a service by correlating a `services.exe` network connection and the spawn of a child process.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -36,18 +62,18 @@ This rule detects the remote creation or start of a service by correlating a `se
 - Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Validate if the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
       - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
       - Examine the DNS cache for suspicious or anomalous entries.
-        - !{osquery{"query":"SELECT * FROM dns_cache", "label":"Osquery - Retrieve DNS Cache"}}
+        - $osquery_0
     - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
     - Examine the host services for suspicious or anomalous entries.
-      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services","label":"Osquery - Retrieve All Services"}}
-      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR user_account == null)","label":"Osquery - Retrieve Services Running on User Accounts"}}
-      - !{osquery{"query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'","label":"Osquery - Retrieve Service Unsigned Executables with Virustotal Link"}}
+      - $osquery_1
+      - $osquery_2
+      - $osquery_3
   - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 - Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
 
@@ -77,46 +103,47 @@ references = [
 risk_score = 47
 rule_id = "aa9a274d-6b53-424d-ac5e-cb8ca4251650"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 sequence with maxspan=1s
-   [network where process.name : "services.exe" and
+   [network where host.os.type == "windows" and process.name : "services.exe" and
       network.direction : ("incoming", "ingress") and network.transport == "tcp" and
       source.port >= 49152 and destination.port >= 49152 and source.ip != "127.0.0.1" and source.ip != "::1"
    ] by host.id, process.entity_id
-
-   [process where event.type == "start" and process.parent.name : "services.exe" and
-       not (process.name : "svchost.exe" and process.args : "tiledatamodelsvc") and
-       not (process.name : "msiexec.exe" and process.args : "/V") and
-       not process.executable :
-               ("?:\\Windows\\ADCR_Agent\\adcrsvc.exe",
-                "?:\\Windows\\System32\\VSSVC.exe",
-                "?:\\Windows\\servicing\\TrustedInstaller.exe",
-                "?:\\Windows\\System32\\svchost.exe",
-                "?:\\Program Files (x86)\\*.exe",
-                "?:\\Program Files\\*.exe",
-                "?:\\Windows\\PSEXESVC.EXE",
-                "?:\\Windows\\System32\\sppsvc.exe",
-                "?:\\Windows\\System32\\wbem\\WmiApSrv.exe",
-                "?:\\WINDOWS\\RemoteAuditService.exe",
-                "?:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe",
-                "?:\\Windows\\VeeamLogShipper\\VeeamLogShipper.exe",
-                "?:\\Windows\\CAInvokerService.exe",
-                "?:\\Windows\\System32\\upfc.exe",
-                "?:\\Windows\\AdminArsenal\\PDQ*.exe",
-                "?:\\Windows\\System32\\vds.exe",
-                "?:\\Windows\\Veeam\\Backup\\VeeamDeploymentSvc.exe",
-                "?:\\Windows\\ProPatches\\Scheduler\\STSchedEx.exe",
-                "?:\\Windows\\System32\\certsrv.exe",
-                "?:\\Windows\\eset-remote-install-service.exe",
-                "?:\\Pella Corporation\\Pella Order Management\\GPAutoSvc.exe",
+   [process where host.os.type == "windows" and 
+       event.type == "start" and process.parent.name : "services.exe" and
+       not (process.executable : "?:\\Windows\\System32\\msiexec.exe" and process.args : "/V") and
+       not process.executable : (
                 "?:\\Pella Corporation\\OSCToGPAutoService\\OSCToGPAutoSvc.exe",
                 "?:\\Pella Corporation\\Pella Order Management\\GPAutoSvc.exe",
+                "?:\\Pella Corporation\\Pella Order Management\\GPAutoSvc.exe",
+                "?:\\Program Files (x86)\\*.exe",
+                "?:\\Program Files\\*.exe",
+                "?:\\Windows\\ADCR_Agent\\adcrsvc.exe",
+                "?:\\Windows\\AdminArsenal\\PDQ*.exe",
+                "?:\\Windows\\CAInvokerService.exe",
+                "?:\\Windows\\ccmsetup\\ccmsetup.exe",
+                "?:\\Windows\\eset-remote-install-service.exe",
+                "?:\\Windows\\ProPatches\\Scheduler\\STSchedEx.exe",
+                "?:\\Windows\\PSEXESVC.EXE",
+                "?:\\Windows\\RemoteAuditService.exe",
+                "?:\\Windows\\servicing\\TrustedInstaller.exe",
+                "?:\\Windows\\System32\\certsrv.exe",
+                "?:\\Windows\\System32\\sppsvc.exe",
+                "?:\\Windows\\System32\\srmhost.exe",
+                "?:\\Windows\\System32\\svchost.exe",
+                "?:\\Windows\\System32\\taskhostex.exe",
+                "?:\\Windows\\System32\\upfc.exe",
+                "?:\\Windows\\System32\\vds.exe",
+                "?:\\Windows\\System32\\VSSVC.exe",
+                "?:\\Windows\\System32\\wbem\\WmiApSrv.exe",
                 "?:\\Windows\\SysWOW64\\NwxExeSvc\\NwxExeSvc.exe",
-                "?:\\Windows\\System32\\taskhostex.exe")
-   ] by host.id, process.parent.entity_id
+                "?:\\Windows\\Veeam\\Backup\\VeeamDeploymentSvc.exe",
+                "?:\\Windows\\VeeamLogShipper\\VeeamLogShipper.exe",
+                "?:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe"
+       )] by host.id, process.parent.entity_id
 '''
 
 

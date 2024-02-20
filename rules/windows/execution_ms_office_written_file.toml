@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/09/19"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,7 @@ note = """## Triage and analysis
 
 ### Investigating Execution of File Written or Modified by Microsoft Office
 
-Microsoft Office is a suite of applications designed to help with productivity and completing common tasks on a computer. You can create and edit documents containing text and images, work with data in spreadsheets and databases, and create presentations and posters. As it is some of the most-used software across companies, MS Office is frequently targeted for initial access. It also has a wide variety of capabilities that attackers can take advantage of.
+Microsoft Office, a widely used suite of productivity applications, is frequently targeted by attackers due to its popularity in corporate environments. Attackers exploit its extensive capabilities, like macro scripts in Word and Excel, to gain initial access to systems. They often use Office documents as delivery mechanisms for malware or phishing attempts, taking advantage of their trusted status in professional settings.
 
 This rule searches for executable files written by MS Office applications executed in sequence. This is most likely the result of the execution of malicious documents or exploitation for initial access or privilege escalation. This rule can also detect suspicious processes masquerading as the MS Office applications.
 
@@ -68,12 +68,19 @@ This rule searches for executable files written by MS Office applications execut
 risk_score = 73
 rule_id = "0d8ad79f-9025-45d8-80c1-4f0cd3c5e8e5"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution", "Investigation Guide", "Elastic Endgame"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 type = "eql"
 
 query = '''
 sequence with maxspan=2h
-  [file where event.type != "deletion" and file.extension : "exe" and
+  [file where host.os.type == "windows" and event.type != "deletion" and file.extension : "exe" and
      (process.name : "WINWORD.EXE" or
       process.name : "EXCEL.EXE" or
       process.name : "OUTLOOK.EXE" or
@@ -83,9 +90,10 @@ sequence with maxspan=2h
       process.name : "MSPUB.EXE" or
       process.name : "MSACCESS.EXE")
   ] by host.id, file.path
-  [process where event.type == "start"] by host.id, process.executable
+  [process where host.os.type == "windows" and event.type == "start" and 
+   not (process.name : "NewOutlookInstaller.exe" and process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
+  ] by host.id, process.executable
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -94,12 +102,15 @@ framework = "MITRE ATT&CK"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1566"
 name = "Phishing"
 reference = "https://attack.mitre.org/techniques/T1566/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1566.001"
 name = "Spearphishing Attachment"
@@ -110,10 +121,7 @@ id = "T1566.002"
 name = "Spearphishing Link"
 reference = "https://attack.mitre.org/techniques/T1566/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-

@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/28"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ that can be loaded from a different location by a native Windows process. This m
 privileges via privileged file write vulnerabilities.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious DLL Loaded for Persistence or Privilege Escalation"
@@ -58,9 +58,6 @@ Attackers can execute malicious code by abusing missing modules that processes t
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://itm4n.github.io/windows-dll-hijacking-clarified/",
@@ -72,36 +69,51 @@ references = [
 ]
 risk_score = 73
 rule_id = "bfeaf89b-a2a7-48a3-817f-e41829dc61ee"
+setup="""
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "high"
 tags = [
-    "Elastic",
-    "Host",
-    "Windows",
-    "Threat Detection",
-    "Persistence",
-    "Privilege Escalation",
-    "Investigation Guide",
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where
- (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
+any where host.os.type == "windows" and
+ (event.category : ("driver", "library") or (event.category == "process" and event.action : "Image loaded*")) and
  (
   /* compatible with Elastic Endpoint Library Events */
   (dll.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
                "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
                "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "oci.dll", "TPPCOIPW32.dll", 
                "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll")
-   and (dll.code_signature.trusted == false or dll.code_signature.exists == false)) or
+   and (dll.code_signature.trusted != true or dll.code_signature.exists != true)) or
 
   /* compatible with Sysmon EventID 7 - Image Load */
   (file.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
                "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
                "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "oci.dll", "TPPCOIPW32.dll", 
-               "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll")
-   and not file.code_signature.status == "Valid")
+               "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll") and 
+   not file.path : ("?:\\Windows\\System32\\wbemcomn.dll", "?:\\Windows\\SysWOW64\\wbemcomn.dll") and 
+   not file.hash.sha256 : 
+            ("6e837794fc282446906c36d681958f2f6212043fc117c716936920be166a700f", 
+             "b14e4954e8cca060ffeb57f2458b6a3a39c7d2f27e94391cbcea5387652f21a4", 
+             "c258d90acd006fa109dc6b748008edbb196d6168bc75ace0de0de54a4db46662") and 
+   not file.code_signature.status == "Valid")
   )
 '''
 
@@ -140,4 +152,21 @@ reference = "https://attack.mitre.org/techniques/T1574/001/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.001"
+name = "Invalid Code Signature"
+reference = "https://attack.mitre.org/techniques/T1036/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

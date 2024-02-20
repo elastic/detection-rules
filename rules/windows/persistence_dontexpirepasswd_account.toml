@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2022/02/22"
-integration = ["windows"]
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/21"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -59,25 +59,26 @@ The setting is usually configured so a user account can act as a service account
 """
 references = [
     "https://www.cert.ssi.gouv.fr/uploads/guide-ad.html#dont_expire",
-    "https://blog.menasec.net/2019/02/threat-hunting-26-persistent-password.html",
+    "http://web.archive.org/web/20230329171952/https://blog.menasec.net/2019/02/threat-hunting-26-persistent-password.html",
 ]
 risk_score = 47
 rule_id = "62a70f6f-3c37-43df-a556-f64fa475fba2"
 severity = "medium"
 tags = [
-    "Elastic",
-    "Host",
-    "Windows",
-    "Threat Detection",
-    "Persistence",
-    "Active Directory",
-    "Investigation Guide",
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Active Directory",
+    "Resources: Investigation Guide",
+    "Use Case: Active Directory Monitoring"
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:"modified-user-account" and event.code:"4738" and message:"'Don't Expire Password' - Enabled" and not user.id:"S-1-5-18"
+event.action:"modified-user-account" and winlog.api:"wineventlog" and event.code:"4738" and
+  message:"'Don't Expire Password' - Enabled" and not user.id:"S-1-5-18"
 '''
 
 

@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,15 +20,15 @@ name = "InstallUtil Process Making Network Connections"
 risk_score = 47
 rule_id = "a13167f1-eec2-4015-9631-1fee60406dcf"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 /* the benefit of doing this as an eql sequence vs kql is this will limit to alerting only on the first network connection */
 
 sequence by process.entity_id
-  [process where event.type == "start" and process.name : "installutil.exe"]
-  [network where process.name : "installutil.exe" and network.direction : ("outgoing", "egress")]
+  [process where host.os.type == "windows" and event.type == "start" and process.name : "installutil.exe"]
+  [network where host.os.type == "windows" and process.name : "installutil.exe" and network.direction : ("outgoing", "egress")]
 '''
 
 

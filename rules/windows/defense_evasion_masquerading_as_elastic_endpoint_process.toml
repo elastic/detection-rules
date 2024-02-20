@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/12/11"
 
 [rule]
 author = ["Elastic"]
@@ -17,26 +17,48 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Endpoint Security Parent Process"
-note = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-"""
 risk_score = 47
 rule_id = "b41a13c6-ba45-4bab-a534-df53d0cfed6a"
+setup = """
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
- process.name : ("esensor.exe", "elastic-endpoint.exe") and
- process.parent.executable != null and
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : ("esensor.exe", "elastic-endpoint.exe") and
+  process.parent.executable != null and
   /* add FPs here */
- not process.parent.executable : ("C:\\Program Files\\Elastic\\*",
-                                  "C:\\Windows\\System32\\services.exe",
-                                  "C:\\Windows\\System32\\WerFault*.exe",
-                                  "C:\\Windows\\System32\\wermgr.exe")
+  not process.parent.executable : (
+        "?:\\Program Files\\Elastic\\*",
+        "?:\\Windows\\System32\\services.exe",
+        "?:\\Windows\\System32\\WerFault*.exe",
+        "?:\\Windows\\System32\\wermgr.exe",
+        "?:\\Windows\\explorer.exe"
+  ) and
+  not (
+    process.parent.executable : (
+        "?:\\Windows\\System32\\cmd.exe",
+        "?:\\Windows\\System32\\SecurityHealthHost.exe",
+        "?:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    ) and
+    process.args : (
+        "test", "version",
+        "top", "run",
+        "*help", "status",
+        "upgrade", "/launch",
+        "/enable"
+    )
+  )
+  
 '''
 
 
@@ -46,6 +68,11 @@ framework = "MITRE ATT&CK"
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.005"
+name = "Match Legitimate Name or Location"
+reference = "https://attack.mitre.org/techniques/T1036/005/"
 
 
 [rule.threat.tactic]

@@ -17,7 +17,10 @@ import functools
 from . import ecs
 from .attack import matrix, tactics, build_threat_map_entry
 from .rule import TOMLRule, TOMLRuleContents
-from .rule_loader import RuleCollection, DEFAULT_RULES_DIR, dict_filter
+from .rule_loader import (RuleCollection,
+                          DEFAULT_RULES_DIR,
+                          DEFAULT_BBR_DIR,
+                          dict_filter)
 from .schemas import definitions
 from .utils import clear_caches, get_path
 
@@ -46,8 +49,8 @@ def single_collection(f):
         rules.load_directories(Path(d) for d in directories)
 
         if rule_id:
-            rules.load_directory(DEFAULT_RULES_DIR, toml_filter=dict_filter(rule__rule_id=rule_id))
-
+            rules.load_directories((DEFAULT_RULES_DIR, DEFAULT_BBR_DIR),
+                                   toml_filter=dict_filter(rule__rule_id=rule_id))
             if len(rules) != 1:
                 client_error(f"Could not find rule with ID {rule_id}")
 
@@ -80,7 +83,8 @@ def multi_collection(f):
         rules.load_directories(Path(d) for d in directories)
 
         if rule_id:
-            rules.load_directory(DEFAULT_RULES_DIR, toml_filter=dict_filter(rule__rule_id=rule_id))
+            rules.load_directories((DEFAULT_RULES_DIR, DEFAULT_BBR_DIR),
+                                   toml_filter=dict_filter(rule__rule_id=rule_id))
             found_ids = {rule.id for rule in rules}
             missing = set(rule_id).difference(found_ids)
 
@@ -140,9 +144,9 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             threat_map = []
 
             while click.confirm('add mitre tactic?'):
-                tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
+                tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, is_required=True)
                 technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
-                                              required=False, enum=list(matrix[tactic])) or []
+                                              is_required=False, enum=list(matrix[tactic])) or []
 
                 try:
                     threat_map.append(build_threat_map_entry(tactic, *technique_ids))
@@ -158,7 +162,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             continue
 
         if name == 'threshold':
-            contents[name] = {n: schema_prompt(f'threshold {n}', required=n in options['required'], **opts.copy())
+            contents[name] = {n: schema_prompt(f'threshold {n}', is_required=n in options['required'], **opts.copy())
                               for n, opts in options['properties'].items()}
             continue
 
@@ -166,7 +170,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             contents[name] = schema_prompt(name, value=kwargs.pop(name))
             continue
 
-        result = schema_prompt(name, required=name in required_fields, **options.copy())
+        result = schema_prompt(name, is_required=name in required_fields, **options.copy())
 
         if result:
             if name not in required_fields and result == options.get('default', ''):

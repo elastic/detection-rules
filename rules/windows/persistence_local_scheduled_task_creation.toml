@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -25,19 +25,19 @@ references = [
 risk_score = 21
 rule_id = "afcce5ad-65de-4ed2-8516-5e093d3ac99a"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 sequence with maxspan=1m
-  [process where event.type != "end" and
+  [process where host.os.type == "windows" and event.type != "end" and
     ((process.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe", "wmic.exe", "mshta.exe",
                       "powershell.exe", "pwsh.exe", "powershell_ise.exe", "WmiPrvSe.exe", "wsmprovhost.exe", "winrshost.exe") or
     process.pe.original_file_name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe", "wmic.exe", "mshta.exe",
                                      "powershell.exe", "pwsh.dll", "powershell_ise.exe", "WmiPrvSe.exe", "wsmprovhost.exe",
                                      "winrshost.exe")) or
     process.code_signature.trusted == false)] by process.entity_id
-  [process where event.type == "start" and
+  [process where host.os.type == "windows" and event.type == "start" and
     (process.name : "schtasks.exe" or process.pe.original_file_name == "schtasks.exe") and
     process.args : ("/create", "-create") and process.args : ("/RU", "/SC", "/TN", "/TR", "/F", "/XML") and
     /* exclude SYSTEM Integrity Level - look for task creations by non-SYSTEM user */

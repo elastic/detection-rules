@@ -6,8 +6,9 @@
 from dataclasses import Field
 from typing import Dict, List, Optional, Tuple
 
+from semver import Version
+
 from ..misc import cached
-from ..semver import Version
 
 
 @cached
@@ -17,13 +18,14 @@ def get_restricted_field(schema_field: Field) -> Tuple[Optional[Version], Option
     # marshmallow_dataclass passes the embedded metadata directly
     min_compat = schema_field.metadata.get('metadata', schema_field.metadata).get('min_compat')
     max_compat = schema_field.metadata.get('metadata', schema_field.metadata).get('max_compat')
-    min_compat = Version(min_compat) if min_compat else None
-    max_compat = Version(max_compat) if max_compat else None
+    min_compat = Version.parse(min_compat, optional_minor_and_patch=True) if min_compat else None
+    max_compat = Version.parse(max_compat, optional_minor_and_patch=True) if max_compat else None
     return min_compat, max_compat
 
 
 @cached
-def get_restricted_fields(schema_fields: List[Field]) -> Dict[str, Tuple[Optional[Version], Optional[Version]]]:
+def get_restricted_fields(schema_fields: List[Field]) -> Dict[str, Tuple[Optional[Version],
+                                                              Optional[Version]]]:
     """Get a list of optional min and max compatible versions of fields (from a schema or dataclass)."""
     restricted = {}
     for _field in schema_fields:
@@ -35,7 +37,8 @@ def get_restricted_fields(schema_fields: List[Field]) -> Dict[str, Tuple[Optiona
 
 
 @cached
-def get_incompatible_fields(schema_fields: List[Field], package_version: Version) -> Optional[Dict[str, tuple]]:
+def get_incompatible_fields(schema_fields: List[Field], package_version: Version) -> \
+        Optional[Dict[str, tuple]]:
     """Get a list of fields that are incompatible with the package version."""
     if not schema_fields:
         return

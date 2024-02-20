@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/11/11"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2024/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -13,8 +13,8 @@ This rule identifies a large number (15) of nslookup.exe executions with an expl
 may indicate command and control activity utilizing the DNS protocol.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
-language = "kuery"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*", "logs-system.security*"]
+language = "eql"
 license = "Elastic License v2"
 name = "Potential DNS Tunneling via NsLookup"
 note = """## Triage and analysis
@@ -56,18 +56,20 @@ risk_score = 47
 rule_id = "3a59fc81-99d3-47ea-8cd6-d48d561fca20"
 severity = "medium"
 tags = [
-    "Elastic",
-    "Host",
-    "Windows",
-    "Threat Detection",
-    "Command and Control",
-    "Investigation Guide",
-    "Elastic Endgame",
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend"
 ]
-type = "threshold"
+type = "eql"
 
 query = '''
-event.category:process and event.type:start and process.name:nslookup.exe and process.args:(-querytype=* or -qt=* or -q=* or -type=*)
+sequence by host.id with maxspan=5m
+[process where host.os.type == "windows" and event.type == "start" and
+  process.name : "nslookup.exe" and process.args:("-querytype=*", "-qt=*", "-q=*", "-type=*")] with runs = 10
 '''
 
 
@@ -82,14 +84,13 @@ id = "T1071.004"
 name = "DNS"
 reference = "https://attack.mitre.org/techniques/T1071/004/"
 
-
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
 
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
-[rule.threshold]
-field = ["host.id"]
-value = 15
 

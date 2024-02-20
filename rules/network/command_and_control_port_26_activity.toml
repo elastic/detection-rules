@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint"]
+integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/08/17"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "SMTP on Port 26/TCP"
@@ -31,12 +31,13 @@ references = [
 risk_score = 21
 rule_id = "d7e62693-aab9-4f66-a21a-3d79ecdd603d"
 severity = "low"
-tags = ["Elastic", "Host", "Network", "Threat Detection", "Command and Control", "Host"]
+tags = ["Tactic: Command and Control", "Domain: Endpoint", "Use Case: Threat Detection"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:(network or network_traffic) and network.transport:tcp and (destination.port:26 or (event.dataset:zeek.smtp and destination.port:26))
+(event.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and
+    network.transport:tcp and (destination.port:26 or (event.dataset:zeek.smtp and destination.port:26))
 '''
 
 

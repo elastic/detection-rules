@@ -16,12 +16,12 @@ metadata = RtaMetadata(
             "rule_id": "11d374d8-2dad-4d9b-83a2-ee908eac8269",
         }
     ],
-    siem=[],
-    techniques=["T1021", "T1112"],
+    siem=[{'rule_id': 'ddab1f5f-7089-44f5-9fda-de5b11322e77', 'rule_name': 'NullSessionPipe Registry Modification'}],
+    techniques=['T1021', 'T1021.002', 'T1112'],
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Modifying NullSessionPipes reg key...")
 

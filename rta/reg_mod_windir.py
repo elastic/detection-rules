@@ -16,12 +16,17 @@ metadata = RtaMetadata(
             "rule_id": "18ffee0c-5f40-4dd8-aa9a-28251a308dbc",
         }
     ],
-    siem=[],
-    techniques=["T1574"],
+    siem=[
+        {
+            'rule_id': 'd563aaba-2e72-462b-8658-3e5ea22db3a6',
+            'rule_name': 'Privilege Escalation via Windir Environment Variable'
+        }
+    ],
+    techniques=['T1574', 'T1574.007'],
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     key = "System\\Environment"
     value = "windir"

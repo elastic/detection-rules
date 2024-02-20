@@ -12,10 +12,16 @@ from . import common
 from . import RtaMetadata
 
 
-metadata = RtaMetadata(uuid="332d6bb9-845f-401d-af5a-368f1f10e27a", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(
+    uuid="332d6bb9-845f-401d-af5a-368f1f10e27a",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     path = "c:\\rta"
     common.log("Searching for passwords on %s" % path)

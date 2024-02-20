@@ -1,0 +1,75 @@
+[metadata]
+creation_date = "2023/08/09"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/10/13"
+bypass_bbr_timing = true
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies instances of VLC-related DLLs which are not signed by the original developer. Attackers may name their
+payload as legitimate applications to blend into the environment, or embedding its malicious code within legitimate
+applications to deceive machine learning algorithms by incorporating authentic and benign code.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Masquerading as VLC DLL"
+risk_score = 21
+rule_id = "4494c14f-5ff8-4ed2-8e99-bf816a1642fc"
+severity = "low"
+tags = ["Domain: Endpoint", "Data Source: Elastic Defend", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Persistence", "Rule Type: BBR"]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "eql"
+
+query = '''
+library where host.os.type == "windows" and event.action == "load" and
+  dll.name : ("libvlc.dll", "libvlccore.dll", "axvlc.dll") and
+  not (
+    dll.code_signature.subject_name : ("VideoLAN", "716F2E5E-A03A-486B-BC67-9B18474B9D51")
+    and dll.code_signature.trusted == true
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.001"
+name = "Invalid Code Signature"
+reference = "https://attack.mitre.org/techniques/T1036/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.005"
+name = "Match Legitimate Name or Location"
+reference = "https://attack.mitre.org/techniques/T1036/005/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1554"
+name = "Compromise Client Software Binary"
+reference = "https://attack.mitre.org/techniques/T1554/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

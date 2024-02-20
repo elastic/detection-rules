@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/12/05"
 
 [rule]
 author = ["Elastic"]
@@ -64,9 +64,6 @@ This rule identifies the creation or modification of a root certificate by monit
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://posts.specterops.io/code-signing-certificate-cloning-attacks-and-defenses-6f98657fc6ec",
@@ -74,21 +71,29 @@ references = [
 ]
 risk_score = 21
 rule_id = "203ab79b-239b-4aa5-8e54-fc50623ee8e4"
+setup="""
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "low"
 tags = [
-    "Elastic",
-    "Host",
-    "Windows",
-    "Threat Detection",
-    "Defense Evasion",
-    "Investigation Guide",
-    "Elastic Endgame",
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where event.type in ("creation", "change") and
+registry where host.os.type == "windows" and event.type in ("creation", "change") and
   registry.path :
     (
       "HKLM\\Software\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
@@ -100,16 +105,26 @@ registry where event.type in ("creation", "change") and
       "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
       "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob"
     ) and
-  not process.executable :
-              ("?:\\Program Files\\*.exe",
-               "?:\\Program Files (x86)\\*.exe",
-               "?:\\Windows\\System32\\*.exe",
-               "?:\\Windows\\SysWOW64\\*.exe",
-               "?:\\Windows\\Sysmon64.exe",
-               "?:\\Windows\\Sysmon.exe",
-               "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
-               "?:\\Windows\\WinSxS\\*.exe",
-               "?:\\Windows\\UUS\\amd64\\MoUsoCoreWorker.exe")
+  not process.executable : (
+          "?:\\ProgramData\\Lenovo\\Vantage\\Addins\\LenovoHardwareScanAddin\\*\\LdeApi.Server.exe",
+          "?:\\ProgramData\\Logishrd\\LogiOptionsPlus\\Plugins\\64\\certmgr.exe",
+          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+          "?:\\ProgramData\\Quest\\KACE\\modules\\clientidentifier\\clientidentifier.exe",
+          "?:\\Program Files (x86)\\*.exe",
+          "?:\\Program Files\\*.exe",
+          "?:\\Windows\\CCM\\CcmExec.exe",
+          "?:\\Windows\\ccmsetup\\cache\\ccmsetup.exe",
+          "?:\\Windows\\Cluster\\clussvc.exe",
+          "?:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
+          "?:\\Windows\\Lenovo\\ImController\\PluginHost86\\Lenovo.Modern.ImController.PluginHost.Device.exe",
+          "?:\\Windows\\Lenovo\\ImController\\Service\\Lenovo.Modern.ImController.exe",
+          "?:\\Windows\\Sysmon.exe",
+          "?:\\Windows\\Sysmon64.exe",
+          "?:\\Windows\\System32\\*.exe",
+          "?:\\Windows\\SysWOW64\\*.exe",
+          "?:\\Windows\\UUS\\amd64\\MoUsoCoreWorker.exe",
+          "?:\\Windows\\WinSxS\\*.exe"
+  )
 '''
 
 

@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2023/07/18"
+integration = ["windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/01/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects PowerShell scripts that can be used to record webcam video. Attackers can capture this information to extort or
+spy on victims.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "PowerShell Script with Webcam Video Capture Capabilities"
+references = ["https://github.com/EmpireProject/Empire/blob/master/lib/modules/powershell/collection/WebcamRecorder.py"]
+risk_score = 47
+rule_id = "eb44611f-62a8-4036-a5ef-587098be6c43"
+setup = """
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Data Source: PowerShell Logs"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category:process and host.os.type:windows and
+  powershell.file.script_block_text : (
+    "NewFrameEventHandler" or
+    "VideoCaptureDevice" or
+    "DirectX.Capture.Filters" or
+    "VideoCompressors" or
+    "Start-WebcamRecorder" or
+    (
+      ("capCreateCaptureWindowA" or
+       "capCreateCaptureWindow" or
+       "capGetDriverDescription") and
+      ("avicap32.dll" or "avicap32")
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1125"
+name = "Video Capture"
+reference = "https://attack.mitre.org/techniques/T1125/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

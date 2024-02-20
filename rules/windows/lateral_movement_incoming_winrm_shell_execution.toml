@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/01/27"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,15 +26,15 @@ name = "Incoming Execution via WinRM Remote Shell"
 risk_score = 47
 rule_id = "1cd01db9-be24-4bef-8e7c-e923f0ff78ab"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 sequence by host.id with maxspan=30s
-   [network where process.pid == 4 and network.direction : ("incoming", "ingress") and
-    destination.port in (5985, 5986) and network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"
-   ]
-   [process where event.type == "start" and process.parent.name : "winrshost.exe" and not process.name : "conhost.exe"]
+   [network where host.os.type == "windows" and process.pid == 4 and network.direction : ("incoming", "ingress") and
+    destination.port in (5985, 5986) and network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"]
+   [process where host.os.type == "windows" and 
+    event.type == "start" and process.parent.name : "winrshost.exe" and not process.executable : "?:\\Windows\\System32\\conhost.exe"]
 '''
 
 

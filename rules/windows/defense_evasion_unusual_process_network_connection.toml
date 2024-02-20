@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -47,12 +47,12 @@ This rule identifies network activity from unexpected system utilities and appli
 risk_score = 21
 rule_id = "610949a1-312f-4e04-bb55-3a79b8c95267"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where (process.name : "Microsoft.Workflow.Compiler.exe" or
+  [process where host.os.type == "windows" and (process.name : "Microsoft.Workflow.Compiler.exe" or
                   process.name : "bginfo.exe" or
                   process.name : "cdb.exe" or
                   process.name : "cmstp.exe" or
@@ -65,7 +65,7 @@ sequence by process.entity_id
                   process.name : "rcsi.exe" or
                   process.name : "xwizard.exe") and
      event.type == "start"]
-  [network where (process.name : "Microsoft.Workflow.Compiler.exe" or
+  [network where host.os.type == "windows" and (process.name : "Microsoft.Workflow.Compiler.exe" or
                   process.name : "bginfo.exe" or
                   process.name : "cdb.exe" or
                   process.name : "cmstp.exe" or

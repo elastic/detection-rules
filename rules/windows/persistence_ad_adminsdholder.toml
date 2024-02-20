@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2022/01/31"
-integration = ["windows"]
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/21"
+updated_date = "2023/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -27,17 +27,32 @@ references = [
 risk_score = 73
 rule_id = "6e9130a5-9be6-48e5-943a-9628bfc74b18"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Active Directory"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Use Case: Active Directory Monitoring", "Data Source: Active Directory"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:"Directory Service Changes" and event.code:5136 and winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
+event.action:"Directory Service Changes" and event.code:5136 and
+  winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.002"
+name = "Domain Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/002/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
 
 [rule.threat.tactic]
 id = "TA0003"

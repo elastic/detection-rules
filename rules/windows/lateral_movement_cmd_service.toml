@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,16 +20,16 @@ name = "Service Command Lateral Movement"
 risk_score = 21
 rule_id = "d61cbcf8-1bc1-4cff-85ba-e7b21c5beedc"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan = 1m
-  [process where event.type == "start" and
+  [process where host.os.type == "windows" and event.type == "start" and
      (process.name : "sc.exe" or process.pe.original_file_name : "sc.exe") and
       process.args : "\\\\*" and process.args : ("binPath=*", "binpath=*") and
       process.args : ("create", "config", "failure", "start")]
-  [network where process.name : "sc.exe" and destination.ip != "127.0.0.1"]
+  [network where host.os.type == "windows" and process.name : "sc.exe" and destination.ip != "127.0.0.1"]
 '''
 
 

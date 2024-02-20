@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,17 +20,17 @@ name = "Mshta Making Network Connections"
 risk_score = 47
 rule_id = "c2d90150-0133-451c-a783-533e736c12d7"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=10m
-  [process where event.type == "start" and process.name : "mshta.exe" and
+  [process where host.os.type == "windows" and event.type == "start" and process.name : "mshta.exe" and
      not process.parent.name : "Microsoft.ConfigurationManagement.exe" and
      not (process.parent.executable : "C:\\Amazon\\Amazon Assistant\\amazonAssistantService.exe" or
           process.parent.executable : "C:\\TeamViewer\\TeamViewer.exe") and
      not process.args : "ADSelfService_Enroll.hta"]
-  [network where process.name : "mshta.exe"]
+  [network where host.os.type == "windows" and process.name : "mshta.exe"]
 '''
 
 

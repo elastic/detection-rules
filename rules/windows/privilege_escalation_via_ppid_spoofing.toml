@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2024/01/09"
 
 [rule]
 author = ["Elastic"]
@@ -26,14 +26,14 @@ references = [
 risk_score = 73
 rule_id = "26b01043-4f04-4d2f-882a-5a1d2e95751b"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 /* This rule is compatible with Elastic Endpoint only */
 
-process where event.action == "start" and
+process where host.os.type == "windows" and event.action == "start" and
 
  /* process creation via seclogon */
  process.parent.Ext.real.pid > 0 and
@@ -49,12 +49,47 @@ process where event.action == "start" and
                            "?:\\Windows\\System32\\Wermgr.exe",
                            "?:\\Windows\\SysWOW64\\Wermgr.exe",
                            "?:\\Windows\\SoftwareDistribution\\Download\\Install\\securityhealthsetup.exe") and
+ /* Logon Utilities */
+ not (process.parent.executable : "?:\\Windows\\System32\\Utilman.exe" and
+     process.executable : ("?:\\Windows\\System32\\osk.exe",
+                           "?:\\Windows\\System32\\Narrator.exe",
+                           "?:\\Windows\\System32\\Magnify.exe")) and
 
  not process.parent.executable : "?:\\Windows\\System32\\AtBroker.exe" and
 
  not (process.code_signature.subject_name in
            ("philandro Software GmbH", "Freedom Scientific Inc.", "TeamViewer Germany GmbH", "Projector.is, Inc.",
-            "TeamViewer GmbH", "Cisco WebEx LLC", "Dell Inc") and process.code_signature.trusted == true)
+            "TeamViewer GmbH", "Cisco WebEx LLC", "Dell Inc") and process.code_signature.trusted == true) and 
+
+ /* AM_Delta_Patch Windows Update */
+ not (process.executable : ("?:\\Windows\\System32\\MpSigStub.exe", "?:\\Windows\\SysWOW64\\MpSigStub.exe") and
+      process.parent.executable : ("?:\\Windows\\System32\\wuauclt.exe", 
+                                   "?:\\Windows\\SysWOW64\\wuauclt.exe", 
+                                   "?:\\Windows\\UUS\\Packages\\Preview\\*\\wuaucltcore.exe", 
+                                   "?:\\Windows\\UUS\\amd64\\wuauclt.exe", 
+                                   "?:\\Windows\\UUS\\amd64\\wuaucltcore.exe", 
+                                   "?:\\ProgramData\\Microsoft\\Windows\\UUS\\*\\wuaucltcore.exe")) and
+ not (process.executable : ("?:\\Windows\\System32\\MpSigStub.exe", "?:\\Windows\\SysWOW64\\MpSigStub.exe") and process.parent.executable == null) and
+
+ /* Other third party SW */
+ not process.parent.executable :
+                   ("?:\\Program Files (x86)\\HEAT Software\\HEAT Remote\\HEATRemoteServer.exe",
+                    "?:\\Program Files (x86)\\VisualCron\\VisualCronService.exe",
+                    "?:\\Program Files\\BinaryDefense\\Vision\\Agent\\bds-vision-agent-app.exe",
+                    "?:\\Program Files\\Tablet\\Wacom\\WacomHost.exe",
+                    "?:\\Program Files (x86)\\LogMeIn\\x64\\LogMeIn.exe",
+                    "?:\\Program Files (x86)\\EMC Captiva\\Captiva Cloud Runtime\\Emc.Captiva.WebCaptureRunner.exe",
+                    "?:\\Program Files\\Freedom Scientific\\*.exe",
+                    "?:\\Program Files (x86)\\Google\\Chrome Remote Desktop\\*\\remoting_host.exe",
+                    "?:\\Program Files (x86)\\GoToAssist Remote Support Customer\\*\\g2ax_comm_customer.exe") and
+ not (
+    process.code_signature.trusted == true and process.code_signature.subject_name == "Netwrix Corporation" and
+    process.name : "adcrcpy.exe" and process.parent.executable : (
+      "?:\\Program Files (x86)\\Netwrix Auditor\\Active Directory Auditing\\Netwrix.ADA.EventCollector.exe",
+      "?:\\Program Files (x86)\\Netwrix Auditor\\Active Directory Auditing\\Netwrix.ADA.Analyzer.exe",
+      "?:\\Netwrix Auditor\\Active Directory Auditing\\Netwrix.ADA.EventCollector.exe"
+    )
+ )
 '''
 
 

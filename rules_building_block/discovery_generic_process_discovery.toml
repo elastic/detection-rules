@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2023/07/13"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/14"
+bypass_bbr_timing = true
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+This rule identifies the execution of commands that can be used to enumerate running processes. Adversaries may
+enumerate processes to identify installed applications and security solutions.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Process Discovery Using Built-in Tools"
+risk_score = 21
+rule_id = "4982ac3e-d0ee-4818-b95d-d9522d689259"
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  (
+    process.name :("PsList.exe", "qprocess.exe") or 
+   (process.name : "powershell.exe" and process.args : ("*get-process*", "*Win32_Process*")) or 
+   (process.name : "wmic.exe" and process.args : ("process", "*Win32_Process*")) or
+   (process.name : "tasklist.exe" and not process.args : ("pid eq*")) or
+   (process.name : "query.exe" and process.args : "process")
+  ) and not user.id : "S-1-5-18"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1057"
+name = "Process Discovery"
+reference = "https://attack.mitre.org/techniques/T1057/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

@@ -13,10 +13,16 @@ from . import common
 from . import RtaMetadata
 
 
-metadata = RtaMetadata(uuid="7b88c558-f732-4ff4-adaa-09c79bf02bd2", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(
+    uuid="7b88c558-f732-4ff4-adaa-09c79bf02bd2",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     # All encoded versions of the following: `start calc && ping -n 2 127.0.0.1>nul && taskkill /im calc.exe`
     commands = """

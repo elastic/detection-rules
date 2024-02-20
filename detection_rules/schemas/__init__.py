@@ -5,21 +5,23 @@
 import json
 from collections import OrderedDict
 from pathlib import Path
-from typing import List, Optional, OrderedDict as OrderedDictType
+from typing import List, Optional
+from typing import OrderedDict as OrderedDictType
 
 import jsonschema
+from semver import Version
 
+from ..misc import load_current_package_version
+from ..utils import cached, get_etc_path, load_etc_dump
 from . import definitions
 from .rta_schema import validate_rta_mapping
-from ..misc import load_current_package_version
-from ..semver import Version
-from ..utils import cached, get_etc_path, load_etc_dump
-
+from .stack_compat import get_incompatible_fields
 
 __all__ = (
     "SCHEMA_DIR",
     "definitions",
     "downgrade",
+    "get_incompatible_fields",
     "get_min_supported_stack_version",
     "get_stack_schemas",
     "get_stack_versions",
@@ -38,7 +40,9 @@ def all_versions() -> List[str]:
 
 def migrate(version: str):
     """Decorator to set a migration."""
-    version = Version(version)
+    # checks that the migrate decorator name is semi-semantic versioned
+    # raises validation error from semver if not
+    Version.parse(version, optional_minor_and_patch=True)
 
     def wrapper(f):
         assert version not in migrations
@@ -60,6 +64,7 @@ def get_schema_file(version: Version, rule_type: str) -> dict:
 
 def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     """Remove all fields that the target schema doesn't recognize."""
+
     stripped = {}
     target_schema = get_schema_file(version, api_contents["type"])
 
@@ -70,6 +75,15 @@ def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     # finally, validate against the json schema
     jsonschema.validate(stripped, target_schema)
     return stripped
+
+
+def strip_non_public_fields(min_stack_version: Version, data_dict: dict) -> dict:
+    """Remove all non public fields."""
+    for field, version_range in definitions.NON_PUBLIC_FIELDS.items():
+        if version_range[0] <= min_stack_version <= (version_range[1] or min_stack_version):
+            if field in data_dict:
+                del data_dict[field]
+    return data_dict
 
 
 @migrate("7.8")
@@ -224,6 +238,42 @@ def migrate_to_8_6(version: Version, api_contents: dict) -> dict:
     return strip_additional_properties(version, api_contents)
 
 
+@migrate("8.7")
+def migrate_to_8_7(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.7."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.8")
+def migrate_to_8_8(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.8."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.9")
+def migrate_to_8_9(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.9."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.10")
+def migrate_to_8_10(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.10."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.11")
+def migrate_to_8_11(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.11."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.12")
+def migrate_to_8_12(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.12."""
+    return strip_additional_properties(version, api_contents)
+
+
 def downgrade(api_contents: dict, target_version: str, current_version: Optional[str] = None) -> dict:
     """Downgrade a rule to a target stack version."""
     from ..packaging import current_stack_version
@@ -231,19 +281,19 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
     if current_version is None:
         current_version = current_stack_version()
 
-    current_major, current_minor = Version(current_version)[:2]
-    target_major, target_minor = Version(target_version)[:2]
+    current = Version.parse(current_version, optional_minor_and_patch=True)
+    target = Version.parse(target_version, optional_minor_and_patch=True)
 
     # get all the versions between current_semver and target_semver
-    if target_major != current_major:
-        raise ValueError(f"Cannot backport to major version {target_major}")
+    if target.major != current.major:
+        raise ValueError(f"Cannot backport to major version {target.major}")
 
-    for minor in reversed(range(target_minor, current_minor)):
-        version = Version([target_major, minor])
+    for minor in reversed(range(target.minor, current.minor)):
+        version = f"{target.major}.{minor}"
         if version not in migrations:
             raise ValueError(f"Missing migration for {target_version}")
 
-        api_contents = migrations[version](version, api_contents)
+        api_contents = migrations[str(version)](version, api_contents)
 
     return api_contents
 
@@ -256,15 +306,13 @@ def load_stack_schema_map() -> dict:
 @cached
 def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType[str, dict]:
     """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
-    stack_version = Version(stack_version or '0.0.0')
-    current_package = Version(load_current_package_version())
-
-    if len(current_package) == 2:
-        current_package = Version(current_package + (0,))
+    stack_version = Version.parse(stack_version or '0.0.0', optional_minor_and_patch=True)
+    current_package = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
 
     stack_map = load_stack_schema_map()
-    versions = {k: v for k, v in stack_map.items()
-                if (mapped_version := Version(k)) >= stack_version and mapped_version <= current_package and v}
+    versions = {k: v for k, v in stack_map.items() if
+                (((mapped_version := Version.parse(k)) >= stack_version)
+                and (mapped_version <= current_package) and v)}  # noqa: W503
 
     if stack_version > current_package:
         versions[stack_version] = {'beats': 'main', 'ecs': 'master'}
@@ -287,8 +335,8 @@ def get_stack_versions(drop_patch=False) -> List[str]:
 
 
 @cached
-def get_min_supported_stack_version(drop_patch=False) -> Version:
+def get_min_supported_stack_version() -> Version:
     """Get the minimum defined and supported stack version."""
     stack_map = load_stack_schema_map()
-    min_version = min(Version(v) for v in list(stack_map))
-    return Version(min_version[:2]) if drop_patch else min_version
+    min_version = min([Version.parse(v) for v in list(stack_map)])
+    return min_version

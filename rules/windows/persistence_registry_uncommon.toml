@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -21,14 +21,14 @@ references = ["https://www.microsoftpressstore.com/articles/article.aspx?p=27620
 risk_score = 47
 rule_id = "54902e45-3467-49a4-8abc-529f2c8cfb80"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Defend"]
 timeline_id = "3e47ef71-ebfc-4520-975c-cb27fc090799"
 timeline_title = "Comprehensive Registry Timeline"
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where
+registry where host.os.type == "windows" and
   /* uncomment once stable length(registry.data.strings) > 0 and */
  registry.path : (
       "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
@@ -65,6 +65,7 @@ registry where
       "HKEY_USERS\\*\\SOFTWARE\\Microsoft\\Internet Explorer\\Extensions\\*\\Exec",
       "HKEY_USERS\\*\\SOFTWARE\\Microsoft\\Internet Explorer\\Extensions\\*\\Script",
       "HKEY_USERS\\*\\SOFTWARE\\Microsoft\\Command Processor\\Autorun",
+      "HKEY_USERS\\*\\Control Panel\\Desktop\\scrnsave.exe",
       "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\VerifierDlls",
       "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\GpExtensions\\*\\DllName",
       "HKLM\\SYSTEM\\ControlSet*\\Control\\SafeBoot\\AlternateShell",
@@ -101,7 +102,14 @@ id = "T1547.001"
 name = "Registry Run Keys / Startup Folder"
 reference = "https://attack.mitre.org/techniques/T1547/001/"
 
-
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.002"
+name = "Screensaver"
+reference = "https://attack.mitre.org/techniques/T1546/002/"
 
 [rule.threat.tactic]
 id = "TA0003"

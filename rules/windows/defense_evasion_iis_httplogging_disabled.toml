@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/04/14"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2024/01/16"
 
 [rule]
 author = ["Elastic"]
@@ -13,25 +13,64 @@ Identifies when Internet Information Services (IIS) HTTP Logging is disabled on 
 access via a webshell or other mechanism can disable HTTP Logging as an effective anti-forensics measure.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 max_signals = 33
 name = "IIS HTTP Logging Disabled"
-note = """## Setup
+note = """## Triage and analysis
 
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+### Investigating IIS HTTP Logging Disabled
+
+IIS (Internet Information Services) is a Microsoft web server software used to host websites and web applications on Windows. It provides features for serving dynamic and static content, and can be managed through a graphical interface or command-line tools.
+
+IIS logging is a data source that can be used for security monitoring, forensics, and incident response. It contains mainly information related to requests done to the web server, and can be used to spot malicious activities like webshells. Adversaries can tamper, clear, and delete this data to evade detection, cover their tracks, and slow down incident response.
+
+This rule monitors commands that disable IIS logging.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+  - Verify if any other anti-forensics behaviors were observed.
+- Verify whether the logs stored in the `C:\\inetpub\\logs\\logfiles\\w3svc1` directory were deleted after this action.
+- Check if this operation is done under change management and approved according to the organization's policy.
+
+### False positive analysis
+
+- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Re-enable affected logging components, services, and security monitoring.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
 """
 risk_score = 73
 rule_id = "ebf1adea-ccf2-4943-8b96-7ab11ca173a5"
+setup="""
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
-  (process.name : "appcmd.exe" or process.pe.original_file_name == "appcmd.exe") and
+process where host.os.type == "windows" and event.type == "start" and
+  (process.name : "appcmd.exe" or ?process.pe.original_file_name == "appcmd.exe") and
   process.args : "/dontLog*:*True" and
   not process.parent.name : "iissetup.exe"
 '''

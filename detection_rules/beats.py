@@ -4,18 +4,20 @@
 # 2.0.
 
 """ECS Schemas management."""
+import json
 import os
 import re
-from typing import List, Optional
+from typing import List, Optional, Union
 
-import kql
 import eql
-import json
 import requests
+from semver import Version
 import yaml
 
-from .semver import Version
-from .utils import DateTimeEncoder, unzip, get_etc_path, gzip_compress, read_gzip, cached
+import kql
+
+from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
+                    read_gzip, unzip)
 
 
 def _decompress_and_save_schema(url, release_name):
@@ -91,7 +93,7 @@ def download_latest_beats_schema():
     url = 'https://api.github.com/repos/elastic/beats/releases'
     releases = requests.get(url)
 
-    latest_release = max(releases.json(), key=lambda release: Version(release["tag_name"].lstrip("v")))
+    latest_release = max(releases.json(), key=lambda release: Version.parse(release["tag_name"].lstrip("v")))
     download_beats_schema(latest_release["tag_name"])
 
 
@@ -117,6 +119,14 @@ def _flatten_schema(schema: list, prefix="") -> list:
             # it's probably not perfect, but we can fix other bugs as we run into them later
             if len(schema) == 1 and nested_prefix.startswith(prefix + prefix):
                 nested_prefix = s["name"] + "."
+            if "field" in s:
+                # integrations sometimes have a group with a single field
+                flattened.extend(_flatten_schema(s["field"], prefix=nested_prefix))
+                continue
+            elif "fields" not in s:
+                # integrations sometimes have a group with no fields
+                continue
+
             flattened.extend(_flatten_schema(s["fields"], prefix=nested_prefix))
         elif "fields" in s:
             flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
@@ -129,6 +139,10 @@ def _flatten_schema(schema: list, prefix="") -> list:
             flattened.append(s)
 
     return flattened
+
+
+def flatten_ecs_schema(schema: dict) -> dict:
+    return _flatten_schema(schema)
 
 
 def get_field_schema(base_directory, prefix="", include_common=False):
@@ -186,7 +200,7 @@ def get_versions() -> List[Version]:
     for filename in os.listdir(get_etc_path("beats_schemas")):
         version_match = re.match(r'v(.+)\.json\.gz', filename)
         if version_match:
-            versions.append(Version(version_match.groups()[0]))
+            versions.append(Version.parse(version_match.groups()[0]))
 
     return versions
 
@@ -201,7 +215,7 @@ def read_beats_schema(version: str = None):
     if version and version.lower() == 'main':
         return json.loads(read_gzip(get_etc_path('beats_schemas', 'main.json.gz')))
 
-    version = Version(version) if version else None
+    version = Version.parse(version) if version else None
     beats_schemas = get_versions()
 
     if version and version not in beats_schemas:
@@ -232,7 +246,8 @@ def get_schema_from_datasets(beats, modules, datasets, version=None):
     return filtered
 
 
-def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None) -> dict:
+def get_datasets_and_modules(tree: Union[eql.ast.BaseNode, kql.ast.BaseNode]) -> tuple:
+    """Get datasets and modules from an EQL or KQL AST."""
     modules = set()
     datasets = set()
 
@@ -249,22 +264,23 @@ def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None
                 modules.add(node.get_literals())
             elif node.expression == eql.ast.Field("event", ["dataset"]):
                 datasets.add(node.get_literals())
+        elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):
+            modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))
+        elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):
+            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
 
+    return datasets, modules
+
+
+def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None) -> dict:
+    """Get a schema based on datasets and modules in an EQL AST."""
+    datasets, modules = get_datasets_and_modules(tree)
     return get_schema_from_datasets(beats, modules, datasets, version=version)
 
 
 def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list, version: str = None) -> dict:
-    modules = set()
-    datasets = set()
-
-    # extract out event.module and event.dataset from the query's AST
-    for node in tree:
-        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):
-            modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))
-
-        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):
-            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
-
+    """Get a schema based on datasets and modules in an KQL AST."""
+    datasets, modules = get_datasets_and_modules(tree)
     return get_schema_from_datasets(beats, modules, datasets, version=version)
 
 

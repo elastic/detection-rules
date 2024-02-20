@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2023/07/18"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
+min_stack_version = "8.6.0"
+integration = ["o365"]
+updated_date = "2023/07/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a Microsoft 365 Mailbox is accessed by a ClientAppId that was observed for the fist time during the last
+10 days.
+"""
+false_positives = ["User using a new mail client."]
+from = "now-30m"
+index = ["filebeat-*", "logs-o365*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suspicious Microsoft 365 Mail Access by ClientAppId"
+note = """## Setup
+
+The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
+"""
+references = ["https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-193a"]
+risk_score = 47
+rule_id = "48819484-9826-4083-9eba-1da74cd0eaf2"
+severity = "medium"
+tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Configuration Audit", "Tactic: Initial Access"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:MailItemsAccessed and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["o365.audit.ClientAppId", "user.id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

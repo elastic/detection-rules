@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -22,15 +22,15 @@ name = "Potential Command and Control via Internet Explorer"
 risk_score = 47
 rule_id = "acd611f3-2b93-47b3-a0a3-7723bcc46f6d"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 sequence by host.id, user.name with maxspan = 5s
-  [library where dll.name : "IEProxy.dll" and process.name : ("rundll32.exe", "regsvr32.exe")]
-  [process where event.type == "start" and process.parent.name : "iexplore.exe" and process.parent.args : "-Embedding"]
+  [library where host.os.type == "windows" and dll.name : "IEProxy.dll" and process.name : ("rundll32.exe", "regsvr32.exe")]
+  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "iexplore.exe" and process.parent.args : "-Embedding"]
   /* IE started via COM in normal conditions makes few connections, mainly to Microsoft and OCSP related domains, add FPs here */
-  [network where network.protocol == "dns" and process.name : "iexplore.exe" and
+  [network where host.os.type == "windows" and network.protocol == "dns" and process.name : "iexplore.exe" and
    not dns.question.name :
    (
     "*.microsoft.com",

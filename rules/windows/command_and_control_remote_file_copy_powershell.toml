@@ -1,16 +1,73 @@
 [metadata]
 creation_date = "2020/11/30"
-integration = ["endpoint", "windows"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2023/01/03"
+updated_date = "2023/12/07"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve DNS Cache"
+query = "SELECT * FROM dns_cache"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve All Services"
+query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Services Running on User Accounts"
+query = """
+SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
+NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
+user_account == null)
+"""
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
+query = """
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
+services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
+authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
+"""
+
+[[transform.investigate]]
+label = "Alerts associated with the user in the last 48h"
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+providers = [
+    [
+        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
+        {field = "user.id", excluded = false, queryType = "phrase", value = "{{user.id}}", valueType = "string"}
+    ]
+]
+
+[[transform.investigate]]
+label = "Alerts associated with the host in the last 48h"
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+providers = [
+    [
+        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
+        {field = "host.name", excluded = false, queryType = "phrase", value = "{{host.name}}", valueType = "string"}
+    ]
+]
+
+[[transform.investigate]]
+label = "Investigate the Subject Process Network Events"
+providers = [
+    [
+        {field = "process.entity_id", excluded = false, queryType = "phrase", value = "{{process.entity_id}}", valueType = "string"},
+        {field = "event.category", excluded = false, queryType = "phrase", value = "network", valueType = "string"}
+    ]
+]
+
 
 [rule]
 author = ["Elastic"]
 description = "Identifies powershell.exe being used to download an executable file from an untrusted remote destination."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote File Download via PowerShell"
@@ -23,7 +80,8 @@ Attackers commonly transfer tooling or malware from external systems into a comp
 PowerShell is one of system administrators' main tools for automation, report routines, and other tasks. This makes it available for use in various environments and creates an attractive way for attackers to execute code and perform actions. This rule correlates network and file events to detect downloads of executable and script files performed using PowerShell.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -31,19 +89,22 @@ PowerShell is one of system administrators' main tools for automation, report ro
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Evaluate whether the user needs to use PowerShell to complete tasks.
 - Investigate other alerts associated with the user/host during the past 48 hours.
+  - $investigate_0
+  - $investigate_1
 - Check the reputation of the domain or IP address used to host the downloaded file.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
       - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
+        - $investigate_2
       - Examine the DNS cache for suspicious or anomalous entries.
-        - !{osquery{"query":"SELECT * FROM dns_cache", "label":"Osquery - Retrieve DNS Cache"}}
+        - $osquery_0
     - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
     - Examine the host services for suspicious or anomalous entries.
-      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services","label":"Osquery - Retrieve All Services"}}
-      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR user_account == null)","label":"Osquery - Retrieve Services Running on User Accounts"}}
-      - !{osquery{"query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'","label":"Osquery - Retrieve Service Unsigned Executables with Virustotal Link"}}
+      - $osquery_1
+      - $osquery_2
+      - $osquery_3
   - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 - Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
 
@@ -69,16 +130,23 @@ PowerShell is one of system administrators' main tools for automation, report ro
 risk_score = 47
 rule_id = "33f306e8-417c-411b-965c-c2812d6d3f4d"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control", "Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
-sequence by host.id, process.entity_id with maxspan=30s
-  [network where process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and network.protocol == "dns" and
-   not dns.question.name : ("localhost", "*.microsoft.com", "*.azureedge.net", "*.powershellgallery.com", "*.windowsupdate.com", "metadata.google.internal") and
-   not user.domain : "NT AUTHORITY"]
-    [file where process.name : "powershell.exe" and event.type == "creation" and file.extension : ("exe", "dll", "ps1", "bat") and
-   not file.name : "__PSScriptPolicy*.ps1"]
+sequence by process.entity_id with maxspan=30s
+
+[network where host.os.type == "windows" and
+  process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and network.protocol == "dns" and
+   not dns.question.name : (
+          "localhost", "*.microsoft.com", "*.azureedge.net", "*.powershellgallery.com",
+          "*.windowsupdate.com", "metadata.google.internal", "dist.nuget.org",
+          "artifacts.elastic.co", "*.digicert.com", "packages.chocolatey.org",
+          "outlook.office365.com"
+       ) and not user.id : "S-1-5-18"]
+[file where host.os.type == "windows" and event.type == "creation" and
+  process.name : "powershell.exe" and file.extension : ("exe", "dll", "ps1", "bat") and
+  not file.name : "__PSScriptPolicy*.ps1"]
 '''
 
 
