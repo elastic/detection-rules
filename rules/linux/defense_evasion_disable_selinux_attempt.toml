@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/04/22"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/20"
 
 [rule]
 author = ["Elastic"]
@@ -14,8 +14,8 @@ support access control policies. Adversaries may disable security tools to avoid
 activities.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
-language = "kuery"
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "eql"
 license = "Elastic License v2"
 name = "Potential Disabling of SELinux"
 risk_score = 47
@@ -59,30 +59,36 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Defense Evasion",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
-type = "query"
-
+type = "eql"
 query = '''
-event.category:process and host.os.type:linux and event.type:(start or process_started) and process.name:setenforce and process.args:0
+process where host.os.type == "linux" and event.type in ("start", "process_started") and
+process.name == "setenforce" and process.args == "0"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
