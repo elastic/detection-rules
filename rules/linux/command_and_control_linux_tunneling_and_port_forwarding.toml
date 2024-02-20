@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/19"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,7 @@ leverage tunneling and port forwarding techniques to bypass network defenses, es
 and gain unauthorized access to internal resources, facilitating data exfiltration, lateral movement, and remote control.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Linux Tunneling and/or Port Forwarding"
@@ -141,25 +141,28 @@ tags = [
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Command and Control",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and ((
-  // gost & pivotnacci - spawned without process.parent.name
-  (process.name == "gost" and process.args : ("-L*", "-C*", "-R*")) or (process.name == "pivotnacci")) or (
-  // ssh
-  (process.name in ("ssh", "sshd") and (process.args in ("-R", "-L", "D", "-w") and process.args_count >= 4 and 
-  not process.args : "chmod")) or
-  // sshuttle
-  (process.name == "sshuttle" and process.args in ("-r", "--remote", "-l", "--listen") and process.args_count >= 4) or
-  // socat
-  (process.name == "socat" and process.args : ("TCP4-LISTEN:*", "SOCKS*") and process.args_count >= 3) or
-  // chisel
-  (process.name : "chisel*" and process.args in ("client", "server")) or
-  // iodine(d), dnscat, hans, ptunnel-ng, ssf, 3proxy & ngrok 
-  (process.name in ("iodine", "iodined", "dnscat", "hans", "hans-ubuntu", "ptunnel-ng", "ssf", "3proxy", "ngrok"))
+process where host.os.type == "linux" and event.action in ("exec", "exec_event") and
+event.type == "start" and (
+  (
+    // gost & pivotnacci - spawned without process.parent.name
+    (process.name == "gost" and process.args : ("-L*", "-C*", "-R*")) or (process.name == "pivotnacci")) or (
+    // ssh
+    (process.name in ("ssh", "sshd") and (process.args in ("-R", "-L", "D", "-w") and process.args_count >= 4 and 
+     not process.args : "chmod")) or
+    // sshuttle
+    (process.name == "sshuttle" and process.args in ("-r", "--remote", "-l", "--listen") and process.args_count >= 4) or
+    // socat
+    (process.name == "socat" and process.args : ("TCP4-LISTEN:*", "SOCKS*") and process.args_count >= 3) or
+    // chisel
+    (process.name : "chisel*" and process.args in ("client", "server")) or
+    // iodine(d), dnscat, hans, ptunnel-ng, ssf, 3proxy & ngrok 
+    (process.name in ("iodine", "iodined", "dnscat", "hans", "hans-ubuntu", "ptunnel-ng", "ssf", "3proxy", "ngrok"))
   ) and process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 )
 '''
