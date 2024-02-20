@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/22"
+updated_date = "2024/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -71,6 +71,7 @@ However, if more advanced configuration is required to detect specific behavior,
 """
 severity = "medium"
 tags = [
+        "Data Source: Auditd Manager",
         "Domain: Endpoint",
         "OS: Linux",
         "Use Case: Threat Detection",
@@ -82,8 +83,8 @@ query = '''
 sequence by host.id, process.parent.pid with maxspan=1m
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.name == "openssl" and process.args == "passwd" and user.id != "0"]
-  [file where event.dataset == "auditd_manager.auditd" and host.os.type == "linux" and file.path == "/etc/passwd" and
-  process.parent.pid != 1 and not auditd.data.a2 == "80000" and event.outcome == "success" and user.id != "0"]
+  [file where host.os.type == "linux" and file.path == "/etc/passwd" and process.parent.pid != 1 and
+   not auditd.data.a2 == "80000" and event.outcome == "success" and user.id != "0"]
 '''
 
 [[rule.threat]]
