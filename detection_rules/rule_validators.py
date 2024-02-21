@@ -207,8 +207,8 @@ class EQLValidator(QueryValidator):
     @cached_property
     def ast(self) -> eql.ast.Expression:
         latest_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        config = set_eql_config(str(latest_version))
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
+        cfg = set_eql_config(str(latest_version))
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, eql.parser.skip_optimizations, cfg:
             return eql.parse_query(self.query)
 
     def text_fields(self, eql_schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema]) -> List[str]:
