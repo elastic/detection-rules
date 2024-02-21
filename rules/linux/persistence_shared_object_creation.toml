@@ -172,11 +172,10 @@ tags = [
     ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 host.os.type:linux and event.action:(creation or file_create_event or file_rename_event or rename) and 
-file.path:(/dev/shm/* or /usr/lib/*) and file.extension:so and 
-process.name: ( * and not ("dockerd" or "dpkg" or "rpm" or "snapd" or "yum" or "vmis-launcher" or "pacman" or
+file.path:(/dev/shm/* or /usr/lib/*) and file.extension:so and process.name:* and not (
+  process.name:("dockerd" or "dpkg" or "rpm" or "snapd" or "yum" or "vmis-launcher" or "pacman" or
   "apt-get" or "dnf" or "podman" or "platform-python") or 
   (process.name:vmware-install.pl and file.path:/usr/lib/vmware-tools/*)
 )
