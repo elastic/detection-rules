@@ -248,7 +248,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     author: List[str]
     building_block_type: Optional[definitions.BuildingBlockType]
     description: str
-    elastic_last_update: Optional[definitions.ELASTIC_LAST_UPDATE_PATTERN] = field(metadata=dict(metadata=dict(min_compat="8.12")))
+    elastic_last_update: Optional[definitions.ElasticLastUpdateDate] = field(metadata=dict(metadata=dict(min_compat="8.12")))
     enabled: Optional[bool]
     exceptions_list: Optional[list]
     license: Optional[str]
@@ -992,8 +992,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def _convert_add_elastic_last_update_date(self, obj: dict) -> None:
         """Add restricted field elastic_last_update to the obj."""
+
         if self.check_explicit_restricted_field_version('elastic_last_update'):
-            updated_date = f"{self.metadata.updated_date}T00:00:00.000Z"
+            updated_date = self.metadata.updated_date.replace("/", "-")
+            updated_date_iso = f"{updated_date}T00:00:00.000Z"
             obj.setdefault("elastic_last_update", updated_date_iso)
 
     def _convert_add_related_integrations(self, obj: dict) -> None:

@@ -139,6 +139,7 @@ CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=val
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
+ElasticLastUpdateDate = NewType('ElasticLastUpdateData', str, validate=validate.Regexp(ELASTIC_LAST_UPDATE_PATTERN))
 FilterLanguages = Literal["eql", "esql", "kuery", "lucene"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 InvestigateProviderQueryType = Literal["phrase", "range"]
