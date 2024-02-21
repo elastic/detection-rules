@@ -433,6 +433,9 @@ class RulesConfig:
     version_lock: Dict[str, dict]
     test_config: TestConfig
 
+    action_dir: Optional[Path] = None
+    exception_dir: Optional[Path] = None
+
 
 @cached
 def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
@@ -471,6 +474,10 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     files = {f'{k}_file': base_dir.joinpath(v) for k, v in loaded['files'].items()}
     contents = {k: load_dump(str(base_dir.joinpath(v))) for k, v in loaded['files'].items()}
     contents.update(**files)
+
+    if loaded.get('directories'):
+        contents.update({k: base_dir.joinpath(v) for k, v in loaded['directories'].items()})
+
     rules_config = RulesConfig(test_config=test_config, **contents)
     return rules_config
 
