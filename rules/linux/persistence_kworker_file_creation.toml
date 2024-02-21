@@ -176,8 +176,11 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where event.action == "creation" and process.name : "kworker*" and not (
-  process.name : "kworker*kcryptd*" or file.path : ("/var/log/*", "/var/crash/*")
+file where event.action in ("creation", "file_create_event") and process.name : "kworker*" and not (
+  process.name : "kworker*kcryptd*" or file.path : (
+    "/var/log/*", "/var/crash/*", "/var/run/*", "/var/lib/systemd/coredump/*", "/var/spool/*"
+    )
+  )
 )
 '''
 
