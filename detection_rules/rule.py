@@ -248,7 +248,8 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     author: List[str]
     building_block_type: Optional[definitions.BuildingBlockType]
     description: str
-    elastic_last_update: Optional[definitions.ElasticLastUpdateDate] = field(metadata=dict(metadata=dict(min_compat="8.12")))
+    elastic_last_update: Optional[definitions.ElasticLastUpdateDate] = \
+        field(metadata=dict(metadata=dict(min_compat="8.12")))
     enabled: Optional[bool]
     exceptions_list: Optional[list]
     license: Optional[str]
