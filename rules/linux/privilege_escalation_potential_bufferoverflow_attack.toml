@@ -1,0 +1,76 @@
+[metadata]
+creation_date = "2023/12/11"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/12/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects potential buffer overflow attacks by querying the "Segfault Detected" pre-built rule signal index, through a
+threshold rule, with a minimum number of 100 segfault alerts in a short timespan. A large amount of segfaults in a short
+time interval could indicate application exploitation attempts.
+"""
+from = "now-9m"
+index = [".alerts-security.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Buffer Overflow Attack Detected"
+risk_score = 21
+rule_id = "b7c05aaf-78c2-4558-b069-87fa25973489"
+setup = """
+
+This rule leverages alert data from other prebuilt detection rules to function correctly. 
+
+### Dependent Elastic Detection Rule Enablement
+As a higher-order rule (based on other detections), this rule also requires the following prerequisite Elastic detection rule to be installed and enabled:
+- Segfault Detected (5c81fc9d-1eae-437f-ba07-268472967013)
+
+"""
+severity = "low"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Privilege Escalation",
+        "Tactic: Initial Access",
+        "Use Case: Vulnerability",
+        "Rule Type: Higher-Order Rule"
+        ]
+timestamp_override = "event.ingested"
+type = "threshold"
+query = '''
+kibana.alert.rule.rule_id:5c81fc9d-1eae-437f-ba07-268472967013 and event.kind:signal
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.threshold]
+field = ["event.kind", "host.id"]
+value = 100
+

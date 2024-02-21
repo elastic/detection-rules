@@ -217,17 +217,26 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
 
 
 @dataclass(frozen=True)
+class AlertSuppressionDuration:
+    """Mapping to alert suppression duration."""
+    unit: definitions.TimeUnits
+    value: definitions.AlertSuppressionValue
+
+
+@dataclass(frozen=True)
 class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
     """Mapping to alert suppression."""
-    @dataclass
-    class AlertSuppressionDuration:
-        """Mapping to allert suppression duration."""
-        unit: definitions.TimeUnits
-        value: int
 
-    group_by: List[definitions.NonEmptyStr]
+    group_by: definitions.AlertSuppressionGroupBy
     duration: Optional[AlertSuppressionDuration]
     missing_fields_strategy: definitions.AlertSuppressionMissing
+
+
+@dataclass(frozen=True)
+class ThresholdAlertSuppression:
+    """Mapping to alert suppression."""
+
+    duration: AlertSuppressionDuration
 
 
 @dataclass(frozen=True)
@@ -615,8 +624,8 @@ class QueryRuleData(BaseRuleData):
     def validates_query_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
         # alert suppression is only valid for query rule type and not any of its subclasses
-        if data.get('alert_suppression') and data['type'] != 'query':
-            raise ValidationError("Alert suppression is only valid for query rule type.")
+        if data.get('alert_suppression') and data['type'] not in ('query', 'threshold'):
+            raise ValidationError("Alert suppression is only valid for query and threshold rule types.")
 
 
 @dataclass(frozen=True)
@@ -644,6 +653,7 @@ class ThresholdQueryRuleData(QueryRuleData):
 
     type: Literal["threshold"]
     threshold: ThresholdMapping
+    alert_suppression: Optional[ThresholdAlertSuppression] = field(metadata=dict(metadata=dict(min_compat="8.12")))
 
 
 @dataclass(frozen=True)
@@ -1363,8 +1373,8 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
     if language in ('kuery', 'eql'):
         # TODO: remove once py-eql supports ipv6 for cidrmatch
 
-        config = set_eql_config(rule.contents.metadata.get('min_stack_version'))
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
+        cfg = set_eql_config(rule.contents.metadata.get('min_stack_version'))
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, eql.parser.skip_optimizations, cfg:
             parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
 
         return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
