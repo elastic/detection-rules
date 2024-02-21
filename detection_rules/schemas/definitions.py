@@ -15,7 +15,7 @@ ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
 DATE_PATTERN = r'^\d{4}/\d{2}/\d{2}$'
-ELASTIC_LAST_UPDATE_PATTERN = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$'
+SOURCE_UPDATED_AT_PATTERN = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$'
 MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
 OS_OPTIONS = ['windows', 'linux', 'macos']
 NAME_PATTERN = r'^[a-zA-Z0-9].+?[a-zA-Z0-9()]$'
@@ -44,6 +44,7 @@ INTERVAL_PATTERN = r'^\d+[mshd]$'
 TACTIC_URL = r'^https://attack.mitre.org/tactics/TA[0-9]+/$'
 TECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/$'
 SUBTECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$'
+SKIP_FIELDS_FOR_SHA256 = ['source_updated_at']
 MACHINE_LEARNING = 'machine_learning'
 QUERY = 'query'
 QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
@@ -139,7 +140,7 @@ CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=val
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
-ElasticLastUpdateDate = NewType('ElasticLastUpdateData', str, validate=validate.Regexp(ELASTIC_LAST_UPDATE_PATTERN))
+SourceUpdatedAt = NewType('SourceUpdatedAt', str, validate=validate.Regexp(SOURCE_UPDATED_AT_PATTERN))
 FilterLanguages = Literal["eql", "esql", "kuery", "lucene"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 InvestigateProviderQueryType = Literal["phrase", "range"]

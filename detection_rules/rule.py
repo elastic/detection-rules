@@ -40,7 +40,7 @@ _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
 BUILD_FIELD_VERSIONS = {
-    "elastic_last_update": (Version.parse('8.12.0'), None),
+    "source_updated_at": (Version.parse('8.12.0'), None),
     "related_integrations": (Version.parse('8.3.0'), None),
     "required_fields": (Version.parse('8.3.0'), None),
     "setup": (Version.parse('8.3.0'), None)
@@ -248,7 +248,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     author: List[str]
     building_block_type: Optional[definitions.BuildingBlockType]
     description: str
-    elastic_last_update: Optional[definitions.ElasticLastUpdateDate] = \
+    source_updated_at: Optional[definitions.SourceUpdatedAt] = \
         field(metadata=dict(metadata=dict(min_compat="8.12")))
     enabled: Optional[bool]
     exceptions_list: Optional[list]
@@ -914,6 +914,9 @@ class BaseRuleContents(ABC):
     def sha256(self, include_version=False) -> str:
         # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
         hashable_contents = self.to_api_format(include_version=include_version)
+        # ignore fields that should not be hashed regarding version control
+        hashable_contents = {k: v for k, v in hashable_contents.items()
+                             if k not in definitions.SKIP_FIELDS_FOR_SHA256}
         return utils.dict_hash(hashable_contents)
 
 
@@ -976,7 +979,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         super()._post_dict_conversion(obj)
 
         # build time fields
-        self._convert_add_elastic_last_update_date(obj)
+        self._convert_add_source_updated_at(obj)
         self._convert_add_related_integrations(obj)
         self._convert_add_required_fields(obj)
         self._convert_add_setup(obj)
@@ -991,13 +994,13 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         return obj
 
-    def _convert_add_elastic_last_update_date(self, obj: dict) -> None:
-        """Add restricted field elastic_last_update to the obj."""
+    def _convert_add_source_updated_at(self, obj: dict) -> None:
+        """Add restricted field source_updated_at to the obj."""
 
-        if self.check_explicit_restricted_field_version('elastic_last_update'):
+        if self.check_explicit_restricted_field_version('source_updated_at'):
             updated_date = self.metadata.updated_date.replace("/", "-")
             updated_date_iso = f"{updated_date}T00:00:00.000Z"
-            obj.setdefault("elastic_last_update", updated_date_iso)
+            obj.setdefault("source_updated_at", updated_date_iso)
 
     def _convert_add_related_integrations(self, obj: dict) -> None:
         """Add restricted field related_integrations to the obj."""

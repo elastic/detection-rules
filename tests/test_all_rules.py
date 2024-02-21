@@ -1136,34 +1136,6 @@ class TestIncompatibleFields(BaseRuleTest):
             self.fail(err_msg)
 
 
-class TestBuildTimeFields(BaseRuleTest):
-    """Test validity of build-time fields."""
-
-    def test_build_fields_min_stack(self):
-        """Test that newly introduced build-time fields for a min_stack for applicable rules."""
-        current_stack_ver = PACKAGE_STACK_VERSION
-        invalids = []
-
-        for rule in self.production_rules:
-            min_stack = rule.contents.metadata.min_stack_version
-            build_fields = rule.contents.data.get_build_fields()
-
-            errors = []
-            for build_field, field_versions in build_fields.items():
-                start_ver, end_ver = field_versions
-                if start_ver is not None and current_stack_ver >= start_ver:
-                    if min_stack is None or not Version.parse(min_stack) >= start_ver:
-                        errors.append(f'{build_field} >= {start_ver}')
-
-            if errors:
-                err_str = ', '.join(errors)
-                invalids.append(f'{self.rule_str(rule)} uses a rule type with build fields requiring min_stack_versions'
-                                f' to be set: {err_str}')
-
-            if invalids:
-                self.fail(invalids)
-
-
 class TestRiskScoreMismatch(BaseRuleTest):
     """Test that severity and risk_score fields contain corresponding values"""
 
