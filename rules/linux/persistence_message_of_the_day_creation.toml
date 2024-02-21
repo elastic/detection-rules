@@ -160,12 +160,12 @@ tags = [
 type = "new_terms"
 timestamp_override = "event.ingested"
 query = '''
-host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and
+host.os.type :linux and event.action:(creation or file_create_event or rename or file_rename_event) and
 file.path : (/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not process.name : (
   dpkg or dockerd or rpm or executor or dnf or podman or ln or yum 
 ) and not (
-  (process.name == "mv" and file.extension == "dpkg-remove") or
-  (file.extension : ("swp" or "swpx"))
+  (process.name:mv and file.extension:dpkg-remove) or
+  (file.extension:(swp or swpx))
 )
 '''
 
