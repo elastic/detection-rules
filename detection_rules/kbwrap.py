@@ -53,7 +53,7 @@ def upload_rule(ctx, rules, replace_id):
         api_payloads.append(rule)
 
     with kibana:
-        results = RuleResource.bulk_create(api_payloads)
+        results = RuleResource.bulk_create_legacy(api_payloads)
 
     success = []
     errors = []

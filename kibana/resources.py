@@ -6,7 +6,10 @@
 import datetime
 from typing import List, Optional, Type
 
+import json
+
 from .connector import Kibana
+from . import defenitions
 
 DEFAULT_PAGE_SIZE = 10
 
@@ -20,10 +23,12 @@ class BaseResource(dict):
         return self.get(self.ID_FIELD)
 
     @classmethod
-    def bulk_create(cls, resources: list):
+    def bulk_create_legacy(cls, resources: list):
         for r in resources:
             assert isinstance(r, cls)
 
+        # _bulk_create is being deprecated. Leave for backwards compat only
+        # the new API would be import with multiple rules within an ndjson request
         responses = Kibana.current().post(cls.BASE_URI + "/_bulk_create", data=resources)
         return [cls(r) for r in responses]
 
@@ -127,6 +132,64 @@ class RuleResource(BaseResource):
         params = cls._add_internal_filter(True, params)
         return cls.find(**params)
 
+    @classmethod
+    def bulk_action(cls, action: defenitions.RuleBulkActions, rule_ids: Optional[List[str]] = None,
+                    query: Optional[str] = None, dry_run: Optional[bool] = False,
+                    edit: Optional[defenitions.RuleBulkEditAction] = None,
+                    duplicate: Optional[defenitions.RuleBulkDuplicateAction] = None) -> (dict, List['RuleResource']):
+        assert not (rule_ids and query), 'Cannot provide both rule_ids and query'
+
+        if action == 'edit':
+            assert edit, 'edit action requires edit object'
+
+        params = dict(dry_run=dry_run)
+        data = dict(query=query, ids=rule_ids, action=action, edit=edit, duplicate=duplicate)
+        response = Kibana.current().post(cls.BASE_URI + "/_bulk_action", params=params, data=data)
+
+        results = response['attributes']['results']
+        result_ids = [r['rule_id'] for r in results['updated']]
+        result_ids.extend([r['rule_id'] for r in results['created']])
+        rule_resources = cls.export_rules(result_ids)
+        return response, rule_resources
+
+    @classmethod
+    def bulk_enable(cls, rule_ids: Optional[List[str]] = None,
+                    query: Optional[str] = None, dry_run: Optional[bool] = False) -> (dict, List['RuleResource']):
+        """Bulk enable rules using _bulk_action."""
+        return cls.bulk_action("enable", rule_ids=rule_ids, query=query, dry_run=dry_run)
+
+    @classmethod
+    def bulk_disable(cls, rule_ids: Optional[List[str]] = None,
+                    query: Optional[str] = None, dry_run: Optional[bool] = False) -> (dict, List['RuleResource']):
+        """Bulk disable rules using _bulk_action."""
+        return cls.bulk_action("disable", rule_ids=rule_ids, query=query, dry_run=dry_run)
+
+    @classmethod
+    def bulk_delete(cls,rule_ids: Optional[List[str]] = None,
+                    query: Optional[str] = None, dry_run: Optional[bool] = False) -> (dict, List['RuleResource']):
+        """Bulk delete rules using _bulk_action."""
+        return cls.bulk_action("delete", rule_ids=rule_ids, query=query, dry_run=dry_run)
+
+    @classmethod
+    def bulk_duplicate(cls, rule_ids: Optional[List[str]] = None,
+                    query: Optional[str] = None, dry_run: Optional[bool] = False,
+                    duplicate: Optional[defenitions.RuleBulkDuplicateAction] = None) -> (dict, List['RuleResource']):
+        """Bulk duplicate rules using _bulk_action."""
+        return cls.bulk_action("duplicate", rule_ids=rule_ids, query=query, dry_run=dry_run, duplicate=duplicate)
+
+    @classmethod
+    def bulk_export(cls, rule_ids: Optional[List[str]] = None,
+                    query: Optional[str] = None, dry_run: Optional[bool] = False) -> (dict, List['RuleResource']):
+        """Bulk export rules using _bulk_action."""
+        return cls.bulk_action("export", rule_ids=rule_ids, query=query, dry_run=dry_run)
+
+    @classmethod
+    def bulk_edit(cls, rule_ids: Optional[List[str]] = None,
+                    query: Optional[str] = None, dry_run: Optional[bool] = False,
+                    edit: Optional[defenitions.RuleBulkEditAction] = None) -> (dict, List['RuleResource']):
+        """Bulk edit rules using _bulk_action."""
+        return cls.bulk_action("edit", rule_ids=rule_ids, query=query, dry_run=dry_run, edit=edit)
+
     def put(self):
         # id and rule_id are mutually exclusive
         rule_id = self.get("rule_id")
@@ -141,6 +204,41 @@ class RuleResource(BaseResource):
                 self["rule_id"] = rule_id
 
             raise
+
+    @classmethod
+    def import_rules(cls, rules: List[dict], overwrite: bool = False, overwrite_exceptions: bool = False,
+                     overwrite_action_connectors: bool = False) -> (dict, List['RuleResource']):
+        """Import a list of rules into Kibana using the _import API and return the response and successful imports."""
+        url = f'{cls.BASE_URI}/_import'
+        params = dict(
+            overwrite=overwrite,
+            overwrite_exceptions=overwrite_exceptions,
+            overwrite_action_connectors=overwrite_action_connectors
+        )
+        rule_ids = [r['rule_id'] for r in rules]
+        headers, raw_data = Kibana.ndjson_file_data_prep(rules, "import.ndjson")
+        response = Kibana.current().post(url, headers=headers, params=params, raw_data=raw_data)
+        errors = response.get("errors", [])
+        error_rule_ids = [e['rule_id'] for e in errors]
+
+        # successful rule_ids are not returned, so they must be implicitly inferred from errored rule_ids
+        successful_rule_ids = [r for r in rule_ids if r not in error_rule_ids]
+        rule_resources = cls.export_rules(successful_rule_ids)
+        return response, rule_resources
+
+    @classmethod
+    def export_rules(cls, rule_ids: Optional[List[str]] = None,
+                     exclude_export_details: bool = False) -> List['RuleResource']:
+        """Export a list of rules from Kibana using the _export API."""
+        url = f'{cls.BASE_URI}/_export'
+
+        if rule_ids:
+            rule_ids = {'objects': [{'rule_id': r} for r in rule_ids]}
+
+        params = dict(exclude_export_details=exclude_export_details)
+        response = Kibana.current().post(url, params=params, data=rule_ids, raw=True)
+        data = [json.loads(r) for r in response.text.splitlines()]
+        return [cls(r) for r in data]
 
 
 class Signal(BaseResource):
