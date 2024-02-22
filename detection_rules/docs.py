@@ -251,7 +251,7 @@ class AsciiDoc:
 
     @classmethod
     def content(cls, value: str):
-        return f'\n{value}\n{line_sep}'
+        return f'\n{value}\n'
 
     @classmethod
     def title(cls, depth: int, value: str):
