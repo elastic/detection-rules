@@ -531,11 +531,6 @@ class IntegrationRuleDetail:
         self.package = package_str
         self.rule_title = f'prebuilt-rule-{self.package}-{name_to_title(self.rule["name"])}'
 
-        # NOTE: This pattern is used to replace markdown links with asciidoc compatible links
-        # upstream in security-docs repo where CI checks fail if markdown links are used
-        self.elastic_hyperlink_pattern = \
-            r'\[.*?\]\(((?:https://(?:www\.)?elastic\.co|https://docs\.elastic\.co)/.*?)\)'
-
         # set some defaults
         self.rule.setdefault('max_signals', 100)
         self.rule.setdefault('interval', '5m')
@@ -598,12 +593,12 @@ class IntegrationRuleDetail:
 
     def guide_str(self) -> str:
         """Add the guide section to the rule detail page."""
-        guide = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['note'])
+        guide = convert_markdown_urls_to_asciidoc(self.rule['note'])
         return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.code(guide, code="markdown")}'
 
     def setup_str(self) -> str:
         """Add the setup section to the rule detail page."""
-        setup = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['setup'])
+        setup = convert_markdown_urls_to_asciidoc(self.rule['setup'])
         return f'{AsciiDoc.title(4, "Setup")}\n\n\n{AsciiDoc.code(setup, code="markdown")}'
 
     def query_str(self) -> str:
@@ -650,6 +645,22 @@ def name_to_title(name: str) -> str:
     """Convert a rule name to tile."""
     initial = re.sub(r'[^\w]|_', r'-', name.lower().strip())
     return re.sub(r'-{2,}', '-', initial).strip('-')
+
+
+def convert_markdown_urls_to_asciidoc(text: str) -> str:
+    "Replaces all Markdown links in the text with AsciiDoc links."
+    # Regex pattern for Markdown links
+    markdown_link_pattern = r'\[([^\]]+)\]\(([^)]+)\)'
+
+    # Function to replace each match with AsciiDoc format
+    def replace_with_asciidoc(match):
+        link_text = match.group(1)
+        url = match.group(2)
+        return f'{url}[{link_text}]'
+
+    # Replace all occurrences of the Markdown link pattern in the text
+    converted_text = re.sub(markdown_link_pattern, replace_with_asciidoc, text)
+    return converted_text
 
 
 @dataclass
