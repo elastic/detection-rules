@@ -9,7 +9,7 @@ from typing import List, Optional, Type
 import json
 
 from .connector import Kibana
-from . import defenitions
+from . import definitions
 
 DEFAULT_PAGE_SIZE = 10
 
@@ -133,10 +133,10 @@ class RuleResource(BaseResource):
         return cls.find(**params)
 
     @classmethod
-    def bulk_action(cls, action: defenitions.RuleBulkActions, rule_ids: Optional[List[str]] = None,
+    def bulk_action(cls, action: definitions.RuleBulkActions, rule_ids: Optional[List[str]] = None,
                     query: Optional[str] = None, dry_run: Optional[bool] = False,
-                    edit: Optional[defenitions.RuleBulkEditAction] = None,
-                    duplicate: Optional[defenitions.RuleBulkDuplicateAction] = None) -> (dict, List['RuleResource']):
+                    edit: Optional[definitions.RuleBulkEditAction] = None,
+                    duplicate: Optional[definitions.RuleBulkDuplicateAction] = None) -> (dict, List['RuleResource']):
         assert not (rule_ids and query), 'Cannot provide both rule_ids and query'
 
         if action == 'edit':
@@ -173,7 +173,7 @@ class RuleResource(BaseResource):
     @classmethod
     def bulk_duplicate(cls, rule_ids: Optional[List[str]] = None,
                     query: Optional[str] = None, dry_run: Optional[bool] = False,
-                    duplicate: Optional[defenitions.RuleBulkDuplicateAction] = None) -> (dict, List['RuleResource']):
+                    duplicate: Optional[definitions.RuleBulkDuplicateAction] = None) -> (dict, List['RuleResource']):
         """Bulk duplicate rules using _bulk_action."""
         return cls.bulk_action("duplicate", rule_ids=rule_ids, query=query, dry_run=dry_run, duplicate=duplicate)
 
@@ -186,7 +186,7 @@ class RuleResource(BaseResource):
     @classmethod
     def bulk_edit(cls, rule_ids: Optional[List[str]] = None,
                     query: Optional[str] = None, dry_run: Optional[bool] = False,
-                    edit: Optional[defenitions.RuleBulkEditAction] = None) -> (dict, List['RuleResource']):
+                    edit: Optional[definitions.RuleBulkEditAction] = None) -> (dict, List['RuleResource']):
         """Bulk edit rules using _bulk_action."""
         return cls.bulk_action("edit", rule_ids=rule_ids, query=query, dry_run=dry_run, edit=edit)
 

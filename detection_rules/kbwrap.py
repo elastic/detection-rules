@@ -5,6 +5,7 @@
 
 """Kibana cli commands."""
 import sys
+from typing import List, Optional, Tuple
 
 import click
 
@@ -67,6 +68,36 @@ def upload_rule(ctx, rules, replace_id):
         click.echo('Successful uploads:\n  - ' + '\n  - '.join(success))
     if errors:
         click.echo('Failed uploads:\n  - ' + '\n  - '.join(errors))
+
+    return results
+
+
+@kibana_group.command('import-rules')
+@click.argument('rules', nargs=-1, required=True)
+@click.option('--overwrite', '-o', is_flag=True, help='Overwrite existing rules')
+@click.option('--overwrite-exceptions', '-e', is_flag=True, help='Overwrite exceptions in existing rules')
+@click.option('--overwrite-action-connectors', '-a', is_flag=True,
+              help='Overwrite action connectors in existing rules')
+def kibana_import_rules(ctx: click.Context, rules: Tuple[dict], overwrite: Optional[bool] = False,
+                        overwrite_exceptions: Optional[bool] = False,
+                        overwrite_action_connectors: Optional[bool] = False) -> (dict, List[RuleResource]):
+    """Import rules into Kibana."""
+    kibana = ctx.obj['kibana']
+    with kibana:
+        response, results = RuleResource.import_rules(list(rules), overwrite=overwrite,
+                                                      overwrite_exceptions=overwrite_exceptions,
+                                                      overwrite_action_connectors=overwrite_action_connectors)
+
+    return response, results
+
+
+@kibana_group.command('export-rules')
+@click.option('--rule-id', '-r', multiple=True, help='Optional Rule IDs to restrict export to')
+def kibana_export_rules(ctx: click.Context, rule_id: Optional[Tuple[str]] = None) -> List[RuleResource]:
+    """Export rules from Kibana."""
+    kibana = ctx.obj['kibana']
+    with kibana:
+        results = RuleResource.export_rules(list(rule_id))
 
     return results
 
