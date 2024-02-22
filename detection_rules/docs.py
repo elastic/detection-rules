@@ -650,12 +650,12 @@ def name_to_title(name: str) -> str:
 def convert_markdown_urls_to_asciidoc(text: str) -> str:
     "Replaces all Markdown links in the text with AsciiDoc links."
     # Regex pattern for Markdown links
-    markdown_link_pattern = r'\[([^\]]+)\]\(([^)]+)\)'
+    markdown_link_pattern = r'\[([^\]]+)\]\(([^)]+?)\.?\)'
 
     # Function to replace each match with AsciiDoc format
     def replace_with_asciidoc(match):
-        link_text = match.group(1)
-        url = match.group(2)
+        link_text = match.group(1)  # The link text
+        url = match.group(2)  # The URL, without any trailing period
         return f'{url}[{link_text}]'
 
     # Replace all occurrences of the Markdown link pattern in the text
