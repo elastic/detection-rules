@@ -251,7 +251,7 @@ class AsciiDoc:
 
     @classmethod
     def content(cls, value: str):
-        return f'\n{value}\n'
+        return f'{value}'
 
     @classmethod
     def title(cls, depth: int, value: str):
@@ -603,12 +603,12 @@ class IntegrationRuleDetail:
     def guide_str(self) -> str:
         """Add the guide section to the rule detail page."""
         guide = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['note'])
-        return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.content(guide)}'
+        return f'{AsciiDoc.title(4, "Investigation guide")}\n{AsciiDoc.content(guide)}'
 
     def setup_str(self) -> str:
         """Add the setup section to the rule detail page."""
         setup = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['setup'])
-        return f'{AsciiDoc.title(4, "Setup")}\n\n\n{AsciiDoc.content(setup)}'
+        return f'{AsciiDoc.title(4, "Setup")}\n{AsciiDoc.content(setup)}'
 
     def query_str(self) -> str:
         """Add the query section to the rule detail page."""
