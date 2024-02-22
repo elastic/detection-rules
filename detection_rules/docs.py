@@ -250,10 +250,6 @@ class AsciiDoc:
         return f'[source, {code}]\n{line_sep}\n{value}\n{line_sep}'
 
     @classmethod
-    def content(cls, value: str):
-        return f'{value}'
-
-    @classmethod
     def title(cls, depth: int, value: str):
         return f'{"=" * depth} {value}'
 
@@ -549,7 +545,7 @@ class IntegrationRuleDetail:
         title = title or self.rule_title
         page = [
             AsciiDoc.inline_anchor(title),
-            AsciiDoc.title(1, self.rule['name']),
+            AsciiDoc.title(3, self.rule['name']),
             '',
             self.rule['description'],
             '',
@@ -603,16 +599,16 @@ class IntegrationRuleDetail:
     def guide_str(self) -> str:
         """Add the guide section to the rule detail page."""
         guide = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['note'])
-        return f'{AsciiDoc.title(2, "Investigation guide")}\n{AsciiDoc.content(guide)}'
+        return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.code(guide, code="markdown")}'
 
     def setup_str(self) -> str:
         """Add the setup section to the rule detail page."""
         setup = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['setup'])
-        return f'{AsciiDoc.title(2, "Setup")}\n{AsciiDoc.content(setup)}'
+        return f'{AsciiDoc.title(4, "Setup")}\n\n\n{AsciiDoc.code(setup, code="markdown")}'
 
     def query_str(self) -> str:
         """Add the query section to the rule detail page."""
-        return f'{AsciiDoc.title(2, "Rule query")}\n\n\n{AsciiDoc.code(self.rule["query"])}'
+        return f'{AsciiDoc.title(4, "Rule query")}\n\n\n{AsciiDoc.code(self.rule["query"])}'
 
     def threat_mapping_str(self) -> str:
         """Add the threat mapping section to the rule detail page."""
