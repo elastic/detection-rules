@@ -250,10 +250,6 @@ class AsciiDoc:
         return f'[source, {code}]\n{line_sep}\n{value}\n{line_sep}'
 
     @classmethod
-    def content(cls, value: str):
-        return f'{value}'
-
-    @classmethod
     def title(cls, depth: int, value: str):
         return f'{"=" * depth} {value}'
 
@@ -598,12 +594,12 @@ class IntegrationRuleDetail:
     def guide_str(self) -> str:
         """Add the guide section to the rule detail page."""
         guide = convert_markdown_to_asciidoc(self.rule['note'])
-        return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.content(guide)}'
+        return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{guide}'
 
     def setup_str(self) -> str:
         """Add the setup section to the rule detail page."""
         setup = convert_markdown_to_asciidoc(self.rule['setup'])
-        return f'{AsciiDoc.title(4, "Setup")}\n\n\n{AsciiDoc.content(setup)}'
+        return f'{AsciiDoc.title(4, "Setup")}\n\n\n{setup}'
 
     def query_str(self) -> str:
         """Add the query section to the rule detail page."""
@@ -652,20 +648,11 @@ def name_to_title(name: str) -> str:
 
 
 def convert_markdown_to_asciidoc(text: str) -> str:
-    """
-    Converts Markdown headers to bold text in AsciiDoc, adding newlines for separation,
-    and converts Markdown links to AsciiDoc links, ensuring '#' characters within URLs are preserved.
-    """
+    """Convert investigation guides and setup content from markdown to asciidoc."""
 
-    # Convert Markdown headers to bold text
+    # Format the content after the stripped headers (#) to bold text with newlines.
     markdown_header_pattern = re.compile(r'^(#+)\s*(.*?)$', re.MULTILINE)
-
-    def header_to_bold(match):
-        header_text = match.group(2).strip()
-        # Convert to bold text and ensure separation with newlines
-        return f'\n*{header_text}*\n'
-
-    text = re.sub(markdown_header_pattern, header_to_bold, text)
+    text = re.sub(markdown_header_pattern, lambda m: f'\n*{m.group(2).strip()}*\n', text)
 
     # Convert Markdown links to AsciiDoc format
     markdown_link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
