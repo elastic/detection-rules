@@ -597,12 +597,12 @@ class IntegrationRuleDetail:
 
     def guide_str(self) -> str:
         """Add the guide section to the rule detail page."""
-        guide = convert_markdown_to_asciidoc_and_clean_spaces(self.rule['note'])
+        guide = convert_markdown_to_asciidoc(self.rule['note'])
         return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.content(guide)}'
 
     def setup_str(self) -> str:
         """Add the setup section to the rule detail page."""
-        setup = convert_markdown_to_asciidoc_and_clean_spaces(self.rule['setup']).replace('#', '')
+        setup = convert_markdown_to_asciidoc(self.rule['setup']).replace('#', '')
         return f'{AsciiDoc.title(4, "Setup")}\n\n\n{AsciiDoc.content(setup)}'
 
     def query_str(self) -> str:
@@ -651,33 +651,25 @@ def name_to_title(name: str) -> str:
     return re.sub(r'-{2,}', '-', initial).strip('-')
 
 
-def convert_markdown_to_asciidoc_and_clean_spaces(text: str) -> str:
+def convert_markdown_to_asciidoc(text: str) -> str:
     """
-    Converts Markdown links to AsciiDoc links, Markdown headers to bold text in AsciiDoc,
-    and removes spaces before bolded words.
+    Converts Markdown headers to bold text in AsciiDoc, preserving newlines,
+    and converts Markdown links to AsciiDoc links.
     """
     # Convert Markdown links to AsciiDoc format
-    markdown_link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)(\.)?')
+    markdown_link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+    text = re.sub(markdown_link_pattern, lambda m: f'{m.group(2)}[{m.group(1)}]', text)
 
-    def replace_with_asciidoc(match):
-        link_text = match.group(1)  # The link text
-        url = match.group(2)  # The URL, without any trailing period
-        return f'{url}[{link_text}]'  # Form the AsciiDoc link
-    text = re.sub(markdown_link_pattern, replace_with_asciidoc, text)
+    # Convert Markdown headers to bold text in AsciiDoc, preserving newlines
+    markdown_header_pattern = re.compile(r'^(#+)\s*(.*)', re.MULTILINE)
+    def header_to_bold(match):
+        # Count the '#' to determine the header level (not used directly but useful if needed)
+        header_level = len(match.group(1))
+        header_text = match.group(2).strip()
+        # Convert to bold text and preserve the newline characters around the bold text
+        return f'\n\n*{header_text}*\n\n'
 
-    # Convert Markdown headers to bold text in AsciiDoc
-    markdown_header_pattern = re.compile(r'^\s*\#+\s*(.+)$', re.MULTILINE)
-
-    def replace_with_bold(match):
-        header_text = match.group(1)  # Capture the header text
-        return f'*{header_text}*'  # Surround with asterisks for bold in AsciiDoc
-    text = re.sub(markdown_header_pattern, replace_with_bold, text)
-
-    # Remove spaces before and after the asterisks for bolded words
-    # This pattern targets spaces right before an asterisk and right after an asterisk
-    # ensuring words are correctly bolded without extra spaces
-    space_around_asterisks_pattern = re.compile(r'\s+\*(.*?)\*\s+')
-    text = re.sub(space_around_asterisks_pattern, r'*\1*', text)
+    text = re.sub(markdown_header_pattern, header_to_bold, text)
 
     return text
 
