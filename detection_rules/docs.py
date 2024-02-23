@@ -658,6 +658,7 @@ def convert_markdown_to_asciidoc_and_clean_spaces(text: str) -> str:
     """
     # Convert Markdown links to AsciiDoc format
     markdown_link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)(\.)?')
+
     def replace_with_asciidoc(match):
         link_text = match.group(1)  # The link text
         url = match.group(2)  # The URL, without any trailing period
@@ -666,13 +667,15 @@ def convert_markdown_to_asciidoc_and_clean_spaces(text: str) -> str:
 
     # Convert Markdown headers to bold text in AsciiDoc
     markdown_header_pattern = re.compile(r'^\s*\#+\s*(.+)$', re.MULTILINE)
+
     def replace_with_bold(match):
         header_text = match.group(1)  # Capture the header text
         return f'*{header_text}*'  # Surround with asterisks for bold in AsciiDoc
     text = re.sub(markdown_header_pattern, replace_with_bold, text)
 
     # Remove spaces before and after the asterisks for bolded words
-    # This pattern targets spaces right before an asterisk and right after an asterisk, ensuring words are correctly bolded without extra spaces
+    # This pattern targets spaces right before an asterisk and right after an asterisk
+    # ensuring words are correctly bolded without extra spaces
     space_around_asterisks_pattern = re.compile(r'\s+\*(.*?)\*\s+')
     text = re.sub(space_around_asterisks_pattern, r'*\1*', text)
 
