@@ -653,14 +653,14 @@ def name_to_title(name: str) -> str:
 
 def convert_markdown_to_asciidoc(text: str) -> str:
     """
-    Converts Markdown headers to bold text in AsciiDoc, preserving newlines,
-    and converts Markdown links to AsciiDoc links, while preserving '#' in URLs.
+    Converts Markdown headers to bold text in AsciiDoc, adding newlines for separation,
+    and converts Markdown links to AsciiDoc links, ensuring '#' characters within URLs are preserved.
     """
-    # Convert Markdown headers to bold text, avoiding conversion within URLs
+    # Convert Markdown headers to bold text
     markdown_header_pattern = re.compile(r'^(#+)\s*(.*?)$', re.MULTILINE)
     def header_to_bold(match):
         header_text = match.group(2).strip()
-        # Convert to bold text and add newlines for separation
+        # Convert to bold text and ensure separation with newlines
         return f'\n*{header_text}*\n'
 
     text = re.sub(markdown_header_pattern, header_to_bold, text)
