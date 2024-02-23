@@ -597,12 +597,12 @@ class IntegrationRuleDetail:
 
     def guide_str(self) -> str:
         """Add the guide section to the rule detail page."""
-        guide = convert_markdown_to_asciidoc(self.rule['note'])
+        guide = convert_markdown_to_asciidoc_and_clean_spaces(self.rule['note'])
         return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.content(guide)}'
 
     def setup_str(self) -> str:
         """Add the setup section to the rule detail page."""
-        setup = convert_markdown_to_asciidoc(self.rule['setup']).replace('#', '')
+        setup = convert_markdown_to_asciidoc_and_clean_spaces(self.rule['setup']).replace('#', '')
         return f'{AsciiDoc.title(4, "Setup")}\n\n\n{AsciiDoc.content(setup)}'
 
     def query_str(self) -> str:
