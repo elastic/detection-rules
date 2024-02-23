@@ -602,7 +602,7 @@ class IntegrationRuleDetail:
 
     def setup_str(self) -> str:
         """Add the setup section to the rule detail page."""
-        setup = convert_markdown_to_asciidoc(self.rule['setup']).replace('#', '')
+        setup = convert_markdown_to_asciidoc(self.rule['setup'])
         return f'{AsciiDoc.title(4, "Setup")}\n\n\n{AsciiDoc.content(setup)}'
 
     def query_str(self) -> str:
