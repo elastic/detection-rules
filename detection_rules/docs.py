@@ -659,6 +659,7 @@ def convert_markdown_to_asciidoc(text: str) -> str:
 
     # Convert Markdown headers to bold text
     markdown_header_pattern = re.compile(r'^(#+)\s*(.*?)$', re.MULTILINE)
+
     def header_to_bold(match):
         header_text = match.group(2).strip()
         # Convert to bold text and ensure separation with newlines
