@@ -656,6 +656,7 @@ def convert_markdown_to_asciidoc(text: str) -> str:
     Converts Markdown headers to bold text in AsciiDoc, adding newlines for separation,
     and converts Markdown links to AsciiDoc links, ensuring '#' characters within URLs are preserved.
     """
+
     # Convert Markdown headers to bold text
     markdown_header_pattern = re.compile(r'^(#+)\s*(.*?)$', re.MULTILINE)
     def header_to_bold(match):
