@@ -394,23 +394,12 @@ class SecurityDetectionEngine:
     """Dedicated to Security Detection Engine integration."""
 
     def __init__(self):
-        self.epr_pkg_url = "https://epr.elastic.co/package/security_detection_engine/"
-        self.epr_search_url = "https://epr.elastic.co/search?package=security_detection_engine"
-
-    def get_versions(self, stack_version: Optional[str] = None) -> List[str]:
-        """Gets all versions of the Security Detection Engine integration."""
-        if stack_version:
-            return find_latest_integration_version("security_detection_engine", "ga",
-                                                   stack_version)
-        epr_response = requests.get(self.epr_search_url, params={"all": "true"}, timeout=10)
-        epr_response.raise_for_status()
-        pkgs_manifests = epr_response.json()
-        return [manifest["version"] for manifest in pkgs_manifests]
+        self.epr_url = "https://epr.elastic.co/package/security_detection_engine/"
 
     def load_integration_assets(self, package_version: Version) -> dict:
         """Loads integration assets into memory."""
 
-        epr_package_url = f"{self.epr_pkg_url}{str(package_version)}/"
+        epr_package_url = f"{self.epr_url}{str(package_version)}/"
         epr_response = requests.get(epr_package_url, timeout=10)
         epr_response.raise_for_status()
         package_obj = epr_response.json()
@@ -421,31 +410,6 @@ class SecurityDetectionEngine:
             assets = {x.split("/")[-1].replace(".json", ""): json.loads(zip_package.read(x).decode('utf-8'))
                       for x in asset_file_names}
         return assets
-
-    def deduplicate_assets(self, assets: dict) -> dict:
-        """Deduplicates assets by rule_id and version"""
-        assets_deduplicated = {}
-
-        for asset_id, contents in assets.items():
-            # Extract rule_id and version
-            if "_" not in asset_id:
-                assets_deduplicated[asset_id] = (contents['attributes']['version'], contents)
-                continue
-            rule_id, version = asset_id.rsplit('_', 1)
-
-            # Check if rule_id is already in assets_deduplicated
-            if rule_id in assets_deduplicated:
-                # Check if the current version is higher than the stored version
-                if version > assets_deduplicated[rule_id][0]:
-                    assets_deduplicated[rule_id] = (version, contents)
-            else:
-                assets_deduplicated[rule_id] = (version, contents)
-
-        # Remove the prefix and construct the final dictionary
-        deduplicated_dict = {rule_id: contents for rule_id, (_, contents)
-                             in assets_deduplicated.items()}
-
-        return deduplicated_dict
 
     def transform_legacy_assets(self, assets: dict) -> dict:
         """Transforms legacy rule assets to historical rules."""
