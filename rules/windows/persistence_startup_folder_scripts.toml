@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/10/23"
+updated_date = "2023/03/01"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -117,17 +117,11 @@ type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.type != "deletion" and user.domain != "NT AUTHORITY" and
-
-  /* detect shortcuts created by wscript.exe or cscript.exe */
-  (file.path : "C:\\*\\Programs\\Startup\\*.lnk" and
-     process.name : ("wscript.exe", "cscript.exe")) or
-
-  /* detect vbs or js files created by any process */
-  file.path : ("C:\\*\\Programs\\Startup\\*.vbs",
-               "C:\\*\\Programs\\Startup\\*.vbe",
-               "C:\\*\\Programs\\Startup\\*.wsh",
-               "C:\\*\\Programs\\Startup\\*.wsf",
-               "C:\\*\\Programs\\Startup\\*.js")
+  file.path : "?:\\*\\Programs\\Startup\\*" and
+  (
+    process.name : ("wscript.exe", "cscript.exe") or
+    file.extension : ("vbs", "vbe", "wsh", "wsf", "js")
+  )
 '''
 
 
