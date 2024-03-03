@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/26"
+updated_date = "2024/03/03"
 
 [transform]
 [[transform.osquery]]
@@ -30,6 +30,7 @@ SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, des
 services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
+
 
 [rule]
 author = ["Elastic"]
@@ -97,18 +98,30 @@ This rule looks for the `Msbuild.exe` utility execution, followed by a network c
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+references = ["https://riccardoancarani.github.io/2019-10-19-hunting-covenant-msbuild/"]
 risk_score = 47
 rule_id = "0e79980b-4250-4a50-a509-69294c14e84b"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
 
 query = '''
-sequence by process.entity_id
-  [process where host.os.type == "windows" and process.name : "MSBuild.exe" and event.type == "start"]
+sequence by process.entity_id with maxspan=30s
+  [process where host.os.type == "windows" and process.name : "MSBuild.exe" and event.type == "start" and user.id != "S-1-5-18"]
   [network where host.os.type == "windows" and process.name : "MSBuild.exe" and
      not cidrmatch(destination.ip, "127.0.0.1", "::1") and
-     not dns.question.name : "localhost"]
+     not dns.question.name in (
+      "localhost",
+      "dc.services.visualstudio.com",
+      "vortex.data.microsoft.com",
+      "api.nuget.org")]
 '''
 
 
