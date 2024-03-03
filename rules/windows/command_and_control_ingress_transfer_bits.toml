@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/12/19"
+updated_date = "2024/03/03"
 
 [transform]
 [[transform.osquery]]
@@ -31,18 +31,23 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+
 [rule]
 author = ["Elastic"]
 description = """
-Identifies downloads of executable and archive files via the Windows Background Intelligent Transfer Service (BITS). 
+Identifies downloads of executable and archive files via the Windows Background Intelligent Transfer Service (BITS).
 Adversaries could leverage Windows BITS transfer jobs to download remote payloads.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Ingress Transfer via Windows BITS"
 note = """## Triage and analysis
+
+### Performance
+
+This rule may have a low to medium impact on performance due to the filtering logic for various file extensions and paths.
 
 ### Investigating Ingress Transfer via Windows BITS
 
@@ -115,27 +120,51 @@ references = ["https://attack.mitre.org/techniques/T1197/"]
 risk_score = 21
 rule_id = "f95972d3-c23b-463b-89a8-796b3f369b49"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Command and Control", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.action == "rename" and
-  process.name : "svchost.exe" and file.Ext.original.name : "BIT*.tmp" and 
-  (file.extension : ("exe", "zip", "rar", "bat", "dll", "ps1", "vbs", "wsh", "js", "vbe", "pif", "scr", "cmd", "cpl") or
-   file.Ext.header_bytes : "4d5a*") and 
- 
-  /* noisy paths, for hunting purposes you can use the same query without the following exclusions */
-  not file.path : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\Windows\\*", "?:\\ProgramData\\*\\*") and 
- 
-  /* lot of third party SW use BITS to download executables with a long file name */
-  not length(file.name) > 30 and
-  not file.path : (
-        "?:\\Users\\*\\AppData\\Local\\Temp*\\wct*.tmp",
-        "?:\\Users\\*\\AppData\\Local\\Adobe\\ARM\\*\\RdrServicesUpdater*.exe",
-        "?:\\Users\\*\\AppData\\Local\\Adobe\\ARM\\*\\AcroServicesUpdater2_x64.exe",
-        "?:\\Users\\*\\AppData\\Local\\Docker Desktop Installer\\update-*.exe"
-  )
+
+  /* svchost.exe is the process that creates BITS jobs */
+  /* original file is a temporary file created by BITS */
+  process.name : "svchost.exe" and
+  (
+    startsWith(file.Ext.original.name, "BIT") and file.extension == "tmp"
+  ) or
+  (
+    /* alternatively the original file has a PE header with a common executable extensions */
+    file.extension : ("exe", "zip", "rar", "bat", "dll", "ps1", "vbs", "wsh", "js", "vbe", "pif", "scr", "cmd", "cpl") or
+    startsWith(file.Ext.header_bytes, "4d5a") and
+
+    /* noisy paths, for hunting purposes you can use the same query without the following exclusions */
+    not (
+      startsWith(file.path, "?:\\Program Files\\") or
+      startsWith(file.path, "?:\\Program Files (x86)\\") or
+      startsWith(file.path, "?:\\Windows\\") or
+      startsWith(file.path, "?:\\ProgramData\\")
+        ) and
+
+    /* lot of third party SW use BITS to download executables with a long file name */
+    not length(file.name) > 30 and
+    not (
+      startsWith(file.path, "?:\\Users\\") and
+          (
+            (stringContains(file.path, "AppData\\Local\\Temp") and startsWith(file.name, "wct") and file.extension == "tmp") or
+            (stringContains(file.path, "AppData\\Local\\Adobe\\ARM") and startsWith(file.name, "RdrServicesUpdater") and file.extension == "exe") or
+            (stringContains(file.path, "AppData\\Local\\Adobe\\ARM") and file.name == "AcroServicesUpdater2_x64.exe") or
+            (stringContains(file.path, "AppData\\Local\\Docker Desktop Installer") and startsWith(file.name, "update-") and file.extension == "exe")
+          )
+        )
+    )
 '''
 
 
@@ -151,8 +180,6 @@ reference = "https://attack.mitre.org/techniques/T1105/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -165,3 +192,4 @@ reference = "https://attack.mitre.org/techniques/T1197/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
