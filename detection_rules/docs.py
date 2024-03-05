@@ -531,11 +531,6 @@ class IntegrationRuleDetail:
         self.package = package_str
         self.rule_title = f'prebuilt-rule-{self.package}-{name_to_title(self.rule["name"])}'
 
-        # NOTE: This pattern is used to replace markdown links with asciidoc compatible links
-        # upstream in security-docs repo where CI checks fail if markdown links are used
-        self.elastic_hyperlink_pattern = \
-            r'\[.*?\]\(((?:https://(?:www\.)?elastic\.co|https://docs\.elastic\.co)/.*?)\)'
-
         # set some defaults
         self.rule.setdefault('max_signals', 100)
         self.rule.setdefault('interval', '5m')
@@ -598,13 +593,13 @@ class IntegrationRuleDetail:
 
     def guide_str(self) -> str:
         """Add the guide section to the rule detail page."""
-        guide = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['note'])
-        return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.code(guide, code="markdown")}'
+        guide = convert_markdown_to_asciidoc(self.rule['note'])
+        return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{guide}'
 
     def setup_str(self) -> str:
         """Add the setup section to the rule detail page."""
-        setup = re.sub(self.elastic_hyperlink_pattern, r'\1', self.rule['setup'])
-        return f'{AsciiDoc.title(4, "Setup")}\n\n\n{AsciiDoc.code(setup, code="markdown")}'
+        setup = convert_markdown_to_asciidoc(self.rule['setup'])
+        return f'{AsciiDoc.title(4, "Setup")}\n\n\n{setup}'
 
     def query_str(self) -> str:
         """Add the query section to the rule detail page."""
@@ -650,6 +645,20 @@ def name_to_title(name: str) -> str:
     """Convert a rule name to tile."""
     initial = re.sub(r'[^\w]|_', r'-', name.lower().strip())
     return re.sub(r'-{2,}', '-', initial).strip('-')
+
+
+def convert_markdown_to_asciidoc(text: str) -> str:
+    """Convert investigation guides and setup content from markdown to asciidoc."""
+
+    # Format the content after the stripped headers (#) to bold text with newlines.
+    markdown_header_pattern = re.compile(r'^(#+)\s*(.*?)$', re.MULTILINE)
+    text = re.sub(markdown_header_pattern, lambda m: f'\n*{m.group(2).strip()}*\n', text)
+
+    # Convert Markdown links to AsciiDoc format
+    markdown_link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+    text = re.sub(markdown_link_pattern, lambda m: f'{m.group(2)}[{m.group(1)}]', text)
+
+    return text
 
 
 @dataclass
