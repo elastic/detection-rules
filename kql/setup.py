@@ -2,12 +2,12 @@
 # or more contributor license agreements. Licensed under the Elastic License
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name="detection-rules-kql",
     version="0.1.6",
-    packages=find_packages(),
+    py_modules=["ast", "dsl", "eql2kql", "errors", "evaluator", "kql2eql", "optimizer", "parser", "__init__"],
     install_requires=[
         "eql==0.9.19",
         "lark-parser>=0.11.1",
