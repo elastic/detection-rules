@@ -5,11 +5,15 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="detection-rules-kibana",
-    version="0.1.0",
+    name="detection-rules-kql",
+    version="0.1.6",
     packages=find_packages(),
     install_requires=[
-        "requests>=2.25,<3.0",
-        "elasticsearch~=8.1",
-    ]
+        "eql==0.9.19",
+        "lark-parser>=0.11.1",
+    ],
+    package_data={
+        'kql': ['*.g'],
+    },
+    include_package_data=True,
 )
