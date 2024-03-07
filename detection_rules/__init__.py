@@ -8,7 +8,7 @@
 import sys
 
 
-assert (3, 8) <= sys.version_info < (4, 0), "Only Python 3.9+ supported"
+assert (3, 9) <= sys.version_info < (4, 0), "Only Python 3.9+ supported"
 
 from . import (  # noqa: E402
     devtools,
