@@ -1,28 +1,25 @@
 [metadata]
 creation_date = "2023/04/11"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.5.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/20"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies instances where the 'find' command is started on a Linux system with arguments targeting
-specific VM-related paths, such as "/etc/vmware/", "/usr/lib/vmware/", or "/vmfs/*".
-These paths are associated with VMware virtualization software, and their presence in the find command arguments
-may indicate that a threat actor is attempting to search for, analyze, or manipulate VM-related files
-and configurations on the system.
+Identifies instances where the 'find' command is started on a Linux system with arguments targeting specific VM-related
+paths, such as "/etc/vmware/", "/usr/lib/vmware/", or "/vmfs/*". These paths are associated with VMware virtualization
+software, and their presence in the find command arguments may indicate that a threat actor is attempting to search for,
+analyze, or manipulate VM-related files and configurations on the system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "ESXI Discovery via Find"
-references = [
-    "https://www.bleepingcomputer.com/news/security/massive-esxiargs-ransomware-attack-targets-vmware-esxi-servers-worldwide/",
-]
+references = ["https://www.bleepingcomputer.com/news/security/massive-esxiargs-ransomware-attack-targets-vmware-esxi-servers-worldwide/"]
 risk_score = 47
 rule_id = "33a6752b-da5e-45f8-b13a-5f094c09522f"
 setup = """
@@ -52,22 +49,29 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and process.name : "find" and
-process.args : ("/etc/vmware/*", "/usr/lib/vmware/*", "/vmfs/*")
+process where host.os.type == "linux" and event.action in ("exec", "exec_event", "executed", "process_started") and
+event.type == "start" and process.name == "find" and process.args : ("/etc/vmware/*", "/usr/lib/vmware/*", "/vmfs/*")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1518"
 name = "Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/"
-
 
 [rule.threat.tactic]
 id = "TA0007"
