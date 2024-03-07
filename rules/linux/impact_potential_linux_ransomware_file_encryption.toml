@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/21"
 
 [rule]
 author = ["Elastic"]
@@ -48,7 +48,8 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint",
+tags = [
+        "Domain: Endpoint",
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Impact",
@@ -60,8 +61,15 @@ sequence by process.entity_id, host.id with maxspan=1s
   [file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and file.extension : "?*" 
    and process.executable : ("./*", "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/var/run/*", "/boot/*", "/srv/*", "/run/*") and
    file.path : (
-   "/home/*/Downloads/*", "/home/*/Documents/*", "/root/*", "/bin/*", "/usr/bin/*",
-   "/opt/*", "/etc/*", "/var/log/*", "/var/lib/log/*", "/var/backup/*", "/var/www/*")] with runs=25
+     "/home/*/Downloads/*", "/home/*/Documents/*", "/root/*", "/bin/*", "/usr/bin/*", "/var/log/*", "/var/lib/log/*",
+     "/var/backup/*", "/var/www/*"
+   ) and
+   not process.name : (
+     "dpkg", "yum", "dnf", "rpm", "dockerd", "go", "java", "pip*", "python*", "node", "containerd", "php", "p4d",
+     "conda", "chrome", "imap", "cmake", "firefox", "semanage", "semodule", "ansible-galaxy", "fc-cache", "jammy", "git",
+     "systemsettings", "vmis-launcher", "bundle", "kudu-tserver", "suldownloader"
+    )
+   ] with runs=25
 '''
 
 [[rule.threat]]
