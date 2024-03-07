@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/11"
+updated_date = "2024/02/21"
 
 [transform]
 [[transform.osquery]]
@@ -200,19 +200,17 @@ tags = [
         ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 file where host.os.type == "linux" and event.type in ("creation", "file_create_event") and user.id == "0" and
 file.path : ("/etc/ld.so.conf.d/*", "/etc/cron.d/*", "/etc/sudoers.d/*", "/etc/rc.d/init.d/*", "/etc/systemd/system/*",
 "/usr/lib/systemd/system/*") and not (
-  (process.executable : (
-    "*/dpkg", "*/yum", "*/apt", "*/dnf", "*/rpm", "*/systemd", "*/snapd",
-    "*/dnf-automatic","*/yum-cron", "*/elastic-agent", "*/dnfdaemon-system",
-    "*/bin/dockerd", "*/sbin/dockerd", "/kaniko/executor", "/usr/sbin/rhn_check"
+  (process.name : (
+    "chef-client", "ruby", "pacman", "packagekitd", "python*", "platform-python", "dpkg", "yum", "apt", "dnf", "rpm",
+    "systemd", "snapd", "dnf-automatic", "yum-cron", "elastic-agent", "dnfdaemon-system", "dockerd", "executor",
+    "rhn_check"
     )
   ) or 
-  (file.extension in ("swp", "swpx", "tmp")) or
-  (process.name : ("chef-client", "ruby", "pacman", "packagekitd", "python*", "platform-python"))
+  (file.extension in ("swp", "swpx", "tmp"))
 )
 '''
 
