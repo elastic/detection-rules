@@ -9,7 +9,7 @@ PIP := $(VENV_BIN)/python -m pip
 
 
 .PHONY: all
-all: setup install-packages test
+all: release
 
 
 $(VENV):
