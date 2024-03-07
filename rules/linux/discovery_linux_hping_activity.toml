@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/20/02"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Hping Process Activity"
@@ -65,26 +65,31 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start"
-and process.name in ("hping", "hping2", "hping3")
+process where host.os.type == "linux" and event.action in ("exec", "exec_event", "executed", "process_started") and
+event.type == "start" and process.name in ("hping", "hping2", "hping3")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
