@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
 min_stack_version = "8.11.0"
-updated_date = "2024/01/09"
+updated_date = "2024/02/20"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies recursive process capability enumeration of the entire filesystem thr
 Malicious users may manipulate identified capabilities to gain root privileges.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Capability Enumeration"
@@ -46,11 +46,18 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
+process where host.os.type == "linux" and event.action in ("exec", "exec_event") and event.type == "start" and
 process.name == "getcap" and process.args == "-r" and process.args == "/" and process.args_count == 3 and
 user.id != "0"
 '''
