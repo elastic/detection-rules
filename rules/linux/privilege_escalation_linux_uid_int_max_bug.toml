@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/21"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ allowed UID size (INT_MAX). Some older Linux versions were affected by a bug whi
 greater than INT_MAX to escalate privileges by spawning a shell through systemd-run. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via UID INT_MAX Bug Detected"
@@ -51,11 +51,18 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Privilege Escalation",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+process where host.os.type == "linux" and event.action in ("exec", "exec_event") and event.type == "start" and 
 process.name == "systemd-run" and process.args == "-t" and process.args_count >= 3 and user.id >= "1000000000"
 '''
 
