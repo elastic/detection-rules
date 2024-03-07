@@ -29,8 +29,7 @@ deps: $(VENV) install-packages
 .PHONY: install-packages
 install-packages:
 	@echo "Installing kql and kibana packages..."
-	$(PIP) install -e tools/kql
-	$(PIP) install -e tools/kibana
+	$(PIP) install -e tools/kql tools/kibana
 
 .PHONY: pytest
 pytest: $(VENV) deps
