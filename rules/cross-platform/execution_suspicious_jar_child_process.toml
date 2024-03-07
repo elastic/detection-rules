@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/12/18"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -80,7 +80,11 @@ type = "new_terms"
 
 query = '''
 event.category:process and event.type:("start" or "process_started") and process.parent.name:"java" and process.name:(
-  "sh" or "bash" or "dash" or "ksh" or "tcsh" or "zsh" or "curl" or "wget"
+  bash or dash or sh or tcsh or csh or zsh or ksh or fish or python* or php* or perl or ruby or lua* or openssl or
+  nc or netcat or ncat or telnet or awk or socat or wget or curl
+) and process.args :(
+  whoami or id or uname or cat or hostname or ip or curl or wget or pwd or ls or cd or python* or php* or perl or
+  ruby or lua* or openssl or nc or netcat or ncat or telnet or awk or socat
 )
 '''
 
@@ -104,7 +108,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.command_line", "process.parent.command_line"]
+value = ["host.id", "process.command_line"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
