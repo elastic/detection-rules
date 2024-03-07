@@ -9,24 +9,32 @@ PIP := $(VENV_BIN)/python -m pip
 
 
 .PHONY: all
-all: release
+all: setup install-packages test
 
 
 $(VENV):
 	pip3 install virtualenv
-	virtualenv $(VENV) --python=python3.8
-	$(PIP) install .[dev]
+	virtualenv $(VENV) --python=python3.9
 	$(PIP) install setuptools -U
-
 
 .PHONY: clean
 clean:
 	rm -rf $(VENV) *.egg-info .eggs .egg htmlcov build dist packages .build .tmp .tox __pycache__
 
 .PHONY: deps
-deps: $(VENV)
+deps: $(VENV) setup install-packages
+	@echo "Installing all dependencies..."
+
+.PHONY: setup
+setup: $(VENV)
+	@echo "Installing root package dependencies..."
 	$(PIP) install .[dev]
 
+.PHONY: install-packages
+install-packages:
+	@echo "Installing kql and kibana packages..."
+	$(PIP) install -e tools/kql
+	$(PIP) install -e tools/kibana
 
 .PHONY: pytest
 pytest: $(VENV) deps
