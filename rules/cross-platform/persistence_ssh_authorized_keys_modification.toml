@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/22"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,6 @@ tags = ["Domain: Endpoint",
         ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 event.category:file and event.type:(change or creation) and
  file.name:("authorized_keys" or "authorized_keys2" or "/etc/ssh/sshd_config" or "/root/.ssh") and
@@ -46,7 +45,10 @@ event.category:file and event.type:(change or creation) and
               /usr/bin/touch or
               /var/lib/docker/* or
               /usr/bin/google_guest_agent or 
-              /opt/jc/bin/jumpcloud-agent)
+              /opt/jc/bin/jumpcloud-agent or 
+              /opt/puppetlabs/puppet/bin/puppet or
+              /usr/bin/chef-client
+)
 '''
 
 [[rule.threat]]
@@ -97,8 +99,8 @@ reference = "https://attack.mitre.org/tactics/TA0008/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.executable", "file.path"]
+value = ["host.id", "process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-10d"
