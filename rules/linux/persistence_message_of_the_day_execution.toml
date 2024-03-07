@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/21"
 
 [transform]
 [[transform.osquery]]
@@ -181,7 +181,11 @@ process.parent.executable : ("/etc/update-motd.d/*", "/usr/lib/update-notifier/*
   (process.name : ("awk", "gawk", "mawk", "nawk") and process.args : "*/inet/tcp/*") or 
   (process.name in ("openssl", "telnet"))
 ) and 
-not (process.parent.args : "--force" or process.args : ("/usr/games/lolcat", "/usr/bin/screenfetch"))
+not (
+  (process.parent.args : "--force") or
+  (process.args : ("/usr/games/lolcat", "/usr/bin/screenfetch")) or
+  (process.parent.name == "system-crash-notification")
+)
 '''
 
 [[rule.threat]]

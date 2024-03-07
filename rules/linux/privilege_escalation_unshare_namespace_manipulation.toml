@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -63,28 +63,32 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Privilege Escalation",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action : ("exec", "exec_event") and
 process.executable: "/usr/bin/unshare" and
 not process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") and
-not process.args : "/usr/bin/snap"
+not process.args == "/usr/bin/snap" and not process.parent.name in ("zz-proxmox-boot", "java")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

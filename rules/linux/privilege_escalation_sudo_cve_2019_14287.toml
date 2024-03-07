@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/08/30"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/21"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ that can be chosen arbitrarily. By using the sudo privileges, the command "sudo 
 representing the root user. This exploit may work for sudo versions prior to v1.28.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Sudo Privilege Escalation via CVE-2019-14287"
@@ -49,12 +49,21 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend", "Use Case: Vulnerability"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Privilege Escalation",
+        "Data Source: Elastic Defend",
+        "Use Case: Vulnerability",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
-process.name == "sudo" and process.args == "-u#-1"
+process where host.os.type == "linux" and event.action in ("exec", "exec_event", "executed", "process_started") and
+event.type == "start" and process.name == "sudo" and process.args == "-u#-1"
 '''
 
 [[rule.threat]]
