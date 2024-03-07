@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2024/01/05"
+updated_date = "2024/02/21"
 
 [transform]
 [[transform.osquery]]
@@ -160,10 +160,13 @@ tags = [
 type = "new_terms"
 timestamp_override = "event.ingested"
 query = '''
-host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and
+host.os.type :linux and event.action:(creation or file_create_event or rename or file_rename_event) and
 file.path : (/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not process.name : (
-  dpkg or dockerd or rpm or executor or dnf or podman or ln
-) and not file.extension : ("swp" or "swpx")
+  dpkg or dockerd or rpm or executor or dnf or podman or ln or yum 
+) and not (
+  (process.name:mv and file.extension:dpkg-remove) or
+  (file.extension:(swp or swpx))
+)
 '''
 
 [[rule.threat]]
