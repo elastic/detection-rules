@@ -22,12 +22,8 @@ clean:
 	rm -rf $(VENV) *.egg-info .eggs .egg htmlcov build dist packages .build .tmp .tox __pycache__
 
 .PHONY: deps
-deps: $(VENV) setup install-packages
+deps: $(VENV) install-packages
 	@echo "Installing all dependencies..."
-
-.PHONY: setup
-setup: $(VENV)
-	@echo "Installing root package dependencies..."
 	$(PIP) install .[dev]
 
 .PHONY: install-packages
