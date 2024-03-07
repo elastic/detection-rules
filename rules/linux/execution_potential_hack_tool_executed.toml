@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/09/22"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2023/10/30"
+updated_date = "2024/02/20"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -14,7 +14,7 @@ this rule should be investigated further, as hack tools are commonly used by blu
 well.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Linux Hack Tool Launched"
@@ -49,17 +49,19 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 timestamp_override = "event.ingested"
-tags = ["Domain: Endpoint",
+tags = [
+        "Domain: Endpoint",
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Execution",
         "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Auditd Manager"
         ]
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action in ("exec", "exec_event") and event.type == "start" and
-process.name in (
+process where host.os.type == "linux" and event.action in ("exec", "exec_event", "executed", "process_started") and
+event.type == "start" and process.name in (
   // exploitation frameworks
   "crackmapexec", "msfconsole", "msfvenom", "sliver-client", "sliver-server", "havoc",
   // network scanners (nmap left out to reduce noise)
@@ -84,4 +86,3 @@ framework = "MITRE ATT&CK"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
