@@ -2,7 +2,7 @@
 creation_date = "2020/04/15"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2023/11/02"
+updated_date = "2024/02/20"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -47,11 +47,18 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "high"
 timestamp_override = "event.ingested"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.action in ("exec", "exec_event") and
+process where host.os.type == "linux" and event.action in ("exec", "exec_event") and event.type == "start" and
 (
   (process.parent.name : "python*" and process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh",
    "fish") and process.parent.args_count >= 3 and process.parent.args : "*pty.spawn*" and process.parent.args : "-c") or
@@ -60,18 +67,18 @@ process where host.os.type == "linux" and event.action in ("exec", "exec_event")
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1059.006"
-  name = "Python"
-  reference = "https://attack.mitre.org/techniques/T1059/006/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
 
 [rule.threat.tactic]
 id = "TA0002"
