@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/05/04"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -13,10 +13,10 @@ Adversaries may attempt to clear or disable the Bash command-line history in an 
 investigations.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Tampering of Bash Command-Line History"
+name = "Tampering of Shell Command-Line History"
 risk_score = 47
 rule_id = "7bcbb3ac-e533-41ad-a612-d6c3bf666aba"
 setup = """
@@ -28,12 +28,21 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "OS: macOS",
+        "Use Case: Threat Detection",
+        "Tactic: Defense Evasion",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.action in ("exec", "exec_event", "executed", "process_started") and event.type == "start" and
  (
   ((process.args : ("rm", "echo") or
     (process.args : "ln" and process.args : "-sf" and process.args : "/dev/null") or
@@ -47,22 +56,20 @@ process where event.type in ("start", "process_started") and
  )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1070.003"
 name = "Clear Command History"
 reference = "https://attack.mitre.org/techniques/T1070/003/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

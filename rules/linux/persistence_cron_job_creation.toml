@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
 min_stack_version = "8.6.0"
-updated_date = "2023/12/13"
+updated_date = "2024/02/21"
 
 [transform]
 [[transform.osquery]]
@@ -203,17 +203,17 @@ tags = [
         ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 host.os.type : "linux" and event.action : ("change" or "file_modify_event" or "creation" or "file_create_event") and 
 file.path : (/etc/cron.allow or /etc/cron.deny or /etc/cron.d/* or /etc/cron.hourly/* or /etc/cron.daily/* or 
 /etc/cron.weekly/* or /etc/cron.monthly/* or /etc/crontab or /usr/sbin/cron or /usr/sbin/anacron) 
 and not (
   (process.name : ("dpkg" or "dockerd" or "rpm" or "snapd" or "yum" or "exe" or "dnf" or "podman" or 
-  "dnf-automatic")) or 
+  "dnf-automatic" or puppet or autossl_check )) or 
   (file.extension : ("swp" or "swpx")) or 
   (process.name : "sed" and file.name : sed*) or 
-  (process.name : "perl" and file.name : e2scrub_all.tmp*)
+  (process.name : "perl" and file.name : e2scrub_all.tmp*) or
+  (process.executable : /var/lib/dpkg*)
 )
 '''
 
