@@ -1,16 +1,18 @@
 [metadata]
 creation_date = "2022/07/27"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/17"
+updated_date = "2024/02/21"
 
 [rule]
 author = ["Elastic"]
-description = "This rule identifies a high number (10) of process terminations via pkill from the same host within a short time period."
+description = """
+This rule identifies a high number (10) of process terminations via pkill from the same host within a short time period.
+"""
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "High Number of Process Terminations"
@@ -77,7 +79,16 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Impact", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Impact",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend",
+        "Data Source: Auditd Manager"
+        ]
 type = "threshold"
 timestamp_override = "event.ingested"
 
@@ -85,14 +96,13 @@ query = '''
 event.category:process and host.os.type:linux and event.type:start and process.name:"pkill" and process.args:"-f"
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1489"
 name = "Service Stop"
 reference = "https://attack.mitre.org/techniques/T1489/"
-
 
 [rule.threat.tactic]
 id = "TA0040"
@@ -102,4 +112,3 @@ reference = "https://attack.mitre.org/tactics/TA0040/"
 [rule.threshold]
 field = ["host.id", "process.executable", "user.name"]
 value = 10
-

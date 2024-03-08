@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
 min_stack_version = "8.6.0"
-updated_date = "2023/12/19"
+updated_date = "2024/02/21"
 
 [transform]
 [[transform.osquery]]
@@ -172,12 +172,13 @@ tags = [
     ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 host.os.type:linux and event.action:(creation or file_create_event or file_rename_event or rename) and 
-file.path:(/dev/shm/* or /usr/lib/*) and file.extension:so and 
-process.name: ( * and not ("5" or "dockerd" or "dpkg" or "rpm" or "snapd" or "exe" or "yum" or "vmis-launcher"
-  or "pacman" or "apt-get" or "dnf" or "podman" or "platform-python"))
+file.path:(/dev/shm/* or /usr/lib/*) and file.extension:so and process.name:* and not (
+  process.name:("dockerd" or "dpkg" or "rpm" or "snapd" or "yum" or "vmis-launcher" or "pacman" or
+  "apt-get" or "dnf" or "podman" or "platform-python") or 
+  (process.name:vmware-install.pl and file.path:/usr/lib/vmware-tools/*)
+)
 '''
 
 [[rule.threat]]

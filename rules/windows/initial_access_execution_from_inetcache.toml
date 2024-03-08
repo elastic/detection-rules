@@ -1,0 +1,67 @@
+[metadata]
+creation_date = "2024/02/14"
+integration = ["endpoint", "windows", "system"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/02/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of a process with arguments pointing to the INetCache Folder. Adversaries may deliver malicious
+content via WININET during initial access.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*", "logs-system.security*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Execution from INET Cache"
+references = [
+"https://www.trendmicro.com/en_us/research/24/b/cve202421412-water-hydra-targets-traders-with-windows-defender-s.html"
+]
+risk_score = 73
+rule_id = "dca6b4b0-ae70-44eb-bb7a-ce6db502ee78"
+severity = "high"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Command and Control", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and  
+ process.parent.name : ("explorer.exe", "winrar.exe", "7zFM.exe", "Bandizip.exe") and
+  (process.args : "?:\\Users\\*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\IE\\*" or
+   process.executable : "?:\\Users\\*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\IE\\*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
