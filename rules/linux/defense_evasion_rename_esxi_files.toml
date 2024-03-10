@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.5.0"
-updated_date = "2023/11/02"
+updated_date = "2024/03/02"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ Identifies instances where VMware-related files, such as those with extensions l
 event action associated with these file types, which could indicate malicious activity.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Renaming of ESXI Files"
@@ -24,8 +24,10 @@ references = [
 risk_score = 47
 rule_id = "97db8b42-69d8-4bf3-9fd4-c69a1d895d68"
 setup = """
-
 This rule requires data coming in from Elastic Defend.
+
+### Performance
+This rule may have a low to medium impact on performance due to the use of the `endsWith` function for original file name extensions filtering.
 
 ### Elastic Defend Integration Setup
 Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
@@ -50,13 +52,33 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.action == "rename" and
-file.Ext.original.name : ("*.vmdk", "*.vmx", "*.vmxf", "*.vmsd", "*.vmsn", "*.vswp", "*.vmss", "*.nvram", "*.vmem")
-and not file.name : ("*.vmdk", "*.vmx", "*.vmxf", "*.vmsd", "*.vmsn", "*.vswp", "*.vmss", "*.nvram", "*.vmem")
+
+    /* filter for ESXI file extensions in the original file name */
+    (endsWith(file.Ext.original.name, ".vmdk") or
+    endsWith(file.Ext.original.name, ".vmx") or
+    endsWith(file.Ext.original.name, ".vmxf") or
+    endsWith(file.Ext.original.name, ".vmsd") or
+    endsWith(file.Ext.original.name, ".vmsn") or
+    endsWith(file.Ext.original.name, ".vswp") or
+    endsWith(file.Ext.original.name, ".vmss") or
+    endsWith(file.Ext.original.name, ".nvram") or
+    endsWith(file.Ext.original.name, ".vmem")
+    ) and
+
+    /* filter for missing ESXI file extensions in the new file name */
+    not file.extension : ("vdmk", "vmx", "vmxf", "vmsd", "vmsn", "vswp", "vmss", "nvram", "vmem")
 '''
 
 
@@ -77,3 +99,4 @@ reference = "https://attack.mitre.org/techniques/T1036/003/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
