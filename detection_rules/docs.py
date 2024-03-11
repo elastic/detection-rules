@@ -549,6 +549,8 @@ class IntegrationRuleDetail:
         ]
         if 'note' in self.rule:
             page.extend([self.guide_str(), ''])
+        if 'setup' in self.rule:
+            page.extend([self.setup_str(), ''])
         if 'query' in self.rule:
             page.extend([self.query_str(), ''])
         if 'threat' in self.rule:
@@ -557,6 +559,7 @@ class IntegrationRuleDetail:
         return '\n'.join(page)
 
     def metadata_str(self) -> str:
+        """Add the metadata section to the rule detail page."""
         fields = {
             'type': 'Rule type',
             'index': 'Rule indices',
@@ -589,13 +592,21 @@ class IntegrationRuleDetail:
         return '\n'.join(values)
 
     def guide_str(self) -> str:
-        return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{AsciiDoc.code(self.rule["note"], code="markdown")}'
+        """Add the guide section to the rule detail page."""
+        guide = convert_markdown_to_asciidoc(self.rule['note'])
+        return f'{AsciiDoc.title(4, "Investigation guide")}\n\n\n{guide}'
+
+    def setup_str(self) -> str:
+        """Add the setup section to the rule detail page."""
+        setup = convert_markdown_to_asciidoc(self.rule['setup'])
+        return f'{AsciiDoc.title(4, "Setup")}\n\n\n{setup}'
 
     def query_str(self) -> str:
-        # TODO: code=sql - would require updating existing
+        """Add the query section to the rule detail page."""
         return f'{AsciiDoc.title(4, "Rule query")}\n\n\n{AsciiDoc.code(self.rule["query"])}'
 
     def threat_mapping_str(self) -> str:
+        """Add the threat mapping section to the rule detail page."""
         values = [AsciiDoc.bold_kv('Framework', 'MITRE ATT&CK^TM^'), '']
 
         for entry in self.rule['threat']:
@@ -634,6 +645,20 @@ def name_to_title(name: str) -> str:
     """Convert a rule name to tile."""
     initial = re.sub(r'[^\w]|_', r'-', name.lower().strip())
     return re.sub(r'-{2,}', '-', initial).strip('-')
+
+
+def convert_markdown_to_asciidoc(text: str) -> str:
+    """Convert investigation guides and setup content from markdown to asciidoc."""
+
+    # Format the content after the stripped headers (#) to bold text with newlines.
+    markdown_header_pattern = re.compile(r'^(#+)\s*(.*?)$', re.MULTILINE)
+    text = re.sub(markdown_header_pattern, lambda m: f'\n*{m.group(2).strip()}*\n', text)
+
+    # Convert Markdown links to AsciiDoc format
+    markdown_link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+    text = re.sub(markdown_link_pattern, lambda m: f'{m.group(2)}[{m.group(1)}]', text)
+
+    return text
 
 
 @dataclass

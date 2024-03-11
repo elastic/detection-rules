@@ -1,15 +1,13 @@
 [metadata]
-bypass_bbr_timing = true
 creation_date = "2023/10/26"
 integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/26"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
-building_block_type = "default"
 description = """
 Detects the loading of a Linux kernel module through system calls. Threat actors may leverage Linux kernel modules to 
 load a rootkit on a system providing them with complete control and the ability to hide from security products. As other
@@ -46,18 +44,18 @@ Add the newly installed `auditd manager` to an agent policy, and deploy the agen
 """
 severity = "low"
 tags = [
+        "Data Source: Auditd Manager",
         "Domain: Endpoint",
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Persistence",
-        "Tactic: Defense Evasion",
-        "Rule Type: BBR"
+        "Tactic: Defense Evasion"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-driver where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and 
-event.action == "loaded-kernel-module" and auditd.data.syscall in ("init_module", "finit_module")
+driver where host.os.type == "linux" and event.action == "loaded-kernel-module" and
+auditd.data.syscall in ("init_module", "finit_module")
 '''
 
 [[rule.threat]]
@@ -90,4 +88,3 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 name = "Rootkit"
 id = "T1014"
 reference = "https://attack.mitre.org/techniques/T1014/"
-
