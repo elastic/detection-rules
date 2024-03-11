@@ -119,7 +119,7 @@ query = '''
 file where host.os.type == "windows" and event.type != "deletion" and
 
   file.extension : ("lnk", "vbs", "vbe", "wsh", "wsf", "js") and
-  not user.domain : ("NT *", "* NT") and
+  not (startsWith(user.domain, "NT") or endsWith(user.domain, "NT")) and
 
   /* detect shortcuts created by wscript.exe or cscript.exe */
   (file.path : "C:\\*\\Programs\\Startup\\*.lnk" and
