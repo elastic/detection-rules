@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/10/23"
+updated_date = "2024/01/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -39,7 +39,7 @@ Identifies script engines creating files in the Startup folder, or the creation 
 Adversaries may abuse this technique to maintain persistence in an environment.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.file*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistent Scripts in the Startup Directory"
@@ -116,7 +116,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "windows" and event.type != "deletion" and user.domain != "NT AUTHORITY" and
+file where host.os.type == "windows" and event.type != "deletion" and
+
+  file.extension : ("lnk", "vbs", "vbe", "wsh", "wsf", "js") and
+  not (startsWith(user.domain, "NT") or endsWith(user.domain, "NT")) and
 
   /* detect shortcuts created by wscript.exe or cscript.exe */
   (file.path : "C:\\*\\Programs\\Startup\\*.lnk" and
