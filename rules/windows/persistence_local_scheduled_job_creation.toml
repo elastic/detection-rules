@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/01/04"
 
 [rule]
 author = ["Elastic"]
@@ -35,7 +35,20 @@ type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.type != "deletion" and
- file.path : "?:\\Windows\\Tasks\\*" and file.extension : "job"
+  file.path : "?:\\Windows\\Tasks\\*" and file.extension : "job" and
+  not (
+    (
+      process.executable : "?:\\Program Files\\CCleaner\\CCleaner64.exe" and
+      file.path : "?:\\Windows\\Tasks\\CCleanerCrashReporting.job"
+    ) or
+    (
+      process.executable : (
+        "?:\\Program Files (x86)\\ManageEngine\\UEMS_Agent\\bin\\dcagentregister.exe",
+        "?:\\Program Files (x86)\\DesktopCentral_Agent\\bin\\dcagentregister.exe"
+      ) and
+      file.path : "?:\\Windows\\Tasks\\DCAgentUpdater.job"
+    )
+  )
 '''
 
 

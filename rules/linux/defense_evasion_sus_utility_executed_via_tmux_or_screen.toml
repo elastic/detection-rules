@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2023/09/04"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the execution of suspicious commands via screen and tmux. When launching a command and detaching 
+directly, the commands will be executed in the background via its parent process. Attackers may leverage screen or tmux 
+to execute commands while attempting to evade detection.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potentially Suspicious Process Started via tmux or screen"
+risk_score = 21
+rule_id = "e0cc3807-e108-483c-bf66-5a4fbe0d7e89"
+severity = "low"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Defense Evasion",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.action in ("exec", "exec_event") and event.type == "start" and 
+process.parent.name in ("screen", "tmux") and process.name : (
+  "nmap", "nc", "ncat", "netcat", "socat", "nc.openbsd", "ngrok", "ping", "java", "python*", "php*", "perl", "ruby",
+  "lua*", "openssl", "telnet", "awk", "wget", "curl", "id"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

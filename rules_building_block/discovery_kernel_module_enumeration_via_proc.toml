@@ -4,7 +4,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/10/19"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -47,6 +47,7 @@ Add the newly installed `auditd manager` to an agent policy, and deploy the agen
 """
 severity = "low"
 tags = [
+        "Data Source: Auditd Manager",
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Discovery",
@@ -56,7 +57,8 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 building_block_type = "default"
 query = '''
-host.os.type:linux and event.category:file and event.action:"opened-file" and file.path:"/proc/modules"
+host.os.type:linux and event.category:file and event.action:"opened-file" and file.path:"/proc/modules" and
+not process.name:(grep or python* or chef-client)
 '''
 
 [[rule.threat]]
@@ -71,7 +73,6 @@ reference = "https://attack.mitre.org/techniques/T1082/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 
 [rule.new_terms]
 field = "new_terms_fields"

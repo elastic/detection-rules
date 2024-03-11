@@ -33,7 +33,7 @@ ELASTICSEARCH_EQL_FEATURES = {
     "allow_sample": (Version.parse('8.6.0'), None),
     "elasticsearch_validate_optional_fields": (Version.parse('7.16.0'), None)
 }
-NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows', 'cloud_defend', 'network_traffic']
+NON_DATASET_PACKAGES = ['apm', 'auditd_manager', 'cloud_defend', 'endpoint', 'network_traffic', 'system', 'windows']
 NON_PUBLIC_FIELDS = {
     "related_integrations": (Version.parse('8.3.0'), None),
     "required_fields": (Version.parse('8.3.0'), None),
@@ -68,6 +68,7 @@ TIMELINE_TEMPLATES: Final[dict] = {
 EXPECTED_RULE_TAGS = [
     'Data Source: Active Directory',
     'Data Source: Amazon Web Services',
+    'Data Source: Auditd Manager',
     'Data Source: AWS',
     'Data Source: APM',
     'Data Source: Azure',
@@ -126,20 +127,22 @@ EXPECTED_RULE_TAGS = [
     'Use Case: UEBA',
     'Use Case: Vulnerability'
 ]
-
+NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 MACHINE_LEARNING_PACKAGES = ['LMD', 'DGA', 'DED', 'ProblemChild', 'Beaconing']
-
+AlertSuppressionGroupBy = NewType('AlertSuppressionGroupBy', List[NonEmptyStr], validate=validate.Length(min=1, max=3))
 AlertSuppressionMissing = NewType('AlertSuppressionMissing', str,
                                   validate=validate.OneOf(['suppress', 'doNotSuppress']))
-NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
+AlertSuppressionValue = NewType("AlertSupressionValue", int, validate=validate.Range(min=1))
 TimeUnits = Literal['s', 'm', 'h']
 BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
 CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=validate.Length(min=0, max=3))
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
-FilterLanguages = Literal["kuery", "lucene", "eql", "esql"]
+FilterLanguages = Literal["eql", "esql", "kuery", "lucene"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
+InvestigateProviderQueryType = Literal["phrase", "range"]
+InvestigateProviderValueType = Literal["string", "boolean"]
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
@@ -160,6 +163,7 @@ TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_U
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
 TimelineTemplateId = NewType('TimelineTemplateId', str, validate=validate.OneOf(list(TIMELINE_TEMPLATES)))
 TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=validate.OneOf(TIMELINE_TEMPLATES.values()))
+TransformTypes = Literal["osquery", "investigate"]
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 BuildingBlockType = Literal['default']
 

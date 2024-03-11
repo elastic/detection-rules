@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/16"
+updated_date = "2023/12/07"
 
 [transform]
 [[transform.osquery]]
@@ -31,6 +31,38 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+[[transform.investigate]]
+label = "Alerts associated with the user in the last 48h"
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+providers = [
+  [
+    {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
+    {field = "user.id", excluded = false, queryType = "phrase", value = "{{user.id}}", valueType = "string"}
+  ]
+]
+
+
+[[transform.investigate]]
+label = "Alerts associated with the host in the last 48h"
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+providers = [
+  [
+    {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
+    {field = "host.name", excluded = false, queryType = "phrase", value = "{{host.name}}", valueType = "string"}
+  ]
+]
+
+[[transform.investigate]]
+label = "Investigate the Subject Process Network Events"
+providers = [
+  [
+    {field = "process.entity_id", excluded = false, queryType = "phrase", value = "{{process.entity_id}}", valueType = "string"},
+    {field = "event.category", excluded = false, queryType = "phrase", value = "network", valueType = "string"}
+  ]
+]
+
 
 [rule]
 author = ["Elastic"]
@@ -55,11 +87,14 @@ This rule looks for processes outside known legitimate program locations communi
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
+  - $investigate_0
+  - $investigate_1
 - Verify whether the digital signature exists in the executable.
 - Identify the operation type (upload, download, tunneling, etc.).
 - Examine the host for derived artifacts that indicate suspicious activities:
@@ -67,6 +102,7 @@ This rule looks for processes outside known legitimate program locations communi
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
       - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
+        - $investigate_2
       - Examine the DNS cache for suspicious or anomalous entries.
         - $osquery_0
     - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
@@ -75,7 +111,6 @@ This rule looks for processes outside known legitimate program locations communi
       - $osquery_2
       - $osquery_3
   - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-- Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
 
 ### False positive analysis
 

@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2023/12/11"
 
 [rule]
 author = ["Elastic"]
@@ -35,8 +35,16 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.executable : "C:\\*Program*Files*\\*.exe" and
- not process.executable : ("C:\\Program Files\\*.exe", "C:\\Program Files (x86)\\*.exe", "C:\\Users\\*.exe", "C:\\ProgramData\\*.exe")
+  process.executable : "C:\\*Program*Files*\\*.exe" and
+  not process.executable : (
+        "?:\\Program Files\\*.exe",
+        "?:\\Program Files (x86)\\*.exe",
+        "?:\\Users\\*.exe",
+        "?:\\ProgramData\\*.exe",
+        "?:\\Windows\\Downloaded Program Files\\*.exe",
+        "?:\\Windows\\Temp\\.opera\\????????????\\CProgram?FilesOpera*\\*.exe",
+        "?:\\Windows\\Temp\\.opera\\????????????\\CProgram?Files?(x86)Opera*\\*.exe"
+  )
 '''
 
 

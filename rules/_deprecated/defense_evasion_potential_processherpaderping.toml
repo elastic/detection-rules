@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2020/10/27"
+deprecation_date = "2023/12/15"
+integration = ["endpoint", "windows"]
+maturity = "deprecated"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/12/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies process execution followed by a file overwrite of an executable by the same parent process. This may indicate
+an evasion attempt to execute malicious code in a stealthy way.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Process Herpaderping Attempt"
+references = ["https://github.com/jxy-s/herpaderping"]
+risk_score = 73
+rule_id = "ccc55af4-9882-4c67-87b4-449a7ae8079c"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
+type = "eql"
+
+query = '''
+sequence with maxspan=5s
+   [process where host.os.type == "windows" and event.type == "start" and not process.parent.executable :
+      (
+         "?:\\Windows\\SoftwareDistribution\\*.exe",
+         "?:\\Program Files\\Elastic\\Agent\\data\\*.exe",
+         "?:\\Program Files (x86)\\Trend Micro\\*.exe"
+      )
+   ] by host.id, process.executable, process.parent.entity_id
+   [file where host.os.type == "windows" and event.type == "change" and event.action == "overwrite" and file.extension == "exe"] by host.id, file.path, process.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
