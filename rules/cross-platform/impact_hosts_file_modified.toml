@@ -49,12 +49,11 @@ This rule identifies modifications in the hosts file across multiple operating s
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 references = ["https://www.elastic.co/guide/en/beats/auditbeat/current/auditbeat-reference-yml.html"]
 risk_score = 47
 rule_id = "9c260313-c811-4ec8-ab89-8f6530e0246c"
-setup="""
+setup = """## Setup
 
 For Windows systems using Auditbeat, this rule requires adding `C:/Windows/System32/drivers/etc` as an additional path in the 'file_integrity' module of auditbeat.yml.
 
@@ -63,7 +62,6 @@ events will not define `event.ingested` and default fallback for EQL rules was n
 Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
 `event.ingested` to @timestamp.
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-
 """
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "OS: Windows", "OS: macOS", "Use Case: Threat Detection", "Tactic: Impact", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
