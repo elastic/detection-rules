@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/22"
+updated_date = "2024/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,8 @@ license = "Elastic License v2"
 name = "Suspicious Passwd File Event Action"
 risk_score = 47
 rule_id = "71d6a53d-abbd-40df-afee-c21fff6aafb0"
-setup = """
+setup = """## Setup
+
 
 This rule requires data coming in from Elastic Defend and Auditd Manager.
 
@@ -67,10 +68,10 @@ Auditd Manager subscribes to the kernel and receives events as they occur withou
 However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
 - For this detection rule the following additional audit rules are required to be added to the integration:
   -- "-w /etc/passwd -p wa -k etcpasswd"
-
 """
 severity = "medium"
 tags = [
+        "Data Source: Auditd Manager",
         "Domain: Endpoint",
         "OS: Linux",
         "Use Case: Threat Detection",
@@ -82,8 +83,8 @@ query = '''
 sequence by host.id, process.parent.pid with maxspan=1m
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.name == "openssl" and process.args == "passwd" and user.id != "0"]
-  [file where event.dataset == "auditd_manager.auditd" and host.os.type == "linux" and file.path == "/etc/passwd" and
-  process.parent.pid != 1 and not auditd.data.a2 == "80000" and event.outcome == "success" and user.id != "0"]
+  [file where host.os.type == "linux" and file.path == "/etc/passwd" and process.parent.pid != 1 and
+   not auditd.data.a2 == "80000" and event.outcome == "success" and user.id != "0"]
 '''
 
 [[rule.threat]]

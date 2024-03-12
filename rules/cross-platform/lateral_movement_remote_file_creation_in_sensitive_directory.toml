@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Avoding rule duplication for <= 8.8 stack versions"
 min_stack_version = "8.9.0"
-updated_date = "2023/10/12"
+updated_date = "2024/03/11"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ index = ["logs-endpoint.events.*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Remote File Creation on a Sensitive Directory"
+name = "Deprecated - Remote File Creation on a Sensitive Directory"
 references = ["https://www.elastic.co/es/blog/remote-desktop-protocol-connections-elastic-security"]
 risk_score = 47
 rule_id = "2377946d-0f01-4957-8812-6878985f515d"
@@ -27,16 +27,18 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where (event.action == "creation" or event.action == "modification") and
-process.name:("System", "scp", "sshd", "smbd", "vsftpd", "sftp-server") and not
-user.name:("SYSTEM", "root") and
-(file.path : ("C*\\Users\\*\\AppData\\Roaming*", "C*\\Program*Files\\*",
-    "C*\\Windows\\*", "C*\\Windows\\System\\*",
-    "C*\\Windows\\System32\\*", "/etc/*", "/tmp*",
-    "/var/tmp*", "/home/*/.*", "/home/.*", "/usr/bin/*",
-    "/sbin/*", "/bin/*", "/usr/lib/*", "/usr/sbin/*",
-    "/usr/share/*", "/usr/local/*", "/var/lib/dpkg/*",
-    "/lib/systemd/*"
+file where event.action in ("creation", "modification") and
+  not user.name:("SYSTEM", "root") and
+  process.name in ("System", "scp", "sshd", "smbd", "vsftpd", "sftp-server") and
+  (
+    file.path : (
+        "?:\\Users\\*\\AppData\\Roaming*", "?:\\Program Files*",
+        "?:\\Windows\\*", "?:\\Windows\\System\\*",
+        "?:\\Windows\\System32\\*", "/etc/*", "/tmp*",
+        "/var/tmp*", "/home/*/.*", "/home/.*", "/usr/bin/*",
+        "/sbin/*", "/bin/*", "/usr/lib/*", "/usr/sbin/*",
+        "/usr/share/*", "/usr/local/*", "/var/lib/dpkg/*",
+        "/lib/systemd/*"
     )
 )
 '''
