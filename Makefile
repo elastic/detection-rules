@@ -5,17 +5,16 @@
 VENV := ./env/detection-rules-build
 VENV_BIN := $(VENV)/bin
 PYTHON := $(VENV_BIN)/python
-PIP := $(VENV_BIN)/python -m pip
+PIP := $(VENV_BIN)/pip
 
 
 .PHONY: all
 all: release
 
-
 $(VENV):
-	pip3 install virtualenv
-	virtualenv $(VENV) --python=python3.9
-	$(PIP) install setuptools -U
+	python3.12 -m pip install --upgrade pip setuptools
+	python3.12 -m venv $(VENV)
+	$(PIP) install --upgrade pip setuptools
 
 .PHONY: clean
 clean:

@@ -1,4 +1,4 @@
-[![Supported Python versions](https://img.shields.io/badge/python-3.9+-yellow.svg)](https://www.python.org/downloads/)
+[![Supported Python versions](https://img.shields.io/badge/python-3.12+-yellow.svg)](https://www.python.org/downloads/)
 [![Unit Tests](https://github.com/elastic/detection-rules/workflows/Unit%20Tests/badge.svg)](https://github.com/elastic/detection-rules/actions)
 [![Chat](https://img.shields.io/badge/chat-%23security--detection--rules-blueviolet)](https://ela.st/slack)
 [![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)](https://ela.st/detection-rules-navigator)
@@ -38,7 +38,7 @@ Detection Rules contains more than just static rule files. This repository also 
 
 ## Getting started
 
-Although rules can be added by manually creating `.toml` files, we don't recommend it. This repository also consists of a python module that aids rule creation and unit testing. Assuming you have Python 3.9+, run the below command to install the dependencies using the makefile:
+Although rules can be added by manually creating `.toml` files, we don't recommend it. This repository also consists of a python module that aids rule creation and unit testing. Assuming you have Python 3.12+, run the below command to install the dependencies using the makefile:
 
 ```console
 ✗ make
@@ -47,8 +47,8 @@ Looking in indexes: https://pypi.org/simple, https://artifactory.elastic.dev/art
 Requirement already satisfied: virtualenv in /opt/homebrew/lib/python3.12/site-packages (20.25.1)
 Requirement already satisfied: distlib<1,>=0.3.7 in /opt/homebrew/lib/python3.12/site-packages (from virtualenv) (0.3.8)
 Requirement already satisfied: filelock<4,>=3.12.2 in /opt/homebrew/lib/python3.12/site-packages (from virtualenv) (3.13.1)
-Requirement already satisfied: platformdirs<5,>=3.9.1 in /opt/homebrew/lib/python3.12/site-packages (from virtualenv) (4.2.0)
-virtualenv ./env/detection-rules-build --python=python3.9
+Requirement already satisfied: platformdirs<5,>=3.12.1 in /opt/homebrew/lib/python3.12/site-packages (from virtualenv) (4.2.0)
+virtualenv ./env/detection-rules-build --python=python3.12
 ...
 ```
 
