@@ -42,13 +42,20 @@ Although rules can be added by manually creating `.toml` files, we don't recomme
 
 ```console
 ✗ make
-pip3 install virtualenv
-Looking in indexes: https://pypi.org/simple, https://artifactory.elastic.dev/artifactory/api/pypi/pypi-endgame/simple
-Requirement already satisfied: virtualenv in /opt/homebrew/lib/python3.12/site-packages (20.25.1)
-Requirement already satisfied: distlib<1,>=0.3.7 in /opt/homebrew/lib/python3.12/site-packages (from virtualenv) (0.3.8)
-Requirement already satisfied: filelock<4,>=3.12.2 in /opt/homebrew/lib/python3.12/site-packages (from virtualenv) (3.13.1)
-Requirement already satisfied: platformdirs<5,>=3.12.1 in /opt/homebrew/lib/python3.12/site-packages (from virtualenv) (4.2.0)
-virtualenv ./env/detection-rules-build --python=python3.12
+python3.12 -m pip install --upgrade pip setuptools
+Looking in indexes: https://pypi.org/simple
+Requirement already satisfied: pip in /opt/homebrew/lib/python3.12/site-packages (24.0)
+Requirement already satisfied: setuptools in /opt/homebrew/lib/python3.12/site-packages (69.1.1)
+python3.12 -m venv ./env/detection-rules-build
+./env/detection-rules-build/bin/pip install --upgrade pip setuptools
+Looking in indexes: https://pypi.org/simple
+Requirement already satisfied: pip in ./env/detection-rules-build/lib/python3.12/site-packages (24.0)
+Collecting setuptools
+  Using cached setuptools-69.1.1-py3-none-any.whl.metadata (6.2 kB)
+Using cached setuptools-69.1.1-py3-none-any.whl (819 kB)
+Installing collected packages: setuptools
+Successfully installed setuptools-69.1.1
+Installing kql and kibana packages...
 ...
 ```
 
