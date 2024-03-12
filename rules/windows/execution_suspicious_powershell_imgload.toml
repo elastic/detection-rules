@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2024/01/03"
+updated_date = "2024/03/12"
 
 [rule]
 author = ["Elastic"]
@@ -80,15 +80,15 @@ host.os.type:windows and event.category:library and
     process.code_signature.subject_name:("Microsoft Corporation" or "Microsoft Dynamic Code Publisher" or "Microsoft Windows") and process.code_signature.trusted:true and not process.name.caseless:("regsvr32.exe" or "rundll32.exe")
   ) and 
   not (
-    process.executable.caseless:(?\:\\\\Program?Files?\(x86\)\\\\*.exe or ?\:\\\\Program?Files\\\\*.exe) and
+    process.executable.caseless:(C\:\\Program*Files*\(x86\)\\*.exe or C\:\\Program*Files\\*.exe) and
     process.code_signature.trusted:true
   ) and 
   not (
-    process.executable.caseless:?\:\\\\Windows\\\\Lenovo\\\\*.exe and process.code_signature.subject_name:"Lenovo" and 
+    process.executable.caseless: C\:\\Windows\\Lenovo\\*.exe and process.code_signature.subject_name:"Lenovo" and 
     process.code_signature.trusted:true
   ) and 
   not (
-    process.executable.caseless:?\:\\\\ProgramData\\\\chocolatey\\\\choco.exe* and
+    process.executable.caseless: "C:\\ProgramData\\chocolatey\\choco.exe" and
     process.code_signature.subject_name:"Chocolatey Software, Inc." and process.code_signature.trusted:true
   ) and not process.executable.caseless : "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
 '''
