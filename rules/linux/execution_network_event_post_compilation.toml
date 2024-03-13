@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/12/13"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ license = "Elastic License v2"
 name = "Network Connection via Recently Compiled Executable"
 risk_score = 47
 rule_id = "64cfca9e-0f6f-4048-8251-9ec56a055e9e"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -44,7 +44,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = [
@@ -57,10 +56,10 @@ tags = [
 type = "eql"
 query = '''
 sequence by host.id with maxspan=1m
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
    process.name in ("gcc", "g++", "cc")] by process.args
   [file where host.os.type == "linux" and event.action == "creation" and process.name == "ld"] by file.name
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start"] by process.name
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec"] by process.name
   [network where host.os.type == "linux" and event.action == "connection_attempted" and destination.ip != null and 
    not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")] by process.name
 '''
