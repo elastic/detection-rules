@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ escalate privileges.
 """
 false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Local Scheduled Task Creation"
@@ -25,7 +25,7 @@ references = [
 risk_score = 21
 rule_id = "afcce5ad-65de-4ed2-8516-5e093d3ac99a"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Defend", "Data Source: Sysmon"]
 type = "eql"
 
 query = '''
@@ -36,7 +36,7 @@ sequence with maxspan=1m
     process.pe.original_file_name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe", "wmic.exe", "mshta.exe",
                                      "powershell.exe", "pwsh.dll", "powershell_ise.exe", "WmiPrvSe.exe", "wsmprovhost.exe",
                                      "winrshost.exe")) or
-    process.code_signature.trusted == false)] by process.entity_id
+    ?process.code_signature.trusted == false)] by process.entity_id
   [process where host.os.type == "windows" and event.type == "start" and
     (process.name : "schtasks.exe" or process.pe.original_file_name == "schtasks.exe") and
     process.args : ("/create", "-create") and process.args : ("/RU", "/SC", "/TN", "/TR", "/F", "/XML") and
