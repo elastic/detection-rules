@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic", "Dennis Perto"]
@@ -15,7 +15,7 @@ side-loading a malicious DLL within the memory space of one of those processes.
 """
 false_positives = ["Microsoft Antimalware Service Executable installed on non default installation path."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential DLL Side-Loading via Microsoft Antimalware Service Executable"
@@ -39,7 +39,8 @@ tags = ["Domain: Endpoint",
         "Tactic: Defense Evasion",
         "Data Source: Elastic Endgame",
         "Tactic: Execution",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Sysmon"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
