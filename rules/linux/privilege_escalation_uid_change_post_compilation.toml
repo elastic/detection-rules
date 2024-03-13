@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -50,11 +50,11 @@ tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: 
 type = "eql"
 query = '''
 sequence by host.id with maxspan=1m
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
    process.name in ("gcc", "g++", "cc") and user.id != "0"] by process.args
   [file where host.os.type == "linux" and event.action == "creation" and event.type == "creation" and 
    process.name == "ld" and user.id != "0"] by file.name
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
    user.id != "0"] by process.name
   [process where host.os.type == "linux" and event.action in ("uid_change", "guid_change") and event.type == "change" and 
    user.id == "0"] by process.name
