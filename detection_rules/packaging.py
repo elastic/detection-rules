@@ -243,7 +243,7 @@ class Package(object):
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
-        package = cls(rules, verbose=verbose, historical=historical, **config)
+        package = cls(rules, verbose=verbose, **config)
 
         return package
 
