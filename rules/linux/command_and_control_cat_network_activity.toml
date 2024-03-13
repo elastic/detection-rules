@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/02/19"
+updated_date = "2024/03/08"
 
 [transform]
 [[transform.osquery]]
@@ -140,7 +140,7 @@ tags = [
 type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.name == "cat" and process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")]
   [network where host.os.type == "linux" and event.action in ("connection_attempted", "disconnect_received") and
    process.name == "cat" and not (destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
