@@ -1,0 +1,94 @@
+[metadata]
+creation_date = "2024/03/13"
+integration = ["auditd_manager", "endpoint"]
+maturity = "production"
+min_stack_comments = "The sampling feature within EQL was introduced in 8.6.0"
+min_stack_version = "8.6.0"
+updated_date = "2024/03/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Monitors for the execution of a unix binary with read, write and execute memory region permissions, followed by a 
+network connection. The mprotect() system call is used to change the access protections on a region of memory that has
+already been allocated. This syscall allows a process to modify the permissions of pages in its virtual address space,
+enabling or disabling permissions such as read, write, and execute for those pages. RWX permissions on memory is in many
+cases overly permissive, and should (especially in conjunction with an outbound network connection) be analyzed 
+thoroughly. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Network Connection from Binary with RWX Memory Region"
+references = [
+    "https://man7.org/linux/man-pages/man2/mprotect.2.html"
+]
+risk_score = 47
+rule_id = "32300431-c2d5-432d-8ec8-0e03f9924756"
+setup = """## Setup
+
+This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
+```
+Kibana -->
+Management -->
+Integrations -->
+Auditd Manager -->
+Add Auditd Manager
+```
+`Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+For this detection rule to trigger, the following additional audit rules are required to be added to the integration:
+```
+-a always,exit -F arch=b64 -S mprotect
+```
+Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+"""
+severity = "medium"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Data Source: Elastic Defend",
+        "Data Source: Auditd Manager"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sample by host.id, process.pid, process.name
+  /* auditd.data.a2 == "7" translates to RWX memory region protection (PROT_READ | PROT_WRITE | PROT_EXEC) */
+  [process where host.os.type == "linux" and auditd.data.syscall == "mprotect" and auditd.data.a2 == "7"]
+  [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and
+   not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"
