@@ -581,6 +581,7 @@ class QueryRuleData(BaseRuleData):
     type: Literal["query"]
 
     index: Optional[List[str]]
+    data_view_id: Optional[str]
     query: str
     language: definitions.FilterLanguages
     alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.8")))
@@ -623,6 +624,10 @@ class QueryRuleData(BaseRuleData):
         # alert suppression is only valid for query rule type and not any of its subclasses
         if data.get('alert_suppression') and data['type'] not in ('query', 'threshold'):
             raise ValidationError("Alert suppression is only valid for query and threshold rule types.")
+
+        # index and data_view_id can not be both defined
+        if data.get('index') and data.get('data_view_id'):
+            raise ValidationError("Rule fields index and data_view_id can not be both defined.")
 
 
 @dataclass(frozen=True)
