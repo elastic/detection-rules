@@ -4,7 +4,7 @@ integration = ["windows", "endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/12/19"
+updated_date = "2024/03/08"
 
 
 [rule]
@@ -15,7 +15,7 @@ objects during the reconnaissance phase after compromising a system to gain a be
 of the active directory environment and possible methods to escalate privileges or move laterally. 
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Group Policy Discovery via Microsoft GPResult Utility"
@@ -61,7 +61,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-(process.name: "gpresult.exe" or process.pe.original_file_name == "gprslt.exe") and process.args: ("/z", "/v", "/r", "/x")
+(process.name: "gpresult.exe" or ?process.pe.original_file_name == "gprslt.exe") and process.args: ("/z", "/v", "/r", "/x")
 '''
 
 [[rule.threat]]
