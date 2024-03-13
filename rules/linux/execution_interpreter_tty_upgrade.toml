@@ -2,7 +2,7 @@
 creation_date = "2023/09/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2023/11/02"
+updated_date = "2024/03/08"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -20,7 +20,7 @@ license = "Elastic License v2"
 name = "Potential Upgrade of Non-interactive Shell"
 risk_score = 47
 rule_id = "84d1f8db-207f-45ab-a578-921d91c23eb2"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -44,7 +44,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 timestamp_override = "event.ingested"
@@ -57,7 +56,7 @@ tags = ["Domain: Endpoint",
         ]
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action in ("exec", "exec_event") and event.type == "start" and (
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
   (process.name == "stty" and process.args == "raw" and process.args == "-echo" and process.args_count >= 3) or
   (process.name == "script" and process.args in ("-qc", "-c") and process.args == "/dev/null" and 
    process.args_count == 4)
