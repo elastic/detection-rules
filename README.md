@@ -75,8 +75,7 @@ Collecting Click==7.0
   Downloading Click-7.0-py2.py3-none-any.whl (81 kB)
      |████████████████████████████████| 81 kB 2.6 MB/s
 ...
-pip3 install packages/kibana
-pip3 install packages/kql
+pip3 install packages/kibana packages/kql
 ```
 
 Note: The `kibana` and `kql` packages are not available on PyPI and must be installed from the `packages` directory or `git`.

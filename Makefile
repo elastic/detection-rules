@@ -14,7 +14,6 @@ all: release
 $(VENV):
 	python3.12 -m pip install --upgrade pip setuptools
 	python3.12 -m venv $(VENV)
-	$(PIP) install --upgrade pip setuptools
 
 .PHONY: clean
 clean:
