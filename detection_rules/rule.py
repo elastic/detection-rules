@@ -568,7 +568,7 @@ class QueryValidator:
     def get_endgame_schema(self, index: list, endgame_version: str) -> Optional[endgame.EndgameSchema]:
         """Get an assembled flat endgame schema."""
 
-        if "endgame-*" not in index:
+        if index and "endgame-*" not in index:
             return None
 
         endgame_schema = endgame.read_endgame_schema(endgame_version=endgame_version)
