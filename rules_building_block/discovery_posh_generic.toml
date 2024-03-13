@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
+updated_date = "2024/01/12"
 
 
 [rule]
@@ -21,7 +21,8 @@ license = "Elastic License v2"
 name = "PowerShell Script with Discovery Capabilities"
 risk_score = 21
 rule_id = "1e0a3f7c-21e7-4bb1-98c7-2036612fb1be"
-setup = """
+setup = """## Setup
+
 The 'PowerShell Script Block Logging' logging policy must be enabled.
 Steps to implement the logging policy with Advanced Audit Configuration:
 
@@ -47,9 +48,6 @@ building_block_type = "default"
 query = '''
 event.category:process and host.os.type:windows and
   powershell.file.script_block_text : (
-    (
-      ("Get-ItemProperty" or "Get-Item") and "-Path"
-    ) or
     (
       "Get-ADDefaultDomainPasswordPolicy" or
       "Get-ADDomain" or "Get-ComputerInfo" or
@@ -131,6 +129,14 @@ event.category:process and host.os.type:windows and
         "CSFalcon" or "TmPfw" or "kvoop"
       )
     )
+  ) and
+  not powershell.file.script_block_text : (
+    (
+      "__cmdletization_BindCommonParameters" and
+      "Microsoft.PowerShell.Core\Export-ModuleMember" and
+      "Microsoft.PowerShell.Cmdletization.Cim.CimCmdletAdapter"
+    ) or
+    "CmdletsToExport=@(\"Add-Content\","
   ) and
   not user.id : ("S-1-5-18" or "S-1-5-19" or "S-1-5-20") and
   not file.path : (

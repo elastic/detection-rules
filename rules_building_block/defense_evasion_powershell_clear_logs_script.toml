@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2024/01/11"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,8 @@ references = [
 ]
 risk_score = 21
 rule_id = "3d3aa8f9-12af-441f-9344-9f31053e316d"
-setup = """
+setup = """## Setup
+
 The 'PowerShell Script Block Logging' logging policy must be enabled.
 Steps to implement the logging policy with Advanced Audit Configuration:
 
@@ -57,6 +58,9 @@ event.category:process and host.os.type:windows and
   ) and
   not file.path : (
     ?\:\\\\*\\\\system32\\\\WindowsPowerShell\\\\v1.0\\\\Modules\\\\Microsoft.PowerShell.Management\\\\*.psd1
+  ) and
+  not powershell.file.script_block_text : (
+    "CmdletsToExport=@(\"Add-Content\""
   )
 '''
 

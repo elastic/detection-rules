@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: process.Ext.effective_parent.executable, process.Ext.effective_parent.name, process.Ext.relative_file_creation_time, process.Ext.relative_file_name_modify_time"
 min_stack_version = "8.4.0"
-updated_date = "2023/10/02"
+updated_date = "2024/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -49,7 +49,12 @@ process where host.os.type == "windows" and event.action == "start" and
       process.command_line : ("*davclnt.dll,DavSetCookie*", "*?:\\Program Files*",
                               "*\\Windows\\System32\\winethc.dll*", "*\\Windows\\SYSTEM32\\EDGEHTML.dll*",
                               "*shell32.dll,SHCreateLocalServerRunDll*")) and
- not startswith~(process.Ext.effective_parent.name, process.parent.name)
+ not startswith~(process.Ext.effective_parent.name, process.parent.name) and 
+ not (process.name : "powershell.exe" and process.parent.name : "wmiprvse.exe" and process.Ext.effective_parent.executable : "?:\\Windows\\System32\\wsmprovhost.exe") and 
+ not (process.Ext.effective_parent.executable : "?:\\Windows\\System32\\RuntimeBroker.exe" and process.parent.executable : "?:\\Windows\\System32\\sihost.exe") and 
+ not (process.Ext.effective_parent.executable : "?:\\Windows\\System32\\sethc.exe" and process.parent.executable : "?:\\Windows\\System32\\svchost.exe") and 
+ not (process.Ext.effective_parent.executable : "?:\\Windows\\explorer.exe" and 
+      process.parent.executable : ("?:\\Windows\\System32\\svchost.exe", "?:\\Windows\\System32\\msiexec.exe", "?:\\Windows\\twain_32\\*.exe"))
 '''
 
 

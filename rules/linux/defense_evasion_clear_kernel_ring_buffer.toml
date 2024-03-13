@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/10/24"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -13,13 +13,13 @@ Monitors for the deletion of the kernel ring buffer events through dmesg. Attack
 to evade detection after installing a Linux kernel module (LKM).
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Clear Kernel Ring Buffer"
 risk_score = 21
 rule_id = "2724808c-ba5d-48b2-86d2-0002103df753"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -43,7 +43,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "low"
 tags = [
@@ -51,13 +50,15 @@ tags = [
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
-process.name == "dmesg" and process.args : "-c"
+process where host.os.type == "linux" and event.action in ("exec", "exec_event", "executed", "process_started") and
+event.type == "start" and process.name == "dmesg" and process.args == "-c"
 '''
 
 [[rule.threat]]
@@ -87,4 +88,3 @@ reference = "https://attack.mitre.org/techniques/T1070/002/"
 name = "Defense Evasion"
 id = "TA0005"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

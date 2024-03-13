@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/12/12"
+updated_date = "2024/02/20"
 
 [rule]
 author = ["Elastic"]
@@ -19,13 +19,13 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "File Permission Modification in Writable Directory"
 risk_score = 21
 rule_id = "9f9a2a82-93a8-4b1a-8778-1780895626d4"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from one of the following integrations:
 - Elastic Defend
@@ -61,7 +61,6 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 - To run Auditbeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-docker.html).
 - To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
 - For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
-
 """
 severity = "low"
 tags = [
@@ -73,12 +72,10 @@ tags = [
         ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 host.os.type:linux and event.category:process and event.type:start and
-process.name:((chattr or chgrp or chmod or chown) and
-not (apt-key or update-motd-updates-available)) and
-process.working_directory:(/dev/shm or /tmp or /var/tmp)
+process.name:(chattr or chgrp or chmod or chown) and process.working_directory:(/dev/shm or /tmp or /var/tmp) and
+not process.parent.name:(apt-key or update-motd-updates-available)
 '''
 
 [[rule.threat]]

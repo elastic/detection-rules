@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2024/01/22"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Detects changes to registry persistence keys that are not commonly used or modif
 be an indication of an adversary's attempt to persist in a stealthy manner.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.registry*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Uncommon Registry Persistence Change"
@@ -28,8 +28,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and
-  /* uncomment once stable length(registry.data.strings) > 0 and */
+registry where host.os.type == "windows" and event.type in ("creation", "change") and
+ length(registry.data.strings) > 0 and
  registry.path : (
       "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
       "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Runonce\\*",

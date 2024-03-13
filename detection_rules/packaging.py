@@ -226,7 +226,7 @@ class Package(object):
 
     @classmethod
     def from_config(cls, rule_collection: Optional[RuleCollection] = None, config: Optional[dict] = None,
-                    verbose: Optional[bool] = False, historical: Optional[bool] = False) -> 'Package':
+                    verbose: Optional[bool] = False) -> 'Package':
         """Load a rules package given a config."""
         all_rules = rule_collection or RuleCollection.default()
         config = config or {}

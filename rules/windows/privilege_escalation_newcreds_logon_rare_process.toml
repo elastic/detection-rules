@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
 min_stack_version = "8.4.0"
-updated_date = "2023/11/15"
+updated_date = "2024/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.category:"authentication" and host.os.type:"windows" and winlog.logon.type:"NewCredentials" and winlog.event_data.LogonProcessName:(Advapi* or "Advapi  ")
+event.category:"authentication" and host.os.type:"windows" and winlog.logon.type:"NewCredentials" and winlog.event_data.LogonProcessName:(Advapi* or "Advapi  ") and not winlog.event_data.SubjectUserName:*$ and not process.executable :???\\Program?Files*
 '''
 
 

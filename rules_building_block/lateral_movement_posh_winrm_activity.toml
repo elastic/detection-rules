@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
+updated_date = "2024/01/12"
 
 [rule]
 author = ["Elastic"]
@@ -25,7 +25,8 @@ references = [
 ]
 risk_score = 21
 rule_id = "0abf0c5b-62dd-48d2-ac4e-6b43fe3a6e83"
-setup = """
+setup = """## Setup
+
 The 'PowerShell Script Block Logging' logging policy must be enabled.
 Steps to implement the logging policy with Advanced Audit Configuration:
 
@@ -61,6 +62,10 @@ event.category:process and host.os.type:windows and
     ?\:\\\\Logicmonitor\\\\tmp* or
     ?\:\\\\Program?Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\* or
     ?\:\\\\ExchangeServer\\\\bin*
+  ) and not
+  powershell.file.script_block_text : (
+    "Export-ModuleMember -Function @('Invoke-Expression''Invoke-Command')" and
+    "function Invoke-Command {"
   )
 '''
 
