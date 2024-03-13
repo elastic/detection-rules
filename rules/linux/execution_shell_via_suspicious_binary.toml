@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,7 @@ references = [
 ]
 risk_score = 47
 rule_id = "fa3a59dc-33c3-43bf-80a9-e8437a922c7f"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -48,7 +48,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = [
@@ -75,7 +74,7 @@ sequence by host.id, process.entity_id with maxspan=1s
   "/etc/crontab", "/etc/cron.*", "/etc/update-motd.d/*", "/usr/lib/update-notifier/*",
   "/boot/*", "/srv/*", "/run/*", "/root/*", "/etc/rc.local"
    ) and destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" ]
-[ process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+[ process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
   process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") ]
 '''
