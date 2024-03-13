@@ -27,7 +27,7 @@ from . import beats, ecs, endgame, utils
 from .integrations import (find_least_compatible_version, get_integration_schema_fields,
                            load_integrations_manifests, load_integrations_schemas,
                            parse_datasets)
-from .misc import load_current_package_version
+from .misc import load_current_package_version, parse_rules_config
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
@@ -36,8 +36,10 @@ from .schemas import (SCHEMA_DIR, definitions, downgrade,
 from .schemas.stack_compat import get_restricted_fields
 from .utils import cached, convert_time_span, PatchedTemplate
 
+
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
+RULES_CONFIG = parse_rules_config()
 
 BUILD_FIELD_VERSIONS = {
     "related_integrations": (Version.parse('8.3.0'), None),
@@ -1135,10 +1137,12 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         data: AnyRuleData = value["data"]
         metadata: RuleMeta = value["metadata"]
 
-        data.validate_query(metadata)
-        data.data_validator.validate_note()
-        data.data_validator.validate_bbr(metadata.get('bypass_bbr_timing'))
-        data.validate(metadata) if hasattr(data, 'validate') else False
+        test_config = RULES_CONFIG.test_config
+        if not test_config.check_skip_by_rule_id(value['data'].rule_id):
+            data.validate_query(metadata)
+            data.data_validator.validate_note()
+            data.data_validator.validate_bbr(metadata.get('bypass_bbr_timing'))
+            data.validate(metadata) if hasattr(data, 'validate') else False
 
     @staticmethod
     def validate_remote(remote_validator: 'RemoteValidator', contents: 'TOMLRuleContents'):
