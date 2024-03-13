@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/12/21"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ trusts, groups, etc.
 """
 false_positives = ["Legitimate PowerShell scripts that make use of these functions."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Suspicious Discovery Related Windows API Functions"
@@ -52,7 +52,6 @@ Attackers can use PowerShell to interact with the Win32 API to bypass command li
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 references = [
     "https://github.com/BC-SECURITY/Empire/blob/9259e5106986847d2bb770c4289c0c0f1adf2344/data/module_source/situational_awareness/network/powerview.ps1#L21413",
@@ -60,10 +59,10 @@ references = [
 ]
 risk_score = 47
 rule_id = "61ac3638-40a3-44b2-855a-985636ca985e"
-setup="""
+setup = """## Setup
 
 The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with with Advanced Audit Configuration:
+Steps to implement the logging policy with Advanced Audit Configuration:
 
 ```
 Computer Configuration >
