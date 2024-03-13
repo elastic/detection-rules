@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ an adversary to establish persistence.
 """
 false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Scheduled Task Created by a Windows Script"
@@ -24,14 +24,14 @@ Decode the base64 encoded Tasks Actions registry value to investigate the task's
 risk_score = 47
 rule_id = "689b9d57-e4d5-4357-ad17-9c334609d79a"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
 type = "eql"
 
 query = '''
 sequence by host.id with maxspan = 30s
   [any where host.os.type == "windows" and 
     (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and
-    (dll.name : "taskschd.dll" or file.name : "taskschd.dll") and
+    (?dll.name : "taskschd.dll" or file.name : "taskschd.dll") and
     process.name : ("cscript.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe")]
   [registry where host.os.type == "windows" and registry.path : (
     "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions",

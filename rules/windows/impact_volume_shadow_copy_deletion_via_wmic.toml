@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies use of wmic.exe for shadow copy deletion on endpoints. This commonly 
 other destructive attacks.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Volume Shadow Copy Deletion via WMIC"
@@ -73,12 +73,10 @@ This rule monitors the execution of `wmic.exe` to interact with VSS via the `sha
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-
 """
 risk_score = 73
 rule_id = "dc9c1f74-dac3-48e3-b47f-eb79db358f57"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
@@ -93,7 +91,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "WMIC.exe" or process.pe.original_file_name == "wmic.exe") and
+  (process.name : "WMIC.exe" or ?process.pe.original_file_name == "wmic.exe") and
   process.args : "delete" and process.args : "shadowcopy"
 '''
 
