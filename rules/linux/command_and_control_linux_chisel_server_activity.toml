@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/03/08"
 
 [transform]
 [[transform.osquery]]
@@ -148,10 +148,10 @@ tags = [
 type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan=1m
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
    process.args == "server" and process.args in ("--port", "-p", "--reverse", "--backend", "--socks5") and 
    process.args_count >= 3 and process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")]
-  [network where host.os.type == "linux" and event.action == "connection_accepted" and event.type == "start" and 
+  [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_accepted" and 
    destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" and 
    not process.name : (
      "python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk", "java", "telnet",
