@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/14"
+updated_date = "2024/03/08"
 
 [transform]
 [[transform.osquery]]
@@ -40,7 +40,7 @@ be used to configure persistence and evade monitoring by avoiding the usage of t
 (schtasks.exe) used to manage scheduled tasks.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Image Load (taskschd.dll) from MS Office"
@@ -124,7 +124,7 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -132,7 +132,7 @@ query = '''
 any where host.os.type == "windows" and
  (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and
   process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
-  (dll.name : "taskschd.dll" or file.name : "taskschd.dll")
+  (?dll.name : "taskschd.dll" or file.name : "taskschd.dll")
 '''
 
 

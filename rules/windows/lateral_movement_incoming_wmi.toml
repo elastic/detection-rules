@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/09"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,14 +13,14 @@ Identifies processes executed via Windows Management Instrumentation (WMI) on a 
 adversary lateral movement, but could be noisy if administrators use WMI to remotely manage hosts.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "WMI Incoming Lateral Movement"
 risk_score = 47
 rule_id = "f3475224-b179-4f78-8877-c2bd64c26b88"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Defend", "Data Source: Sysmon"]
 type = "eql"
 
 query = '''
@@ -34,15 +34,16 @@ sequence by host.id with maxspan = 2s
 
   /* Excluding Common FPs Nessus and SCCM */
 
-  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "WmiPrvSE.exe" and 
-   not process.Ext.token.integrity_level_name : "system" and not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20") and 
-   not process.executable : 
-               ("?:\\Program Files\\HPWBEM\\Tools\\hpsum_swdiscovery.exe", 
-                "?:\\Windows\\CCM\\Ccm32BitLauncher.exe", 
-                "?:\\Windows\\System32\\wbem\\mofcomp.exe", 
-                "?:\\Windows\\Microsoft.NET\\Framework*\\csc.exe", 
-                "?:\\Windows\\System32\\powercfg.exe") and 
-   not (process.executable : "?:\\Windows\\System32\\msiexec.exe" and process.args : "REBOOT=ReallySuppress") and 
+  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "WmiPrvSE.exe" and
+   not (?process.Ext.token.integrity_level_name : "System" or ?winlog.event_data.IntegrityLevel : "System") and
+   not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+   not process.executable :
+               ("?:\\Program Files\\HPWBEM\\Tools\\hpsum_swdiscovery.exe",
+                "?:\\Windows\\CCM\\Ccm32BitLauncher.exe",
+                "?:\\Windows\\System32\\wbem\\mofcomp.exe",
+                "?:\\Windows\\Microsoft.NET\\Framework*\\csc.exe",
+                "?:\\Windows\\System32\\powercfg.exe") and
+   not (process.executable : "?:\\Windows\\System32\\msiexec.exe" and process.args : "REBOOT=ReallySuppress") and
    not (process.executable : "?:\\Windows\\System32\\inetsrv\\appcmd.exe" and process.args : "uninstall")
    ]
 '''
