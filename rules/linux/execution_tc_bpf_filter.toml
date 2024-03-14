@@ -3,13 +3,16 @@ creation_date = "2022/07/11"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/20"
 integration = ["endpoint"]
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when the tc (transmission control) binary is utilized to set a BPF (Berkeley Packet Filter) on a network interface. Tc is used to configure Traffic Control in the Linux kernel. It can shape, schedule, police and drop traffic. A threat actor can utilize tc to set a bpf filter on an interface for the purpose of manipulating the incoming traffic. This technique is not at all common and should indicate abnormal, suspicious or malicious activity.
+Detects when the tc (transmission control) binary is utilized to set a BPF (Berkeley Packet Filter) on a network
+interface. Tc is used to configure Traffic Control in the Linux kernel. It can shape, schedule, police and drop traffic.
+A threat actor can utilize tc to set a bpf filter on an interface for the purpose of manipulating the incoming traffic.
+This technique is not at all common and should indicate abnormal, suspicious or malicious activity.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -22,7 +25,7 @@ references = [
 ]
 risk_score = 73
 rule_id = "ef04a476-07ec-48fc-8f3d-5e1742de76d3"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -46,19 +49,29 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Threat: TripleCross", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Threat: TripleCross",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type != "end" and process.executable : "/usr/sbin/tc" and process.args : "filter" and process.args : "add" and process.args : "bpf" and not process.parent.executable: "/usr/sbin/libvirtd"
+process where host.os.type == "linux" and event.type != "end" and process.executable == "/usr/sbin/tc" and
+process.args == "filter" and process.args == "add" and process.args == "bpf" and
+not process.parent.executable == "/usr/sbin/libvirtd"
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
@@ -73,5 +86,3 @@ reference = "https://attack.mitre.org/techniques/T1059/004/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
-

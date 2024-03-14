@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,7 @@ references = [
     "https://twitter.com/liadeliyahu/status/1684841527959273472"]
 risk_score = 73
 rule_id = "b51dbc92-84e2-4af1-ba47-65183fcd0c57"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -47,14 +47,13 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "high"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Use Case: Vulnerability", "Data Source: Elastic Defend"]
 type = "eql"
 query = '''
 sequence by process.parent.entity_id, host.id with maxspan=5s
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
     process.name == "unshare" and process.args : ("-r", "-rm", "m") and process.args : "*cap_setuid*"  and user.id != "0"]
   [process where host.os.type == "linux" and event.action == "uid_change" and event.type == "change" and 
     user.id == "0"]

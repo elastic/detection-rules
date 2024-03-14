@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/08/23"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/23"
+updated_date = "2024/03/08"
 
 [transform]
 [[transform.osquery]]
@@ -33,16 +33,14 @@ query = "SELECT name, cmdline, parent, path, uid FROM processes"
 
 [rule]
 author = ["Elastic"]
-building_block_type = "default"
 description = """
 This rule monitors for the execution of the ProxyChains utility. ProxyChains is a command-line tool that enables the 
 routing of network connections through intermediary proxies, enhancing anonymity and enabling access to restricted 
 resources. Attackers can exploit the ProxyChains utility to hide their true source IP address, evade detection, and 
 perform malicious activities through a chain of proxy servers, potentially masking their identity and intentions.
 """
-from = "now-119m"
-interval = "60m"
-index = ["logs-endpoint.events.*"]
+from = "now-9m"
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "ProxyChains Activity"
@@ -119,12 +117,14 @@ tags = [
         "Use Case: Threat Detection",
         "Tactic: Command and Control",
         "Data Source: Elastic Defend",
-        "Rule Type: BBR"
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and process.name == "proxychains"
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
+ and process.name == "proxychains"
 '''
 
 [[rule.threat]]

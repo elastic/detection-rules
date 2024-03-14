@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
 min_stack_version = "8.11.0"
-updated_date = "2024/01/09"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,8 @@ license = "Elastic License v2"
 name = "Root Network Connection via GDB CAP_SYS_PTRACE"
 risk_score = 47
 rule_id = "28bc620d-b2f7-4132-b372-f77953881d05"
-setup = """
+setup = """## Setup
+
 
 This rule requires data coming in from Elastic Defend.
 
@@ -46,7 +47,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = [
@@ -61,7 +61,7 @@ tags = [
 type = "eql"
 query = '''
 sequence by host.id, process.entry_leader.entity_id with maxspan=30s
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and process.name == "gdb" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "gdb" and
    (process.thread.capabilities.effective : "CAP_SYS_PTRACE" or process.thread.capabilities.permitted : "CAP_SYS_PTRACE") and
    user.id != "0"]
   [network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start" and
