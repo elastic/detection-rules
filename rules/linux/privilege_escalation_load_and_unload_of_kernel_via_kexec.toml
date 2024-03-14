@@ -3,8 +3,8 @@ creation_date = "2023/06/09"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
-integration = ["endpoint"]
+updated_date = "2024/03/08"
+integration = ["endpoint", "auditd_manager"]
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,7 @@ escalate privileges, establish persistence or hide their activities by loading a
 tamper with the system's trusted state, allowing e.g. a VM Escape. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Kernel Load or Unload via Kexec Detected"
@@ -27,7 +27,7 @@ references = [
 ]
 risk_score = 47
 rule_id = "4d4c35f4-414e-4d0c-bb7e-6db7c80a6957"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -51,16 +51,24 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Tactic: Privilege Escalation",
+        "Tactic: Defense Evasion",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and process.name == "kexec" and 
-process.args in ("--exec", "-e", "--load", "-l", "--unload", "-u")
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
+ and process.name == "kexec" and process.args in ("--exec", "-e", "--load", "-l", "--unload", "-u")
 '''
 
 [[rule.threat]]

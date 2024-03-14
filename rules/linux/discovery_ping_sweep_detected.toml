@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/09/04"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
+updated_date = "2024/02/20"
 
 [rule]
 author = ["Elastic"]
@@ -14,13 +14,13 @@ Adversaries may leverage built-in tools such as ping, netcat or socat to execute
 attempting to evade detection or due to the lack of network mapping tools available on the compromised host. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential Network Scan Executed From Host"
 risk_score = 47
 rule_id = "03c23d45-d3cb-4ad4-ab5d-b361ffe8724a"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -45,15 +45,22 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "threshold"
 query = '''
-host.os.type:linux and event.action:exec and event.type:start and 
-process.name:(ping or nping or hping or hping2 or hping3 or nc or ncat or netcat or socat)
+event.category:process and host.os.type:linux and event.action:(exec or exec_event or executed or process_started) and
+event.type:start and process.name:(ping or nping or hping or hping2 or hping3 or nc or ncat or netcat or socat)
 '''
 
 [[rule.threat]]
