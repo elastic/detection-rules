@@ -114,7 +114,8 @@ def import_rules(input_file, directory):
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
         base_path = name_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
-        rule_prompt(rule_path, required_only=True, save=True, verbose=True, additional_required=['index'], **contents)
+        additional = ['index'] if not contents.get('data_view_id') else ['data_view_id']
+        rule_prompt(rule_path, required_only=True, save=True, verbose=True, additional_required=additional, **contents)
 
 
 @root.command('build-limited-rules')
