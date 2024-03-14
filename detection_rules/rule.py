@@ -625,10 +625,6 @@ class QueryRuleData(BaseRuleData):
         if data.get('alert_suppression') and data['type'] not in ('query', 'threshold'):
             raise ValidationError("Alert suppression is only valid for query and threshold rule types.")
 
-        # index and data_view_id can not be both defined
-        if data.get('index') and data.get('data_view_id'):
-            raise ValidationError("Rule fields index and data_view_id can not be both defined.")
-
 
 @dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):

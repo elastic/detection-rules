@@ -263,7 +263,7 @@ class EQLValidator(QueryValidator):
 
             beat_types, beat_schema, schema = self.get_beats_schema(data.index or [],
                                                                     beats_version, ecs_version)
-            endgame_schema = self.get_endgame_schema(data.index, endgame_version)
+            endgame_schema = self.get_endgame_schema(data.index or [], endgame_version)
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             # validate query against the beats and eql schema
