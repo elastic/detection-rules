@@ -568,7 +568,7 @@ class QueryValidator:
     def get_endgame_schema(self, index: list, endgame_version: str) -> Optional[endgame.EndgameSchema]:
         """Get an assembled flat endgame schema."""
 
-        if "endgame-*" not in index:
+        if index and "endgame-*" not in index:
             return None
 
         endgame_schema = endgame.read_endgame_schema(endgame_version=endgame_version)
@@ -581,6 +581,7 @@ class QueryRuleData(BaseRuleData):
     type: Literal["query"]
 
     index: Optional[List[str]]
+    data_view_id: Optional[str]
     query: str
     language: definitions.FilterLanguages
     alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.8")))
