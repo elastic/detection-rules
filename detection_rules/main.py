@@ -92,10 +92,10 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     return bulk_upload_docs, importable_rules_docs
 
 
-@root.command('import-rules')
+@root.command('import-rules-to-repo')
 @click.argument('input-file', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-def import_rules(input_file, directory):
+def import_rules_into_repo(input_file, directory):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
@@ -271,7 +271,7 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
             click.echo(f'Skipped {len(unsupported)} unsupported rules: \n- {unsupported_str}')
 
 
-@root.command('export-rules')
+@root.command('export-rules-from-repo')
 @multi_collection
 @click.option('--outfile', '-o', default=Path(get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson')),
               type=Path, help='Name of file for exported rules')
@@ -282,8 +282,8 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
               help='If `--stack-version` is passed, skip rule types which are unsupported '
                    '(an error will be raised otherwise)')
 @click.option('--include-metadata', type=bool, is_flag=True, default=False, help='Add metadata to the exported rules')
-def export_rules(rules, outfile: Path, replace_id, stack_version,
-                 skip_unsupported, include_metadata: bool) -> RuleCollection:
+def export_rules_from_repo(rules, outfile: Path, replace_id, stack_version,
+                           skip_unsupported, include_metadata: bool) -> RuleCollection:
     """Export rule(s) into an importable ndjson file."""
     assert len(rules) > 0, "No rules found"
 
