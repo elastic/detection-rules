@@ -263,7 +263,7 @@ class EQLValidator(QueryValidator):
 
             beat_types, beat_schema, schema = self.get_beats_schema(data.index or [],
                                                                     beats_version, ecs_version)
-            endgame_schema = self.get_endgame_schema(data.index, endgame_version)
+            endgame_schema = self.get_endgame_schema(data.index or [], endgame_version)
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             # validate query against the beats and eql schema
@@ -312,8 +312,9 @@ class EQLValidator(QueryValidator):
             stack_version = integration_schema_data["stack_version"]
 
             # add non-ecs-schema fields for edge cases not added to the integration
-            for index_name in data.index:
-                integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+            if data.index:
+                for index_name in data.index:
+                    integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
 
             # add endpoint schema fields for multi-line fields
             integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
