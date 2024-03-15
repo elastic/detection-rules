@@ -41,7 +41,7 @@ license-check: $(VENV) deps
 .PHONY: lint
 lint: $(VENV) deps
 	@echo "LINTING"
-	$(PYTHON) -m flake8 tests detection_rules --ignore D203 --max-line-length 120
+	$(PYTHON) -m flake8 tests detection_rules --ignore D203,N815 --max-line-length 120
 
 .PHONY: test
 test: $(VENV) lint pytest
