@@ -283,7 +283,9 @@ class TestRuleTags(BaseRuleTest):
             'traces-apm*': {'all': ['Data Source: APM']},
             '.alerts-security.*': {'all': ['Rule Type: Higher-Order Rule']},
             'logs-cyberarkpas.audit*': {'all': ['Data Source: CyberArk PAS']},
-            'logs-endpoint.alerts-*': {'all': ['Data Source: Elastic Defend']}
+            'logs-endpoint.alerts-*': {'all': ['Data Source: Elastic Defend']},
+            'logs-windows.sysmon_operational-*': {'all': ['Data Source: Sysmon']},
+            'logs-windows.powershell*': {'all': ['Data Source: PowerShell Logs']},
         }
 
         for rule in self.all_rules:
