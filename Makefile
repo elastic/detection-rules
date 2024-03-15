@@ -53,8 +53,8 @@ test-cli:
 	@$(PYTHON) -m detection_rules dev attack refresh-redirect-mappings
 	@echo "Viewing rule: threat_intel_indicator_match_address.toml"
 	@$(PYTHON) -m detection_rules view-rule rules/cross-platform/threat_intel_indicator_match_address.toml
-	@echo "Exporting rule by ID: 8f6eb3b6-e9f2-4c10-a72b-cf48b4e90c2d"
-	@$(PYTHON) -m detection_rules export-rules --rule-id 8f6eb3b6-e9f2-4c10-a72b-cf48b4e90c2d
+	@echo "Exporting rule by ID: 0a97b20f-4144-49ea-be32-b540ecc445de"
+	@$(PYTHON) -m detection_rules export-rules --rule-id 0a97b20f-4144-49ea-be32-b540ecc445de
 	@echo "Updating rule data schemas"
 	@$(PYTHON) -m detection_rules dev schemas update-rule-data
 	@echo "Validating rule: execution_github_new_event_action_for_pat.toml"
