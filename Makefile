@@ -5,29 +5,28 @@
 VENV := ./env/detection-rules-build
 VENV_BIN := $(VENV)/bin
 PYTHON := $(VENV_BIN)/python
-PIP := $(VENV_BIN)/pip
+PIP := $(VENV_BIN)/python -m pip
 
 
 .PHONY: all
 all: release
 
+
 $(VENV):
-	python3.12 -m pip install --upgrade pip setuptools
-	python3.12 -m venv $(VENV)
+	pip3 install virtualenv
+	virtualenv $(VENV) --python=python3.8
+	$(PIP) install .[dev]
+	$(PIP) install setuptools -U
+
 
 .PHONY: clean
 clean:
-	rm -rf $(VENV) *.egg-info .eggs .egg htmlcov build dist packages .build .tmp .tox __pycache__  lib/kql/build lib/kibana/build lib/kql/*.egg-info lib/kibana/*.egg-info
+	rm -rf $(VENV) *.egg-info .eggs .egg htmlcov build dist packages .build .tmp .tox __pycache__
 
 .PHONY: deps
-deps: $(VENV) install-packages
-	@echo "Installing all dependencies..."
+deps: $(VENV)
 	$(PIP) install .[dev]
 
-.PHONY: install-packages
-install-packages:
-	@echo "Installing kql and kibana packages..."
-	$(PIP) install lib/kql lib/kibana
 
 .PHONY: pytest
 pytest: $(VENV) deps

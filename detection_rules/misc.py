@@ -149,10 +149,10 @@ def schema_prompt(name, value=None, is_required=False, **options):
         if enum and _val not in enum:
             print('{} not in valid options: {}'.format(_val, ', '.join(enum)))
             return False
-        if minimum and (type(_val) is int and int(_val) < minimum):
+        if minimum and (type(_val) == int and int(_val) < minimum):
             print('{} is less than the minimum: {}'.format(str(_val), str(minimum)))
             return False
-        if maximum and (type(_val) is int and int(_val) > maximum):
+        if maximum and (type(_val) == int and int(_val) > maximum):
             print('{} is greater than the maximum: {}'.format(str(_val), str(maximum)))
             return False
         if field_type == 'boolean' and _val.lower() not in ('true', 'false'):
@@ -161,7 +161,7 @@ def schema_prompt(name, value=None, is_required=False, **options):
         return True
 
     def _convert_type(_val):
-        if field_type == 'boolean' and not type(_val) is bool:
+        if field_type == 'boolean' and not type(_val) == bool:
             _val = True if _val.lower() == 'true' else False
         return int(_val) if field_type in ('number', 'integer') else _val
 
