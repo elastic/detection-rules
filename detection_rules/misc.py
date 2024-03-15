@@ -431,13 +431,16 @@ def add_client(*client_type, add_to_ctx=True, add_func_arg=True):
             if 'kibana' in client_type:
                 # for nested ctx invocation, no need to re-auth if an existing client is already passed
                 kibana_client: Kibana = kwargs.get('kibana_client')
-                try:
-                    with kibana_client:
-                        if kibana_client and isinstance(kibana_client, Kibana) and kibana_client.version:
-                            pass
-                        else:
-                            kibana_client = get_kibana_client(**kibana_client_args)
-                except (requests.HTTPError, AttributeError):
+                if kibana_client and isinstance(kibana_client, Kibana):
+
+                    try:
+                        with kibana_client:
+                            if kibana_client.version:
+                                pass  # kibana_client is valid and can be used directly
+                    except (requests.HTTPError, AttributeError):
+                        kibana_client = get_kibana_client(**kibana_client_args)
+                else:
+                    # Instantiate a new Kibana client if none was provided or if the provided one is not usable
                     kibana_client = get_kibana_client(**kibana_client_args)
 
                 if add_func_arg:
