@@ -47,7 +47,7 @@ lint: $(VENV) deps
 test: $(VENV) lint pytest
 
 .PHONY: test-cli
-test-cli:
+test-cli: $(VENV)
 	@echo "Running detection-rules CLI tests..."
 	@echo "Refreshing redirect mappings in ATT&CK"
 	@$(PYTHON) -m detection_rules dev attack refresh-redirect-mappings
@@ -74,7 +74,7 @@ test-cli:
 	@echo "Building limited rules for stack version 8.12"
 	@$(PYTHON) -m detection_rules build-limited-rules --stack-version "8.12" --output-file "output_file.ndjson"
 	@echo "Building limited rules for stack version 8.12 with custom rules"
-	@$(PYTHON) -m detection_rules generate-rules-index
+	@$(PYTHON) -m detection_rules generate-rules-index --overwrite
 	@echo "Building manifests for integrations"
 	@$(PYTHON) -m detection_rules dev integrations build-manifests -i endpoint
 	@echo "Building schemas for integrations"
