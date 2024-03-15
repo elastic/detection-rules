@@ -1,4 +1,4 @@
-[![Supported Python versions](https://img.shields.io/badge/python-3.8+-yellow.svg)](https://www.python.org/downloads/)
+[![Supported Python versions](https://img.shields.io/badge/python-3.12+-yellow.svg)](https://www.python.org/downloads/)
 [![Unit Tests](https://github.com/elastic/detection-rules/workflows/Unit%20Tests/badge.svg)](https://github.com/elastic/detection-rules/actions)
 [![Chat](https://img.shields.io/badge/chat-%23security--detection--rules-blueviolet)](https://ela.st/slack)
 [![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)](https://ela.st/detection-rules-navigator)
@@ -38,7 +38,29 @@ Detection Rules contains more than just static rule files. This repository also 
 
 ## Getting started
 
-Although rules can be added by manually creating `.toml` files, we don't recommend it. This repository also consists of a python module that aids rule creation and unit testing. Assuming you have Python 3.8+, run the below command to install the dependencies:
+Although rules can be added by manually creating `.toml` files, we don't recommend it. This repository also consists of a python module that aids rule creation and unit testing. Assuming you have Python 3.12+, run the below command to install the dependencies using the makefile:
+
+```console
+✗ make
+python3.12 -m pip install --upgrade pip setuptools
+Looking in indexes: https://pypi.org/simple
+Requirement already satisfied: pip in /opt/homebrew/lib/python3.12/site-packages (24.0)
+Requirement already satisfied: setuptools in /opt/homebrew/lib/python3.12/site-packages (69.1.1)
+python3.12 -m venv ./env/detection-rules-build
+./env/detection-rules-build/bin/pip install --upgrade pip setuptools
+Looking in indexes: https://pypi.org/simple
+Requirement already satisfied: pip in ./env/detection-rules-build/lib/python3.12/site-packages (24.0)
+Collecting setuptools
+  Using cached setuptools-69.1.1-py3-none-any.whl.metadata (6.2 kB)
+Using cached setuptools-69.1.1-py3-none-any.whl (819 kB)
+Installing collected packages: setuptools
+Successfully installed setuptools-69.1.1
+Installing kql and kibana packages...
+...
+```
+
+
+Or install the dependencies using the following command:
 ```console
 $ pip3 install ".[dev]"
 Collecting jsl==0.2.4
@@ -53,6 +75,17 @@ Collecting Click==7.0
   Downloading Click-7.0-py2.py3-none-any.whl (81 kB)
      |████████████████████████████████| 81 kB 2.6 MB/s
 ...
+pip3 install packages/kibana packages/kql
+```
+
+Note: The `kibana` and `kql` packages are not available on PyPI and must be installed from the `packages` directory or `git`.
+
+```console
+pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=kibana
+pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=kql
+
+# or locally
+pip3 install lib/kibana lib/kql
 ```
 
 To confirm that everything was properly installed, run with the `--help` flag
