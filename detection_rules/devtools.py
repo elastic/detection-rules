@@ -19,14 +19,16 @@ import urllib.parse
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from itertools import groupby
 
 import click
 import pytoml
 import requests.exceptions
+from semver import Version
+from tabulate import tabulate
 import yaml
 from elasticsearch import Elasticsearch
 from eql.table import Table
-from semver import Version
 
 from kibana.connector import Kibana
 
@@ -760,25 +762,31 @@ def test_version_lock(branches: tuple, remote: str):
         git('checkout', current_branch)
 
 
-@dev_group.command('package-stats')
-@click.option('--token', '-t', help='GitHub token to search API authenticated (may exceed threshold without auth)')
-@click.option('--threads', default=50, help='Number of threads to download rules from GitHub')
+@dev_group.command('check-available-packages')
 @click.pass_context
-def package_stats(ctx, token, threads):
-    """Get statistics for current rule package."""
-    current_package: Package = ctx.invoke(build_release, verbose=False, release=None)
-    release = f'v{current_package.name}.0'
-    new, modified, errors = rule_loader.load_github_pr_rules(labels=[release], token=token, threads=threads)
+def package_stats(ctx):
+    """Get available package versions."""
+    sde = SecurityDetectionEngine()
+    pkg_versions = sde.get_versions()
 
-    click.echo(f'Total rules as of {release} package: {len(current_package.rules)}')
-    click.echo(f'New rules: {len(current_package.new_ids)}')
-    click.echo(f'Modified rules: {len(current_package.changed_ids)}')
-    click.echo(f'Deprecated rules: {len(current_package.removed_ids)}')
+    # show available versions and exit
+    sorted_pkg_versions = sorted([Version.parse(v) for v in pkg_versions], reverse=True)
 
-    click.echo('\n-----\n')
-    click.echo('Rules in active PRs for current package: ')
-    click.echo(f'New rules: {len(new)}')
-    click.echo(f'Modified rules: {len(modified)}')
+    # Grouping by major and minor versions
+    grouped_versions = {}
+    for key, release in groupby(sorted_pkg_versions,
+                                key=lambda x: (x.major, x.minor)):
+        major_minor = '.'.join(map(str, key))
+        grouped_versions[major_minor] = list(release)
+
+    # Creating a list of tuples for tabulate
+    table_data = [(release, ', '.join(map(str, versions))) for
+                  release, versions in grouped_versions.items()]
+
+    # Printing the table
+    click.echo(tabulate(table_data, headers=["Release", "Versions Available"],
+                        disable_numparse=True, tablefmt="grid"))
+    ctx.exit(1)
 
 
 @dev_group.command('search-rule-prs')
@@ -1037,21 +1045,166 @@ def endpoint_by_attack(ctx: click.Context, pre: str, post: str, force: bool, rem
 
         return rows
 
-    fields = ['tactic', 'linux', 'macos', 'windows', 'total']
+    table_fields = ['tactic', 'linux', 'macos', 'windows', 'total']
 
     changed_stats = delta_stats(changed)
-    table = Table.from_list(fields, changed_stats)
+    table = Table.from_list(table_fields, changed_stats)
     click.echo(f'Changed rules {len(changed)}\n{table}\n')
 
     new_stats = delta_stats(new)
-    table = Table.from_list(fields, new_stats)
+    table = Table.from_list(table_fields, new_stats)
     click.echo(f'New rules {len(new)}\n{table}\n')
 
     dep_stats = delta_stats(deprecated)
-    table = Table.from_list(fields, dep_stats)
+    table = Table.from_list(table_fields, dep_stats)
     click.echo(f'Deprecated rules {len(deprecated)}\n{table}\n')
 
     return changed_stats, new_stats, dep_stats
+
+
+@diff_group.command('package-updates')
+@click.pass_context
+@click.option('--versions', '-v', nargs=2, type=click.Tuple([str, str]), required=True,
+              help='Specify EPR package versions to pull')
+@click.option('--summary', '-s', is_flag=True, help='Show summary of updates')
+@click.option('--details', '-d', type=click.Choice(['new', 'removed', 'content', 'query', 'tactic', 'technique', 'subtechnique','datasource']),
+              help='Specify details to show')
+def package_updates(ctx, versions, summary, details):
+    """Get prebuilt rule updates between two packages."""
+    assert summary or details, 'Must specify either summary or details'
+    sde = SecurityDetectionEngine()
+    pkg_versions = sde.get_versions()
+
+    # assert that the versions are valid and available
+    assert Version.parse(versions[0]) < Version.parse(versions[1]), \
+        'First version must be less than second version'
+    assert versions[0] in pkg_versions, f'Version {versions[0]} not available; \
+        run `python -m detection_rules dev check-available-packages`'
+    assert versions[1] in pkg_versions, f'Version {versions[1]} not available; \
+        run `python -m detection_rules dev check-available-packages`'
+
+    # load the packages and versions
+    first_pkg = sde.load_integration_assets(versions[0])
+    first_pkg_deduped = sde.deduplicate_assets(first_pkg)
+    second_pkg = sde.load_integration_assets(versions[1])
+    second_pkg_deduped = sde.deduplicate_assets(second_pkg)
+    updates = get_updates(first_pkg_deduped, second_pkg_deduped)
+
+    if summary:
+        total_rule_count = len(list(second_pkg_deduped.keys()))
+        show_summary(updates, total_count=total_rule_count)
+        ctx.exit(1)
+
+    if details == 'new':
+        table = format_details(updates['new'])
+    elif details == 'removed':
+        table = format_details(updates['deprecated'])
+    elif details == 'content':
+        table = format_details(updates['content_changes'])
+    elif details == 'query':
+        table = format_details(updates['query_changes'])
+    elif details in ['tactic', 'technique', 'subtechnique','datasource']:
+        show_frequencies(first_pkg_deduped, second_pkg_deduped, details)
+        ctx.exit(1)
+
+    print(tabulate(table, headers=['Rule ID', 'Rule Name', 'Type', 'MITRE Tactic', 'Data Source', 'Version'],
+                   tablefmt='grid', maxcolwidths=[None, 50]))
+    ctx.exit(1)
+
+
+def calculate_frequencies(rules: dict, key: str) -> dict:
+    """Calculate tactic or data source frequencies considering multiple data sources or OS tags."""
+    frequencies = {}
+    for _, contents in rules.items():
+        if key == 'datasource':
+            data_sources = extract_data_source(contents['attributes'].get('tags', []))
+            for data_source in data_sources:
+                frequencies[data_source] = frequencies.get(data_source, 0) + 1
+        elif key == 'tactic':
+            tactic_name = contents['attributes'].get('threat', [{}])[0].get('tactic', {}).get('name', 'Unknown')
+            frequencies[tactic_name] = frequencies.get(tactic_name, 0) + 1
+        elif key == 'technique':
+            for technique in contents['attributes'].get('threat', [{}])[0].get('technique', []):
+                frequencies[technique.get('name', 'Unknown')] = frequencies.get(technique.get('name', 'Unknown'), 0) + 1
+        elif key == 'subtechnique':
+            for technique in contents['attributes'].get('threat', [{}])[0].get('technique', []):
+                for subtechnique in technique.get('subtechnique', []):
+                    frequencies[subtechnique.get('name', 'Unknown')] = frequencies.get(subtechnique.get('name', 'Unknown'), 0) + 1
+    return frequencies
+
+
+def extract_data_source(tags: list) -> list:
+    """Extract data sources or OS from rule tags, replacing acronyms with full names."""
+    data_sources = []
+    acronym_to_fullname = {
+        'Amazon Web Services': 'AWS',
+        'Google Cloud Platform': 'GCP'
+    }
+
+    for tag in tags:
+        if tag.startswith("Data Source:") or tag.startswith("OS:"):
+            source = tag.split(":")[1].strip()
+            source = acronym_to_fullname.get(source, source) if source in acronym_to_fullname else source
+            data_sources.append(source)
+        elif tag in [t.split(': ')[1] for t in definitions.EXPECTED_RULE_TAGS]:
+            data_sources.append(tag)
+
+    return data_sources if data_sources else ["Unknown"]
+
+
+def format_details(rules: dict) -> list:
+    """Format details for table."""
+    rows = []
+    for rule_id, contents in rules.items():
+        data_source = extract_data_source(contents.get('tags', []))
+        row = [rule_id, contents['name'], contents['type'],
+               contents.get('threat', [{}])[0].get('tactic', {}).get('name', 'Unknown'),
+               data_source, contents['version']]
+        rows.append(row)
+    return rows
+
+
+def show_frequencies(first_pkg: dict, second_pkg: dict, key: str) -> None:
+    """Show tactic or data source changes between two packages."""
+    previous_target = calculate_frequencies(first_pkg, key)
+    new_target = calculate_frequencies(second_pkg, key)
+    frequency_summary = []
+    for target, new_count in new_target.items():
+        old_count = previous_target.get(target, 0)
+        diff_count = new_count - old_count
+        diff_sign = '+' if diff_count >= 0 else ''
+        frequency_summary.append([target, old_count, new_count, f"{diff_sign}{diff_count}"])
+    print(tabulate(frequency_summary, headers=[f'{key}'.capitalize(),
+                                               'Previous Count', 'New Count', 'Difference'], tablefmt='grid',
+                   maxcolwidths=[None, 50]))
+
+
+def get_updates(first_pkg: dict, second_pkg: dict) -> dict:
+    """Compare two packages and show release update details."""
+    updates = {}
+    updates['new'] = {rule_id: contents['attributes'] for rule_id,
+                      contents in second_pkg.items() if rule_id not in first_pkg}
+    updates['deprecated'] = {rule_id: contents['attributes'] for rule_id,
+                             contents in first_pkg.items() if rule_id not in second_pkg}
+    updates['content_changes'] = {rule_id: contents['attributes'] for rule_id,
+                                  contents in second_pkg.items() if rule_id in first_pkg and  # noqa: W504
+                                  contents['attributes']['version'] != first_pkg[rule_id]['attributes']['version']}
+    updates['query_changes'] = {rule_id: contents['attributes'] for rule_id,
+                                contents in second_pkg.items() if rule_id in first_pkg and  # noqa: W504
+                                contents['attributes'].get('query') != first_pkg[rule_id]['attributes'].get('query')}
+    return updates
+
+
+def show_summary(updates: dict, total_count: int) -> None:
+    """Show summary of updates."""
+    click.echo(f'Total rules: {total_count}')
+    summary_data = [
+        ['New Rules', len(updates['new'].keys())],
+        ['Deprecated Rules', len(updates['deprecated'].keys())],
+        ['Content Changes', len(updates['content_changes'].keys())],
+        ['Query Changes', len(updates['query_changes'].keys())],
+    ]
+    print(tabulate(summary_data, headers=['Change Type', 'Count'], tablefmt='grid', maxcolwidths=[None, 50]))
 
 
 @dev_group.group('test')
