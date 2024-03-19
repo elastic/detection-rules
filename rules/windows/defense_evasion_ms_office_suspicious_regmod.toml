@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ Macros. Adversaries may abuse these security settings to modify the default beha
 future macros and/or disable security warnings, which could increase their chances of establishing persistence.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "MS Office Macro Security Registry Modifications"
@@ -64,12 +64,10 @@ This rule looks for registry changes affecting the conditions above.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-
 """
 risk_score = 47
 rule_id = "feeed87c-5e95-4339-aef1-47fd79bcfbe3"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
@@ -85,6 +83,7 @@ tags = [
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
+    "Data Source: Sysmon"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
