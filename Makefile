@@ -48,8 +48,13 @@ test: $(VENV) lint pytest
 
 .PHONY: test-cli
 test-cli: $(VENV)
-	@echo "Executing test-cli script..."
+	@echo "Executing test_cli script..."
 	@./detection_rules/etc/test_cli.bash
+
+.PHONY: test-remote-cli
+test-cli: $(VENV)
+	@echo "Executing test_remote_cli script..."
+	@./detection_rules/etc/test_remote_cli.bash
 
 .PHONY: release
 release: deps

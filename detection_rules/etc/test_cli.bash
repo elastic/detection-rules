@@ -53,8 +53,4 @@ python -m detection_rules dev integrations build-manifests -i endpoint
 echo "Building schemas for integrations"
 python -m detection_rules dev integrations build-schemas -i endpoint
 
-echo "Performing a quick rule alerts search..."
-echo "Requires .detection-rules-cfg.json credentials file set."
-python -m detection_rules kibana search-alerts
-
 echo "Detection-rules CLI tests completed!"
