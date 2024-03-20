@@ -28,8 +28,8 @@ Detection Rules contains more than just static rule files. This repository also 
 |------------------------------------------------ |------------------------------------------------------------------------------------ |
 | [`detection_rules/`](detection_rules)           | Python module for rule parsing, validating and packaging                            |
 | [`etc/`](detection_rules/etc)                   | Miscellaneous files, such as ECS and Beats schemas                                  |
-| [`kibana/`](kibana)                             | Python library for handling the API calls to Kibana and the Detection Engine        |
-| [`kql/`](kql)                                   | Python library for parsing and validating Kibana Query Language                     |
+| [`kibana/`](lib/kibana)                             | Python library for handling the API calls to Kibana and the Detection Engine        |
+| [`kql/`](lib/kql)                                   | Python library for parsing and validating Kibana Query Language                     |
 | [`rta/`](rta)                                   | Red Team Automation code used to emulate attacker techniques, used for rule testing |
 | [`rules/`](rules)                               | Root directory where rules are stored                                               |
 | [`rules_building_block/`](rules_building_block) | Root directory where building block rules are stored                                |
