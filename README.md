@@ -28,8 +28,8 @@ Detection Rules contains more than just static rule files. This repository also 
 |------------------------------------------------ |------------------------------------------------------------------------------------ |
 | [`detection_rules/`](detection_rules)           | Python module for rule parsing, validating and packaging                            |
 | [`etc/`](detection_rules/etc)                   | Miscellaneous files, such as ECS and Beats schemas                                  |
-| [`kibana/`](kibana)                             | Python library for handling the API calls to Kibana and the Detection Engine        |
-| [`kql/`](kql)                                   | Python library for parsing and validating Kibana Query Language                     |
+| [`kibana/`](lib/kibana)                             | Python library for handling the API calls to Kibana and the Detection Engine        |
+| [`kql/`](lib/kql)                                   | Python library for parsing and validating Kibana Query Language                     |
 | [`rta/`](rta)                                   | Red Team Automation code used to emulate attacker techniques, used for rule testing |
 | [`rules/`](rules)                               | Root directory where rules are stored                                               |
 | [`rules_building_block/`](rules_building_block) | Root directory where building block rules are stored                                |
@@ -136,7 +136,7 @@ Occasionally, we may want to import rules from another repository that already h
 
 ## Questions? Problems? Suggestions?
 
-- Want to know more about the Detection Engine? Check out the [overview](https://www.elastic.co/guide/en/siem/guide/current/detection-engine-overview.html) in Kibana.
-- This repository includes new and updated rules that have not been released yet. To see the latest set of rules released with the stack, see the [Prebuilt rule reference](https://www.elastic.co/guide/en/security/current/prebuilt-rules-changelog.html).
+- Want to know more about the Detection Engine? Check out the [overview](https://www.elastic.co/guide/en/security/current/detection-engine-overview.html) in Kibana.
+- This repository includes new and updated rules that have not been released yet. To see the latest set of rules released with the stack, see the [Prebuilt rule reference](https://www.elastic.co/guide/en/security/current/prebuilt-rules-downloadable-updates.html).
 - If you’d like to report a false positive or other type of bug, please create a GitHub issue and check if there's an existing one first.
 - Need help with Detection Rules? Post an issue or ask away in our [Security Discuss Forum](https://discuss.elastic.co/c/security/) or the **#security-detection-rules** channel within [Slack workspace](https://www.elastic.co/blog/join-our-elastic-stack-workspace-on-slack).
