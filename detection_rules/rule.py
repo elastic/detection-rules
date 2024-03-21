@@ -10,6 +10,7 @@ import os
 import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import Enum
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
@@ -238,6 +239,49 @@ class ThresholdAlertSuppression:
     duration: AlertSuppressionDuration
 
 
+class StoreType(Enum):
+    APP_STATE = "appState"
+    GLOBAL_STATE = "globalState"
+
+
+@dataclass(frozen=True)
+class FilterStateStore:
+    store: StoreType
+
+
+@dataclass(frozen=True)
+class FilterMeta:
+    alias: Optional[Union[str, None]] = None
+    disabled: Optional[bool] = None
+    negate: Optional[bool] = None
+    controlledBy: Optional[str] = None  # identify who owns the filter
+    group: Optional[str] = None  # allows grouping of filters
+    index: Optional[str] = None
+    isMultiIndex: Optional[bool] = None
+    type: Optional[str] = None
+    key: Optional[str] = None
+    params: Optional[str] = None  # Expand to FilterMetaParams when needed
+    value: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class WildcardQuery:
+    case_insensitive: bool
+    value: str
+
+
+@dataclass(frozen=True)
+class Query:
+    wildcard: Optional[Dict[str, WildcardQuery]] = None
+
+
+@dataclass(frozen=True)
+class Filter:
+    meta: FilterMeta
+    query: Optional[Union[Query, Dict[str, Any]]] = None
+    state: Optional[FilterStateStore] = field(default=None, repr=False, metadata={'original_name': '$state'})
+
+
 @dataclass(frozen=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     @dataclass
@@ -260,7 +304,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     exceptions_list: Optional[list]
     license: Optional[str]
     false_positives: Optional[List[str]]
-    filters: Optional[List[dict]]
+    filters: Optional[List[Filter]]
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
     interval: Optional[definitions.Interval]
