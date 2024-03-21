@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/15"
+updated_date = "2024/02/07"
 
 [rule]
 author = ["Elastic"]
@@ -54,8 +54,8 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=5s
- [process where host.os.type == "macos" and event.type in ("start", "process_started", "info") and process.name == "osascript"] by process.pid
- [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "sh" and process.args == "-c"] by process.parent.pid
+ [process where host.os.type == "macos" and event.type in ("start", "process_started", "info") and process.name == "osascript" and process.args : "-e"] by process.entity_id
+ [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name : ("sh", "bash", "zsh") and process.args == "-c" and process.args : ("*curl*", "*pbcopy*", "*http*", "*chmod*")] by process.parent.entity_id
 '''
 
 

@@ -4,23 +4,23 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/15"
+updated_date = "2024/02/06"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a potential Gatekeeper bypass. In macOS, when applications or programs are downloaded from the internet,
-there is a quarantine flag set on the file. This attribute is read by Apple's Gatekeeper defense program at execution
-time. An adversary may disable this attribute to evade defenses.
+Detects deletion of the quarantine attribute by an unusual process (xattr). In macOS, when applications or programs are downloaded from 
+the internet, there is a quarantine flag set on the file. This attribute is read by Apple's Gatekeeper defense program at execution time. 
+An adversary may disable this attribute to evade defenses.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Attempt to Remove File Quarantine Attribute"
+name = "Quarantine Attrib Removed by Unsigned or Untrusted Process"
 references = [
-    "https://www.trendmicro.com/en_us/research/20/k/new-macos-backdoor-connected-to-oceanlotus-surfaces.html",
-    "https://ss64.com/osx/xattr.html",
+    "https://nixhacker.com/security-protection-in-macos-1/",
+    "https://eclecticlight.co/2020/10/29/quarantine-and-the-quarantine-flag/",
 ]
 risk_score = 47
 rule_id = "f0b48bbc-549e-4bcf-8ee0-a7a72586c6a7"
@@ -55,13 +55,14 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "macos" and event.type in ("start", "process_started") and
-  process.name : "xattr" and
-  (
-    (process.args : "com.apple.quarantine" and process.args : ("-d", "-w")) or
-    (process.args : "-c") or
-    (process.command_line : ("/bin/bash -c xattr -c *", "/bin/zsh -c xattr -c *", "/bin/sh -c xattr -c *"))
-  ) and not process.args_count > 12
+file where event.action == "extended_attributes_delete" and process.executable != null and
+(process.code_signature.trusted == false or process.code_signature.exists == false) and not
+process.executable : ("/usr/bin/xattr", 
+                      "/System/*", 
+                      "/private/tmp/KSInstallAction.*/*/Install Google Software Update.app/Contents/Helpers/ksinstall",
+                      "/Applications/CEWE Fotoschau.app/Contents/MacOS/FotoPlus",
+                      "/Applications/.com.bomgar.scc.*/Remote Support Customer Client.app/Contents/MacOS/sdcust") and not
+file.path : "/private/var/folders/*"
 '''
 
 
