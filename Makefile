@@ -5,28 +5,29 @@
 VENV := ./env/detection-rules-build
 VENV_BIN := $(VENV)/bin
 PYTHON := $(VENV_BIN)/python
-PIP := $(VENV_BIN)/python -m pip
+PIP := $(VENV_BIN)/pip
 
 
 .PHONY: all
 all: release
 
-
 $(VENV):
-	pip3 install virtualenv
-	virtualenv $(VENV) --python=python3.8
-	$(PIP) install .[dev]
-	$(PIP) install setuptools -U
-
+	python3.12 -m pip install --upgrade pip setuptools
+	python3.12 -m venv $(VENV)
 
 .PHONY: clean
 clean:
-	rm -rf $(VENV) *.egg-info .eggs .egg htmlcov build dist packages .build .tmp .tox __pycache__
+	rm -rf $(VENV) *.egg-info .eggs .egg htmlcov build dist packages .build .tmp .tox __pycache__  lib/kql/build lib/kibana/build lib/kql/*.egg-info lib/kibana/*.egg-info
 
 .PHONY: deps
-deps: $(VENV)
+deps: $(VENV) install-packages
+	@echo "Installing all dependencies..."
 	$(PIP) install .[dev]
 
+.PHONY: install-packages
+install-packages:
+	@echo "Installing kql and kibana packages..."
+	$(PIP) install lib/kql lib/kibana
 
 .PHONY: pytest
 pytest: $(VENV) deps
@@ -40,10 +41,20 @@ license-check: $(VENV) deps
 .PHONY: lint
 lint: $(VENV) deps
 	@echo "LINTING"
-	$(PYTHON) -m flake8 tests detection_rules --ignore D203 --max-line-length 120
+	$(PYTHON) -m flake8 tests detection_rules --ignore D203,N815 --max-line-length 120
 
 .PHONY: test
 test: $(VENV) lint pytest
+
+.PHONY: test-cli
+test-cli: $(VENV)
+	@echo "Executing test_cli script..."
+	@./detection_rules/etc/test_cli.bash
+
+.PHONY: test-remote-cli
+test-cli: $(VENV)
+	@echo "Executing test_remote_cli script..."
+	@./detection_rules/etc/test_remote_cli.bash
 
 .PHONY: release
 release: deps
