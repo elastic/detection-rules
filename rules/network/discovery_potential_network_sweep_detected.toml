@@ -4,12 +4,12 @@ integration = ["endpoint", "network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/05"
+updated_date = "2024/03/22"
 
 [rule]
 author = ["Elastic"]
 description = '''
-This rule identifies a potential network sweep.  A network sweep is a method used by attackers to scan a target
+This rule identifies a potential network sweep. A network sweep is a method used by attackers to scan a target
 network, identifying active hosts, open ports, and available services to gather information on vulnerabilities and
 weaknesses. This reconnaissance helps them plan subsequent attacks and exploit potential entry points for unauthorized
 access, data theft, or other malicious activities. This rule proposes threshold logic to check for connection attempts
@@ -24,7 +24,8 @@ name = "Potential Network Sweep Detected"
 risk_score = 21
 rule_id = "781f8746-2180-4691-890c-4c96d11ca91d"
 severity = "low"
-tags = ["Domain: Network",
+tags = [
+        "Domain: Network",
         "Tactic: Discovery",
         "Tactic: Reconnaissance",
         "Use Case: Network Security Monitoring"
@@ -33,7 +34,7 @@ type = "threshold"
 timestamp_override = "event.ingested"
 
 query = '''
-destination.port : (21 and 22 and 23 and 25 and (139 or 445) and 3389) and
+destination.port in (21 and 22 and 23 and 25 and (139 or 445) and 3389) and
 source.ip : (10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
 
@@ -70,7 +71,7 @@ reference = "https://attack.mitre.org/tactics/TA0043/"
 [rule.threshold]
 field = ["source.ip"]
 value = 1
-[[rule.threshold.cardinality]]
 
+[[rule.threshold.cardinality]]
 field = "destination.ip"
 value = 100
