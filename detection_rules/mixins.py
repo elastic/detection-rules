@@ -164,6 +164,8 @@ class LockDataclassMixin:
     def sha256(self) -> definitions.Sha256:
         """Get the sha256 hash of the version lock contents."""
         contents = self.to_dict()
+        contents = {k: v for k, v in contents.items()
+                    if k not in definitions.SKIP_FIELDS_FOR_SHA256}
         return dict_hash(contents)
 
     def save_to_file(self, lock_file: Optional[Path] = None):
