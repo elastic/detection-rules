@@ -239,14 +239,9 @@ class ThresholdAlertSuppression:
     duration: AlertSuppressionDuration
 
 
-class StoreType(Enum):
-    APP_STATE = "appState"
-    GLOBAL_STATE = "globalState"
-
-
 @dataclass(frozen=True)
 class FilterStateStore:
-    store: StoreType
+    store: definitions.StoreType
 
 
 @dataclass(frozen=True)
