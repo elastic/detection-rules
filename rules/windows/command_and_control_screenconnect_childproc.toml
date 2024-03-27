@@ -1,0 +1,65 @@
+[metadata]
+creation_date = "2024/03/26"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2024/03/26"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious processes being spawned by the ScreenConnect client processes). This activity may indicate execution
+abusing unauthorized access to ScreenConnect remote access software.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "logs-system.security*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious ScreenConnect Client Child Process"
+references = ["http://web.archive.org/web/20230329160957/https://blog.menasec.net/2019/11/hunting-for-suspicious-use-of.html"]
+risk_score = 47
+rule_id = "78de1aeb-5225-4067-b8cc-f4a1de8a8546"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.parent.name :
+                ("ScreenConnect.ClientService.exe",
+                 "ScreenConnect.WindowsClient.exe",
+                 "ScreenConnect.WindowsBackstageShell.exe") and
+  (
+   (process.name : "powershell.exe" and
+    process.args : ("-enc", "-ec", "-e", "*downloadstring*", "*Reflection.Assembly*", "*http*")) or
+   (process.name : "cmd.exe" and process.args : "/c") or
+   (process.name : "rundll32.exe" and not process.args : "url.dll,FileProtocolHandler") or
+   process.name : ("mshta.exe", "msiexec.exe", "certutil.exe", "bistadmin.exe", "certreq.exe", "wscript.exe", "cscript.exe")
+   )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Software"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
