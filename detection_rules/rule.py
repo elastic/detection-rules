@@ -10,7 +10,6 @@ import os
 import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
