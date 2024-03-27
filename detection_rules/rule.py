@@ -239,11 +239,6 @@ class ThresholdAlertSuppression:
 
 
 @dataclass(frozen=True)
-class FilterStateStore:
-    store: definitions.StoreType
-
-
-@dataclass(frozen=True)
 class FilterMeta:
     alias: Optional[Union[str, None]] = None
     disabled: Optional[bool] = None
@@ -273,7 +268,6 @@ class Query:
 class Filter:
     meta: FilterMeta
     query: Optional[Union[Query, Dict[str, Any]]] = None
-    state: Optional[FilterStateStore] = field(default=None, repr=False, metadata={'original_name': '$state'})
 
 
 @dataclass(frozen=True)

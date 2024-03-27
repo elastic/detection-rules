@@ -158,7 +158,6 @@ SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINO
 Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
 SubTechniqueURL = NewType('SubTechniqueURL', str, validate=validate.Regexp(SUBTECHNIQUE_URL))
-StoreType = NewType("StoreType", str, validate=validate.OneOf(["appState", "globalState"]))
 TacticURL = NewType('TacticURL', str, validate=validate.Regexp(TACTIC_URL))
 TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_URL))
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
