@@ -34,7 +34,7 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 [rule]
 author = ["Elastic"]
 description = """
-Identifies downloads of executable and archive files via the Windows Background Intelligent Transfer Service (BITS).
+Identifies downloads of executable and archive files via the Windows Background Intelligent Transfer Service (BITS). 
 Adversaries could leverage Windows BITS transfer jobs to download remote payloads.
 """
 from = "now-9m"
@@ -121,13 +121,13 @@ type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.action == "rename" and
-  process.name : "svchost.exe" and file.Ext.original.name : "BIT*.tmp" and
+  process.name : "svchost.exe" and file.Ext.original.name : "BIT*.tmp" and 
   (file.extension : ("exe", "zip", "rar", "bat", "dll", "ps1", "vbs", "wsh", "js", "vbe", "pif", "scr", "cmd", "cpl") or
-   file.Ext.header_bytes : "4d5a*") and
-
+   file.Ext.header_bytes : "4d5a*") and 
+ 
   /* noisy paths, for hunting purposes you can use the same query without the following exclusions */
-  not file.path : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\Windows\\*", "?:\\ProgramData\\*\\*") and
-
+  not file.path : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\Windows\\*", "?:\\ProgramData\\*\\*") and 
+ 
   /* lot of third party SW use BITS to download executables with a long file name */
   not length(file.name) > 30 and
   not file.path : (
