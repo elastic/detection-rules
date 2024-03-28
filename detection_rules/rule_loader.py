@@ -80,7 +80,8 @@ def metadata_filter(**metadata) -> Callable[[TOMLRule], bool]:
 production_filter = metadata_filter(maturity="production")
 
 
-def load_locks_from_tag(remote: str, tag: str) -> (str, dict, dict):
+def load_locks_from_tag(remote: str, tag: str, version_lock: str = 'detection_rules/etc/version.lock.json',
+                        deprecated_file: str = 'detection_rules/etc/deprecated_rules.json') -> (str, dict, dict):
     """Loads version and deprecated lock files from git tag."""
     import json
     git = utils.make_git()
@@ -102,13 +103,13 @@ def load_locks_from_tag(remote: str, tag: str) -> (str, dict, dict):
 
     commit_hash = git('rev-list', '-1', tag)
     try:
-        version = json.loads(git('show', f'{tag}:detection_rules/etc/version.lock.json'))
+        version = json.loads(git('show', f'{tag}:{version_lock}'))
     except CalledProcessError:
         # Adding resiliency to account for the old directory structure
         version = json.loads(git('show', f'{tag}:etc/version.lock.json'))
 
     try:
-        deprecated = json.loads(git('show', f'{tag}:detection_rules/etc/deprecated_rules.json'))
+        deprecated = json.loads(git('show', f'{tag}:{deprecated_file}'))
     except CalledProcessError:
         # Adding resiliency to account for the old directory structure
         deprecated = json.loads(git('show', f'{tag}:etc/deprecated_rules.json'))
