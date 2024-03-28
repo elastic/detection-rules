@@ -734,7 +734,7 @@ class NewTermsRuleData(QueryRuleData):
 
     def transform(self, obj: dict) -> dict:
         """Transforms new terms data to API format for Kibana."""
-
+        super().transform(obj)
         obj[obj["new_terms"].get("field")] = obj["new_terms"].get("value")
         obj["history_window_start"] = obj["new_terms"]["history_window_start"][0].get("value")
         del obj["new_terms"]
