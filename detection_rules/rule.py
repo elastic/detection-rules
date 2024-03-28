@@ -276,14 +276,14 @@ class Filter:
     state: Optional[FilterStateStore] = None
 
     @pre_load
-    def convert_to_state_field(self, data, **kwargs):
+    def convert_to_state_field(self, data, **kwargs) -> dict:
         """Rename $state to state if present in incoming data."""
         if '$state' in data:
             data['state'] = data.pop('$state')
         return data
 
     @post_dump
-    def convert_from_state_field(self, data, **kwargs):
+    def convert_from_state_field(self, data, **kwargs) -> dict:
         """Rename state back to $state if present in outgoing data."""
         if 'state' in data:
             data['$state'] = data.pop('state')
