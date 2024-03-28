@@ -81,9 +81,10 @@ and will accept any valid rule in the following formats:
 ```console
 Usage: detection_rules import-rules [OPTIONS] [INPUT_FILE]...
 
-  Import rules from json, toml, or Kibana exported rule file(s).
+  Import rules from json, toml, yaml, or Kibana exported rule file(s).
 
 Options:
+  --required-only            Only prompt for required fields
   -d, --directory DIRECTORY  Load files from a directory
   -h, --help                 Show this message and exit.
 ```
