@@ -2,9 +2,9 @@
 creation_date = "2023/07/06"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
+min_stack_version = "8.12.0"
+updated_date = "2024/03/12"
 
 
 [rule]
@@ -63,15 +63,36 @@ event.category:process and host.os.type:windows and
     "ZipArchiveMode"
   ) or
   powershell.file.script_block_text : "Compress-Archive"
-) and 
-  not file.path : (
-        ?\:\\\\ProgramData\\\\Microsoft\\\\Windows?Defender?Advanced?Threat?Protection\\\\Downloads\\\\* or
-        ?\:\\\\ProgramData\\\\Microsoft\\\\Windows?Defender?Advanced?Threat?Protection\\\\DataCollection\\\\* or
-        ?\:\\\\Program?Files\\\\Microsoft?Dependency?Agent\\\\plugins\\\\* or
-        ?\:\\\\Program?Files\\\\Azure\\\\StorageSyncAgent\\\\AFSDiag.ps1
-      )
+)
 '''
 
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\Downloads\\\\*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\Microsoft Dependency Agent\\\\plugins\\\\*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\Azure\\\\StorageSyncAgent\\\\AFSDiag.ps1"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
