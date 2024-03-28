@@ -55,6 +55,9 @@ sequence by user.id with maxspan=5m
                       "?:\\Users\\*\\AppData\\Local\\Temp\\Rar$*.htm*")]
 '''
 
+host.os.type : "windows" and event.action: ("creation" or "rename") and file.extension: ("htm" or "html") and file.path: (*Downloads* or *Content.Outlook* or *Temp\\Temp* or *Temp\\7z* or Temp\\Rar*) and (file.Ext.entropy >= 5 and file.size >= 150000) or file.size >= 1000000
+host.os.type: "windows" and event.action: "start" and (process.name: ("chrome.exe" or "msedge.exe" or "brave.exe" or "whale.exe" or "browser.exe" or "dragon.exe" or "vivaldi.exe" or "opera.exe") and process.args: "--single-argument") or (process.name: "iexplore.exe" and process.args_count: 2) or (process.name: ("firefox.exe" or "waterfox.exe") and process.args: "-url") and process.args: (*Downloads*.htm* or *Content.Outlook*.htm* or *Temp\\Temp*_.htm* or *Temp\\7z*.htm* or Temp\\Rar$*.htm*)
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
