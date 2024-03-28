@@ -102,17 +102,14 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=2m
-  [process where host.os.type == "windows" and event.type == "start" and process.pid != 4 and
-   not user.id : ("S-1-5-19", "S-1-5-20") and
-   not (process.code_signature.trusted == true and not process.code_signature.subject_name : "Microsoft *") and
+  [process where host.os.type == "windows" and event.type == "start" and process.pid != 4 and 
+   not user.id : ("S-1-5-19", "S-1-5-20") and 
+   not (process.code_signature.trusted == true and not process.code_signature.subject_name : "Microsoft *") and 
    not (process.name : "powershell.exe" and process.args : "?:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads\\PSScript_*.ps1")]
   [network where host.os.type == "windows" and destination.port == 445 and process.pid != 4 and
      not cidrmatch(destination.ip, "127.0.0.1", "::1")]
 until [process where host.os.type == "windows" and event.type == "end"]
 '''
-
-host.os.type : "windows" and event.type : "start" and not process.pid : 4 and not user.id : ("S-1-5-19" or "S-1-5-20") and not (process.code_signature.trusted : true and not process.code_signature.subject_name : Microsoft*) and not (process.name : "powershell.exe" and process.args : *PSScript_*.ps1)
-host.os.type : "windows" and destination.port : 445 and not process.pid : 4 and not destination.ip : ("127.0.0.1")
 
 
 [[rule.threat]]
