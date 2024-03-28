@@ -19,7 +19,7 @@ import eql
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
-from marshmallow import ValidationError, validates_schema
+from marshmallow import ValidationError, pre_load, post_dump, validates_schema
 
 import kql
 
@@ -239,6 +239,11 @@ class ThresholdAlertSuppression:
 
 
 @dataclass(frozen=True)
+class FilterStateStore:
+    store: definitions.StoreType
+
+
+@dataclass(frozen=True)
 class FilterMeta:
     alias: Optional[Union[str, None]] = None
     disabled: Optional[bool] = None
@@ -268,6 +273,21 @@ class Query:
 class Filter:
     meta: FilterMeta
     query: Optional[Union[Query, Dict[str, Any]]] = None
+    state: Optional[FilterStateStore] = None
+
+    @pre_load
+    def convert_to_state_field(self, data, **kwargs):
+        """Rename $state to state if present in incoming data."""
+        if '$state' in data:
+            data['state'] = data.pop('$state')
+        return data
+
+    @post_dump
+    def convert_from_state_field(self, data, **kwargs):
+        """Rename state back to $state if present in outgoing data."""
+        if 'state' in data:
+            data['$state'] = data.pop('state')
+        return data
 
 
 @dataclass(frozen=True)
@@ -656,6 +676,14 @@ class QueryRuleData(BaseRuleData):
         # alert suppression is only valid for query rule type and not any of its subclasses
         if data.get('alert_suppression') and data['type'] not in ('query', 'threshold'):
             raise ValidationError("Alert suppression is only valid for query and threshold rule types.")
+
+    def transform(self, obj: dict) -> dict:
+        """Transforms query data to API format for Kibana."""
+        for filter_item in obj.get("filters", []):
+            if "state" in filter_item:
+                filter_item["$state"] = filter_item.pop("state")  # Move value from "state" to "$state"
+
+        return obj
 
 
 @dataclass(frozen=True)
