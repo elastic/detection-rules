@@ -245,6 +245,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     @dataclass(frozen=True)
     class InvestigationFields:
         field_names: List[definitions.NonEmptyStr]
+
     @dataclass
     class RequiredFields:
         name: definitions.NonEmptyStr
