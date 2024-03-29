@@ -242,7 +242,7 @@ class ThresholdAlertSuppression:
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     """Base rule data."""
 
-    @dataclass(frozen=True)
+    @dataclass
     class InvestigationFields:
         field_names: List[definitions.NonEmptyStr]
 
