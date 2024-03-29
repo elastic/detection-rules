@@ -240,6 +240,11 @@ class ThresholdAlertSuppression:
 
 @dataclass(frozen=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
+    """Base rule data."""
+
+    @dataclass(frozen=True)
+    class InvestigationFields:
+        field_names: List[definitions.NonEmptyStr]
     @dataclass
     class RequiredFields:
         name: definitions.NonEmptyStr
@@ -264,6 +269,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
     interval: Optional[definitions.Interval]
+    investigation_fields: Optional[InvestigationFields] = field(metadata=dict(metadata=dict(min_compat="8.11")))
     max_signals: Optional[definitions.MaxSignals]
     meta: Optional[Dict[str, Any]]
     name: definitions.RuleName
