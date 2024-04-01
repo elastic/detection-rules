@@ -240,6 +240,12 @@ class ThresholdAlertSuppression:
 
 @dataclass(frozen=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
+    """Base rule data."""
+
+    @dataclass
+    class InvestigationFields:
+        field_names: List[definitions.NonEmptyStr]
+
     @dataclass
     class RequiredFields:
         name: definitions.NonEmptyStr
@@ -264,6 +270,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
     interval: Optional[definitions.Interval]
+    investigation_fields: Optional[InvestigationFields] = field(metadata=dict(metadata=dict(min_compat="8.11")))
     max_signals: Optional[definitions.MaxSignals]
     meta: Optional[Dict[str, Any]]
     name: definitions.RuleName
@@ -568,7 +575,7 @@ class QueryValidator:
     def get_endgame_schema(self, index: list, endgame_version: str) -> Optional[endgame.EndgameSchema]:
         """Get an assembled flat endgame schema."""
 
-        if "endgame-*" not in index:
+        if index and "endgame-*" not in index:
             return None
 
         endgame_schema = endgame.read_endgame_schema(endgame_version=endgame_version)
@@ -581,6 +588,7 @@ class QueryRuleData(BaseRuleData):
     type: Literal["query"]
 
     index: Optional[List[str]]
+    data_view_id: Optional[str]
     query: str
     language: definitions.FilterLanguages
     alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.8")))

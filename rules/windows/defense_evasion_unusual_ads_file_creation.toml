@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/03/08"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,7 @@ Identifies suspicious creation of Alternate Data Streams on highly targeted file
 and sometimes done by adversaries to hide malware.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual File Creation - Alternate Data Stream"
@@ -98,11 +98,10 @@ Attackers can abuse these alternate data streams to hide malicious files, string
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 risk_score = 47
 rule_id = "71bccb61-e19b-452f-b104-79a60e546a95"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
@@ -111,7 +110,7 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: Elastic Defend", "Data Source: Sysmon"]
 timestamp_override = "event.ingested"
 type = "eql"
 

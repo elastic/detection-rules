@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/09/04"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/09/04"
+updated_date = "2024/03/08"
 bypass_bbr_timing = true
 
 [rule]
@@ -16,19 +16,29 @@ privileges or set up malicious communication channels via Unix sockets for inter
 evade detection. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unix Socket Connection"
 risk_score = 21
 rule_id = "41284ba3-ed1a-4598-bfba-a97f75d9aba2"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend", "Rule Type: BBR"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Data Source: Elastic Defend",
+        "Rule Type: BBR",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 building_block_type = "default"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and (
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
+ and (
   (process.name in ("nc", "ncat", "netcat", "nc.openbsd") and 
    process.args == "-U" and process.args : ("/usr/local/*", "/run/*", "/var/run/*")) or
   (process.name == "socat" and 

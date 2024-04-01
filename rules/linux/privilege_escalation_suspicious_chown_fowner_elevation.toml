@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
 min_stack_version = "8.11.0"
-updated_date = "2024/02/19"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,8 @@ license = "Elastic License v2"
 name = "Privilege Escalation via CAP_CHOWN/CAP_FOWNER Capabilities"
 risk_score = 47
 rule_id = "d55abdfb-5384-402b-add4-6c401501b0c3"
-setup = """
+setup = """## Setup
+
 
 This rule requires data coming in from Auditd Manager.
 
@@ -45,7 +46,6 @@ However, if more advanced configuration is required to detect specific behavior,
 - For this detection rule the following additional audit rules are required to be added to the integration:
   -- "-w /etc/ -p rwxa -k audit_recursive_etc"
   -- "-w /root/ -p rwxa -k audit_root"
-
 """
 severity = "medium"
 tags = [
@@ -59,7 +59,7 @@ tags = [
 type = "eql"
 query = '''
 sequence by host.id, process.pid with maxspan=1s
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.name != null and process.thread.capabilities.effective : ("CAP_CHOWN", "CAP_FOWNER") and
    process.command_line : ("*sudoers*", "*passwd*", "*shadow*", "*/root/*") and user.id != "0"]
   [file where host.os.type == "linux" and event.action == "changed-file-ownership-of" and event.type == "change" and

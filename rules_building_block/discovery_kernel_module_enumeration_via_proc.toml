@@ -4,7 +4,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2024/02/19"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +28,7 @@ license = "Elastic License v2"
 name = "Enumeration of Kernel Modules via Proc"
 risk_score = 21
 rule_id = "80084fa9-8677-4453-8680-b891d3c0c778"
-setup = """
+setup = """## Setup
 
 This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
 ```
@@ -57,7 +57,8 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 building_block_type = "default"
 query = '''
-host.os.type:linux and event.category:file and event.action:"opened-file" and file.path:"/proc/modules"
+host.os.type:linux and event.category:file and event.action:"opened-file" and file.path:"/proc/modules" and
+not process.name:(grep or python* or chef-client)
 '''
 
 [[rule.threat]]
@@ -72,7 +73,6 @@ reference = "https://attack.mitre.org/techniques/T1082/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 
 [rule.new_terms]
 field = "new_terms_fields"

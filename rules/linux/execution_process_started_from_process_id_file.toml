@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2022/05/11"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/20"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Started from Process ID (PID) File"
@@ -32,7 +32,6 @@ Detection alerts from this rule indicate a process spawned from an executable ma
 - Examine parent and child process relationships of the new process to determine if other processes are running.
 - Examine the /var/run directory using Osquery to determine other potential PID files with unsually large file sizes, indicative of it being an executable: "SELECT f.size, f.uid, f.type, f.path from file f WHERE path like '/var/run/%%';"
 - Examine the reputation of the SHA256 hash from the PID file in a database like VirusTotal to identify additional pivots and artifacts for investigation.
-
 """
 references = [
     "https://www.sandflysecurity.com/blog/linux-file-masquerading-and-malicious-pids-sandfly-1-2-6-update/",
@@ -42,7 +41,7 @@ references = [
 ]
 risk_score = 73
 rule_id = "3688577a-d196-11ec-90b0-f661ea17fbce"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -66,10 +65,18 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Threat: BPFDoor", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Threat: BPFDoor",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -78,17 +85,15 @@ process where host.os.type == "linux" and event.type == "start" and user.id == "
   process.executable regex~ """/var/run/\w+\.(pid|lock|reboot)"""
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

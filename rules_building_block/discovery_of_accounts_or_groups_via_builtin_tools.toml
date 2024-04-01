@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/07/11"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/11"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -14,38 +14,49 @@ Adversaries may use built-in applications to get a listing of local system or do
 """
 from = "now-119m"
 interval = "60m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Account or Group Discovery via Built-In Tools"
 risk_score = 21
 rule_id = "f638a66d-3bbf-46b1-a52c-ef6f39fb6caf"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "OS: macOS",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where event.type== "start" and event.action == "exec" and
-  ( (process.name: ("groups","id"))
-    or (process.name : "dscl" and process.args : ("/Active Directory/*", "/Users*", "/Groups*"))
-    or (process.name: "dscacheutil" and process.args:("user", "group"))
-    or process.args:("/etc/passwd", "/etc/master.passwd", "/etc/sudoers")
-    or (process.name: "getent" and process.args:("passwd", "group"))
-  )
+process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and ( 
+  (process.name in ("groups", "id")) or 
+  (process.name == "dscl" and process.args : ("/Active Directory/*", "/Users*", "/Groups*")) or
+  (process.name == "dscacheutil" and process.args in ("user", "group")) or
+  (process.args in ("/etc/passwd", "/etc/master.passwd", "/etc/sudoers")) or
+  (process.name == "getent" and process.args in ("passwd", "group"))
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1069.001"
 name = "Local Groups"
 reference = "https://attack.mitre.org/techniques/T1069/001/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1069.002"
 name = "Domain Groups"
@@ -55,15 +66,16 @@ reference = "https://attack.mitre.org/techniques/T1069/002/"
 id = "T1087"
 name = "Account Discovery"
 reference = "https://attack.mitre.org/techniques/T1087/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1087.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1087/001/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1087.002"
 name = "Domain Account"
 reference = "https://attack.mitre.org/techniques/T1087/002/"
-
 
 [rule.threat.tactic]
 id = "TA0007"
