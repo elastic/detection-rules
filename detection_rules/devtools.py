@@ -52,7 +52,7 @@ from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
-from .utils import (get_etc_path, get_path, load_dump,
+from .utils import (dict_hash, get_etc_path, get_path, load_dump,
                     load_etc_dump, save_etc_dump)
 from .version_lock import VersionLockFile, default_version_lock
 
@@ -353,6 +353,54 @@ def update_lock_versions(rule_ids):
         click.echo('No hashes updated')
 
     return changed
+
+
+@dev_group.command('kibana-diff')
+@click.option('--rule-id', '-r', multiple=True, help='Optionally specify rule ID')
+@click.option('--repo', default='elastic/kibana', help='Repository where branch is located')
+@click.option('--branch', '-b', default='main', help='Specify the kibana branch to diff against')
+@click.option('--threads', '-t', type=click.IntRange(1), default=50, help='Number of threads to use to download rules')
+def kibana_diff(rule_id, repo, branch, threads):
+    """Diff rules against their version represented in kibana if exists."""
+    from .misc import get_kibana_rules
+
+    rules = RuleCollection.default()
+
+    if rule_id:
+        rules = rules.filter(lambda r: r.id in rule_id).id_map
+    else:
+        rules = rules.filter(production_filter).id_map
+
+    repo_hashes = {r.id: r.contents.sha256(include_version=True) for r in rules.values()}
+
+    kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
+    kibana_hashes = {r['rule_id']: dict_hash(r) for r in kibana_rules.values()}
+
+    missing_from_repo = list(set(kibana_hashes).difference(set(repo_hashes)))
+    missing_from_kibana = list(set(repo_hashes).difference(set(kibana_hashes)))
+
+    rule_diff = []
+    for rule_id, rule_hash in repo_hashes.items():
+        if rule_id in missing_from_kibana:
+            continue
+        if rule_hash != kibana_hashes[rule_id]:
+            rule_diff.append(
+                f'versions - repo: {rules[rule_id].contents.autobumped_version}, '
+                f'kibana: {kibana_rules[rule_id]["version"]} -> '
+                f'{rule_id} - {rules[rule_id].contents.name}'
+            )
+
+    diff = {
+        'missing_from_kibana': [f'{r} - {rules[r].name}' for r in missing_from_kibana],
+        'diff': rule_diff,
+        'missing_from_repo': [f'{r} - {kibana_rules[r]["name"]}' for r in missing_from_repo]
+    }
+
+    diff['stats'] = {k: len(v) for k, v in diff.items()}
+    diff['stats'].update(total_repo_prod_rules=len(rules), total_gh_prod_rules=len(kibana_rules))
+
+    click.echo(json.dumps(diff, indent=2, sort_keys=True))
+    return diff
 
 
 @dev_group.command("integrations-pr")
