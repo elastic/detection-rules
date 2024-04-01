@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/20"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ license = "Elastic License v2"
 name = "Sudo Command Enumeration Detected"
 risk_score = 21
 rule_id = "28d39238-0c01-420a-b77a-24e5a7378663"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -44,17 +44,22 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
 process.name == "sudo" and process.args == "-l" and process.args_count == 2 and
 process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
-not group.Ext.real.id : "0" and not user.Ext.real.id : "0"
+not group.Ext.real.id : "0" and not user.Ext.real.id : "0" and not process.args == "dpkg"
 '''
 
 [[rule.threat]]

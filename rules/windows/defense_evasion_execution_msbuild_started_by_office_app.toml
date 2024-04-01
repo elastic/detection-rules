@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Build Engine Started by an Office Application"
@@ -72,12 +72,11 @@ This rule looks for the `Msbuild.exe` utility spawned by MS Office programs. Thi
     - Remove emails from the sender from mailboxes.
     - Consider improvements to the security awareness program.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 references = ["https://blog.talosintelligence.com/2020/02/building-bypass-with-msbuild.html"]
 risk_score = 73
 rule_id = "c5dc3223-13a2-44a2-946c-e9dc0aa0449c"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.

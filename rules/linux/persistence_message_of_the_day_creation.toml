@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2024/01/05"
+updated_date = "2024/02/21"
 
 [transform]
 [[transform.osquery]]
@@ -114,14 +114,13 @@ This rule identifies the creation of new files within the `/etc/update-motd.d/` 
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 references = [
     "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd"
 ]
 risk_score = 47
 rule_id = "96d11d31-9a79-480f-8401-da28b194608f"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -145,7 +144,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = [
@@ -160,10 +158,13 @@ tags = [
 type = "new_terms"
 timestamp_override = "event.ingested"
 query = '''
-host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and
+host.os.type :linux and event.action:(creation or file_create_event or rename or file_rename_event) and
 file.path : (/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not process.name : (
-  dpkg or dockerd or rpm or executor or dnf or podman or ln
-) and not file.extension : ("swp" or "swpx")
+  dpkg or dockerd or rpm or executor or dnf or podman or ln or yum 
+) and not (
+  (process.name:mv and file.extension:dpkg-remove) or
+  (file.extension:(swp or swpx))
+)
 '''
 
 [[rule.threat]]

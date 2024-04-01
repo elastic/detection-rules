@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ that can be loaded from a different location by a native Windows process. This m
 privileges via privileged file write vulnerabilities.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious DLL Loaded for Persistence or Privilege Escalation"
@@ -57,7 +57,6 @@ Attackers can execute malicious code by abusing missing modules that processes t
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 references = [
     "https://itm4n.github.io/windows-dll-hijacking-clarified/",
@@ -69,7 +68,7 @@ references = [
 ]
 risk_score = 73
 rule_id = "bfeaf89b-a2a7-48a3-817f-e41829dc61ee"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
@@ -87,7 +86,8 @@ tags = [
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -97,11 +97,11 @@ any where host.os.type == "windows" and
  (event.category : ("driver", "library") or (event.category == "process" and event.action : "Image loaded*")) and
  (
   /* compatible with Elastic Endpoint Library Events */
-  (dll.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
+  (?dll.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
                "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
                "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "oci.dll", "TPPCOIPW32.dll", 
                "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll")
-   and (dll.code_signature.trusted != true or dll.code_signature.exists != true)) or
+   and (?dll.code_signature.trusted != true or ?dll.code_signature.exists != true)) or
 
   /* compatible with Sysmon EventID 7 - Image Load */
   (file.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
