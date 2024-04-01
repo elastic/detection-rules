@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies use of bcdedit.exe to delete boot configuration data. This tactic is 
 attacker as a destructive technique.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Modification of Boot Configuration"
@@ -55,11 +55,10 @@ These are common steps in destructive attacks by adversaries leveraging ransomwa
 - If any other destructive action was identified on the host, it is recommended to prioritize the investigation and look for ransomware preparation and execution activities.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 risk_score = 21
 rule_id = "69c251fb-a5d6-4035-b5ec-40438bd829ff"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
@@ -74,7 +73,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "bcdedit.exe" or process.pe.original_file_name == "bcdedit.exe") and
+  (process.name : "bcdedit.exe" or ?process.pe.original_file_name == "bcdedit.exe") and
     (
       (process.args : "/set" and process.args : "bootstatuspolicy" and process.args : "ignoreallfailures") or
       (process.args : "no" and process.args : "recoveryenabled")

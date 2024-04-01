@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Linux environment variable capture feature via the Elastic Defend Integration was added in 8.6."
 min_stack_version = "8.6.0"
-updated_date = "2023/12/13"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +28,7 @@ references = [
 ]
 risk_score = 47
 rule_id = "f41296b4-9975-44d6-9486-514c6f635b2d"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -65,7 +65,6 @@ In order to capture this behavior, this rule requires a specific configuration o
 - Click “Save”.
 After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
 For more information on capturing environment variables refer to the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
-
 """
 severity = "medium"
 tags = [
@@ -79,12 +78,13 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and process.name == "curl" 
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "curl" 
 and (
   process.args : ("--socks5-hostname", "--proxy", "--preproxy", "socks5*") or 
   process.env_vars: ("http_proxy=socks5h://*", "HTTPS_PROXY=socks5h://*", "ALL_PROXY=socks5h://*")
 ) and length(process.command_line) > 255 and 
-not process.parent.name in ("cf-agent", "agent-run", "rudder", "agent-inventory", "cf-execd")
+not process.parent.name in ("cf-agent", "agent-run", "agent-check", "rudder", "agent-inventory", "cf-execd") and
+not process.args == "/opt/rudder/bin/curl"
 '''
 
 [[rule.threat]]
@@ -99,4 +99,3 @@ reference = "https://attack.mitre.org/techniques/T1203/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

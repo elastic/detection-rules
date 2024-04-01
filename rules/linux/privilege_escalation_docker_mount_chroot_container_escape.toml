@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/15"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,8 @@ references = [
     ]
 risk_score = 47
 rule_id = "5ae02ebc-a5de-4eac-afe6-c88de696477d"
-setup = """
+setup = """## Setup
+
 
 This rule requires data coming in from Elastic Defend.
 
@@ -56,7 +57,6 @@ Session View uses process data collected by the Elastic Defend integration, but 
 - If you want to include file and network alerts in Session View, check the boxes for “Network and File events”.
 - If you want to enable terminal output capture, turn on the “Capture terminal output” toggle.
 For more information about the additional fields collected when this setting is enabled and the usage of Session View for Analysis refer to the [helper guide](https://www.elastic.co/guide/en/security/current/session-view.html).
-
 """
 severity = "medium"
 tags = [
@@ -70,10 +70,10 @@ tags = [
 type = "eql"
 query = '''
 sequence by host.id, process.parent.entity_id with maxspan=5m
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.name == "mount" and process.args : "/dev/sd*" and process.args_count >= 3 and
    process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")]
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.name == "chroot"]
 '''
 

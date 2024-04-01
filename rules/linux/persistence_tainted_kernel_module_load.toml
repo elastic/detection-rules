@@ -1,28 +1,26 @@
 [metadata]
-bypass_bbr_timing = true
-creation_date = "2023/10/26"
+creation_date = "2023/10/23"
 integration = ["system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/26"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
-building_block_type = "default"
 description = """
-This rule monitors the syslog log file for messages related to instances of a out-of-tree kernel module load, indicating 
-the taining of the kernel. Rootkits often leverage kernel modules as their main defense evasion technique. Detecting
-tainted kernel module loads is crucial for ensuring system security and integrity, as malicious or unauthorized modules
-can compromise the kernel and lead to system vulnerabilities or unauthorized access.
+This rule monitors the syslog log file for messages related to instances of a tainted kernel module load. Rootkits often
+leverage kernel modules as their main defense evasion technique. Detecting tainted kernel module loads is crucial for
+ensuring system security and integrity, as malicious or unauthorized modules can compromise the kernel and lead to
+system vulnerabilities or unauthorized access.
 """
 from = "now-9m"
 index = ["logs-system.syslog-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Tainted Out-Of-Tree Kernel Module Load"
+name = "Tainted Kernel Module Load"
 risk_score = 21
-rule_id = "51a09737-80f7-4551-a3be-dac8ef5d181a"
+rule_id = "05cad2fb-200c-407f-b472-02ea8c9e5e4a"
 setup = """## Setup
 
 This rule requires data coming in from one of the following integrations:
@@ -50,14 +48,13 @@ tags = [
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Persistence",
-        "Tactic: Defense Evasion",
-        "Rule Type: BBR"
+        "Tactic: Defense Evasion"
         ]
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
 host.os.type:linux and event.dataset:"system.syslog" and process.name:kernel and 
-message:"loading out-of-tree module taints kernel."
+message:"module verification failed: signature and/or required key missing - tainting kernel"
 '''
 
 [[rule.threat]]
@@ -81,13 +78,12 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-[[rule.threat.technique]]
-name = "Rootkit"
-id = "T1014"
-reference = "https://attack.mitre.org/techniques/T1014/"
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[[rule.threat.technique]]
+name = "Rootkit"
+id = "T1014"
+reference = "https://attack.mitre.org/techniques/T1014/"

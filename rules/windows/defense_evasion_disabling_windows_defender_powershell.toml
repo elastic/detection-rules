@@ -4,14 +4,14 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies use of the Set-MpPreference PowerShell command to disable or weaken certain Windows Defender settings."
 false_positives = ["Planned Windows Defender configuration changes."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Disabling Windows Defender Security Settings via PowerShell"
@@ -51,14 +51,13 @@ This rule monitors the execution of commands that can tamper the Windows Defende
 - Review the privileges assigned to the user to ensure that the least privilege principle is being followed.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 references = [
     "https://docs.microsoft.com/en-us/powershell/module/defender/set-mppreference?view=windowsserver2019-ps",
 ]
 risk_score = 47
 rule_id = "c8cccb06-faf2-4cd5-886e-2c9636cfcb87"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
@@ -82,8 +81,11 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- (process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or process.pe.original_file_name in ("powershell.exe", "pwsh.dll", "powershell_ise.exe")) and
- process.args : "Set-MpPreference" and process.args : ("-Disable*", "Disabled", "NeverSend", "-Exclusion*")
+  (
+    process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or
+    ?process.pe.original_file_name in ("powershell.exe", "pwsh.dll", "powershell_ise.exe")
+  ) and
+  process.args : "Set-MpPreference" and process.args : ("-Disable*", "Disabled", "NeverSend", "-Exclusion*")
 '''
 
 
