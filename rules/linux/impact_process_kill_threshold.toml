@@ -1,16 +1,18 @@
 [metadata]
 creation_date = "2022/07/27"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/17"
+updated_date = "2024/02/21"
 
 [rule]
 author = ["Elastic"]
-description = "This rule identifies a high number (10) of process terminations via pkill from the same host within a short time period."
+description = """
+This rule identifies a high number (10) of process terminations via pkill from the same host within a short time period.
+"""
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "High Number of Process Terminations"
@@ -46,11 +48,10 @@ This rule identifies a high number (10) of process terminations via pkill from t
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 risk_score = 47
 rule_id = "67f8443a-4ff3-4a70-916d-3cfa3ae9f02b"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -74,10 +75,18 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Impact", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Impact",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend",
+        "Data Source: Auditd Manager"
+        ]
 type = "threshold"
 timestamp_override = "event.ingested"
 
@@ -85,14 +94,13 @@ query = '''
 event.category:process and host.os.type:linux and event.type:start and process.name:"pkill" and process.args:"-f"
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1489"
 name = "Service Stop"
 reference = "https://attack.mitre.org/techniques/T1489/"
-
 
 [rule.threat.tactic]
 id = "TA0040"
@@ -102,4 +110,3 @@ reference = "https://attack.mitre.org/tactics/TA0040/"
 [rule.threshold]
 field = ["host.id", "process.executable", "user.name"]
 value = 10
-

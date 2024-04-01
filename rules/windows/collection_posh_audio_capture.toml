@@ -4,13 +4,13 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
 description = "Detects PowerShell scripts that can record audio, a common feature in popular post-exploitation tooling."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Suspicious Script with Audio Capture Capabilities"
@@ -52,15 +52,14 @@ Attackers can use PowerShell to interact with the Windows API with the intent of
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 references = ["https://github.com/PowerShellMafia/PowerSploit/blob/master/Exfiltration/Get-MicrophoneAudio.ps1"]
 risk_score = 47
 rule_id = "2f2f4939-0b34-40c2-a0a3-844eb7889f43"
-setup="""
+setup = """## Setup
 
 The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with with Advanced Audit Configuration:
+Steps to implement the logging policy with Advanced Audit Configuration:
 
 ```
 Computer Configuration >
