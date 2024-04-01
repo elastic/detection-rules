@@ -4,8 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/22"
-bypass_bbr_timing = true
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -15,20 +14,25 @@ directly, the commands will be executed in the background via its parent process
 to execute commands while attempting to evade detection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potentially Suspicious Process Started via tmux or screen"
 risk_score = 21
 rule_id = "e0cc3807-e108-483c-bf66-5a4fbe0d7e89"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Rule Type: BBR"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Defense Evasion",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
+        ]
 timestamp_override = "event.ingested"
-building_block_type = "default"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
 process.parent.name in ("screen", "tmux") and process.name : (
   "nmap", "nc", "ncat", "netcat", "socat", "nc.openbsd", "ngrok", "ping", "java", "python*", "php*", "perl", "ruby",
   "lua*", "openssl", "telnet", "awk", "wget", "curl", "id"

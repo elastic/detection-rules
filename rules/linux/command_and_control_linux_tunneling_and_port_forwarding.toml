@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/02/19"
+updated_date = "2024/03/08"
 
 [transform]
 [[transform.osquery]]
@@ -112,7 +112,9 @@ references = [
     ]
 risk_score = 47
 rule_id = "6ee947e9-de7e-4281-a55d-09289bdf947e"
-setup = """This rule requires data coming in from Elastic Defend.
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
 
 ### Elastic Defend Integration Setup
 Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
@@ -147,8 +149,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action in ("exec", "exec_event") and
-event.type == "start" and (
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
   (
     // gost & pivotnacci - spawned without process.parent.name
     (process.name == "gost" and process.args : ("-L*", "-C*", "-R*")) or (process.name == "pivotnacci")) or (

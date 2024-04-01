@@ -4,7 +4,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2024/12/19"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ license = "Elastic License v2"
 name = "Suspicious Sysctl File Event"
 risk_score = 21
 rule_id = "7592c127-89fb-4209-a8f6-f9944dfd7e02"
-setup = """
+setup = """## Setup
 
 This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
 
@@ -57,8 +57,9 @@ type = "new_terms"
 building_block_type = "default"
 query = '''
 host.os.type:linux and event.category:file and event.action:("opened-file" or "read-file" or "wrote-to-file") and
-file.path : ("/etc/sysctl.conf" or "/etc/sysctl.d" or /etc/sysctl.d/*) and
-not process.name:(dpkg or dockerd or unattended-upg)
+file.path : ("/etc/sysctl.conf" or "/etc/sysctl.d" or /etc/sysctl.d/*) and not process.name:(
+  dpkg or dockerd or unattended-upg or systemd-sysctl or python* or auditbeat or dpkg or grep or pool*
+)
 '''
 
 [[rule.threat]]
@@ -76,8 +77,8 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.executable", "file.path"]
+value = ["host.id", "process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-14d"
