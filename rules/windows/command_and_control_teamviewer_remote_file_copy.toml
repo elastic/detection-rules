@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/02"
-integration = ["endpoint", "windows"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2023/11/13"
+updated_date = "2024/03/08"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -36,7 +36,7 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 author = ["Elastic"]
 description = "Identifies an executable or script file remotely downloaded via a TeamViewer transfer session."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote File Copy via TeamViewer"
@@ -89,13 +89,11 @@ TeamViewer is a remote access and remote control tool used by helpdesks and syst
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-
 """
 references = ["http://web.archive.org/web/20230329160957/https://blog.menasec.net/2019/11/hunting-for-suspicious-use-of.html"]
 risk_score = 47
 rule_id = "b25a7df2-120a-4db2-bd3f-3e4b86b24bee"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.

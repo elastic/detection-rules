@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/07/28"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -15,14 +15,14 @@ commands or input containing wildcards (e.g., *, ?, []) to execute unintended op
 tricking the system into interpreting the wildcard characters in unexpected ways.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Unauthorized Access via Wildcard Injection Detected"
 references = ["https://www.exploit-db.com/papers/33930"]
 risk_score = 21
 rule_id = "4a99ac6f-9a54-4ba5-a64f-6eb65695841b"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -46,15 +46,23 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Credential Access", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Privilege Escalation",
+        "Tactic: Credential Access",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action in ("exec", "exec_event") and event.type == "start" and 
-process.name in ("chown", "chmod") and process.args == "-R" and process.args : "--reference=*"
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
+ and process.name in ("chown", "chmod") and process.args == "-R" and process.args : "--reference=*"
 '''
 
 [[rule.threat]]

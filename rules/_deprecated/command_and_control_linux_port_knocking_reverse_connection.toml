@@ -1,11 +1,12 @@
 [metadata]
 bypass_bbr_timing = true
 creation_date = "2023/10/24"
+deprecation_date = "2024/02/22"
 integration = ["endpoint", "network_traffic"]
-maturity = "production"
+maturity = "deprecated"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/24"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,14 +27,15 @@ risk_score = 21
 rule_id = "86c3157c-a951-4a4f-989b-2f0d0f1f9518"
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Command and Control",
-        "Data Source: Elastic Defend",
-        "Rule Type: BBR"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+]
 type = "eql"
+
 query = '''
 sequence by host.id with maxspan=10s
   [network where host.os.type == "linux" and event.action in ("connection_accepted", "connection_attempted") and 
@@ -75,29 +77,29 @@ sequence by host.id with maxspan=10s
   ] by source.ip
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1205"
+name = "Traffic Signaling"
+reference = "https://attack.mitre.org/techniques/T1205/"
+[[rule.threat.technique.subtechnique]]
+id = "T1205.001"
+name = "Port Knocking"
+reference = "https://attack.mitre.org/techniques/T1205/001/"
 
-[rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
 
 [[rule.threat.technique]]
 id = "T1571"
 name = "Non-Standard Port"
 reference = "https://attack.mitre.org/techniques/T1571/"
 
-[[rule.threat.technique]]
-id = "T1205"
-name = "Traffic Signaling"
-reference = "https://attack.mitre.org/techniques/T1205/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1205.001"
-name = "Port Knocking"
-reference = "https://attack.mitre.org/techniques/T1205/001/"
-
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 

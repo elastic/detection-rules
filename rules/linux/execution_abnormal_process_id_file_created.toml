@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/12/13"
+updated_date = "2024/02/20"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Abnormal Process ID or Lock File Created"
@@ -64,7 +64,6 @@ This rule identifies the creation of PID, lock, or reboot files in the /var/run/
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 references = [
     "https://www.sandflysecurity.com/blog/linux-file-masquerading-and-malicious-pids-sandfly-1-2-6-update/",
@@ -74,7 +73,7 @@ references = [
 ]
 risk_score = 47
 rule_id = "cac91072-d165-11ec-a764-f661ea17fbce"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -98,7 +97,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = [
@@ -108,13 +106,14 @@ tags = [
         "Tactic: Execution",
         "Threat: BPFDoor",
         "Resources: Investigation Guide",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
         ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:linux and event.category:file and event.action:creation and
+host.os.type:linux and event.category:file and event.action:(creation or file_create_event) and
 user.id:0 and file.extension:(pid or lock or reboot) and file.path:(/var/run/* or /run/*) and (
   (process.name : (
     bash or dash or sh or tcsh or csh or zsh or ksh or fish or ash or touch or nano or vim or vi or editor or mv or cp)
@@ -123,7 +122,7 @@ user.id:0 and file.extension:(pid or lock or reboot) and file.path:(/var/run/* o
     ./* or /tmp/* or /var/tmp/* or /dev/shm/* or /var/run/* or /boot/* or /srv/* or /run/*
   ))
 ) and not process.name : (go or git or containerd* or snap-confine or cron or crond or sshd or unattended-upgrade or 
-vzctl or ifup or rpcbind) and
+vzctl or ifup or rpcbind or runc or gitlab-runner-helper or elastic-agent or metricbeat) and
 not file.name : (jem.*.pid)
 '''
 

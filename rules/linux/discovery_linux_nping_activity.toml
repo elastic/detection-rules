@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -19,14 +19,14 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Nping Process Activity"
 references = ["https://en.wikipedia.org/wiki/Nmap"]
 risk_score = 47
 rule_id = "0d69150b-96f8-467c-a86d-a67a3378ce77"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from one of the following integrations:
 - Elastic Defend
@@ -62,28 +62,33 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 - To run Auditbeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-docker.html).
 - To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
 - For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
-
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and process.name == "nping"
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
+ and process.name == "nping"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1046"
 name = "Network Service Discovery"
 reference = "https://attack.mitre.org/techniques/T1046/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
