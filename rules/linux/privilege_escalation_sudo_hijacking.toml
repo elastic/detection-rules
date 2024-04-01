@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/21"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ name = "Potential Sudo Hijacking Detected"
 references = ["https://eapolsniper.github.io/2020/08/17/Sudo-Hijacking/"]
 risk_score = 47
 rule_id = "88fdcb8c-60e5-46ee-9206-2663adf1b1ce"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -45,7 +45,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = [
@@ -61,7 +60,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 host.os.type:linux and event.category:file and event.type:("creation" or "file_create_event") and
-file.path:("/usr/bin/sudo" or "/bin/sudo") and not process.name:(docker or dockerd)
+file.path:("/usr/bin/sudo" or "/bin/sudo") and not process.name:(docker or dockerd or pacman)
 '''
 
 [[rule.threat]]

@@ -10,7 +10,7 @@ import sys
 
 import click
 
-assert (3, 8) <= sys.version_info < (4, 0), "Only Python 3.8+ supported"
+assert (3, 12) <= sys.version_info < (4, 0), "Only Python 3.12+ supported"
 
 from .main import root  # noqa: E402
 

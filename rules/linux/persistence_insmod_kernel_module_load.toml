@@ -1,13 +1,12 @@
 [metadata]
 creation_date = "2022/07/11"
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/12/19"
-integration = ["endpoint"]
+updated_date = "2024/02/21"
 
 [transform]
-
 [[transform.osquery]]
 label = "Osquery - Retrieve all Kernel Modules"
 query = "SELECT * FROM kernel_modules"
@@ -41,7 +40,7 @@ security products. Manually loading a kernel module in this manner should not be
 suspcious or malicious behavior.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Kernel Module Load via insmod"
@@ -122,7 +121,7 @@ references = [
 ]
 risk_score = 47
 rule_id = "2339f03c-f53f-40fa-834b-40c5983fc41f"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -146,7 +145,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = [
@@ -156,13 +154,13 @@ tags = [
         "Tactic: Persistence",
         "Threat: Rootkit",
         "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Auditd Manager"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and process.name == "insmod" and process.args : "*.ko"
-and not process.parent.name in ("cisco-amp-helper", "ksplice-apply")
 '''
 
 [[rule.threat]]
@@ -182,4 +180,3 @@ reference = "https://attack.mitre.org/techniques/T1547/006/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
