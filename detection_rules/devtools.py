@@ -5,7 +5,6 @@
 
 """CLI commands for internal detection_rules dev team."""
 import dataclasses
-import functools
 import io
 import json
 import os
@@ -48,12 +47,12 @@ from .integrations import (SecurityDetectionEngine,
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
-                        Package, current_stack_version)
+                        Package)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
-from .utils import (dict_hash, get_etc_path, get_path, load_dump,
+from .utils import (get_etc_path, get_path, load_dump,
                     load_etc_dump, save_etc_dump)
 from .version_lock import VersionLockFile, default_version_lock
 
