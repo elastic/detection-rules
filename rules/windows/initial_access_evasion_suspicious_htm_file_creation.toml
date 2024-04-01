@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/03/02"
+updated_date = "2024/04/01"
 
 [rule]
 author = ["Elastic"]
@@ -20,8 +20,7 @@ name = "Suspicious HTML File Creation"
 note = "This rule may have a low to medium performance impact due variety of file paths potentially matching each EQL sequence."
 risk_score = 47
 rule_id = "f0493cb4-9b15-43a9-9359-68c23a7f2cf3"
-setup = """
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+setup = """If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
 Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
 `event.ingested` to @timestamp.
@@ -40,33 +39,36 @@ type = "eql"
 query = '''
 sequence by user.id with maxspan=2m
 
-  /* Detects the creation or renaming of an HTML file in a user's Downloads, Outlook, or Temp directory */
- [file where host.os.type == "windows" and event.action : ("creation", "rename") and
-  file.extension : ("htm", "html") and file.path like "?:\\Users*" and (
-    stringContains(file.path, "\\Downloads\\") or
-    stringContains(file.path, "\\Content.Outlook\\") or
-    stringContains(file.path, "AppData\\Local\\Temp\\Temp") or
-    stringContains(file.path, "AppData\\Local\\Temp\\7z") or
-    stringContains(file.path, "AppData\\Local\\Temp\\Rar$")
-    )
-  and (file.Ext.entropy >= 5 and file.size >= 150000) or file.size >= 1000000]
+ [file where host.os.type == "windows" and event.action in ("creation", "rename") and
 
-  /* Detects the execution of a browser process to open an HTML file with high entropy and size */
+  /* Check for HTML files with high entropy and size */
+  file.extension : ("htm", "html") and ((file.Ext.entropy >= 5 and file.size >= 150000) or file.size >= 1000000) and
+
+  /* Check for file paths in common download and temporary directories */
+  file.path : (
+    "?:\\Users\\*\\Downloads\\*",
+    "?:\\Users\\*\\Content.Outlook\\*",
+    "?:\\Users\\*\\AppData\\Local\\Temp\\Temp?_*",
+    "?:\\Users\\*\\AppData\\Local\\Temp\\7z*",
+    "?:\\Users\\*\\AppData\\Local\\Temp\\Rar$*")]
  [process where host.os.type == "windows" and event.action == "start" and
   (
+   /* Check for browser processes opening HTML files with single argument */
    (process.name in ("chrome.exe", "msedge.exe", "brave.exe", "whale.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "opera.exe")
     and process.args == "--single-argument") or
+
+   /* Optionally, check for browser processes opening HTML files with two arguments */
    (process.name == "iexplore.exe" and process.args_count == 2) or
+
+   /* Optionally, check for browser processes opening HTML files with URL argument */
    (process.name in ("firefox.exe", "waterfox.exe") and process.args == "-url")
   )
-  and file.path like "?:\\Users*" and (
-    stringContains(file.path, "\\Downloads\\") or
-    stringContains(file.path, "\\Content.Outlook\\") or
-    stringContains(file.path, "AppData\\Local\\Temp\\Temp") or
-    stringContains(file.path, "AppData\\Local\\Temp\\7z") or
-    stringContains(file.path, "AppData\\Local\\Temp\\Rar$")
-    )
-  ]
+  /* Check for file paths in common download and temporary directories targeted in the process arguments */
+  and process.args : ("?:\\Users\\*\\Downloads\\*.htm*",
+                      "?:\\Users\\*\\Content.Outlook\\*.htm*",
+                      "?:\\Users\\*\\AppData\\Local\\Temp\\Temp?_*.htm*",
+                      "?:\\Users\\*\\AppData\\Local\\Temp\\7z*.htm*",
+                      "?:\\Users\\*\\AppData\\Local\\Temp\\Rar$*.htm*")]
 '''
 
 
