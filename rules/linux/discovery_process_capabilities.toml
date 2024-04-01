@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
 min_stack_version = "8.11.0"
-updated_date = "2024/01/09"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,13 +13,14 @@ Identifies recursive process capability enumeration of the entire filesystem thr
 Malicious users may manipulate identified capabilities to gain root privileges.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Capability Enumeration"
 risk_score = 21
 rule_id = "5c351f54-4187-4ad8-abc8-29b0cfbef8b1"
-setup = """
+setup = """## Setup
+
 
 This rule requires data coming in from Elastic Defend.
 
@@ -43,14 +44,20 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
 process.name == "getcap" and process.args == "-r" and process.args == "/" and process.args_count == 3 and
 user.id != "0"
 '''

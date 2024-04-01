@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/12/13"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -20,13 +20,13 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Enumeration of Kernel Modules"
 risk_score = 47
 rule_id = "2d8043ed-5bda-4caf-801c-c1feb7410504"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -50,7 +50,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = [
@@ -58,23 +57,25 @@ tags = [
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Discovery",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
         ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-event.category:process and host.os.type:linux and event.type:start and (
+event.category:process and host.os.type:linux and event.type:start and event.action:(exec or exec_event) and (
  (process.name:(lsmod or modinfo)) or 
  (process.name:kmod and process.args:list) or 
  (process.name:depmod and process.args:(--all or -a))
 ) and not process.parent.name:(mkinitramfs or cryptroot or framebuffer or dracut or jem or thin-provisioning-tools
-or readykernel or lvm2 or vz-start or iscsi or mdadm)
+or readykernel or lvm2 or vz-start or iscsi or mdadm or ovalprobes or bcache or plymouth or dkms or overlayroot or 
+weak-modules or zfs)
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
 
+[[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
@@ -86,7 +87,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.parent.command_line", "process.command_line", "process.parent.executable"]
+value = ["process.parent.command_line", "process.command_line", "host.id"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/26"
+updated_date = "2024/02/22"
 
 [transform]
 [[transform.osquery]]
@@ -42,7 +42,7 @@ muddle analysis/parsing of network data.
 """
 from = "now-119m"
 interval = "60m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Non-Standard Port HTTP/HTTPS connection"
@@ -114,17 +114,16 @@ tags = [
         "Use Case: Threat Detection",
         "Tactic: Command and Control",
         "Rule Type: BBR",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-network where process.name : ("http", "https")
-  and destination.port not in (80, 443)
-  and event.action in ("connection_attempted", "connection_accepted")
-  and destination.ip != "127.0.0.1"
+network where process.name : ("http", "https") and destination.port not in (80, 443) and event.action in (
+  "connection_attempted", "ipv4_connection_attempt_event", "connection_accepted", "ipv4_connection_accept_event"
+) and destination.ip != "127.0.0.1"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -138,6 +137,7 @@ reference = "https://attack.mitre.org/techniques/T1571/"
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1071.001"
 name = "Web Protocols"
@@ -147,16 +147,16 @@ reference = "https://attack.mitre.org/techniques/T1071/001/"
 id = "T1573"
 name = "Encrypted Channel"
 reference = "https://attack.mitre.org/techniques/T1573/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1573.001"
 name = "Symmetric Cryptography"
 reference = "https://attack.mitre.org/techniques/T1573/001/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1573.002"
 name = "Asymmetric Cryptography"
 reference = "https://attack.mitre.org/techniques/T1573/002/"
-
-
 
 [rule.threat.tactic]
 id = "TA0011"

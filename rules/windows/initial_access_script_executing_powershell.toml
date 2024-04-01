@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/03"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies a PowerShell process launched by either cscript.exe or wscript.exe. O
 executing a PowerShell script, may be indicative of malicious activity.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Script Executing PowerShell"
@@ -66,11 +66,10 @@ This rule looks for the spawn of the `powershell.exe` process with `cscript.exe`
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 risk_score = 21
 rule_id = "f545ff26-3c94-4fd0-bd33-3c7f95a3a0fc"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
@@ -79,7 +78,7 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
 timestamp_override = "event.ingested"
 type = "eql"
 

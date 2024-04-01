@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/23"
+updated_date = "2024/03/08"
 
 [transform]
 [[transform.osquery]]
@@ -42,7 +42,7 @@ communication channels, enabling lateral movement and facilitating remote contro
 """
 from = "now-119m"
 interval = "60m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Linux SSH X11 Forwarding"
@@ -115,12 +115,13 @@ tags = [
         "Use Case: Threat Detection",
         "Tactic: Command and Control",
         "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
         "Rule Type: BBR"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
 process.name in ("ssh", "sshd") and process.args in ("-X", "-Y") and process.args_count >= 3 and 
 process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 '''
