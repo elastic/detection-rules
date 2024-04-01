@@ -542,7 +542,8 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     None
     """)  # noqa: E501
 
-    pr = repo.create_pull(message, body, base_branch, branch_name, maintainer_can_modify=True, draft=draft)
+    pr = repo.create_pull(title=message, body=body, base=base_branch, head=branch_name,
+                          maintainer_can_modify=True, draft=draft)
 
     # labels could also be comma separated
     label = {lbl for cs_labels in label for lbl in cs_labels.split(",") if lbl}
