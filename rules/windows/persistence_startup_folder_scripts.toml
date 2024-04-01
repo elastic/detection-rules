@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/03/02"
+updated_date = "2023/04/01"
 
 [transform]
 [[transform.osquery]]
@@ -127,19 +127,17 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "windows" and event.type != "deletion" and user.domain != "NT AUTHORITY" and
+file where host.os.type == "windows" and event.type != "deletion" and
 
-  /* Filter with default C:\ drive and the Startup folder */
-  (
-    startsWith("C:", file.path) and
-    stringContains("\\Programs\\Startup\\", file.path)
-  ) and
+  \* Identify files created or changed in the startup folder *\
+  not (startsWith(user.domain, "NT") or endsWith(user.domain, "NT")) and
+  file.path: "C:\\*\\Programs\\Startup\\*" and
 
-  /* Filter for common malicious file extensions loaded by script engines */
-  /* Filter for generic script engines wscript.exe and cscript.exe */
+  \* Call attention to file extensions that may be used for malicious purposes *\
+  \* Optionally, shortcut file extensions created by Windows script engines *\
   (
-    process.name in ("wscript.exe", "cscript.exe") or
-    file.extension in ("vbs", "vbe", "wsh", "wsf", "js")
+    file.extension : ("lnk", "vbs", "vbe", "wsh", "wsf", "js") or
+    (file.extension == "lnk" and process.name : ("wscript.exe", "cscript.exe"))
   )
 '''
 
