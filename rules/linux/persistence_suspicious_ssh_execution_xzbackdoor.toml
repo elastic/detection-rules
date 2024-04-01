@@ -35,7 +35,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 sequence by host.id with maxspan=1s
- [process where host.os.type == "linux" and event.action == "exec" and process.name == "sshd"] by process.pid, process.entity_id
+ [process where host.os.type == "linux" and event.action == "exec" and process.name == "sshd" and
+    process.args == "-D" and process.args == "-R"] by process.pid, process.entity_id
  [process where host.os.type == "linux" and event.action == "exec" and process.name == "sh" and process.parent.name == "sshd"] by process.parent.pid, process.parent.entity_id
  [process where host.os.type == "linux" and event.action == "end" and process.name == "sshd" and process.exit_code == 255] by process.pid, process.entity_id
  [network where host.os.type == "linux" and
