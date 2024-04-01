@@ -1,27 +1,28 @@
 [metadata]
 creation_date = "2023/01/29"
-integration = ["windows", "endpoint"]
+integration = ["windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/01/29"
+updated_date = "2024/04/01"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identify read access to a high number of Active Directory object attributes. The knowledge of objects properties 
-can help adversaries find vulnerabilities, elevate privileges or collect sensitive information.
+Identify read access to a high number of Active Directory object attributes. The knowledge of objects properties can
+help adversaries find vulnerabilities, elevate privileges or collect sensitive information.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-system.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Access to LDAP Attributes"
-note = """## Setup
-## Setup
-
+risk_score = 73
+rule_id = "68ad737b-f90a-4fe5-bda6-a68fa460044e"
+setup = """
 The 'Audit Directory Service Changes' logging policy must be configured for (Success, Failure).
 Steps to implement the logging policy with Advanced Audit Configuration:
+
 Computer Configuration >
 Policies >
 Windows Settings >
@@ -30,20 +31,26 @@ Advanced Audit Policies Configuration >
 Audit Policies >
 DS Access >
 Audit Directory Service Changes (Success,Failure)
-```
 """
-risk_score = 73
-rule_id = "68ad737b-f90a-4fe5-bda6-a68fa460044e"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery", "Active Directory"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: System",
+    "Data Source: Active Directory",
+    "Data Source: Windows",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.action == "Directory Service Access" and 
- event.code == "4662" and not winlog.event_data.SubjectUserSid : "S-1-5-18" and 
+any where event.action == "Directory Service Access" and
+ event.code == "4662" and not winlog.event_data.SubjectUserSid : "S-1-5-18" and
  winlog.event_data.AccessMaskDescription == "Read Property" and length(winlog.event_data.Properties) >= 2000
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -52,7 +59,9 @@ id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
