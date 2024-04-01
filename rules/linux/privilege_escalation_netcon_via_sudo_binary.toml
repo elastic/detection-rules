@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/15"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -14,13 +14,14 @@ reverse shell shellcode is injected into a process run with elevated permissions
 inject shellcode into processes running as root, to escalate privileges. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Network Connection via Sudo Binary"
 risk_score = 47
 rule_id = "30e1e9f2-eb9c-439f-aff6-1e3068e99384"
-setup = """
+setup = """## Setup
+
 
 This rule requires data coming in from Elastic Defend.
 
@@ -44,7 +45,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = [   
@@ -52,13 +52,14 @@ tags = [
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Privilege Escalation",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start" and
-process.name == "sudo"
+network where host.os.type == "linux" and event.type == "start" and
+event.action in ("connection_attempted", "ipv4_connection_attempt_event") and process.name == "sudo"
 '''
 
 [[rule.threat]]
@@ -88,4 +89,3 @@ reference = "https://attack.mitre.org/techniques/T1548/003/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

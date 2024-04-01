@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2024/02/01"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/02/01"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -15,14 +15,15 @@ for examining and debugging binary files or data streams. Attackers can leverage
 identifying injection points and craft exploits based on the observed behaviors and structures within these files.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Dynamic Linker Discovery via od"
 references = ["https://github.com/arget13/DDexec"]
 risk_score = 21
 rule_id = "0369e8a6-0fa7-4e7a-961a-53180a4c966e"
-setup = """
+setup = """## Setup
+
 
 This rule requires data coming in from Elastic Defend.
 
@@ -46,7 +47,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "low"
 tags = [
@@ -55,13 +55,14 @@ tags = [
         "Use Case: Threat Detection",
         "Tactic: Discovery",
         "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action in ("exec", "exec_event") and event.type == "start" and
-process.name == "od" and process.args in (
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
+ and process.name == "od" and process.args in (
   "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload", "/lib64/ld-linux-x86-64.so.2",
   "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/usr/lib64/ld-linux-x86-64.so.2"
 )

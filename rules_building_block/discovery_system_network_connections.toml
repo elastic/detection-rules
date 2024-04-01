@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/07/11"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/11"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -12,29 +12,38 @@ building_block_type = "default"
 description = "Adversaries may attempt to get a listing of network connections to or from a compromised system."
 from = "now-119m"
 interval = "60m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "System Network Connections Discovery"
 risk_score = 21
 rule_id = "e2dc8f8c-5f16-42fa-b49e-0eb8057f7444"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "OS: macOS",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and
-  process.name : ("netstat", "lsof", "who", "w")
+process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
+process.name in ("netstat", "lsof", "who", "w")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1049"
 name = "System Network Connections Discovery"
 reference = "https://attack.mitre.org/techniques/T1049/"
-
 
 [rule.threat.tactic]
 id = "TA0007"

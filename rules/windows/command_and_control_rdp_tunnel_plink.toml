@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies potential use of an SSH utility to establish RDP over a reverse SSH T
 enable routing of network packets that would otherwise not reach their intended destination.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Remote Desktop Tunneling Detected"
@@ -50,13 +50,11 @@ This rule looks for command lines involving the `3389` port, which RDP uses by d
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-
 """
 references = ["https://blog.netspi.com/how-to-access-rdp-over-a-reverse-ssh-tunnel/"]
 risk_score = 73
 rule_id = "76fd43b7-3480-4dd9-8ad7-8bd36bfad92f"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.

@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/12/05"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies modifications to the Windows Defender registry settings to disable th
 started manually.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Defender Disabled via Registry Modification"
@@ -53,12 +53,11 @@ This rule monitors the registry for configurations that disable Windows Defender
 - Review the privileges assigned to the user to ensure that the least privilege principle is being followed.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 references = ["https://thedfirreport.com/2020/12/13/defender-control/"]
 risk_score = 21
 rule_id = "2ffa1f1e-b6db-47fa-994b-1512743847eb"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
@@ -74,7 +73,8 @@ tags = [
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
