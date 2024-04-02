@@ -2,9 +2,9 @@
 creation_date = "2020/10/15"
 integration = ["system", "windows"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2023/12/21"
+min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
+min_stack_version = "8.12.0"
+updated_date = "2024/03/12"
 
 [transform]
 [[transform.osquery]]
@@ -134,42 +134,53 @@ host.os.type:windows and event.category:iam and event.action:user-member-enumera
     winlog.event_data.SubjectUserName: *$ or
     winlog.event_data.SubjectUserSid: ("S-1-5-19" or "S-1-5-20") or 
     winlog.event_data.CallerProcessName:("-" or 
-                                       *\:\\\\Windows\\\\System32\\\\VSSVC.exe or 
-                                       *\:\\\\Windows\\\\System32\\\\SearchIndexer.exe or 
-                                       *\:\\\\Windows\\\\System32\\\\CompatTelRunner.exe or 
-                                       *\:\\\\Windows\\\\System32\\\\oobe\\\\msoobe.exe or
-                                       *\:\\\\Windows\\\\System32\\\\net1.exe or 
-                                       *\:\\\\Windows\\\\System32\\\\svchost.exe or 
-                                       *\:\\\\Windows\\\\System32\\\\Netplwiz.exe or 
-                                       *\:\\\\Windows\\\\System32\\\\msiexec.exe or
-                                       *\:\\\\Windows\\\\System32\\\\CloudExperienceHostBroker.exe or
-                                       *\:\\\\Windows\\\\System32\\\\RuntimeBroker.exe or
-                                       *\:\\\\Windows\\\\System32\\\\wbem\\\\WmiPrvSE.exe or
-                                       *\:\\\\Windows\\\\System32\\\\SrTasks.exe or
-                                       *\:\\\\Windows\\\\System32\\\\diskshadow.exe or
-                                       *\:\\\\Windows\\\\System32\\\\dfsrs.exe or
-                                       *\:\\\\Windows\\\\System32\\\\vssadmin.exe or
-                                       *\:\\\\Windows\\\\System32\\\\dllhost.exe or
-                                       *\:\\\\Windows\\\\System32\\\\mmc.exe or
-                                       *\:\\\\Windows\\\\System32\\\\SettingSyncHost.exe or
-                                       *\:\\\\Windows\\\\System32\\\\inetsrv\\\\w3wp.exe or
-                                       *\:\\\\Windows\\\\System32\\\\wsmprovhost.exe or
-                                       *\:\\\\Windows\\\\System32\\\\spool\\\\drivers\\\\x64\\\\3\\\\x3jobt3?.exe or
-                                       *\:\\\\Windows\\\\System32\\\\mstsc.exe or
-                                       *\:\\\\Windows\\\\System32\\\\esentutl.exe or
-                                       *\:\\\\Windows\\\\System32\\\\RecoveryDrive.exe or
-                                       *\:\\\\Windows\\\\System32\\\\SystemPropertiesComputerName.exe or
-                                       *\:\\\\Windows\\\\SysWOW64\\\\msiexec.exe or
-                                       *\:\\\\Windows\\\\ImmersiveControlPanel\\\\SystemSettings.exe or
-                                       *\:\\\\Windows\\\\Temp\\\\rubrik_vmware???\\\\snaptool.exe or
-                                       *\:\\\\Windows\\\\VeeamVssSupport\\\\VeeamGuestHelper.exe or
-                                       ?\:\\\\WindowsAzure\\\\*WaAppAgent.exe or
-                                       ?\:\\\\Program?Files?\(x86\)\\\\*.exe or
-                                       ?\:\\\\Program?Files\\\\*.exe or
-                                       ?\:\\\\$WINDOWS.~BT\\\\Sources\\\\*.exe
+                                       C\:\\Windows\\System32\\VSSVC.exe or 
+                                       C\:\\Windows\\System32\\SearchIndexer.exe or 
+                                       C\:\\Windows\\System32\\CompatTelRunner.exe or 
+                                       C\:\\Windows\\System32\\oobe\\msoobe.exe or
+                                       C\:\\Windows\\System32\\net1.exe or 
+                                       C\:\\Windows\\System32\\svchost.exe or 
+                                       C\:\\Windows\\System32\\Netplwiz.exe or 
+                                       C\:\\Windows\\System32\\msiexec.exe or
+                                       C\:\\Windows\\System32\\CloudExperienceHostBroker.exe or
+                                       C\:\\Windows\\System32\\RuntimeBroker.exe or
+                                       C\:\\Windows\\System32\\wbem\\WmiPrvSE.exe or
+                                       C\:\\Windows\\System32\\SrTasks.exe or
+                                       C\:\\Windows\\System32\\diskshadow.exe or
+                                       C\:\\Windows\\System32\\dfsrs.exe or
+                                       C\:\\Windows\\System32\\vssadmin.exe or
+                                       C\:\\Windows\\System32\\dllhost.exe or
+                                       C\:\\Windows\\System32\\mmc.exe or
+                                       C\:\\Windows\\System32\\SettingSyncHost.exe or
+                                       C\:\\Windows\\System32\\inetsrv\\w3wp.exe or
+                                       C\:\\Windows\\System32\\wsmprovhost.exe or
+                                       C\:\\Windows\\System32\\mstsc.exe or
+                                       C\:\\Windows\\System32\\esentutl.exe or
+                                       C\:\\Windows\\System32\\RecoveryDrive.exe or
+                                       C\:\\Windows\\System32\\SystemPropertiesComputerName.exe or
+                                       C\:\\Windows\\SysWOW64\\msiexec.exe or
+                                       C\:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe or
+                                       C\:\\Windows\\Temp\\rubrik_vmware*\\snaptool.exe or
+                                       C\:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe or
+                                       C\:\\WindowsAzure\\*WaAppAgent.exe or
+                                       C\:\\$WINDOWS.~BT\\Sources\\*.exe
                                       )
   )
 '''
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."winlog.event_data.CallerProcessName"]
+"case_insensitive" = true
+"value" = "C:\\\\Program Files (x86)\\\\*.exe"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."winlog.event_data.CallerProcessName"]
+"case_insensitive" = true
+"value" = "C:\\\\Program Files\\\\*.exe"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
