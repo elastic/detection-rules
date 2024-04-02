@@ -1,39 +1,52 @@
 [metadata]
 creation_date = "2023/07/10"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/10"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
-description = "Identifies the use of built-in tools which adversaries may use to enumerate the system owner/user of a compromised system."
+description = """
+Identifies the use of built-in tools which adversaries may use to enumerate the system owner/user of a compromised
+system.
+"""
 from = "now-119m"
 interval = "60m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "System Owner/User Discovery Linux"
 risk_score = 21
 rule_id = "bf8c007c-7dee-4842-8e9a-ee534c09d205"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and
-  process.name : ("whoami", "w", "who", "users", "id")
+process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and 
+process.name : ("whoami", "w", "who", "users", "id")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1033"
 name = "System Owner/User Discovery"
 reference = "https://attack.mitre.org/techniques/T1033/"
+
 [[rule.threat.technique]]
 id = "T1069"
 name = "Permission Groups Discovery"
