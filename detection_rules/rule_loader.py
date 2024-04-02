@@ -20,7 +20,7 @@ from .mappings import RtaMappings
 from .rule import (DeprecatedRule, DeprecatedRuleContents, TOMLRule,
                    TOMLRuleContents)
 from .schemas import definitions
-from .utils import cached, get_path
+from .utils import cached, get_path, normalize_kql_keywords
 
 DEFAULT_RULES_DIR = Path(get_path("rules"))
 DEFAULT_BBR_DIR = Path(get_path("rules_building_block"))
@@ -242,6 +242,10 @@ class RuleCollection(BaseCollection):
         self.deprecated.rules.append(rule)
 
     def load_dict(self, obj: dict, path: Optional[Path] = None) -> Union[TOMLRule, DeprecatedRule]:
+        """Load a rule dictionary object into a rule object."""
+        if obj.get("rule") and "query" in obj.get("rule"):
+            obj["rule"]["query"] = normalize_kql_keywords(obj["rule"]["query"])
+            print(f"Warning: Normalized KQL keywords in query for {obj['rule'].get('rule_id')}")
         # bypass rule object load (load_dict) and load as a dict only
         if obj.get('metadata', {}).get('maturity', '') == 'deprecated':
             contents = DeprecatedRuleContents.from_dict(obj)
