@@ -77,10 +77,10 @@ class NonformattedField(str):
 def preserve_formatting_for_fields(data: OrderedDict, fields_to_preserve: list) -> OrderedDict:
     """Preserve formatting for specified nested fields in an action."""
 
-    def apply_preservation(target: OrderedDict, keys: list):
+    def apply_preservation(target: OrderedDict, keys: list) -> None:
         """Apply NonformattedField preservation based on keys path."""
         for key in keys[:-1]:
-            # Iterate to the  key, diving into nested dictionaries
+            # Iterate to the key, diving into nested dictionaries
             if key in target and isinstance(target[key], dict):
                 target = target[key]
             else:
