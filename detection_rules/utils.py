@@ -266,6 +266,7 @@ def normalize_timing_and_sort(events, timestamp='@timestamp', asc=True):
 
     return event_sort(events, timestamp=timestamp, asc=asc)
 
+
 def normalize_kql_keywords(query: str) -> str:
     """Normalize KQL keywords to lowercase."""
 
