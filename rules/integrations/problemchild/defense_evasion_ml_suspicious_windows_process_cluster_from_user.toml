@@ -4,7 +4,7 @@ integration = ["problemchild", "endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "LotL package job ID and rule removal updates"
 min_stack_version = "8.9.0"
-updated_date = "2023/12/12"
+updated_date = "2024/04/01"
 
 [rule]
 anomaly_threshold = 75
@@ -42,9 +42,9 @@ The LotL Attack Detection integration detects living-off-the-land activity in Wi
 - Under Settings, click Install Living off the Land Attack Detection assets and follow the prompts to install the assets.
 
 #### Ingest Pipeline Setup
-Before you can enable this rule, you'll need to enrich Windows process events with predictions from the Supervised LotL Attack Detection model. This is done via the ingest pipeline named `<package_version>-problem_child_ingest_pipeline` installed with the LotL Attack Detection package.
+**Before you can enable this rule**, you'll need to enrich Windows process events with predictions from the Supervised LotL Attack Detection model. This is done via the ingest pipeline named `<package_version>-problem_child_ingest_pipeline` installed with the LotL Attack Detection package.
 - If using an Elastic Beat such as Winlogbeat, add the LotL ingest pipeline to it by adding a simple configuration [setting](https://www.elastic.co/guide/en/elasticsearch/reference/current/ingest.html#pipelines-for-beats) to `winlogbeat.yml`.
-- If adding the LotL ingest pipeline to an existing pipeline, use a [pipeline processor](https://www.elastic.co/guide/en/elasticsearch/reference/current/pipeline-processor.html).
+- If adding the LotL ingest pipeline to an existing pipeline, use a [pipeline processor](https://www.elastic.co/guide/en/elasticsearch/reference/current/pipeline-processor.html). For example, you can check if your winlogbeat or Elastic Defend (the [default index pattern](https://docs.elastic.co/en/integrations/endpoint#logs) being `logs-endpoint*`) already has an ingest pipeline by navigating to `Data > Index Management`, finding the index (sometimes you need to toggle "Include hidden indices"), and checking the index's settings for a default or final [pipeline](https://www.elastic.co/guide/en/elasticsearch/reference/current/ingest.html#set-default-pipeline).
 
 #### Adding Custom Mappings
 - Go to the Kibana homepage. Under Management, click Stack Management.
@@ -71,10 +71,10 @@ Before you can enable this rule, you'll need to enrich Windows process events wi
 ```
 
 ### Anomaly Detection Setup
-Before you can enable this rule, you'll need to enable the corresponding Anomaly Detection job. 
+**Before you can enable this rule**, you'll need to enable the corresponding Anomaly Detection job. 
 - Go to the Kibana homepage. Under Analytics, click Machine Learning.
 - Under Anomaly Detection, click Jobs, and then click "Create job". Select the Data View containing your enriched Windows process events. For example, this would be `logs-endpoint.events.*` if you used Elastic Defend to collect events, or `winlogbeat-*` if you used Winlogbeat.
-- If the selected Data View contains events that match the query in [this](https://github.com/elastic/integrations/blob/main/packages/problemchild/kibana/ml_module/problemchild-ml.json) configuration file, you will see a card for "Living off the Land Attack Detection" under "Use preconfigured jobs".
+- If the selected Data View contains events that match the query in [this](https://github.com/elastic/integrations/blob/main/packages/problemchild/kibana/ml_module/problemchild-ml.json) configuration file, you will see a card for "Living off the Land Attack Detection" under "Use preconfigured jobs". Warning: if the ingest pipeline hasn't run for some reason, such as no eligible data in winlogbeat has come in yet, _you won't be able to see this card yet_. If that is the case, try troubleshooting the ingest pipeline, and if any ProblemChild predictions have been populated yet.
 - Keep the default settings and click "Create jobs" to start the anomaly detection job and datafeed.
 """
 references = [

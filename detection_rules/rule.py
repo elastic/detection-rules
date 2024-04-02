@@ -239,7 +239,51 @@ class ThresholdAlertSuppression:
 
 
 @dataclass(frozen=True)
+class FilterStateStore:
+    store: definitions.StoreType
+
+
+@dataclass(frozen=True)
+class FilterMeta:
+    alias: Optional[Union[str, None]] = None
+    disabled: Optional[bool] = None
+    negate: Optional[bool] = None
+    controlledBy: Optional[str] = None  # identify who owns the filter
+    group: Optional[str] = None  # allows grouping of filters
+    index: Optional[str] = None
+    isMultiIndex: Optional[bool] = None
+    type: Optional[str] = None
+    key: Optional[str] = None
+    params: Optional[str] = None  # Expand to FilterMetaParams when needed
+    value: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class WildcardQuery:
+    case_insensitive: bool
+    value: str
+
+
+@dataclass(frozen=True)
+class Query:
+    wildcard: Optional[Dict[str, WildcardQuery]] = None
+
+
+@dataclass(frozen=True)
+class Filter:
+    meta: FilterMeta
+    state: Optional[FilterStateStore] = field(metadata=dict(data_key="$state"))
+    query: Optional[Union[Query, Dict[str, Any]]] = None
+
+
+@dataclass(frozen=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
+    """Base rule data."""
+
+    @dataclass
+    class InvestigationFields:
+        field_names: List[definitions.NonEmptyStr]
+
     @dataclass
     class RequiredFields:
         name: definitions.NonEmptyStr
@@ -260,10 +304,11 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     exceptions_list: Optional[list]
     license: Optional[str]
     false_positives: Optional[List[str]]
-    filters: Optional[List[dict]]
+    filters: Optional[List[Filter]]
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
     interval: Optional[definitions.Interval]
+    investigation_fields: Optional[InvestigationFields] = field(metadata=dict(metadata=dict(min_compat="8.11")))
     max_signals: Optional[definitions.MaxSignals]
     meta: Optional[Dict[str, Any]]
     name: definitions.RuleName
@@ -674,7 +719,6 @@ class NewTermsRuleData(QueryRuleData):
 
     def transform(self, obj: dict) -> dict:
         """Transforms new terms data to API format for Kibana."""
-
         obj[obj["new_terms"].get("field")] = obj["new_terms"].get("value")
         obj["history_window_start"] = obj["new_terms"]["history_window_start"][0].get("value")
         del obj["new_terms"]
