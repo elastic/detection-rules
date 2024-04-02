@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/03/03"
+updated_date = "2024/04/01"
 
 [transform]
 [[transform.osquery]]
@@ -35,9 +35,9 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 [rule]
 author = ["Elastic"]
 description = """
-Identifies potentially unexpected LOLBins processes making outbound SMB network connections over port 445. Windows File Sharing is
-typically implemented over Server Message Block (SMB), which communicates between hosts using port 445. When legitimate,
-these network connections are established by the kernel.
+Identifies potentially unexpected LOLBins processes making outbound SMB network connections over port 445. Windows File
+Sharing is typically implemented over Server Message Block (SMB), which communicates between hosts using port 445. When
+legitimate, these network connections are established by the kernel.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -127,8 +127,7 @@ sequence by process.entity_id with maxspan=1m
     /* filter out PowerShell scripts from Windows Defender ATP */
     not (
       process.name : "powershell.exe" and
-      startsWith(process.args, "?:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads\\PSScript_") and
-      endsWith(process.args, ".ps1")
+      process.args :"?:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads\\PSScript_*.ps1"
       ) and
 
     /* filter out known trusted vendors */
