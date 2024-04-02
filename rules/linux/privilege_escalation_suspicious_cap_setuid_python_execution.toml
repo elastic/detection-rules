@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,7 @@ license = "Elastic License v2"
 name = "Potential Privilege Escalation via Python cap_setuid"
 risk_score = 47
 rule_id = "a0ddb77b-0318-41f0-91e4-8c1b5528834f"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -47,14 +47,13 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
 type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
    process.args : "import os;os.set?id(0);os.system(*)" and process.args : "*python*" and user.id != "0"]
   [process where host.os.type == "linux" and event.action in ("uid_change", "gid_change") and event.type == "change" and 
    (user.id == "0" or group.id == "0")]

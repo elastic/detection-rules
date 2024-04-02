@@ -86,14 +86,13 @@ def dev_group():
 @click.option('--update-version-lock', '-u', is_flag=True,
               help='Save version.lock.json file with updated rule versions in the package')
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
-@click.option('--add-historical', type=str, required=True, default="no",
-              help='Generate historical package-registry files')
+@click.option('--generate-docs', is_flag=True, default=False, help='Generate markdown documentation')
 @click.option('--update-message', type=str, help='Update message for new package')
-def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
+def build_release(config_file, update_version_lock: bool, generate_navigator: bool, generate_docs: str,
                   update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
-    add_historical = True if add_historical == "yes" else False
+    registry_data = config['registry_data']
 
     if generate_navigator:
         config['generate_navigator'] = True
@@ -104,24 +103,26 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     if verbose:
         click.echo(f'[+] Building package {config.get("name")}')
 
-    package = Package.from_config(config, verbose=verbose, historical=add_historical)
+    package = Package.from_config(config, verbose=verbose)
 
     if update_version_lock:
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
     package.save(verbose=verbose)
 
-    if add_historical:
-        previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga", config['name'])
-        sde = SecurityDetectionEngine()
-        historical_rules = sde.load_integration_assets(previous_pkg_version)
-        historical_rules = sde.transform_legacy_assets(historical_rules)
+    previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga",
+                                                           registry_data['conditions']['kibana.version'].strip("^"))
+    sde = SecurityDetectionEngine()
+    historical_rules = sde.load_integration_assets(previous_pkg_version)
+    historical_rules = sde.transform_legacy_assets(historical_rules)
+    package.add_historical_rules(historical_rules, registry_data['version'])
+    click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
 
-        docs = IntegrationSecurityDocsMDX(config['registry_data']['version'], Path(f'releases/{config["name"]}-docs'),
+    # NOTE: stopgap solution until security doc migration
+    if generate_docs:
+        click.echo(f'[+] Generating security docs for {registry_data["version"]} package')
+        docs = IntegrationSecurityDocsMDX(registry_data['version'], Path(f'releases/{config["name"]}-docs'),
                                           True, historical_rules, package, note=update_message)
         docs.generate()
-
-        click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
-        package.add_historical_rules(historical_rules, config['registry_data']['version'])
 
     if verbose:
         package.get_package_hash(verbose=verbose)
@@ -134,14 +135,14 @@ def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
                      ) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, DeprecatedRule]):
     """Build documents from two git tags for an integration package."""
     pre_rules = RuleCollection()
-    pre_rules.load_git_tag(pre, remote, skip_query_validation=True)
+    pre_rules.load_git_tag(f'integration-v{pre}', remote, skip_query_validation=True)
 
     if pre_rules.errors:
         click.echo(f'error loading {len(pre_rules.errors)} rule(s) from: {pre}, skipping:')
         click.echo(' - ' + '\n - '.join([str(p) for p in pre_rules.errors]))
 
     post_rules = RuleCollection()
-    post_rules.load_git_tag(post, remote, skip_query_validation=True)
+    post_rules.load_git_tag(f'integration-v{post}', remote, skip_query_validation=True)
 
     if post_rules.errors:
         click.echo(f'error loading {len(post_rules.errors)} rule(s) from: {post}, skipping:')
@@ -153,12 +154,12 @@ def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
 
 @dev_group.command('build-integration-docs')
 @click.argument('registry-version')
-@click.option('--pre', required=True, help='Tag for pre-existing rules')
-@click.option('--post', required=True, help='Tag for rules post updates')
+@click.option('--pre', required=True, type=str, help='Tag for pre-existing rules')
+@click.option('--post', required=True, type=str, help='Tag for rules post updates')
 @click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
 @click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
 @click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
-@click.option('--update-message', default='Rule Updates.', help='Update message for new package')
+@click.option('--update-message', default='Rule Updates.', type=str, help='Update message for new package')
 @click.pass_context
 def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str,
                            directory: Path, force: bool, update_message: str,
@@ -167,6 +168,10 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
     if not force:
         if not click.confirm(f'This will refresh tags and may overwrite local tags for: {pre} and {post}. Continue?'):
             ctx.exit(1)
+
+    assert Version.parse(pre) < Version.parse(post), f'pre: {pre} is not less than post: {post}'
+    assert Version.parse(pre), f'pre: {pre} is not a valid semver'
+    assert Version.parse(post), f'post: {post} is not a valid semver'
 
     rules_changes = get_release_diff(pre, post, remote)
     docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes, update_message=update_message)
@@ -207,7 +212,7 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
         pkg_data["registry_data"]["version"] = str(pkg_ver.bump_minor().bump_prerelease("beta"))
     if patch_release:
         latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
-                                                                   maturity, pkg_data["name"])
+                                                                   maturity, pkg_kibana_ver)
 
         # if an existing minor or major does not have a package, bump from the last
         # example is 8.10.0-beta.1 is last, but on 9.0.0 major
@@ -219,13 +224,14 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
 
         if maturity == "ga":
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
-            pkg_data["registry_data"]["release"] = maturity
         else:
             # passing in true or false from GH actions; not using eval() for security purposes
             if new_package == "true":
                 latest_patch_release_ver = latest_patch_release_ver.bump_patch()
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_prerelease("beta"))
-            pkg_data["registry_data"]["release"] = maturity
+
+        if 'release' in pkg_data['registry_data']:
+            pkg_data['registry_data']['release'] = maturity
 
     click.echo(f"Kibana version: {pkg_data['name']}")
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
@@ -669,7 +675,8 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     None
     """)  # noqa: E501
 
-    pr = repo.create_pull(message, body, base_branch, branch_name, maintainer_can_modify=True, draft=draft)
+    pr = repo.create_pull(title=message, body=body, base=base_branch, head=branch_name,
+                          maintainer_can_modify=True, draft=draft)
 
     # labels could also be comma separated
     label = {lbl for cs_labels in label for lbl in cs_labels.split(",") if lbl}
@@ -1249,7 +1256,7 @@ def build_integration_schemas(overwrite: bool, integration: str):
     else:
         build_integrations_schemas(overwrite=overwrite)
         end_time = time.perf_counter()
-        click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} minutes")
+        click.echo(f"Time taken to generate schemas: {(end_time - start_time) / 60:.2f} minutes")
 
 
 @integrations_group.command('show-latest-compatible')

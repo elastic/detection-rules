@@ -336,7 +336,7 @@ class CollectRtaEvents(CollectEvents):
     def run(self, dsl, indexes, start_time):
         """Collect the events."""
         results = self.search(dsl, language='dsl', index=indexes, start_time=start_time, end_time='now', size=5000,
-                              sort='@timestamp:asc')
+                              sort=[{'@timestamp': {'order': 'asc'}}])
         events = self._group_events_by_type(results)
         return RtaEvents(events)
 

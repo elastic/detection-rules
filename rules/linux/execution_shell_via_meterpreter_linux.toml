@@ -4,7 +4,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "The sampling feature within EQL was introduced in 8.6.0"
 min_stack_version = "8.6.0"
-updated_date = "2023/11/02"
+updated_date = "2024/02/19"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ license = "Elastic License v2"
 name = "Potential Meterpreter Reverse Shell"
 risk_score = 47
 rule_id = "5c895b4f-9133-4e68-9e23-59902175355c"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from one of the following integrations:
 - Auditbeat
@@ -57,10 +57,10 @@ However, if more advanced configuration is required to detect specific behavior,
   -w /proc/net/ -p r -k audit_proc
   -w /etc/machine-id -p wa -k machineid
   -w /etc/passwd -p wa -k passwd
-
 """
 severity = "medium"
 tags = [
+        "Data Source: Auditd Manager",
         "Domain: Endpoint",
         "OS: Linux",
         "Use Case: Threat Detection",
@@ -70,16 +70,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 sample by host.id, process.pid, user.id
-[file where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and auditd.data.syscall == "open" and 
-  auditd.data.a2 == "1b6" and file.path == "/etc/machine-id"]
-[file where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and auditd.data.syscall == "open" and
-  auditd.data.a2 == "1b6" and file.path == "/etc/passwd"]
-[file where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and auditd.data.syscall == "open" and 
-  auditd.data.a2 == "1b6" and file.path == "/proc/net/route"]
-[file where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and auditd.data.syscall == "open" and
-  auditd.data.a2 == "1b6" and file.path == "/proc/net/ipv6_route"]
-[file where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and auditd.data.syscall == "open" and
-  auditd.data.a2 == "1b6" and file.path == "/proc/net/if_inet6"]
+  [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/etc/machine-id"]
+  [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/etc/passwd"]
+  [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/proc/net/route"]
+  [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/proc/net/ipv6_route"]
+  [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/proc/net/if_inet6"]
 '''
 
 [[rule.threat]]

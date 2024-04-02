@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2023/09/28"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of the built-in Windows Installer, msiexec.exe, to install a remote package. Adversaries may abuse
+msiexec.exe to launch local or network accessible MSI files.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Remote File Execution via MSIEXEC"
+risk_score = 21
+rule_id = "3e441bdb-596c-44fd-8628-2cfdf4516ada"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+type = "eql"
+
+query = '''
+sequence with maxspan=1m
+ [process where host.os.type == "windows" and event.action == "start" and
+    process.name : "msiexec.exe" and process.args : "/V"] by process.entity_id
+ [network where host.os.type == "windows" and process.name : "msiexec.exe" and
+    event.action == "connection_attempted"] by process.entity_id
+ [process where host.os.type == "windows" and event.action == "start" and
+  process.parent.name : "msiexec.exe" and user.id : ("S-1-5-21-*", "S-1-5-12-1-*") and
+  not process.executable : ("?:\\Windows\\SysWOW64\\msiexec.exe",
+                            "?:\\Windows\\System32\\msiexec.exe",
+                            "?:\\Windows\\System32\\srtasks.exe",
+                            "?:\\Windows\\SysWOW64\\srtasks.exe",
+                            "?:\\Windows\\System32\\taskkill.exe",
+                            "?:\\Windows\\Installer\\MSI*.tmp",
+                            "?:\\Program Files\\*.exe",
+                            "?:\\Program Files (x86)\\*.exe",
+                            "?:\\Windows\\System32\\ie4uinit.exe",
+                            "?:\\Windows\\SysWOW64\\ie4uinit.exe",
+                            "?:\\Windows\\System32\\sc.exe",
+                            "?:\\Windows\\system32\\Wbem\\mofcomp.exe",
+                            "?:\\Windows\\twain_32\\fjscan32\\SOP\\crtdmprc.exe",
+                            "?:\\Windows\\SysWOW64\\taskkill.exe",
+                            "?:\\Windows\\SysWOW64\\schtasks.exe",
+                            "?:\\Windows\\system32\\schtasks.exe",
+                            "?:\\Windows\\System32\\sdbinst.exe") and
+  not (process.code_signature.subject_name == "Citrix Systems, Inc." and process.code_signature.trusted == true) and
+  not (process.name : ("regsvr32.exe", "powershell.exe", "rundll32.exe", "wscript.exe") and
+       process.Ext.token.integrity_level_name == "high" and
+       process.args : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*")) and
+  not (process.executable : ("?:\\Program Files\\*.exe", "?:\\Program Files (x86)\\*.exe") and process.code_signature.trusted == true) and
+  not (process.name : "rundll32.exe" and process.args : "printui.dll,PrintUIEntry")
+  ] by process.parent.entity_id
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.007"
+name = "Msiexec"
+reference = "https://attack.mitre.org/techniques/T1218/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

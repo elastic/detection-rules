@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/12/18"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -45,7 +45,6 @@ This rule identifies a suspicious child process of the Java interpreter process.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 references = [
     "https://www.lunasec.io/docs/blog/log4j-zero-day/",
@@ -56,14 +55,13 @@ references = [
 ]
 risk_score = 47
 rule_id = "8acb7614-1d92-4359-bfcf-478b6d9de150"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
 Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
 `event.ingested` to @timestamp.
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-
 """
 severity = "medium"
 tags = ["Domain: Endpoint",
@@ -80,7 +78,11 @@ type = "new_terms"
 
 query = '''
 event.category:process and event.type:("start" or "process_started") and process.parent.name:"java" and process.name:(
-  "sh" or "bash" or "dash" or "ksh" or "tcsh" or "zsh" or "curl" or "wget"
+  bash or dash or sh or tcsh or csh or zsh or ksh or fish or python* or php* or perl or ruby or lua* or openssl or
+  nc or netcat or ncat or telnet or awk or socat or wget or curl
+) and process.args :(
+  whoami or id or uname or cat or hostname or ip or curl or wget or pwd or ls or cd or python* or php* or perl or
+  ruby or lua* or openssl or nc or netcat or ncat or telnet or awk or socat
 )
 '''
 
@@ -104,7 +106,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.command_line", "process.parent.command_line"]
+value = ["host.id", "process.command_line"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

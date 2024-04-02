@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
 min_stack_version = "8.11.0"
-updated_date = "2024/01/08"
+updated_date = "2024/02/21"
 
 [rule]
 author = ["Elastic"]
@@ -16,12 +16,13 @@ CAP_DAC_READ_SEARCH (where a process can read any file or perform any executable
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via Linux DAC permissions"
 risk_score = 47
 rule_id = "f7c70f2e-4616-439c-85ac-5b98415042fe"
-setup = """
+setup = """## Setup
+
 
 This rule requires data coming in from Elastic Defend.
 
@@ -45,16 +46,21 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Privilege Escalation",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-(process.thread.capabilities.permitted: "CAP_DAC_*" or process.thread.capabilities.effective: "CAP_DAC_*") and
-process.command_line : ("*sudoers*", "*passwd*", "*shadow*", "*/root/*") and user.id != "0"
+event.category:process and host.os.type:linux and event.type:start and event.action:exec and
+(process.thread.capabilities.permitted:CAP_DAC_* or process.thread.capabilities.effective: CAP_DAC_*) and
+process.command_line:(*sudoers* or *passwd* or *shadow* or */root/*) and not user.id:"0"
 '''
 
 [[rule.threat]]
@@ -69,3 +75,11 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.command_line", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

@@ -216,21 +216,74 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
 
 
 @dataclass(frozen=True)
+class AlertSuppressionDuration:
+    """Mapping to alert suppression duration."""
+    unit: definitions.TimeUnits
+    value: definitions.AlertSuppressionValue
+
+
+@dataclass(frozen=True)
 class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
     """Mapping to alert suppression."""
-    @dataclass
-    class AlertSuppressionDuration:
-        """Mapping to allert suppression duration."""
-        unit: definitions.TimeUnits
-        value: int
 
-    group_by: List[definitions.NonEmptyStr]
+    group_by: definitions.AlertSuppressionGroupBy
     duration: Optional[AlertSuppressionDuration]
     missing_fields_strategy: definitions.AlertSuppressionMissing
 
 
 @dataclass(frozen=True)
+class ThresholdAlertSuppression:
+    """Mapping to alert suppression."""
+
+    duration: AlertSuppressionDuration
+
+
+@dataclass(frozen=True)
+class FilterStateStore:
+    store: definitions.StoreType
+
+
+@dataclass(frozen=True)
+class FilterMeta:
+    alias: Optional[Union[str, None]] = None
+    disabled: Optional[bool] = None
+    negate: Optional[bool] = None
+    controlledBy: Optional[str] = None  # identify who owns the filter
+    group: Optional[str] = None  # allows grouping of filters
+    index: Optional[str] = None
+    isMultiIndex: Optional[bool] = None
+    type: Optional[str] = None
+    key: Optional[str] = None
+    params: Optional[str] = None  # Expand to FilterMetaParams when needed
+    value: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class WildcardQuery:
+    case_insensitive: bool
+    value: str
+
+
+@dataclass(frozen=True)
+class Query:
+    wildcard: Optional[Dict[str, WildcardQuery]] = None
+
+
+@dataclass(frozen=True)
+class Filter:
+    meta: FilterMeta
+    state: Optional[FilterStateStore] = field(metadata=dict(data_key="$state"))
+    query: Optional[Union[Query, Dict[str, Any]]] = None
+
+
+@dataclass(frozen=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
+    """Base rule data."""
+
+    @dataclass
+    class InvestigationFields:
+        field_names: List[definitions.NonEmptyStr]
+
     @dataclass
     class RequiredFields:
         name: definitions.NonEmptyStr
@@ -251,10 +304,11 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     exceptions_list: Optional[list]
     license: Optional[str]
     false_positives: Optional[List[str]]
-    filters: Optional[List[dict]]
+    filters: Optional[List[Filter]]
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
     interval: Optional[definitions.Interval]
+    investigation_fields: Optional[InvestigationFields] = field(metadata=dict(metadata=dict(min_compat="8.11")))
     max_signals: Optional[definitions.MaxSignals]
     meta: Optional[Dict[str, Any]]
     name: definitions.RuleName
@@ -559,7 +613,7 @@ class QueryValidator:
     def get_endgame_schema(self, index: list, endgame_version: str) -> Optional[endgame.EndgameSchema]:
         """Get an assembled flat endgame schema."""
 
-        if "endgame-*" not in index:
+        if index and "endgame-*" not in index:
             return None
 
         endgame_schema = endgame.read_endgame_schema(endgame_version=endgame_version)
@@ -572,6 +626,7 @@ class QueryRuleData(BaseRuleData):
     type: Literal["query"]
 
     index: Optional[List[str]]
+    data_view_id: Optional[str]
     query: str
     language: definitions.FilterLanguages
     alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.8")))
@@ -612,8 +667,8 @@ class QueryRuleData(BaseRuleData):
     def validates_query_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
         # alert suppression is only valid for query rule type and not any of its subclasses
-        if data.get('alert_suppression') and data['type'] != 'query':
-            raise ValidationError("Alert suppression is only valid for query rule type.")
+        if data.get('alert_suppression') and data['type'] not in ('query', 'threshold'):
+            raise ValidationError("Alert suppression is only valid for query and threshold rule types.")
 
 
 @dataclass(frozen=True)
@@ -641,6 +696,7 @@ class ThresholdQueryRuleData(QueryRuleData):
 
     type: Literal["threshold"]
     threshold: ThresholdMapping
+    alert_suppression: Optional[ThresholdAlertSuppression] = field(metadata=dict(metadata=dict(min_compat="8.12")))
 
 
 @dataclass(frozen=True)
@@ -663,7 +719,6 @@ class NewTermsRuleData(QueryRuleData):
 
     def transform(self, obj: dict) -> dict:
         """Transforms new terms data to API format for Kibana."""
-
         obj[obj["new_terms"].get("field")] = obj["new_terms"].get("value")
         obj["history_window_start"] = obj["new_terms"]["history_window_start"][0].get("value")
         del obj["new_terms"]
@@ -1348,8 +1403,8 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
     if language in ('kuery', 'eql'):
         # TODO: remove once py-eql supports ipv6 for cidrmatch
 
-        config = set_eql_config(rule.contents.metadata.get('min_stack_version'))
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
+        cfg = set_eql_config(rule.contents.metadata.get('min_stack_version'))
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, eql.parser.skip_optimizations, cfg:
             parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
 
         return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))

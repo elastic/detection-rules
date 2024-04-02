@@ -2,7 +2,7 @@
 creation_date = "2020/08/17"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/10/23"
+updated_date = "2024/03/28"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -39,7 +39,7 @@ Identifies potential hijacking of the Microsoft Update Orchestrator Service to e
 level of SYSTEM.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Update Orchestrator Service Hijack"
@@ -94,12 +94,11 @@ This rule will detect uncommon processes spawned by `svchost.exe` with `UsoSvc` 
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
 """
 references = ["https://github.com/irsl/CVE-2020-1313"]
 risk_score = 73
 rule_id = "265db8f5-fc73-4d0d-b434-6483b56372e2"
-setup="""
+setup = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
