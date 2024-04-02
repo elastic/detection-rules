@@ -19,13 +19,15 @@ import zipfile
 from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
 from pathlib import Path
-from typing import Dict, Union, Optional, Callable
+from typing import Dict, List, Union, Optional, Callable
 from string import Template
 
 import click
 import pytoml
 import eql.utils
 from eql.utils import load_dump, stream_json_lines
+from lark import Token
+from lark.tree import Tree
 
 import kql
 
@@ -263,6 +265,25 @@ def normalize_timing_and_sort(events, timestamp='@timestamp', asc=True):
             event[timestamp] = unix_time_to_formatted(_timestamp)
 
     return event_sort(events, timestamp=timestamp, asc=asc)
+
+def normalize_kql_keywords(query: str) -> str:
+    """Normalize KQL keywords to lowercase."""
+
+    def process_tree(tree: Tree, query_chars: List[str]) -> None:
+        """Process the tree and replace keyword tokens with their lowercase version."""
+        for child in tree.children:
+            if isinstance(child, Token) and child.type == child.value:
+                start = child.start_pos
+                end = start + len(child.value)
+                query_chars[start:end] = child.value.lower()
+            elif isinstance(child, Tree):
+                process_tree(child, query_chars)
+
+    query_chars = list(query)
+    tree = kql.lark_parse(query)
+    process_tree(tree, query_chars)
+
+    return "".join(query_chars)
 
 
 def freeze(obj):
