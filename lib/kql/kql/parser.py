@@ -116,10 +116,12 @@ class BaseKqlParser(Interpreter):
                 if "*" in field:
                     self.star_fields.append(wildcard2regex(field))
 
-    def assert_lower_token(self, *tokens):
+    def assert_lower_token(self, *tokens: Token) -> None:
+        """Assert that the token is lowercase and converts token if not."""
         for token in tokens:
             if str(token) != str(token).lower():
-                raise self.error(token, "Expected '{lower}' but got '{token}'".format(token=token, lower=str(token).lower()))
+                token.value = str(token).lower()
+                print(f"Warning: Normalized KQL keywords in query to lowercase: {str(token)}")
 
     def error(self, node, message, end=False, cls=KqlParseError, width=None, **kwargs):
         """Generate an error exception but dont raise it."""

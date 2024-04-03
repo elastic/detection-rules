@@ -36,7 +36,6 @@ class KQLValidator(QueryValidator):
 
     @cached_property
     def ast(self) -> kql.ast.Expression:
-        # TODO maybe add add normaizer here
         return kql.parse(self.query)
 
     @cached_property
