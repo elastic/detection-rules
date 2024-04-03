@@ -31,8 +31,8 @@ class LintTests(unittest.TestCase):
         ]
 
         for q in queries:
-            with self.assertRaises(kql.KqlParseError):
-                kql.parse(q)
+            parsed_query = kql.parse(q)
+            self.assertNotEqual(str(parsed_query), q, f"Parsed query {parsed_query} matches the original {q}")
 
     def test_lint_precedence(self):
         self.validate("a:b or (c:d and e:f)", "a:b or c:d and e:f")
