@@ -121,13 +121,13 @@ class BaseKqlParser(Interpreter):
     def assert_lower_token(self, *tokens: Token) -> None:
         """Assert that the token is lowercase and converts token if not."""
         for token in tokens:
-            if str(token) != str(token).lower() and self.normalize_kql_keywords:
-                token.value = str(token).lower()
-                print(f"Warning: Normalized KQL keywords in query to lowercase: {str(token)}")
-            else:
-                raise self.error(
-                    token, "Expected '{lower}' but got '{token}'".format(token=token, lower=str(token).lower())
-                )
+            lower_token = str(token).lower()
+            if str(token) != lower_token:
+                if self.normalize_kql_keywords:
+                    token.value = lower_token
+                    print(f"Warning: Normalized KQL keywords in query to lowercase: {lower_token}")
+                else:
+                    raise self.error(token, f"Expected '{lower_token}' but got '{token}'")
 
     def error(self, node, message, end=False, cls=KqlParseError, width=None, **kwargs):
         """Generate an error exception but dont raise it."""
