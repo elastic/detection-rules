@@ -45,12 +45,12 @@ def to_eql(text, optimize=True, schema=None):
     return converted.optimize(recursive=True) if optimize else converted
 
 
-def parse(text, optimize=True, schema=None):
+def parse(text, optimize: bool = True, schema: dict = None, normalize_kql_keywords: bool = True):
     if isinstance(text, bytes):
         text = text.decode("utf-8")
 
     lark_parsed = lark_parse(text)
-    converted = KqlParser(text, schema=schema).visit(lark_parsed)
+    converted = KqlParser(text, schema=schema, normalize_kql_keywords=normalize_kql_keywords).visit(lark_parsed)
 
     return converted.optimize(recursive=True) if optimize else converted
 
