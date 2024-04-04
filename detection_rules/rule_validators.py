@@ -4,10 +4,14 @@
 # 2.0.
 
 """Validation logic for rules containing queries."""
-from functools import cached_property
-from typing import List, Optional, Tuple, Union
+from enum import Enum
+from functools import cached_property, wraps
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import eql
+from eql import ast
+from eql.parser import KvTree, LarkToEQL, NodeInfo, TypeHint
+from eql.parser import _parse as base_parse
 from marshmallow import ValidationError
 from semver import Version
 
@@ -29,6 +33,73 @@ EQL_ERROR_TYPES = Union[eql.EqlCompileError,
                         eql.EqlSyntaxError,
                         eql.EqlTypeMismatchError]
 KQL_ERROR_TYPES = Union[kql.KqlCompileError, kql.KqlParseError]
+
+
+class ExtendedTypeHint(Enum):
+    IP = "ip"
+
+    @classmethod
+    def primitives(cls):
+        """Get all primitive types."""
+        return TypeHint.Boolean, TypeHint.Numeric, TypeHint.Null, TypeHint.String, ExtendedTypeHint.IP
+
+    def is_primitive(self):
+        """Check if a type is a primitive."""
+        return self in self.primitives()
+
+
+
+def custom_in_set(self, node: KvTree) -> NodeInfo:
+    """Override and address the limitations of the eql in_set method."""
+    # return BaseInSetMethod(self, node)
+    outer, container = self.visit(node.child_trees)  # type: (NodeInfo, list[NodeInfo])
+
+    if not outer.validate_type(ExtendedTypeHint.primitives()):
+        # can't compare non-primitives to sets
+        raise self._type_error(outer, ExtendedTypeHint.primitives())
+
+    # Check that everything inside the container has the same type as outside
+    error_message = "Unable to compare {expected_type} to {actual_type}"
+    for inner in container:
+        if not inner.validate_type(outer):
+            raise self._type_error(inner, outer, error_message)
+
+    if self._elasticsearch_syntax and hasattr(outer, "type_info"):
+        # Check edge case of in_set and ip/string comparison
+        outer_type = outer.type_info
+        type_hint = self._schema.schema.get(str(outer.node), "unknown")
+        if hasattr(self._schema, "type_mapping") and type_hint == "ip":
+            outer.type_info = ExtendedTypeHint.IP
+            for inner in container:
+                if not inner.validate_type(outer):
+                    raise self._type_error(inner, outer, error_message)
+
+        # reset the type
+        outer.type_info = outer_type
+
+    # This will always evaluate to true/false, so it should be a boolean
+    term = ast.InSet(outer.node, [c.node for c in container])
+    nullable = outer.nullable or any(c.nullable for c in container)
+    return NodeInfo(term, TypeHint.Boolean, nullable=nullable, source=node)
+
+
+def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Override and address the limitations of the eql in_set method."""
+
+    @wraps(func)
+    def wrapper(query: str, start: Optional[str] = None, **kwargs: Dict[str, Any]) -> Any:
+        original_in_set = LarkToEQL.in_set
+        LarkToEQL.in_set = custom_in_set
+        try:
+            result = func(query, start=start, **kwargs)
+        # Using finally to ensure that the original method is restored
+        finally:
+            LarkToEQL.in_set = original_in_set
+        return result
+
+    return wrapper
+
+eql.parser._parse = custom_base_parse_decorator(base_parse)
 
 
 class KQLValidator(QueryValidator):
@@ -214,7 +285,7 @@ class EQLValidator(QueryValidator):
     def text_fields(self, eql_schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema]) -> List[str]:
         """Return a list of fields of type text."""
         from kql.parser import elasticsearch_type_family
-        schema = eql_schema.kql_schema if isinstance(eql_schema, ecs.KqlSchema2Eql) else eql_schema.endgame_schema
+        schema = eql_schema.schema if isinstance(eql_schema, ecs.KqlSchema2Eql) else eql_schema.endgame_schema
 
         return [f for f in self.unique_fields if elasticsearch_type_family(schema.get(f)) == 'text']
 
