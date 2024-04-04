@@ -35,7 +35,7 @@ class LintTests(unittest.TestCase):
                 kql.parse(q)
 
         for q in queries:
-            parsed_query = kql.parse(q, normalize_kql_keywords = True)
+            parsed_query = kql.parse(q, normalize_kql_keywords=True)
             self.assertNotEqual(str(parsed_query), q, f"Parsed query {parsed_query} matches the original {q}")
 
     def test_lint_precedence(self):
