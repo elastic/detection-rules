@@ -48,7 +48,6 @@ class ExtendedTypeHint(Enum):
         return self in self.primitives()
 
 
-
 def custom_in_set(self, node: KvTree) -> NodeInfo:
     """Override and address the limitations of the eql in_set method."""
     # return BaseInSetMethod(self, node)
@@ -100,6 +99,7 @@ def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 eql.parser._parse = custom_base_parse_decorator(base_parse)
+
 
 
 class KQLValidator(QueryValidator):
