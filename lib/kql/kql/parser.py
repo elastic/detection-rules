@@ -125,7 +125,6 @@ class BaseKqlParser(Interpreter):
             if str(token) != lower_token:
                 if self.normalize_kql_keywords:
                     token.value = lower_token
-                    print(f"Warning: Normalized KQL keywords in query to lowercase: {lower_token}")
                 else:
                     raise self.error(token, f"Expected '{lower_token}' but got '{token}'")
 

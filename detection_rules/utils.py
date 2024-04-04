@@ -278,11 +278,11 @@ def normalize_kql_keywords(query: str) -> str:
                 end = start + len(child.value)
                 query_chars[start:end] = child.value.lower()
             elif isinstance(child, Tree):
-                process_tree(child, query_chars)
+                lower_keywords_in_tree(child, query_chars)
 
     query_chars = list(query)
     tree = kql.lark_parse(query)
-    process_tree(tree, query_chars)
+    lower_keywords_in_tree(tree, query_chars)
 
     return "".join(query_chars)
 
