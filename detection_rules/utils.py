@@ -270,7 +270,7 @@ def normalize_timing_and_sort(events, timestamp='@timestamp', asc=True):
 def normalize_kql_keywords(query: str) -> str:
     """Normalize KQL keywords to lowercase."""
 
-    def process_tree(tree: Tree, query_chars: List[str]) -> None:
+    def lower_keywords_in_tree(tree: Tree, query_chars: List[str]) -> None:
         """Process the tree and replace keyword tokens with their lowercase version."""
         for child in tree.children:
             if isinstance(child, Token) and child.type == child.value:
