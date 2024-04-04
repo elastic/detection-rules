@@ -267,26 +267,6 @@ def normalize_timing_and_sort(events, timestamp='@timestamp', asc=True):
     return event_sort(events, timestamp=timestamp, asc=asc)
 
 
-def normalize_kql_keywords(query: str) -> str:
-    """Normalize KQL keywords to lowercase."""
-
-    def lower_keywords_in_tree(tree: Tree, query_chars: List[str]) -> None:
-        """Process the tree and replace keyword tokens with their lowercase version."""
-        for child in tree.children:
-            if isinstance(child, Token) and child.type == child.value:
-                start = child.start_pos
-                end = start + len(child.value)
-                query_chars[start:end] = child.value.lower()
-            elif isinstance(child, Tree):
-                lower_keywords_in_tree(child, query_chars)
-
-    query_chars = list(query)
-    tree = kql.lark_parse(query)
-    lower_keywords_in_tree(tree, query_chars)
-
-    return "".join(query_chars)
-
-
 def freeze(obj):
     """Helper function to make mutable objects immutable and hashable."""
     if not isinstance(obj, type) and is_dataclass(obj):
