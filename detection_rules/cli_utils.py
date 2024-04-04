@@ -161,11 +161,6 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
                 contents[name] = threat_map
             continue
 
-        if name == 'threshold':
-            contents[name] = {n: schema_prompt(f'threshold {n}', is_required=n in options['required'], **opts.copy())
-                              for n, opts in options['properties'].items()}
-            continue
-
         if kwargs.get(name):
             contents[name] = schema_prompt(name, value=kwargs.pop(name))
             continue
