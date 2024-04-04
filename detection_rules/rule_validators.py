@@ -98,8 +98,8 @@ def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
 
     return wrapper
 
-eql.parser._parse = custom_base_parse_decorator(base_parse)
 
+eql.parser._parse = custom_base_parse_decorator(base_parse)
 
 
 class KQLValidator(QueryValidator):
