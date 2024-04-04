@@ -19,15 +19,13 @@ import zipfile
 from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
 from pathlib import Path
-from typing import Dict, List, Union, Optional, Callable
+from typing import Dict, Union, Optional, Callable
 from string import Template
 
 import click
 import pytoml
 import eql.utils
 from eql.utils import load_dump, stream_json_lines
-from lark import Token
-from lark.tree import Tree
 
 import kql
 
