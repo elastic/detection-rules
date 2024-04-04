@@ -46,6 +46,41 @@ BUILD_FIELD_VERSIONS = {
 }
 
 
+@dataclass
+class DictRule:
+    """Simple object wrapper for raw rule dicts."""
+
+    contents: dict
+    path: Optional[Path] = None
+
+    @property
+    def metadata(self) -> dict:
+        """Metadata portion of TOML file rule."""
+        return self.contents.get('metadata', {})
+
+    @property
+    def data(self) -> dict:
+        """Rule portion of TOML file rule."""
+        return self.contents.get('data') or self.contents
+
+    @property
+    def id(self) -> str:
+        """Get the rule ID."""
+        return self.data['rule_id']
+
+    @property
+    def name(self) -> str:
+        """Get the rule name."""
+        return self.data['name']
+    def __hash__(self):
+        """Get the hash of the rule."""
+        return hash(self.id + self.name)
+
+    def __repr__(self):
+        """Get a string representation of the rule."""
+        return f"Rule({self.name} {self.id})"
+
+
 @dataclass(frozen=True)
 class RuleMeta(MarshmallowDataclassMixin):
     """Data stored in a rule's [metadata] section of TOML."""

@@ -5,17 +5,18 @@
 
 """Kibana cli commands."""
 import sys
-from typing import List, Optional, Tuple
+from typing import Iterable, List, Optional
 
 import click
 
-
 import kql
 from kibana import Signal, RuleResource
+
 from .cli_utils import multi_collection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
 from .rule import downgrade_contents_from_rule
+from .rule_loader import RuleCollection
 from .utils import format_command_options
 
 
@@ -39,7 +40,7 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 @multi_collection
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
 @click.pass_context
-def upload_rule(ctx, rules, replace_id):
+def upload_rule(ctx, rules: RuleCollection, replace_id):
     """Upload a list of rule .toml files to Kibana."""
     kibana = ctx.obj['kibana']
     api_payloads = []
@@ -78,7 +79,7 @@ def upload_rule(ctx, rules, replace_id):
 @click.option('--overwrite-exceptions', '-e', is_flag=True, help='Overwrite exceptions in existing rules')
 @click.option('--overwrite-action-connectors', '-a', is_flag=True,
               help='Overwrite action connectors in existing rules')
-def kibana_import_rules(ctx: click.Context, rules: Tuple[dict], overwrite: Optional[bool] = False,
+def kibana_import_rules(ctx: click.Context, rules: Iterable[dict], overwrite: Optional[bool] = False,
                         overwrite_exceptions: Optional[bool] = False,
                         overwrite_action_connectors: Optional[bool] = False) -> (dict, List[RuleResource]):
     """Import rules into Kibana."""
@@ -93,7 +94,7 @@ def kibana_import_rules(ctx: click.Context, rules: Tuple[dict], overwrite: Optio
 
 @kibana_group.command('export-rules')
 @click.option('--rule-id', '-r', multiple=True, help='Optional Rule IDs to restrict export to')
-def kibana_export_rules(ctx: click.Context, rule_id: Optional[Tuple[str]] = None) -> List[RuleResource]:
+def kibana_export_rules(ctx: click.Context, rule_id: Optional[Iterable[str]] = None) -> List[RuleResource]:
     """Export rules from Kibana."""
     kibana = ctx.obj['kibana']
     with kibana:
