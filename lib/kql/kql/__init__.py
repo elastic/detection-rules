@@ -45,7 +45,7 @@ def to_eql(text, optimize=True, schema=None):
     return converted.optimize(recursive=True) if optimize else converted
 
 
-def parse(text, optimize: bool = True, schema: dict = None, normalize_kql_keywords: bool = True):
+def parse(text, optimize: bool = True, schema: dict = None, normalize_kql_keywords: bool = False):
     if isinstance(text, bytes):
         text = text.decode("utf-8")
 
