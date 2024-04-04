@@ -241,7 +241,7 @@ def convert_time_span(span: str) -> int:
 
 def evaluate(rule, events):
     """Evaluate a query against events."""
-    evaluator = kql.get_evaluator(kql.parse(rule.query))
+    evaluator = kql.get_evaluator(kql.parse(rule.query, normalize_kql_keywords=True))
     filtered = list(filter(evaluator, events))
     return filtered
 
