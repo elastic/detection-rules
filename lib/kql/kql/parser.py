@@ -104,22 +104,29 @@ class BaseKqlParser(Interpreter):
     quoted_escapes = {"\\t": "\t", "\\r": "\r", "\\n": "\n", "\\\\": "\\", "\\\"": "\""}
     quoted_regex = re.compile("(" + "|".join(re.escape(e) for e in sorted(quoted_escapes)) + ")")
 
-    def __init__(self, text, schema=None):
+    def __init__(self, text: str, schema: dict = None, normalize_kql_keywords: bool = True) -> None:
+        """Initialize the parser. Defaults to normalizing KQL keywords to lowercase."""
         self.text = text
         self.lines = [t.rstrip("\r\n") for t in self.text.splitlines(True)]
         self.scoped_field = None
         self.mapping_schema = schema
         self.star_fields = []
+        self.normalize_kql_keywords = normalize_kql_keywords
 
         if schema:
             for field, field_type in schema.items():
                 if "*" in field:
                     self.star_fields.append(wildcard2regex(field))
 
-    def assert_lower_token(self, *tokens):
+    def assert_lower_token(self, *tokens: Token) -> None:
+        """Assert that the token is lowercase and converts token if not."""
         for token in tokens:
-            if str(token) != str(token).lower():
-                raise self.error(token, "Expected '{lower}' but got '{token}'".format(token=token, lower=str(token).lower()))
+            lower_token = str(token).lower()
+            if str(token) != lower_token:
+                if self.normalize_kql_keywords:
+                    token.value = lower_token
+                else:
+                    raise self.error(token, f"Expected '{lower_token}' but got '{token}'")
 
     def error(self, node, message, end=False, cls=KqlParseError, width=None, **kwargs):
         """Generate an error exception but dont raise it."""
