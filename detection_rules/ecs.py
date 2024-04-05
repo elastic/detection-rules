@@ -184,9 +184,6 @@ class KqlSchema2Eql(eql.Schema):
         #   `X` where ....
         return True
 
-    def flatten(self):
-        pass
-
     def get_event_type_hint(self, event_type, path):
         from kql.parser import elasticsearch_type_family
 
