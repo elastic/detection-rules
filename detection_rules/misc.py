@@ -149,10 +149,10 @@ def schema_prompt(name, value=None, is_required=False, **options):
         if enum and _val not in enum:
             print('{} not in valid options: {}'.format(_val, ', '.join(enum)))
             return False
-        if minimum and (type(_val) == int and int(_val) < minimum):
+        if minimum and (type(_val) is int and int(_val) < minimum):
             print('{} is less than the minimum: {}'.format(str(_val), str(minimum)))
             return False
-        if maximum and (type(_val) == int and int(_val) > maximum):
+        if maximum and (type(_val) is int and int(_val) > maximum):
             print('{} is greater than the maximum: {}'.format(str(_val), str(maximum)))
             return False
         if field_type == 'boolean' and _val.lower() not in ('true', 'false'):
@@ -161,7 +161,7 @@ def schema_prompt(name, value=None, is_required=False, **options):
         return True
 
     def _convert_type(_val):
-        if field_type == 'boolean' and not type(_val) == bool:
+        if field_type == 'boolean' and not type(_val) is bool:
             _val = True if _val.lower() == 'true' else False
         return int(_val) if field_type in ('number', 'integer') else _val
 
@@ -431,13 +431,16 @@ def add_client(*client_type, add_to_ctx=True, add_func_arg=True):
             if 'kibana' in client_type:
                 # for nested ctx invocation, no need to re-auth if an existing client is already passed
                 kibana_client: Kibana = kwargs.get('kibana_client')
-                try:
-                    with kibana_client:
-                        if kibana_client and isinstance(kibana_client, Kibana) and kibana_client.version:
-                            pass
-                        else:
-                            kibana_client = get_kibana_client(**kibana_client_args)
-                except (requests.HTTPError, AttributeError):
+                if kibana_client and isinstance(kibana_client, Kibana):
+
+                    try:
+                        with kibana_client:
+                            if kibana_client.version:
+                                pass  # kibana_client is valid and can be used directly
+                    except (requests.HTTPError, AttributeError):
+                        kibana_client = get_kibana_client(**kibana_client_args)
+                else:
+                    # Instantiate a new Kibana client if none was provided or if the provided one is not usable
                     kibana_client = get_kibana_client(**kibana_client_args)
 
                 if add_func_arg:

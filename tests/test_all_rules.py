@@ -283,7 +283,9 @@ class TestRuleTags(BaseRuleTest):
             'traces-apm*': {'all': ['Data Source: APM']},
             '.alerts-security.*': {'all': ['Rule Type: Higher-Order Rule']},
             'logs-cyberarkpas.audit*': {'all': ['Data Source: CyberArk PAS']},
-            'logs-endpoint.alerts-*': {'all': ['Data Source: Elastic Defend']}
+            'logs-endpoint.alerts-*': {'all': ['Data Source: Elastic Defend']},
+            'logs-windows.sysmon_operational-*': {'all': ['Data Source: Sysmon']},
+            'logs-windows.powershell*': {'all': ['Data Source: PowerShell Logs']},
         }
 
         for rule in self.all_rules:
@@ -961,7 +963,7 @@ class TestRuleTiming(BaseRuleTest):
         for rule in self.all_rules:
             # skip rules that do not leverage queries (i.e. machine learning)
             # filters to acceptable query languages in definitions.FilterLanguages
-            # QueryRuleData should inheritenly ignore machine learning rules
+            # QueryRuleData should inherently ignore machine learning rules
             if isinstance(rule.contents.data, QueryRuleData):
                 rule_language = rule.contents.data.language
                 has_event_ingested = rule.contents.data.get('timestamp_override') == 'event.ingested'
@@ -971,7 +973,7 @@ class TestRuleTiming(BaseRuleTest):
                     # TODO: determine if we expand this to ES|QL
                     # ignores any rule that does not use EQL or KQL queries specifically
                     # this does not avoid rule types where variants of KQL are used (e.g. new terms)
-                    if rule_language not in ('eql', 'kuery') or rule.contents.data.is_sequence:
+                    if rule_language not in ('eql', 'kuery') or getattr(rule.contents.data, 'is_sequence', False):
                         continue
                     else:
                         errors.append(f'{rule_str} - rule must have `timestamp_override: event.ingested`')

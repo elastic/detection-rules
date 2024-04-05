@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/09/21"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,14 +13,14 @@ Identifies processes that are capable of downloading files with command line arg
 autonomous SSH worm. This worm intercepts outgoing SSH connections every time a user uses ssh. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential SSH-IT SSH Worm Downloaded"
 references = ["https://www.thc.org/ssh-it/"]
 risk_score = 47
 rule_id = "2ddc468e-b39b-4f5b-9825-f3dcb0e998ea"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -45,21 +45,22 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
-tags = ["Domain: Endpoint",
+tags = [
+        "Domain: Endpoint",
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Lateral Movement",
         "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"]
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
-process.name in ("curl", "wget") and process.args : (
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
+ and process.name in ("curl", "wget") and process.args : (
   "https://thc.org/ssh-it/x", "http://nossl.segfault.net/ssh-it-deploy.sh", "https://gsocket.io/x",
   "https://thc.org/ssh-it/bs", "http://nossl.segfault.net/bs"
 )
@@ -92,4 +93,3 @@ reference = "https://attack.mitre.org/techniques/T1563/001/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-

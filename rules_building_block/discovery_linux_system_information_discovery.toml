@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/07/10"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/10"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -12,27 +12,36 @@ building_block_type = "default"
 description = "Enrich process events with uname and other command lines that imply Linux system information discovery."
 from = "now-119m"
 interval = "60m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux System Information Discovery"
 risk_score = 21
 rule_id = "b81bd314-db5b-4d97-82e8-88e3e5fc9de5"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and
-(
-  process.name: "uname" or
-  (process.name: ("cat", "more", "less") and
-  process.args: ("*issue*", "*version*", "*profile*", "*services*", "*cpuinfo*"))
+process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and (
+  process.name: "uname" or (
+  process.name: ("cat", "more", "less") and process.args: ("*issue*", "*version*", "*profile*", "*services*", "*cpuinfo*")
+  )
 )
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"

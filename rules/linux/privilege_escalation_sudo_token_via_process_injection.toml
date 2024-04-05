@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,7 @@ name = "Potential Sudo Token Manipulation via Process Injection"
 references = ["https://github.com/nongiach/sudo_inject"]
 risk_score = 47
 rule_id = "ff9bc8b9-f03b-4283-be58-ee0a16f5a11b"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -47,14 +47,13 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
 type = "eql"
 query = '''
 sequence by host.id, process.session_leader.entity_id with maxspan=15s
-[ process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+[ process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
   process.name == "gdb" and process.user.id != "0" and process.group.id != "0" ]
 [ process where host.os.type == "linux" and event.action == "uid_change" and event.type == "change" and 
   process.name == "sudo" and process.user.id == "0" and process.group.id == "0" ]

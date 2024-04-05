@@ -1,30 +1,28 @@
 [metadata]
 creation_date = "2023/04/11"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.5.0"
-updated_date = "2023/11/02"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies instances where a process named 'grep', 'egrep', or 'pgrep' is started on a Linux system with arguments
-related to virtual machine (VM) files, such as "vmdk", "vmx", "vmxf", "vmsd", "vmsn", "vswp", "vmss", "nvram",
-or "vmem". These file extensions are associated with VM-related file formats, and their presence in grep command
-arguments may indicate that a threat actor is attempting to search for, analyze, or manipulate VM files on the system.
+Identifies instances where a process named 'grep', 'egrep', or 'pgrep' is started on a Linux system with arguments 
+related to virtual machine (VM) files, such as "vmdk", "vmx", "vmxf", "vmsd", "vmsn", "vswp", "vmss", "nvram", or
+"vmem". These file extensions are associated with VM-related file formats, and their presence in grep command arguments
+may indicate that a threat actor is attempting to search for, analyze, or manipulate VM files on the system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "ESXI Discovery via Grep"
-references = [
-    "https://www.bleepingcomputer.com/news/security/massive-esxiargs-ransomware-attack-targets-vmware-esxi-servers-worldwide/",
-]
+references = ["https://www.bleepingcomputer.com/news/security/massive-esxiargs-ransomware-attack-targets-vmware-esxi-servers-worldwide/"]
 risk_score = 47
 rule_id = "2b662e21-dc6e-461e-b5cf-a6eb9b235ec4"
-setup = """
+setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
 
@@ -48,26 +46,33 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click "Save and Continue".
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Data Source: Auditd Manager"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.name in ("grep", "egrep", "pgrep") and
-process.args in ("vmdk", "vmx", "vmxf", "vmsd", "vmsn", "vswp", "vmss", "nvram", "vmem")
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
+ and process.name in ("grep", "egrep", "pgrep") and process.args in (
+  "vmdk", "vmx", "vmxf", "vmsd", "vmsn", "vswp", "vmss", "nvram", "vmem"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1518"
 name = "Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/"
-
 
 [rule.threat.tactic]
 id = "TA0007"

@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/04/03"
-integration = ["windows", "endpoint"]
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
 min_stack_version = "8.4.0"
-updated_date = "2023/05/31"
+updated_date = "2024/03/28"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ when a process is started whose name or code signature resembles commonly abused
 indicating the host has not seen this RAT process started before within the last 30 days.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.process-*", "endgame-*", "winlogbeat-*", "logs-windows.*", "logs-system.security*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "First Time Seen Commonly Abused Remote Access Tool Execution"
@@ -56,11 +56,12 @@ This rule detects when a remote access tool is seen in the environment for the f
 references = [
     "https://thedfirreport.com/2023/04/03/malicious-iso-file-leads-to-domain-wide-ransomware/",
     "https://attack.mitre.org/techniques/T1219/",
+    "https://github.com/redcanaryco/surveyor/blob/master/definitions/remote-admin.json"
 ]
 risk_score = 47
 rule_id = "6e1a2cc4-d260-11ed-8829-f661ea17fbcc"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Resources: Investigation Guide", "Data Source: Elastic Defend", "Data Source: Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -70,20 +71,193 @@ host.os.type: "windows" and
    event.category: "process" and event.type : "start" and
 
     (
-    process.code_signature.subject_name : (
-        TeamViewer* or "NetSupport Ltd" or "GlavSoft" or "LogMeIn, Inc." or "Ammyy LLC" or
-        "Nanosystems S.r.l." or "Remote Utilities LLC" or "ShowMyPC" or "Splashtop Inc." or
-        "Yakhnovets Denis Aleksandrovich IP" or "Pro Softnet Corporation" or "BeamYourScreen GmbH" or
-        "RealVNC" or "uvnc" or "SAFIB") or
+        process.code_signature.subject_name : (
+            "Action1 Corporation" or
+            "AeroAdmin LLC" or
+            "Ammyy LLC" or
+            "Atera Networks Ltd" or
+            "AWERAY PTE. LTD." or
+            "BeamYourScreen GmbH" or
+            "Bomgar Corporation" or
+            "DUC FABULOUS CO.,LTD" or
+            "DOMOTZ INC." or
+            "DWSNET OÜ" or
+            "FleetDeck Inc" or
+            "GlavSoft LLC" or
+            "GlavSoft LLC." or
+            "Hefei Pingbo Network Technology Co. Ltd" or
+            "IDrive, Inc." or
+            "IMPERO SOLUTIONS LIMITED" or
+            "Instant Housecall" or
+            "ISL Online Ltd." or
+            "LogMeIn, Inc." or
+            "Monitoring Client" or
+            "MMSOFT Design Ltd." or
+            "Nanosystems S.r.l." or
+            "NetSupport Ltd" or
+            "NinjaRMM, LLC" or
+            "Parallels International GmbH" or
+            "philandro Software GmbH" or
+            "Pro Softnet Corporation" or
+            "RealVNC" or
+            "RealVNC Limited" or
+            "BreakingSecurity.net" or
+            "Remote Utilities LLC" or
+            "Rocket Software, Inc." or
+            "SAFIB" or
+            "Servably, Inc." or
+            "ShowMyPC INC" or
+            "Splashtop Inc." or
+            "Superops Inc." or
+            "TeamViewer" or
+            "TeamViewer GmbH" or
+            "TeamViewer Germany GmbH" or
+            "Techinline Limited" or
+            "uvnc bvba" or
+            "Yakhnovets Denis Aleksandrovich IP" or
+            "Zhou Huabing"
+        ) or
 
-    process.name.caseless : (
-        "teamviewer.exe" or "apc_Admin.exe" or "apc_host.exe" or "SupremoHelper.exe" or "rfusclient.exe" or
-        "spclink.exe" or "smpcview.exe" or "ROMServer.exe" or "strwinclt.exe" or "RPCSuite.exe" or "RemotePCDesktop.exe" or
-        "RemotePCService.exe" or "tvn.exe" or "LMIIgnition.exe" or "B4-Service.exe" or "Mikogo-Service.exe" or "AnyDesk.exe" or
-        "Splashtop-streamer.exe" or AA_v*.exe, or "rutserv.exe" or "rutview.exe" or "vncserver.exe" or "vncviewer.exe" or
-        "tvnserver.exe" or "tvnviewer.exe" or "winvnc.exe" or "RemoteDesktopManager.exe" or "LogMeIn.exe" or ScreenConnect*.exe or
-        "RemotePC.exe" or "r_server.exe" or "radmin.exe" or "ROMServer.exe" or "ROMViewer.exe" or "DWRCC.exe" or "AeroAdmin.exe" or
-        "ISLLightClient.exe" or "ISLLight.exe" or "AteraAgent.exe" or "SRService.exe")
+        process.name.caseless : (
+            AA_v*.exe or
+            "AeroAdmin.exe" or
+            "AnyDesk.exe" or
+            "apc_Admin.exe" or
+            "apc_host.exe" or
+            "AteraAgent.exe" or
+            aweray_remote*.exe or
+            "AweSun.exe" or
+            "B4-Service.exe" or
+            "BASupSrvc.exe" or
+            "bomgar-scc.exe" or
+            "domotzagent.exe" or
+            "domotz-windows-x64-10.exe" or
+            "dwagsvc.exe" or
+            "DWRCC.exe" or
+            "ImperoClientSVC.exe" or
+            "ImperoServerSVC.exe" or
+            "ISLLight.exe" or
+            "ISLLightClient.exe" or
+            fleetdeck_commander*.exe or
+            "getscreen.exe" or
+            "LMIIgnition.exe" or
+            "LogMeIn.exe" or
+            "ManageEngine_Remote_Access_Plus.exe" or
+            "Mikogo-Service.exe" or
+            "NinjaRMMAgent.exe" or
+            "NinjaRMMAgenPatcher.exe" or
+            "ninjarmm-cli.exe" or
+            "r_server.exe" or
+            "radmin.exe" or
+            "radmin3.exe" or
+            "RCClient.exe" or
+            "RCService.exe" or
+            "RemoteDesktopManager.exe" or
+            "RemotePC.exe" or
+            "RemotePCDesktop.exe" or
+            "RemotePCService.exe" or
+            "rfusclient.exe" or
+            "ROMServer.exe" or
+            "ROMViewer.exe" or
+            "RPCSuite.exe" or
+            "rserver3.exe" or
+            "rustdesk.exe" or
+            "rutserv.exe" or
+            "rutview.exe" or
+            "saazapsc.exe" or
+            ScreenConnect*.exe or
+            "smpcview.exe" or
+            "spclink.exe" or
+            "Splashtop-streamer.exe" or
+            "SRService.exe" or
+            "strwinclt.exe" or
+            "Supremo.exe" or
+            "SupremoService.exe" or
+            "teamviewer.exe" or
+            "TiClientCore.exe" or
+            "TSClient.exe" or
+            "tvn.exe" or
+            "tvnserver.exe" or
+            "tvnviewer.exe" or
+            UltraVNC*.exe or
+            UltraViewer*.exe or
+            "vncserver.exe" or
+            "vncviewer.exe" or
+            "winvnc.exe" or
+            "winwvc.exe" or
+            "Zaservice.exe" or
+            "ZohoURS.exe"
+        ) or
+        process.name : (
+            AA_v*.exe or
+            "AeroAdmin.exe" or
+            "AnyDesk.exe" or
+            "apc_Admin.exe" or
+            "apc_host.exe" or
+            "AteraAgent.exe" or
+            aweray_remote*.exe or
+            "AweSun.exe" or
+            "B4-Service.exe" or
+            "BASupSrvc.exe" or
+            "bomgar-scc.exe" or
+            "domotzagent.exe" or
+            "domotz-windows-x64-10.exe" or
+            "dwagsvc.exe" or
+            "DWRCC.exe" or
+            "ImperoClientSVC.exe" or
+            "ImperoServerSVC.exe" or
+            "ISLLight.exe" or
+            "ISLLightClient.exe" or
+            fleetdeck_commander*.exe or
+            "getscreen.exe" or
+            "LMIIgnition.exe" or
+            "LogMeIn.exe" or
+            "ManageEngine_Remote_Access_Plus.exe" or
+            "Mikogo-Service.exe" or
+            "NinjaRMMAgent.exe" or
+            "NinjaRMMAgenPatcher.exe" or
+            "ninjarmm-cli.exe" or
+            "r_server.exe" or
+            "radmin.exe" or
+            "radmin3.exe" or
+            "RCClient.exe" or
+            "RCService.exe" or
+            "RemoteDesktopManager.exe" or
+            "RemotePC.exe" or
+            "RemotePCDesktop.exe" or
+            "RemotePCService.exe" or
+            "rfusclient.exe" or
+            "ROMServer.exe" or
+            "ROMViewer.exe" or
+            "RPCSuite.exe" or
+            "rserver3.exe" or
+            "rustdesk.exe" or
+            "rutserv.exe" or
+            "rutview.exe" or
+            "saazapsc.exe" or
+            ScreenConnect*.exe or
+            "smpcview.exe" or
+            "spclink.exe" or
+            "Splashtop-streamer.exe" or
+            "SRService.exe" or
+            "strwinclt.exe" or
+            "Supremo.exe" or
+            "SupremoService.exe" or
+            "teamviewer.exe" or
+            "TiClientCore.exe" or
+            "TSClient.exe" or
+            "tvn.exe" or
+            "tvnserver.exe" or
+            "tvnviewer.exe" or
+            UltraVNC*.exe or
+            UltraViewer*.exe or
+            "vncserver.exe" or
+            "vncviewer.exe" or
+            "winvnc.exe" or
+            "winwvc.exe" or
+            "Zaservice.exe" or
+            "ZohoURS.exe"
+        )
 	) and
 
 	not (process.pe.original_file_name : ("G2M.exe" or "Updater.exe" or "powershell.exe") and process.code_signature.subject_name : "LogMeIn, Inc.")

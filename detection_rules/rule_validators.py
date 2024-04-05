@@ -207,8 +207,8 @@ class EQLValidator(QueryValidator):
     @cached_property
     def ast(self) -> eql.ast.Expression:
         latest_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        config = set_eql_config(str(latest_version))
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
+        cfg = set_eql_config(str(latest_version))
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, eql.parser.skip_optimizations, cfg:
             return eql.parse_query(self.query)
 
     def text_fields(self, eql_schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema]) -> List[str]:
@@ -263,7 +263,7 @@ class EQLValidator(QueryValidator):
 
             beat_types, beat_schema, schema = self.get_beats_schema(data.index or [],
                                                                     beats_version, ecs_version)
-            endgame_schema = self.get_endgame_schema(data.index, endgame_version)
+            endgame_schema = self.get_endgame_schema(data.index or [], endgame_version)
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             # validate query against the beats and eql schema
@@ -312,8 +312,9 @@ class EQLValidator(QueryValidator):
             stack_version = integration_schema_data["stack_version"]
 
             # add non-ecs-schema fields for edge cases not added to the integration
-            for index_name in data.index:
-                integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+            if data.index:
+                for index_name in data.index:
+                    integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
 
             # add endpoint schema fields for multi-line fields
             integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))

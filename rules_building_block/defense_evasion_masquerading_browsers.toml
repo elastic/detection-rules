@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2024/01/11"
 bypass_bbr_timing = true
 
 [rule]
@@ -45,6 +45,12 @@ process where host.os.type == "windows" and event.type == "start" and
           "?:\\Program Files\\HP\\Sure Click\\*\\servers\\chrome.exe"
         ) and
         process.code_signature.subject_name : ("Bromium, Inc.") and process.code_signature.trusted == true
+      ) and not
+      (
+        process.executable : (
+          "?:\\Program Files\\dynatrace\\synthetic\\Chrome-bin\\chrome.exe"
+        ) and
+        process.code_signature.subject_name : ("Dynatrace LLC") and process.code_signature.trusted == true
       ) and
      not (
        process.executable : (
@@ -73,7 +79,7 @@ process where host.os.type == "windows" and event.type == "start" and
      and not
       (
         process.name : "msedgewebview2.exe" and
-        process.code_signature.subject_name : ("Bromium, Inc.") and process.code_signature.trusted == true
+        process.code_signature.subject_name : ("Bromium, Inc.", "Amazon.com Services LLC") and process.code_signature.trusted == true
       )
     ) or
 
@@ -113,7 +119,7 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.name : (
       "opera.exe", "opera_*.exe", "browser_assistant.exe"
      ) and not
-      (process.code_signature.subject_name : "Opera Norway AS" and process.code_signature.trusted == true)
+      (process.code_signature.subject_name : ("Opera Norway AS", "Opera Software AS") and process.code_signature.trusted == true)
     ) or
 
     /* Whale Related Processes */
@@ -136,7 +142,9 @@ process where host.os.type == "windows" and event.type == "start" and
         "Microsoft Corporation",
         "NAVER Corp.",
         "AVG Technologies USA, LLC",
-        "Avast Software s.r.o."
+        "Avast Software s.r.o.",
+        "PIRIFORM SOFTWARE LIMITED",
+        "NortonLifeLock Inc."
        ) and process.code_signature.trusted == true
       )
     )
