@@ -67,7 +67,7 @@ class TestValidRules(BaseRuleTest):
                 )
             ):
                 source = rule.contents.data.query
-                tree = kql.parse(source, optimize=False, normalize_kql_keywords=True)
+                tree = kql.parse(source, optimize=False)
                 optimized = tree.optimize(recursive=True)
                 err_message = f'\n{self.rule_str(rule)} Query not optimized for rule\n' \
                               f'Expected: {optimized}\nActual: {source}'
