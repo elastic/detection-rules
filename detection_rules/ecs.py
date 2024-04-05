@@ -176,8 +176,8 @@ class KqlSchema2Eql(eql.Schema):
     }
 
     def __init__(self, kql_schema):
+        self.kql_schema = kql_schema
         eql.Schema.__init__(self, {}, allow_any=True, allow_generic=False, allow_missing=False)
-        self.schema = kql_schema
 
     def validate_event_type(self, event_type):
         # allow all event types to fill in X:
@@ -191,7 +191,7 @@ class KqlSchema2Eql(eql.Schema):
         from kql.parser import elasticsearch_type_family
 
         dotted = ".".join(path)
-        elasticsearch_type = self.schema.get(dotted)
+        elasticsearch_type = self.kql_schema.get(dotted)
         es_type_family = elasticsearch_type_family(elasticsearch_type)
         eql_hint = self.type_mapping.get(es_type_family)
 

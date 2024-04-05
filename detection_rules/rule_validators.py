@@ -66,12 +66,13 @@ def custom_in_set(self, node: KvTree) -> NodeInfo:
     if self._elasticsearch_syntax and hasattr(outer, "type_info"):
         # Check edge case of in_set and ip/string comparison
         outer_type = outer.type_info
-        type_hint = self._schema.schema.get(str(outer.node), "unknown")
-        if hasattr(self._schema, "type_mapping") and type_hint == "ip":
-            outer.type_info = ExtendedTypeHint.IP
-            for inner in container:
-                if not inner.validate_type(outer):
-                    raise self._type_error(inner, outer, error_message)
+        if isinstance(self._schema, ecs.KqlSchema2Eql):
+            type_hint = self._schema.kql_schema.get(str(outer.node), "unknown")
+            if hasattr(self._schema, "type_mapping") and type_hint == "ip":
+                outer.type_info = ExtendedTypeHint.IP
+                for inner in container:
+                    if not inner.validate_type(outer):
+                        raise self._type_error(inner, outer, error_message)
 
         # reset the type
         outer.type_info = outer_type
@@ -285,7 +286,7 @@ class EQLValidator(QueryValidator):
     def text_fields(self, eql_schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema]) -> List[str]:
         """Return a list of fields of type text."""
         from kql.parser import elasticsearch_type_family
-        schema = eql_schema.schema if isinstance(eql_schema, ecs.KqlSchema2Eql) else eql_schema.endgame_schema
+        schema = eql_schema.kql_schema if isinstance(eql_schema, ecs.KqlSchema2Eql) else eql_schema.endgame_schema
 
         return [f for f in self.unique_fields if elasticsearch_type_family(schema.get(f)) == 'text']
 
