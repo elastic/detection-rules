@@ -4,7 +4,7 @@ integration = ["windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2024/04/05"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ precursor for collection and identify potential systems of interest for Lateral 
 """
 from = "now-119m"
 interval = "60m"
-index = ["winlogbeat-*", "logs-windows.*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-windows.*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Network Share Discovery"
@@ -28,10 +28,10 @@ building_block_type = "default"
 query = '''
 sequence by user.name, source.port, source.ip with maxspan=15s 
  [file where event.action == "network-share-object-access-checked" and 
-  winlog.event_data.ShareName : ("\\*ADMIN$", "\\*C$") and 
+  winlog.event_data.ShareName in ("\\\\*\\ADMIN$", "\\\\*\\C$") and 
   source.ip != null and source.ip != "0.0.0.0" and source.ip != "::1" and source.ip != "::" and source.ip != "127.0.0.1"]
  [file where event.action == "network-share-object-access-checked" and 
-  winlog.event_data.ShareName : ("\\*ADMIN$", "\\*C$") and 
+  winlog.event_data.ShareName in ("\\\\*\\ADMIN$", "\\\\*\\C$") and 
   source.ip != null and source.ip != "0.0.0.0" and source.ip != "::1" and source.ip != "::" and source.ip != "127.0.0.1"]
 '''
 
