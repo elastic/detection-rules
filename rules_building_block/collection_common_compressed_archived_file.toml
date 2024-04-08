@@ -5,7 +5,7 @@ integration = "endpoint"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/02/22"
+updated_date = "2024/04/05"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ Detects files being compressed or archived into common formats. This is a common
 evade detection or to staging data for exfiltration.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 max_signals = 1000
@@ -35,7 +35,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where event.type in ("creation", "change") and process.executable != null and not user.id : "S-1-5-18" and
+file where host.os.type == "windows" and event.type in ("creation", "change") and process.executable != null and not user.id : ("S-1-5-18", "S-1-5-17") and
  file.Ext.header_bytes : (
                           /* compression formats */
                           "1F9D*",             /* tar zip, tar.z (Lempel-Ziv-Welch algorithm) */
@@ -83,9 +83,16 @@ file where event.type in ("creation", "change") and process.executable != null a
      file.name : ("ossec-*.log.gz", "tmp-entry.gz", "tmp-entry", "last-entry.gz")
    ) or
    (
-     process.name : "excel.exe" and
+     process.name : ("excel.exe", "winword.exe", "powerpnt.exe") and
+     process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true
+   ) or
+   (
+     process.name : "OneDrive.exe" and
      process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true and
-     file.extension : ("tmp", "xlsx", "gz", "xlsb", "xar", "xslm")
+     (
+      file.extension : ("xlsx", "docx", "pptx", "xlsm") or
+      file.path : "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\logs\\*"
+     )
    ) or
    (
      process.name : "Dropbox.exe" and
@@ -96,6 +103,11 @@ file where event.type in ("creation", "change") and process.executable != null a
      process.name : "DellSupportAssistRemedationService.exe" and
      process.code_signature.subject_name : "Dell Inc" and process.code_signature.trusted == true and
      file.extension : "manifest"
+   ) or
+   (
+     process.name : "w3wp.exe" and
+     process.code_signature.subject_name : "Microsoft Windows" and process.code_signature.trusted == true and
+     file.path : "?:\\inetpub\\temp\\IIS Temporary Compressed Files\\*"
    )
  )
 '''
