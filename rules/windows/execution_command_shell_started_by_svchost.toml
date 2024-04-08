@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2024/03/28"
+updated_date = "2024/04/05"
 
 [transform]
 [[transform.osquery]]
@@ -116,8 +116,39 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and process.parent.name:"svchost.exe" and process.name:("cmd.exe" or "Cmd.exe" or "CMD.EXE")
+host.os.type:windows and event.category:process and event.type:start and process.parent.name:"svchost.exe" and
+process.name:("cmd.exe" or "Cmd.exe" or "CMD.EXE") and
+not process.command_line : "\"cmd.exe\" /C sc control hptpsmarthealthservice 211"
 '''
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.args"]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\system32\\\\silcollector.cmd"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+"case_insensitive" = true
+"value" = "*?:\\\\Program Files\\\\Npcap\\\\CheckStatus.bat*"
+
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+"case_insensitive" = true
+"value" = "*?:\\\\Program Files*\\\\Pulseway\\\\watchdog.bat*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."process.command_line"]
+"case_insensitive" = true
+"value" = "cmd /C \".\\\\inetsrv\\\\iissetup.exe /keygen \""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
