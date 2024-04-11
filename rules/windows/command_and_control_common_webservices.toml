@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/02/04"
+updated_date = "2024/04/11"
 
 [transform]
 [[transform.osquery]]
@@ -144,7 +144,6 @@ network where host.os.type == "windows" and network.protocol == "dns" and
     dns.question.name :
        (
         "raw.githubusercontent.*",
-        "github.com",
         "pastebin.*",
         "paste4btc.com",
         "paste.ee",
@@ -217,8 +216,7 @@ network where host.os.type == "windows" and network.protocol == "dns" and
         "gist.githubusercontent.com",
         "files.pythonhosted.org",
         "g.live.com",
-        "*.zulipchat.com",
-        "graph.microsoft.com") and 
+        "*.zulipchat.com") and
         
     /* Insert noisy false positives here */
     not (
@@ -239,7 +237,7 @@ network where host.os.type == "windows" and network.protocol == "dns" and
           "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
           "?:\\Windows\\system32\\mobsync.exe",
           "?:\\Windows\\SysWOW64\\mobsync.exe"
-        ) and process.code_signature.trusted == true
+        )
       ) or
     
       /* Discord App */
@@ -270,7 +268,19 @@ network where host.os.type == "windows" and network.protocol == "dns" and
       /* WebExperienceHostApp */
       (process.name : "WebExperienceHostApp.exe" and (process.code_signature.subject_name : "Microsoft Windows" and
        process.code_signature.trusted == true) and dns.question.name : ("onedrive.live.com", "skyapi.onedrive.live.com")
-      )
+      ) or
+
+      (process.code_signature.subject_name : "Microsoft *" and process.code_signature.trusted == true and
+       dns.question.name : ("*.sharepoint.com", "graph.microsoft.com", "g.live.com", "login.live.com", "login.live.com")) or
+
+      (process.code_signature.trusted == true and
+       process.code_signature.subject_name :
+                             ("Johannes Schindelin",
+                              "Redis Inc.",
+                              "Slack Technologies, LLC",
+                              "Cisco Systems, Inc.",
+                              "Dropbox, Inc",
+                              "Amazon.com Services LLC"))
     ) 
 '''
 
