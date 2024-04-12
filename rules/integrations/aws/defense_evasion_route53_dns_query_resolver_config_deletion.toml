@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2024/04/12"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
+min_stack_version = "8.9.0"
+updated_date = "2024/04/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a Route53 Resolver Query Log Configuration is deleted. When a Route53 a Resolver query log configuration
+is deleted, Resolver stops logging DNS queries and responses for the specified configuration. Adversaries may delete
+query log configurations to evade detection or cover their tracks.
+"""
+false_positives = ["Legitimate deletion of Route53 Resolver Query Log Configuration by authorized personnel."]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Route53 Resolver Query Log Configuration Deleted"
+references = [
+    "https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_DeleteResolverQueryLogConfig.html",
+]
+risk_score = 47
+rule_id = "453183fa-f903-11ee-8e88-f661ea17fbce"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Route53",
+    "Use Case: Log Auditing",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider: route53resolver.amazonaws.com and event.action: DeleteResolverQueryLogConfig and event.outcome: success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
