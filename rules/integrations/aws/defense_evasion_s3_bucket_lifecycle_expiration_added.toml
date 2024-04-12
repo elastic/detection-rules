@@ -1,0 +1,69 @@
+[metadata]
+creation_date = "2024/04/12"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
+min_stack_version = "8.9.0"
+updated_date = "2024/04/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an expiration lifecycle configuration added to an S3 bucket. Lifecycle configurations can be used to manage
+objects in a bucket, including setting expiration policies. This rule detects when a lifecycle configuration is added to
+an S3 bucket, which could indicate that objects in the bucket will be automatically deleted after a specified period of
+time. This could be used to evade detection by deleting objects that contain evidence of malicious activity.
+"""
+false_positives = [
+    """
+    Bucket components may be deleted or adjusted by a system or network administrator. Verify whether the user identity,
+    user agent, and/or hostname should be making changes in your environment. Bucket component deletions by unfamiliar
+    users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the
+    rule.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS S3 Bucket Expiration Lifecycle Configuration Added"
+references = [
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
+]
+risk_score = 21
+rule_id = "ff320c56-f8fa-11ee-8c44-f661ea17fbce"
+setup = "This rule requires S3 data events to be logged to CloudTrail. CloudTrail trails can be configured to log S3 data events in the AWS Management Console or using the AWS CLI."
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon S3",
+    "Use Case: Asset Visibility",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail" and event.provider: "s3.amazonaws.com" and
+    event.action: PutBucketLifecycle and event.outcome: success and
+    (aws.cloudtrail.request_parameters: *LifecycleConfiguration* and
+     aws.cloudtrail.request_parameters: *Expiration=*)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
