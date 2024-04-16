@@ -1,0 +1,66 @@
+[metadata]
+creation_date = "2024/04/16"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
+min_stack_version = "8.9.0"
+updated_date = "2024/04/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a specified inbound (ingress) rule is added or adjusted for a VPC security group in AWS EC2. This rule
+detects when a security group rule is added that allows traffic from any IP address or from a specific IP address to
+common remote access ports, such as 22 (SSH) or 3389 (RDP).
+"""
+false_positives = ["\n    "]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 VPC Security Group Rule Added for Common Remote Access Ports"
+references = [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AuthorizeSecurityGroupEgress.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AuthorizeSecurityGroupIngress.html",
+    "https://www.linkedin.com/pulse/my-backdoors-your-aws-infrastructure-part-3-network-micha%C5%82-brygidyn/",
+]
+risk_score = 47
+rule_id = "ecf2b32c-e221-4bd4-aa3b-c7d59b3bc01d"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
+    "Use Case: Threat Detection",
+    "Tactic: Impair Defenses",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail" and event.provider: ec2.amazonaws.com
+    and event.action: AuthorizeSecurityGroupIngress and event.outcome: succcess
+    and (aws.cloudtrail.flattened.request_parameters.cidrIp: 0.0.0.0/0 or aws.cloudtrail.flattened.request_parameters.fromPort: (22 or 3389))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
