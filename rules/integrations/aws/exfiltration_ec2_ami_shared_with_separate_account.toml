@@ -9,7 +9,8 @@ updated_date = "2024/04/16"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies an AWS Amazon Machine Image (AMI) being shared with another AWS account. Adversaries with access may share an AMI with an external AWS account as a means of data exfiltration.
+Identifies an AWS Amazon Machine Image (AMI) being shared with another AWS account. Adversaries with access may share an
+AMI with an external AWS account as a means of data exfiltration.
 """
 false_positives = [
     """
@@ -25,18 +26,25 @@ name = "AWS EC2 AMI Shared with Another Account"
 references = [
     "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html",
     "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-explicit.html",
-    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.exfiltration.ec2-share-ami/"
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.exfiltration.ec2-share-ami/",
 ]
 risk_score = 47
-rule_id = "c1812764-0788-470f-8e74-eb4a14d47573"
+rule_id = "6a309864-fc3f-11ee-b8cc-f661ea17fbce"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: AWS", "Data Source: Amazon Web Services", "Use Case: Threat Detection", "Tactic: Exfiltration"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.dataset: "aws.cloudtrail" and event.provider: "ec2.amazonaws.com"
-    and event.action: ModifyImageAttribute event.outcome: success
+    and event.action: ModifyImageAttribute and event.outcome: success
     and aws.cloudtrail.request_parameters: (*imageId* and *add* and *userId*)
 '''
 
@@ -53,6 +61,4 @@ reference = "https://attack.mitre.org/techniques/T1537/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
-
-
 
