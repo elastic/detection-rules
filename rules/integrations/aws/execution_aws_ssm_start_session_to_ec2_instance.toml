@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2024/04/16"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
+min_stack_version = "8.9.0"
+updated_date = "2024/04/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first occurrence of an AWS resource establishing a session via SSM to an EC2 instance. Adversaries may
+use AWS Systems Manager to establish a session to an EC2 instance to execute commands on the instance. This can be used
+to gain access to the instance and perform actions such as privilege escalation. This rule helps detect the first
+occurrence of this activity for a given AWS resource.
+"""
+false_positives = ["Legitimate use of AWS Systems Manager to establish a session to an EC2 instance."]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "First Occurrence of AWS Resource Starting SSM Session to EC2 Instance"
+references = [
+    "https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_StartSession.html",
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-privilege-escalation/aws-ssm-privesc",
+]
+risk_score = 47
+rule_id = "804a7ac8-fc00-11ee-924b-f661ea17fbce"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS SSM",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail" and event.provider: "ssm.amazonaws.com" and event.action: "StartSession" and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.007"
+name = "Cloud Services"
+reference = "https://attack.mitre.org/techniques/T1021/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+
