@@ -153,7 +153,7 @@ class TestNewTerms(BaseRuleTest):
 
 
 class TestEQLInSet(BaseRuleTest):
-    """Test EQL rules that utilize an in set override."""
+    """Test EQL rule query in set override."""
 
     def test_eql_in_set(self):
         """Test that the query validation is working correctly."""
