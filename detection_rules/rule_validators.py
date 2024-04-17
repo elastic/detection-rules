@@ -92,8 +92,7 @@ def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         LarkToEQL.in_set = custom_in_set
         try:
             result = func(query, start=start, **kwargs)
-        # Using finally to ensure that the original method is restored
-        finally:
+        finally:  # Using finally to ensure that the original method is restored
             LarkToEQL.in_set = original_in_set
         return result
 
