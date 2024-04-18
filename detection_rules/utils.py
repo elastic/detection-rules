@@ -6,7 +6,6 @@
 """Util functions."""
 import base64
 import contextlib
-import distutils.spawn
 import functools
 import glob
 import gzip
@@ -60,7 +59,7 @@ def gopath() -> Optional[str]:
     if env_path:
         return env_path
 
-    go_bin = distutils.spawn.find_executable("go")
+    go_bin = shutil.which("go")
     if go_bin:
         output = subprocess.check_output([go_bin, "env"], encoding="utf-8").splitlines()
         for line in output:

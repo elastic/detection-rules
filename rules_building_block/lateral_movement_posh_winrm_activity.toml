@@ -2,9 +2,9 @@
 creation_date = "2023/07/12"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
+min_stack_version = "8.12.0"
+updated_date = "2024/03/12"
 
 [rule]
 author = ["Elastic"]
@@ -57,11 +57,7 @@ event.category:process and host.os.type:windows and
   ) and
   not user.id : "S-1-5-18" and
   not file.directory : (
-    "C:\\Program Files\\LogicMonitor\\Agent\\tmp" or
-    ?\:\\\\Program?Files\\\\Microsoft\\\\Exchange?Server\\\\*\\\\bin or
-    ?\:\\\\Logicmonitor\\\\tmp* or
-    ?\:\\\\Program?Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\* or
-    ?\:\\\\ExchangeServer\\\\bin*
+    "C:\\Program Files\\LogicMonitor\\Agent\\tmp"
   ) and not
   powershell.file.script_block_text : (
     "Export-ModuleMember -Function @('Invoke-Expression''Invoke-Command')" and
@@ -69,6 +65,26 @@ event.category:process and host.os.type:windows and
   )
 '''
 
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\*\\\\allcommands.ps1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.directory"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\Microsoft\\\\Exchange Server\\\\*\\\\bin"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.directory"]
+"case_insensitive" = true
+"value" = "?:\\\\ExchangeServer\\\\bin*"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
