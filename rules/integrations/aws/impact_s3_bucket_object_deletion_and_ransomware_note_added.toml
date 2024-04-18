@@ -1,0 +1,76 @@
+[metadata]
+creation_date = "2024/04/17"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
+min_stack_version = "8.9.0"
+updated_date = "2024/04/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies potential ransomware activity in AWS S3 buckets by detecting a sequence of events that includes successful
+`GetObject`, `DeleteObjects`, and `PutObject` actions. This rule triggers when multiple S3 bucket objects are accessed,
+deleted and replaced with a ransom note file extension such as `.txt`, `.note`, or `.ransom`. Adversaries with access to
+a misconfigured S3 bucket may retrieve, delete, and replace objects with ransom notes to extort victims.
+"""
+false_positives = [
+    """
+    Administrators may legitimately access, delete, and replace objects in S3 buckets. Ensure that the sequence of
+    events is not part of a legitimate operation before taking action.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "eql"
+license = "Elastic License v2"
+name = "AWS S3 Bucket Object Retrieval, Deletion, and Potential Ransom Note Replacement"
+references = [
+    "https://s3.amazonaws.com/bizzabo.file.upload/PtZzA0eFQwV2RA5ysNeo_ERMETIC%20REPORT%20-%20AWS%20S3%20Ransomware%20Exposure%20in%20the%20Wild.pdf",
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.impact.s3-ransomware-batch-deletion/",
+]
+risk_score = 73
+rule_id = "7fda9bb2-fd28-11ee-85f9-f661ea17fbce"
+setup = "AWS S3 data types need to be enabled in the CloudTrail trail configuration."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS S3",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by tls.client.server_name with maxspan=10m
+
+    /* sequence on tls.client.server_name is the s3 bucket name the client is accessing */
+    /* Check for multiple S3 bucket objects being accessed */
+    [any where event.dataset == "aws.cloudtrail" and event.provider == "s3.amazonaws.com" and event.action == "GetObject" and event.outcome == "success"] with runs=5
+
+    /* Check for objects being deleted after accessed, indicating retrieval */
+    [any where event.dataset == "aws.cloudtrail" and event.provider == "s3.amazonaws.com" and event.action == "DeleteObjects" and event.outcome == "success"]
+
+    /* Check for a ransom note being pushed to the same bucket objects were just retrieved and deleted from */
+    [any where event.dataset == "aws.cloudtrail" and event.provider == "s3.amazonaws.com" and event.action == "PutObject" and event.outcome == "success"
+        and aws.cloudtrail.request_parameters regex ".*key=.*(txt|note|ransom|html)}"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1489"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
