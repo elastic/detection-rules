@@ -72,6 +72,7 @@ class DictRule:
     def name(self) -> str:
         """Get the rule name."""
         return self.data['name']
+
     def __hash__(self):
         """Get the hash of the rule."""
         return hash(self.id + self.name)
@@ -1236,10 +1237,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     @classmethod
     def from_rule_resource(
-            cls, rule: dict, creation_date: Optional[str] = None, updated_date: Optional[str] = None, maturity: str = 'development'
+            cls, rule: dict, creation_date: Optional[str] = None, updated_date: Optional[str] = None,
+            maturity: str = 'development'
     ) -> 'TOMLRuleContents':
         """Create a TOMLRuleContents from a kibana rule resource."""
-        meta = {'creation_date': creation_date, 'updated_date': creation_date, 'maturity': maturity}
+        meta = {'creation_date': creation_date, 'updated_date': updated_date, 'maturity': maturity}
         # TODO: need to strips extra fields
         # marshmallow.load(unknown=marshmallow.EXCLUDE) (from mixins) does not seem to be working
         contents = cls.from_dict({'metadata': meta, 'rule': rule, 'transforms': None})

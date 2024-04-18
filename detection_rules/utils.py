@@ -314,6 +314,7 @@ def rulename_to_filename(name: str, tactic_name: str = None) -> str:
         name = f'{pre}_{name}'
     return name
 
+
 def load_rule_contents(rule_file: Path, single_only=False) -> list:
     """Load a rule file from multiple formats."""
     _, extension = os.path.splitext(rule_file)

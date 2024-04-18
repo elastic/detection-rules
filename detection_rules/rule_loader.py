@@ -19,7 +19,7 @@ from marshmallow.exceptions import ValidationError
 from . import utils
 from .mappings import RtaMappings
 from .rule import (
-    DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule,TOMLRuleContents
+    DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule, TOMLRuleContents
 )
 from .schemas import definitions
 from .utils import cached, get_path
@@ -208,7 +208,6 @@ class RawRuleCollection(BaseCollection):
 
         self._raw_load_cache[path] = raw_dict
         return raw_dict
-
 
     def _get_paths(self, directory: Path, recursive=True) -> List[Path]:
         paths = []
