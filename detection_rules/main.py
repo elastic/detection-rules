@@ -29,7 +29,7 @@ from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
-from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents
+from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents, rulename_to_filename
 
 RULES_DIR = get_path('rules')
 
@@ -107,12 +107,9 @@ def import_rules_into_repo(input_file, directory):
     if not rule_contents:
         click.echo('Must specify at least one file!')
 
-    def name_to_filename(name):
-        return re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_') + '.toml'
-
     for contents in rule_contents:
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
-        base_path = name_to_filename(base_path) if base_path else base_path
+        base_path = rulename_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
         rule_prompt(rule_path, required_only=True, save=True, verbose=True, additional_required=['index'], **contents)
 

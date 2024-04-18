@@ -1189,6 +1189,17 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def validate_remote(remote_validator: 'RemoteValidator', contents: 'TOMLRuleContents'):
         remote_validator.validate_rule(contents)
 
+    @classmethod
+    def from_rule_resource(
+            cls, rule: dict, creation_date: Optional[str] = None, updated_date: Optional[str] = None, maturity: str = 'development'
+    ) -> 'TOMLRuleContents':
+        """Create a TOMLRuleContents from a kibana rule resource."""
+        meta = {'creation_date': creation_date, 'updated_date': creation_date, 'maturity': maturity}
+        # TODO: need to strips extra fields
+        # marshmallow.load(unknown=marshmallow.EXCLUDE) (from mixins) does not seem to be working
+        contents = cls.from_dict({'metadata': meta, 'rule': rule, 'transforms': None})
+        return contents
+
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
         # result from union fields which contain classes and related subclasses (AnyRuleData). See issue #1141

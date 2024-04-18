@@ -14,6 +14,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import zipfile
@@ -306,6 +307,13 @@ def cached(f):
 def clear_caches():
     _cache.clear()
 
+
+def rulename_to_filename(name: str, tactic_name: str = None) -> str:
+    name = re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_') + '.toml'
+    if tactic_name:
+        pre = re.sub(r'[^_a-z0-9]+', '_', tactic_name.strip().lower()).strip('_') + '.toml'
+        name = f'{pre}_{name}'
+    return name
 
 def load_rule_contents(rule_file: Path, single_only=False) -> list:
     """Load a rule file from multiple formats."""

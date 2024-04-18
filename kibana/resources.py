@@ -142,7 +142,7 @@ class RuleResource(BaseResource):
         if action == 'edit':
             assert edit, 'edit action requires edit object'
 
-        params = dict(dry_run=dry_run)
+        params = dict(dry_run=stringify_bool(dry_run))
         data = dict(query=query, ids=rule_ids, action=action, edit=edit, duplicate=duplicate)
         response = Kibana.current().post(cls.BASE_URI + "/_bulk_action", params=params, data=data)
 
@@ -211,9 +211,9 @@ class RuleResource(BaseResource):
         """Import a list of rules into Kibana using the _import API and return the response and successful imports."""
         url = f'{cls.BASE_URI}/_import'
         params = dict(
-            overwrite=overwrite,
-            overwrite_exceptions=overwrite_exceptions,
-            overwrite_action_connectors=overwrite_action_connectors
+            overwrite=stringify_bool(overwrite),
+            overwrite_exceptions=stringify_bool(overwrite_exceptions),
+            overwrite_action_connectors=stringify_bool(overwrite_action_connectors)
         )
         rule_ids = [r['rule_id'] for r in rules]
         headers, raw_data = Kibana.ndjson_file_data_prep(rules, "import.ndjson")
@@ -234,8 +234,10 @@ class RuleResource(BaseResource):
 
         if rule_ids:
             rule_ids = {'objects': [{'rule_id': r} for r in rule_ids]}
+        else:
+            rule_ids = None
 
-        params = dict(exclude_export_details=exclude_export_details)
+        params = dict(exclude_export_details=stringify_bool(exclude_export_details))
         response = Kibana.current().post(url, params=params, data=rule_ids, raw=True)
         data = [json.loads(r) for r in response.text.splitlines()]
         return [cls(r) for r in data]
@@ -292,3 +294,9 @@ class Signal(BaseResource):
     @classmethod
     def open_many(cls, signal_ids: List[str]):
         return cls.set_status_many(signal_ids, "open")
+
+
+def stringify_bool(obj: bool) -> str:
+    """Convert a boolean to a string."""
+    assert isinstance(obj, bool), f"Expected a boolean, got {type(obj)}"
+    return str(obj).lower()

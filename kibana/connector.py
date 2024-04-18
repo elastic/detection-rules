@@ -97,11 +97,7 @@ class Kibana(object):
         """Perform a RESTful HTTP request with JSON responses."""
         url = self.url(uri)
         params = params or {}
-        params = json.dumps(params)
-        body = None
-        if data is not None:
-            body = json.dumps(data)
-
+        body = json.dumps(data) if data is not None else None
         assert not (body and raw_data), "Cannot provide both data and raw_data"
 
         body = body or raw_data

@@ -5,6 +5,7 @@
 
 """Kibana cli commands."""
 import sys
+from pathlib import Path
 from typing import Iterable, List, Optional
 
 import click
@@ -15,9 +16,9 @@ from kibana import Signal, RuleResource
 from .cli_utils import multi_collection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
-from .rule import downgrade_contents_from_rule
+from .rule import downgrade_contents_from_rule, TOMLRuleContents, TOMLRule
 from .rule_loader import RuleCollection
-from .utils import format_command_options
+from .utils import format_command_options, rulename_to_filename
 
 
 @root.group('kibana')
@@ -74,33 +75,53 @@ def upload_rule(ctx, rules: RuleCollection, replace_id):
 
 
 @kibana_group.command('import-rules')
-@click.argument('rules', nargs=-1, required=True)
+@multi_collection
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite existing rules')
 @click.option('--overwrite-exceptions', '-e', is_flag=True, help='Overwrite exceptions in existing rules')
 @click.option('--overwrite-action-connectors', '-a', is_flag=True,
               help='Overwrite action connectors in existing rules')
-def kibana_import_rules(ctx: click.Context, rules: Iterable[dict], overwrite: Optional[bool] = False,
+@click.pass_context
+def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Optional[bool] = False,
                         overwrite_exceptions: Optional[bool] = False,
                         overwrite_action_connectors: Optional[bool] = False) -> (dict, List[RuleResource]):
-    """Import rules into Kibana."""
+    """Import custom rules into Kibana."""
     kibana = ctx.obj['kibana']
+    rule_dicts = [r.to_api_format() for r in rules]
     with kibana:
-        response, results = RuleResource.import_rules(list(rules), overwrite=overwrite,
-                                                      overwrite_exceptions=overwrite_exceptions,
-                                                      overwrite_action_connectors=overwrite_action_connectors)
+        response, results = RuleResource.import_rules(
+            rule_dicts,
+            overwrite=overwrite,
+            overwrite_exceptions=overwrite_exceptions,
+            overwrite_action_connectors=overwrite_action_connectors
+        )
 
     return response, results
 
 
 @kibana_group.command('export-rules')
+@click.option('--directory', '-d', required=True, type=Path, help='Directory to export rules to')
 @click.option('--rule-id', '-r', multiple=True, help='Optional Rule IDs to restrict export to')
-def kibana_export_rules(ctx: click.Context, rule_id: Optional[Iterable[str]] = None) -> List[RuleResource]:
-    """Export rules from Kibana."""
+@click.pass_context
+def kibana_export_rules(ctx: click.Context, directory: Path,
+                        rule_id: Optional[Iterable[str]] = None) -> List[TOMLRule]:
+    """Export custom rules from Kibana."""
     kibana = ctx.obj['kibana']
     with kibana:
         results = RuleResource.export_rules(list(rule_id))
 
-    return results
+    exported = []
+    for rule_resource in results:
+        contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity='production')
+
+        threat = contents.data.get('threat')
+        first_tactic = threat[0].tactic.name if threat else ''
+        rule_name = rulename_to_filename(contents.data.name, tactic_name=first_tactic)
+
+        rule = TOMLRule(contents=contents, path=directory / f'{rule_name}.toml')
+        rule.save_toml()
+        exported.append(rule)
+
+    return exported
 
 
 @kibana_group.command('search-alerts')
