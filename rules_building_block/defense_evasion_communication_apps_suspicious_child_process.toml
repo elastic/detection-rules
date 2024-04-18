@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/11"
+updated_date = "2024/04/05"
 bypass_bbr_timing = true
 
 [rule]
@@ -14,7 +14,7 @@ Identifies suspicious child processes of communications apps, which can indicate
 communication app or the exploitation of a vulnerability on the application causing it to execute code.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Communication App Child Process"
@@ -43,7 +43,8 @@ process where host.os.type == "windows" and event.type == "start" and
             "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
             "?:\\Windows\\System32\\notepad.exe",
             "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe"
+            "?:\\Windows\\SysWOW64\\WerFault.exe",
+            "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\opera.exe"
           ) and process.code_signature.trusted == true  
         ) or
         (
@@ -66,7 +67,10 @@ process where host.os.type == "windows" and event.type == "start" and
           process.executable : (
             "?:\\Program Files\\*",
             "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe"
+            "?:\\Windows\\System32\\WerFault.exe",
+            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
+            "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\opera.exe"
           ) and process.code_signature.trusted == true  
         ) or
         (
@@ -133,7 +137,8 @@ process where host.os.type == "windows" and event.type == "start" and
             ) or
             process.args : (
               "C:\\WINDOWS/System32/nvidia-smi.exe",
-              "C:\\WINDOWS\\System32\\nvidia-smi.exe"
+              "C:\\WINDOWS\\System32\\nvidia-smi.exe",
+              "C:\\Windows\\System32\\DriverStore\\FileRepository/*/nvidia-smi.exe*"
             )
           )
         )
@@ -214,6 +219,10 @@ process where host.os.type == "windows" and event.type == "start" and
             "?:\\Windows\\explorer.exe",
             "?:\\Windows\\splwow64.exe"
           ) and process.code_signature.trusted == true  
+        ) or
+        (
+          process.name : "rundll32.exe" and
+          process.args : "*hpmsn???.dll,MonitorPrintJobStatus*"
         )
       )
     ) or

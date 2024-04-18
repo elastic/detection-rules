@@ -1,0 +1,61 @@
+[metadata]
+creation_date = "2023/08/29"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/04/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the registration of a Werfault Debugger. Attackers may abuse this mechanism to execute malicious payloads
+every time the utility is executed with the "-pr" parameter.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.registry-*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Werfault ReflectDebugger Persistence"
+references = ["https://cocomelonc.github.io/malware/2022/11/02/malware-pers-18.html"]
+risk_score = 21
+rule_id = "205b52c4-9c28-4af4-8979-935f3278d61a"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.path : (
+    "HKLM\\Software\\Microsoft\\Windows\\Windows Error Reporting\\Hangs\\ReflectDebugger",
+    "\\REGISTRY\\MACHINE\\Software\\Microsoft\\Windows\\Windows Error Reporting\\Hangs\\ReflectDebugger"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
