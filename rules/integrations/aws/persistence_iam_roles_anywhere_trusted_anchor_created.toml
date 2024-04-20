@@ -9,14 +9,17 @@ updated_date = "2024/04/20"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation of an AWS Roles Anywhere profile. AWS Roles Anywhere is a feature that allows you to use AWS
-Identity and Access Management (IAM) profiles to manage access to your AWS resources from any location via trusted anchors. This rule detects
-the creation of a profile that can be assumed from any service. Adversaries may create profiles tied to overly permissive roles to maintain access to AWS resources. Ensure that the profile creation is expected and that the trust policy is configured securely.
+Identifies when an AWS IAM Roles Anywhere Trust Anchor with an external certificate authority is created. AWS Roles
+Anywhere profiles are legitimate profiles that can be created by administrators to allow access from any location. This
+rule detects when a trust anchor is created with an external certificate authority that is not managed by AWS
+Certificate Manager Private Certificate Authority (ACM PCA). Adversaries may accomplish this to maintain persistence in
+the environment.
 """
 false_positives = [
     """
-    AWS Roles Anywhere profiles are legitimate profiles that can be created by administrators to allow access from any
-    location. Ensure that the profile created is expected and that the trust policy is configured securely.
+    AWS IAM Roles Anywhere Trust Anchors are legitimate profiles that can be created by administrators to allow access
+    from any location. Ensure that the trust anchor is created by a legitimate administrator and that the external
+    certificate authority is authorized.
     """,
 ]
 from = "now-30m"
@@ -24,14 +27,14 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS IAM Roles Anywhere Profile Creation"
+name = "AWS IAM Roles Anywhere Trust Anchor with External Certificate Authority Created"
 references = [
     "https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html",
     "https://docs.datadoghq.com/security/default_rules/cloudtrail-aws-iam-roles-anywhere-trust-anchor-created/",
     "https://ermetic.com/blog/aws/keep-your-iam-users-close-keep-your-third-parties-even-closer-part-1/",
 ]
 risk_score = 21
-rule_id = "1d4ca9c0-ff1e-11ee-91cc-f661ea17fbce"
+rule_id = "71de53ea-ff3b-11ee-b572-f661ea17fbce"
 severity = "low"
 tags = [
     "Domain: Cloud",
@@ -45,8 +48,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail
-    and event.provider: rolesanywhere.amazonaws.com and event.action: CreateProfile and event.outcome: success
+event.dataset: "aws.cloudtrail"
+    and event.provider: rolesanywhere.amazonaws.com and event.action: CreateTrustAnchor and event.outcome: success
+    and not aws.cloudtrail.request_parameters: *sourceType=AWS_ACM_PCA*
 '''
 
 

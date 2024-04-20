@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2024/04/20"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
+min_stack_version = "8.9.0"
+updated_date = "2024/04/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of an AWS Roles Anywhere profile. AWS Roles Anywhere is a feature that allows you to use AWS
+Identity and Access Management (IAM) profiles to manage access to your AWS resources from any location via trusted
+anchors. This rule detects the creation of a profile that can be assumed from any service. Adversaries may create
+profiles tied to overly permissive roles to maintain access to AWS resources. Ensure that the profile creation is
+expected and that the trust policy is configured securely.
+"""
+false_positives = [
+    """
+    AWS Roles Anywhere profiles are legitimate profiles that can be created by administrators to allow access from any
+    location. Ensure that the profile created is expected and that the trust policy is configured securely.
+    """,
+]
+from = "now-30m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM Roles Anywhere Profile Creation"
+references = [
+    "https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html",
+    "https://docs.datadoghq.com/security/default_rules/cloudtrail-aws-iam-roles-anywhere-trust-anchor-created/",
+    "https://ermetic.com/blog/aws/keep-your-iam-users-close-keep-your-third-parties-even-closer-part-1/",
+]
+risk_score = 21
+rule_id = "1d4ca9c0-ff1e-11ee-91cc-f661ea17fbce"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail
+    and event.provider: rolesanywhere.amazonaws.com and event.action: CreateProfile and event.outcome: success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
