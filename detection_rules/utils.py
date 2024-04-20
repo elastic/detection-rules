@@ -310,7 +310,7 @@ def clear_caches():
 def rulename_to_filename(name: str, tactic_name: str = None) -> str:
     name = re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_') + '.toml'
     if tactic_name:
-        pre = re.sub(r'[^_a-z0-9]+', '_', tactic_name.strip().lower()).strip('_') + '.toml'
+        pre = re.sub(r'[^_a-z0-9]+', '_', tactic_name.strip().lower()).strip('_')
         name = f'{pre}_{name}'
     return name
 

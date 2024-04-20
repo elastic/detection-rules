@@ -7,6 +7,7 @@ import copy
 import dataclasses
 import json
 import os
+import time
 import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import eql
+import marshmallow
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
@@ -38,6 +40,7 @@ from .utils import cached, convert_time_span, PatchedTemplate
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
+TIME_NOW = time.strftime('%Y/%m/%d')
 
 BUILD_FIELD_VERSIONS = {
     "related_integrations": (Version.parse('8.3.0'), None),
@@ -1237,14 +1240,12 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     @classmethod
     def from_rule_resource(
-            cls, rule: dict, creation_date: Optional[str] = None, updated_date: Optional[str] = None,
+            cls, rule: dict, creation_date: str = TIME_NOW, updated_date: str = TIME_NOW,
             maturity: str = 'development'
     ) -> 'TOMLRuleContents':
         """Create a TOMLRuleContents from a kibana rule resource."""
         meta = {'creation_date': creation_date, 'updated_date': updated_date, 'maturity': maturity}
-        # TODO: need to strips extra fields
-        # marshmallow.load(unknown=marshmallow.EXCLUDE) (from mixins) does not seem to be working
-        contents = cls.from_dict({'metadata': meta, 'rule': rule, 'transforms': None})
+        contents = cls.from_dict({'metadata': meta, 'rule': rule, 'transforms': None}, unknown=marshmallow.EXCLUDE)
         return contents
 
     def to_dict(self, strip_none_values=True) -> dict:

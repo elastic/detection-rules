@@ -228,7 +228,7 @@ class RuleResource(BaseResource):
 
     @classmethod
     def export_rules(cls, rule_ids: Optional[List[str]] = None,
-                     exclude_export_details: bool = False) -> List['RuleResource']:
+                     exclude_export_details: bool = True) -> List['RuleResource']:
         """Export a list of rules from Kibana using the _export API."""
         url = f'{cls.BASE_URI}/_export'
 

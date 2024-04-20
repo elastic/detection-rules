@@ -5,6 +5,7 @@
 
 """Generic mixin classes."""
 
+import dataclasses
 from pathlib import Path
 from typing import Any, Optional, TypeVar, Type
 
@@ -13,7 +14,8 @@ import marshmallow_dataclass
 import marshmallow_dataclass.union_field
 import marshmallow_jsonschema
 import marshmallow_union
-from marshmallow import Schema, ValidationError, fields, validates_schema
+import marshmallow
+from marshmallow import Schema, ValidationError, validates_schema, fields as marshmallow_fields
 
 from .misc import load_current_package_version
 from .schemas import definitions
@@ -81,14 +83,36 @@ def patch_jsonschema(obj: dict) -> dict:
     return patched
 
 
+class BaseSchema(Schema):
+    class Meta:
+        unknown = marshmallow.EXCLUDE
+
+
+def exclude_class_schema(clazz, base_schema=BaseSchema, **kwargs):
+    return marshmallow_dataclass.class_schema(clazz, base_schema=base_schema, **kwargs)
+
+
+def recursive_class_schema(clazz, base_schema=BaseSchema, **kwargs):
+    schema = exclude_class_schema(clazz, base_schema=base_schema, **kwargs)
+    for field in dataclasses.fields(clazz):
+        if hasattr(field.type, '__dataclass_fields__'):
+            nested_cls = field.type
+            nested_schema = recursive_class_schema(nested_cls, base_schema=base_schema, **kwargs)
+            setattr(schema, field.name, nested_schema)
+    return schema
+
+
 class MarshmallowDataclassMixin:
     """Mixin class for marshmallow serialization."""
 
     @classmethod
     @cached
-    def __schema(cls: ClassT) -> Schema:
+    def __schema(cls: ClassT, unknown: Optional[bool] = None) -> Schema:
         """Get the marshmallow schema for the data class"""
-        return marshmallow_dataclass.class_schema(cls)()
+        if unknown:
+            return recursive_class_schema(cls)()
+        else:
+            return marshmallow_dataclass.class_schema(cls)()
 
     def get(self, key: str, default: Optional[Any] = None):
         """Get a key from the query data without raising attribute errors."""
@@ -103,9 +127,9 @@ class MarshmallowDataclassMixin:
         return jsonschema
 
     @classmethod
-    def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
+    def from_dict(cls: Type[ClassT], obj: dict, unknown: Optional[bool] = None) -> ClassT:
         """Deserialize and validate a dataclass from a dict using marshmallow."""
-        schema = cls.__schema()
+        schema = cls.__schema(unknown=unknown)
         return schema.load(obj)
 
     def to_dict(self, strip_none_values=True) -> dict:
@@ -199,7 +223,7 @@ class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
     # Patch marshmallow-jsonschema to support marshmallow-dataclass[union]
     def _get_schema_for_field(self, obj, field):
         """Patch marshmallow_jsonschema.base.JSONSchema to support marshmallow-dataclass[union]."""
-        if isinstance(field, fields.Raw) and field.allow_none and not field.validate:
+        if isinstance(field, marshmallow_fields.Raw) and field.allow_none and not field.validate:
             # raw fields shouldn't be type string but type any. bug in marshmallow_dataclass:__init__.py:
             #  if typ is Any:
             #      metadata.setdefault("allow_none", True)

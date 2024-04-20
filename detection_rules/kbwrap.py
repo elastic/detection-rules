@@ -101,25 +101,56 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @kibana_group.command('export-rules')
 @click.option('--directory', '-d', required=True, type=Path, help='Directory to export rules to')
 @click.option('--rule-id', '-r', multiple=True, help='Optional Rule IDs to restrict export to')
+@click.option('--skip-errors', '-s', is_flag=True, help='Skip errors when exporting rules')
 @click.pass_context
 def kibana_export_rules(ctx: click.Context, directory: Path,
-                        rule_id: Optional[Iterable[str]] = None) -> List[TOMLRule]:
+                        rule_id: Optional[Iterable[str]] = None, skip_errors: bool = False) -> List[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj['kibana']
     with kibana:
         results = RuleResource.export_rules(list(rule_id))
 
+    if results:
+        directory.mkdir(parents=True, exist_ok=True)
+
+    errors = []
     exported = []
     for rule_resource in results:
-        contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity='production')
+        try:
+            contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity='production')
+            threat = contents.data.get('threat')
+            first_tactic = threat[0].tactic.name if threat else ''
+            rule_name = rulename_to_filename(contents.data.name, tactic_name=first_tactic)
+            rule = TOMLRule(contents=contents, path=directory / f'{rule_name}.toml')
+        except Exception as e:
+            if skip_errors:
+                print(f'- skipping {rule_resource.get("name")} - {type(e).__name__}')
+                errors.append(f'- {rule_resource.get("name")} - {e}')
+                continue
+            raise
 
-        threat = contents.data.get('threat')
-        first_tactic = threat[0].tactic.name if threat else ''
-        rule_name = rulename_to_filename(contents.data.name, tactic_name=first_tactic)
-
-        rule = TOMLRule(contents=contents, path=directory / f'{rule_name}.toml')
-        rule.save_toml()
         exported.append(rule)
+
+    saved = []
+    for rule in exported:
+        try:
+            rule.save_toml()
+        except Exception as e:
+            if skip_errors:
+                print(f'- skipping {rule.contents.data.name} - {type(e).__name__}')
+                errors.append(f'- {rule.contents.data.name} - {e}')
+                continue
+            raise
+
+        saved.append(rule)
+
+    click.echo(f'{len(results)} rules exported')
+    click.echo(f'{len(exported)} rules converted')
+    click.echo(f'{len(saved)} saved to {directory}')
+    if errors:
+        err_file = directory / '_errors.txt'
+        err_file.write_text('\n'.join(errors))
+        click.echo(f'{len(errors)} errors saved to {err_file}')
 
     return exported
 
