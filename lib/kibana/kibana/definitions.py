@@ -33,12 +33,13 @@ RuleBulkEditActionTypes = Union[
     RuleBulkSetRuleActions
 ]
 
-@dataclass
-class RuleBulkEditAction:
-    type: RuleBulkEditActionTypes
-    value: Any
+
+# @dataclass
+# class RuleBulkEditAction:
+#     type: RuleBulkEditActionTypes
+#     value: Any
 
 
-@dataclass
-class RuleBulkDuplicateAction:
-    include_exceptions: bool
+# @dataclass
+# class RuleBulkDuplicateAction:
+#     include_exceptions: bool

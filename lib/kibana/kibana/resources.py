@@ -4,7 +4,7 @@
 # 2.0.
 
 import datetime
-from typing import List, Optional, Type
+from typing import Any, List, Optional, Type
 
 import json
 
@@ -135,12 +135,17 @@ class RuleResource(BaseResource):
     @classmethod
     def bulk_action(cls, action: definitions.RuleBulkActions, rule_ids: Optional[List[str]] = None,
                     query: Optional[str] = None, dry_run: Optional[bool] = False,
-                    edit: Optional[definitions.RuleBulkEditAction] = None,
-                    duplicate: Optional[definitions.RuleBulkDuplicateAction] = None) -> (dict, List['RuleResource']):
+                    edit_type: Optional[definitions.RuleBulkEditActionTypes] = None, edit_value: Optional[Any] = None,
+                    include_exceptions: Optional[bool] = None) -> (dict, List['RuleResource']):
         assert not (rule_ids and query), 'Cannot provide both rule_ids and query'
 
         if action == 'edit':
-            assert edit, 'edit action requires edit object'
+            assert (edit_type and edit_value), 'edit action requires edit object'
+            edit = {'type': edit_type, 'value': edit_value}
+        else:
+            edit = None
+
+        duplicate = {'include_exceptions': include_exceptions} if include_exceptions else None
 
         params = dict(dry_run=stringify_bool(dry_run))
         data = dict(query=query, ids=rule_ids, action=action, edit=edit, duplicate=duplicate)
@@ -160,22 +165,23 @@ class RuleResource(BaseResource):
 
     @classmethod
     def bulk_disable(cls, rule_ids: Optional[List[str]] = None,
-                    query: Optional[str] = None, dry_run: Optional[bool] = False) -> (dict, List['RuleResource']):
+                     query: Optional[str] = None, dry_run: Optional[bool] = False) -> (dict, List['RuleResource']):
         """Bulk disable rules using _bulk_action."""
         return cls.bulk_action("disable", rule_ids=rule_ids, query=query, dry_run=dry_run)
 
     @classmethod
-    def bulk_delete(cls,rule_ids: Optional[List[str]] = None,
+    def bulk_delete(cls, rule_ids: Optional[List[str]] = None,
                     query: Optional[str] = None, dry_run: Optional[bool] = False) -> (dict, List['RuleResource']):
         """Bulk delete rules using _bulk_action."""
         return cls.bulk_action("delete", rule_ids=rule_ids, query=query, dry_run=dry_run)
 
     @classmethod
     def bulk_duplicate(cls, rule_ids: Optional[List[str]] = None,
-                    query: Optional[str] = None, dry_run: Optional[bool] = False,
-                    duplicate: Optional[definitions.RuleBulkDuplicateAction] = None) -> (dict, List['RuleResource']):
+                       query: Optional[str] = None, dry_run: Optional[bool] = False,
+                       include_exceptions: Optional[bool] = None) -> (dict, List['RuleResource']):
         """Bulk duplicate rules using _bulk_action."""
-        return cls.bulk_action("duplicate", rule_ids=rule_ids, query=query, dry_run=dry_run, duplicate=duplicate)
+        return cls.bulk_action("duplicate", rule_ids=rule_ids, query=query, dry_run=dry_run,
+                               include_exceptions=include_exceptions)
 
     @classmethod
     def bulk_export(cls, rule_ids: Optional[List[str]] = None,
@@ -184,11 +190,12 @@ class RuleResource(BaseResource):
         return cls.bulk_action("export", rule_ids=rule_ids, query=query, dry_run=dry_run)
 
     @classmethod
-    def bulk_edit(cls, rule_ids: Optional[List[str]] = None,
-                    query: Optional[str] = None, dry_run: Optional[bool] = False,
-                    edit: Optional[definitions.RuleBulkEditAction] = None) -> (dict, List['RuleResource']):
+    def bulk_edit(cls, rule_ids: Optional[List[str]] = None, query: Optional[str] = None,
+                  dry_run: Optional[bool] = False, edit_type: Optional[definitions.RuleBulkEditActionTypes] = None,
+                  edit_value: Optional[Any] = None) -> (dict, List['RuleResource']):
         """Bulk edit rules using _bulk_action."""
-        return cls.bulk_action("edit", rule_ids=rule_ids, query=query, dry_run=dry_run, edit=edit)
+        return cls.bulk_action("edit", rule_ids=rule_ids, query=query, dry_run=dry_run, edit_value=edit_value,
+                               edit_type=edit_type)
 
     def put(self):
         # id and rule_id are mutually exclusive
