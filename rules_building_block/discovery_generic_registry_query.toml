@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/12/13"
+updated_date = "2024/04/05"
 bypass_bbr_timing = true
 
 [rule]
@@ -15,7 +15,7 @@ This rule identifies the execution of commands that can be used to query the Win
 registry to gain situational awareness about the host, like installed security software, programs and settings.
 """
 from = "now-24h"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process-*"]
 interval = "24h"
 language = "kuery"
 license = "Elastic License v2"
@@ -47,6 +47,10 @@ host.os.type:windows and event.category:process and event.type:start and
         "hklm" or "HKLM" or registry\:\:*)
       )
     )
+  ) and
+  not process.command_line : (
+    "C:\\Windows\\system32\\reg.exe  query hklm\\software\\microsoft\\windows\\softwareinventorylogging /v collectionstate /reg:64" or
+    "reg  query \"HKLM\\Software\\WOW6432Node\\Npcap\" /ve  "
   )
 '''
 

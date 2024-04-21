@@ -99,8 +99,9 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 
 @root.command('import-rules')
 @click.argument('input-file', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
+@click.option('--required-only', is_flag=True, help='Only prompt for required fields')
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-def import_rules(input_file, directory):
+def import_rules(input_file, required_only, directory):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
@@ -119,7 +120,9 @@ def import_rules(input_file, directory):
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
         base_path = name_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
-        rule_prompt(rule_path, required_only=True, save=True, verbose=True, additional_required=['index'], **contents)
+        additional = ['index'] if not contents.get('data_view_id') else ['data_view_id']
+        rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
+                    additional_required=additional, **contents)
 
 
 @root.command('build-limited-rules')
