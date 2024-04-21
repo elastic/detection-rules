@@ -179,6 +179,11 @@ MachineLearningTypeLower = getattr(Literal, '__getitem__')(
     tuple(map(str.lower, MACHINE_LEARNING_PACKAGES)))  # noqa: E999
 ##
 
+ActionTypeId = Literal[
+    ".slack", ".slack_api", ".email", ".index", ".pagerduty", ".swimlane", ".webhook", ".servicenow",
+    ".servicenow-itom", ".servicenow-sir", ".jira", ".resilient", ".opsgenie", ".teams", ".torq", ".tines",
+    ".d3security"
+]
 EsDataTypes = Literal[
     'binary', 'boolean',
     'keyword', 'constant_keyword', 'wildcard',
@@ -192,3 +197,4 @@ EsDataTypes = Literal[
     'geo_point', 'geo_shape', 'point', 'shape',
     'percolator'
 ]
+

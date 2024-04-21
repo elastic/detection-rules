@@ -16,7 +16,7 @@ from .schemas import definitions
 class ActionMeta(MarshmallowDataclassMixin):
     """Data stored in an exception's [metadata] section of TOML."""
     creation_date: definitions.Date
-    rule_id: definitions.UUIDString
+    rule_id: List[definitions.UUIDString]
     rule_name: str
     updated_date: definitions.Date
 
@@ -33,11 +33,12 @@ class Action(MarshmallowDataclassMixin):
     class ActionParams:
         body: str
 
-    action_type_id: str
+    action_type_id: definitions.ActionTypeId
     group: str
     params: ActionParams
     id: Optional[str]
     frequency: Optional[dict]
+    alerts_filter: Optional[dict]
 
 
 @dataclass(frozen=True)
