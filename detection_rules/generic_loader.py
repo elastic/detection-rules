@@ -11,8 +11,8 @@ from typing import Callable, Dict, Iterable, List, Optional, Union
 import pytoml
 
 from .action import TOMLAction, TOMLActionContents
+from .config import parse_rules_config
 from .exception import TOMLException, TOMLExceptionContents
-from .misc import parse_rules_config
 from .rule_loader import dict_filter
 from .schemas import definitions
 

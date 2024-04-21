@@ -11,7 +11,7 @@ from typing import OrderedDict as OrderedDictType
 import jsonschema
 from semver import Version
 
-from ..misc import load_current_package_version, parse_rules_config
+from ..config import load_current_package_version, parse_rules_config
 from ..utils import cached, get_etc_path
 from . import definitions
 from .rta_schema import validate_rta_mapping

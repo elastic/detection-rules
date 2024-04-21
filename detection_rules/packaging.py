@@ -19,7 +19,8 @@ from semver import Version
 import click
 import yaml
 
-from .misc import JS_LICENSE, cached, load_current_package_version, parse_rules_config
+from .config import load_current_package_version, parse_rules_config
+from .misc import JS_LICENSE, cached
 from .navigator import NavigatorBuilder, Navigator
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
 from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR, DEFAULT_BBR_DIR

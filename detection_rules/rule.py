@@ -24,10 +24,10 @@ from marshmallow import ValidationError, validates_schema
 import kql
 
 from . import beats, ecs, endgame, utils
+from .config import load_current_package_version, parse_rules_config
 from .integrations import (find_least_compatible_version, get_integration_schema_fields,
                            load_integrations_manifests, load_integrations_schemas,
                            parse_datasets)
-from .misc import load_current_package_version, parse_rules_config
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,

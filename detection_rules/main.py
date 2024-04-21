@@ -23,9 +23,10 @@ import click
 
 from .attack import build_threat_map_entry
 from .cli_utils import rule_prompt, multi_collection
+from .config import load_current_package_version, parse_rules_config
 from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
 from .misc import (
-    add_client, client_error, nested_set, parse_user_config, parse_rules_config, load_current_package_version
+    add_client, client_error, nested_set, parse_user_config
 )
 from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
 from .rule_formatter import toml_write

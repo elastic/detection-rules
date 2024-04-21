@@ -15,7 +15,7 @@ import kql
 from detection_rules.integrations import (
     find_latest_compatible_version, load_integrations_manifests, load_integrations_schemas
 )
-from detection_rules.misc import load_current_package_version
+from detection_rules.config import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import QueryValidator
 from detection_rules.rule_loader import RuleCollection

@@ -10,9 +10,9 @@ from pathlib import Path
 from functools import lru_cache
 from typing import Union
 
+from detection_rules.config import parse_rules_config
 from detection_rules.rule import TOMLRule
 from detection_rules.rule_loader import DeprecatedCollection, DeprecatedRule, RuleCollection, production_filter
-from detection_rules.misc import parse_rules_config
 
 
 RULE_LOADER_FAIL = False

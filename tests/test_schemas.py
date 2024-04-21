@@ -11,7 +11,7 @@ from semver import Version
 
 import eql
 from detection_rules import utils
-from detection_rules.misc import load_current_package_version
+from detection_rules.config import load_current_package_version
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.schemas import downgrade
 from detection_rules.version_lock import VersionLockFile

@@ -33,6 +33,7 @@ from . import attack, rule_loader, utils
 from .beats import (download_beats_schema, download_latest_beats_schema,
                     refresh_main_schema)
 from .cli_utils import single_collection
+from .config import parse_rules_config
 from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
@@ -45,7 +46,7 @@ from .integrations import (SecurityDetectionEngine,
                            find_latest_integration_version,
                            load_integrations_manifests)
 from .main import root
-from .misc import PYTHON_LICENSE, add_client, client_error, parse_rules_config
+from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,

@@ -197,4 +197,3 @@ EsDataTypes = Literal[
     'geo_point', 'geo_shape', 'point', 'shape',
     'percolator'
 ]
-

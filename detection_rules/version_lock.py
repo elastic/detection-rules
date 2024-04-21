@@ -11,7 +11,7 @@ from typing import ClassVar, Dict, List, Optional, Union
 import click
 from semver import Version
 
-from .misc import parse_rules_config
+from .config import parse_rules_config
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .rule_loader import RuleCollection
 from .schemas import definitions
