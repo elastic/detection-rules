@@ -290,6 +290,7 @@ def parse_user_config():
 
 
 def discover_tests(start_dir: str = 'tests', pattern: str = 'test*.py', top_level_dir: Optional[str] = None):
+    """Discover all unit tests in a directory."""
     def list_tests(s, tests=None):
         if tests is None:
             tests = []
