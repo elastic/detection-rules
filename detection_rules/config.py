@@ -78,6 +78,17 @@ class TestConfig:
                 tests.append(name)
         return patterns, tests
 
+    @staticmethod
+    def format_tests(tests: List[str]) -> List[str]:
+        """Format unit test names into expected format for direct calling."""
+        raw = [t.rsplit('.', maxsplit=2) for t in tests]
+        formatted = []
+        for test in raw:
+            path, clazz, method = test
+            path = f'{path.replace(".", os.path.sep)}.py'
+            formatted.append('::'.join([path, clazz, method]))
+        return formatted
+
     def get_test_names(self, formatted: bool = False) -> (List[str], List[str]):
         """Get the list of test names to run."""
         patterns_t, tests_t = self.parse_out_patterns(self.unit_tests.test_only or [])
@@ -105,16 +116,7 @@ class TestConfig:
             skipped = []
 
         if formatted:
-            def fmt_tests(lt) -> List[str]:
-                raw = [t.rsplit('.', maxsplit=2) for t in lt]
-                ft = []
-                for test in raw:
-                    path, clazz, method = test
-                    path = f'{path.replace(".", os.path.sep)}.py'
-                    ft.append('::'.join([path, clazz, method]))
-                return ft
-
-            return fmt_tests(tests), fmt_tests(skipped)
+            return self.format_tests(tests), self.format_tests(skipped)
         else:
             return tests, skipped
 
@@ -122,8 +124,11 @@ class TestConfig:
         """Check if a rule_id should be skipped."""
         bypass = self.rule_validation.bypass
         test_only = self.rule_validation.test_only
+
+        # neither bypass nor test_only are defined, so no rules are skipped
         if not (bypass or test_only):
             return False
+        # if defined in bypass or not defined in test_only, then skip
         return (bypass and rule_id in bypass) or (test_only and rule_id not in test_only)
 
 
