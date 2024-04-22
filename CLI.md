@@ -5,7 +5,7 @@ the [README](README.md). Basic use of the CLI such as [creating a rule](CONTRIBU
 [testing](CONTRIBUTING.md#testing-a-rule-with-the-cli) are referenced in the [contribution guide](CONTRIBUTING.md).
 
 
-## Using a config file or environment variables
+## Using a user config file or environment variables
 
 CLI commands which are tied to Kibana and Elasticsearch are capable of parsing auth-related keyword args from a config
 file or environment variables.
@@ -17,9 +17,9 @@ follows:
 * config values
 * prompt (this only applies to certain values)
 
-#### Setup a config file
+#### Setup a user config file
 
-In the root directory of this repo, create the file `.detection-rules-cfg.json` and add relevant values
+In the root directory of this repo, create the file `.detection-rules-cfg.json` (or `.yaml`) and add relevant values
 
 Currently supported arguments:
 * elasticsearch_url
@@ -33,13 +33,6 @@ Currently supported arguments:
 Environment variables using the argument format: `DR_<UPPERCASED_ARG_NAME>` will be parsed in commands which expect it.
 EX: `DR_USER=joe`
 
-
-Using the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE` will bypass the Detection Rules validation on the `note` field in toml files.
-
-Using the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION` will bypass the Detection Rules lookback and interval validation
-on the building block rules.
-
-Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detection Rules Unit Tests on the `tags` field in toml files.
 
 ## Importing rules into the repo
 
