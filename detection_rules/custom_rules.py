@@ -29,6 +29,7 @@ def init_config(directory: Path):
     directories = [
         directory / 'actions',
         directory / 'exceptions',
+        directory / 'rules',
         etc_dir
     ]
     files = [
@@ -43,6 +44,6 @@ def init_config(directory: Path):
         dir_.mkdir(parents=True, exist_ok=True)
         click.echo(f'created directory: {dir_}')
     for file_ in files:
-        file_.touch()
+        file_.write_text('{}')
         click.echo(f'created file: {file_}')
     config.write_text(f'# for details on how to configure this file, consult: {DEFAULT_CONFIG_PATH.resolve()} or docs')
