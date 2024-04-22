@@ -23,6 +23,7 @@ CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
 
 @dataclass
 class UnitTest:
+    """Base object for unit tests configuration."""
     bypass: Optional[List[str]] = None
     test_only: Optional[List[str]] = None
 
@@ -32,6 +33,7 @@ class UnitTest:
 
 @dataclass
 class RuleValidation:
+    """Base object for rule validation configuration."""
     bypass: Optional[List[str]] = None
     test_only: Optional[List[str]] = None
 
@@ -42,16 +44,15 @@ class RuleValidation:
 @dataclass
 class TestConfig:
     """Detection rules test config file"""
+    test_file: Optional[Path] = None
+    unit_tests: Optional[UnitTest] = None
+    rule_validation: Optional[RuleValidation] = None
 
     @classmethod
     def from_dict(cls, test_file: Optional[Path] = None, unit_tests: Optional[dict] = None,
                   rule_validation: Optional[dict] = None):
         return cls(test_file=test_file or None, unit_tests=UnitTest(**unit_tests or {}),
                    rule_validation=RuleValidation(**rule_validation or {}))
-
-    test_file: Optional[Path] = None
-    unit_tests: Optional[UnitTest] = None
-    rule_validation: Optional[RuleValidation] = None
 
     @cached_property
     def all_tests(self):
