@@ -23,7 +23,7 @@ from .config import load_current_package_version, parse_rules_config
 from .misc import JS_LICENSE, cached
 from .navigator import NavigatorBuilder, Navigator
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
-from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR, DEFAULT_BBR_DIR
+from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_PREBUILT_RULES_DIR, DEFAULT_PREBUILT_BBR_DIR
 from .schemas import definitions
 from .utils import Ndjson, get_path, get_etc_path
 from .version_lock import loaded_version_lock
@@ -480,9 +480,9 @@ class Package(object):
             bulk_upload_docs.append(create)
 
             try:
-                relative_path = str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR))
+                relative_path = str(rule.path.resolve().relative_to(DEFAULT_PREBUILT_RULES_DIR))
             except ValueError:
-                relative_path = str(rule.path.resolve().relative_to(DEFAULT_BBR_DIR))
+                relative_path = str(rule.path.resolve().relative_to(DEFAULT_PREBUILT_BBR_DIR))
 
             rule_doc = dict(hash=rule.contents.sha256(),
                             source='repo',
