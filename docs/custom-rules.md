@@ -17,8 +17,9 @@ are stored to minimize VCS conflicts and overlap. This is accomplished by defini
 ```
 custom-rules
 ├── _config.yaml
-├── example_rule_1.toml
-├── example_rule_2.toml
+└── rules
+    ├── example_rule_1.toml
+    ├── example_rule_2.toml
 └── etc
     ├── deprecated_rules.json
     ├── packages.yml
@@ -48,6 +49,9 @@ To initialize a custom rule directory, run `python -m detection_rules custom-rul
 ### Defining a config
 
 ```yaml
+rule_dirs:
+  - rules
+  - rules_building_block
 files:
   deprecated_rules: deprecated_rules.json
   packages: packages.yml

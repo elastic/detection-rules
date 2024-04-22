@@ -139,11 +139,12 @@ class RulesConfig:
     deprecated_rules: Dict[str, dict]
     packages_file: Path
     packages: Dict[str, dict]
+    rule_dirs: List[Path]
     stack_schema_map_file: Path
     stack_schema_map: Dict[str, dict]
+    test_config: TestConfig
     version_lock_file: Path
     version_lock: Dict[str, dict]
-    test_config: TestConfig
 
     action_dir: Optional[Path] = None
     exception_dir: Optional[Path] = None
@@ -165,6 +166,7 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
 
     base_dir = path.resolve().parent
 
+    # testing
     # precedence to the environment variable
     # environment variable is absolute path and config file is relative to the _config.yaml file
     test_config_ev = os.getenv('DETECTION_RULES_TEST_CONFIG', None)
@@ -183,12 +185,20 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     else:
         test_config = TestConfig.from_dict()
 
+    # files
+    # paths are relative
     files = {f'{k}_file': base_dir.joinpath(v) for k, v in loaded['files'].items()}
     contents = {k: load_dump(str(base_dir.joinpath(v))) for k, v in loaded['files'].items()}
     contents.update(**files)
 
+    # directories
+    # paths are relative
     if loaded.get('directories'):
         contents.update({k: base_dir.joinpath(v) for k, v in loaded['directories'].items()})
+
+    # rule_dirs
+    # paths are relative
+    contents['rule_dirs'] = [base_dir.joinpath(d) for d in loaded.get('rule_dirs', [])]
 
     rules_config = RulesConfig(test_config=test_config, **contents)
     return rules_config

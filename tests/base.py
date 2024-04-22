@@ -20,6 +20,7 @@ RULE_LOADER_FAIL_MSG = None
 RULE_LOADER_FAIL_RAISED = False
 
 CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
+RULES_CONFIG = parse_rules_config()
 
 
 @lru_cache
@@ -28,7 +29,7 @@ def load_rules() -> RuleCollection:
         rc = RuleCollection()
         path = Path(CUSTOM_RULES_DIR)
         assert path.exists(), f'Custom rules directory {path} does not exist'
-        rc.load_directory(path)
+        rc.load_directories(directories=RULES_CONFIG.rule_dirs)
         rc.freeze()
         return rc
     return RuleCollection.default()
@@ -66,7 +67,7 @@ class BaseRuleTest(unittest.TestCase):
                 RULE_LOADER_FAIL_MSG = str(e)
 
         cls.custom_dir = Path(CUSTOM_RULES_DIR).resolve() if CUSTOM_RULES_DIR else None
-        cls.rules_config = parse_rules_config()
+        cls.rules_config = RULES_CONFIG
 
     @staticmethod
     def rule_str(rule: Union[DeprecatedRule, TOMLRule], trailer=' ->') -> str:
