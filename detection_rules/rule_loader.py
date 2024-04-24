@@ -191,6 +191,7 @@ class RawRuleCollection(BaseCollection):
         return filtered_collection
 
     def _load_rule_file(self, path: Path) -> dict:
+        """Load a rule file into a dictionary."""
         if path in self._raw_load_cache:
             return self._raw_load_cache[path]
 
@@ -210,12 +211,14 @@ class RawRuleCollection(BaseCollection):
         return raw_dict
 
     def _get_paths(self, directory: Path, recursive=True) -> List[Path]:
+        """Get all paths in a directory that match the ext patterns."""
         paths = []
         for pattern in self.ext_patterns:
             paths.extend(sorted(directory.rglob(pattern) if recursive else directory.glob(pattern)))
         return paths
 
     def _assert_new(self, rule: DictRule):
+        """Assert that a rule is new and can be added to the collection."""
         id_map = self.id_map
         file_map = self.file_map
         name_map = self.name_map
@@ -232,17 +235,20 @@ class RawRuleCollection(BaseCollection):
             file_map[rule_path] = rule
 
     def add_rule(self, rule: DictRule):
+        """Add a rule to the collection."""
         self._assert_new(rule)
         self.id_map[rule.id] = rule
         self.name_map[rule.name] = rule
         self.rules.append(rule)
 
     def load_dict(self, obj: dict, path: Optional[Path] = None) -> DictRule:
+        """Load a rule from a dictionary."""
         rule = DictRule(contents=obj, path=path)
         self.add_rule(rule)
         return rule
 
     def load_file(self, path: Path) -> DictRule:
+        """Load a rule from a file."""
         try:
             path = path.resolve()
             # use the default rule loader as a cache.
@@ -265,6 +271,7 @@ class RawRuleCollection(BaseCollection):
             self.load_file(path)
 
     def load_directory(self, directory: Path, recursive=True, obj_filter: Optional[Callable[[dict], bool]] = None):
+        """Load all rules in a directory."""
         paths = self._get_paths(directory, recursive=recursive)
         if obj_filter is not None:
             paths = [path for path in paths if obj_filter(self._load_rule_file(path))]
@@ -273,6 +280,7 @@ class RawRuleCollection(BaseCollection):
 
     def load_directories(self, directories: Iterable[Path], recursive=True,
                          obj_filter: Optional[Callable[[dict], bool]] = None):
+        """Load all rules in multiple directories."""
         for path in directories:
             self.load_directory(path, recursive=recursive, obj_filter=obj_filter)
 
