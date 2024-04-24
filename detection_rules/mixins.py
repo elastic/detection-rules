@@ -7,7 +7,7 @@
 
 import dataclasses
 from pathlib import Path
-from typing import Any, Optional, TypeVar, Type
+from typing import Any, Optional, TypeVar, Type, Literal
 
 import json
 import marshmallow_dataclass
@@ -25,6 +25,7 @@ from .utils import cached, dict_hash
 
 T = TypeVar('T')
 ClassT = TypeVar('ClassT')  # bound=dataclass?
+UNKNOWN_VALUES = Literal['raise', 'exclude', 'include']
 
 
 def _strip_none_from_dict(obj: T) -> T:
@@ -107,7 +108,7 @@ class MarshmallowDataclassMixin:
 
     @classmethod
     @cached
-    def __schema(cls: ClassT, unknown: Optional[bool] = None) -> Schema:
+    def __schema(cls: ClassT, unknown: Optional[UNKNOWN_VALUES] = None) -> Schema:
         """Get the marshmallow schema for the data class"""
         if unknown:
             return recursive_class_schema(cls)()
@@ -127,7 +128,7 @@ class MarshmallowDataclassMixin:
         return jsonschema
 
     @classmethod
-    def from_dict(cls: Type[ClassT], obj: dict, unknown: Optional[bool] = None) -> ClassT:
+    def from_dict(cls: Type[ClassT], obj: dict, unknown: Optional[UNKNOWN_VALUES] = None) -> ClassT:
         """Deserialize and validate a dataclass from a dict using marshmallow."""
         schema = cls.__schema(unknown=unknown)
         return schema.load(obj)
