@@ -430,7 +430,10 @@ def test_rules(ctx):
         click.echo('\n'.join(skipped))
 
     clear_caches()
-    ctx.exit(pytest.main(['-v'] + tests))
+    if tests:
+        ctx.exit(pytest.main(['-v'] + tests))
+    else:
+        click.echo('No tests found to execute!')
 
 
 @root.group('typosquat')

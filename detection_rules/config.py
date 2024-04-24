@@ -93,14 +93,14 @@ class TestConfig:
         """Get the list of test names to run."""
         patterns_t, tests_t = self.parse_out_patterns(self.unit_tests.test_only or [])
         patterns_b, tests_b = self.parse_out_patterns(self.unit_tests.bypass or [])
-        tests = tests_t + tests_b
+        defined_tests = tests_t + tests_b
         patterns = patterns_t + patterns_b
-        unknowns = sorted(set(tests) - set(self.all_tests))
+        unknowns = sorted(set(defined_tests) - set(self.all_tests))
         assert not unknowns, f'Unrecognized test names in config ({self.test_file}): {unknowns}'
 
-        combined_tests = sorted(set(tests + self.tests_by_patterns(*patterns)))
+        combined_tests = sorted(set(defined_tests + self.tests_by_patterns(*patterns)))
 
-        if self.unit_tests.test_only:
+        if self.unit_tests.test_only is not None:
             tests = combined_tests
             skipped = [t for t in self.all_tests if t not in tests]
         elif self.unit_tests.bypass:
@@ -164,6 +164,8 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
         path = Path(get_etc_path('_config.yaml'))
         loaded = load_etc_dump('_config.yaml')
 
+    assert loaded, f'No data loaded from {path}'
+
     base_dir = path.resolve().parent
 
     # testing
@@ -181,6 +183,11 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
 
     if test_config_path:
         test_config_data = yaml.safe_load(test_config_path.read_text())
+
+        # overwrite None with empty list to allow implicit exemption of all tests with `test_only` defined to None in
+        # test config
+        if 'unit_tests' in test_config_data and test_config_data['unit_tests'] is not None:
+            test_config_data['unit_tests'] = {k: v or [] for k, v in test_config_data['unit_tests'].items()}
         test_config = TestConfig.from_dict(test_file=test_config_path, **test_config_data)
     else:
         test_config = TestConfig.from_dict()

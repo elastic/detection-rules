@@ -36,7 +36,7 @@ def init_config(directory: Path):
         config,
         etc_dir / 'deprecated_rules.json',
         etc_dir / 'packages.yml',
-        etc_dir / 'stack-schema-map.yml',
+        etc_dir / 'stack-schema-map.yaml',
         etc_dir / 'version.lock.json',
         etc_dir / 'test_config.yaml',
     ]
