@@ -307,12 +307,12 @@ def clear_caches():
     _cache.clear()
 
 
-def rulename_to_filename(name: str, tactic_name: str = None) -> str:
-    name = re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_') + '.toml'
+def rulename_to_filename(name: str, tactic_name: str = None, ext: str = '.toml') -> str:
+    name = re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_')
     if tactic_name:
-        pre = re.sub(r'[^_a-z0-9]+', '_', tactic_name.strip().lower()).strip('_')
+        pre = rulename_to_filename(name=tactic_name, ext='')
         name = f'{pre}_{name}'
-    return name
+    return name + ext or ''
 
 
 def load_rule_contents(rule_file: Path, single_only=False) -> list:

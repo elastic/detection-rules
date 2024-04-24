@@ -96,7 +96,7 @@ def exclude_class_schema(clazz, base_schema=BaseSchema, **kwargs):
 def recursive_class_schema(clazz, base_schema=BaseSchema, **kwargs):
     schema = exclude_class_schema(clazz, base_schema=base_schema, **kwargs)
     for field in dataclasses.fields(clazz):
-        if hasattr(field.type, '__dataclass_fields__'):
+        if dataclasses.is_dataclass(field.type):
             nested_cls = field.type
             nested_schema = recursive_class_schema(nested_cls, base_schema=base_schema, **kwargs)
             setattr(schema, field.name, nested_schema)
