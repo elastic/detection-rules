@@ -31,12 +31,14 @@ class ExceptionMeta(MarshmallowDataclassMixin):
 
 @dataclass(frozen=True)
 class BaseExceptionItemEntry(MarshmallowDataclassMixin):
+    """Shared object between nested and non-nested exception items."""
     field: str
     type: definitions.ExceptionEntryType
 
 
 @dataclass(frozen=True)
 class NestedExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
+    """Nested exception item entry."""
     entries: List['ExceptionItemEntry']
 
     @validates_schema
@@ -47,6 +49,7 @@ class NestedExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin
 
 @dataclass(frozen=True)
 class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
+    """Exception item entry."""
     @dataclass(frozen=True)
     class ListObject:
         id: definitions.UUIDString
@@ -58,6 +61,7 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
 
     @validates_schema
     def validate_entry(self, data: dict, **kwargs):
+        """Validate the entry based on its type."""
         value = data.get('value', '')
         if data['type'] in ('exists', 'list') and value is not None:
             raise ValidationError(f'Entry of type {data["type"]} cannot have a value')
@@ -69,6 +73,7 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
 
 @dataclass(frozen=True)
 class ExceptionItem(MarshmallowDataclassMixin):
+    """Base exception item."""
     @dataclass(frozen=True)
     class Comment:
         comment: str
@@ -87,6 +92,7 @@ class ExceptionItem(MarshmallowDataclassMixin):
 
 @dataclass(frozen=True)
 class EndpointException(ExceptionItem, MarshmallowDataclassMixin):
+    """Endpoint exception item."""
     _tags: List[definitions.ExceptionItemEndpointTags]
 
     @validates_schema
@@ -98,11 +104,13 @@ class EndpointException(ExceptionItem, MarshmallowDataclassMixin):
 
 @dataclass(frozen=True)
 class DetectionException(ExceptionItem, MarshmallowDataclassMixin):
+    """Detection exception item."""
     expire_time: Optional[str]  # fields.DateTime]  # maybe this is isoformat?
 
 
 @dataclass(frozen=True)
 class ExceptionContainer(MarshmallowDataclassMixin):
+    """Exception container."""
     description: str
     list_id: Optional[str]
     meta: Optional[dict]
@@ -119,18 +127,21 @@ class ExceptionContainer(MarshmallowDataclassMixin):
 
 @dataclass(frozen=True)
 class Data(MarshmallowDataclassMixin):
+    """Data stored in an exception's [exception] section of TOML."""
     container: ExceptionContainer
     items: List[DetectionException]  # Union[DetectionException, EndpointException]]
 
 
 @dataclass(frozen=True)
 class TOMLExceptionContents(MarshmallowDataclassMixin):
+    """Data stored in an exception file."""
     metadata: ExceptionMeta
     exceptions: List[Data]
 
 
 @dataclass(frozen=True)
 class TOMLException:
+    """TOML exception object."""
     contents: TOMLExceptionContents
     path: Optional[Path] = None
 

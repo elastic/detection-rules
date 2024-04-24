@@ -76,9 +76,11 @@ class GenericCollection:
 
     @staticmethod
     def deserialize_toml_string(contents: Union[bytes, str]) -> dict:
+        """Deserialize a TOML string into a dictionary."""
         return pytoml.loads(contents)
 
     def _load_toml_file(self, path: Path) -> dict:
+        """Load a TOML file into a dictionary."""
         if path in self._toml_load_cache:
             return self._toml_load_cache[path]
 
@@ -91,9 +93,11 @@ class GenericCollection:
             return toml_dict
 
     def _get_paths(self, directory: Path, recursive=True) -> List[Path]:
+        """Get all TOML files in a directory."""
         return sorted(directory.rglob('*.toml') if recursive else directory.glob('*.toml'))
 
     def _assert_new(self, item: GenericCollectionTypes):
+        """Assert that the item is new and can be added to the collection."""
         id_map = self.id_map
         file_map = self.file_map
         name_map = self.name_map
@@ -110,12 +114,14 @@ class GenericCollection:
             file_map[item_path] = item
 
     def add_item(self, item: GenericCollectionTypes):
+        """Add a new item to the collection."""
         self._assert_new(item)
         self.id_map[item.id] = item
         self.name_map[item.name] = item
         self.items.append(item)
 
     def load_dict(self, obj: dict, path: Optional[Path] = None) -> GenericCollectionTypes:
+        """Load a dictionary into the collection."""
         is_exception = True if 'exceptions' in obj else False
         contents = TOMLExceptionContents.from_dict(obj) if is_exception else TOMLActionContents.from_dict(obj)
         item = TOMLException(path=path, contents=contents)
@@ -123,6 +129,7 @@ class GenericCollection:
         return item
 
     def load_file(self, path: Path) -> GenericCollectionTypes:
+        """Load a single file into the collection."""
         try:
             path = path.resolve()
 
@@ -146,6 +153,7 @@ class GenericCollection:
             self.load_file(path)
 
     def load_directory(self, directory: Path, recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None):
+        """Load all TOML files in a directory."""
         paths = self._get_paths(directory, recursive=recursive)
         if toml_filter is not None:
             paths = [path for path in paths if toml_filter(self._load_toml_file(path))]
@@ -154,6 +162,7 @@ class GenericCollection:
 
     def load_directories(self, directories: Iterable[Path], recursive=True,
                          toml_filter: Optional[Callable[[dict], bool]] = None):
+        """Load all TOML files in multiple directories."""
         for path in directories:
             self.load_directory(path, recursive=recursive, toml_filter=toml_filter)
 
