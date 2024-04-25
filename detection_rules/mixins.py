@@ -85,15 +85,18 @@ def patch_jsonschema(obj: dict) -> dict:
 
 
 class BaseSchema(Schema):
+    """Base schema for marshmallow dataclasses with unknown."""
     class Meta:
         unknown = marshmallow.EXCLUDE
 
 
 def exclude_class_schema(clazz, base_schema=BaseSchema, **kwargs):
+    """Get a marshmallow schema for a dataclass with unknown=EXCLUDE."""
     return marshmallow_dataclass.class_schema(clazz, base_schema=base_schema, **kwargs)
 
 
 def recursive_class_schema(clazz, base_schema=BaseSchema, **kwargs):
+    """Recursively apply the unknown parameter for nested schemas."""
     schema = exclude_class_schema(clazz, base_schema=base_schema, **kwargs)
     for field in dataclasses.fields(clazz):
         if dataclasses.is_dataclass(field.type):

@@ -308,6 +308,7 @@ def clear_caches():
 
 
 def rulename_to_filename(name: str, tactic_name: str = None, ext: str = '.toml') -> str:
+    """Convert a rule name to a filename."""
     name = re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_')
     if tactic_name:
         pre = rulename_to_filename(name=tactic_name, ext='')
