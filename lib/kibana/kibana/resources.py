@@ -135,25 +135,32 @@ class RuleResource(BaseResource):
     @classmethod
     def bulk_action(cls, action: definitions.RuleBulkActions, rule_ids: Optional[List[str]] = None,
                     query: Optional[str] = None, dry_run: Optional[bool] = False,
-                    edit_type: Optional[definitions.RuleBulkEditActionTypes] = None, edit_value: Optional[Any] = None,
-                    include_exceptions: Optional[bool] = None) -> (dict, List['RuleResource']):
+                    edit_object: Optional[list[definitions.RuleBulkEditActionTypes]] = None,
+                    include_exceptions: Optional[bool] = False, **kwargs) -> (dict, List['RuleResource']):
         assert not (rule_ids and query), 'Cannot provide both rule_ids and query'
 
         if action == 'edit':
-            assert (edit_type and edit_value), 'edit action requires edit object'
-            edit = {'type': edit_type, 'value': edit_value}
-        else:
-            edit = None
+            assert edit_object, 'edit action requires edit object'
 
-        duplicate = {'include_exceptions': include_exceptions} if include_exceptions else None
+        duplicate = {'include_exceptions': include_exceptions, 'include_expired_exceptions': False}
 
         params = dict(dry_run=stringify_bool(dry_run))
-        data = dict(query=query, ids=rule_ids, action=action, edit=edit, duplicate=duplicate)
-        response = Kibana.current().post(cls.BASE_URI + "/_bulk_action", params=params, data=data)
+        data = dict(action=action, edit=edit_object, duplicate=duplicate)
+        if query:
+            data['query'] = query
+        elif rule_ids:
+            data['rule_ids'] = rule_ids
+        response = Kibana.current().post(cls.BASE_URI + "/_bulk_action", params=params, data=data, **kwargs)
 
-        results = response['attributes']['results']
-        result_ids = [r['rule_id'] for r in results['updated']]
-        result_ids.extend([r['rule_id'] for r in results['created']])
+        # export returns ndjson, which requires manual parsing since response.json() fails
+        if action == 'export':
+            response = [json.loads(r) for r in response.text.splitlines()]
+            result_ids = [r['rule_id'] for r in response if 'rule_id' in r]
+        else:
+            results = response['attributes']['results']
+            result_ids = [r['rule_id'] for r in results['updated']]
+            result_ids.extend([r['rule_id'] for r in results['created']])
+
         rule_resources = cls.export_rules(result_ids)
         return response, rule_resources
 
@@ -178,24 +185,28 @@ class RuleResource(BaseResource):
     @classmethod
     def bulk_duplicate(cls, rule_ids: Optional[List[str]] = None,
                        query: Optional[str] = None, dry_run: Optional[bool] = False,
-                       include_exceptions: Optional[bool] = None) -> (dict, List['RuleResource']):
+                       include_exceptions: Optional[bool] = False) -> (dict, List['RuleResource']):
         """Bulk duplicate rules using _bulk_action."""
         return cls.bulk_action("duplicate", rule_ids=rule_ids, query=query, dry_run=dry_run,
                                include_exceptions=include_exceptions)
 
     @classmethod
-    def bulk_export(cls, rule_ids: Optional[List[str]] = None,
-                    query: Optional[str] = None, dry_run: Optional[bool] = False) -> (dict, List['RuleResource']):
+    def bulk_export(
+            cls, rule_ids: Optional[List[str]] = None, query: Optional[str] = None
+    ) -> (dict, List['RuleResource']):
         """Bulk export rules using _bulk_action."""
-        return cls.bulk_action("export", rule_ids=rule_ids, query=query, dry_run=dry_run)
+        return cls.bulk_action("export", rule_ids=rule_ids, query=query, raw=True)
 
     @classmethod
-    def bulk_edit(cls, rule_ids: Optional[List[str]] = None, query: Optional[str] = None,
-                  dry_run: Optional[bool] = False, edit_type: Optional[definitions.RuleBulkEditActionTypes] = None,
-                  edit_value: Optional[Any] = None) -> (dict, List['RuleResource']):
+    def bulk_edit(
+        cls, edit_object: list[definitions.RuleBulkEditActionTypes], rule_ids: Optional[List[str]] = None,
+            query: Optional[str] = None, dry_run: Optional[bool] = False
+    ) -> (dict, List['RuleResource']):
         """Bulk edit rules using _bulk_action."""
-        return cls.bulk_action("edit", rule_ids=rule_ids, query=query, dry_run=dry_run, edit_value=edit_value,
-                               edit_type=edit_type)
+        # setting to error=False because the API returns a 500 with any failures, but includes the success data as well
+        return cls.bulk_action(
+            "edit", rule_ids=rule_ids, query=query, dry_run=dry_run, edit_object=edit_object, error=False
+        )
 
     def put(self):
         # id and rule_id are mutually exclusive
