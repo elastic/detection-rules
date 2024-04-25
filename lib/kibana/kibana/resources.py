@@ -214,7 +214,7 @@ class RuleResource(BaseResource):
 
     @classmethod
     def import_rules(cls, rules: List[dict], overwrite: bool = False, overwrite_exceptions: bool = False,
-                     overwrite_action_connectors: bool = False) -> (dict, List['RuleResource']):
+                     overwrite_action_connectors: bool = False) -> (dict, list, List[Optional['RuleResource']]):
         """Import a list of rules into Kibana using the _import API and return the response and successful imports."""
         url = f'{cls.BASE_URI}/_import'
         params = dict(
@@ -230,8 +230,8 @@ class RuleResource(BaseResource):
 
         # successful rule_ids are not returned, so they must be implicitly inferred from errored rule_ids
         successful_rule_ids = [r for r in rule_ids if r not in error_rule_ids]
-        rule_resources = cls.export_rules(successful_rule_ids)
-        return response, rule_resources
+        rule_resources = cls.export_rules(successful_rule_ids) if successful_rule_ids else []
+        return response, successful_rule_ids, rule_resources
 
     @classmethod
     def export_rules(cls, rule_ids: Optional[List[str]] = None,

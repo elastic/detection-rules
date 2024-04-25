@@ -86,14 +86,23 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
                         overwrite_action_connectors: Optional[bool] = False) -> (dict, List[RuleResource]):
     """Import custom rules into Kibana."""
     kibana = ctx.obj['kibana']
-    rule_dicts = [r.to_api_format() for r in rules]
+    rule_dicts = [r.contents.to_api_format() for r in rules]
     with kibana:
-        response, results = RuleResource.import_rules(
+        response, successful_rule_ids, results = RuleResource.import_rules(
             rule_dicts,
             overwrite=overwrite,
             overwrite_exceptions=overwrite_exceptions,
             overwrite_action_connectors=overwrite_action_connectors
         )
+
+    if successful_rule_ids:
+        click.echo(f'{len(successful_rule_ids)} rule(s) successfully imported')
+        rule_str = '\n - '.join(successful_rule_ids)
+        print(f' - {rule_str}')
+    if response['errors']:
+        click.echo(f'{len(response["errors"])} rule(s) failed to import!')
+        for error in response['errors']:
+            click.echo(f' - {error["rule_id"]}: ({error["error"]["status_code"]}) {error["error"]["message"]}')
 
     return response, results
 
@@ -121,7 +130,7 @@ def kibana_export_rules(ctx: click.Context, directory: Path,
             threat = contents.data.get('threat')
             first_tactic = threat[0].tactic.name if threat else ''
             rule_name = rulename_to_filename(contents.data.name, tactic_name=first_tactic)
-            rule = TOMLRule(contents=contents, path=directory / f'{rule_name}.toml')
+            rule = TOMLRule(contents=contents, path=directory / f'{rule_name}')
         except Exception as e:
             if skip_errors:
                 print(f'- skipping {rule_resource.get("name")} - {type(e).__name__}')

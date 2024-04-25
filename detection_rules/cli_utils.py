@@ -66,7 +66,7 @@ def multi_collection(f):
 
     @click.option('--rule-file', '-f', multiple=True, type=click.Path(dir_okay=False), required=False)
     @click.option('--directory', '-d', multiple=True, type=click.Path(file_okay=False), required=False,
-                  help='Recursively export rules from a directory')
+                  help='Recursively load rules from a directory')
     @click.option('--rule-id', '-id', multiple=True, required=False)
     @functools.wraps(f)
     def get_collection(*args, **kwargs):
