@@ -13,6 +13,7 @@ echo "Requires .detection-rules-cfg.json credentials file set."
 python -m detection_rules kibana search-alerts
 
 echo "Performing a rule export..."
+mkdir tmp-export 2>/dev/null
 python -m detection_rules kibana export-rules -d tmp-export --skip-errors
 ls tmp-export
 echo "Removing generated files..."
