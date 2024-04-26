@@ -7,6 +7,7 @@ import copy
 import dataclasses
 import json
 import os
+import time
 import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import eql
+import marshmallow
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
@@ -39,13 +41,51 @@ from .utils import cached, convert_time_span, PatchedTemplate
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
+TIME_NOW = time.strftime('%Y/%m/%d')
 RULES_CONFIG = parse_rules_config()
+
 
 BUILD_FIELD_VERSIONS = {
     "related_integrations": (Version.parse('8.3.0'), None),
     "required_fields": (Version.parse('8.3.0'), None),
     "setup": (Version.parse('8.3.0'), None)
 }
+
+
+@dataclass
+class DictRule:
+    """Simple object wrapper for raw rule dicts."""
+
+    contents: dict
+    path: Optional[Path] = None
+
+    @property
+    def metadata(self) -> dict:
+        """Metadata portion of TOML file rule."""
+        return self.contents.get('metadata', {})
+
+    @property
+    def data(self) -> dict:
+        """Rule portion of TOML file rule."""
+        return self.contents.get('data') or self.contents
+
+    @property
+    def id(self) -> str:
+        """Get the rule ID."""
+        return self.data['rule_id']
+
+    @property
+    def name(self) -> str:
+        """Get the rule name."""
+        return self.data['name']
+
+    def __hash__(self) -> int:
+        """Get the hash of the rule."""
+        return hash(self.id + self.name)
+
+    def __repr__(self) -> str:
+        """Get a string representation of the rule."""
+        return f"Rule({self.name} {self.id})"
 
 
 @dataclass(frozen=True)
@@ -1202,6 +1242,15 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     @staticmethod
     def validate_remote(remote_validator: 'RemoteValidator', contents: 'TOMLRuleContents'):
         remote_validator.validate_rule(contents)
+
+    @classmethod
+    def from_rule_resource(
+        cls, rule: dict, creation_date: str = TIME_NOW, updated_date: str = TIME_NOW, maturity: str = 'development'
+    ) -> 'TOMLRuleContents':
+        """Create a TOMLRuleContents from a kibana rule resource."""
+        meta = {'creation_date': creation_date, 'updated_date': updated_date, 'maturity': maturity}
+        contents = cls.from_dict({'metadata': meta, 'rule': rule, 'transforms': None}, unknown=marshmallow.EXCLUDE)
+        return contents
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
