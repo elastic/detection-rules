@@ -138,6 +138,7 @@ class RuleResource(BaseResource):
         dry_run: Optional[bool] = False, edit_object: Optional[list[definitions.RuleBulkEditActionTypes]] = None,
         include_exceptions: Optional[bool] = False, **kwargs
     ) -> (dict, List['RuleResource']):
+        """Perform a bulk action on rules using the _bulk_action API."""
         assert not (rule_ids and query), 'Cannot provide both rule_ids and query'
 
         if action == 'edit':
