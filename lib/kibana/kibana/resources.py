@@ -133,10 +133,11 @@ class RuleResource(BaseResource):
         return cls.find(**params)
 
     @classmethod
-    def bulk_action(cls, action: definitions.RuleBulkActions, rule_ids: Optional[List[str]] = None,
-                    query: Optional[str] = None, dry_run: Optional[bool] = False,
-                    edit_object: Optional[list[definitions.RuleBulkEditActionTypes]] = None,
-                    include_exceptions: Optional[bool] = False, **kwargs) -> (dict, List['RuleResource']):
+    def bulk_action(
+        cls, action: definitions.RuleBulkActions, rule_ids: Optional[List[str]] = None, query: Optional[str] = None,
+        dry_run: Optional[bool] = False, edit_object: Optional[list[definitions.RuleBulkEditActionTypes]] = None,
+        include_exceptions: Optional[bool] = False, **kwargs
+    ) -> (dict, List['RuleResource']):
         assert not (rule_ids and query), 'Cannot provide both rule_ids and query'
 
         if action == 'edit':
@@ -165,34 +166,38 @@ class RuleResource(BaseResource):
         return response, rule_resources
 
     @classmethod
-    def bulk_enable(cls, rule_ids: Optional[List[str]] = None,
-                    query: Optional[str] = None, dry_run: Optional[bool] = False) -> (dict, List['RuleResource']):
+    def bulk_enable(
+        cls, rule_ids: Optional[List[str]] = None, query: Optional[str] = None, dry_run: Optional[bool] = False
+    ) -> (dict, List['RuleResource']):
         """Bulk enable rules using _bulk_action."""
         return cls.bulk_action("enable", rule_ids=rule_ids, query=query, dry_run=dry_run)
 
     @classmethod
-    def bulk_disable(cls, rule_ids: Optional[List[str]] = None,
-                     query: Optional[str] = None, dry_run: Optional[bool] = False) -> (dict, List['RuleResource']):
+    def bulk_disable(
+        cls, rule_ids: Optional[List[str]] = None, query: Optional[str] = None, dry_run: Optional[bool] = False
+    ) -> (dict, List['RuleResource']):
         """Bulk disable rules using _bulk_action."""
         return cls.bulk_action("disable", rule_ids=rule_ids, query=query, dry_run=dry_run)
 
     @classmethod
-    def bulk_delete(cls, rule_ids: Optional[List[str]] = None,
-                    query: Optional[str] = None, dry_run: Optional[bool] = False) -> (dict, List['RuleResource']):
+    def bulk_delete(
+        cls, rule_ids: Optional[List[str]] = None, query: Optional[str] = None, dry_run: Optional[bool] = False
+    ) -> (dict, List['RuleResource']):
         """Bulk delete rules using _bulk_action."""
         return cls.bulk_action("delete", rule_ids=rule_ids, query=query, dry_run=dry_run)
 
     @classmethod
-    def bulk_duplicate(cls, rule_ids: Optional[List[str]] = None,
-                       query: Optional[str] = None, dry_run: Optional[bool] = False,
-                       include_exceptions: Optional[bool] = False) -> (dict, List['RuleResource']):
+    def bulk_duplicate(
+        cls, rule_ids: Optional[List[str]] = None, query: Optional[str] = None, dry_run: Optional[bool] = False,
+        include_exceptions: Optional[bool] = False
+    ) -> (dict, List['RuleResource']):
         """Bulk duplicate rules using _bulk_action."""
         return cls.bulk_action("duplicate", rule_ids=rule_ids, query=query, dry_run=dry_run,
                                include_exceptions=include_exceptions)
 
     @classmethod
     def bulk_export(
-            cls, rule_ids: Optional[List[str]] = None, query: Optional[str] = None
+        cls, rule_ids: Optional[List[str]] = None, query: Optional[str] = None
     ) -> (dict, List['RuleResource']):
         """Bulk export rules using _bulk_action."""
         return cls.bulk_action("export", rule_ids=rule_ids, query=query, raw=True)
@@ -200,7 +205,7 @@ class RuleResource(BaseResource):
     @classmethod
     def bulk_edit(
         cls, edit_object: list[definitions.RuleBulkEditActionTypes], rule_ids: Optional[List[str]] = None,
-            query: Optional[str] = None, dry_run: Optional[bool] = False
+        query: Optional[str] = None, dry_run: Optional[bool] = False
     ) -> (dict, List['RuleResource']):
         """Bulk edit rules using _bulk_action."""
         # setting to error=False because the API returns a 500 with any failures, but includes the success data as well

@@ -87,17 +87,22 @@ def patch_jsonschema(obj: dict) -> dict:
 class BaseSchema(Schema):
     """Base schema for marshmallow dataclasses with unknown."""
     class Meta:
-        unknown = marshmallow.EXCLUDE
+        """Meta class for marshmallow schema."""
 
 
-def exclude_class_schema(clazz, base_schema=BaseSchema, **kwargs):
+def exclude_class_schema(
+    clazz, base_schema: type[Schema] = BaseSchema, unknown: UNKNOWN_VALUES = marshmallow.EXCLUDE, **kwargs
+) -> type[Schema]:
     """Get a marshmallow schema for a dataclass with unknown=EXCLUDE."""
+    base_schema.Meta.unknown = unknown
     return marshmallow_dataclass.class_schema(clazz, base_schema=base_schema, **kwargs)
 
 
-def recursive_class_schema(clazz, base_schema=BaseSchema, **kwargs):
+def recursive_class_schema(
+    clazz, base_schema: type[Schema] = BaseSchema, unknown: UNKNOWN_VALUES = marshmallow.EXCLUDE, **kwargs
+) -> type[Schema]:
     """Recursively apply the unknown parameter for nested schemas."""
-    schema = exclude_class_schema(clazz, base_schema=base_schema, **kwargs)
+    schema = exclude_class_schema(clazz, base_schema=base_schema, unknown=unknown, **kwargs)
     for field in dataclasses.fields(clazz):
         if dataclasses.is_dataclass(field.type):
             nested_cls = field.type
@@ -114,7 +119,7 @@ class MarshmallowDataclassMixin:
     def __schema(cls: ClassT, unknown: Optional[UNKNOWN_VALUES] = None) -> Schema:
         """Get the marshmallow schema for the data class"""
         if unknown:
-            return recursive_class_schema(cls)()
+            return recursive_class_schema(cls, unknown=unknown)()
         else:
             return marshmallow_dataclass.class_schema(cls)()
 

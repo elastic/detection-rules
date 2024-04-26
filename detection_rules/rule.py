@@ -76,11 +76,11 @@ class DictRule:
         """Get the rule name."""
         return self.data['name']
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """Get the hash of the rule."""
         return hash(self.id + self.name)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Get a string representation of the rule."""
         return f"Rule({self.name} {self.id})"
 
@@ -1240,8 +1240,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     @classmethod
     def from_rule_resource(
-            cls, rule: dict, creation_date: str = TIME_NOW, updated_date: str = TIME_NOW,
-            maturity: str = 'development'
+        cls, rule: dict, creation_date: str = TIME_NOW, updated_date: str = TIME_NOW, maturity: str = 'development'
     ) -> 'TOMLRuleContents':
         """Create a TOMLRuleContents from a kibana rule resource."""
         meta = {'creation_date': creation_date, 'updated_date': updated_date, 'maturity': maturity}
