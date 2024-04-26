@@ -43,6 +43,7 @@ class NestedExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin
 
     @validates_schema
     def validate_nested_entry(self, data: dict, **kwargs):
+        """More specific validation."""
         if data.get('list') is not None:
             raise ValidationError('Nested entries cannot define a list')
 
@@ -52,6 +53,7 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
     """Exception item entry."""
     @dataclass(frozen=True)
     class ListObject:
+        """List object for exception item entry."""
         id: definitions.UUIDString
         type: definitions.EsDataTypes
 
@@ -76,6 +78,7 @@ class ExceptionItem(MarshmallowDataclassMixin):
     """Base exception item."""
     @dataclass(frozen=True)
     class Comment:
+        """Comment object for exception item."""
         comment: str
 
     comments: List[Optional[Comment]]
@@ -97,6 +100,7 @@ class EndpointException(ExceptionItem, MarshmallowDataclassMixin):
 
     @validates_schema
     def validate_endpoint(self, data: dict, **kwargs):
+        """Validate the endpoint exception."""
         for entry in data['entries']:
             if entry['operator'] == "excluded":
                 raise ValidationError("Endpoint exceptions cannot have an `excluded` operator")

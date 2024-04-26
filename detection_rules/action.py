@@ -31,6 +31,7 @@ class Action(MarshmallowDataclassMixin):
     """Data object for rule Action."""
     @dataclass
     class ActionParams:
+        """Data object for rule Action params."""
         body: str
 
     action_type_id: definitions.ActionTypeId

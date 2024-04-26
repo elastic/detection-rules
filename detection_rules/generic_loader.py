@@ -53,15 +53,15 @@ class GenericCollection:
         for items in (items or []):
             self.add_item(items)
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Get the total amount of exceptions in the collection."""
         return len(self.items)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[GenericCollectionTypes]:
         """Iterate over all items in the collection."""
         return iter(self.items)
 
-    def __contains__(self, item: GenericCollectionTypes):
+    def __contains__(self, item: GenericCollectionTypes) -> bool:
         """Check if an item is in the map by comparing IDs."""
         return item.id in self.id_map
 
@@ -96,7 +96,7 @@ class GenericCollection:
         """Get all TOML files in a directory."""
         return sorted(directory.rglob('*.toml') if recursive else directory.glob('*.toml'))
 
-    def _assert_new(self, item: GenericCollectionTypes):
+    def _assert_new(self, item: GenericCollectionTypes) -> None:
         """Assert that the item is new and can be added to the collection."""
         id_map = self.id_map
         file_map = self.file_map
@@ -113,7 +113,7 @@ class GenericCollection:
             assert item_path not in file_map, f"Item file {item_path} already loaded"
             file_map[item_path] = item
 
-    def add_item(self, item: GenericCollectionTypes):
+    def add_item(self, item: GenericCollectionTypes) -> None:
         """Add a new item to the collection."""
         self._assert_new(item)
         self.id_map[item.id] = item
@@ -147,12 +147,14 @@ class GenericCollection:
             print(f"Error loading item in {path}")
             raise
 
-    def load_files(self, paths: Iterable[Path]):
+    def load_files(self, paths: Iterable[Path]) -> None:
         """Load multiple files into the collection."""
         for path in paths:
             self.load_file(path)
 
-    def load_directory(self, directory: Path, recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None):
+    def load_directory(
+        self, directory: Path, recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None
+    ) -> None:
         """Load all TOML files in a directory."""
         paths = self._get_paths(directory, recursive=recursive)
         if toml_filter is not None:
@@ -160,13 +162,14 @@ class GenericCollection:
 
         self.load_files(paths)
 
-    def load_directories(self, directories: Iterable[Path], recursive=True,
-                         toml_filter: Optional[Callable[[dict], bool]] = None):
+    def load_directories(
+        self, directories: Iterable[Path], recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None
+    ) -> None:
         """Load all TOML files in multiple directories."""
         for path in directories:
             self.load_directory(path, recursive=recursive, toml_filter=toml_filter)
 
-    def freeze(self):
+    def freeze(self) -> None:
         """Freeze the generic collection and make it immutable going forward."""
         self.frozen = True
 
