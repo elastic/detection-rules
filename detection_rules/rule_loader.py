@@ -294,8 +294,8 @@ class RawRuleCollection(BaseCollection):
         """Return the default rule collection, which retrieves from rules/."""
         if cls.__default is None:
             collection = RawRuleCollection()
-            collection.load_directory(DEFAULT_RULES_DIR)
-            collection.load_directory(DEFAULT_BBR_DIR)
+            collection.load_directory(DEFAULT_PREBUILT_RULES_DIR)
+            collection.load_directory(DEFAULT_PREBUILT_BBR_DIR)
             collection.freeze()
             cls.__default = collection
 
@@ -306,7 +306,7 @@ class RawRuleCollection(BaseCollection):
         """Return the default BBR collection, which retrieves from building_block_rules/."""
         if cls.__default_bbr is None:
             collection = RawRuleCollection()
-            collection.load_directory(DEFAULT_BBR_DIR)
+            collection.load_directory(DEFAULT_PREBUILT_BBR_DIR)
             collection.freeze()
             cls.__default_bbr = collection
 
