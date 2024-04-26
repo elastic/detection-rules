@@ -33,6 +33,7 @@ from . import attack, rule_loader, utils
 from .beats import (download_beats_schema, download_latest_beats_schema,
                     refresh_main_schema)
 from .cli_utils import single_collection
+from .config import parse_rules_config
 from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
@@ -52,10 +53,10 @@ from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
-from .utils import (dict_hash, get_etc_path, get_path, load_dump,
-                    load_etc_dump, save_etc_dump)
-from .version_lock import VersionLockFile, default_version_lock
+from .utils import dict_hash, get_etc_path, get_path, load_dump
+from .version_lock import VersionLockFile, loaded_version_lock
 
+RULES_CONFIG = parse_rules_config()
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
 NAVIGATOR_GIST_ID = '1a3f65224822a30a8228a8ed20289a89'
@@ -102,10 +103,10 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     if verbose:
         click.echo(f'[+] Building package {config.get("name")}')
 
-    package = Package.from_config(config, verbose=verbose)
+    package = Package.from_config(config=config, verbose=verbose)
 
     if update_version_lock:
-        default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
+        loaded_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
     package.save(verbose=verbose)
 
     previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga",
@@ -192,10 +193,11 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 @click.option("--new-package", type=click.Choice(['true', 'false']), help="indicates new package")
 @click.option("--maturity", type=click.Choice(['beta', 'ga'], case_sensitive=False),
               required=True, help="beta or production versions")
+@click.pass_context
 def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, new_package: str, maturity: str):
     """Bump the versions"""
 
-    pkg_data = load_etc_dump('packages.yml')['package']
+    pkg_data = RULES_CONFIG.packages['package']
     kibana_ver = Version.parse(pkg_data["name"], optional_minor_and_patch=True)
     pkg_ver = Version.parse(pkg_data["registry_data"]["version"])
     pkg_kibana_ver = Version.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
@@ -236,7 +238,7 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
     click.echo(f"Package version: {pkg_data['registry_data']['version']}")
 
-    save_etc_dump({"package": pkg_data}, "packages.yml")
+    RULES_CONFIG.packages_file.write_text(yaml.safe_dump({"package": pkg_data}))
 
 
 @dataclasses.dataclass
@@ -290,7 +292,7 @@ class GitChangeEntry:
 @click.option("--target-stack-version", "-t", help="Minimum stack version to filter the staging area", required=True)
 @click.option("--dry-run", is_flag=True, help="List the changes that would be made")
 @click.option("--exception-list", help="List of files to skip staging", default="")
-def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list: list):
+def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list: str):
     """Prune the git staging area to remove changes to incompatible rules."""
     exceptions = {
         "detection_rules/etc/packages.yml",
@@ -347,7 +349,7 @@ def update_lock_versions(rule_ids):
         return
 
     # this command may not function as expected anymore due to previous changes eliminating the use of add_new=False
-    changed, new, _ = default_version_lock.manage_versions(rules, exclude_version_update=True, save_changes=True)
+    changed, new, _ = loaded_version_lock.manage_versions(rules, exclude_version_update=True, save_changes=True)
 
     if not changed:
         click.echo('No hashes updated')
@@ -605,7 +607,8 @@ def license_check(ctx, ignore_directory):
 @dev_group.command('test-version-lock')
 @click.argument('branches', nargs=-1, required=True)
 @click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
-def test_version_lock(branches: tuple, remote: str):
+@click.pass_context
+def test_version_lock(ctx: click.Context, branches: tuple, remote: str):
     """Simulate the incremental step in the version locking to find version change violations."""
     git = utils.make_git('-C', '.')
     current_branch = git('rev-parse', '--abbrev-ref', 'HEAD')
@@ -618,7 +621,8 @@ def test_version_lock(branches: tuple, remote: str):
             subprocess.check_call(['python', '-m', 'detection_rules', 'dev', 'build-release', '-u'])
 
     finally:
-        diff = git('--no-pager', 'diff', get_etc_path('version.lock.json'))
+        rules_config = ctx.obj['rules_config']
+        diff = git('--no-pager', 'diff', str(rules_config.version_lock_file))
         outfile = Path(get_path()).joinpath('lock-diff.txt')
         outfile.write_text(diff)
         click.echo(f'diff saved to {outfile}')
@@ -718,7 +722,7 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 @click.pass_context
 def deprecate_rule(ctx: click.Context, rule_file: Path):
     """Deprecate a rule."""
-    version_info = default_version_lock.version_lock
+    version_info = loaded_version_lock.version_lock
     rule_collection = RuleCollection()
     contents = rule_collection.load_file(rule_file).contents
     rule = TOMLRule(path=rule_file, contents=contents)
@@ -817,7 +821,7 @@ def trim_version_lock(stack_version: str, dry_run: bool):
         f'Unknown min_version ({stack_version}), expected: {", ".join(stack_versions)}'
 
     min_version = Version.parse(stack_version)
-    version_lock_dict = default_version_lock.version_lock.to_dict()
+    version_lock_dict = loaded_version_lock.version_lock.to_dict()
     removed = {}
 
     for rule_id, lock in version_lock_dict.items():

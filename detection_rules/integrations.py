@@ -20,8 +20,8 @@ from marshmallow import EXCLUDE, Schema, fields, post_load
 import kql
 
 from . import ecs
+from .config import load_current_package_version
 from .beats import flatten_ecs_schema
-from .misc import load_current_package_version
 from .utils import cached, get_etc_path, read_gzip, unzip
 from .schemas import definitions
 

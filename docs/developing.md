@@ -33,9 +33,19 @@ relativeFrom = "now-48h/h"
 relativeTo = "now"
 ```
 
-Other transform suppoprt can be found under
+Other transform support can be found under
 
 `python -m detection-rules dev transforms -h`
+
+#### Testing bypasses with environment variables
+
+Using the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE` will bypass the Detection Rules validation on the `note` field in toml files.
+
+Using the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION` will bypass the Detection Rules lookback and interval validation
+on the building block rules.
+
+Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detection Rules Unit Tests on the `tags` field in toml files.
+
 
 
 ## Using the `RuleResource` methods built on detections `_bulk_action` APIs
