@@ -17,7 +17,10 @@ import functools
 from . import ecs
 from .attack import matrix, tactics, build_threat_map_entry
 from .rule import TOMLRule, TOMLRuleContents
-from .rule_loader import RuleCollection, DEFAULT_RULES_DIR, dict_filter
+from .rule_loader import (RuleCollection,
+                          DEFAULT_RULES_DIR,
+                          DEFAULT_BBR_DIR,
+                          dict_filter)
 from .schemas import definitions
 from .utils import clear_caches, get_path
 
@@ -46,8 +49,8 @@ def single_collection(f):
         rules.load_directories(Path(d) for d in directories)
 
         if rule_id:
-            rules.load_directory(DEFAULT_RULES_DIR, toml_filter=dict_filter(rule__rule_id=rule_id))
-
+            rules.load_directories((DEFAULT_RULES_DIR, DEFAULT_BBR_DIR),
+                                   obj_filter=dict_filter(rule__rule_id=rule_id))
             if len(rules) != 1:
                 client_error(f"Could not find rule with ID {rule_id}")
 
@@ -63,7 +66,7 @@ def multi_collection(f):
 
     @click.option('--rule-file', '-f', multiple=True, type=click.Path(dir_okay=False), required=False)
     @click.option('--directory', '-d', multiple=True, type=click.Path(file_okay=False), required=False,
-                  help='Recursively export rules from a directory')
+                  help='Recursively load rules from a directory')
     @click.option('--rule-id', '-id', multiple=True, required=False)
     @functools.wraps(f)
     def get_collection(*args, **kwargs):
@@ -80,7 +83,8 @@ def multi_collection(f):
         rules.load_directories(Path(d) for d in directories)
 
         if rule_id:
-            rules.load_directory(DEFAULT_RULES_DIR, toml_filter=dict_filter(rule__rule_id=rule_id))
+            rules.load_directories((DEFAULT_RULES_DIR, DEFAULT_BBR_DIR),
+                                   obj_filter=dict_filter(rule__rule_id=rule_id))
             found_ids = {rule.id for rule in rules}
             missing = set(rule_id).difference(found_ids)
 
@@ -140,9 +144,9 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             threat_map = []
 
             while click.confirm('add mitre tactic?'):
-                tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
+                tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, is_required=True)
                 technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
-                                              required=False, enum=list(matrix[tactic])) or []
+                                              is_required=False, enum=list(matrix[tactic])) or []
 
                 try:
                     threat_map.append(build_threat_map_entry(tactic, *technique_ids))
@@ -157,16 +161,24 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
                 contents[name] = threat_map
             continue
 
-        if name == 'threshold':
-            contents[name] = {n: schema_prompt(f'threshold {n}', required=n in options['required'], **opts.copy())
-                              for n, opts in options['properties'].items()}
-            continue
-
         if kwargs.get(name):
             contents[name] = schema_prompt(name, value=kwargs.pop(name))
             continue
 
-        result = schema_prompt(name, required=name in required_fields, **options.copy())
+        if name == "new_terms":
+            # patch to allow new_term imports
+            result = {"field": "new_terms_fields"}
+            result["value"] = schema_prompt("new_terms_fields", value=kwargs.pop("new_terms_fields"))
+            history_window_start_value = kwargs.pop("history_window_start", None)
+            result["history_window_start"] = [
+                {
+                    "field": "history_window_start",
+                    "value": schema_prompt("history_window_start", value=history_window_start_value),
+                }
+            ]
+
+        else:
+            result = schema_prompt(name, is_required=name in required_fields, **options.copy())
 
         if result:
             if name not in required_fields and result == options.get('default', ''):

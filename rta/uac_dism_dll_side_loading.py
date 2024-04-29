@@ -25,7 +25,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     dism = "C:\\Users\\Public\\Dism.exe"
     dllhost = "C:\\Users\\Public\\dllhost.exe"

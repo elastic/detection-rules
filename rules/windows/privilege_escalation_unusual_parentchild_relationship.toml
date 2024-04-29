@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2023/06/22"
+updated_date = "2024/03/28"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -39,7 +39,7 @@ Identifies Windows programs run from unexpected parent processes. This could ind
 activity on a system.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Parent-Child Relationship"
@@ -92,10 +92,6 @@ This rule uses this information to spot suspicious parent and child processes.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://github.com/sbousseaden/Slides/blob/master/Hunting%20MindMaps/PNG/Windows%20Processes%20TH.map.png",
@@ -103,8 +99,16 @@ references = [
 ]
 risk_score = 47
 rule_id = "35df0dd8-092d-4a83-88c1-5151a804f31b"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Resources: Investigation Guide", "Data Source: Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -126,14 +130,14 @@ process.parent.name != null and
    (process.name:("lsass.exe", "LsaIso.exe") and not process.parent.name:"wininit.exe") or
    (process.name:"LogonUI.exe" and not process.parent.name:("wininit.exe", "winlogon.exe")) or
    (process.name:"services.exe" and not process.parent.name:"wininit.exe") or
-   (process.name:"svchost.exe" and not process.parent.name:("MsMpEng.exe", "services.exe")) or
+   (process.name:"svchost.exe" and not process.parent.name:("MsMpEng.exe", "services.exe", "svchost.exe")) or
    (process.name:"spoolsv.exe" and not process.parent.name:"services.exe") or
-   (process.name:"taskhost.exe" and not process.parent.name:("services.exe", "svchost.exe")) or
+   (process.name:"taskhost.exe" and not process.parent.name:("services.exe", "svchost.exe", "ngentask.exe")) or
    (process.name:"taskhostw.exe" and not process.parent.name:("services.exe", "svchost.exe")) or
    (process.name:"userinit.exe" and not process.parent.name:("dwm.exe", "winlogon.exe")) or
    (process.name:("wmiprvse.exe", "wsmprovhost.exe", "winrshost.exe") and not process.parent.name:"svchost.exe") or
    /* suspicious child processes */
-   (process.parent.name:("SearchProtocolHost.exe", "taskhost.exe", "csrss.exe") and not process.name:("werfault.exe", "wermgr.exe", "WerFaultSecure.exe")) or
+   (process.parent.name:("SearchProtocolHost.exe", "taskhost.exe", "csrss.exe") and not process.name:("werfault.exe", "wermgr.exe", "WerFaultSecure.exe", "conhost.exe")) or
    (process.parent.name:"autochk.exe" and not process.name:("chkdsk.exe", "doskey.exe", "WerFault.exe")) or
    (process.parent.name:"smss.exe" and not process.name:("autochk.exe", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe", "setupcl.exe", "WerFault.exe")) or
    (process.parent.name:"wermgr.exe" and not process.name:("WerFaultSecure.exe", "wermgr.exe", "WerFault.exe")) or

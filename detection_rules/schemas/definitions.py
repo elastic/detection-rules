@@ -17,7 +17,7 @@ SAVED_OBJECT_TYPE = "security-rule"
 DATE_PATTERN = r'^\d{4}/\d{2}/\d{2}$'
 MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
 OS_OPTIONS = ['windows', 'linux', 'macos']
-NAME_PATTERN = r'^[a-zA-Z0-9].+?[a-zA-Z0-9()]$'
+NAME_PATTERN = r'^[a-zA-Z0-9].+?[a-zA-Z0-9\[\]()]$'
 PR_PATTERN = r'^$|\d+$'
 SHA256_PATTERN = r'^[a-fA-F0-9]{64}$'
 UUID_PATTERN = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
@@ -27,8 +27,13 @@ CONDITION_VERSION_PATTERN = rf'^\^{_version}$'
 VERSION_PATTERN = f'^{_version}$'
 MINOR_SEMVER = r'^\d+\.\d+$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
-
-NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows', 'cloud_defend', 'network_traffic']
+ELASTICSEARCH_EQL_FEATURES = {
+    "allow_negation": (Version.parse('8.9.0'), None),
+    "allow_runs": (Version.parse('7.16.0'), None),
+    "allow_sample": (Version.parse('8.6.0'), None),
+    "elasticsearch_validate_optional_fields": (Version.parse('7.16.0'), None)
+}
+NON_DATASET_PACKAGES = ['apm', 'auditd_manager', 'cloud_defend', 'endpoint', 'network_traffic', 'system', 'windows']
 NON_PUBLIC_FIELDS = {
     "related_integrations": (Version.parse('8.3.0'), None),
     "required_fields": (Version.parse('8.3.0'), None),
@@ -39,7 +44,6 @@ TACTIC_URL = r'^https://attack.mitre.org/tactics/TA[0-9]+/$'
 TECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/$'
 SUBTECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$'
 MACHINE_LEARNING = 'machine_learning'
-SAVED_QUERY = 'saved_query'
 QUERY = 'query'
 QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
 
@@ -64,6 +68,7 @@ TIMELINE_TEMPLATES: Final[dict] = {
 EXPECTED_RULE_TAGS = [
     'Data Source: Active Directory',
     'Data Source: Amazon Web Services',
+    'Data Source: Auditd Manager',
     'Data Source: AWS',
     'Data Source: APM',
     'Data Source: Azure',
@@ -86,6 +91,7 @@ EXPECTED_RULE_TAGS = [
     'OS: Linux',
     'OS: macOS',
     'OS: Windows',
+    'Rule Type: BBR',
     'Resources: Investigation Guide',
     'Rule Type: Higher-Order Rule',
     'Rule Type: Machine Learning',
@@ -118,19 +124,25 @@ EXPECTED_RULE_TAGS = [
     'Use Case: Log Auditing',
     'Use Case: Network Security Monitoring',
     'Use Case: Threat Detection',
+    'Use Case: UEBA',
     'Use Case: Vulnerability'
 ]
-
-
 NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
+MACHINE_LEARNING_PACKAGES = ['LMD', 'DGA', 'DED', 'ProblemChild', 'Beaconing']
+AlertSuppressionGroupBy = NewType('AlertSuppressionGroupBy', List[NonEmptyStr], validate=validate.Length(min=1, max=3))
+AlertSuppressionMissing = NewType('AlertSuppressionMissing', str,
+                                  validate=validate.OneOf(['suppress', 'doNotSuppress']))
+AlertSuppressionValue = NewType("AlertSupressionValue", int, validate=validate.Range(min=1))
 TimeUnits = Literal['s', 'm', 'h']
 BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
 CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=validate.Length(min=0, max=3))
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
-FilterLanguages = Literal["kuery", "lucene"]
+FilterLanguages = Literal["eql", "esql", "kuery", "lucene"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
+InvestigateProviderQueryType = Literal["phrase", "range"]
+InvestigateProviderValueType = Literal["string", "boolean"]
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
@@ -140,20 +152,23 @@ OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
-RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold', 'threat_match', 'new_terms']
+RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'esql', 'threshold', 'threat_match', 'new_terms']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINOR_SEMVER))
 Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
 SubTechniqueURL = NewType('SubTechniqueURL', str, validate=validate.Regexp(SUBTECHNIQUE_URL))
+StoreType = Literal['appState', 'globalState']
 TacticURL = NewType('TacticURL', str, validate=validate.Regexp(TACTIC_URL))
 TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_URL))
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
 TimelineTemplateId = NewType('TimelineTemplateId', str, validate=validate.OneOf(list(TIMELINE_TEMPLATES)))
 TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=validate.OneOf(TIMELINE_TEMPLATES.values()))
+TransformTypes = Literal["osquery", "investigate"]
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 BuildingBlockType = Literal['default']
 
 # experimental machine learning features and releases
-MachineLearningType = Literal['DGA', 'ProblemChild']
-MachineLearningTypeLower = Literal['dga', 'problemchild']
+MachineLearningType = getattr(Literal, '__getitem__')(tuple(MACHINE_LEARNING_PACKAGES))  # noqa: E999
+MachineLearningTypeLower = getattr(Literal, '__getitem__')(
+    tuple(map(str.lower, MACHINE_LEARNING_PACKAGES)))  # noqa: E999

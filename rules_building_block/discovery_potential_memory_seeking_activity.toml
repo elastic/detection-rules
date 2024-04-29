@@ -1,0 +1,57 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2024/02/01"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/03/08"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Monitors for the execution of Unix utilities that may be leveraged as memory address seekers. Attackers may leverage
+built-in utilities to seek specific memory addresses, allowing for potential future manipulation/exploitation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Memory Seeking Activity"
+references = ["https://github.com/arget13/DDexec"]
+risk_score = 21
+rule_id = "035a6f21-4092-471d-9cda-9e379f459b1e"
+severity = "low"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
+  (process.name == "tail" and process.args == "-c") or
+  (process.name == "cmp" and process.args == "-i") or
+  (process.name in ("hexdump", "xxd") and process.args == "-s") or
+  (process.name == "dd" and process.args : ("skip*", "seek*"))
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1057"
+name = "Process Discovery"
+reference = "https://attack.mitre.org/techniques/T1057/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

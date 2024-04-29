@@ -5,7 +5,7 @@
 
 from . import common
 from . import RtaMetadata
-import os
+from pathlib import Path
 
 metadata = RtaMetadata(
     uuid="55750f93-0545-4222-a1fe-8b25a1c736f0",
@@ -17,13 +17,13 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     mstsc = "C:\\Users\\Public\\mstsc.exe"
     path = "C:\\Users\\Public\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"
     argpath = "C:\\Users\\Public\\AppData\\Roaming\\Microsoft\\Windows\\'Start Menu'\\Programs\\Startup"
     common.copy_file(EXE_FILE, mstsc)
-    os.makedirs(path, exist_ok=True)
+    Path(path).mkdir(parents=True, exist_ok=True)
     file = argpath + "\\file.exe"
 
     common.execute([mstsc, "/c", f"echo AAAAAAAA | Out-File {file}"], timeout=10, kill=True)

@@ -2,9 +2,9 @@
 creation_date = "2023/07/06"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/08/16"
+min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
+min_stack_version = "8.12.0"
+updated_date = "2024/04/05"
 
 
 [rule]
@@ -15,11 +15,13 @@ situational awareness related activities, like enumerating users, shares, sessio
 """
 from = "now-119m"
 interval = "60m"
-index = ["winlogbeat-*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Script with Discovery Capabilities"
-note = """## Setup
+risk_score = 21
+rule_id = "1e0a3f7c-21e7-4bb1-98c7-2036612fb1be"
+setup = """## Setup
 
 The 'PowerShell Script Block Logging' logging policy must be enabled.
 Steps to implement the logging policy with Advanced Audit Configuration:
@@ -37,8 +39,6 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-risk_score = 21
-rule_id = "1e0a3f7c-21e7-4bb1-98c7-2036612fb1be"
 severity = "low"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Tactic: Discovery", "Data Source: PowerShell Logs", "Rule Type: BBR"]
 timestamp_override = "event.ingested"
@@ -48,9 +48,6 @@ building_block_type = "default"
 query = '''
 event.category:process and host.os.type:windows and
   powershell.file.script_block_text : (
-    (
-      ("Get-ItemProperty" or "Get-Item") and "-Path"
-    ) or
     (
       "Get-ADDefaultDomainPasswordPolicy" or
       "Get-ADDomain" or "Get-ComputerInfo" or
@@ -132,17 +129,73 @@ event.category:process and host.os.type:windows and
         "CSFalcon" or "TmPfw" or "kvoop"
       )
     )
-  ) and not user.id : ("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
-  and not file.path : (
-            *WindowsPowerShell*Modules*.psd1 or
-            *WindowsPowerShell*Modules*.psm1 or 
-            "C:\\Program Files\\Microsoft Azure AD Sync\\Extensions\\AADConnector.psm1"
-          )
-  and not (file.path : (
-            *Windows*TEMP*SDIAG* or
-            *WINDOWS*TEMP*SDIAG* or
-            *windows*TEMP*SDIAG*) and file.name : "CL_Utility.ps1")
+  ) and
+  not powershell.file.script_block_text : (
+    (
+      "__cmdletization_BindCommonParameters" and
+      "Microsoft.PowerShell.Core\Export-ModuleMember" and
+      "Microsoft.PowerShell.Cmdletization.Cim.CimCmdletAdapter"
+    ) or
+    "CmdletsToExport=@(\"Add-Content\","
+  ) and
+  not user.id : ("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
 '''
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\*.ps?1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\Microsoft Azure AD Sync\\\\Extensions\\\\AADConnector.psm1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "*ServiceNow MID Server*\\\\agent\\\\scripts\\\\PowerShell\\\\*.psm1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\IMECache\\\\HealthScripts\\\\*\\\\detect.ps1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\TEMP\\\\SDIAG*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Temp\\\\SDIAG*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\SDIAG*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\Microsoft Monitoring Agent\\\\Agent\\\\Health Service State\\\\Monitoring Host Temporary Files*"
 
 
 [[rule.threat]]

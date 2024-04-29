@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/22"
+updated_date = "2024/03/28"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies parent process spoofing used to create an elevated child process. Adv
 identifier (PPID) of a new process to evade process-monitoring defenses or to elevate privileges.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Privileges Elevation via Parent Process PID Spoofing"
@@ -26,7 +26,7 @@ references = [
 risk_score = 73
 rule_id = "26b01043-4f04-4d2f-882a-5a1d2e95751b"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -81,7 +81,15 @@ process where host.os.type == "windows" and event.action == "start" and
                     "?:\\Program Files (x86)\\EMC Captiva\\Captiva Cloud Runtime\\Emc.Captiva.WebCaptureRunner.exe",
                     "?:\\Program Files\\Freedom Scientific\\*.exe",
                     "?:\\Program Files (x86)\\Google\\Chrome Remote Desktop\\*\\remoting_host.exe",
-                    "?:\\Program Files (x86)\\GoToAssist Remote Support Customer\\*\\g2ax_comm_customer.exe")
+                    "?:\\Program Files (x86)\\GoToAssist Remote Support Customer\\*\\g2ax_comm_customer.exe") and
+ not (
+    process.code_signature.trusted == true and process.code_signature.subject_name == "Netwrix Corporation" and
+    process.name : "adcrcpy.exe" and process.parent.executable : (
+      "?:\\Program Files (x86)\\Netwrix Auditor\\Active Directory Auditing\\Netwrix.ADA.EventCollector.exe",
+      "?:\\Program Files (x86)\\Netwrix Auditor\\Active Directory Auditing\\Netwrix.ADA.Analyzer.exe",
+      "?:\\Netwrix Auditor\\Active Directory Auditing\\Netwrix.ADA.EventCollector.exe"
+    )
+ )
 '''
 
 

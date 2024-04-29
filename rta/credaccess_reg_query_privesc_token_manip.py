@@ -21,7 +21,7 @@ metadata = RtaMetadata(
     techniques=["T1134", "T1003"],
 )
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     import ctypes
     from ctypes import byref, windll, wintypes
