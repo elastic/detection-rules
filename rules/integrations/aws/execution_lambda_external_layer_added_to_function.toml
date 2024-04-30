@@ -1,0 +1,58 @@
+[metadata]
+creation_date = "2024/04/30"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
+min_stack_version = "8.9.0"
+updated_date = "2024/04/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an Lambda Layer is added to an existing Lambda function. AWS layers are a way to share code and data
+across multiple functions. By adding a layer to an existing function, an attacker can persist or execute code in the
+context of the function.
+"""
+false_positives = ["Lambda function owners may add layers to their functions for legitimate purposes."]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Lambda Layer Added to Existing Function"
+references = [
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-lambda-persistence/aws-lambda-layers-persistence",
+    "https://docs.aws.amazon.com/lambda/latest/api/API_PublishLayerVersion.html",
+]
+risk_score = 21
+rule_id = "7d091a76-0737-11ef-8469-f661ea17fbcc"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: aws.cloudtrail and event.provider: lambda.amazonaws.com and event.outcome: success and event.action: PublishLayerVersion*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
