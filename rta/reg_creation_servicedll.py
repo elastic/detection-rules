@@ -13,20 +13,23 @@ metadata = RtaMetadata(
     endpoint=[
         {"rule_name": "Suspicious Windows Service DLL Creation", "rule_id": "2c624716-75a1-42d9-bcb8-1defcb9bded9"}
     ],
-    siem=[],
-    techniques=["T1543"],
+    siem=[{
+        "rule_id": "403ef0d3-8259-40c9-a5b6-d48354712e49",
+        "rule_name": "Unusual Persistence via Services Registry"
+    }],
+    techniques=['T1543', 'T1543.003'],
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Temporarily creating a Service DLL reg key...")
 
-    key = "Software"
+    key = "SYSTEM\\ControlSet001\\Services\\RTA"
     value = "ServiceDLL"
     data = "ServiceDLL"
 
-    with common.temporary_reg(common.HKCU, key, value, data):
+    with common.temporary_reg(common.HKLM, key, value, data):
         pass
 
 

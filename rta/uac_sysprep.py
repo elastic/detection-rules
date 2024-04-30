@@ -13,10 +13,16 @@ from . import common
 from . import RtaMetadata
 
 
-metadata = RtaMetadata(uuid="72e0a6ca-5b2d-48f6-9d6f-a879ace9cdae", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(
+    uuid="72e0a6ca-5b2d-48f6-9d6f-a879ace9cdae",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Bypass UAC with CRYPTBASE.dll")
 

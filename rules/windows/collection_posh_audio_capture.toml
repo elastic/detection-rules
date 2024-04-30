@@ -4,13 +4,13 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/01/05"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
 description = "Detects PowerShell scripts that can record audio, a common feature in popular post-exploitation tooling."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Suspicious Script with Audio Capture Capabilities"
@@ -52,11 +52,14 @@ Attackers can use PowerShell to interact with the Windows API with the intent of
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
+"""
+references = ["https://github.com/PowerShellMafia/PowerSploit/blob/master/Exfiltration/Get-MicrophoneAudio.ps1"]
+risk_score = 47
+rule_id = "2f2f4939-0b34-40c2-a0a3-844eb7889f43"
+setup = """## Setup
 
 The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with with Advanced Audit Configuration:
+Steps to implement the logging policy with Advanced Audit Configuration:
 
 ```
 Computer Configuration >
@@ -71,19 +74,22 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-references = ["https://github.com/PowerShellMafia/PowerSploit/blob/master/Exfiltration/Get-MicrophoneAudio.ps1"]
-risk_score = 47
-rule_id = "2f2f4939-0b34-40c2-a0a3-844eb7889f43"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection", "Investigation Guide", "PowerShell"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Resources: Investigation Guide", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and
+event.category:process and host.os.type:windows and
   powershell.file.script_block_text : (
-    "Get-MicrophoneAudio" or (waveInGetNumDevs and mciSendStringA)
-  ) and not user.id : "S-1-5-18"
+    "Get-MicrophoneAudio" or
+    "WindowsAudioDevice-Powershell-Cmdlet" or
+    (waveInGetNumDevs and mciSendStringA)
+  )
+  and not powershell.file.script_block_text : (
+    "sentinelbreakpoints" and "Set-PSBreakpoint" and "PowerSploitIndicators"
+  )
+  and not user.id : "S-1-5-18"
 '''
 
 
@@ -110,6 +116,11 @@ id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
 
+
+[[rule.threat.technique]]
+id = "T1106"
+name = "Native API"
+reference = "https://attack.mitre.org/techniques/T1106/"
 
 
 [rule.threat.tactic]

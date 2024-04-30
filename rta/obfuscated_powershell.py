@@ -13,10 +13,16 @@ from . import common
 from . import RtaMetadata
 
 
-metadata = RtaMetadata(uuid="a52a72cb-6fc7-48b2-b365-8479a6cdb2e6", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(
+    uuid="a52a72cb-6fc7-48b2-b365-8479a6cdb2e6",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     # All encoded versions of the following:
     # `iex("Write-Host 'This is my test command' -ForegroundColor Green; start c:\windows\system32\calc")`

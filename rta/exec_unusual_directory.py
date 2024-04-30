@@ -19,7 +19,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     exe_path = "c:\\windows\\system32\\cscript.exe"
     binary = "c:\\Users\\Public\\cscript.exe"

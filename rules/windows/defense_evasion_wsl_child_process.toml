@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/01/12"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2023/01/12"
+updated_date = "2024/03/28"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -13,7 +13,7 @@ Detects attempts to execute a program on the host from the Windows Subsystem for
 Adversaries may enable and use WSL for Linux to avoid detection.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Execution via Windows Subsystem for Linux"
@@ -21,25 +21,22 @@ references = ["https://learn.microsoft.com/en-us/windows/wsl/wsl-config"]
 risk_score = 47
 rule_id = "db7dbad5-08d2-4d25-b9b1-d3a1e4a15efd"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion",  "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type : "start" and 
- process.parent.executable : 
-    ("?:\\Windows\\System32\\wsl.exe", 
-     "?:\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wsl.exe", 
-     "?:\\Windows\\System32\\wslhost.exe", 
-     "?:\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wslhost.exe") and 
-  not process.executable : 
-           ("?:\\Windows\\System32\\conhost.exe", 
-            "?:\\Windows\\System32\\lxss\\wslhost.exe", 
-            "?:\\Windows\\Sys*\\wslconfig.exe", 
-            "?:\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wsl*.exe", 
-            "?:\\Windows\\System32\\WerFault.exe", 
-            "?:\\Program Files\\*", 
-            "?:\\Program Files (x86)\\*")
+process where host.os.type == "windows" and event.type : "start" and
+  process.parent.name : ("wsl.exe", "wslhost.exe") and
+  not process.executable : (
+        "?:\\Program Files (x86)\\*",
+        "?:\\Program Files\\*",
+        "?:\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wsl*.exe",
+        "?:\\Windows\\System32\\conhost.exe",
+        "?:\\Windows\\System32\\lxss\\wslhost.exe",
+        "?:\\Windows\\System32\\WerFault.exe",
+        "?:\\Windows\\Sys*\\wslconfig.exe"
+  )
 '''
 
 

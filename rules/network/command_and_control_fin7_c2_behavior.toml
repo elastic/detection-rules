@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/07/06"
-integration = ["endpoint"]
+integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/11/21"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "lucene"
 license = "Elastic License v2"
 name = "Possible FIN7 DGA Command and Control Behavior"
@@ -32,13 +32,14 @@ references = [
 risk_score = 73
 rule_id = "4a4e23cf-78a2-449c-bac3-701924c269d3"
 severity = "high"
-tags = ["Elastic", "Network", "Threat Detection", "Command and Control", "Host"]
+tags = ["Use Case: Threat Detection", "Tactic: Command and Control", "Domain: Endpoint"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:(network OR network_traffic) AND type:(tls OR http) AND network.transport:tcp
-AND destination.domain:/[a-zA-Z]{4,5}\.(pw|us|club|info|site|top)/ AND NOT destination.domain:zoom.us
+(event.dataset: (network_traffic.tls OR network_traffic.http) OR
+    (event.category: (network OR network_traffic) AND type: (tls OR http) AND network.transport: tcp)) AND
+destination.domain:/[a-zA-Z]{4,5}\.(pw|us|club|info|site|top)/ AND NOT destination.domain:zoom.us
 '''
 
 

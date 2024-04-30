@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2024/03/28"
 
 [rule]
 author = ["Elastic"]
@@ -13,28 +13,32 @@ Identifies suspicious Image Loading of the Remote Desktop Services ActiveX Clien
 presence of RDP lateral movement capability.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.library-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious RDP ActiveX Client Loaded"
-note = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-"""
 references = ["https://posts.specterops.io/revisiting-remote-desktop-lateral-movement-8fb905cb46c3"]
 risk_score = 47
 rule_id = "71c5cb27-eca5-4151-bb47-64bc3f883270"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
- (dll.name : "mstscax.dll" or file.name : "mstscax.dll") and
+any where host.os.type == "windows" and
+ (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and
+ (?dll.name : "mstscax.dll" or file.name : "mstscax.dll") and
    /* depending on noise in your env add here extra paths  */
-  process.executable :
-    (
+  process.executable : (
     "C:\\Windows\\*",
     "C:\\Users\\Public\\*",
     "C:\\Users\\Default\\*",
@@ -43,9 +47,15 @@ any where (event.category == "library" or (event.category == "process" and event
     "C:\\ProgramData\\*",
     "\\Device\\Mup\\*",
     "\\\\*"
-    ) and
-    /* add here FPs */
-  not process.executable : ("C:\\Windows\\System32\\mstsc.exe", "C:\\Windows\\SysWOW64\\mstsc.exe")
+  ) and
+  /* add here FPs */
+  not process.executable : (
+    "?:\\Windows\\System32\\mstsc.exe",
+    "?:\\Windows\\SysWOW64\\mstsc.exe",
+    "?:\\Windows\\System32\\vmconnect.exe",
+    "?:\\Windows\\System32\\WindowsSandboxClient.exe",
+    "?:\\Windows\\System32\\hvsirdpclient.exe"
+  )
 '''
 
 
@@ -56,6 +66,10 @@ id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1021.001"
+name = "Remote Desktop Protocol"
+reference = "https://attack.mitre.org/techniques/T1021/001/"
 
 [rule.threat.tactic]
 id = "TA0008"

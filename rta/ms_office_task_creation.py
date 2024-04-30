@@ -11,15 +11,16 @@ metadata = RtaMetadata(
     uuid="804463e7-b146-41ba-a757-d131d0a021ac",
     platforms=["windows"],
     endpoint=[
-        {
-            "rule_name": "Scheduled Task Creation via Microsoft Office",
-            "rule_id": "f9fd002c-0dab-42ec-8675-0cf5af6b4a85",
-        },
         {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
         {"rule_name": "Potential Masquerading as SVCHOST", "rule_id": "5b00c9ba-9546-47cc-8f9f-1c1a3e95f65c"},
     ],
-    siem=[],
-    techniques=["T1036", "T1053", "T1566"],
+    siem=[
+        {
+            "rule_id": "baa5d22c-5e1c-4f33-bfc9-efa73bb53022",
+            "rule_name": "Suspicious Image Load (taskschd.dll) from MS Office",
+        }
+    ],
+    techniques=['T1036', 'T1036.004', "T1053", "T1566"],
 )
 
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
@@ -27,7 +28,7 @@ PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     winword = "C:\\Users\\Public\\winword.exe"
     svchost = "C:\\Users\\Public\\svchost.exe"

@@ -2,9 +2,9 @@
 creation_date = "2022/08/24"
 integration = ["google_workspace"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_comments = "Breaking changes for Google Workspace integration."
 min_stack_version = "8.4.0"
-updated_date = "2023/01/13"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,47 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Google Drive Ownership Transferred via Google Workspace"
-note = """## Setup
+note = """## Triage and analysis
+
+### Investigating Google Drive Ownership Transferred via Google Workspace
+
+Google Drive is a cloud storage service that allows users to store and access files. It is available to users with a Google Workspace account.
+
+Google Workspace administrators consider users' roles and organizational units when assigning permissions to files or shared drives. Owners of sensitive files and folders can grant permissions to users who make internal or external access requests. Adversaries abuse this trust system by accessing Google Drive resources with improperly scoped permissions and shared settings. Distributing phishing emails is another common approach to sharing malicious Google Drive documents. With this approach, adversaries aim to inherit the recipient's Google Workspace privileges when an external entity grants ownership.
+
+This rule identifies when the ownership of a shared drive within a Google Workspace organization is transferred to another internal user.
+
+#### Possible investigation steps
+
+- From the admin console, review admin logs for involved user accounts. To find admin logs, go to `Security > Reporting > Audit and investigation > Admin log events`.
+- Determine if involved user accounts are active. To view user activity, go to `Directory > Users`.
+- Check if the involved user accounts were recently disabled, then re-enabled.
+- Review involved user accounts for potentially misconfigured permissions or roles.
+- Review the involved shared drive or files and related policies to determine if this action was expected and appropriate.
+- If a shared drive, access requirements based on Organizational Units in `Apps > Google Workspace > Drive and Docs > Manage shared drives`.
+- Triage potentially related alerts based on the users involved. To find alerts, go to `Security > Alerts`.
+
+### False positive analysis
+
+- Transferring drives requires Google Workspace administration permissions related to Google Drive. Check if this action was planned/expected from the requester and is appropriately targeting the correct receiver.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Assess the criticality of affected services and servers.
+    - Work with your IT team to identify and minimize the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
+- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
 
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 
@@ -42,7 +82,7 @@ references = ["https://support.google.com/a/answer/1247799?hl=en"]
 risk_score = 47
 rule_id = "07b5f85a-240f-11ed-b3d9-f661ea17fbce"
 severity = "medium"
-tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Collection"]
+tags = ["Domain: Cloud", "Data Source: Google Workspace", "Tactic: Collection", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
