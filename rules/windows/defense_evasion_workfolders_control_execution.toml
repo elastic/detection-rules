@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2022/03/02"
-integration = ["windows"]
+integration = ["windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+updated_date = "2024/01/16"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -13,7 +13,7 @@ Identifies the use of Windows Work Folders to execute a potentially masqueraded 
 directory. Misuse of Windows Work Folders could indicate malicious activity.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Signed Proxy Execution via MS Work Folders"
@@ -47,10 +47,6 @@ disk from a separate binary.
 - If no lateral movement was identified during investigation, take the affected host offline if possible and remove the control.exe binary as well as any additional artifacts identified during investigation.
 - Review integrating Windows Information Protection (WIP) to enforce data protection by encrypting the data on PCs using Work Folders.
 - Confirm with the user whether this was expected or not, and reset their password.
-
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://docs.microsoft.com/en-us/windows-server/storage/work-folders/work-folders-overview",
@@ -59,15 +55,22 @@ references = [
 ]
 risk_score = 47
 rule_id = "ad0d2742-9a49-11ec-8d6b-acde48001122"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "medium"
 tags = [
-    "Elastic",
-    "Host",
-    "Windows",
-    "Threat Detection",
-    "Defense Evasion",
-    "Investigation Guide",
-    "Elastic Endgame",
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/10/19"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+updated_date = "2024/03/28"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ leveraged by threat actors to perform post-exploitation Active Directory reconna
 observed in Trickbot, Ryuk, Maze, and FIN6 campaigns. For Winlogbeat, this rule requires Sysmon.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AdFind Command Activity"
@@ -52,10 +52,6 @@ note = """## Triage and analysis
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "http://www.joeware.net/freetools/tools/adfind/",
@@ -67,14 +63,22 @@ references = [
 ]
 risk_score = 21
 rule_id = "eda499b8-a073-4e35-9733-22ec71f57f3a"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery", "Investigation Guide", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "AdFind.exe" or process.pe.original_file_name == "AdFind.exe") and
+  (process.name : "AdFind.exe" or ?process.pe.original_file_name == "AdFind.exe") and
   process.args : ("objectcategory=computer", "(objectcategory=computer)",
                   "objectcategory=person", "(objectcategory=person)",
                   "objectcategory=subnet", "(objectcategory=subnet)",
@@ -117,6 +121,10 @@ id = "T1482"
 name = "Domain Trust Discovery"
 reference = "https://attack.mitre.org/techniques/T1482/"
 
+[[rule.threat.technique]]
+id = "T1016"
+name = "System Network Configuration Discovery"
+reference = "https://attack.mitre.org/techniques/T1016/"
 
 [rule.threat.tactic]
 id = "TA0007"

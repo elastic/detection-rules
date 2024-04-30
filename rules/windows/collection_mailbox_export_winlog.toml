@@ -2,9 +2,9 @@
 creation_date = "2023/01/11"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
+min_stack_version = "8.12.0"
+updated_date = "2024/03/12"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies the use of the Exchange PowerShell cmdlet, New-MailBoxExportRequest, 
 """
 false_positives = ["Legitimate exchange system administration activity."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Exchange Mailbox Export via PowerShell"
@@ -63,17 +63,43 @@ references = [
 risk_score = 47
 rule_id = "54a81f68-5f2a-421e-8eed-f888278bb712"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection", "Investigation Guide", "PowerShell"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Resources: Investigation Guide", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and host.os.type:windows and powershell.file.script_block_text : "New-MailboxExportRequest"
+event.category:process and host.os.type:windows and
+  powershell.file.script_block_text : "New-MailboxExportRequest"
 '''
 
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Users\\\\*\\\\AppData\\\\Roaming\\\\Microsoft\\\\Exchange\\\\RemotePowerShell\\\\*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\TEMP\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1005"
+name = "Data from Local System"
+reference = "https://attack.mitre.org/techniques/T1005/"
+
 [[rule.threat.technique]]
 id = "T1114"
 name = "Email Collection"

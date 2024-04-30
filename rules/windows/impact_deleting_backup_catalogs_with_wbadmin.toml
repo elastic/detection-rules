@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/03/06"
+updated_date = "2024/03/28"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies use of the wbadmin.exe to delete the backup catalog. Ransomware and o
 system recovery.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Deleting Backup Catalogs with Wbadmin"
@@ -55,21 +55,25 @@ This rule identifies the deletion of the backup catalog using the `wbadmin.exe` 
   - Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 risk_score = 21
 rule_id = "581add16-df76-42bb-af8e-c979bfb39a59"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Impact", "Investigation Guide", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Impact", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "wbadmin.exe" or process.pe.original_file_name == "WBADMIN.EXE") and
+  (process.name : "wbadmin.exe" or ?process.pe.original_file_name == "WBADMIN.EXE") and
   process.args : "catalog" and process.args : "delete"
 '''
 
@@ -80,6 +84,11 @@ framework = "MITRE ATT&CK"
 id = "T1490"
 name = "Inhibit System Recovery"
 reference = "https://attack.mitre.org/techniques/T1490/"
+
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
 
 
 [rule.threat.tactic]

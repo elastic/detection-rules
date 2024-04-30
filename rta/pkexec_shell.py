@@ -18,7 +18,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Executing command to simulate privilege escalation via PKEXEC exploitation")
     # The exploit reproduction is available for commercial usage via MIT License

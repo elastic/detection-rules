@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+updated_date = "2024/04/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,18 +13,22 @@ Identifies the execution of a browser process to open an HTML file with high ent
 data and files past content filters by hiding malicious payloads inside of seemingly benign HTML files.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process-*", "logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious HTML File Creation"
-note = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-"""
 risk_score = 47
 rule_id = "f0493cb4-9b15-43a9-9359-68c23a7f2cf3"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''

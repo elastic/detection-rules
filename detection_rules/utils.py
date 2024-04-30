@@ -6,7 +6,6 @@
 """Util functions."""
 import base64
 import contextlib
-import distutils.spawn
 import functools
 import glob
 import gzip
@@ -14,9 +13,9 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
-import time
 import zipfile
 from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
@@ -60,7 +59,7 @@ def gopath() -> Optional[str]:
     if env_path:
         return env_path
 
-    go_bin = distutils.spawn.find_executable("go")
+    go_bin = shutil.which("go")
     if go_bin:
         output = subprocess.check_output([go_bin, "env"], encoding="utf-8").splitlines()
         for line in output:
@@ -215,12 +214,12 @@ def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f
 
         return t
 
-    def _event_sort(event):
-        """Calculates the sort key for an event."""
+    def _event_sort(event: dict) -> datetime:
+        """Calculates the sort key for an event as a datetime object."""
         t = round_microseconds(event[timestamp])
 
-        # Return the timestamp in seconds, adjusted for microseconds and then scaled to milliseconds
-        return (time.mktime(time.strptime(t, date_format)) + int(t.split('.')[-1][:-1]) / 1000) * 1000
+        # Return the timestamp as a datetime object for comparison
+        return datetime.strptime(t, date_format)
 
     return sorted(events, key=_event_sort, reverse=not asc)
 
@@ -232,6 +231,13 @@ def combine_sources(*sources):  # type: (list[list]) -> list
         combined.extend(source.copy())
 
     return event_sort(combined)
+
+
+def convert_time_span(span: str) -> int:
+    """Convert time span in Date Math to value in milliseconds."""
+    amount = int("".join(char for char in span if char.isdigit()))
+    unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
+    return eql.ast.TimeRange(amount, unit).as_milliseconds()
 
 
 def evaluate(rule, events):
@@ -301,6 +307,15 @@ def clear_caches():
     _cache.clear()
 
 
+def rulename_to_filename(name: str, tactic_name: str = None, ext: str = '.toml') -> str:
+    """Convert a rule name to a filename."""
+    name = re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_')
+    if tactic_name:
+        pre = rulename_to_filename(name=tactic_name, ext='')
+        name = f'{pre}_{name}'
+    return name + ext or ''
+
+
 def load_rule_contents(rule_file: Path, single_only=False) -> list:
     """Load a rule file from multiple formats."""
     _, extension = os.path.splitext(rule_file)
@@ -319,8 +334,10 @@ def load_rule_contents(rule_file: Path, single_only=False) -> list:
         return contents or [{}]
     elif extension == '.toml':
         rule = pytoml.loads(raw_text)
+    elif extension.lower() in ('yaml', 'yml'):
+        rule = load_dump(str(rule_file))
     else:
-        rule = load_dump(rule_file)
+        return []
 
     if isinstance(rule, dict):
         return [rule]

@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/03/06"
+updated_date = "2024/03/28"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -24,7 +24,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Exchange Server UM Writing Suspicious Files"
@@ -35,11 +35,6 @@ Positive hits can be checked against the established Microsoft [baselines](https
 Microsoft highly recommends that the best course of action is patching, but this may not protect already compromised systems
 from existing intrusions. Other tools for detecting and mitigating can be found within their Exchange support
 [repository](https://github.com/microsoft/CSS-Exchange/tree/main/Security)
-
-
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://www.microsoft.com/security/blog/2021/03/02/hafnium-targeting-exchange-servers",
@@ -47,8 +42,16 @@ references = [
 ]
 risk_score = 47
 rule_id = "6cd1779c-560f-4b68-a8f1-11009b27fe63"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Lateral Movement", "Data Source: Elastic Endgame", "Use Case: Vulnerability", "Data Source: Elastic Defend", "Data Source: Sysmon"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -82,4 +85,18 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1210"
+name = "Exploitation of Remote Services"
+reference = "https://attack.mitre.org/techniques/T1210/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
 

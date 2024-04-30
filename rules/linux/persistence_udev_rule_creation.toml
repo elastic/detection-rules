@@ -1,0 +1,89 @@
+[metadata]
+creation_date = "2023/10/26"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2024/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Monitors for the creation of rule files that are used by systemd-udevd to manage device nodes and handle kernel device
+events in the Linux operating system. Systemd-udevd can be exploited for persistence by adversaries by creating
+malicious udev rules that trigger on specific events, executing arbitrary commands or payloads whenever a certain device
+is plugged in or recognized by the system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "endgame-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Persistence Through Systemd-udevd"
+risk_score = 21
+rule_id = "054db96b-fd34-43b3-9af2-587b3bd33964"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows
+the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click Add integrations.
+- In the query bar, search for Elastic Defend and select the integration to see more details about it.
+- Click Add Elastic Defend.
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either Traditional Endpoints or Cloud Workloads.
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest to select "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in New agent policy name. If other agent policies already exist, you can click the Existing hosts tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click Save and Continue.
+- To complete the integration, select Add Elastic Agent to your hosts and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
+type = "new_terms"
+timestamp_override = "event.ingested"
+query = '''
+host.os.type:"linux" and event.category:"file" and
+event.type:("change" or "file_modify_event" or "creation" or "file_create_event") and
+file.path:/lib/udev/* and process.executable:* and not (
+   process.name:("dockerd" or "docker" or "dpkg" or "dnf" or "dnf-automatic" or "yum" or "rpm" or "systemd-hwdb" or
+     "podman" or "buildah") or file.extension : ("swp" or "swpx")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable", "file.path"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
