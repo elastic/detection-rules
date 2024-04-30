@@ -5,7 +5,6 @@
 
 """CLI commands for internal detection_rules dev team."""
 import dataclasses
-import functools
 import io
 import json
 import os
@@ -48,7 +47,7 @@ from .integrations import (SecurityDetectionEngine,
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
-                        Package, current_stack_version)
+                        Package)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
@@ -404,138 +403,6 @@ def kibana_diff(rule_id, repo, branch, threads):
     return diff
 
 
-def add_kibana_git_args(f):
-    @click.argument("local-repo", default=get_path("..", "kibana"))
-    @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
-                  default="x-pack/plugins/security_solution/server/lib/detection_engine/"
-                          "prebuilt_rules/content/prepackaged_rules")
-    @click.option("--base-branch", "-b", help="Base branch in Kibana", default="main")
-    @click.option("--branch-name", "-n", help="New branch for the rules commit")
-    @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
-    @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
-    @click.option("--message", "-m", help="Override default commit message")
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        return f(*args, **kwargs)
-
-    return decorated
-
-
-@dev_group.command("kibana-commit")
-@add_kibana_git_args
-@click.option("--push", "-p", is_flag=True, help="Push the commit to the remote")
-@click.pass_context
-def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_directory: str, base_branch: str,
-                  branch_name: Optional[str], message: Optional[str], push: bool) -> (str, str):
-    """Prep a commit and push to Kibana."""
-    package_name = Package.load_configs()["name"]
-    release_dir = os.path.join(RELEASE_DIR, package_name)
-    message = message or f"[Detection Rules] Add {package_name} rules"
-
-    if not os.path.exists(release_dir):
-        click.secho("Release directory doesn't exist.", fg="red", err=True)
-        click.echo(f"Run {click.style('python -m detection_rules dev build-release', bold=True)} to populate", err=True)
-        ctx.exit(1)
-
-    git = utils.make_git("-C", local_repo)
-    rules_git = utils.make_git('-C', utils.get_path())
-
-    # Get the current hash of the repo
-    long_commit_hash = rules_git("rev-parse", "HEAD")
-    short_commit_hash = rules_git("rev-parse", "--short", "HEAD")
-
-    try:
-        if not os.path.exists(local_repo):
-            click.echo(f"Kibana repository doesn't exist at {local_repo}. Cloning...")
-            url = f"git@github.com:{github_repo}.git" if ssh else f"https://github.com/{github_repo}.git"
-            utils.make_git()("clone", url, local_repo, "--depth", "1")
-        else:
-            git("checkout", base_branch)
-
-        branch_name = branch_name or f"detection-rules/{package_name}-{short_commit_hash}"
-
-        git("checkout", "-b", branch_name, print_output=True)
-        git("rm", "-r", kibana_directory)
-
-        source_dir = os.path.join(release_dir, "rules")
-        target_dir = os.path.join(local_repo, kibana_directory)
-        os.makedirs(target_dir)
-
-        for name in os.listdir(source_dir):
-            _, ext = os.path.splitext(name)
-            path = os.path.join(source_dir, name)
-
-            if ext in (".ts", ".json"):
-                shutil.copyfile(path, os.path.join(target_dir, name))
-
-        git("add", kibana_directory)
-        git("commit", "--no-verify", "-m", message)
-        git("status", print_output=True)
-
-        if push:
-            git("push", "origin", branch_name)
-
-        click.echo(f"Kibana repository {local_repo} prepped. Push changes when ready")
-        click.secho(f"cd {local_repo}", bold=True)
-
-        return branch_name, long_commit_hash
-
-    except subprocess.CalledProcessError as e:
-        client_error(str(e), e, ctx=ctx)
-
-
-@dev_group.command("kibana-pr")
-@click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
-              help="GitHub token to use for the PR", hide_input=True)
-@click.option("--assign", multiple=True, help="GitHub users to assign the PR")
-@click.option("--label", multiple=True, help="GitHub labels to add to the PR")
-@click.option("--draft", is_flag=True, help="Open the PR as a draft")
-@click.option("--fork-owner", "-f", help="Owner of forked branch (ex: elastic)")
-# Pending an official GitHub API
-# @click.option("--automerge", is_flag=True, help="Enable auto-merge on the PR")
-@add_kibana_git_args
-@click.pass_context
-def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, fork_owner: str,
-              token: str, **kwargs):
-    """Create a pull request to Kibana."""
-    github = GithubClient(token)
-    client = github.authenticated_client
-    repo = client.get_repo(kwargs["github_repo"])
-
-    branch_name, commit_hash = ctx.invoke(kibana_commit, push=True, **kwargs)
-
-    if fork_owner:
-        branch_name = f'{fork_owner}:{branch_name}'
-
-    title = f"[Detection Engine] Adds {current_stack_version()} rules"
-    body = textwrap.dedent(f"""
-    ## Summary
-
-    Pull updates to detection rules from https://github.com/elastic/detection-rules/tree/{commit_hash}.
-
-    ### Checklist
-
-    Delete any items that are not applicable to this PR.
-
-    - [x] Any text added follows [EUI's writing guidelines](https://elastic.github.io/eui/#/guidelines/writing),
-          uses sentence case text and includes [i18n support](https://github.com/elastic/kibana/blob/main/packages/kbn-i18n/README.md)
-    """).strip()  # noqa: E501
-    pr = repo.create_pull(title, body, base=kwargs["base_branch"], head=branch_name, maintainer_can_modify=True,
-                          draft=draft)
-
-    # labels could also be comma separated
-    label = {lbl for cs_labels in label for lbl in cs_labels.split(",") if lbl}
-
-    if label:
-        pr.add_to_labels(*sorted(label))
-
-    if assign:
-        pr.add_to_assignees(*assign)
-
-    click.echo("PR created:")
-    click.echo(pr.html_url)
-
-
 @dev_group.command("integrations-pr")
 @click.argument("local-repo", type=click.Path(exists=True, file_okay=False, dir_okay=True),
                 default=get_path("..", "integrations"))
@@ -675,7 +542,8 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     None
     """)  # noqa: E501
 
-    pr = repo.create_pull(message, body, base_branch, branch_name, maintainer_can_modify=True, draft=draft)
+    pr = repo.create_pull(title=message, body=body, base=base_branch, head=branch_name,
+                          maintainer_can_modify=True, draft=draft)
 
     # labels could also be comma separated
     label = {lbl for cs_labels in label for lbl in cs_labels.split(",") if lbl}
