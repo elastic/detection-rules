@@ -8,21 +8,25 @@
 # ATT&CK: T1140, T1192, T1193
 # Description: Generates four file writes related to file extensions (PUB, IQY)
 
-import os
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
+from . import RtaMetadata, common
+
+metadata = RtaMetadata(
+    uuid="71f67037-1df3-4d5f-b8cb-eaf295ad16ed",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
-metadata = RtaMetadata(uuid="71f67037-1df3-4d5f-b8cb-eaf295ad16ed", platforms=["windows"], endpoint=[], siem=[], techniques=[])
-
-
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Suspicious File Writes (IQY, PUB)")
-    adobe_path = os.path.abspath("AcroRd32.exe")
-    msoffice_path = os.path.abspath("winword.exe")
-    browser_path = os.path.abspath("iexplore.exe")
+    adobe_path = Path("AcroRd32.exe").resolve()
+    msoffice_path = Path("winword.exe").resolve()
+    browser_path = Path("iexplore.exe").resolve()
     common.copy_file(common.CMD_PATH, adobe_path)
     common.copy_file(common.CMD_PATH, msoffice_path)
     common.copy_file(common.CMD_PATH, browser_path)
@@ -30,22 +34,22 @@ def main():
 
     # write file as adobe, then run it
     common.log("Creating a 'suspicious' executable")
-    bad_path = os.path.abspath("bad.exe")
+    bad_path = Path("bad.exe").resolve()
 
     # PDF writing IQY file
-    fake_iqy = os.path.abspath("test.iqy")
+    fake_iqy = Path("test.iqy").resolve()
     common.execute([adobe_path, "/c", "echo", "test", ">", fake_iqy])
 
     # PDF writing PUB file
-    fake_pub = os.path.abspath("test.pub")
+    fake_pub = Path("test.pub").resolve()
     common.execute([adobe_path, "/c", "echo", "test", ">", fake_pub])
 
     # Winword writing IQY file
-    fake_doc_iqy = os.path.abspath("test_word.iqy")
+    fake_doc_iqy = Path("test_word.iqy").resolve()
     common.execute([msoffice_path, "/c", "echo", "test", ">", fake_doc_iqy])
 
     # Browser writing IQY file
-    fake_browser_iqy = os.path.abspath("test_browser.iqy")
+    fake_browser_iqy = Path("test_browser.iqy").resolve()
     common.execute([browser_path, "/c", "echo", "test", ">", fake_browser_iqy])
 
     # cleanup

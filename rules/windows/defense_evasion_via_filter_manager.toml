@@ -4,7 +4,32 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2024/03/28"
+
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve DNS Cache"
+query = "SELECT * FROM dns_cache"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve All Services"
+query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Services Running on User Accounts"
+query = """
+SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
+NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
+user_account == null)
+"""
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
+query = """
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
+services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
+authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
+"""
 
 [rule]
 author = ["Elastic"]
@@ -13,24 +38,84 @@ The Filter Manager Control Program (fltMC.exe) binary may be abused by adversari
 defenses.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Evasion via Filter Manager"
-note = """## Setup
+note = """## Triage and analysis
 
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+### Investigating Potential Evasion via Filter Manager
+
+A file system filter driver, or minifilter, is a specialized type of filter driver designed to intercept and modify I/O requests sent to a file system or another filter driver. Minifilters are used by a wide range of security software, including EDR, antivirus, backup agents, encryption products, etc.
+
+Attackers may try to unload minifilters to avoid protections such as malware detection, file system monitoring, and behavior-based detections.
+
+This rule identifies the attempt to unload a minifilter using the `fltmc.exe` command-line utility, a tool used to manage and query the filter drivers loaded on Windows systems.
+
+> **Note**:
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+
+#### Possible investigation steps
+
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Examine the command line event to identify the target driver.
+  - Identify the minifilter's role in the environment and if it is security-related. Microsoft provides a [list](https://learn.microsoft.com/en-us/windows-hardware/drivers/ifs/allocated-altitudes) of allocated altitudes that may provide more context, such as the manufacturer.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Examine the host for derived artifacts that indicate suspicious activities:
+  - Observe and collect information about the following activities in the alert subject host:
+    - Attempts to contact external domains and addresses.
+      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
+      - Examine the DNS cache for suspicious or anomalous entries.
+        - $osquery_0
+    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
+    - Examine the host services for suspicious or anomalous entries.
+      - $osquery_1
+      - $osquery_2
+      - $osquery_3
+
+### False positive analysis
+
+- This mechanism can be used legitimately. Analysts can dismiss the alert if the administrator is aware of the activity and there are justifications for the action.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 risk_score = 47
 rule_id = "06dceabf-adca-48af-ac79-ffdf4c3b1e9a"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
- process.name : "fltMC.exe" and process.args : "unload"
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : "fltMC.exe" and process.args : "unload" and
+  not
+  (
+    (
+      process.executable : "?:\\Program Files (x86)\\ManageEngine\\UEMS_Agent\\bin\\DCFAService64.exe" and
+      process.args : ("DFMFilter", "DRMFilter")
+    ) or
+    (
+      process.executable : "?:\\Windows\\SysWOW64\\msiexec.exe" and
+      process.args : ("BrFilter_*", "BrCow_*") and
+      user.id : "S-1-5-18"
+    )
+  )
 '''
 
 

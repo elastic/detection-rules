@@ -27,7 +27,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main(args=None):
     slow_commands = ["gpresult.exe /z", "systeminfo.exe"]
 

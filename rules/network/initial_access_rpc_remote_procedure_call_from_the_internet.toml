@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint"]
+integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/08/17"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ directly exposed to the Internet, as it is frequently targeted and exploited by 
 backdoor vector.
 """
 from = "now-9m"
-index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "RPC (Remote Procedure Call) from the Internet"
@@ -23,12 +23,13 @@ references = ["https://www.iana.org/assignments/iana-ipv4-special-registry/iana-
 risk_score = 73
 rule_id = "143cb236-0956-4f42-a706-814bcaa0cf5a"
 severity = "high"
-tags = ["Elastic", "Host", "Network", "Threat Detection", "Initial Access", "Host"]
+tags = ["Tactic: Initial Access", "Domain: Endpoint", "Use Case: Threat Detection"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:(network or network_traffic) and network.transport:tcp and (destination.port:135 or event.dataset:zeek.dce_rpc) and
+(event.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and
+  network.transport:tcp and (destination.port:135 or event.dataset:zeek.dce_rpc) and
   not source.ip:(
     10.0.0.0/8 or
     127.0.0.0/8 or

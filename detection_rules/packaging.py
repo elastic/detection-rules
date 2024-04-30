@@ -14,6 +14,7 @@ import textwrap
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Optional, Tuple
+from semver import Version
 
 import click
 import yaml
@@ -21,7 +22,7 @@ import yaml
 from .misc import JS_LICENSE, cached, load_current_package_version
 from .navigator import NavigatorBuilder, Navigator
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
-from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR
+from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR, DEFAULT_BBR_DIR
 from .schemas import definitions
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump
 from .version_lock import default_version_lock
@@ -77,7 +78,7 @@ class Package(object):
     def __init__(self, rules: RuleCollection, name: str, release: Optional[bool] = False,
                  min_version: Optional[int] = None, max_version: Optional[int] = None,
                  registry_data: Optional[dict] = None, verbose: Optional[bool] = True,
-                 generate_navigator: bool = False):
+                 generate_navigator: bool = False, historical: bool = False):
         """Initialize a package."""
         self.name = name
         self.rules = rules
@@ -85,6 +86,7 @@ class Package(object):
         self.release = release
         self.registry_data = registry_data or {}
         self.generate_navigator = generate_navigator
+        self.historical = historical
 
         if min_version is not None:
             self.rules = self.rules.filter(lambda r: min_version <= r.contents.latest_version)
@@ -221,7 +223,7 @@ class Package(object):
         return sha256
 
     @classmethod
-    def from_config(cls, config: dict = None, verbose: bool = False) -> 'Package':
+    def from_config(cls, config: dict = None, verbose: bool = False, historical: bool = True) -> 'Package':
         """Load a rules package given a config."""
         all_rules = RuleCollection.default()
         config = config or {}
@@ -238,7 +240,7 @@ class Package(object):
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
-        package = cls(rules, verbose=verbose, **config)
+        package = cls(rules, verbose=verbose, historical=historical, **config)
 
         return package
 
@@ -275,8 +277,9 @@ class Package(object):
             r = r.contents
             rule_str = f'{r.name:<{longest_name}} (v:{r.autobumped_version} t:{r.data.type}'
             if isinstance(rule.contents.data, QueryRuleData):
+                index = rule.contents.data.get("index") or []
                 rule_str += f'-{r.data.language}'
-                rule_str += f'(indexes:{"".join(index_map[idx] for idx in rule.contents.data.index) or "none"}'
+                rule_str += f'(indexes:{"".join(index_map[idx] for idx in index) or "none"}'
 
             return rule_str
 
@@ -376,9 +379,15 @@ class Package(object):
 
     def _generate_registry_package(self, save_dir):
         """Generate the artifact for the oob package-storage."""
-        from .schemas.registry_package import RegistryPackageManifest
+        from .schemas.registry_package import (RegistryPackageManifestV1,
+                                               RegistryPackageManifestV3)
 
-        manifest = RegistryPackageManifest.from_dict(self.registry_data)
+        # 8.12.0+ we use elastic package v3
+        stack_version = Version.parse(self.name, optional_minor_and_patch=True)
+        if stack_version >= Version.parse('8.12.0'):
+            manifest = RegistryPackageManifestV3.from_dict(self.registry_data)
+        else:
+            manifest = RegistryPackageManifestV1.from_dict(self.registry_data)
 
         package_dir = Path(save_dir) / 'fleet' / manifest.version
         docs_dir = package_dir / 'docs'
@@ -399,8 +408,16 @@ class Package(object):
         # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
 
         for rule in self.rules:
-            asset_path = rules_dir / f'{rule.id}.json'
-            asset_path.write_text(json.dumps(rule.get_asset(), indent=4, sort_keys=True), encoding="utf-8")
+            asset = rule.get_asset()
+            if self.historical:
+                # if this package includes historical rules the IDs need to be changed
+                # asset['id] and the file name needs to resemble RULEID_VERSION instead of RULEID
+                asset_id = f"{asset['attributes']['rule_id']}_{asset['attributes']['version']}"
+                asset["id"] = asset_id
+                asset_path = rules_dir / f'{asset_id}.json'
+            else:
+                asset_path = rules_dir / f'{asset["id"]}.json'
+            asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
         notice_contents = Path(NOTICE_FILE).read_text()
         readme_text = textwrap.dedent("""
@@ -457,17 +474,51 @@ class Package(object):
                 status = 'unmodified'
 
             bulk_upload_docs.append(create)
+
+            try:
+                relative_path = str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR))
+            except ValueError:
+                relative_path = str(rule.path.resolve().relative_to(DEFAULT_BBR_DIR))
+
             rule_doc = dict(hash=rule.contents.sha256(),
                             source='repo',
                             datetime_uploaded=now,
                             status=status,
                             package_version=self.name,
                             flat_mitre=ThreatMapping.flatten(rule.contents.data.threat).to_dict(),
-                            relative_path=str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR)))
+                            relative_path=relative_path)
+            rule_doc.update(**rule.contents.to_api_format())
             bulk_upload_docs.append(rule_doc)
             importable_rules_docs.append(rule_doc)
 
         return bulk_upload_docs, importable_rules_docs
+
+    @staticmethod
+    def add_historical_rules(historical_rules: Dict[str, dict], manifest_version: str) -> list:
+        """Adds historical rules to existing build package."""
+        rules_dir = CURRENT_RELEASE_PATH / 'fleet' / manifest_version / 'kibana' / 'security_rule'
+
+        # iterates over historical rules from previous package and writes them to disk
+        for historical_rule_id, historical_rule_contents in historical_rules.items():
+            rule_id = historical_rule_contents["attributes"]["rule_id"]
+            historical_rule_version = historical_rule_contents['attributes']['version']
+
+            # checks if the rule exists in the current package first
+            current_rule_path = list(rules_dir.glob(f"{rule_id}*.json"))
+            if not current_rule_path:
+                continue
+
+            # load the current rule from disk
+            current_rule_path = current_rule_path[0]
+            current_rule_json = json.load(current_rule_path.open(encoding="UTF-8"))
+            current_rule_version = current_rule_json['attributes']['version']
+
+            # if the historical rule version and current rules version differ, write
+            # the historical rule to disk
+            if historical_rule_version != current_rule_version:
+                historical_rule_path = rules_dir / f"{historical_rule_id}.json"
+                with historical_rule_path.open("w", encoding="UTF-8") as file:
+                    json.dump(historical_rule_contents, file)
 
 
 @cached

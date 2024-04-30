@@ -1,10 +1,36 @@
 [metadata]
 creation_date = "2020/11/03"
-integration = ["endpoint", "windows"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2023/01/03"
+updated_date = "2024/04/08"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve DNS Cache"
+query = "SELECT * FROM dns_cache"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve All Services"
+query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Services Running on User Accounts"
+query = """
+SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
+NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
+user_account == null)
+"""
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
+query = """
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
+services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
+authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
+"""
+
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +39,7 @@ Identifies the execution of a file that was created by the virtual system proces
 via network file shares.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.process-*", "logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote Execution via File Shares"
@@ -24,25 +50,25 @@ note = """## Triage and analysis
 Adversaries can use network shares to host tooling to support the compromise of other hosts in the environment. These tools can include discovery utilities, credential dumpers, malware, etc.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Review adjacent login events (e.g., 4624) in the alert timeframe to identify the account used to perform this action.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
       - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
       - Examine the DNS cache for suspicious or anomalous entries.
-        - !{osquery{"query":"SELECT * FROM dns_cache", "label":"Osquery - Retrieve DNS Cache"}}
+        - $osquery_0
     - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
     - Examine the host services for suspicious or anomalous entries.
-      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services","label":"Osquery - Retrieve All Services"}}
-      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR user_account == null)","label":"Osquery - Retrieve Services Running on User Accounts"}}
-      - !{osquery{"query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'","label":"Osquery - Retrieve Service Unsigned Executables with Virustotal Link"}}
+      - $osquery_1
+      - $osquery_2
+      - $osquery_3
   - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 - Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
 
@@ -65,17 +91,33 @@ Adversaries can use network shares to host tooling to support the compromise of 
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-references = ["https://blog.menasec.net/2020/08/new-trick-to-detect-lateral-movement.html"]
+references = ["http://web.archive.org/web/20230329172636/https://blog.menasec.net/2020/08/new-trick-to-detect-lateral-movement.html"]
 risk_score = 47
 rule_id = "ab75c24b-2502-43a0-bf7c-e60e662c811e"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
 sequence with maxspan=1m
-  [file where event.type in ("creation", "change") and process.pid == 4 and file.extension : "exe"] by host.id, file.path
-  [process where event.type == "start"] by host.id, process.executable
+  [file where host.os.type == "windows" and event.type in ("creation", "change") and 
+   process.pid == 4 and (file.extension : "exe" or file.Ext.header_bytes : "4d5a*")] by host.id, file.path
+  [process where host.os.type == "windows" and event.type == "start" and
+    not (
+      /* Veeam related processes */
+      (
+        process.name : (
+          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe", "Veeam.VSS.Sharepoint2010.exe"
+        ) and process.code_signature.trusted == true and process.code_signature.subject_name : "Veeam Software Group GmbH"
+      ) or
+      /* PDQ related processes */
+      (
+        process.name : (
+          "PDQInventoryScanner.exe", "PDQInventoryMonitor.exe", "PDQInventory-Scanner-?.exe", "PDQInventoryWakeCommand-?.exe"
+        ) and process.code_signature.trusted == true and process.code_signature.subject_name : "PDQ.com Corporation"
+      )
+    )
+  ] by host.id, process.executable
 '''
 
 

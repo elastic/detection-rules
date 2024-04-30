@@ -14,7 +14,7 @@ from . import RtaMetadata
 metadata = RtaMetadata(uuid="82358d3d-6f04-42d0-a182-db37cf98294e", platforms=["linux"], endpoint=[], siem=[], techniques=[])
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Reading sensitive files", log_type="~")
 

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/01/04"
-integration = ["windows"]
+integration = ["system", "windows"]
 maturity = "development"
-updated_date = "2022/12/21"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Skoetting"]
@@ -24,12 +24,13 @@ name = "Windows User Account Creation"
 risk_score = 21
 rule_id = "38e17753-f581-4644-84da-0d60a8318694"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.module : ("system" or "security") and (event.code : "4720" or event.action : "added-user-account")
+event.module:("system" or "security") and winlog.api:"wineventlog" and
+  (event.code:"4720" or event.action:"added-user-account")
 '''
 
 

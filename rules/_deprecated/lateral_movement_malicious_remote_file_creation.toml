@@ -1,0 +1,46 @@
+[metadata]
+creation_date = "2023/10/12"
+deprecation_date = "2023/12/14"
+integration = ["endpoint"]
+maturity = "deprecated"
+min_stack_comments = "Avoiding rule duplication for <= 8.8 stack versions"
+min_stack_version = "8.9.0"
+updated_date = "2023/12/14"
+
+[rule]
+author = ["Elastic"]
+description = "Malicious remote file creation, which can be an indicator of lateral movement activity."
+from = "now-10m"
+index = ["logs-endpoint.events.*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Malicious Remote File Creation"
+references = ["https://www.elastic.co/es/blog/remote-desktop-protocol-connections-elastic-security"]
+risk_score = 99
+rule_id = "301571f3-b316-4969-8dd0-7917410030d3"
+severity = "critical"
+tags = ["Domain: Endpoint", "Use Case: Lateral Movement Detection", "Tactic: Lateral Movement", "Data Source: Elastic Defend"]
+type = "eql"
+
+query = '''
+sequence by host.name
+[file where event.action == "creation" and process.name : ("System", "scp", "sshd", "smbd", "vsftpd", "sftp-server")]
+[file where event.category == "malware" or event.category == "intrusion_detection"
+and process.name:("System", "scp", "sshd", "smbd", "vsftpd", "sftp-server")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1210"
+name = "Exploitation of Remote Services"
+reference = "https://attack.mitre.org/techniques/T1210/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+

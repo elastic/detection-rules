@@ -5,6 +5,7 @@
 
 """Create summary documents for a rule package."""
 
+from functools import reduce
 from collections import defaultdict
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -13,10 +14,11 @@ from marshmallow import pre_load
 
 import json
 
-from . import utils
 from .attack import CURRENT_ATTACK_VERSION
 from .mixins import MarshmallowDataclassMixin
 from .rule import TOMLRule
+from .rule_loader import DEFAULT_RULES_DIR, DEFAULT_BBR_DIR
+from .schemas import definitions
 
 
 _DEFAULT_PLATFORMS = [
@@ -78,7 +80,7 @@ class Navigator(MarshmallowDataclassMixin):
     @dataclass
     class Versions:
         attack: str
-        layer: str = '4.3'
+        layer: str = '4.4'
         navigator: str = '4.5.5'
 
     @dataclass
@@ -161,8 +163,10 @@ class NavigatorBuilder:
 
     def rule_links_dict(self, rule: TOMLRule) -> dict:
         base_url = 'https://github.com/elastic/detection-rules/blob/main/rules/'
-        local_rules_path = utils.get_path('rules')
-        base_path = rule.path.relative_to(local_rules_path)
+        try:
+            base_path = str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR))
+        except ValueError:
+            base_path = str(rule.path.resolve().relative_to(DEFAULT_BBR_DIR))
         url = f'{base_url}{base_path}'
         return self.links_dict(rule.name, url)
 
@@ -186,6 +190,8 @@ class NavigatorBuilder:
     def _update_tags(self, rule: TOMLRule, tactic: str, technique_id: str):
         for tag in rule.contents.data.get('tags', []):
             value = rule.id
+            expected_prefixes = set([tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS])
+            tag = reduce(lambda s, substr: s.replace(substr, ''), expected_prefixes, tag).lstrip()
             layer_key = tag.replace(' ', '-').lower()
             self.add_rule_to_technique(rule, 'tags', tactic, technique_id, value, layer_key=layer_key)
 

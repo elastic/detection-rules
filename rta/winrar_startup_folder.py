@@ -9,19 +9,24 @@
 # Description: Writes batch file into Windows Startup folder using process ancestry tied to exploit (CVE-2018-20250)
 
 import os
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
+from . import RtaMetadata, common
+
+metadata = RtaMetadata(
+    uuid="6d2d3c21-2d71-4395-8ab7-b1d0138d9225",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
-metadata = RtaMetadata(uuid="6d2d3c21-2d71-4395-8ab7-b1d0138d9225", platforms=["windows"], endpoint=[], siem=[], techniques=[])
-
-
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("WinRAR StartUp Folder Persistence")
-    win_rar_path = os.path.abspath("WinRAR.exe")
-    ace_loader_path = os.path.abspath("Ace32Loader.exe")
+    win_rar_path = Path("WinRAR.exe").resolve()
+    ace_loader_path = Path("Ace32Loader.exe").resolve()
     batch_file_path = "\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\mssconf.bat"
     startup_path = os.environ["USERPROFILE"] + batch_file_path
     common.copy_file("C:\\Windows\\System32\\cmd.exe", win_rar_path)

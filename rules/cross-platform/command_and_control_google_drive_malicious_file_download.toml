@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2023/06/19"
+integration = ["endpoint", "system"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious file download activity from a Google Drive URL. This could indicate an attempt 
+to deliver phishing payloads via a trusted webservice.
+"""
+false_positives = [
+    "Approved third-party applications that use Google Drive download URLs.",
+    "Legitimate publicly shared files from Google Drive.",
+]
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint*", "logs-system.security*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious File Downloaded from Google Drive"
+references = ["https://intelligence.abnormalsecurity.com/blog/google-drive-matanbuchus-malware"]
+risk_score = 47
+rule_id = "a8afdce2-0ec1-11ee-b843-f661ea17fbcd"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "OS: Windows", "OS: macOS", "Use Case: Threat Detection", "Tactic: Command and Control"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where
+
+    /* common browser processes  */
+    event.action in ("exec", "fork", "start") and 
+
+    process.name : ("Microsoft Edge", "chrome.exe", "Google Chrome", "google-chrome-stable", 
+                    "google-chrome-beta", "google-chrome", "msedge.exe", "firefox.exe", "brave.exe", 
+                    "whale.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "opera.exe", "firefox", 
+                    "powershell.exe", "curl", "curl.exe", "wget", "wget.exe") and 
+
+    /* Look for Google Drive download URL with AV flag skipping */
+    (process.command_line : "*drive.google.com*" and process.command_line : "*export=download*" and process.command_line : "*confirm=no_antivirus*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+

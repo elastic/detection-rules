@@ -30,7 +30,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     # Write to AppData\Local\
     common.execute(["cmd", "/c", "echo", "test", ">", "%APPDATA%\\test.SettingContent-ms"])
