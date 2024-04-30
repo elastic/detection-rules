@@ -64,12 +64,16 @@ event.category:file and host.os.type:linux and
 event.action:(creation or file_create_event or rename or file_rename_event) and file.path:(
   "/etc/profile" or "/etc/profile.local" or "/etc/bashrc" or "/etc/bash.bashrc" or "/etc/bash.bashrc.local" or
   "/etc/zshenv" or "/etc/zprofile" or "/etc/zlogin" or "/etc/zlogout" or "/root/.profile" or "/root/.bash_logout" or
-  "/root/.bashrc" or "/root/.bash_login" or /etc/profile.d/* or file.path\:/home/*/.*
+  "/root/.bashrc" or "/root/.bash_login" or /etc/profile.d/* or /home/*/.profile or /home/*/.bash_logout or
+  /home/*/.bashrc or /home/*/.bash_login
 ) and not (
-  (process.name:(
-    "dpkg" or "useradd" or "adduser" or "dockerd" or "microdnf" or "rpm" or "snapd" or "yum" or "exe" or "dnf" or
-    "podman" or "dnf-automatic" or "pacman")
-  ) or
+  (process.executable: (
+  "/bin/dpkg" or "/usr/bin/dpkg" or "/bin/useradd" or "/usr/sbin/useradd" or "/bin/adduser" or "/usr/sbin/adduser" or
+  "/bin/dockerd" or "/usr/bin/dockerd" or "/bin/microdnf" or "/usr/bin/microdnf" or "/bin/rpm" or "/usr/bin/rpm" or
+  "/bin/snapd" or "/usr/bin/snapd" or "/bin/yum" or "/usr/bin/yum" or "/bin/dnf" or "/usr/bin/dnf" or "/bin/podman" or
+  "/usr/bin/podman" or "/bin/dnf-automatic" or "/usr/bin/dnf-automatic" or "/bin/pacman" or "/usr/bin/pacman"
+  )
+) or
   (file.extension:("swp" or "swpx")) or
   (process.name:"sed" and file.name:sed*) or
   (process.name:"perl" and file.name:e2scrub_all.tmp*)
