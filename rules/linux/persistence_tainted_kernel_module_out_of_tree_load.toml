@@ -1,0 +1,89 @@
+[metadata]
+creation_date = "2023/10/26"
+integration = ["system"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors the syslog log file for messages related to instances of a out-of-tree kernel module load, indicating 
+the taining of the kernel. Rootkits often leverage kernel modules as their main defense evasion technique. Detecting
+tainted kernel module loads is crucial for ensuring system security and integrity, as malicious or unauthorized modules
+can compromise the kernel and lead to system vulnerabilities or unauthorized access.
+"""
+from = "now-9m"
+index = ["logs-system.syslog-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Tainted Out-Of-Tree Kernel Module Load"
+risk_score = 21
+rule_id = "51a09737-80f7-4551-a3be-dac8ef5d181a"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Filebeat
+
+### Filebeat Setup
+Filebeat is a lightweight shipper for forwarding and centralizing log data. Installed as an agent on your servers, Filebeat monitors the log files or locations that you specify, collects log events, and forwards them either to Elasticsearch or Logstash for indexing.
+
+#### The following steps should be executed in order to add the Filebeat for the Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setup-repositories.html).
+- To run Filebeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-docker.html).
+- To run Filebeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-kubernetes.html).
+- For quick start information for Filebeat refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/8.11/filebeat-installation-configuration.html).
+- For complete Setup and Run Filebeat information refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setting-up-and-running.html).
+
+#### Rule Specific Setup Note
+- This rule requires the Filebeat System Module to be enabled.
+- The system module collects and parses logs created by the system logging service of common Unix/Linux based distributions.
+- To run the system module of Filebeat on Linux follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-system.html).
+"""
+severity = "low"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Tactic: Defense Evasion"
+        ]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+host.os.type:linux and event.dataset:"system.syslog" and process.name:kernel and 
+message:"loading out-of-tree module taints kernel."
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+name = "Rootkit"
+id = "T1014"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

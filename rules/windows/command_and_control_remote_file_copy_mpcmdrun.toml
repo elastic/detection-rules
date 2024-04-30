@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/03"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2023/06/22"
+updated_date = "2024/03/28"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -31,12 +31,43 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+[[transform.investigate]]
+label = "Alerts associated with the user in the last 48h"
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+providers = [
+    [
+        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
+        {field = "user.id", excluded = false, queryType = "phrase", value = "{{user.id}}", valueType = "string"}
+    ]
+]
+
+[[transform.investigate]]
+label = "Alerts associated with the host in the last 48h"
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+providers = [
+    [
+        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
+        {field = "host.name", excluded = false, queryType = "phrase", value = "{{host.name}}", valueType = "string"}
+    ]
+]
+
+[[transform.investigate]]
+label = "Investigate the Subject Process Network Events"
+providers = [
+    [
+        {field = "process.entity_id", excluded = false, queryType = "phrase", value = "{{process.entity_id}}", valueType = "string"},
+        {field = "event.category", excluded = false, queryType = "phrase", value = "network", valueType = "string"}
+    ]
+]
+
 
 [rule]
 author = ["Elastic"]
 description = "Identifies the Windows Defender configuration utility (MpCmdRun.exe) being used to download a remote file."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote File Download via MpCmdRun"
@@ -50,6 +81,7 @@ The `MpCmdRun.exe` is a command-line tool part of Windows Defender and is used t
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -57,12 +89,15 @@ The `MpCmdRun.exe` is a command-line tool part of Windows Defender and is used t
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Contact the account owner and confirm whether they are aware of this activity.
 - Investigate other alerts associated with the user/host during the past 48 hours.
+  - $investigate_0
+  - $investigate_1
 - Check the reputation of the domain or IP address used to host the downloaded file.
 - Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
       - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
+        - $investigate_2
       - Examine the DNS cache for suspicious or anomalous entries.
         - $osquery_0
     - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
@@ -91,10 +126,6 @@ The `MpCmdRun.exe` is a command-line tool part of Windows Defender and is used t
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://twitter.com/mohammadaskar2/status/1301263551638761477",
@@ -102,6 +133,14 @@ references = [
 ]
 risk_score = 47
 rule_id = "c6453e73-90eb-4fe7-a98c-cde7bbfc504a"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -110,13 +149,14 @@ tags = [
     "Tactic: Command and Control",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "MpCmdRun.exe" or process.pe.original_file_name == "MpCmdRun.exe") and
+  (process.name : "MpCmdRun.exe" or ?process.pe.original_file_name == "MpCmdRun.exe") and
    process.args : "-DownloadFile" and process.args : "-url" and process.args : "-path"
 '''
 

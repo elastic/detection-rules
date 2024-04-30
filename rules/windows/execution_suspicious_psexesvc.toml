@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2024/03/28"
 
 [rule]
 author = ["Elastic"]
@@ -13,13 +13,13 @@ Identifies suspicious psexec activity which is executing from the psexec service
 evade detection.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Process Execution via Renamed PsExec Executable"
 note = """## Triage and analysis
 
-### Investigating PsExec Network Connection
+### Investigating Suspicious Process Execution via Renamed PsExec Executable
 
 PsExec is a remote administration tool that enables the execution of commands with both regular and SYSTEM privileges on Windows systems. It operates by executing a service component `Psexecsvc` on a remote system, which then runs a specified process and returns the results to the local system. Microsoft develops PsExec as part of the Sysinternals Suite. Although commonly used by administrators, PsExec is frequently used by attackers to enable lateral movement and execute commands as SYSTEM to disable defenses and bypass security protections.
 
@@ -47,15 +47,28 @@ This rule identifies instances where the PsExec service component is executed us
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Review the privileges assigned to the user to ensure that the least privilege principle is being followed.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 risk_score = 47
 rule_id = "e2f9fdf5-8076-45ad-9427-41e0e03dc9c2"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Endgame", "Resources: Investigation Guide"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Execution", 
+        "Tactic: Defense Evasion",
+        "Data Source: Elastic Endgame",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend",
+        "Data Source: Sysmon"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -64,22 +77,39 @@ process where host.os.type == "windows" and event.type == "start" and
   process.pe.original_file_name : "psexesvc.exe" and not process.name : "PSEXESVC.exe"
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1569"
 name = "System Services"
 reference = "https://attack.mitre.org/techniques/T1569/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1569.002"
 name = "Service Execution"
 reference = "https://attack.mitre.org/techniques/T1569/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.003"
+name = "Rename System Utilities"
+reference = "https://attack.mitre.org/techniques/T1036/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

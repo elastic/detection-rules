@@ -3,11 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import os
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="98adf0ff-2d8e-4eea-8d68-42084204bb74",
@@ -24,12 +22,12 @@ metadata = RtaMetadata(
 CMD_PATH = "c:\\windows\\system32\\cmd.exe"
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     masquerades = ["svchost.exe", "lsass.exe"]
 
     for name in masquerades:
-        path = os.path.abspath(name)
+        path = Path(name).resolve()
         common.copy_file(CMD_PATH, path)
         common.execute(path, timeout=3, kill=True)
         common.remove_file(path)

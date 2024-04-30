@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/07/31"
+updated_date = "2024/02/21"
 
 [transform]
 [[transform.osquery]]
@@ -81,7 +81,7 @@ This rule identifies the creation of new files within the `/etc/update-motd.d/` 
 - Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence and whether they are located in expected locations.
   - $osquery_3
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate whether the modified scripts call other malicious scripts elsewhere on the file system. 
+- Investigate whether the modified scripts call other malicious scripts elsewhere on the file system.
   - If scripts or executables were dropped, retrieve the files and determine if they are malicious:
     - Use a private sandboxed malware analysis system to perform analysis.
       - Observe and collect information about the following activities:
@@ -120,14 +120,51 @@ references = [
 ]
 risk_score = 47
 rule_id = "96d11d31-9a79-480f-8401-da28b194608f"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Resources: Investigation Guide"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Data Source: Elastic Endgame",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 type = "new_terms"
+timestamp_override = "event.ingested"
 query = '''
-host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and 
-file.path : (/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not 
-process.executable : ("/usr/bin/dpkg" or "/usr/bin/dockerd" or "/bin/rpm" or "/kaniko/executor") and not 
-file.extension : ("swp" or "swx")
+host.os.type :linux and event.action:(creation or file_create_event or rename or file_rename_event) and
+file.path : (/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not process.name : (
+  dpkg or dockerd or rpm or executor or dnf or podman or ln or yum 
+) and not (
+  (process.name:mv and file.extension:dpkg-remove) or
+  (file.extension:(swp or swpx))
+)
 '''
 
 [[rule.threat]]
@@ -145,8 +182,8 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["file.path", "process.name"]
+value = ["host.id", "file.path", "process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-10d"

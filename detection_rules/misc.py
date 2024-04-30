@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 
 from functools import wraps
-from typing import NoReturn
+from typing import NoReturn, Optional
 
 import click
 import requests
@@ -115,7 +115,7 @@ def nest_from_dot(dots, value):
     return nested
 
 
-def schema_prompt(name, value=None, required=False, **options):
+def schema_prompt(name, value=None, is_required=False, **options):
     """Interactively prompt based on schema requirements."""
     name = str(name)
     field_type = options.get('type')
@@ -136,7 +136,7 @@ def schema_prompt(name, value=None, required=False, **options):
     if name == 'rule_id':
         default = str(uuid.uuid4())
 
-    if len(enum) == 1 and required and field_type != "array":
+    if len(enum) == 1 and is_required and field_type != "array":
         return enum[0]
 
     def _check_type(_val):
@@ -149,10 +149,10 @@ def schema_prompt(name, value=None, required=False, **options):
         if enum and _val not in enum:
             print('{} not in valid options: {}'.format(_val, ', '.join(enum)))
             return False
-        if minimum and (type(_val) == int and int(_val) < minimum):
+        if minimum and (type(_val) is int and int(_val) < minimum):
             print('{} is less than the minimum: {}'.format(str(_val), str(minimum)))
             return False
-        if maximum and (type(_val) == int and int(_val) > maximum):
+        if maximum and (type(_val) is int and int(_val) > maximum):
             print('{} is greater than the maximum: {}'.format(str(_val), str(maximum)))
             return False
         if field_type == 'boolean' and _val.lower() not in ('true', 'false'):
@@ -161,14 +161,14 @@ def schema_prompt(name, value=None, required=False, **options):
         return True
 
     def _convert_type(_val):
-        if field_type == 'boolean' and not type(_val) == bool:
+        if field_type == 'boolean' and not type(_val) is bool:
             _val = True if _val.lower() == 'true' else False
         return int(_val) if field_type in ('number', 'integer') else _val
 
     prompt = '{name}{default}{required}{multi}'.format(
         name=name,
         default=' [{}] ("n/a" to leave blank) '.format(default) if default else '',
-        required=' (required) ' if required else '',
+        required=' (required) ' if is_required else '',
         multi=' (multi, comma separated) ' if field_type == 'array' else '').strip() + ': '
 
     while True:
@@ -177,7 +177,7 @@ def schema_prompt(name, value=None, required=False, **options):
             result = None
 
         if not result:
-            if required:
+            if is_required:
                 value = None
                 continue
             else:
@@ -187,7 +187,7 @@ def schema_prompt(name, value=None, required=False, **options):
             result_list = result.split(',')
 
             if not (min_item < len(result_list) < max_items):
-                if required:
+                if is_required:
                     value = None
                     break
                 else:
@@ -195,19 +195,19 @@ def schema_prompt(name, value=None, required=False, **options):
 
             for value in result_list:
                 if not _check_type(value):
-                    if required:
+                    if is_required:
                         value = None
                         break
                     else:
                         return []
-            if required and value is None:
+            if is_required and value is None:
                 continue
             else:
                 return [_convert_type(r) for r in result_list]
         else:
             if _check_type(result):
                 return _convert_type(result)
-            elif required:
+            elif is_required:
                 value = None
                 continue
             return
@@ -270,12 +270,16 @@ def load_current_package_version() -> str:
     return load_etc_dump('packages.yml')['package']['name']
 
 
+def get_default_config() -> Optional[Path]:
+    return next(Path(get_path()).glob('.detection-rules-cfg.*'), None)
+
+
 @cached
 def parse_config():
     """Parse a default config file."""
     import eql
 
-    config_file = next(Path(get_path()).glob('.detection-rules-cfg.*'), None)
+    config_file = get_default_config()
     config = {}
 
     if config_file and config_file.exists():
@@ -427,13 +431,16 @@ def add_client(*client_type, add_to_ctx=True, add_func_arg=True):
             if 'kibana' in client_type:
                 # for nested ctx invocation, no need to re-auth if an existing client is already passed
                 kibana_client: Kibana = kwargs.get('kibana_client')
-                try:
-                    with kibana_client:
-                        if kibana_client and isinstance(kibana_client, Kibana) and kibana_client.version:
-                            pass
-                        else:
-                            kibana_client = get_kibana_client(**kibana_client_args)
-                except (requests.HTTPError, AttributeError):
+                if kibana_client and isinstance(kibana_client, Kibana):
+
+                    try:
+                        with kibana_client:
+                            if kibana_client.version:
+                                pass  # kibana_client is valid and can be used directly
+                    except (requests.HTTPError, AttributeError):
+                        kibana_client = get_kibana_client(**kibana_client_args)
+                else:
+                    # Instantiate a new Kibana client if none was provided or if the provided one is not usable
                     kibana_client = get_kibana_client(**kibana_client_args)
 
                 if add_func_arg:

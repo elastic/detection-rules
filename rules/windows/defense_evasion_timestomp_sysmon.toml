@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2024/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ malicious content with existing files. Timestomping is a technique that modifies
 a file often to mimic files that are in trusted directories.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "File Creation Time Changed"
@@ -25,7 +25,8 @@ tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
-    "Tactic: Defense Evasion"
+    "Tactic: Defense Evasion",
+    "Data Source: Sysmon"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -39,16 +40,19 @@ file where host.os.type == "windows" and event.code : "2" and
  not process.executable : 
           ("?:\\Program Files\\*", 
            "?:\\Program Files (x86)\\*", 
+           "?:\\Windows\\system32\\cleanmgr.exe",
            "?:\\Windows\\system32\\msiexec.exe", 
            "?:\\Windows\\syswow64\\msiexec.exe", 
            "?:\\Windows\\system32\\svchost.exe", 
            "?:\\WINDOWS\\system32\\backgroundTaskHost.exe",
            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe", 
+           "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
            "?:\\Users\\*\\AppData\\Local\\slack\\app-*\\slack.exe", 
            "?:\\Users\\*\\AppData\\Local\\GitHubDesktop\\app-*\\GitHubDesktop.exe",
            "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe", 
            "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe") and 
- not file.extension : ("tmp", "~tmp", "xml") and not user.name : ("SYSTEM", "Local Service", "Network Service")
+ not file.extension : ("temp", "tmp", "~tmp", "xml", "newcfg") and not user.name : ("SYSTEM", "Local Service", "Network Service") and
+ not file.name : ("LOG", "temp-index", "license.rtf", "iconcache_*.db")
 '''
 
 

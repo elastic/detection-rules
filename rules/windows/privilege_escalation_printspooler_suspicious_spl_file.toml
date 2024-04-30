@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/08/14"
-integration = ["endpoint", "windows"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2023/06/22"
+updated_date = "2024/03/28"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -39,7 +39,7 @@ Detects attempts to exploit privilege escalation vulnerabilities related to the 
 CVE-2020-1048 and CVE-2020-1337.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.file-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Print Spooler SPL File Created"
@@ -95,16 +95,20 @@ The Print Spooler service has some known vulnerabilities that attackers can abus
 - Ensure that the machine has the latest security updates and is not running legacy Windows versions.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = ["https://safebreach.com/Post/How-we-bypassed-CVE-2020-1048-Patch-and-got-CVE-2020-1337"]
-risk_score = 73
+risk_score = 47
 rule_id = "a7ccae7b-9d2c-44b2-a061-98e5946971fa"
-severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Use Case: Vulnerability"]
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Use Case: Vulnerability", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -117,7 +121,8 @@ file where host.os.type == "windows" and event.type != "deletion" and
                       "PrintIsolationHost.exe",
                       "splwow64.exe",
                       "msiexec.exe",
-                      "poqexec.exe") and
+                      "poqexec.exe",
+                      "System") and
   not user.id : "S-1-5-18" and
   not process.executable :
             ("?:\\Windows\\System32\\mmc.exe",
@@ -130,7 +135,8 @@ file where host.os.type == "windows" and event.type != "deletion" and
              "?:\\Program Files\\*.exe",
              "?:\\Program Files (x86)\\*.exe",
              "?:\\PROGRA~1\\*.exe",
-             "?:\\PROGRA~2\\*.exe")
+             "?:\\PROGRA~2\\*.exe",
+             "?:\\Windows\\System32\\rundll32.exe")
 '''
 
 

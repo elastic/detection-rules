@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/11/23"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2024/03/28"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,7 @@ Identifies a privilege escalation attempt via named pipe impersonation. An adver
 utilizing a framework such Metasploit's meterpreter getsystem command.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Privilege Escalation via Named Pipe Impersonation"
@@ -92,10 +92,6 @@ Attackers can abuse named pipes to elevate their privileges by impersonating the
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://www.ired.team/offensive-security/privilege-escalation/windows-namedpipes-privilege-escalation",
@@ -104,6 +100,14 @@ references = [
 ]
 risk_score = 73
 rule_id = "3ecbdc9e-e4f2-43fa-8cca-63802125e582"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -112,13 +116,14 @@ tags = [
     "Tactic: Privilege Escalation",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.pe.original_file_name in ("Cmd.Exe", "PowerShell.EXE") and
+ (process.name : ("Cmd.Exe", "PowerShell.EXE") or ?process.pe.original_file_name in ("Cmd.Exe", "PowerShell.EXE")) and
  process.args : "echo" and process.args : ">" and process.args : "\\\\.\\pipe\\*"
 '''
 

@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2023/07/04"
+deprecation_date = "2023/11/02"
+integration = ["endpoint"]
+maturity = "deprecated"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/11/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This detection rule detects the creation of a shell through a suspicious parent child relationship. Any reverse shells
+spawned by the specified utilities that use a forked process to initialize the connection attempt will be captured
+through this rule. Attackers may spawn reverse shells to establish persistence onto a target system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Deprecated - Potential Reverse Shell via Suspicious Parent Process"
+note = "This rule was deprecated due to its addition to the umbrella `Potential Reverse Shell via Suspicious Child Process` (76e4d92b-61c1-4a95-ab61-5fd94179a1ee) rule."
+references = [
+    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md",
+]
+risk_score = 47
+rule_id = "4b1a807a-4e7b-414e-8cea-24bf580f6fc5"
+setup = """
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
+type = "eql"
+
+query = '''
+sequence by host.id, process.parent.entity_id with maxspan=1s
+[ process where host.os.type == "linux" and event.type == "start" and event.action == "fork" and (
+  (process.name : "python*" and process.args == "-c" and not process.args == "/usr/bin/supervisord") or
+  (process.name : "php*" and process.args == "-r") or
+  (process.name : "perl" and process.args == "-e") or
+  (process.name : "ruby" and process.args in ("-e", "-rsocket")) or
+  (process.name : "lua*" and process.args == "-e") or
+  (process.name : "openssl" and process.args : "-connect") or
+  (process.name : ("nc", "ncat", "netcat") and process.args_count >= 3 and not process.args == "-z") or
+  (process.name : "telnet" and process.args_count >= 3) or
+  (process.name : "awk")) and 
+  process.parent.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") ]
+[ network where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
+  process.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") and
+  destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" ]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+

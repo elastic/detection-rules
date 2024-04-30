@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2024/03/28"
 
 [transform]
 [[transform.osquery]]
@@ -38,7 +38,7 @@ The Filter Manager Control Program (fltMC.exe) binary may be abused by adversari
 defenses.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Evasion via Filter Manager"
@@ -97,13 +97,25 @@ This rule identifies the attempt to unload a minifilter using the `fltmc.exe` co
 risk_score = 47
 rule_id = "06dceabf-adca-48af-ac79-ffdf4c3b1e9a"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Resources: Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.name : "fltMC.exe" and process.args : "unload"
+  process.name : "fltMC.exe" and process.args : "unload" and
+  not
+  (
+    (
+      process.executable : "?:\\Program Files (x86)\\ManageEngine\\UEMS_Agent\\bin\\DCFAService64.exe" and
+      process.args : ("DFMFilter", "DRMFilter")
+    ) or
+    (
+      process.executable : "?:\\Windows\\SysWOW64\\msiexec.exe" and
+      process.args : ("BrFilter_*", "BrCow_*") and
+      user.id : "S-1-5-18"
+    )
+  )
 '''
 
 
