@@ -1,0 +1,64 @@
+[metadata]
+creation_date = "2024/04/30"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
+min_stack_version = "8.9.0"
+updated_date = "2024/04/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an AWS Lambda function policy is updated to allow public invocation. This rule specifically looks for
+the `AddPermission` API call with the `Principal` set to `*` which allows any AWS account to invoke the Lambda function.
+Adversaries may abuse this permission to create a backdoor in the Lambda function that allows them to execute arbitrary
+code.
+"""
+false_positives = [
+    "    Lambda function owners may legitimately update the function policy to allow public invocation.\n    ",
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Lambda Function Policy Updated To Allow Public Invocation"
+references = [
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-lambda-persistence",
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.persistence.lambda-backdoor-function/",
+    "https://docs.aws.amazon.com/lambda/latest/api/API_AddPermission.html",
+]
+risk_score = 47
+rule_id = "169f3a93-efc7-4df2-94d6-0d9438c310d1"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: aws.cloudtrail and event.provider: lambda.amazonaws.com
+    and event.outcome: success and event.action: AddPermission*
+    and aws.cloudtrail.request_parameters: (*lambda\:InvokeFunction* and *principal=\**)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
