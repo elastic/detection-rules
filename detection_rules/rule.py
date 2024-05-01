@@ -597,7 +597,7 @@ class QueryValidator:
     @cached
     def get_required_fields(self, index: str) -> List[Optional[dict]]:
         """Retrieves fields needed for the query along with type information from the schema."""
-        if not self.ast:
+        if isinstance(self, ESQLValidator):
             return []
 
         current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)

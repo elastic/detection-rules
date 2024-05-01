@@ -64,6 +64,8 @@ Attackers may attempt to enumerate names until a valid bucket is discovered and 
 - Take the actions needed to return affected systems, data, or services to their normal operational levels.
 - Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- Check for PutBucketPolicy event actions as well to see if they have been tampered with. While we monitor for denied, a single successful action to add a backdoor into the bucket via policy updates (however they got permissions) may be critical to identify during TDIR.
+
 """
 references = [
     "https://medium.com/@maciej.pocwierz/how-an-empty-s3-bucket-can-make-your-aws-bill-explode-934a383cb8b1",
@@ -76,6 +78,7 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
+    "Data Source: AWS S3",
     "Resources: Investigation Guide",
     "Use Case: Log Auditing",
     "Tactic: Impact"
@@ -86,7 +89,7 @@ type = "esql"
 query = '''
 from logs-aws.cloudtrail*
 | where event.provider == "s3.amazonaws.com" and aws.cloudtrail.error_code == "AccessDenied"
-| stats failed_requests = count(*) by aws.s3.bucket.name, source.address, cloud.account.id
+| stats failed_requests = count(*) by tls.client.server_name, source.address, cloud.account.id
   // can modify the failed request count or tweak time window to fit environment
   // can add `not cloud.account.id in (KNOWN)` or specify in exceptions
 | where failed_requests > 40
