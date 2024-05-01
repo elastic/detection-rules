@@ -595,7 +595,7 @@ class QueryValidator:
         raise NotImplementedError()
 
     @cached
-    def get_required_fields(self, index: str) -> List[dict]:
+    def get_required_fields(self, index: str) -> List[Optional[dict]]:
         """Retrieves fields needed for the query along with type information from the schema."""
         if not self.ast:
             return []
