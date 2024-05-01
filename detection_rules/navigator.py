@@ -183,7 +183,7 @@ class NavigatorBuilder:
         self.add_rule_to_technique(rule, 'platforms', tactic, technique_id, value)
 
     def _update_indexes(self, rule: TOMLRule, tactic: str, technique_id: str):
-        for index in rule.contents.data.get('index', []):
+        for index in rule.contents.data.get('index') or []:
             value = rule.id
             self.add_rule_to_technique(rule, 'indexes', tactic, technique_id, value, layer_key=index.lower())
 
