@@ -1,10 +1,29 @@
 # LLM Threat Hunting Queries
 
-Welcome to the `LLM` subfolder within the `hunt_queries` directory of the `detection-rules` repository. This specialized section is dedicated to threat hunting queries designed for Large Language Model (LLM) applications, targeting the unique security challenges these systems face.
+Welcome to the `LLM` subfolder within the `hunting` directory of the `detection-rules` repository. This specialized section is dedicated to threat hunting queries designed for Large Language Model (LLM) applications, targeting the unique security challenges these systems face.
 
 ## Emphasis on OWASP Top 10 for LLMs
 
 Our queries are developed with a keen awareness of the [OWASP Top 10 risks for Large Language Model Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/). This crucial resource outlines the predominant security risks for LLMs, guiding our efforts in crafting queries that proactively address these vulnerabilities and ensure comprehensive threat mitigation.
+
+## Emphasis on MITRE ATLAS
+
+The [ATLAS Matrix](https://atlas.mitre.org/matrices/ATLAS/) covers the progression of tactics used in attacks with ML techniques belonging to different tactics.
+
+- Reconnaissance
+- Resource Development
+- Initial Access
+- ML Model Access
+- Execution
+- Persistence
+- Privilege Escalation
+- Defense Evasion
+- Credential Access
+- Discovery
+- Collection
+- ML Attack Staging
+- Exfiltration
+- Impact
 
 ## Scope of Threats and Protections
 

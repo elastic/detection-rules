@@ -11,19 +11,29 @@ from pathlib import Path
 def convert_toml_to_markdown(toml_content: str):
     """ Convert TOML content to Markdown format. """
     toml_dict = tomllib.loads(toml_content)
-    markdown = f"# {toml_dict['hunt']['name']}\n\n---\n\n"
+    hunt = toml_dict['hunt']
+    markdown = f"# {hunt['name']}\n\n---\n\n"
     markdown += "## Metadata\n\n"
-    markdown += f"**Author:** {toml_dict['hunt']['author']}\n**UUID:** {toml_dict['hunt']['uuid']}\n\n"
-    markdown += f"**Integration:** {toml_dict['hunt']['integration']}\n\n"
-    markdown += "## Query\n\n"
-    markdown += f"```sql\n{toml_dict['hunt']['query']}\n```\n\n"
-    markdown += "## Description\n\n"
-    markdown += f"{toml_dict['hunt']['description']}\n"
-    if 'references' in toml_dict['hunt']:
+    markdown += f"**Integration:** {hunt['integration']}\n"
+    markdown += f"**Author:** {hunt['author']}\n"
+    markdown += f"**UUID:** {hunt['uuid']}\n\n"
+    markdown += "## Hypothesis\n\n"
+    markdown += f"{hunt['hypothesis']}\n\n"
+    markdown += "## Analytic\n\n"
+    markdown += f"```sql\n{hunt['analytic']}```\n\n"
+    if 'notes' in hunt:
+        markdown += "## Notes\n\n"
+        for note in hunt['notes']:
+            markdown += f"- {note}\n"
+    if 'mitre' in hunt:
+        markdown += "\n## MITRE ATT&CK Techniques\n\n"
+        for technique in hunt['mitre']:
+            markdown += f"- {technique}\n"
+    if 'references' in hunt:
         markdown += "\n## References\n\n"
-        for reference in toml_dict['hunt']['references']:
+        for reference in hunt['references']:
             markdown += f"- {reference}\n"
-    return markdown, toml_dict['hunt']['name']
+    return markdown, hunt['name']
 
 def process_toml_files(base_path: Path):
     """ Process all TOML files in the directory recursively and convert them to Markdown. """
@@ -42,9 +52,9 @@ def process_toml_files(base_path: Path):
         directories.setdefault(folder_name, []).append((markdown_path.name, rule_name))
 
     # Build index content
-    for folder, files in directories.items():
+    for folder, files in sorted(directories.items()):
         index_content += f"## {folder.parent.name}\n"
-        for file, name in files:
+        for file, name in sorted(files):
             relative_path = folder / 'docs' / file
             index_content += f"- [{name}]({relative_path})\n"
 
