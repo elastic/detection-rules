@@ -12,8 +12,8 @@ Contributing to the `hunt_queries` folder is a great way to share your expertise
 
 ### Adding New Queries
 - **Naming and Organization**: Ensure that any new queries are named descriptively and grouped by the type of threat they address. Place your TOML files inside the `rules` folder and ensure they are named in a way that reflects the nature of the threat or behavior they are designed to detect.
-- **Documentation**: Include a `README.md` in each subfolder describing the queries and their purposes. Include a brief description of the new query, including its purpose and how it functions.
 - **Description Section**: Include as much detail as possible in the description section of the query. This should include information on what the query does, why it is important, and how it can be used to detect threats. This may include references, example evidence, related MITRE techniques, and other relevant information.
+- **Documentation (Optional)**: Include a `README.md` in each subfolder describing the queries and their purposes. This would include a brief description of the new category.
 
 ### Field Usage
 - Use standardized fields where possible to ensure that queries are compatible across different data environments and sources.

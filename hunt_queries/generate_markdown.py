@@ -14,10 +14,15 @@ def convert_toml_to_markdown(toml_content: str):
     markdown = f"# {toml_dict['hunt']['name']}\n\n---\n\n"
     markdown += "## Metadata\n\n"
     markdown += f"**Author:** {toml_dict['hunt']['author']}\n**UUID:** {toml_dict['hunt']['uuid']}\n\n"
+    markdown += f"**Integration:** {toml_dict['hunt']['integration']}\n\n"
     markdown += "## Query\n\n"
     markdown += f"```sql\n{toml_dict['hunt']['query']}\n```\n\n"
     markdown += "## Description\n\n"
     markdown += f"{toml_dict['hunt']['description']}\n"
+    if 'references' in toml_dict['hunt']:
+        markdown += "\n## References\n\n"
+        for reference in toml_dict['hunt']['references']:
+            markdown += f"- {reference}\n"
     return markdown, toml_dict['hunt']['name']
 
 def process_toml_files(base_path: Path):
