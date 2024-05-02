@@ -1,27 +1,44 @@
 # Hunt Queries
 
-Welcome to the `hunt_queries` folder within the `detection-rules` repository! This folder contains a curated collection of threat hunting queries designed to enhance security monitoring and threat detection capabilities using the Elastic Stack. Each file in this directory provides a query tailored for identifying specific security threats or suspicious activities.
+---
+
+Welcome to the `hunt_queries` folder within the `detection-rules` repository! This directory houses a curated collection of threat hunting queries designed to enhance security monitoring and threat detection capabilities using the Elastic Stack. Each file in this directory provides a query tailored for identifying specific security threats or suspicious activities.
 
 These queries are designed for use with the Elastic Security platform, part of the broader Elastic Stack, enabling security teams to proactively hunt for potential threats in their environment.
 
 ## How to Contribute
 
-Contributing to the `hunt_queries` folder is a great way to share your expertise and enhance the security community's capabilities. Here are the guidelines for contributing:
+Contributing to the `hunt_queries` folder is a great way to share your expertise and enhance the security community's capabilities. Here’s how you can contribute:
 
-- **Adding New Queries**: Ensure that any new queries are named descriptively and grouped by the type of threat they address. Query files should be named in a way that reflects the nature of the threat or behavior they are designed to detect. Content should include:
-  - The query itself
-  - A description of the query
-  - A description of the security relevance
-  - Metadata (author, license, creation date, updated date)
-- **Field Usage**: Use standardized fields where possible to ensure that queries are compatible across different data environments and sources.
-- **Documentation**: Update the README.md with a brief description of the new query, including its purpose and how it functions. Be sure to add a reference to the new rule in the list of available queries.
-- **Review and Pull Requests**: Follow the standard [contributing guide](../CONTRIBUTING.md).
+### Adding New Queries
+- **Naming and Organization**: Ensure that any new queries are named descriptively and grouped by the type of threat they address. Place your TOML files inside the `rules` folder and ensure they are named in a way that reflects the nature of the threat or behavior they are designed to detect.
+- **Documentation**: Include a `README.md` in each subfolder describing the queries and their purposes. Include a brief description of the new query, including its purpose and how it functions.
+- **Description Section**: Include as much detail as possible in the description section of the query. This should include information on what the query does, why it is important, and how it can be used to detect threats. This may include references, example evidence, related MITRE techniques, and other relevant information.
 
-## List of Available Queries
+### Field Usage
+- Use standardized fields where possible to ensure that queries are compatible across different data environments and sources.
 
-Here are some of the queries currently available in this folder:
+### Review and Pull Requests
+- Follow the standard [contributing guide](../CONTRIBUTING.md).
 
-- [Sensitive Content Refusal Detection](./llm_sensitive_content_refusal_detection.md): Detects when an LLM refuses to provide information on sensitive topics multiple times.
-- [Denial of Service or Resource Exhaustion Attacks Detection](./llm_dos_resource_exhaustion_detection.md): Identifies high-volume token usage that might indicate DoS attacks or resource exhaustion.
-- [Monitoring for Latency Anomalies](./llm_latency_anomalies_detection.md): Tracks significant latency differences to identify potential performance issues or security threats.
+## Using the Script to Generate Markdown
 
+The `generate_markdown.py` script is provided to automate the creation of Markdown files from TOML rule definitions. Here’s how to use it:
+
+- **Generating Markdown**: Run `python generate_markdown.py` from the root of the `hunt_queries` directory. This will generate Markdown files for each TOML file and update the `index.md` to include links to the new Markdown files.
+- **Structure**: Rules should be written in TOML and saved under the `rules` directory. The script will automatically convert them into Markdown and save them in the `docs` directory within the respective category folder.
+
+### Directory Structure Example
+
+```config
+.
+├── README.md
+├── generate_markdown.py
+├── index.md
+└── folder_name
+    ├── README.md
+    ├── docs
+    │   └── generated_markdown.md
+    └── rules
+        └── hunt_query.toml
+```

@@ -4,10 +4,8 @@
 
 ## Metadata
 
-**Author:** ["Elastic"]
-**License:** "Elastic License v2"
-**Creation Date:** 2024-05-01
-**Updated Date:** 2024-05-01
+**Author:** Elastic
+**UUID:** dc181967-c32c-46c9-b84b-ec4c8811c6a0
 
 ## Query
 
@@ -25,12 +23,9 @@ from logs-aws_bedrock.invocation-*
          request_count = count() BY cloud.account.id
  | WHERE request_count > 1
  | SORT max_prompt_tokens, max_request_tokens, max_completion_tokens DESC
+
 ```
 
 ## Description
 
-This query identifies high-volume token usage which could be indicative of abuse or an attempted denial of service (DoS) attack.
-
-## Security Relevance
-
-This monitoring helps detect potential concerns with system availability and performance, aiding in the early detection of DoS attacks or abusive behavior.
+This query identifies high-volume token usage which could be indicative of abuse or an attempted denial of service (DoS) attack. This monitoring helps detect potential concerns with system availability and performance, aiding in the early detection of DoS attacks or abusive behavior.
