@@ -17,12 +17,12 @@ Detects unusually high initial response latencies in LLM interactions, which may
 ```sql
 from logs-aws_bedrock.invocation-*
   | WHERE @timestamp > NOW() - 1 DAY
-  | EVAL gen_ai_start_response_ts = TO_DATETIME(@timestamp) - (gen_ai.performance.start_response_time / 1000)
-  | WHERE DATE_DIFF("seconds", gen_ai_start_response_ts, @timestamp) > 5
-  | STATS max_latency = max(DATE_DIFF("seconds", gen_ai_start_response_ts, @timestamp)),
+  | EVAL response_delay_seconds = gen_ai.performance.start_response_time / 1000
+  | WHERE response_delay_seconds > 5
+  | STATS max_response_delay = max(response_delay_seconds),
           request_count = count() BY gen_ai.user.id
   | WHERE request_count > 3
-  | SORT max_latency DESC
+  | SORT max_response_delay DESC
 ```
 
 ## Notes
