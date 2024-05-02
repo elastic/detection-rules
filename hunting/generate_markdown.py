@@ -14,9 +14,9 @@ def convert_toml_to_markdown(toml_content: str):
     hunt = toml_dict['hunt']
     markdown = f"# {hunt['name']}\n\n---\n\n"
     markdown += "## Metadata\n\n"
-    markdown += f"**Integration:** {hunt['integration']}\n"
-    markdown += f"**Author:** {hunt['author']}\n"
-    markdown += f"**UUID:** {hunt['uuid']}\n\n"
+    markdown += f"- **Integration:** {hunt['integration']}\n"
+    markdown += f"- **Author:** {hunt['author']}\n"
+    markdown += f"- **UUID:** {hunt['uuid']}\n\n"
     markdown += "## Hypothesis\n\n"
     markdown += f"{hunt['hypothesis']}\n\n"
     markdown += "## Analytic\n\n"

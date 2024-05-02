@@ -4,9 +4,9 @@
 
 ## Metadata
 
-**Integration:** aws_bedrock.invocation
-**Author:** Elastic
-**UUID:** 3708787b-811b-43b1-b2e7-c7276b8db48c
+- **Integration:** aws_bedrock.invocation
+- **Author:** Elastic
+- **UUID:** 3708787b-811b-43b1-b2e7-c7276b8db48c
 
 ## Hypothesis
 
