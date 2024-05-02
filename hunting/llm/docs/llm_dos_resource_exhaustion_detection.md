@@ -4,15 +4,12 @@
 
 ## Metadata
 
-- **Integration:** aws_bedrock.invocation
+- **Data Source:** `aws_bedrock.invocation`
 - **Author:** Elastic
-- **UUID:** dc181967-c32c-46c9-b84b-ec4c8811c6a0
+- **UUID:** `dc181967-c32c-46c9-b84b-ec4c8811c6a0`
+- **Language:** `ES|QL`
 
-## Hypothesis
-
-Detects potential DoS attacks through abnormal token usage in LLM interactions.
-
-## Analytic
+## Query
 
 ```sql
 from logs-aws_bedrock.invocation-*
@@ -39,8 +36,10 @@ from logs-aws_bedrock.invocation-*
 
 ## MITRE ATT&CK Techniques
 
-- Cost Harvesting - AML.T0034
+- [AML.T0034](https://atlas.mitre.org/techniques/AML.T0034)
 
 ## References
 
 - https://www.elastic.co/security-labs/TBD
+- https://owasp.org/www-project-top-10-for-large-language-model-applications/
+- [Denial of Service or Resource Exhaustion Attacks Detection](../queries/llm_dos_resource_exhaustion_detection.toml)

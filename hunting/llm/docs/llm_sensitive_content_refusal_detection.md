@@ -4,15 +4,12 @@
 
 ## Metadata
 
-- **Integration:** aws_bedrock.invocation
+- **Data Source:** `aws_bedrock.invocation`
 - **Author:** Elastic
-- **UUID:** 8fabae86-7ed2-4006-9623-5db28164f374
+- **UUID:** `8fabae86-7ed2-4006-9623-5db28164f374`
+- **Language:** `ES|QL`
 
-## Hypothesis
-
-Detects repeated refusals by an LLM to engage with sensitive or restricted topics, which might indicate attempts to probe the model for sensitive information.
-
-## Analytic
+## Query
 
 ```sql
 from logs-aws_bedrock.invocation-*
@@ -34,8 +31,10 @@ from logs-aws_bedrock.invocation-*
 
 ## MITRE ATT&CK Techniques
 
-- LLM Prompt Injection - AML.T0051
+- [LLM Prompt Injection - AML.T0051](https://atlas.mitre.org/techniques/LLM Prompt Injection - AML.T0051)
 
 ## References
 
 - https://www.elastic.co/security-labs/TBD
+- https://owasp.org/www-project-top-10-for-large-language-model-applications/
+- [Sensitive Content Refusal Detection](../queries/llm_sensitive_content_refusal_detection.toml)

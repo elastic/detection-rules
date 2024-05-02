@@ -1,10 +1,10 @@
 [hunt]
 author = "Elastic"
-integration = "aws_bedrock.invocation"
+datasource = "aws_bedrock.invocation"
 uuid = "dc181967-c32c-46c9-b84b-ec4c8811c6a0"
-hypothesis = "Detects potential DoS attacks through abnormal token usage in LLM interactions."
 name = "Denial of Service or Resource Exhaustion Attacks Detection"
-analytic = '''
+language = "ES|QL"
+query = '''
 from logs-aws_bedrock.invocation-*
  | WHERE @timestamp > NOW() - 1 DAY
    AND (
@@ -25,5 +25,6 @@ notes = [
     "Ensure logging and monitoring are correctly configured to capture detailed metrics on token usage. This will facilitate accurate detection and allow for a quick response to potential threats.",
     "Collect evidence from logs that detail the timestamp, user ID, session information, and token counts for incidents flagged by this analytic. This information will be crucial for forensic analysis in the event of a security incident."
 ]
-mitre = ["Cost Harvesting - AML.T0034"]
-references = ["https://www.elastic.co/security-labs/TBD"]
+mitre = ["AML.T0034"]
+references = ["https://www.elastic.co/security-labs/TBD",
+              "https://owasp.org/www-project-top-10-for-large-language-model-applications/"]

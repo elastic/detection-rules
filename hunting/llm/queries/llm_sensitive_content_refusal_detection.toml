@@ -1,10 +1,10 @@
 [hunt]
 author = "Elastic"
-integration = "aws_bedrock.invocation"
+datasource = "aws_bedrock.invocation"
 uuid = "8fabae86-7ed2-4006-9623-5db28164f374"
-hypothesis = "Detects repeated refusals by an LLM to engage with sensitive or restricted topics, which might indicate attempts to probe the model for sensitive information."
 name = "Sensitive Content Refusal Detection"
-analytic = '''
+language = "ES|QL"
+query = '''
 from logs-aws_bedrock.invocation-*
  | WHERE @timestamp > NOW() - 1 DAY
    AND (
@@ -21,4 +21,5 @@ notes = [
     "Ensure that data logs contain enough detail to provide context around the refusal, which will aid in subsequent investigations by security teams."
 ]
 mitre = ["LLM Prompt Injection - AML.T0051"]
-references = ["https://www.elastic.co/security-labs/TBD"]
+references = ["https://www.elastic.co/security-labs/TBD",
+              "https://owasp.org/www-project-top-10-for-large-language-model-applications/"]
