@@ -33,11 +33,9 @@ from logs-aws_bedrock.invocation-*
 - Consider reviewing the context of high token requests to differentiate between legitimate heavy usage and potential abuse. Monitor the source of requests and patterns over time for better assessment.
 - Ensure logging and monitoring are correctly configured to capture detailed metrics on token usage. This will facilitate accurate detection and allow for a quick response to potential threats.
 - Collect evidence from logs that detail the timestamp, user ID, session information, and token counts for incidents flagged by this analytic. This information will be crucial for forensic analysis in the event of a security incident.
-
 ## MITRE ATT&CK Techniques
 
 - [AML.T0034](https://atlas.mitre.org/techniques/AML.T0034)
-
 ## References
 
 - https://www.elastic.co/security-labs/TBD

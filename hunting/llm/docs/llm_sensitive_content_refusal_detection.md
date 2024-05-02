@@ -28,11 +28,9 @@ from logs-aws_bedrock.invocation-*
 - Examine flagged interactions for patterns or anomalies in user requests that may indicate malicious intent or probing of model boundaries.
 - Regularly review and update the phrases that trigger refusals to adapt to new ethical guidelines and compliance requirements.
 - Ensure that data logs contain enough detail to provide context around the refusal, which will aid in subsequent investigations by security teams.
-
 ## MITRE ATT&CK Techniques
 
 - [LLM Prompt Injection - AML.T0051](https://atlas.mitre.org/techniques/LLM Prompt Injection - AML.T0051)
-
 ## References
 
 - https://www.elastic.co/security-labs/TBD

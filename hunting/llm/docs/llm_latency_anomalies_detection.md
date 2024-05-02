@@ -28,11 +28,9 @@ from logs-aws_bedrock.invocation-*
 - Review the incidents flagged by this analytic to understand the context and potential sources of latency. This can include network configurations, resource allocation, or external network pressures.
 - Effective logging and monitoring setup are essential to capture relevant latency metrics accurately. Ensure system clocks and time syncing are properly configured to avoid false positives.
 - Gather comprehensive logs that detail the request and response timestamps, user IDs, and session details for thorough investigation and evidence collection in case of security incidents.
-
 ## MITRE ATT&CK Techniques
 
 - [Denial of ML Service - AML.T0029](https://atlas.mitre.org/techniques/Denial of ML Service - AML.T0029)
-
 ## References
 
 - https://www.elastic.co/security-labs/TBD
