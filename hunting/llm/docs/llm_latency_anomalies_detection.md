@@ -31,6 +31,7 @@ from logs-aws_bedrock.invocation-*
 ## MITRE ATT&CK Techniques
 
 - [Denial of ML Service - AML.T0029](https://atlas.mitre.org/techniques/Denial of ML Service - AML.T0029)
+
 ## References
 
 - https://www.elastic.co/security-labs/TBD

@@ -31,6 +31,7 @@ from logs-aws_bedrock.invocation-*
 ## MITRE ATT&CK Techniques
 
 - [LLM Prompt Injection - AML.T0051](https://atlas.mitre.org/techniques/LLM Prompt Injection - AML.T0051)
+
 ## References
 
 - https://www.elastic.co/security-labs/TBD
