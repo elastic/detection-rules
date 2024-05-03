@@ -59,7 +59,7 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
         markdown += "## Notes\n\n" + "\n".join(f"- {note}" for note in hunt_config.notes)
     if hunt_config.mitre:
         markdown += "\n## MITRE ATT&CK Techniques\n\n" + "\n".join(
-            f"- [{tech}]({ATLAS_URL if tech.startswith('AML') else ATTACK_URL}/"
+            f"- [{tech}]({ATLAS_URL if tech.startswith('AML') else ATTACK_URL}"
             f"{tech.replace('.', '/') if tech.startswith('T') else tech})\n"
             for tech in hunt_config.mitre
         )
@@ -87,7 +87,7 @@ def process_toml_files(base_path: Path) -> None:
 
     # Build index content
     for folder, files in sorted(directories.items()):
-        index_content += f"## {folder.capitalize()}\n"
+        index_content += f"## {folder}\n"
         for file_path, rule_name in sorted(files):
             index_path = "./" + str(file_path)  # Ensure the path is relative to the index.md
             index_content += f"- [{rule_name}]({index_path})\n"
