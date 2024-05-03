@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import List, Optional
 
 HUNTING_DIR = Path(__file__).parent
+ATLAS_URL = "https://atlas.mitre.org/techniques/"
+ATTACK_URL = "https://attack.mitre.org/techniques/"
 
 
 @dataclass
@@ -57,7 +59,9 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
         markdown += "## Notes\n\n" + "\n".join(f"- {note}" for note in hunt_config.notes)
     if hunt_config.mitre:
         markdown += "\n## MITRE ATT&CK Techniques\n\n" + "\n".join(
-            f"- [{tech}](https://atlas.mitre.org/techniques/{tech})\n" for tech in hunt_config.mitre
+            f"- [{tech}]({ATLAS_URL if tech.startswith('AML') else ATTACK_URL}/"
+            f"{tech.replace('.', '/') if tech.startswith('T') else tech})\n"
+            for tech in hunt_config.mitre
         )
     if hunt_config.references:
         markdown += "\n## References\n\n" + "\n".join(f"- {ref}" for ref in hunt_config.references)
@@ -68,12 +72,30 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
 def process_toml_files(base_path: Path) -> None:
     """Process all TOML files in the directory recursively and convert them to Markdown."""
     hunts = load_all_toml(base_path)
+    index_content = "# List of Available Queries\n\nHere are the queries currently available:\n\n"
+    directories = {}
+
     for hunt_config, toml_file in hunts:
         markdown_content = convert_toml_to_markdown(hunt_config, toml_file)
         markdown_path = toml_file.parent.parent / "docs" / f"{toml_file.stem}.md"
         markdown_path.parent.mkdir(parents=True, exist_ok=True)
         markdown_path.write_text(markdown_content, encoding="utf-8")
         print(f"Markdown generated: {markdown_path}")
+        relative_path = markdown_path.relative_to(base_path)
+        folder_name = toml_file.parent.parent.name
+        directories.setdefault(folder_name, []).append((relative_path, hunt_config.name))
+
+    # Build index content
+    for folder, files in sorted(directories.items()):
+        index_content += f"## {folder.capitalize()}\n"
+        for file_path, rule_name in sorted(files):
+            index_path = "./" + str(file_path)  # Ensure the path is relative to the index.md
+            index_content += f"- [{rule_name}]({index_path})\n"
+
+    # Write the index file at the base directory level
+    index_path = base_path / "index.md"
+    index_path.write_text(index_content, encoding="utf-8")
+    print(f"Index Markdown generated at: {index_path}")
 
 
 if __name__ == "__main__":
