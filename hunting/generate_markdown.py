@@ -83,14 +83,14 @@ def process_toml_files(base_path: Path) -> None:
         print(f"Markdown generated: {markdown_path}")
         relative_path = markdown_path.relative_to(base_path)
         folder_name = toml_file.parent.parent.name
-        directories.setdefault(folder_name, []).append((relative_path, hunt_config.name))
+        directories.setdefault(folder_name, []).append((relative_path, hunt_config.name, hunt_config.language))
 
     # Build index content
     for folder, files in sorted(directories.items()):
         index_content += f"## {folder}\n"
-        for file_path, rule_name in sorted(files):
-            index_path = "./" + str(file_path)  # Ensure the path is relative to the index.md
-            index_content += f"- [{rule_name}]({index_path})\n"
+        for file_path, rule_name, language in sorted(files):
+            index_path = "./" + str(file_path)
+            index_content += f"- [{rule_name}]({index_path}) ({language})\n"
 
     # Write the index file at the base directory level
     index_path = base_path / "index.md"
