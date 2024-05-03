@@ -6,7 +6,7 @@
 """Test for hunt toml files."""
 import unittest
 
-from hunting.generate_markdown import load_toml, HUNTING_DIR
+from hunting.generate_markdown import HUNTING_DIR, load_toml
 
 
 class TestHunt(unittest.TestCase):
@@ -47,6 +47,18 @@ class TestHunt(unittest.TestCase):
             self.assertTrue(hunt.name)
             self.assertTrue(hunt.language)
             self.assertTrue(hunt.query)
+
+    def test_markdown_existence(self):
+        """Ensure each TOML file has a corresponding Markdown file in the docs directory."""
+        for toml_file in HUNTING_DIR.rglob("*.toml"):
+            expected_markdown_path = (
+                toml_file.parent.parent / "docs" / toml_file.with_suffix(".md").name
+            )
+
+            self.assertTrue(
+                expected_markdown_path.exists(),
+                f"Markdown file not found for {toml_file} at expected location {expected_markdown_path}",
+            )
 
 
 if __name__ == "__main__":
