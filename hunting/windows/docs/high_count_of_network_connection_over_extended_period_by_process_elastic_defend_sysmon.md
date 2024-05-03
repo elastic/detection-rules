@@ -35,3 +35,8 @@ not (process.name == "svchost.exe" and user.id == "S-1-5-18") and
 ## MITRE ATT&CK Techniques
 
 - [T1071](https://attack.mitre.org/techniques//T1071)
+
+
+## License
+
+- `Elastic License v2`

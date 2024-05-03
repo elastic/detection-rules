@@ -38,3 +38,8 @@ from logs-endpoint.events.file-*
 - [T1543.001](https://attack.mitre.org/techniques//T1543/001)
 
 - [T1543.004](https://attack.mitre.org/techniques//T1543/004)
+
+
+## License
+
+- `Elastic License v2`

@@ -28,3 +28,8 @@ from logs-windows.sysmon_operational-*
 ## MITRE ATT&CK Techniques
 
 - [T1068](https://attack.mitre.org/techniques//T1068)
+
+
+## License
+
+- `Elastic License v2`

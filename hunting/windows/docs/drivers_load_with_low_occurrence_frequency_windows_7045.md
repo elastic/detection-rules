@@ -32,3 +32,8 @@ from logs-system.system-*
 ## MITRE ATT&CK Techniques
 
 - [T1068](https://attack.mitre.org/techniques//T1068)
+
+
+## License
+
+- `Elastic License v2`

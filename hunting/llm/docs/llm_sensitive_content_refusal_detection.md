@@ -30,10 +30,14 @@ from logs-aws_bedrock.invocation-*
 - Ensure that data logs contain enough detail to provide context around the refusal, which will aid in subsequent investigations by security teams.
 ## MITRE ATT&CK Techniques
 
-- [AML.T0051](https://atlas.mitre.org/techniques/AML.T0051)
+- [AML.T0051](https://atlas.mitre.org/techniques//AML.T0051)
 
 ## References
 
 - https://www.elastic.co/security-labs/elastic-advances-llm-security
 - https://owasp.org/www-project-top-10-for-large-language-model-applications/
 - [Sensitive Content Refusal Detection](../queries/llm_sensitive_content_refusal_detection.toml)
+
+## License
+
+- `Elastic License v2`

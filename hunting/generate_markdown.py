@@ -24,6 +24,7 @@ class Hunt:
     uuid: str
     name: str
     language: str
+    license: str
     query: str
     notes: Optional[List[str]] = field(default_factory=list)
     mitre: Optional[List[str]] = field(default_factory=list)
@@ -55,6 +56,7 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
     markdown += f"- **Language:** `{hunt_config.language}`\n\n"
     markdown += "## Query\n\n"
     markdown += f"```sql\n{hunt_config.query}```\n\n"
+
     if hunt_config.notes:
         markdown += "## Notes\n\n" + "\n".join(f"- {note}" for note in hunt_config.notes)
     if hunt_config.mitre:
@@ -66,6 +68,8 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
     if hunt_config.references:
         markdown += "\n## References\n\n" + "\n".join(f"- {ref}" for ref in hunt_config.references)
         markdown += f"\n- [{hunt_config.name}]({Path('../queries') / file_path.name})"
+
+    markdown += f"\n\n## License\n\n- `{hunt_config.license}`\n"
     return markdown
 
 

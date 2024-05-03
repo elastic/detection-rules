@@ -35,3 +35,8 @@ from logs-endpoint.events.process-*
 - [T1021.006](https://attack.mitre.org/techniques//T1021/006)
 
 - [T1047](https://attack.mitre.org/techniques//T1047)
+
+
+## License
+
+- `Elastic License v2`

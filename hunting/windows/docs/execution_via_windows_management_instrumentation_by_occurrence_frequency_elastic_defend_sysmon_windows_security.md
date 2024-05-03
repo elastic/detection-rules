@@ -31,3 +31,8 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 ## MITRE ATT&CK Techniques
 
 - [T1047](https://attack.mitre.org/techniques//T1047)
+
+
+## License
+
+- `Elastic License v2`

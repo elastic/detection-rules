@@ -31,3 +31,8 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 - [T1566](https://attack.mitre.org/techniques//T1566)
 
 - [T1566.001](https://attack.mitre.org/techniques//T1566/001)
+
+
+## License
+
+- `Elastic License v2`

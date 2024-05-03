@@ -31,3 +31,8 @@ from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 - [T1071](https://attack.mitre.org/techniques//T1071)
 
 - [T1071.004](https://attack.mitre.org/techniques//T1071/004)
+
+
+## License
+
+- `Elastic License v2`

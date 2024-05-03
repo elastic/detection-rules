@@ -37,3 +37,8 @@ from logs-windows.sysmon_operational-*
 - [T1574](https://attack.mitre.org/techniques//T1574)
 
 - [T1574.002](https://attack.mitre.org/techniques//T1574/002)
+
+
+## License
+
+- `Elastic License v2`

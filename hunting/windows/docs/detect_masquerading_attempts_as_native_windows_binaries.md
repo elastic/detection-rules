@@ -33,3 +33,8 @@ from logs-endpoint.events.process-*
 ## MITRE ATT&CK Techniques
 
 - [T1036](https://attack.mitre.org/techniques//T1036)
+
+
+## License
+
+- `Elastic License v2`

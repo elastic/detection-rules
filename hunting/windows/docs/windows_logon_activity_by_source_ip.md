@@ -36,3 +36,8 @@ from logs-system.security-*
 - [T1110.001](https://attack.mitre.org/techniques//T1110/001)
 
 - [T1110.003](https://attack.mitre.org/techniques//T1110/003)
+
+
+## License
+
+- `Elastic License v2`
