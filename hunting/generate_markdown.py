@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import List, Optional
 
 HUNTING_DIR = Path(__file__).parent
+ATLAS_URL = "https://atlas.mitre.org/techniques/"
+ATTACK_URL = "https://attack.mitre.org/techniques/"
 
 
 @dataclass
@@ -57,7 +59,8 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
         markdown += "## Notes\n\n" + "\n".join(f"- {note}" for note in hunt_config.notes)
     if hunt_config.mitre:
         markdown += "\n## MITRE ATT&CK Techniques\n\n" + "\n".join(
-            f"- [{tech}](https://atlas.mitre.org/techniques/{tech})\n" for tech in hunt_config.mitre
+            f"- [{tech}]({ATLAS_URL if tech.startswith('AML') else ATTACK_URL}/{tech.replace('.', '/')})\n"
+            for tech in hunt_config.mitre
         )
     if hunt_config.references:
         markdown += "\n## References\n\n" + "\n".join(f"- {ref}" for ref in hunt_config.references)
