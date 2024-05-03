@@ -28,10 +28,8 @@ from logs-endpoint.events.registry-*, logs-windows.sysmon_operational-*
 - This hunt identify services registry modification by unusual process based on number of hosts and occurrences history.
 ## MITRE ATT&CK Techniques
 
-- [T1543](https://attack.mitre.org/techniques//T1543)
-
-- [T1543.003](https://attack.mitre.org/techniques//T1543/003)
-
+- [T1543](https://attack.mitre.org/techniques/T1543)
+- [T1543.003](https://attack.mitre.org/techniques/T1543/003)
 
 ## License
 

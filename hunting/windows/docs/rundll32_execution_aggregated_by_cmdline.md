@@ -30,12 +30,9 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 - Parents such as svchost, explorer.exe, wmiprvse.exe, winword.exe and others should be carefully reviewed.
 ## MITRE ATT&CK Techniques
 
-- [T1127](https://attack.mitre.org/techniques//T1127)
-
-- [T1218](https://attack.mitre.org/techniques//T1218)
-
-- [T1218.011](https://attack.mitre.org/techniques//T1218/011)
-
+- [T1127](https://attack.mitre.org/techniques/T1127)
+- [T1218](https://attack.mitre.org/techniques/T1218)
+- [T1218.011](https://attack.mitre.org/techniques/T1218/011)
 
 ## License
 

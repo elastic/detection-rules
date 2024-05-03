@@ -34,8 +34,7 @@ not (process.name == "svchost.exe" and user.id == "S-1-5-18") and
 - This hunt aggregate by process Id and destination ip the number of connections per hour over a period of time greater than a defined threshold. The process paths are scoped to Microsoft signed binaries often injected or used as a lolbin to masquerade malicious execution. This could be a sign of long term network activity to perform command and control from an injected process.
 ## MITRE ATT&CK Techniques
 
-- [T1071](https://attack.mitre.org/techniques//T1071)
-
+- [T1071](https://attack.mitre.org/techniques/T1071)
 
 ## License
 

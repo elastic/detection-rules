@@ -36,10 +36,8 @@ from logs-windows.sysmon_operational-*
 - Process code signature information is not captured in Sysmon Image Load Events (not present in the ES|QL hunt).
 ## MITRE ATT&CK Techniques
 
-- [T1574](https://attack.mitre.org/techniques//T1574)
-
-- [T1574.001](https://attack.mitre.org/techniques//T1574/001)
-
+- [T1574](https://attack.mitre.org/techniques/T1574)
+- [T1574.001](https://attack.mitre.org/techniques/T1574/001)
 
 ## License
 

@@ -31,8 +31,7 @@ from logs-system.system-*
 - Bring Your Own Vulnerable Driver (BYOVD) are all signed and not malicious, further investigation should be done to check the surrounding events (service creation, process that dropped the driver etc.).
 ## MITRE ATT&CK Techniques
 
-- [T1068](https://attack.mitre.org/techniques//T1068)
-
+- [T1068](https://attack.mitre.org/techniques/T1068)
 
 ## License
 

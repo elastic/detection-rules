@@ -28,10 +28,8 @@ from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 - Pivoting by process.entity_id will allow further investigation (parent process, hash, child processes, other network events etc.).
 ## MITRE ATT&CK Techniques
 
-- [T1071](https://attack.mitre.org/techniques//T1071)
-
-- [T1071.004](https://attack.mitre.org/techniques//T1071/004)
-
+- [T1071](https://attack.mitre.org/techniques/T1071)
+- [T1071.004](https://attack.mitre.org/techniques/T1071/004)
 
 ## License
 

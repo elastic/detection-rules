@@ -29,10 +29,8 @@ from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 - Maximum number of unique destination.ip by process can be adjusted to your environment to reduce normal noisy hosts by Id.
 ## MITRE ATT&CK Techniques
 
-- [T1021](https://attack.mitre.org/techniques//T1021)
-
-- [T1021.002](https://attack.mitre.org/techniques//T1021/002)
-
+- [T1021](https://attack.mitre.org/techniques/T1021)
+- [T1021.002](https://attack.mitre.org/techniques/T1021/002)
 
 ## License
 

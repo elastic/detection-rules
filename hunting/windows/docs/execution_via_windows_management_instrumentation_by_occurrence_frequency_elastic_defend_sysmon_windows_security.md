@@ -30,8 +30,7 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 - This hunt is compatible with Sysmon, Elastic Defend and Windows Security event 4688.
 ## MITRE ATT&CK Techniques
 
-- [T1047](https://attack.mitre.org/techniques//T1047)
-
+- [T1047](https://attack.mitre.org/techniques/T1047)
 
 ## License
 

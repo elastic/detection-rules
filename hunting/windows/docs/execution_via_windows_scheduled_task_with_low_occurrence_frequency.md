@@ -29,10 +29,8 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*
 - Unique process.hash.sha256 and agent is not necessarily malicious, this help surface ones worth further investigation.
 ## MITRE ATT&CK Techniques
 
-- [T1053](https://attack.mitre.org/techniques//T1053)
-
-- [T1053.005](https://attack.mitre.org/techniques//T1053/005)
-
+- [T1053](https://attack.mitre.org/techniques/T1053)
+- [T1053.005](https://attack.mitre.org/techniques/T1053/005)
 
 ## License
 

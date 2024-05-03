@@ -35,10 +35,8 @@ from logs-system.security-default-*
 - Close attention should be paid to suspicious paths like C:\Users\Public and C:\ProgramData\ as well as lolbins.
 ## MITRE ATT&CK Techniques
 
-- [T1053](https://attack.mitre.org/techniques//T1053)
-
-- [T1053.005](https://attack.mitre.org/techniques//T1053/005)
-
+- [T1053](https://attack.mitre.org/techniques/T1053)
+- [T1053.005](https://attack.mitre.org/techniques/T1053/005)
 
 ## License
 

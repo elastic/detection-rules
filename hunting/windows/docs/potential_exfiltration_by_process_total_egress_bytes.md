@@ -31,8 +31,7 @@ from logs-endpoint.events.network-*
 - Pivoting by process.entity_id will allow further investigation (parent process, hash, child processes, other network events etc.).
 ## MITRE ATT&CK Techniques
 
-- [T1071](https://attack.mitre.org/techniques//T1071)
-
+- [T1071](https://attack.mitre.org/techniques/T1071)
 
 ## License
 

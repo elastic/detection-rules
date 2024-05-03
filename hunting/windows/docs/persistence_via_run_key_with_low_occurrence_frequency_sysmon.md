@@ -31,10 +31,8 @@ from logs-windows.sysmon_operational-*
 - Suspicious paths and lolbins in the registry.data.strings value should be reviewed further.
 ## MITRE ATT&CK Techniques
 
-- [T1547](https://attack.mitre.org/techniques//T1547)
-
-- [T1547.001](https://attack.mitre.org/techniques//T1547/001)
-
+- [T1547](https://attack.mitre.org/techniques/T1547)
+- [T1547.001](https://attack.mitre.org/techniques/T1547/001)
 
 ## License
 

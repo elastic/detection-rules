@@ -35,8 +35,7 @@ from logs-aws_bedrock.invocation-*
 - Collect evidence from logs that detail the timestamp, user ID, session information, and token counts for incidents flagged by this analytic. This information will be crucial for forensic analysis in the event of a security incident.
 ## MITRE ATT&CK Techniques
 
-- [AML.T0034](https://atlas.mitre.org/techniques//AML.T0034)
-
+- [AML.T0034](https://atlas.mitre.org/techniques/AML.T0034)
 ## References
 
 - https://www.elastic.co/security-labs/elastic-advances-llm-security

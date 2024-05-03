@@ -28,12 +28,9 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 - Certain Microsoft binaries like lsass, winlogon,spoolsv and others should never spawn cmd.exe powershell.exe or conhost.exe, if so it's high likely malicious.
 ## MITRE ATT&CK Techniques
 
-- [T1059](https://attack.mitre.org/techniques//T1059)
-
-- [T1059.001](https://attack.mitre.org/techniques//T1059/001)
-
-- [T1059.003](https://attack.mitre.org/techniques//T1059/003)
-
+- [T1059](https://attack.mitre.org/techniques/T1059)
+- [T1059.001](https://attack.mitre.org/techniques/T1059/001)
+- [T1059.003](https://attack.mitre.org/techniques/T1059/003)
 
 ## License
 

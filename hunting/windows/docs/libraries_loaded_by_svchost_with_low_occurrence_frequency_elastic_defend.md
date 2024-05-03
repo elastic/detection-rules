@@ -34,10 +34,8 @@ from logs-endpoint.events.library-*
 - Pay close attention unknown hashes and suspicious paths, usually ServiceDLLs are located in trusted directories like %programfiles% and system32/syswow64.
 ## MITRE ATT&CK Techniques
 
-- [T1543](https://attack.mitre.org/techniques//T1543)
-
-- [T1543.003](https://attack.mitre.org/techniques//T1543/003)
-
+- [T1543](https://attack.mitre.org/techniques/T1543)
+- [T1543.003](https://attack.mitre.org/techniques/T1543/003)
 
 ## License
 

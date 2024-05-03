@@ -33,8 +33,7 @@ from logs-endpoint.events.network-*
 - This hunt aggregate by process Id and destination ip the number of connections per hour over a period of time greater than a defined threshold. The process paths are scoped to Microsoft signed binaries often injected or used as a lolbin to masquerade malicious execution. This could be a sign of long term network activity to perform command and control from an injected process. Scoped for unsigned processes or ones running from suspicious paths, the Sysmon network events don't include process code signature information
 ## MITRE ATT&CK Techniques
 
-- [T1071](https://attack.mitre.org/techniques//T1071)
-
+- [T1071](https://attack.mitre.org/techniques/T1071)
 
 ## License
 

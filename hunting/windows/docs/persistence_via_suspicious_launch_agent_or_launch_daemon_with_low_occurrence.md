@@ -29,16 +29,11 @@ from logs-endpoint.events.file-*
 - Further investigation can done pivoting by Persistence.name and args.
 ## MITRE ATT&CK Techniques
 
-- [T1547](https://attack.mitre.org/techniques//T1547)
-
-- [T1547.011](https://attack.mitre.org/techniques//T1547/011)
-
-- [T1543](https://attack.mitre.org/techniques//T1543)
-
-- [T1543.001](https://attack.mitre.org/techniques//T1543/001)
-
-- [T1543.004](https://attack.mitre.org/techniques//T1543/004)
-
+- [T1547](https://attack.mitre.org/techniques/T1547)
+- [T1547.011](https://attack.mitre.org/techniques/T1547/011)
+- [T1543](https://attack.mitre.org/techniques/T1543)
+- [T1543.001](https://attack.mitre.org/techniques/T1543/001)
+- [T1543.004](https://attack.mitre.org/techniques/T1543/004)
 
 ## License
 

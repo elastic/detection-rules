@@ -33,8 +33,7 @@ from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 - This hunt identify browser or svchost instances performing a considerable number of connections per hour over an extended period of hours to a specific destination address and this is limited to a unique host of the monitored agents. Browsers and svchost are both good targets for masquerading network traffic on the endpoint.
 ## MITRE ATT&CK Techniques
 
-- [T1071](https://attack.mitre.org/techniques//T1071)
-
+- [T1071](https://attack.mitre.org/techniques/T1071)
 
 ## License
 

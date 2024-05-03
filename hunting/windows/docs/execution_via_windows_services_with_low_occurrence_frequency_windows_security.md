@@ -30,10 +30,8 @@ from logs-system.security-*
 - Suspicious process.executable paths and lolbins should be reviewed further.
 ## MITRE ATT&CK Techniques
 
-- [T1543](https://attack.mitre.org/techniques//T1543)
-
-- [T1543.003](https://attack.mitre.org/techniques//T1543/003)
-
+- [T1543](https://attack.mitre.org/techniques/T1543)
+- [T1543.003](https://attack.mitre.org/techniques/T1543/003)
 
 ## License
 

@@ -32,8 +32,7 @@ from logs-endpoint.events.process-*
 - The queried index must capture process start events with code signature information (e.g. Windows event 4688 is not supported).
 ## MITRE ATT&CK Techniques
 
-- [T1036](https://attack.mitre.org/techniques//T1036)
-
+- [T1036](https://attack.mitre.org/techniques/T1036)
 
 ## License
 

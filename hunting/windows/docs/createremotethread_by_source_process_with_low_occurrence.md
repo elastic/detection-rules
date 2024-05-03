@@ -27,8 +27,7 @@ from logs-windows.sysmon_operational-*
 - adding winlog.event_data.TargetImage to the group by clause can be beneficial but may introduce more legit hits.
 ## MITRE ATT&CK Techniques
 
-- [T1055](https://attack.mitre.org/techniques//T1055)
-
+- [T1055](https://attack.mitre.org/techniques/T1055)
 
 ## License
 

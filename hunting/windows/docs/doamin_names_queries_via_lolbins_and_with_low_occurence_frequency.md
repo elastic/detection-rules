@@ -27,8 +27,7 @@ from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 - Connection to legit domains like github, discord, telegram and many other legit web-services by lolbins is still suspicious and require further investigation.
 ## MITRE ATT&CK Techniques
 
-- [T1071](https://attack.mitre.org/techniques//T1071)
-
+- [T1071](https://attack.mitre.org/techniques/T1071)
 
 ## License
 

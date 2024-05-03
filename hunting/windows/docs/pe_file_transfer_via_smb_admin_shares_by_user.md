@@ -27,10 +27,8 @@ from logs-endpoint.events.file-*
 - PE File Transfer via SMB/Admin Shares by User
 ## MITRE ATT&CK Techniques
 
-- [T1021](https://attack.mitre.org/techniques//T1021)
-
-- [T1021.002](https://attack.mitre.org/techniques//T1021/002)
-
+- [T1021](https://attack.mitre.org/techniques/T1021)
+- [T1021.002](https://attack.mitre.org/techniques/T1021/002)
 
 ## License
 

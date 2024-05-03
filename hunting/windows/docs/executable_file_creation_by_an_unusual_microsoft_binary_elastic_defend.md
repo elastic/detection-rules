@@ -29,10 +29,8 @@ from logs-endpoint.events.file-*
 - Further investigation can be done pivoting by process.executable and filter for executable file creation.
 ## MITRE ATT&CK Techniques
 
-- [T1211](https://attack.mitre.org/techniques//T1211)
-
-- [T1055](https://attack.mitre.org/techniques//T1055)
-
+- [T1211](https://attack.mitre.org/techniques/T1211)
+- [T1055](https://attack.mitre.org/techniques/T1055)
 
 ## License
 

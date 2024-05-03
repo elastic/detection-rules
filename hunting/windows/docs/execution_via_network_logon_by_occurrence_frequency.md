@@ -29,8 +29,7 @@ from logs-endpoint.events.process-*
 - Aggregation can be also done by process.executable, normalizing process path by removing random patterns using the REPLACE function via regex.
 ## MITRE ATT&CK Techniques
 
-- [T1021](https://attack.mitre.org/techniques//T1021)
-
+- [T1021](https://attack.mitre.org/techniques/T1021)
 
 ## License
 

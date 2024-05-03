@@ -30,10 +30,8 @@ from logs-windows.sysmon_operational-*
 - Potential false positives include rare legit condition that may trigger this behavior due to third party software or Lsass crash.
 ## MITRE ATT&CK Techniques
 
-- [T1003](https://attack.mitre.org/techniques//T1003)
-
-- [T1003.001](https://attack.mitre.org/techniques//T1003/001)
-
+- [T1003](https://attack.mitre.org/techniques/T1003)
+- [T1003.001](https://attack.mitre.org/techniques/T1003/001)
 
 ## License
 

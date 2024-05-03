@@ -28,10 +28,8 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 - Closer attention should be attributed to lolbins and unsigned executables (Windows 4688 is not capturing process code signature information).
 ## MITRE ATT&CK Techniques
 
-- [T1566](https://attack.mitre.org/techniques//T1566)
-
-- [T1566.001](https://attack.mitre.org/techniques//T1566/001)
-
+- [T1566](https://attack.mitre.org/techniques/T1566)
+- [T1566.001](https://attack.mitre.org/techniques/T1566/001)
 
 ## License
 

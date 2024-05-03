@@ -32,10 +32,8 @@ from logs-endpoint.events.library-*
 - Elastic Defned DLL Events include dll.Ext.relative_file_creation_time which help us limit the hunt to recently dropped DLLs.
 ## MITRE ATT&CK Techniques
 
-- [T1574](https://attack.mitre.org/techniques//T1574)
-
-- [T1574.002](https://attack.mitre.org/techniques//T1574/002)
-
+- [T1574](https://attack.mitre.org/techniques/T1574)
+- [T1574.002](https://attack.mitre.org/techniques/T1574/002)
 
 ## License
 

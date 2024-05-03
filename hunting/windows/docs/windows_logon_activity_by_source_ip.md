@@ -31,12 +31,9 @@ from logs-system.security-*
 - Pay close attention to IP addresses source of a high number of failures associated with low success attempts and high number of used accounts.
 ## MITRE ATT&CK Techniques
 
-- [T1110](https://attack.mitre.org/techniques//T1110)
-
-- [T1110.001](https://attack.mitre.org/techniques//T1110/001)
-
-- [T1110.003](https://attack.mitre.org/techniques//T1110/003)
-
+- [T1110](https://attack.mitre.org/techniques/T1110)
+- [T1110.001](https://attack.mitre.org/techniques/T1110/001)
+- [T1110.003](https://attack.mitre.org/techniques/T1110/003)
 
 ## License
 

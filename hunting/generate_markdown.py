@@ -62,7 +62,7 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
     if hunt_config.mitre:
         markdown += "\n## MITRE ATT&CK Techniques\n\n" + "\n".join(
             f"- [{tech}]({ATLAS_URL if tech.startswith('AML') else ATTACK_URL}"
-            f"{tech.replace('.', '/') if tech.startswith('T') else tech})\n"
+            f"{tech.replace('.', '/') if tech.startswith('T') else tech})"
             for tech in hunt_config.mitre
         )
     if hunt_config.references:
@@ -76,7 +76,7 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
 def process_toml_files(base_path: Path) -> None:
     """Process all TOML files in the directory recursively and convert them to Markdown."""
     hunts = load_all_toml(base_path)
-    index_content = "# List of Available Queries\n\nHere are the queries currently available:\n\n"
+    index_content = "# List of Available Queries\n\nHere are the queries currently available:"
     directories = {}
 
     for hunt_config, toml_file in hunts:
@@ -91,7 +91,7 @@ def process_toml_files(base_path: Path) -> None:
 
     # Build index content
     for folder, files in sorted(directories.items()):
-        index_content += f"## {folder}\n"
+        index_content += f"\n\n## {folder}\n"
         for file_path, rule_name, language in sorted(files):
             index_path = "./" + str(file_path)
             index_content += f"- [{rule_name}]({index_path}) ({language})\n"

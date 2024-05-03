@@ -33,8 +33,7 @@ from logs-endpoint.events.network-*
 - Hunt can be extended by adding suspicious process paths or lolbins.
 ## MITRE ATT&CK Techniques
 
-- [T1071](https://attack.mitre.org/techniques//T1071)
-
+- [T1071](https://attack.mitre.org/techniques/T1071)
 
 ## License
 

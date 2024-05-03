@@ -30,10 +30,8 @@ from logs-endpoint.events.registry-*, logs-windows.sysmon_operational-*
 - This hunt aggregates created Windows services by service file name and distribution limited to unique hosts. Using the Replace command we can also further remove random pattern to reduce results to interesting events. More investigation can be conducted on instance that looks suspicious based on service file path, names and lolbins.
 ## MITRE ATT&CK Techniques
 
-- [T1543](https://attack.mitre.org/techniques//T1543)
-
-- [T1543.003](https://attack.mitre.org/techniques//T1543/003)
-
+- [T1543](https://attack.mitre.org/techniques/T1543)
+- [T1543.003](https://attack.mitre.org/techniques/T1543/003)
 
 ## License
 

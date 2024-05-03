@@ -30,8 +30,7 @@ from logs-aws_bedrock.invocation-*
 - Gather comprehensive logs that detail the request and response timestamps, user IDs, and session details for thorough investigation and evidence collection in case of security incidents.
 ## MITRE ATT&CK Techniques
 
-- [AML.T0029](https://atlas.mitre.org/techniques//AML.T0029)
-
+- [AML.T0029](https://atlas.mitre.org/techniques/AML.T0029)
 ## References
 
 - https://www.elastic.co/security-labs/elastic-advances-llm-security

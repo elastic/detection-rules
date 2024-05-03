@@ -28,14 +28,10 @@ from logs-endpoint.events.process-*
 - process.Ext.session_info.* is populated for Elastic Defend version 8.6 and above.
 ## MITRE ATT&CK Techniques
 
-- [T1021](https://attack.mitre.org/techniques//T1021)
-
-- [T1021.003](https://attack.mitre.org/techniques//T1021/003)
-
-- [T1021.006](https://attack.mitre.org/techniques//T1021/006)
-
-- [T1047](https://attack.mitre.org/techniques//T1047)
-
+- [T1021](https://attack.mitre.org/techniques/T1021)
+- [T1021.003](https://attack.mitre.org/techniques/T1021/003)
+- [T1021.006](https://attack.mitre.org/techniques/T1021/006)
+- [T1047](https://attack.mitre.org/techniques/T1047)
 
 ## License
 

@@ -32,12 +32,9 @@ from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 - Elastic Network events include process code signature information, this can be added to filter out signed third party false positives.
 ## MITRE ATT&CK Techniques
 
-- [T1021](https://attack.mitre.org/techniques//T1021)
-
-- [T1021.002](https://attack.mitre.org/techniques//T1021/002)
-
-- [T1021.001](https://attack.mitre.org/techniques//T1021/001)
-
+- [T1021](https://attack.mitre.org/techniques/T1021)
+- [T1021.002](https://attack.mitre.org/techniques/T1021/002)
+- [T1021.001](https://attack.mitre.org/techniques/T1021/001)
 
 ## License
 
