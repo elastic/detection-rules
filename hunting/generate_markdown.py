@@ -59,7 +59,8 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
         markdown += "## Notes\n\n" + "\n".join(f"- {note}" for note in hunt_config.notes)
     if hunt_config.mitre:
         markdown += "\n## MITRE ATT&CK Techniques\n\n" + "\n".join(
-            f"- [{tech}]({ATLAS_URL if tech.startswith('AML') else ATTACK_URL}/{tech.replace('.', '/')})\n"
+            f"- [{tech}]({ATLAS_URL if tech.startswith('AML') else ATTACK_URL}/"
+            f"{tech.replace('.', '/') if tech.startswith('T') else tech})\n"
             for tech in hunt_config.mitre
         )
     if hunt_config.references:
