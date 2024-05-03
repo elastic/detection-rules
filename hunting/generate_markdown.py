@@ -18,7 +18,7 @@ class Hunt:
     """Dataclass to represent a hunt."""
 
     author: str
-    datasource: str
+    integration: str
     uuid: str
     name: str
     language: str
@@ -28,17 +28,10 @@ class Hunt:
     references: Optional[List[str]] = field(default_factory=list)
 
 
-@dataclass
-class TomlHunt:
-    """Dataclass to represent a TOML hunt."""
-
-    hunt: Hunt
-
-
 def load_toml(contents: str) -> Hunt:
     """Load and validate TOML content as Hunt dataclass."""
     toml_dict = tomllib.loads(contents)
-    return TomlHunt(hunt=Hunt(**toml_dict["hunt"])).hunt
+    return Hunt(**toml_dict["hunt"])
 
 
 def load_all_toml(base_path: Path) -> List[tuple[Hunt, Path]]:
@@ -54,9 +47,9 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
     """Convert Hunt to Markdown format."""
     markdown = f"# {hunt_config.name}\n\n---\n\n"
     markdown += "## Metadata\n\n"
-    markdown += f"- **Data Source:** `{hunt_config.datasource}`\n"
     markdown += f"- **Author:** {hunt_config.author}\n"
     markdown += f"- **UUID:** `{hunt_config.uuid}`\n"
+    markdown += f"- **Integration:** `{hunt_config.integration}`\n"
     markdown += f"- **Language:** `{hunt_config.language}`\n\n"
     markdown += "## Query\n\n"
     markdown += f"```sql\n{hunt_config.query}```\n\n"

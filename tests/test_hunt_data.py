@@ -17,7 +17,7 @@ class TestHunt(unittest.TestCase):
         example_toml = """
         [hunt]
         author = "Elastic"
-        datasource = "aws_bedrock.invocation"
+        integration = "aws_bedrock.invocation"
         uuid = "dc181967-c32c-46c9-b84b-ec4c8811c6a0"
         name = "Denial of Service or Resource Exhaustion Attacks Detection"
         language = "ES|QL"
@@ -28,7 +28,7 @@ class TestHunt(unittest.TestCase):
         """
         config = load_toml(example_toml)
         self.assertEqual(config.author, "Elastic")
-        self.assertEqual(config.datasource, "aws_bedrock.invocation")
+        self.assertEqual(config.integration, "aws_bedrock.invocation")
         self.assertEqual(config.uuid, "dc181967-c32c-46c9-b84b-ec4c8811c6a0")
         self.assertEqual(
             config.name, "Denial of Service or Resource Exhaustion Attacks Detection"
@@ -42,7 +42,7 @@ class TestHunt(unittest.TestCase):
             toml_contents = toml_file.read_text()
             hunt = load_toml(toml_contents)
             self.assertTrue(hunt.author)
-            self.assertTrue(hunt.datasource)
+            self.assertTrue(hunt.integration)
             self.assertTrue(hunt.uuid)
             self.assertTrue(hunt.name)
             self.assertTrue(hunt.language)

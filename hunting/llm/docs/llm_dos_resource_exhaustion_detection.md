@@ -4,9 +4,9 @@
 
 ## Metadata
 
-- **Data Source:** `aws_bedrock.invocation`
 - **Author:** Elastic
 - **UUID:** `dc181967-c32c-46c9-b84b-ec4c8811c6a0`
+- **Integration:** `aws_bedrock.invocation`
 - **Language:** `ES|QL`
 
 ## Query
@@ -39,6 +39,6 @@ from logs-aws_bedrock.invocation-*
 
 ## References
 
-- https://www.elastic.co/security-labs/TBD
+- https://www.elastic.co/security-labs/elastic-advances-llm-security
 - https://owasp.org/www-project-top-10-for-large-language-model-applications/
 - [Denial of Service or Resource Exhaustion Attacks Detection](../queries/llm_dos_resource_exhaustion_detection.toml)

@@ -4,9 +4,9 @@
 
 ## Metadata
 
-- **Data Source:** `aws_bedrock.invocation`
 - **Author:** Elastic
 - **UUID:** `8fabae86-7ed2-4006-9623-5db28164f374`
+- **Integration:** `aws_bedrock.invocation`
 - **Language:** `ES|QL`
 
 ## Query
@@ -30,10 +30,10 @@ from logs-aws_bedrock.invocation-*
 - Ensure that data logs contain enough detail to provide context around the refusal, which will aid in subsequent investigations by security teams.
 ## MITRE ATT&CK Techniques
 
-- [LLM Prompt Injection - AML.T0051](https://atlas.mitre.org/techniques/LLM Prompt Injection - AML.T0051)
+- [AML.T0051](https://atlas.mitre.org/techniques/AML.T0051)
 
 ## References
 
-- https://www.elastic.co/security-labs/TBD
+- https://www.elastic.co/security-labs/elastic-advances-llm-security
 - https://owasp.org/www-project-top-10-for-large-language-model-applications/
 - [Sensitive Content Refusal Detection](../queries/llm_sensitive_content_refusal_detection.toml)

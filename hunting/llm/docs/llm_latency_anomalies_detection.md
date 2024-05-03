@@ -4,9 +4,9 @@
 
 ## Metadata
 
-- **Data Source:** `aws_bedrock.invocation`
 - **Author:** Elastic
 - **UUID:** `3708787b-811b-43b1-b2e7-c7276b8db48c`
+- **Integration:** `aws_bedrock.invocation`
 - **Language:** `ES|QL`
 
 ## Query
@@ -30,10 +30,10 @@ from logs-aws_bedrock.invocation-*
 - Gather comprehensive logs that detail the request and response timestamps, user IDs, and session details for thorough investigation and evidence collection in case of security incidents.
 ## MITRE ATT&CK Techniques
 
-- [Denial of ML Service - AML.T0029](https://atlas.mitre.org/techniques/Denial of ML Service - AML.T0029)
+- [AML.T0029](https://atlas.mitre.org/techniques/AML.T0029)
 
 ## References
 
-- https://www.elastic.co/security-labs/TBD
+- https://www.elastic.co/security-labs/elastic-advances-llm-security
 - https://owasp.org/www-project-top-10-for-large-language-model-applications/
 - [Monitoring for Latency Anomalies](../queries/llm_latency_anomalies_detection.toml)
