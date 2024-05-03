@@ -47,6 +47,7 @@ from logs-aws_bedrock.invocation-*
          total_requests = count(*),
          avg_response_size = avg(gen_ai.usage.completion_tokens)
   by user.id
+// tokens count depends on specific LLM, as is related to how embeddings are generated.
 | where max_tokens > 5000 and total_requests > 10 and avg_response_size > 1000
 | eval risk_factor = (max_tokens / 1000) * total_requests * (avg_response_size / 1000)
 | where risk_factor > 10
