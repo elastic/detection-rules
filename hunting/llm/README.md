@@ -40,4 +40,4 @@ These queries assist organizations in:
 - Ensuring that LLMs adhere strictly to operational and ethical boundaries through continuous monitoring.
 - Maintaining high performance and reliability of LLMs by preemptively identifying and resolving factors that cause inefficiencies.
 
-For more details, checkout out blog on [LLM Detections](TBD).
+For more details, read our blog on [LLM Detections](https://www.elastic.co/security-labs/elastic-advances-llm-security).
