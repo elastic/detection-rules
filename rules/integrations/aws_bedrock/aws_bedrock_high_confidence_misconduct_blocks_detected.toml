@@ -8,14 +8,15 @@ min_stack_version = "8.13.0"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies unusual patterns of high-confidence 'BLOCKED' actions by guardrails, which may indicate attempts to abuse the LLM.
+Detects repeated high-confidence 'BLOCKED' actions coupled with specific violation codes such as 'MISCONDUCT',
+indicating persistent misuse or attempts to probe the model's ethical boundaries.
 """
 false_positives = ["New model deployments.", "Testing updates to compliance policies."]
 from = "now-60m"
 interval = "10m"
 language = "esql"
 license = "Elastic License v2"
-name = "Unusual High Confidence Blocks Detected"
+name = "Unusual High Confidence Misconduct Blocks Detected"
 references = [
     "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html"
 ]
@@ -41,7 +42,7 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
-| where gen_ai.policy.confidence == "HIGH" and gen_ai.policy.action == "BLOCKED"
+| where gen_ai.policy.confidence == "HIGH" and gen_ai.policy.action == "BLOCKED" and gen_ai.compliance.violation_code == "MISCONDUCT"
 | stats high_confidence_blocks = count() by user.id
 | where high_confidence_blocks > 5
 | sort high_confidence_blocks desc
