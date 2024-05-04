@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2024/05/05"
+maturity = "production"
+updated_date = "2024/05/05"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
+min_stack_version = "8.13.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unusual patterns of high-confidence 'BLOCKED' actions by the model, which may indicate attempts to abuse the system.
+"""
+false_positives = ["New model deployments.", "Testing pdates to compliance policies."]
+from = "now-1d"
+interval = "15m"
+language = "esql"
+license = "Elastic License v2"
+name = "Unusual High Confidence Blocks Detected"
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html"
+]
+risk_score = 73
+rule_id = "4f855297-c8e0-4097-9d97-d653f7e471c4"
+setup = """## Setup
+
+This rule requires that guardrails are configured in AWS Bedrock. For more information, see the AWS Bedrock documentation:
+
+https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-create.html
+"""
+severity = "high"
+tags = [
+    "Domain: LLM",
+    "Data Source: AWS Bedrock",
+    "Data Source: AWS S3",
+    "Use Case: Policy Violation",
+    "Mitre Atlas: T0051",
+    "Mitre Atlas: T0054",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws_bedrock.invocation-*
+| where gen_ai.policy.confidence == "HIGH" and gen_ai.policy.action == "BLOCKED"
+| stats high_confidence_blocks = count() by user.id
+| where high_confidence_blocks > 5
+| sort high_confidence_blocks desc
+'''
