@@ -49,5 +49,6 @@ query = '''
 from logs-aws_bedrock.invocation-*
 | where gen_ai.response.error_code == "AccessDeniedException"
 | stats total_denials = count(*) by user.id, gen_ai.request.model.id, cloud.account.id
+| where total_denials > 3
 | sort total_denials desc
 '''
