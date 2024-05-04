@@ -8,16 +8,16 @@ min_stack_version = "8.13.0"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies multiple violations of AWS Bedrock guardrails within a single request, increasing the likelihood of malicious
-intent. Multiple violations implies that a user may be intentionally attempting to cirvumvent security controls, access
-sensitive information, or possibly exploit a vulnerability in the system.
+Identifies multiple violations of AWS Bedrock guardrails within a single request, resulting in a block action,
+increasing the likelihood of malicious intent. Multiple violations implies that a user may be intentionally attempting
+to cirvumvent security controls, access sensitive information, or possibly exploit a vulnerability in the system.
 """
 false_positives = ["Legitimate misunderstanding by users or overly strict policies"]
 from = "now-60m"
 interval = "10m"
 language = "esql"
 license = "Elastic License v2"
-name = "AWS Bedrock Guardrails Detected Multiple Violations Within a Single Request"
+name = "AWS Bedrock Guardrails Detected Multiple Policy Violations Within a Single Blocked Request"
 references = [
     "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html",
     "https://atlas.mitre.org/techniques/AML.T0051",
@@ -46,9 +46,9 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
-| where gen_ai.compliance.request_triggered is not null
-| eval request_violations = mv_count(gen_ai.compliance.request_triggered)
-| where request_violations > 1
-| stats total_unique_request_violations = count(*) by request_violations, user.id, gen_ai.model.id, cloud.account.id
+| where gen_ai.policy.action == "BLOCKED"
+| eval policy_violations = mv_count(gen_ai.policy.name)
+| where policy_violations > 1
+| stats total_unique_request_violations = count(*) by policy_violations, user.id, gen_ai.request.model.id, cloud.account.id
 | sort total_unique_request_violations desc
 '''

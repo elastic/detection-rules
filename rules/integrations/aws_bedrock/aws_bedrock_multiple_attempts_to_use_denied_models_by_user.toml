@@ -8,17 +8,16 @@ min_stack_version = "8.13.0"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies multiple violations of AWS Bedrock guardrails within a single response, increasing the likelihood of malicious
-intent as well as the risk, since information was processed for return, before being prevented by the guardrail policy.
-Multiple violations implies that a user may be intentionally attempting to cirvumvent security controls, access
-sensitive information, or possibly exploit a vulnerability in the system.
+Identifies multiple successive failed attempts to use denied model resources within AWS Bedrock. This could indicated
+attempts to bypass limitations of other approved models, or to force an impact on the environment by incurring
+exhorbitant costs.
 """
 false_positives = ["Legitimate misunderstanding by users or overly strict policies"]
 from = "now-60m"
 interval = "10m"
 language = "esql"
 license = "Elastic License v2"
-name = "AWS Bedrock Guardrails Detected Multiple Violations Within a Single Response"
+name = "AWS Bedrock Detected Multiple Attempts to use Denied Models by a Single User"
 references = [
     "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html",
     "https://atlas.mitre.org/techniques/AML.T0051",
@@ -47,9 +46,7 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
-| where gen_ai.compliance.response_triggered is not null
-| eval response_violations = mv_count(gen_ai.compliance.response_triggered)
-| where response_violations > 1
-| stats total_unique_response_violations = count(*) by response_violations, user.id, gen_ai.model.id, cloud.account.id
-| sort total_unique_response_violations desc
+| where gen_ai.response.error_code == "AccessDeniedException"
+| stats total_denials = count(*) by user.id, gen_ai.request.model.id, cloud.account.id
+| sort total_denials desc
 '''
