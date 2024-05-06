@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2024/04/05"
 
 [rule]
 author = ["Elastic"]
@@ -13,9 +13,8 @@ Identifies the modification of the Microsoft Office "Office Test" Registry key, 
 specify a DLL which will be executed every time an MS Office application is started. Attackers can abuse this to gain
 persistence on a compromised host.
 """
-from = "now-119m"
-interval = "60m"
-index = ["logs-endpoint.events.*"]
+from = "now-9m"
+index = ["logs-endpoint.events.registry-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Office Test Registry Persistence"
@@ -25,10 +24,9 @@ references = [
 risk_score = 21
 rule_id = "14dab405-5dd9-450c-8106-72951af2391f"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Rule Type: BBR"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
-building_block_type = "default"
 
 query = '''
 registry where host.os.type == "windows" and event.action != "deletion" and
