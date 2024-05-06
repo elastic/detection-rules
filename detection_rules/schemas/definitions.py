@@ -88,6 +88,7 @@ EXPECTED_RULE_TAGS = [
     'Domain: Cloud',
     'Domain: Container',
     'Domain: Endpoint',
+    'Mitre Atlas: *',
     'OS: Linux',
     'OS: macOS',
     'OS: Windows',
