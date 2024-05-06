@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
 min_stack_version = "8.9.0"
-updated_date = "2024/04/16"
+updated_date = "2024/05/06"
 
 [rule]
 author = ["Elastic"]
@@ -21,6 +21,41 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "First Occurrence of AWS Resource Starting SSM Session to EC2 Instance"
+note = """
+## Triage and Analysis
+
+### Investigating First Occurrence of AWS Resource Starting SSM Session to EC2 Instance
+
+This rule detects the first instance of an AWS resource initiating an SSM session to an EC2 instance, which could be indicative of legitimate administrative activities or potential malicious actions like command execution or lateral movement.
+
+#### Possible Investigation Steps
+
+- **Examine the Session Start Event**: Review the AWS CloudTrail log for the event.
+    - Look for the `StartSession` action and verify details such as the `user_identity.arn`, `event.action`, and the target EC2 instance (`aws.cloudtrail.flattened.request_parameters`).
+- **Verify User Identity and Role**: Check the user’s ARN and access key ID (`aws.cloudtrail.user_identity.access_key_id`).
+    - Cross-reference this with IAM to verify if the user had the necessary permissions and if their role typically requires initiating SSM sessions.
+- **Assess Geographic and IP Context**: Analyze the source IP (`source.ip`) and geographic location (`source.geo`) from which the session was initiated.
+    - Determine if these are consistent with typical user locations or if they raise suspicions of compromise or misuse.
+- **Review Session Details**: Examine details like the session ID and stream URL (`aws.cloudtrail.flattened.response_elements`) to understand the scope and nature of the session.
+    - Check if any commands executed during the session were unauthorized or out of ordinary practices.
+- **Correlate with Other Security Events**: Look for other related security events around the time of the session start to identify any pattern or broader attack vector that may involve this user or EC2 instance.
+
+### False Positive Analysis
+
+- **Legitimate Administrative Activities**: Confirm whether the SSM session was initiated for valid administrative purposes such as system maintenance, patching, or configuration updates. Verify with the respective teams or personnel.
+
+### Response and Remediation
+
+- **Immediate Session Review**: If the session initiation seems suspicious, review all actions taken during the session. If possible, terminate the session to prevent any potential harm.
+- **Validate and Reinforce Security Policies**: Ensure that policies around SSM session initiation are strict and adhere to the principle of least privilege. Update IAM policies if necessary to tighten controls.
+- **Incident Response Activation**: If malicious intent or actions are confirmed, activate the incident response protocol. This includes containment of the threat, eradication of the adversary’s presence, recovery of affected systems, and a thorough investigation.
+- **Enhance Monitoring and Alerts**: Improve monitoring of SSM sessions, particularly focusing on sessions that involve sensitive or critical EC2 instances. Adjust alerting mechanisms to flag unusual session initiations promptly.
+
+### Additional Information
+
+For more in-depth understanding of managing SSM sessions and security best practices, refer to the [AWS Systems Manager documentation](https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_StartSession.html). Additionally, consider the security implications and best practices outlined in [AWS SSM privilege escalation techniques](https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-privilege-escalation/aws-ssm-privesc).
+
+"""
 references = [
     "https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_StartSession.html",
     "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-privilege-escalation/aws-ssm-privesc",
@@ -40,7 +75,8 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "aws.cloudtrail" and event.provider: "ssm.amazonaws.com" and event.action: "StartSession" and event.outcome:success
+event.dataset: "aws.cloudtrail" and event.provider: "ssm.amazonaws.com"
+    and event.action: "StartSession" and event.outcome:success
 '''
 
 
@@ -64,7 +100,7 @@ reference = "https://attack.mitre.org/tactics/TA0008/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["aws.cloudtrail.user_identity.arn"]
+value = ["user.id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
