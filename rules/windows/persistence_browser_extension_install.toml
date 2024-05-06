@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/22"
+updated_date = "2024/04/05"
 
 [rule]
 author = ["Elastic"]
@@ -12,27 +12,30 @@ description = """
 Identifies the install of browser extensions. Malicious browser extensions can be installed via app store downloads
 masquerading as legitimate extensions, social engineering, or by an adversary that has already compromised a system.
 """
-from = "now-119m"
-interval = "60m"
-index = ["logs-endpoint.events.*"]
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Browser Extension Install"
 risk_score = 21
 rule_id = "f97504ac-1053-498f-aeaa-c6d01e76b379"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Defend", "Rule Type: BBR"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
-building_block_type = "default"
 
 query = '''
-file where event.action : "creation" and 
+file where host.os.type == "windows" and event.action : "creation" and 
 (
   /* Firefox-Based Browsers */
   (
     file.name : "*.xpi" and
-    file.path : "?:\\Users\\*\\AppData\\Roaming\\*\\Profiles\\*\\Extensions\\*.xpi"
+    file.path : "?:\\Users\\*\\AppData\\Roaming\\*\\Profiles\\*\\Extensions\\*.xpi" and
+    not 
+    (
+      process.name : "firefox.exe" and
+      file.name : ("langpack-*@firefox.mozilla.org.xpi", "*@dictionaries.addons.mozilla.org.xpi")
+    )
   ) or
   /* Chromium-Based Browsers */
   (
