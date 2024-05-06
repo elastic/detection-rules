@@ -88,7 +88,7 @@ pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=kql
 pip3 install lib/kibana lib/kql
 ```
 
-Remember, make sure to activate your virtual environment if you are using one. If installed via `make`, the associated virtual environment is created in `env/detection-rules-build/`. For additional help please see the [troubleshooting guide]().  
+Remember, make sure to activate your virtual environment if you are using one. If installed via `make`, the associated virtual environment is created in `env/detection-rules-build/`.
 
 To confirm that everything was properly installed, run with the `--help` flag
 ```console
