@@ -37,7 +37,6 @@ Detection Rules contains more than just static rule files. This repository also 
 | [`tests/`](tests)                               | Python code for unit testing rules                                                  |
 
 
-
 ## Getting started
 
 Although rules can be added by manually creating `.toml` files, we don't recommend it. This repository also consists of a python module that aids rule creation and unit testing. Assuming you have Python 3.12+, run the below command to install the dependencies using the makefile:
