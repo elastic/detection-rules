@@ -89,6 +89,7 @@ pip3 install lib/kibana lib/kql
 ```
 
 Remember, make sure to activate your virtual environment if you are using one. If installed via `make`, the associated virtual environment is created in `env/detection-rules-build/`.
+If you are having trouble using a Python 3.12 environment, please see the relevant section in our [troubleshooting guide](./Troubleshooting.md).
 
 To confirm that everything was properly installed, run with the `--help` flag
 ```console
