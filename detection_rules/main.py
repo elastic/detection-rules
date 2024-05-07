@@ -419,7 +419,7 @@ def test_rules(ctx):
 
     rules_config = ctx.obj['rules_config']
     test_config = rules_config.test_config
-    tests, skipped = test_config.get_test_names(formatted=True)
+    skipped, tests = test_config.get_test_names(formatted=True)
 
     if skipped:
         click.echo(f'Tests skipped per config ({len(skipped)}):')

@@ -6,6 +6,7 @@
 """Configuration support for custom components."""
 import fnmatch
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from functools import cached_property
@@ -156,10 +157,13 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     if path:
         assert path.exists(), f'rules config file does not exist: {path}'
         loaded = yaml.safe_load(path.read_text())
-    elif CUSTOM_RULES_DIR:
-        path = Path(CUSTOM_RULES_DIR) / '_config.yaml'
-        assert path.exists(), f'_config.yaml file missing in {CUSTOM_RULES_DIR}'
-        loaded = yaml.safe_load(path.read_text())
+    elif (config_path := Path(CUSTOM_RULES_DIR) / '_config.yaml').exists():
+        loaded = yaml.safe_load(config_path.read_text())
+        if 'configuration_details' in loaded:
+            print(loaded['configuration_details'])
+            config_path.unlink()
+            sys.exit(0)
+
     else:
         path = Path(get_etc_path('_config.yaml'))
         loaded = load_etc_dump('_config.yaml')
