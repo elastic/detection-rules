@@ -18,8 +18,8 @@ from . import ecs
 from .attack import matrix, tactics, build_threat_map_entry
 from .rule import TOMLRule, TOMLRuleContents
 from .rule_loader import (RuleCollection,
-                          DEFAULT_PREBUILT_RULES_DIR,
-                          DEFAULT_PREBUILT_BBR_DIR,
+                          DEFAULT_PREBUILT_RULES_DIRS,
+                          DEFAULT_PREBUILT_BBR_DIRS,
                           dict_filter)
 from .schemas import definitions
 from .utils import clear_caches, get_path
@@ -49,7 +49,7 @@ def single_collection(f):
         rules.load_directories(Path(d) for d in directories)
 
         if rule_id:
-            rules.load_directories((DEFAULT_PREBUILT_RULES_DIR, DEFAULT_PREBUILT_BBR_DIR),
+            rules.load_directories(DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS,
                                    obj_filter=dict_filter(rule__rule_id=rule_id))
             if len(rules) != 1:
                 client_error(f"Could not find rule with ID {rule_id}")
@@ -83,7 +83,7 @@ def multi_collection(f):
         rules.load_directories(Path(d) for d in directories)
 
         if rule_id:
-            rules.load_directories((DEFAULT_PREBUILT_RULES_DIR, DEFAULT_PREBUILT_BBR_DIR),
+            rules.load_directories(DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS,
                                    obj_filter=dict_filter(rule__rule_id=rule_id))
             found_ids = {rule.id for rule in rules}
             missing = set(rule_id).difference(found_ids)

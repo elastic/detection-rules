@@ -148,6 +148,7 @@ class RulesConfig:
     version_lock: Dict[str, dict]
 
     action_dir: Optional[Path] = None
+    bbr_rules_dirs: Optional[List[Path]] = None
     exception_dir: Optional[Path] = None
 
 
