@@ -18,9 +18,9 @@ from semver import Version
 import kql
 
 from . import ecs, endgame
+from .config import load_current_package_version
 from .integrations import (get_integration_schema_data,
                            load_integrations_manifests)
-from .misc import load_current_package_version
 from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
                    TOMLRuleContents, set_eql_config)
 from .schemas import get_stack_schemas

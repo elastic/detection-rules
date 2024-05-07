@@ -11,11 +11,12 @@ from typing import OrderedDict as OrderedDictType
 import jsonschema
 from semver import Version
 
-from ..misc import load_current_package_version
-from ..utils import cached, get_etc_path, load_etc_dump
+from ..config import load_current_package_version, parse_rules_config
+from ..utils import cached, get_etc_path
 from . import definitions
 from .rta_schema import validate_rta_mapping
 from .stack_compat import get_incompatible_fields
+
 
 __all__ = (
     "SCHEMA_DIR",
@@ -29,6 +30,7 @@ __all__ = (
     "all_versions",
 )
 
+RULES_CONFIG = parse_rules_config()
 SCHEMA_DIR = Path(get_etc_path("api_schemas"))
 migrations = {}
 
@@ -306,7 +308,7 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
 
 @cached
 def load_stack_schema_map() -> dict:
-    return load_etc_dump('stack-schema-map.yaml')
+    return RULES_CONFIG.stack_schema_map
 
 
 @cached

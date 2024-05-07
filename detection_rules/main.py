@@ -22,15 +22,21 @@ import click
 
 from .attack import build_threat_map_entry
 from .cli_utils import rule_prompt, multi_collection
+from .config import load_current_package_version, parse_rules_config
 from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
-from .misc import add_client, client_error, nested_set, parse_config, load_current_package_version
+from .misc import (
+    add_client, client_error, nested_set, parse_user_config
+)
 from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
 from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents, rulename_to_filename
 
+
 RULES_DIR = get_path('rules')
+ROOT_DIR = Path(RULES_DIR).parent
+RULES_CONFIG = parse_rules_config()
 
 
 @click.group('detection-rules', context_settings={'help_option_names': ['-h', '--help']})
@@ -39,8 +45,8 @@ RULES_DIR = get_path('rules')
 @click.pass_context
 def root(ctx, debug):
     """Commands for detection-rules repository."""
-    debug = debug if debug is not None else parse_config().get('debug')
-    ctx.obj = {'debug': debug}
+    debug = debug if debug is not None else parse_user_config().get('debug')
+    ctx.obj = {'debug': debug, 'rules_config': RULES_CONFIG}
     if debug:
         click.secho('DEBUG MODE ENABLED', fg='yellow')
 
@@ -411,8 +417,19 @@ def test_rules(ctx):
     """Run unit tests over all of the rules."""
     import pytest
 
+    rules_config = ctx.obj['rules_config']
+    test_config = rules_config.test_config
+    skipped, tests = test_config.get_test_names(formatted=True)
+
+    if skipped:
+        click.echo(f'Tests skipped per config ({len(skipped)}):')
+        click.echo('\n'.join(skipped))
+
     clear_caches()
-    ctx.exit(pytest.main(["-v"]))
+    if tests:
+        ctx.exit(pytest.main(['-v'] + tests))
+    else:
+        click.echo('No tests found to execute!')
 
 
 @root.group('typosquat')

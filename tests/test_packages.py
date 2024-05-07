@@ -13,7 +13,6 @@ from detection_rules import rule_loader
 from detection_rules.schemas.registry_package import (RegistryPackageManifestV1,
                                                       RegistryPackageManifestV3)
 from detection_rules.packaging import PACKAGE_FILE, Package
-from detection_rules.rule_loader import RuleCollection
 
 from tests.base import BaseRuleTest
 
@@ -56,18 +55,18 @@ class TestPackages(BaseRuleTest):
 
     def test_package_loader_default_configs(self):
         """Test configs in detection_rules/etc/packages.yml."""
-        Package.from_config(package_configs)
+        Package.from_config(rule_collection=self.rc, config=package_configs)
 
     def test_package_summary(self):
         """Test the generation of the package summary."""
-        rules = self.production_rules
+        rules = self.rc
         package = Package(rules, 'test-package')
         package.generate_summary_and_changelog(package.changed_ids, package.new_ids, package.removed_ids)
 
     def test_rule_versioning(self):
         """Test that all rules are properly versioned and tracked"""
         self.maxDiff = None
-        rules = RuleCollection.default()
+        rules = self.rc
         original_hashes = []
         post_bump_hashes = []
 

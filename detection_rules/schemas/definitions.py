@@ -140,6 +140,11 @@ CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=val
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
+ExceptionEntryOperator = Literal['included', 'excluded']
+ExceptionEntryType = Literal['match', 'match_any', 'exists', 'list', 'wildcard', 'nested']
+ExceptionNamespaceType = Literal['single', 'agnostic']
+ExceptionItemEndpointTags = Literal['endpoint', 'os:windows', 'os:linux', 'os:macos']
+ExceptionContainerType = Literal['detection', 'endpoint', 'rule_default']
 FilterLanguages = Literal["eql", "esql", "kuery", "lucene"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 InvestigateProviderQueryType = Literal["phrase", "range"]
@@ -173,3 +178,23 @@ BuildingBlockType = Literal['default']
 MachineLearningType = getattr(Literal, '__getitem__')(tuple(MACHINE_LEARNING_PACKAGES))  # noqa: E999
 MachineLearningTypeLower = getattr(Literal, '__getitem__')(
     tuple(map(str.lower, MACHINE_LEARNING_PACKAGES)))  # noqa: E999
+##
+
+ActionTypeId = Literal[
+    ".slack", ".slack_api", ".email", ".index", ".pagerduty", ".swimlane", ".webhook", ".servicenow",
+    ".servicenow-itom", ".servicenow-sir", ".jira", ".resilient", ".opsgenie", ".teams", ".torq", ".tines",
+    ".d3security"
+]
+EsDataTypes = Literal[
+    'binary', 'boolean',
+    'keyword', 'constant_keyword', 'wildcard',
+    'long', 'integer', 'short', 'byte', 'double', 'float', 'half_float', 'scaled_float', 'unsigned_long',
+    'date', 'date_nanos',
+    'alias', 'object', 'flatten', 'nested', 'join',
+    'integer_range', 'float_range', 'long_range', 'double_range', 'date_range', 'ip_range',
+    'ip', 'version', 'murmur3', 'aggregate_metric_double', 'histogram',
+    'text', 'text_match_only', 'annotated-text', 'completion', 'search_as_you_type', 'token_count',
+    'dense_vector', 'sparse_vector', 'rank_feature', 'rank_features',
+    'geo_point', 'geo_shape', 'point', 'shape',
+    'percolator'
+]
