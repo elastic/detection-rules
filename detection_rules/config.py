@@ -159,9 +159,8 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
         loaded = yaml.safe_load(path.read_text())
     elif CUSTOM_RULES_DIR and (path := Path(CUSTOM_RULES_DIR) / '_config.yaml').exists():
         loaded = yaml.safe_load(path.read_text())
-        if 'configuration_details' in loaded:
+        if 'configuration_details' in loaded or not loaded:
             print(loaded['configuration_details'])
-            path.unlink()
             sys.exit(0)
 
     else:

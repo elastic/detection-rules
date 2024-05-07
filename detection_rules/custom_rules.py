@@ -54,8 +54,16 @@ def create_config_content(use_defaults: bool, etc_dir: Path) -> str:
 @custom_rules.command('init-config')
 @click.argument('directory', type=Path)
 @click.option('--use-defaults', is_flag=True, help="Use default contents from detection_rules/etc folder.")
-def init_config(directory: Path, use_defaults: bool):
+@click.option('--delete-config', is_flag=True, help="Delete the existing _config.yaml file.")
+def init_config(directory: Path, use_defaults: bool, delete_config: bool):
     """Initialize the custom rules configuration."""
+
+    if delete_config:
+        config = directory / '_config.yaml'
+        if config.exists():
+            config.unlink()
+            click.echo(f'Deleted existing _config.yaml file: {config}')
+
     etc_dir = directory / 'etc'
     config = directory / '_config.yaml'
     directories = [
