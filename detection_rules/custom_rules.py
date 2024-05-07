@@ -20,7 +20,8 @@ def custom_rules():
     """Commands for supporting custom rules."""
 
 
-def create_config_content(use_defaults, etc_dir):
+def create_config_content(use_defaults: bool, etc_dir: Path) -> str:
+    """Create the content for the _config.yaml file."""
     # Base structure of the configuration
     config_content = {
         'rule_dirs': ['rules', 'rules_building_block'],
@@ -31,7 +32,7 @@ def create_config_content(use_defaults, etc_dir):
             'version_lock': 'etc/version.lock.json',
         },
         'testing': {
-            'config': 'etc/example_test_config.yaml'
+            'config': 'etc/test_config.yaml'
         }
     }
 
@@ -69,7 +70,7 @@ def init_config(directory: Path, use_defaults: bool):
         etc_dir / 'packages.yml',
         etc_dir / 'stack-schema-map.yaml',
         etc_dir / 'version.lock.json',
-        etc_dir / 'example_test_config.yaml',
+        etc_dir / 'test_config.yaml',
     ]
 
     # Create directories
@@ -83,9 +84,10 @@ def init_config(directory: Path, use_defaults: bool):
         if use_defaults and file_.name in [
             'packages.yml',
             'stack-schema-map.yaml',
-            'example_test_config.yaml',
+            'test_config.yaml',
         ]:
-            default_content = DEFAULT_CONFIG_PATH.parent.joinpath(file_.name).read_text()
+            default_path = "example_test_config.yaml" if file_.name == "test_config.yaml" else file_.name
+            default_content = DEFAULT_CONFIG_PATH.parent.joinpath(default_path).read_text()
             content_to_write = default_content
         file_.write_text(content_to_write)
         click.echo(
