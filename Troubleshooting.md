@@ -2,7 +2,7 @@
 
 When installing and managing virtual environments in Ubuntu (and other Linux operating systems), it is important to remember that the OS may require a specific version of python to perform operating system functions. For detection-rules we use Python version 3.12 which has a number of differences between older versions of Python, most notably no longer including `distutils` which can cause some unusual error messages. 
 
-This section of the guide offers some solutions to some common problems that can occur if one inadvertently overwrites the system's Python 3 installation with Python version 3.12. If you are uncertain as to which specific issue you are having, a more generic way to fix the issue is to start with the first issue and work your way through the rest until you no longer have errors. 
+This section of the guide offers some solutions to some common problems that can occur if one inadvertently overwrites the system's Python 3 installation with Python version 3.12. 
 
 ### Issue: Python 3.12 system-wide installation replaced distutils links
 
