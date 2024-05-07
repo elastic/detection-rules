@@ -101,7 +101,7 @@ class TestConfig:
 
         combined_tests = sorted(set(defined_tests + self.tests_by_patterns(*patterns)))
 
-        if self.unit_tests.test_only is not None:
+        if self.unit_tests.test_only:
             tests = combined_tests
             skipped = [t for t in self.all_tests if t not in tests]
         elif self.unit_tests.bypass:
