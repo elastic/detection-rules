@@ -1344,10 +1344,7 @@ class TOMLRule:
     def validate_version_revision(self):
         """Validates 'version' and 'revision' fields based on the rule directory."""
 
-        if self.path is None:
-            raise ValueError(f"Rule {self.name} ({self.id}) has no path specified for validation.")
-
-        if RULES_DIR in self.path.parents or RULES_BBR_DIR in self.path.parents:
+        if self.path and (RULES_DIR in self.path.parents or RULES_BBR_DIR in self.path.parents):
             errors = []
             if getattr(self.contents.data, 'version', None) is not None:
                 errors.append('version')
