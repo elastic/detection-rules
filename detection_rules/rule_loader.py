@@ -27,7 +27,7 @@ from .utils import cached, get_path
 
 RULES_CONFIG = parse_rules_config()
 DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
-DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_dirs
+DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_rules_dirs
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
 
 
