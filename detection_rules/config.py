@@ -8,7 +8,7 @@ import fnmatch
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from functools import cached_property, reduce
+from functools import cached_property
 from typing import Dict, List, Optional
 
 import yaml
