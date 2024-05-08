@@ -54,10 +54,11 @@ def create_config_content(use_defaults: bool, etc_dir: Path) -> str:
 def create_test_config_content() -> str:
     """Generate the content for the test_config.yaml with special content and references."""
     example_test_config_path = DEFAULT_CONFIG_PATH.parent.joinpath("example_test_config.yaml")
-    content = f"# For more details, refer to the example configuration: \n# {example_test_config_path}\n" \
-              "# Define tests to explicitly bypass, with all others being run. \n" \
+    content = f"# For more details, refer to the example configuration:\n# {example_test_config_path}\n" \
+              "# Define tests to explicitly bypass, with all others being run.\n" \
               "# To run all tests, set bypass to empty or leave this file commented out.\n\n" \
-              "unit_tests:\n  bypass:\n#  - tests.test_all_rules.TestValidRules.test_schema_and_dupes"
+              "unit_tests:\n  bypass:\n#  - tests.test_all_rules.TestValidRules.test_schema_and_dupes\n" \
+              "#  - tests.test_packages.TestRegistryPackage.test_registry_package_config\n"
 
     return content
 

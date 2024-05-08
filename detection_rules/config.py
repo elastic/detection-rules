@@ -9,7 +9,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from functools import cached_property
+from functools import cached_property, reduce
 from typing import Dict, List, Optional
 
 import yaml
@@ -152,6 +152,27 @@ class RulesConfig:
     exception_dir: Optional[Path] = None
 
 
+def check_path(content: dict, keys: tuple, content_name: str):
+    """Check if a dict key path exists in the supplied content."""
+    try:
+        reduce(lambda d, key: d[key], keys, content)
+    except KeyError:
+        raise ValueError(f"Missing {'.'.join(keys)} in {content_name} contents.")
+
+
+def validate_package_contents(package_contents: dict):
+    """Validate the contents of the package for required fields."""
+
+    paths = [
+        ('name',),
+        ('registry_data', 'conditions'),
+        ('registry_data', 'conditions', 'kibana.version')
+    ]
+
+    for path in paths:
+        check_path(package_contents, path, "packages.yml")
+
+
 @cached
 def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     """Parse the _config.yaml file for default or custom rules."""
@@ -200,6 +221,11 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     # paths are relative
     files = {f'{k}_file': base_dir.joinpath(v) for k, v in loaded['files'].items()}
     contents = {k: load_dump(str(base_dir.joinpath(v))) for k, v in loaded['files'].items()}
+
+    # check required package fields
+    if 'packages' in contents and 'package' in contents['packages']:
+        validate_package_contents(contents['packages']['package'])
+
     contents.update(**files)
 
     # directories
