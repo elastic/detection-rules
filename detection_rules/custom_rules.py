@@ -59,7 +59,7 @@ def create_test_config_content() -> str:
 @click.argument('kibana-version', type=str, default=load_etc_dump('packages.yml')['package']['name'])
 @click.option('--delete-config', is_flag=True, help="Delete the existing _config.yaml file.")
 def setup_config(directory: Path, kibana_version: str, delete_config: bool):
-    """Setup the custom rules configuration with defaults."""
+    """Setup the custom rules configuration directory and files with defaults."""
 
     if delete_config:
         config = directory / '_config.yaml'
