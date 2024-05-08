@@ -10,7 +10,7 @@ import click
 import yaml
 
 from .main import root
-from .utils import get_etc_path
+from .utils import get_etc_path, load_etc_dump
 
 DEFAULT_CONFIG_PATH = Path(get_etc_path('_config.yaml'))
 
@@ -79,6 +79,7 @@ def init_config(directory: Path, use_defaults: bool, delete_config: bool):
     etc_dir = directory / 'etc'
     config = directory / '_config.yaml'
     test_config = etc_dir / 'test_config.yaml'
+    package_config = etc_dir / 'packages.yml'
     directories = [
         directory / 'actions',
         directory / 'exceptions',
@@ -88,7 +89,6 @@ def init_config(directory: Path, use_defaults: bool, delete_config: bool):
     ]
     files = [
         etc_dir / 'deprecated_rules.json',
-        etc_dir / 'packages.yml',
         etc_dir / 'stack-schema-map.yaml',
         etc_dir / 'version.lock.json',
     ]
@@ -101,16 +101,18 @@ def init_config(directory: Path, use_defaults: bool, delete_config: bool):
     # Create files and populate with default content if applicable
     for file_ in files:
         content_to_write = '{}'
-        if use_defaults and file_.name in [
-            'packages.yml',
-            'stack-schema-map.yaml',
-        ]:
+        if use_defaults and file_.name == 'stack-schema-map.yaml':
             default_content = DEFAULT_CONFIG_PATH.parent.joinpath(file_.name).read_text()
             content_to_write = default_content
         file_.write_text(content_to_write)
         click.echo(
             f'Created file with default content: {file_}' if use_defaults else f'Created file: {file_}'
         )
+
+    # Create default packages.yml
+    version = load_etc_dump('packages.yml')['package']['name']
+    package_content = {'package': {'name': version}}
+    package_config.write_text(yaml.safe_dump(package_content, default_flow_style=False))
 
     # Create and configure test_config.yaml
     test_config.write_text(create_test_config_content())
