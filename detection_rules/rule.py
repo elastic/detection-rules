@@ -975,7 +975,7 @@ class BaseRuleContents(ABC):
     @property
     def autobumped_version(self) -> Optional[int]:
         """Retrieve the current version of the rule, accounting for automatic increments."""
-        version = self.latest_version
+        version = self.latest_version or self.data.version
         if version is None:
             return 1
 
@@ -1355,7 +1355,7 @@ class TOMLRule:
                 errors.append('revision')
 
             if errors:
-                error_fields = ' or '.join(errors)
+                error_fields = ' and '.join(errors)
                 dir_context = RULES_DIR if RULES_DIR in self.path.parents else RULES_BBR_DIR
                 raise ValueError(f"Prebuilt rule toml files in {dir_context} must not include `{error_fields}`. "
                                  f"Rule {self.name} ({self.id}) includes {error_fields}.")
