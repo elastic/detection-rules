@@ -36,13 +36,15 @@ from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas,
                       strip_non_public_fields)
 from .schemas.stack_compat import get_restricted_fields
-from .utils import cached, convert_time_span, PatchedTemplate
+from .utils import cached, convert_time_span, get_path, PatchedTemplate
 
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 TIME_NOW = time.strftime('%Y/%m/%d')
 RULES_CONFIG = parse_rules_config()
+RULES_DIR = Path(get_path("rules"))
+RULES_BBR_DIR = Path(get_path("rules_building_block"))
 
 
 BUILD_FIELD_VERSIONS = {
@@ -361,6 +363,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     references: Optional[List[str]]
     related_integrations: Optional[List[RelatedIntegrations]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     required_fields: Optional[List[RequiredFields]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
+    revision: Optional[definitions.PositiveInteger] = field(metadata=dict(metadata=dict(min_compat="8.8")))
     risk_score: definitions.RiskScore
     risk_score_mapping: Optional[List[RiskScoreMapping]]
     rule_id: definitions.UUIDString
@@ -376,6 +379,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     to: Optional[str]
     type: definitions.RuleType
     threat: Optional[List[ThreatMapping]]
+    version: Optional[definitions.PositiveInteger]
 
     @classmethod
     def save_schema(cls):
@@ -1309,6 +1313,9 @@ class TOMLRule:
     path: Optional[Path] = None
     gh_pr: Any = field(hash=False, compare=False, default=None, repr=False)
 
+    def __post_init__(self):
+        self.validate_version_revision()
+
     @property
     def id(self):
         return self.contents.id
@@ -1333,6 +1340,25 @@ class TOMLRule:
         with open(str(path.absolute()), 'w', newline='\n') as f:
             json.dump(self.contents.to_api_format(include_version=include_version), f, sort_keys=True, indent=2)
             f.write('\n')
+
+    def validate_version_revision(self):
+        """Validates 'version' and 'revision' fields based on the rule directory."""
+
+        if self.path is None:
+            raise ValueError(f"Rule {self.name} ({self.id}) has no path specified for validation.")
+
+        if RULES_DIR in self.path.parents or RULES_BBR_DIR in self.path.parents:
+            errors = []
+            if getattr(self.contents.data, 'version', None) is not None:
+                errors.append('version')
+            if getattr(self.contents.data, 'revision', None) is not None:
+                errors.append('revision')
+
+            if errors:
+                error_fields = ' or '.join(errors)
+                dir_context = RULES_DIR if RULES_DIR in self.path.parents else RULES_BBR_DIR
+                raise ValueError(f"Prebuilt rule toml files in {dir_context} must not include `{error_fields}`. "
+                                 f"Rule {self.name} ({self.id}) includes {error_fields}.")
 
 
 @dataclass(frozen=True)
