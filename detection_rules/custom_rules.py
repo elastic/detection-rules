@@ -10,9 +10,12 @@ import click
 import yaml
 
 from .main import root
-from .utils import get_etc_path, load_etc_dump
+from .utils import get_etc_path, load_etc_dump, ROOT_DIR
+
+from semver import Version
 
 DEFAULT_CONFIG_PATH = Path(get_etc_path('_config.yaml'))
+CUSTOM_RULES_DOC_PATH = Path(ROOT_DIR).joinpath('docs', 'custom-rules.md')
 
 
 @root.group('custom-rules')
@@ -20,7 +23,7 @@ def custom_rules():
     """Commands for supporting custom rules."""
 
 
-def create_config_content(use_defaults: bool, etc_dir: Path) -> str:
+def create_config_content() -> str:
     """Create the content for the _config.yaml file."""
     # Base structure of the configuration
     config_content = {
@@ -36,18 +39,6 @@ def create_config_content(use_defaults: bool, etc_dir: Path) -> str:
         }
     }
 
-    if not use_defaults:
-        # Add detailed configuration instructions
-        config_content = {
-            'configuration_details': (
-                f'# For details on how to configure this file,\n'
-                f'# consult: {DEFAULT_CONFIG_PATH.resolve()}\n'
-                f'# or the docs: {etc_dir.parent.parent / "docs" / "custom-rules.md"}\n'
-                f'# Optionally use the `--use-defaults` flag to get started.'
-            )
-        }
-
-    click.echo(f'Configured _config.yaml with{" default contents" if use_defaults else " detailed instructions"}')
     return yaml.safe_dump(config_content, default_flow_style=False)
 
 
@@ -63,12 +54,11 @@ def create_test_config_content() -> str:
     return content
 
 
-@custom_rules.command('init-config')
+@custom_rules.command('setup-config')
 @click.argument('directory', type=Path)
-@click.option('--use-defaults', is_flag=True, help="Use default contents from detection_rules/etc folder.")
 @click.option('--delete-config', is_flag=True, help="Delete the existing _config.yaml file.")
-def init_config(directory: Path, use_defaults: bool, delete_config: bool):
-    """Initialize the custom rules configuration."""
+def setup_config(directory: Path, delete_config: bool):
+    """Setup the custom rules configuration with defaults."""
 
     if delete_config:
         config = directory / '_config.yaml'
@@ -80,6 +70,13 @@ def init_config(directory: Path, use_defaults: bool, delete_config: bool):
     config = directory / '_config.yaml'
     test_config = etc_dir / 'test_config.yaml'
     package_config = etc_dir / 'packages.yml'
+    stack_schema_map_config = etc_dir / 'stack-schema-map.yaml'
+    config_files = [
+        package_config,
+        stack_schema_map_config,
+        test_config,
+        config,
+    ]
     directories = [
         directory / 'actions',
         directory / 'exceptions',
@@ -87,9 +84,8 @@ def init_config(directory: Path, use_defaults: bool, delete_config: bool):
         directory / 'rules_building_block',
         etc_dir,
     ]
-    files = [
+    version_files = [
         etc_dir / 'deprecated_rules.json',
-        etc_dir / 'stack-schema-map.yaml',
         etc_dir / 'version.lock.json',
     ]
 
@@ -98,16 +94,18 @@ def init_config(directory: Path, use_defaults: bool, delete_config: bool):
         dir_.mkdir(parents=True, exist_ok=True)
         click.echo(f'Created directory: {dir_}')
 
-    # Create files and populate with default content if applicable
-    for file_ in files:
-        content_to_write = '{}'
-        if use_defaults and file_.name == 'stack-schema-map.yaml':
-            default_content = DEFAULT_CONFIG_PATH.parent.joinpath(file_.name).read_text()
-            content_to_write = default_content
-        file_.write_text(content_to_write)
+    # Create version_files and populate with default content if applicable
+    for file_ in version_files:
+        file_.write_text('{}')
         click.echo(
-            f'Created file with default content: {file_}' if use_defaults else f'Created file: {file_}'
+            f'Created file with default content: {file_}'
         )
+
+    # Create the stack-schema-map.yaml file
+    stack_schema_map_content = load_etc_dump('stack-schema-map.yaml')
+    latest_version = max(stack_schema_map_content.keys(), key=lambda v: Version.parse(v))
+    latest_entry = {latest_version: stack_schema_map_content[latest_version]}
+    stack_schema_map_config.write_text(yaml.safe_dump(latest_entry, default_flow_style=False))
 
     # Create default packages.yml
     version = load_etc_dump('packages.yml')['package']['name']
@@ -118,4 +116,11 @@ def init_config(directory: Path, use_defaults: bool, delete_config: bool):
     test_config.write_text(create_test_config_content())
 
     # Create and configure _config.yaml
-    config.write_text(create_config_content(use_defaults, etc_dir))
+    config.write_text(create_config_content())
+
+    for file_ in config_files:
+        click.echo(f'Created file with default content: {file_}')
+
+    click.echo(f'\n# For details on how to configure the _config.yaml file,\n'
+               f'# consult: {DEFAULT_CONFIG_PATH.resolve()}\n'
+               f'# or the docs: {CUSTOM_RULES_DOC_PATH.resolve()}')

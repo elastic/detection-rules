@@ -43,6 +43,44 @@ class RuleValidation:
 
 
 @dataclass
+class ConfigFile:
+    """Base object for configuration files."""
+
+    @dataclass
+    class FilePaths:
+        packages_file: str
+        stack_schema_map_file: str
+        deprecated_rules_file: Optional[str] = None
+        version_lock_file: Optional[str] = None
+
+    @dataclass
+    class TestConfigPath:
+        config: str
+
+    files: FilePaths
+    rule_dir: List[str]
+    testing: Optional[TestConfigPath] = None
+
+    @classmethod
+    def from_dict(cls, obj: dict):
+        files_data = obj.get('files', {})
+        files = cls.FilePaths(
+            deprecated_rules_file=files_data.get('deprecated_rules'),
+            packages_file=files_data['packages'],
+            stack_schema_map_file=files_data['stack_schema_map'],
+            version_lock_file=files_data.get('version_lock')
+        )
+        rule_dir = obj['rule_dirs']
+
+        testing_data = obj.get('testing')
+        testing = cls.TestConfigPath(
+            config=testing_data['config']
+        ) if testing_data else None
+
+        return cls(files=files, rule_dir=rule_dir, testing=testing)
+
+
+@dataclass
 class TestConfig:
     """Detection rules test config file"""
     test_file: Optional[Path] = None
@@ -150,6 +188,14 @@ class RulesConfig:
     action_dir: Optional[Path] = None
     exception_dir: Optional[Path] = None
 
+    def __post_init__(self):
+        """Perform post validation on packages.yml file."""
+        if 'package' not in self.packages:
+            raise SystemExit('Missing the `package` field defined in packages.yml.')
+
+        if 'name' not in self.packages['package']:
+            raise SystemExit('Missing the `name` field defined in packages.yml.')
+
 
 @cached
 def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
@@ -157,16 +203,19 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     if path:
         assert path.exists(), f'rules config file does not exist: {path}'
         loaded = yaml.safe_load(path.read_text())
-    elif CUSTOM_RULES_DIR and (path := Path(CUSTOM_RULES_DIR) / '_config.yaml').exists():
+    elif CUSTOM_RULES_DIR:
+        path = Path(CUSTOM_RULES_DIR) / '_config.yaml'
         loaded = yaml.safe_load(path.read_text())
-        if 'configuration_details' in loaded or not loaded:
-            raise SystemExit(loaded['configuration_details'])
-
     else:
         path = Path(get_etc_path('_config.yaml'))
         loaded = load_etc_dump('_config.yaml')
 
-    assert loaded, f'No data loaded from {path}'
+    try:
+        ConfigFile.from_dict(loaded)
+    except KeyError as e:
+        raise SystemExit(f'Missing key `{str(e)}` in _config.yaml file.')
+    except TypeError:
+        raise SystemExit(f'No data loaded from {path}')
 
     base_dir = path.resolve().parent
 
@@ -199,11 +248,6 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     files = {f'{k}_file': base_dir.joinpath(v) for k, v in loaded['files'].items()}
     contents = {k: load_dump(str(base_dir.joinpath(v))) for k, v in loaded['files'].items()}
 
-    # check required package fields
-    if 'packages' in contents and 'package' in contents['packages']:
-        if 'name' not in contents['packages']['package']:
-            raise ValueError('Missing the `name` field defined in packages.yml.')
-
     contents.update(**files)
 
     # directories
@@ -213,7 +257,7 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
 
     # rule_dirs
     # paths are relative
-    contents['rule_dirs'] = [base_dir.joinpath(d) for d in loaded.get('rule_dirs', [])]
+    contents['rule_dirs'] = [base_dir.joinpath(d) for d in loaded.get('rule_dirs')]
 
     rules_config = RulesConfig(test_config=test_config, **contents)
     return rules_config
