@@ -51,6 +51,17 @@ def create_config_content(use_defaults: bool, etc_dir: Path) -> str:
     return yaml.safe_dump(config_content, default_flow_style=False)
 
 
+def create_test_config_content() -> str:
+    """Generate the content for the test_config.yaml with special content and references."""
+    example_test_config_path = DEFAULT_CONFIG_PATH.parent.joinpath("example_test_config.yaml")
+    content = f"# For more details, refer to the example configuration: \n# {example_test_config_path}\n" \
+              "# Define tests to explicitly bypass, with all others being run. \n" \
+              "# To run all tests, set bypass to empty or leave this file commented out.\n\n" \
+              "unit_tests:\n  bypass:\n#  - tests.test_all_rules.TestValidRules.test_schema_and_dupes"
+
+    return content
+
+
 @custom_rules.command('init-config')
 @click.argument('directory', type=Path)
 @click.option('--use-defaults', is_flag=True, help="Use default contents from detection_rules/etc folder.")
@@ -66,6 +77,7 @@ def init_config(directory: Path, use_defaults: bool, delete_config: bool):
 
     etc_dir = directory / 'etc'
     config = directory / '_config.yaml'
+    test_config = etc_dir / 'test_config.yaml'
     directories = [
         directory / 'actions',
         directory / 'exceptions',
@@ -78,7 +90,6 @@ def init_config(directory: Path, use_defaults: bool, delete_config: bool):
         etc_dir / 'packages.yml',
         etc_dir / 'stack-schema-map.yaml',
         etc_dir / 'version.lock.json',
-        etc_dir / 'test_config.yaml',
     ]
 
     # Create directories
@@ -92,15 +103,16 @@ def init_config(directory: Path, use_defaults: bool, delete_config: bool):
         if use_defaults and file_.name in [
             'packages.yml',
             'stack-schema-map.yaml',
-            'test_config.yaml',
         ]:
-            default_path = "example_test_config.yaml" if file_.name == "test_config.yaml" else file_.name
-            default_content = DEFAULT_CONFIG_PATH.parent.joinpath(default_path).read_text()
+            default_content = DEFAULT_CONFIG_PATH.parent.joinpath(file_.name).read_text()
             content_to_write = default_content
         file_.write_text(content_to_write)
         click.echo(
             f'Created file with default content: {file_}' if use_defaults else f'Created file: {file_}'
         )
+
+    # Create and configure test_config.yaml
+    test_config.write_text(create_test_config_content())
 
     # Create and configure _config.yaml
     config.write_text(create_config_content(use_defaults, etc_dir))
