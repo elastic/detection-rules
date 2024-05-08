@@ -30,6 +30,7 @@ DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
 DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_dirs
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
 
+
 def path_getter(value: str) -> Callable[[dict], bool]:
     """Get the path from a Python object."""
     path = value.replace("__", ".").split(".")
