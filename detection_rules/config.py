@@ -6,7 +6,6 @@
 """Configuration support for custom components."""
 import fnmatch
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from functools import cached_property, reduce
@@ -183,7 +182,7 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
         loaded = yaml.safe_load(path.read_text())
         if 'configuration_details' in loaded or not loaded:
             print(loaded['configuration_details'])
-            sys.exit(0)
+            raise SystemExit(0)
 
     else:
         path = Path(get_etc_path('_config.yaml'))
