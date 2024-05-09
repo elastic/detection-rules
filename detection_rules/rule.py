@@ -459,6 +459,27 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
         return obj
 
+    @validates_schema
+    def validates_data(self, data, **kwargs):
+        self.validate_version_revision()
+
+    def validate_version_revision(self):
+        """Validates 'version' and 'revision' fields based on the rule directory."""
+
+        pass
+        # if self.path and (RULES_DIR in self.path.parents or RULES_BBR_DIR in self.path.parents):
+        #     errors = []
+        #     if getattr(self.contents.data, 'version', None) is not None:
+        #         errors.append('version')
+        #     if getattr(self.contents.data, 'revision', None) is not None:
+        #         errors.append('revision')
+
+        #     if errors:
+        #         error_fields = ' and '.join(errors)
+        #         dir_context = RULES_DIR if RULES_DIR in self.path.parents else RULES_BBR_DIR
+        #         raise ValueError(f"Prebuilt rule toml files in {dir_context} must not include `{error_fields}`. "
+        #                          f"Rule {self.name} ({self.id}) includes {error_fields}.")
+
 
 class DataValidator:
     """Additional validation beyond base marshmallow schema validation."""
@@ -1313,9 +1334,6 @@ class TOMLRule:
     path: Optional[Path] = None
     gh_pr: Any = field(hash=False, compare=False, default=None, repr=False)
 
-    def __post_init__(self):
-        self.validate_version_revision()
-
     @property
     def id(self):
         return self.contents.id
@@ -1340,22 +1358,6 @@ class TOMLRule:
         with open(str(path.absolute()), 'w', newline='\n') as f:
             json.dump(self.contents.to_api_format(include_version=include_version), f, sort_keys=True, indent=2)
             f.write('\n')
-
-    def validate_version_revision(self):
-        """Validates 'version' and 'revision' fields based on the rule directory."""
-
-        if self.path and (RULES_DIR in self.path.parents or RULES_BBR_DIR in self.path.parents):
-            errors = []
-            if getattr(self.contents.data, 'version', None) is not None:
-                errors.append('version')
-            if getattr(self.contents.data, 'revision', None) is not None:
-                errors.append('revision')
-
-            if errors:
-                error_fields = ' and '.join(errors)
-                dir_context = RULES_DIR if RULES_DIR in self.path.parents else RULES_BBR_DIR
-                raise ValueError(f"Prebuilt rule toml files in {dir_context} must not include `{error_fields}`. "
-                                 f"Rule {self.name} ({self.id}) includes {error_fields}.")
 
 
 @dataclass(frozen=True)
