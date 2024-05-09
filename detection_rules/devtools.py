@@ -732,8 +732,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
         ctx.exit()
 
     today = time.strftime('%Y/%m/%d')
-    # TODO update to get path from config
-    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
+    deprecated_path = rule_file.parent / '_deprecated' / rule_file.name
 
     # create the new rule and save it
     new_meta = dataclasses.replace(rule.contents.metadata,
