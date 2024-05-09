@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/12/12"
+updated_date = "2024/04/30"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ kernel's workqueue mechanism. They are responsible for executing work that has b
 space, which might include tasks like handling interrupts, background activities, and other kernel-related tasks. 
 Attackers may attempt to evade detection by masquerading as a kernel worker process.
 """
-from = "now-60m"
+from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -69,7 +69,7 @@ process.name:kworker* and not destination.ip:(
   "::1" or
   "FE80::/10" or
   "FF00::/8"
-)
+) and not destination.port:2049
 '''
 
 [[rule.threat]]
@@ -113,7 +113,7 @@ framework = "MITRE ATT&CK"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.name", "destination.ip"]
+value = ["process.name", "destination.ip", "destination.port"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
