@@ -996,7 +996,7 @@ class BaseRuleContents(ABC):
         if version is None:
             return 1
 
-        return version + 1 if self.is_dirty else version
+        return version + 1 if self.is_dirty and RULES_CONFIG.version_strategy == "auto" else version
 
     @classmethod
     def convert_supported_version(cls, stack_version: Optional[str]) -> Version:
