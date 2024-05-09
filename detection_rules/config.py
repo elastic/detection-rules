@@ -249,18 +249,18 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     # files
     # paths are relative
     files = {f'{k}_file': base_dir.joinpath(v) for k, v in loaded['files'].items()}
-    contents = {k: load_dump(str(base_dir.joinpath(v))) for k, v in loaded['files'].items()}
+    contents = {k: load_dump(str(base_dir.joinpath(v).resolve())) for k, v in loaded['files'].items()}
 
     contents.update(**files)
 
     # directories
     # paths are relative
     if loaded.get('directories'):
-        contents.update({k: base_dir.joinpath(v) for k, v in loaded['directories'].items()})
+        contents.update({k: base_dir.joinpath(v).resolve() for k, v in loaded['directories'].items()})
 
     # rule_dirs
     # paths are relative
-    contents['rule_dirs'] = [base_dir.joinpath(d) for d in loaded.get('rule_dirs')]
+    contents['rule_dirs'] = [base_dir.joinpath(d).resolve() for d in loaded.get('rule_dirs')]
 
     try:
         rules_config = RulesConfig(test_config=test_config, **contents)
@@ -270,7 +270,7 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     # bbr_rules_dirs
     # paths are relative
     if loaded.get('bbr_rules_dirs'):
-        contents['bbr_rules_dirs'] = [base_dir.joinpath(d) for d in loaded.get('bbr_rules_dirs', [])]
+        contents['bbr_rules_dirs'] = [base_dir.joinpath(d).resolve() for d in loaded.get('bbr_rules_dirs', [])]
 
     rules_config = RulesConfig(test_config=test_config, **contents)
     return rules_config
