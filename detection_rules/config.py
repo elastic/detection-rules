@@ -6,7 +6,6 @@
 """Configuration support for custom components."""
 import fnmatch
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from functools import cached_property
@@ -29,7 +28,8 @@ class UnitTest:
     test_only: Optional[List[str]] = None
 
     def __post_init__(self):
-        assert not (self.bypass and self.test_only), 'Cannot use both test_only and bypass'
+        assert not (self.bypass is not None and self.test_only is not None), \
+            'Cannot set both `test_only` and `bypass` in test_config!'
 
 
 @dataclass
@@ -40,6 +40,44 @@ class RuleValidation:
 
     def __post_init__(self):
         assert not (self.bypass and self.test_only), 'Cannot use both test_only and bypass'
+
+
+@dataclass
+class ConfigFile:
+    """Base object for configuration files."""
+
+    @dataclass
+    class FilePaths:
+        packages_file: str
+        stack_schema_map_file: str
+        deprecated_rules_file: Optional[str] = None
+        version_lock_file: Optional[str] = None
+
+    @dataclass
+    class TestConfigPath:
+        config: str
+
+    files: FilePaths
+    rule_dir: List[str]
+    testing: Optional[TestConfigPath] = None
+
+    @classmethod
+    def from_dict(cls, obj: dict):
+        files_data = obj.get('files', {})
+        files = cls.FilePaths(
+            deprecated_rules_file=files_data.get('deprecated_rules'),
+            packages_file=files_data['packages'],
+            stack_schema_map_file=files_data['stack_schema_map'],
+            version_lock_file=files_data.get('version_lock')
+        )
+        rule_dir = obj['rule_dirs']
+
+        testing_data = obj.get('testing')
+        testing = cls.TestConfigPath(
+            config=testing_data['config']
+        ) if testing_data else None
+
+        return cls(files=files, rule_dir=rule_dir, testing=testing)
 
 
 @dataclass
@@ -151,6 +189,14 @@ class RulesConfig:
     bbr_rules_dirs: Optional[List[Path]] = None
     exception_dir: Optional[Path] = None
 
+    def __post_init__(self):
+        """Perform post validation on packages.yml file."""
+        if 'package' not in self.packages:
+            raise ValueError('Missing the `package` field defined in packages.yml.')
+
+        if 'name' not in self.packages['package']:
+            raise ValueError('Missing the `name` field defined in packages.yml.')
+
 
 @cached
 def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
@@ -158,18 +204,21 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     if path:
         assert path.exists(), f'rules config file does not exist: {path}'
         loaded = yaml.safe_load(path.read_text())
-    elif CUSTOM_RULES_DIR and (path := Path(CUSTOM_RULES_DIR) / '_config.yaml').exists():
+    elif CUSTOM_RULES_DIR:
+        path = Path(CUSTOM_RULES_DIR) / '_config.yaml'
         loaded = yaml.safe_load(path.read_text())
-        if 'configuration_details' in loaded:
-            print(loaded['configuration_details'])
-            path.unlink()
-            sys.exit(0)
-
     else:
         path = Path(get_etc_path('_config.yaml'))
         loaded = load_etc_dump('_config.yaml')
 
-    assert loaded, f'No data loaded from {path}'
+    try:
+        ConfigFile.from_dict(loaded)
+    except KeyError as e:
+        raise SystemExit(f'Missing key `{str(e)}` in _config.yaml file.')
+    except (AttributeError, TypeError):
+        raise SystemExit(f'No data properly loaded from {path}')
+    except ValueError as e:
+        raise SystemExit(e)
 
     base_dir = path.resolve().parent
 
@@ -201,6 +250,7 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     # paths are relative
     files = {f'{k}_file': base_dir.joinpath(v) for k, v in loaded['files'].items()}
     contents = {k: load_dump(str(base_dir.joinpath(v))) for k, v in loaded['files'].items()}
+
     contents.update(**files)
 
     # directories
@@ -210,7 +260,12 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
 
     # rule_dirs
     # paths are relative
-    contents['rule_dirs'] = [base_dir.joinpath(d) for d in loaded.get('rule_dirs', [])]
+    contents['rule_dirs'] = [base_dir.joinpath(d) for d in loaded.get('rule_dirs')]
+
+    try:
+        rules_config = RulesConfig(test_config=test_config, **contents)
+    except (ValueError, TypeError) as e:
+        raise SystemExit(f'Error parsing packages.yml: {str(e)}')
 
     # bbr_rules_dirs
     # paths are relative
