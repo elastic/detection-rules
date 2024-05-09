@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/12"
+updated_date = "2024/04/05"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ require permission modification of files/folders to change, modify or delete the
 """
 from = "now-119m"
 interval = "60m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "File and Directory Permissions Modification"
@@ -33,7 +33,10 @@ process where event.type == "start" and host.os.type == "windows" and
   ((process.name: "cacls.exe" or process.pe.original_file_name == "CACLS.EXE") and process.args: ("/g", "*:f")) or
   ((process.name: "takeown.exe" or process.pe.original_file_name == "takeown.exe") and process.args: ("/F")) or
   ((process.name: "attrib.exe" or process.pe.original_file_name== "ATTRIB.EXE") and process.args: "-r")
-) and not user.id : "S-1-5-18"
+) and not user.id : "S-1-5-18" and
+not (
+  process.args : ("C:\\ProgramData\\Lenovo\\*", "C:\\ProgramData\\Adobe\\*", "C:\\ProgramData\\ASUS\\ASUS*")
+)
 '''
 
 

@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/09/27"
+updated_date = "2024/04/05"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,7 @@ references = [
 ]
 from = "now-119m"
 interval = "60m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.library-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unsigned BITS Service Client Process"
@@ -32,7 +32,8 @@ type = "eql"
 
 query = '''
 library where dll.name : "Bitsproxy.dll" and process.executable != null and
-not process.code_signature.trusted == true
+not process.code_signature.trusted == true and
+not process.code_signature.status : ("errorExpired", "errorCode_endpoint*")
 '''
 
 

@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/09/14"
+updated_date = "2024/04/05"
 bypass_bbr_timing = true
 
 [rule]
@@ -15,7 +15,7 @@ This rule identifies the execution of commands that can be used to enumerate run
 enumerate processes to identify installed applications and security solutions.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process-*", "logs-system.security*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Discovery Using Built-in Tools"
@@ -27,7 +27,8 @@ tags = ["Domain: Endpoint",
         "Use Case: Threat Detection",
         "Tactic: Discovery",
         "Rule Type: BBR",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"
         ]
 timestamp_override = "event.ingested"
 type = "eql"

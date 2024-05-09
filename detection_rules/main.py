@@ -8,7 +8,6 @@ import dataclasses
 import glob
 import json
 import os
-import re
 import time
 from datetime import datetime
 
@@ -29,7 +28,7 @@ from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
-from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents
+from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents, rulename_to_filename
 
 RULES_DIR = get_path('rules')
 
@@ -92,11 +91,11 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     return bulk_upload_docs, importable_rules_docs
 
 
-@root.command('import-rules')
+@root.command('import-rules-to-repo')
 @click.argument('input-file', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-def import_rules(input_file, required_only, directory):
+def import_rules_into_repo(input_file, required_only, directory):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
@@ -108,12 +107,9 @@ def import_rules(input_file, required_only, directory):
     if not rule_contents:
         click.echo('Must specify at least one file!')
 
-    def name_to_filename(name):
-        return re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_') + '.toml'
-
     for contents in rule_contents:
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
-        base_path = name_to_filename(base_path) if base_path else base_path
+        base_path = rulename_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
         additional = ['index'] if not contents.get('data_view_id') else ['data_view_id']
         rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
@@ -274,7 +270,7 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
             click.echo(f'Skipped {len(unsupported)} unsupported rules: \n- {unsupported_str}')
 
 
-@root.command('export-rules')
+@root.command('export-rules-from-repo')
 @multi_collection
 @click.option('--outfile', '-o', default=Path(get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson')),
               type=Path, help='Name of file for exported rules')
@@ -285,8 +281,8 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
               help='If `--stack-version` is passed, skip rule types which are unsupported '
                    '(an error will be raised otherwise)')
 @click.option('--include-metadata', type=bool, is_flag=True, default=False, help='Add metadata to the exported rules')
-def export_rules(rules, outfile: Path, replace_id, stack_version,
-                 skip_unsupported, include_metadata: bool) -> RuleCollection:
+def export_rules_from_repo(rules, outfile: Path, replace_id, stack_version,
+                           skip_unsupported, include_metadata: bool) -> RuleCollection:
     """Export rule(s) into an importable ndjson file."""
     assert len(rules) > 0, "No rules found"
 

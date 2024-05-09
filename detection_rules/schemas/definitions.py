@@ -17,7 +17,7 @@ SAVED_OBJECT_TYPE = "security-rule"
 DATE_PATTERN = r'^\d{4}/\d{2}/\d{2}$'
 MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
 OS_OPTIONS = ['windows', 'linux', 'macos']
-NAME_PATTERN = r'^[a-zA-Z0-9].+?[a-zA-Z0-9()]$'
+NAME_PATTERN = r'^[a-zA-Z0-9].+?[a-zA-Z0-9\[\]()]$'
 PR_PATTERN = r'^$|\d+$'
 SHA256_PATTERN = r'^[a-fA-F0-9]{64}$'
 UUID_PATTERN = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
@@ -88,6 +88,7 @@ EXPECTED_RULE_TAGS = [
     'Domain: Cloud',
     'Domain: Container',
     'Domain: Endpoint',
+    'Mitre Atlas: *',
     'OS: Linux',
     'OS: macOS',
     'OS: Windows',
@@ -158,6 +159,7 @@ SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINO
 Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
 SubTechniqueURL = NewType('SubTechniqueURL', str, validate=validate.Regexp(SUBTECHNIQUE_URL))
+StoreType = Literal['appState', 'globalState']
 TacticURL = NewType('TacticURL', str, validate=validate.Regexp(TACTIC_URL))
 TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_URL))
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))

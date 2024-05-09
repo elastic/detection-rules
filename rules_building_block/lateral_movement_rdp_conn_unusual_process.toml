@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/12"
+updated_date = "2024/04/05"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ an RDP connection to evade detection.
 """
 from = "now-119m"
 interval = "60m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.network-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Outgoing RDP Connection by Unusual Process"
@@ -37,7 +37,10 @@ network where host.os.type == "windows" and
       "?:\\Program Files (x86)\\mRemoteNG\\mRemoteNG.exe",
       "?:\\Program Files (x86)\\PRTG Network Monitor\\PRTG Probe.exe",
       "?:\\Program Files\\Azure Advanced Threat Protection Sensor\\*\\Microsoft.Tri.Sensor.exe",
-      "?:\\Program Files (x86)\\Microsoft\\Remote Desktop Connection Manager\\RDCMan.exe"
+      "?:\\Program Files (x86)\\Microsoft\\Remote Desktop Connection Manager\\RDCMan.exe",
+      "?:\\Program Files\\SentinelOne\\Sentinel Agent*\\Ranger\\SentinelRanger.exe",
+      "?:\\Program Files\\Devolutions\\Remote Desktop Manager\\RemoteDesktopManager.exe",
+      "?:\\Program Files (x86)\\Devolutions\\Remote Desktop Manager\\RemoteDesktopManager.exe"
     ) and process.code_signature.trusted == true
   )
 '''

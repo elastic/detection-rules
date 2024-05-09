@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2023/08/23"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/04/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Managed Object Format (MOF) files can be compiled locally or remotely through mofcomp.exe. Attackers may leverage MOF
+files to build their own namespaces and classes into the Windows Management Instrumentation (WMI) repository, or
+establish persistence using WMI Event Subscription.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Mofcomp Activity"
+risk_score = 21
+rule_id = "210d4430-b371-470e-b879-80b7182aa75e"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : "mofcomp.exe" and process.args : "*.mof" and
+  not user.id : "S-1-5-18" and
+  not
+  (
+    process.parent.name : "ScenarioEngine.exe" and
+    process.args : (
+      "*\\MSSQL\\Binn\\*.mof",
+      "*\\Microsoft SQL Server\\???\\Shared\\*.mof",
+      "*\\OLAP\\bin\\*.mof"
+    )
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1047"
+name = "Windows Management Instrumentation"
+reference = "https://attack.mitre.org/techniques/T1047/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.003"
+name = "Windows Management Instrumentation Event Subscription"
+reference = "https://attack.mitre.org/techniques/T1546/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

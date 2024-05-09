@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/09/26"
+updated_date = "2024/04/05"
 
 [rule]
 author = ["Elastic"]
@@ -17,21 +17,21 @@ references = [
 ]
 from = "now-119m"
 interval = "60m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process-*", "logs-system.security*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Troubleshooting Pack Cabinet Execution"
 risk_score = 21
 rule_id = "808291d3-e918-4a3a-86cd-73052a0c9bdc"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Rule Type: BBR", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Rule Type: BBR", "Data Source: Elastic Defend", "Data Source: Elastic Endgame"]
 timestamp_override = "event.ingested"
 building_block_type = "default"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.action == "start" and
-  (process.name : "msdt.exe" or process.pe.original_file_name == "msdt.exe") and process.args : "/cab" and
+  (process.name : "msdt.exe" or ?process.pe.original_file_name == "msdt.exe") and process.args : "/cab" and
   process.parent.name : (
     "firefox.exe", "chrome.exe", "msedge.exe", "explorer.exe", "brave.exe", "whale.exe", "browser.exe",
     "dragon.exe", "vivaldi.exe", "opera.exe", "iexplore", "firefox.exe", "waterfox.exe", "iexplore.exe",

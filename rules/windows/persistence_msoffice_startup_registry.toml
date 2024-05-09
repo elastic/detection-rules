@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2023/08/22"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/04/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the modification of the Microsoft Office "Office Test" Registry key, a registry location that can be used to
+specify a DLL which will be executed every time an MS Office application is started. Attackers can abuse this to gain
+persistence on a compromised host.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.registry-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Office Test Registry Persistence"
+references = [
+    "https://unit42.paloaltonetworks.com/unit42-technical-walkthrough-office-test-persistence-method-used-in-recent-sofacy-attacks/",
+]
+risk_score = 21
+rule_id = "14dab405-5dd9-450c-8106-72951af2391f"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.action != "deletion" and
+    registry.path : "*\\Software\\Microsoft\\Office Test\\Special\\Perf\\*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1137"
+name = "Office Application Startup"
+reference = "https://attack.mitre.org/techniques/T1137/"
+[[rule.threat.technique.subtechnique]]
+id = "T1137.002"
+name = "Office Test"
+reference = "https://attack.mitre.org/techniques/T1137/002/"
+	
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

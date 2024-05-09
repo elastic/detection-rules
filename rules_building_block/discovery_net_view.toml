@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
+updated_date = "2024/04/05"
 bypass_bbr_timing = true
 
 [rule]
@@ -12,7 +12,7 @@ author = ["Elastic"]
 building_block_type = "default"
 description = "Identifies attempts to enumerate hosts in a network using the built-in Windows net.exe tool."
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Network Enumeration"
@@ -73,7 +73,8 @@ process where host.os.type == "windows" and event.type == "start" and
   ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
    ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
        not process.parent.name : "net.exe")) and
-  (process.args : "view" or (process.args : "time" and process.args : "\\\\*"))
+  (process.args : "view" or (process.args : "time" and process.args : "\\\\*")) and
+  not process.command_line : "net  view \\\\localhost "
 
 
   /* expand when ancestry is available

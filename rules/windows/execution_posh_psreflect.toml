@@ -2,9 +2,9 @@
 creation_date = "2021/10/15"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
+min_stack_version = "8.12.0"
+updated_date = "2024/03/12"
 
 [transform]
 [[transform.osquery]]
@@ -153,10 +153,15 @@ event.category:process and host.os.type:windows and
     "Reflection.Emit.CustomAttributeBuilder" or
     "Runtime.InteropServices.DllImportAttribute"
   ) and
-  not user.id : "S-1-5-18" and
-  not file.path : ?\:\\\\ProgramData\\\\MaaS360\\\\Cloud?Extender\\\\AR\\\\Scripts\\\\ASModuleCommon.ps1*
+  not user.id : "S-1-5-18"
 '''
 
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\ProgramData\\\\MaaS360\\\\Cloud Extender\\\\AR\\\\Scripts\\\\ASModuleCommon.ps1"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

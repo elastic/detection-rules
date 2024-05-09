@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2024/04/01"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/04/01"
+
+
+[rule]
+author = ["Elastic"]
+description = """
+It identifies potential malicious shell executions through remote SSH and detects cases where the sshd service suddenly
+terminates soon after successful execution, suggesting suspicious behavior similar to the XZ backdoor.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Execution via XZBackdoor"
+references =["https://github.com/amlweems/xzbot", "https://access.redhat.com/security/cve/CVE-2024-3094"]
+risk_score = 73
+rule_id = "7afc6cc9-8800-4c7f-be6b-b688d2dea248"
+severity = "high"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Credential Access",
+        "Tactic: Persistence",
+        "Tactic: Lateral Movement",
+        "Data Source: Elastic Defend"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by host.id, user.id with maxspan=1s
+ [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "sshd" and
+    process.args == "-D" and process.args == "-R"] by process.pid, process.entity_id
+ [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name == "sshd" and 
+  process.executable != "/usr/sbin/sshd"] by process.parent.pid, process.parent.entity_id
+ [process where host.os.type == "linux" and event.action == "end" and process.name == "sshd" and process.exit_code != 0] by process.pid, process.entity_id
+ [network where host.os.type == "linux" and event.type == "end" and event.action == "disconnect_received" and process.name == "sshd"] by process.pid, process.entity_id
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[[rule.threat.technique]]
+id = "T1563"
+name = "Remote Service Session Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1563.001"
+name = "SSH Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/001/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"

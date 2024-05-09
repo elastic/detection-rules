@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2024/04/30"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2024/04/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors the creation/alteration of a shell configuration by a previously unknown process executable using the
+new terms rule type. Unix systems use shell configuration files to set environment variables, create aliases, and
+customize the user's environment. Adversaries may modify or add a shell configuration file to execute malicious code and
+gain persistence in the system. This behavior is consistent with the Kaiji malware family.
+"""
+false_positives = ["Legitimate user shell modification activity."]
+from = "now-9m"
+index = ["logs-endpoint.events.*", "endgame-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Shell Configuration Modification"
+references = ["https://intezer.com/blog/research/kaiji-new-chinese-linux-malware-turning-to-golang/"]
+risk_score = 47
+rule_id = "28f6f34b-8e16-487a-b5fd-9d22eb903db8"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
+type = "new_terms"
+timestamp_override = "event.ingested"
+query = '''
+event.category:file and host.os.type:linux and
+event.action:(creation or file_create_event or rename or file_rename_event) and file.path:(
+  "/etc/profile" or "/etc/profile.local" or "/etc/bashrc" or "/etc/bash.bashrc" or "/etc/bash.bashrc.local" or
+  "/etc/zshenv" or "/etc/zprofile" or "/etc/zlogin" or "/etc/zlogout" or "/root/.profile" or "/root/.bash_logout" or
+  "/root/.bashrc" or "/root/.bash_login" or /etc/profile.d/* or /home/*/.profile or /home/*/.bash_logout or
+  /home/*/.bashrc or /home/*/.bash_login
+) and not (
+  (process.executable: (
+  "/bin/dpkg" or "/usr/bin/dpkg" or "/bin/useradd" or "/usr/sbin/useradd" or "/bin/adduser" or "/usr/sbin/adduser" or
+  "/bin/dockerd" or "/usr/bin/dockerd" or "/bin/microdnf" or "/usr/bin/microdnf" or "/bin/rpm" or "/usr/bin/rpm" or
+  "/bin/snapd" or "/usr/bin/snapd" or "/bin/yum" or "/usr/bin/yum" or "/bin/dnf" or "/usr/bin/dnf" or "/bin/podman" or
+  "/usr/bin/podman" or "/bin/dnf-automatic" or "/usr/bin/dnf-automatic" or "/bin/pacman" or "/usr/bin/pacman"
+  )
+) or
+  (file.extension:("swp" or "swpx")) or
+  (process.executable:("/bin/sed" or "/usr/bin/sed") and file.name:sed*) or
+  (process.executable:("/bin/perl" or "/usr/bin/perl") and file.name:e2scrub_all.tmp*)
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.004"
+name = "Unix Shell Configuration Modification"
+reference = "https://attack.mitre.org/techniques/T1546/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id",  "user.id", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

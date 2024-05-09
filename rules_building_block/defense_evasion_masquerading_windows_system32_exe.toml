@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/01/11"
+updated_date = "2024/04/05"
 bypass_bbr_timing = true
 
 [rule]
@@ -14,7 +14,7 @@ Identifies suspicious instances of default system32 executables, either unsigned
 This could indicate the attempt to masquerade as system executables or backdoored and resigned legitimate executables.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Masquerading as System32 Executable"
@@ -46,13 +46,30 @@ process where host.os.type == "windows" and event.type == "start" and
       "?:\\Windows\\Temp\\{*}\\taskkill.exe",
       "?:\\Users\\*\\AppData\\Local\\Temp\\{*}\\taskkill.exe",
       "?:\\$WINDOWS.~BT\\NewOS\\Windows\\System32\\ie4ushowIE.exe",
-      "?:\\Program Files\\Git\\usr\\bin\\find.exe"
+      "?:\\Program Files\\Git\\usr\\bin\\find.exe",
+      "?:\\Program Files (x86)\\Axence\\nVision Agent 2\\nss\\certutil.exe"
     )
   ) and
   not
   (
     (process.name: "ucsvc.exe" and process.code_signature.subject_name == "Wellbia.com Co., Ltd." and process.code_signature.status: "trusted") or
-    (process.name: "pnputil.exe" and process.code_signature.subject_name: "Lenovo" and process.code_signature.status: "trusted")
+    (process.name: "pnputil.exe" and process.code_signature.subject_name: ("Lenovo", "HP Inc.", "Dell Inc") and process.code_signature.status: "trusted") or
+    (process.name: "convert.exe" and process.code_signature.subject_name: "ImageMagick Studio LLC" and process.code_signature.status: "trusted") or
+    (process.name: "systeminfo.exe" and process.code_signature.subject_name: "Arctic Wolf Networks, Inc." and process.code_signature.status: "trusted") or
+    (
+      process.name: "certutil.exe" and
+      process.code_signature.subject_name: (
+        "Intel(R) Online Connect Access",
+        "Fortinet Technologies (Canada) ULC"
+      ) and process.code_signature.status: "trusted"
+    ) or
+    (
+      process.name: "sfc.exe" and
+      process.code_signature.subject_name: (
+        "Cisco Systems, Inc.",
+        "CISCO SYSTEMS CANADA CO"
+      ) and process.code_signature.status: "trusted"
+    )
   )
 '''
 

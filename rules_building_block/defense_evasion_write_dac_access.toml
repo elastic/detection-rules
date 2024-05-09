@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/09"
+updated_date = "2024/04/08"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ lateral movement, and persistence.
 """
 from = "now-119m"
 interval = "60m"
-index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-system.security*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "WRITEDAC Access on Active Directory Object"
@@ -49,8 +49,8 @@ type = "query"
 building_block_type = "default"
 
 query = '''
-event.action:"Directory Service Access" and event.code:"5136" and
-  winlog.event_data.AccessMask:"0x40000"
+host.os.type: "windows" and event.action : ("Directory Service Access" or "object-operation-performed") and
+  event.code : "4662" and winlog.event_data.AccessMask:"0x40000"
 '''
 
 [[rule.threat]]
