@@ -30,10 +30,10 @@ from eql.utils import load_dump, stream_json_lines
 
 import kql
 
-CURR_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(CURR_DIR)
-ETC_DIR = os.path.join(ROOT_DIR, "detection_rules", "etc")
-INTEGRATION_RULE_DIR = os.path.join(ROOT_DIR, "rules", "integrations")
+CURR_DIR = Path(__file__).resolve().parent
+ROOT_DIR = CURR_DIR.parent
+ETC_DIR = ROOT_DIR / "detection_rules" / "etc"
+INTEGRATION_RULE_DIR = ROOT_DIR / "rules" / "integrations"
 
 
 class NonelessDict(dict):
@@ -87,18 +87,18 @@ def get_json_iter(f):
 
 def get_path(*paths) -> str:
     """Get a file by relative path."""
-    return os.path.join(ROOT_DIR, *paths)
+    return str(ROOT_DIR.joinpath(*paths))
 
 
-def get_etc_path(*paths):
+def get_etc_path(*paths) -> str:
     """Load a file from the detection_rules/etc/ folder."""
-    return os.path.join(ETC_DIR, *paths)
+    return str(ETC_DIR.joinpath(*paths))
 
 
-def get_etc_glob_path(*patterns):
+def get_etc_glob_path(*patterns) -> list:
     """Load a file from the detection_rules/etc/ folder."""
     pattern = os.path.join(*patterns)
-    return glob.glob(os.path.join(ETC_DIR, pattern))
+    return glob.glob(str(ETC_DIR / pattern))
 
 
 def get_etc_file(name, mode="r"):
