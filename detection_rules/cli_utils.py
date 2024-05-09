@@ -16,6 +16,7 @@ import kql
 import functools
 from . import ecs
 from .attack import matrix, tactics, build_threat_map_entry
+from .config import parse_rules_config
 from .rule import TOMLRule, TOMLRuleContents
 from .rule_loader import (RuleCollection,
                           DEFAULT_PREBUILT_RULES_DIR,
@@ -24,6 +25,7 @@ from .rule_loader import (RuleCollection,
 from .schemas import definitions
 from .utils import clear_caches, get_path
 
+RULES_CONFIG = parse_rules_config()
 RULES_DIR = get_path("rules")
 
 
@@ -133,7 +135,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             continue
 
         # these are set at package release time
-        if name == 'version':
+        if name == 'version' and RULES_CONFIG.version_strategy == "auto":
             continue
 
         if required_only and name not in required_fields:
