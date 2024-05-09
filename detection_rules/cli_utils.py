@@ -134,8 +134,11 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             contents[name] = rule_type
             continue
 
-        # these are set at package release time
+        # these are set at package release time depending on the version_strategy
         if name == 'version' and RULES_CONFIG.version_strategy == "auto":
+            continue
+
+        if name == 'revision' and RULES_CONFIG.version_strategy == "auto":
             continue
 
         if required_only and name not in required_fields:
