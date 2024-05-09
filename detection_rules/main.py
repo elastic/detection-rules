@@ -33,10 +33,8 @@ from .rule_loader import RuleCollection
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
 from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents, rulename_to_filename
 
-
-RULES_DIR = get_path('rules')
-ROOT_DIR = Path(RULES_DIR).parent
 RULES_CONFIG = parse_rules_config()
+RULES_DIR = RULES_CONFIG.rule_dirs
 
 
 @click.group('detection-rules', context_settings={'help_option_names': ['-h', '--help']})

@@ -22,9 +22,7 @@ from .rule_loader import (RuleCollection,
                           DEFAULT_PREBUILT_BBR_DIRS,
                           dict_filter)
 from .schemas import definitions
-from .utils import clear_caches, get_path
-
-RULES_DIR = get_path("rules")
+from .utils import clear_caches
 
 
 def single_collection(f):
@@ -187,7 +185,8 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
 
             contents[name] = result
 
-    suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
+    # DEFAULT_PREBUILT_RULES_DIRS[0] is a required directory
+    suggested_path = os.path.join(DEFAULT_PREBUILT_RULES_DIRS[0], contents['name'])
     path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
     meta = {'creation_date': creation_date, 'updated_date': creation_date, 'maturity': 'development'}
 
