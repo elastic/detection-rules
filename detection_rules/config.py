@@ -191,10 +191,10 @@ class RulesConfig:
     def __post_init__(self):
         """Perform post validation on packages.yml file."""
         if 'package' not in self.packages:
-            raise SystemExit('Missing the `package` field defined in packages.yml.')
+            raise ValueError('Missing the `package` field defined in packages.yml.')
 
         if 'name' not in self.packages['package']:
-            raise SystemExit('Missing the `name` field defined in packages.yml.')
+            raise ValueError('Missing the `name` field defined in packages.yml.')
 
 
 @cached
@@ -214,8 +214,10 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
         ConfigFile.from_dict(loaded)
     except KeyError as e:
         raise SystemExit(f'Missing key `{str(e)}` in _config.yaml file.')
-    except TypeError:
-        raise SystemExit(f'No data loaded from {path}')
+    except (AttributeError, TypeError):
+        raise SystemExit(f'No data properly loaded from {path}')
+    except ValueError as e:
+        raise SystemExit(e)
 
     base_dir = path.resolve().parent
 
@@ -259,7 +261,11 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     # paths are relative
     contents['rule_dirs'] = [base_dir.joinpath(d) for d in loaded.get('rule_dirs')]
 
-    rules_config = RulesConfig(test_config=test_config, **contents)
+    try:
+        rules_config = RulesConfig(test_config=test_config, **contents)
+    except (ValueError, TypeError) as e:
+        raise SystemExit(f'Error parsing packages.yml: {str(e)}')
+
     return rules_config
 
 

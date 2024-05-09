@@ -57,15 +57,13 @@ def create_test_config_content() -> str:
 @custom_rules.command('setup-config')
 @click.argument('directory', type=Path)
 @click.argument('kibana-version', type=str, default=load_etc_dump('packages.yml')['package']['name'])
-@click.option('--delete-config', is_flag=True, help="Delete the existing _config.yaml file.")
-def setup_config(directory: Path, kibana_version: str, delete_config: bool):
+@click.option('--overwrite', is_flag=True, help="Overwrite the existing _config.yaml file.")
+def setup_config(directory: Path, kibana_version: str, overwrite: bool):
     """Setup the custom rules configuration directory and files with defaults."""
 
-    if delete_config:
-        config = directory / '_config.yaml'
-        if config.exists():
-            config.unlink()
-            click.echo(f'Deleted existing _config.yaml file: {config}')
+    config = directory / '_config.yaml'
+    if not overwrite and config.exists():
+        raise FileExistsError(f'{config} already exists. Use --overwrite to update')
 
     etc_dir = directory / 'etc'
     config = directory / '_config.yaml'
