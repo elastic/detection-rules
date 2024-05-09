@@ -9,12 +9,11 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from functools import cached_property
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 import yaml
 from eql.utils import load_dump
 
-from .schemas.definitions import VersionConfigStrategy
 from .misc import discover_tests
 from .utils import cached, load_etc_dump, get_etc_path
 
@@ -146,7 +145,7 @@ class RulesConfig:
     test_config: TestConfig
     version_lock_file: Path
     version_lock: Dict[str, dict]
-    version_strategy: VersionConfigStrategy = "auto"
+    version_strategy: Literal['auto', 'manual'] = "auto"
 
     action_dir: Optional[Path] = None
     exception_dir: Optional[Path] = None
