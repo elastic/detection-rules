@@ -461,24 +461,20 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
     @validates_schema
     def validates_data(self, data, **kwargs):
-        self.validate_version_revision()
+        """Validate rule directories against restricted directories."""
+        error_fields = [field for field in ['version', 'revision'] if data.get(field) is not None]
+        if not error_fields:
+            return
 
-    def validate_version_revision(self):
-        """Validates 'version' and 'revision' fields based on the rule directory."""
+        error_message = " and ".join(error_fields)
 
-        pass
-        # if self.path and (RULES_DIR in self.path.parents or RULES_BBR_DIR in self.path.parents):
-        #     errors = []
-        #     if getattr(self.contents.data, 'version', None) is not None:
-        #         errors.append('version')
-        #     if getattr(self.contents.data, 'revision', None) is not None:
-        #         errors.append('revision')
-
-        #     if errors:
-        #         error_fields = ' and '.join(errors)
-        #         dir_context = RULES_DIR if RULES_DIR in self.path.parents else RULES_BBR_DIR
-        #         raise ValueError(f"Prebuilt rule toml files in {dir_context} must not include `{error_fields}`. "
-        #                          f"Rule {self.name} ({self.id}) includes {error_fields}.")
+        # Check each config directory against restricted directories
+        for config_dir in RULES_CONFIG.rule_dirs:
+            for restricted_dir in [RULES_DIR, RULES_BBR_DIR]:
+                if config_dir == restricted_dir or restricted_dir in config_dir.parents:
+                    msg = (f"Configuration error: Rule {data['name']} - {data['rule_id']} in "
+                           f"{config_dir} should not contain rules with `{error_message}` set.")
+                    raise ValidationError(msg)
 
 
 class DataValidator:
@@ -996,7 +992,7 @@ class BaseRuleContents(ABC):
     @property
     def autobumped_version(self) -> Optional[int]:
         """Retrieve the current version of the rule, accounting for automatic increments."""
-        version = self.latest_version or self.data.version
+        version = self.data.version or self.latest_version
         if version is None:
             return 1
 

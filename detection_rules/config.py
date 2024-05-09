@@ -205,7 +205,7 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
 
     # rule_dirs
     # paths are relative
-    contents['rule_dirs'] = [base_dir.joinpath(d) for d in loaded.get('rule_dirs', [])]
+    contents['rule_dirs'] = [base_dir.joinpath(d).resolve() for d in loaded.get('rule_dirs', [])]
 
     rules_config = RulesConfig(test_config=test_config, **contents)
     return rules_config
