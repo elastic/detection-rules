@@ -36,3 +36,27 @@ relativeTo = "now"
 Other transform suppoprt can be found under
 
 `python -m detection-rules dev transforms -h`
+
+
+## Using the `RuleResource` methods built on detections `_bulk_action` APIs
+
+The following is meant to serve as a simple example of to use the methods
+
+```python
+import kibana
+from kibana import definitions
+
+rids = ['40e1f208-aaaa-bbbb-98ea-378ccf504ad3', '5e9bc07c-cccc-dddd-a6c0-1cae4a0d256e']
+
+# with TypedDict, either is valid, both with static type checking
+set_tags = definitions.RuleBulkSetTags(type='set_tags', value=['tag1', 'tag2'])
+delete_tags: definitions.RuleBulkDeleteTags = {'type': 'delete_tags', 'value': ['tag1', 'tag2']}
+
+with kibana:
+    r1 = RuleResource.bulk_enable(rids, dry_run=True)
+    r2 = RuleResource.bulk_disable(rids, dry_run=True)
+    r3 = RuleResource.bulk_duplicate(rids, dry_run=True)
+    r4 = RuleResource.bulk_export(rids)
+    r5 = RuleResource.bulk_edit(edit_object=[set_tags, delete_tags], rule_ids=rids, dry_run=True)
+    r6 = RuleResource.bulk_delete(rids, dry_run=True)
+```
