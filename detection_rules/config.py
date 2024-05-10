@@ -28,7 +28,7 @@ class UnitTest:
     test_only: Optional[List[str]] = None
 
     def __post_init__(self):
-        assert (self.bypass is None or self.test_only is None), \
+        assert not (self.bypass is not None and self.test_only is not None), \
             'Cannot set both `test_only` and `bypass` in test_config!'
 
 

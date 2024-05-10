@@ -32,7 +32,6 @@ from .integrations import (find_least_compatible_version, get_integration_schema
                            parse_datasets)
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
-from .rule_loader import DEFAULT_PREBUILT_BBR_DIRS, DEFAULT_PREBUILT_RULES_DIRS
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas,
                       strip_non_public_fields)
@@ -44,6 +43,8 @@ _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 TIME_NOW = time.strftime('%Y/%m/%d')
 RULES_CONFIG = parse_rules_config()
+DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
+DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_rules_dirs
 
 
 BUILD_FIELD_VERSIONS = {
