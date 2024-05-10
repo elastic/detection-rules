@@ -28,7 +28,7 @@ class UnitTest:
     test_only: Optional[List[str]] = None
 
     def __post_init__(self):
-        assert not (self.bypass is not None and self.test_only is not None), \
+        assert (self.bypass is None or self.test_only is None), \
             'Cannot set both `test_only` and `bypass` in test_config!'
 
 
@@ -262,15 +262,15 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     # paths are relative
     contents['rule_dirs'] = [base_dir.joinpath(d).resolve() for d in loaded.get('rule_dirs')]
 
-    try:
-        rules_config = RulesConfig(test_config=test_config, **contents)
-    except (ValueError, TypeError) as e:
-        raise SystemExit(f'Error parsing packages.yml: {str(e)}')
-
     # bbr_rules_dirs
     # paths are relative
     if loaded.get('bbr_rules_dirs'):
         contents['bbr_rules_dirs'] = [base_dir.joinpath(d).resolve() for d in loaded.get('bbr_rules_dirs', [])]
+
+    try:
+        rules_config = RulesConfig(test_config=test_config, **contents)
+    except (ValueError, TypeError) as e:
+        raise SystemExit(f'Error parsing packages.yml: {str(e)}')
 
     return rules_config
 
