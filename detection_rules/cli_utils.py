@@ -185,7 +185,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
 
             contents[name] = result
 
-    # DEFAULT_PREBUILT_RULES_DIRS[0] is a required directory
+    # DEFAULT_PREBUILT_RULES_DIRS[0] is a required directory just as a suggestion
     suggested_path = os.path.join(DEFAULT_PREBUILT_RULES_DIRS[0], contents['name'])
     path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
     meta = {'creation_date': creation_date, 'updated_date': creation_date, 'maturity': 'development'}

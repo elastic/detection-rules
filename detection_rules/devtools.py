@@ -50,7 +50,7 @@ from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
-from .rule_loader import DEFAULT_PREBUILT_RULES_DIRS, RULES_CONFIG, RuleCollection, production_filter
+from .rule_loader import RULES_CONFIG, RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import dict_hash, get_etc_path, get_path, load_dump
 from .version_lock import VersionLockFile, loaded_version_lock
@@ -312,7 +312,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
             continue
 
         # it's a change to a rule file, load it and check the version
-        for rules_dir in DEFAULT_PREBUILT_RULES_DIRS:
+        for rules_dir in RULES_CONFIG.rule_dirs:
             if str(change.path.absolute()).startswith(str(rules_dir)) and change.path.suffix == ".toml":
                 # bypass TOML validation in case there were schema changes
                 dict_contents = RuleCollection.deserialize_toml_string(change.read())
