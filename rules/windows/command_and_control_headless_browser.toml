@@ -53,15 +53,11 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
  process.name : ("chrome.exe", "msedge.exe", "brave.exe", "browser.exe", "dragon.exe", "vivaldi.exe") and
- (
-  (process.args : "--headless*" and process.args : ("http*", "data:text/html;base64,*")) or
-  (process.args_count == 2 and process.args : "data:text/html;base64,*")
-  ) and
+  (process.args : "--headless*" or process.args : "data:text/html;base64,*") and
   process.parent.name :
      ("cmd.exe", "powershell.exe", "wscript.exe", "cscript.exe", "mshta.exe", "conhost.exe", "msiexec.exe",
       "explorer.exe", "rundll32.exe", "winword.exe", "excel.exe", "onenote.exe", "hh.exe", "powerpnt.exe", "forfiles.exe",
-      "pcalua.exe", "wmiprvse.exe") and
-  not process.args : ("http://localhost/Allure#graph",  "--print-to-pdf=*")
+      "pcalua.exe", "wmiprvse.exe")
 '''
 
 
