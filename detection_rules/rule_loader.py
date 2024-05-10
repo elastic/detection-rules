@@ -17,6 +17,7 @@ import json
 from marshmallow.exceptions import ValidationError
 
 from . import utils
+from .config import parse_rules_config
 from .mappings import RtaMappings
 from .rule import (
     DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule, TOMLRuleContents
@@ -24,10 +25,9 @@ from .rule import (
 from .schemas import definitions
 from .utils import cached, get_path
 
-DEFAULT_PREBUILT_RULES_DIR = Path(get_path("rules"))
-DEFAULT_PREBUILT_BBR_DIR = Path(get_path("rules_building_block"))
-DEFAULT_PREBUILT_DEPRECATED_DIR = DEFAULT_PREBUILT_RULES_DIR / '_deprecated'
-DEFAULT_PREBUILT_RTA_DIR = get_path("rta")
+RULES_CONFIG = parse_rules_config()
+DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
+DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_rules_dirs
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
 
 
@@ -294,8 +294,8 @@ class RawRuleCollection(BaseCollection):
         """Return the default rule collection, which retrieves from rules/."""
         if cls.__default is None:
             collection = RawRuleCollection()
-            collection.load_directory(DEFAULT_PREBUILT_RULES_DIR)
-            collection.load_directory(DEFAULT_PREBUILT_BBR_DIR)
+            collection.load_directories(DEFAULT_PREBUILT_RULES_DIRS)
+            collection.load_directories(DEFAULT_PREBUILT_BBR_DIRS)
             collection.freeze()
             cls.__default = collection
 
@@ -306,7 +306,7 @@ class RawRuleCollection(BaseCollection):
         """Return the default BBR collection, which retrieves from building_block_rules/."""
         if cls.__default_bbr is None:
             collection = RawRuleCollection()
-            collection.load_directory(DEFAULT_PREBUILT_BBR_DIR)
+            collection.load_directories(DEFAULT_PREBUILT_BBR_DIRS)
             collection.freeze()
             cls.__default_bbr = collection
 
@@ -443,8 +443,10 @@ class RuleCollection(BaseCollection):
         from .version_lock import VersionLock, add_rule_types_to_lock
 
         git = utils.make_git()
-        rules_dir = DEFAULT_PREBUILT_RULES_DIR.relative_to(get_path("."))
-        paths = git("ls-tree", "-r", "--name-only", branch, rules_dir).splitlines()
+        paths = []
+        for rules_dir in DEFAULT_PREBUILT_RULES_DIRS:
+            rules_dir = rules_dir.relative_to(get_path("."))
+            paths.extend(git("ls-tree", "-r", "--name-only", branch, rules_dir).splitlines())
 
         rule_contents = []
         rule_map = {}
@@ -508,8 +510,8 @@ class RuleCollection(BaseCollection):
         """Return the default rule collection, which retrieves from rules/."""
         if cls.__default is None:
             collection = RuleCollection()
-            collection.load_directory(DEFAULT_PREBUILT_RULES_DIR)
-            collection.load_directory(DEFAULT_PREBUILT_BBR_DIR)
+            collection.load_directories(DEFAULT_PREBUILT_RULES_DIRS)
+            collection.load_directories(DEFAULT_PREBUILT_BBR_DIRS)
             collection.freeze()
             cls.__default = collection
 
@@ -520,7 +522,7 @@ class RuleCollection(BaseCollection):
         """Return the default BBR collection, which retrieves from building_block_rules/."""
         if cls.__default_bbr is None:
             collection = RuleCollection()
-            collection.load_directory(DEFAULT_PREBUILT_BBR_DIR)
+            collection.load_directories(DEFAULT_PREBUILT_BBR_DIRS)
             collection.freeze()
             cls.__default_bbr = collection
 
@@ -630,8 +632,8 @@ rta_mappings = RtaMappings()
 
 __all__ = (
     "FILE_PATTERN",
-    "DEFAULT_PREBUILT_RULES_DIR",
-    "DEFAULT_PREBUILT_BBR_DIR",
+    "DEFAULT_PREBUILT_RULES_DIRS",
+    "DEFAULT_PREBUILT_BBR_DIRS",
     "load_github_pr_rules",
     "DeprecatedCollection",
     "DeprecatedRule",

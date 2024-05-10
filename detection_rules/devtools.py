@@ -33,7 +33,6 @@ from . import attack, rule_loader, utils
 from .beats import (download_beats_schema, download_latest_beats_schema,
                     refresh_main_schema)
 from .cli_utils import single_collection
-from .config import parse_rules_config
 from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
@@ -51,13 +50,11 @@ from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
-from .rule_loader import RuleCollection, production_filter
+from .rule_loader import RULES_CONFIG, RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import dict_hash, get_etc_path, get_path, load_dump
 from .version_lock import VersionLockFile, loaded_version_lock
 
-RULES_CONFIG = parse_rules_config()
-RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
 NAVIGATOR_GIST_ID = '1a3f65224822a30a8228a8ed20289a89'
 NAVIGATOR_URL = 'https://ela.st/detection-rules-navigator'
@@ -315,15 +312,17 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
             continue
 
         # it's a change to a rule file, load it and check the version
-        if str(change.path.absolute()).startswith(RULES_DIR) and change.path.suffix == ".toml":
-            # bypass TOML validation in case there were schema changes
-            dict_contents = RuleCollection.deserialize_toml_string(change.read())
-            min_stack_version: Optional[str] = dict_contents.get("metadata", {}).get("min_stack_version")
+        for rules_dir in RULES_CONFIG.rule_dirs:
+            if str(change.path.absolute()).startswith(str(rules_dir)) and change.path.suffix == ".toml":
+                # bypass TOML validation in case there were schema changes
+                dict_contents = RuleCollection.deserialize_toml_string(change.read())
+                min_stack_version: Optional[str] = dict_contents.get("metadata", {}).get("min_stack_version")
 
-            if min_stack_version is not None and \
-                    (target_stack_version < Version.parse(min_stack_version, optional_minor_and_patch=True)):
-                # rule is incompatible, add to the list of reversions to make later
-                reversions.append(change)
+                if min_stack_version is not None and \
+                        (target_stack_version < Version.parse(min_stack_version, optional_minor_and_patch=True)):
+                    # rule is incompatible, add to the list of reversions to make later
+                    reversions.append(change)
+                break
 
     if len(reversions) == 0:
         click.echo("No files restored from staging area")
@@ -733,7 +732,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
         ctx.exit()
 
     today = time.strftime('%Y/%m/%d')
-    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
+    deprecated_path = rule.get_base_rule_dir() / '_deprecated' / rule_file.name
 
     # create the new rule and save it
     new_meta = dataclasses.replace(rule.contents.metadata,

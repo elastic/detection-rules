@@ -186,6 +186,7 @@ class RulesConfig:
     version_lock: Dict[str, dict]
 
     action_dir: Optional[Path] = None
+    bbr_rules_dirs: Optional[List[Path]] = None
     bypass_version_lock: bool = False
     exception_dir: Optional[Path] = None
 
@@ -249,14 +250,14 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     # files
     # paths are relative
     files = {f'{k}_file': base_dir.joinpath(v) for k, v in loaded['files'].items()}
-    contents = {k: load_dump(str(base_dir.joinpath(v))) for k, v in loaded['files'].items()}
+    contents = {k: load_dump(str(base_dir.joinpath(v).resolve())) for k, v in loaded['files'].items()}
 
     contents.update(**files)
 
     # directories
     # paths are relative
     if loaded.get('directories'):
-        contents.update({k: base_dir.joinpath(v) for k, v in loaded['directories'].items()})
+        contents.update({k: base_dir.joinpath(v).resolve() for k, v in loaded['directories'].items()})
 
     # rule_dirs
     # paths are relative
@@ -264,6 +265,11 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
 
     # version strategy
     contents['bypass_version_lock'] = loaded.get('bypass_version_lock', False)
+
+    # bbr_rules_dirs
+    # paths are relative
+    if loaded.get('bbr_rules_dirs'):
+        contents['bbr_rules_dirs'] = [base_dir.joinpath(d).resolve() for d in loaded.get('bbr_rules_dirs', [])]
 
     try:
         rules_config = RulesConfig(test_config=test_config, **contents)
