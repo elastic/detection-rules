@@ -28,7 +28,7 @@ class UnitTest:
     test_only: Optional[List[str]] = None
 
     def __post_init__(self):
-        assert not (self.bypass is not None and self.test_only is not None), \
+        assert (self.bypass is None or self.test_only is None), \
             'Cannot set both `test_only` and `bypass` in test_config!'
 
 
@@ -62,7 +62,7 @@ class ConfigFile:
     testing: Optional[TestConfigPath] = None
 
     @classmethod
-    def from_dict(cls, obj: dict):
+    def from_dict(cls, obj: dict) -> 'ConfigFile':
         files_data = obj.get('files', {})
         files = cls.FilePaths(
             deprecated_rules_file=files_data.get('deprecated_rules'),
@@ -89,7 +89,7 @@ class TestConfig:
 
     @classmethod
     def from_dict(cls, test_file: Optional[Path] = None, unit_tests: Optional[dict] = None,
-                  rule_validation: Optional[dict] = None):
+                  rule_validation: Optional[dict] = None) -> 'TestConfig':
         return cls(test_file=test_file or None, unit_tests=UnitTest(**unit_tests or {}),
                    rule_validation=RuleValidation(**rule_validation or {}))
 

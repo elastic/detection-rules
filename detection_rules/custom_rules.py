@@ -66,7 +66,6 @@ def setup_config(directory: Path, kibana_version: str, overwrite: bool):
         raise FileExistsError(f'{config} already exists. Use --overwrite to update')
 
     etc_dir = directory / 'etc'
-    config = directory / '_config.yaml'
     test_config = etc_dir / 'test_config.yaml'
     package_config = etc_dir / 'packages.yml'
     stack_schema_map_config = etc_dir / 'stack-schema-map.yaml'
