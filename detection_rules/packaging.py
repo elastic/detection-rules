@@ -479,7 +479,7 @@ class Package(object):
 
             bulk_upload_docs.append(create)
 
-            relative_path = rule.get_rules_dir_path()
+            relative_path = str(rule.get_base_rule_dir())
 
             if relative_path is None:
                 raise ValueError(f"Could not find a valid relative path for the rule: {rule.id}")

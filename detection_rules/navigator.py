@@ -163,7 +163,7 @@ class NavigatorBuilder:
     def rule_links_dict(self, rule: TOMLRule) -> dict:
         """Create a links dictionary for a rule."""
         base_url = 'https://github.com/elastic/detection-rules/blob/main/rules/'
-        base_path = rule.get_rules_dir_path()
+        base_path = str(rule.get_base_rule_dir())
 
         if base_path is None:
             raise ValueError("Could not find a valid base path for the rule")

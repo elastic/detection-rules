@@ -1323,12 +1323,12 @@ class TOMLRule:
         """Generate the relevant fleet compatible asset."""
         return {"id": self.id, "attributes": self.contents.to_api_format(), "type": definitions.SAVED_OBJECT_TYPE}
 
-    def get_rules_dir_path(self) -> str:
-        """Get the rules directory for the rule."""
+    def get_base_rule_dir(self) -> Path:
+        """Get the base rule directory for the rule."""
         rules_dir_path = None
         for rules_dir in DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS:
             try:
-                rules_dir_path = str(self.path.resolve().relative_to(rules_dir))
+                rules_dir_path = self.path.resolve().relative_to(rules_dir)
                 break
             except ValueError:
                 continue
