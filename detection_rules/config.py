@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from functools import cached_property
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Optional
 
 import yaml
 from eql.utils import load_dump
@@ -184,9 +184,9 @@ class RulesConfig:
     test_config: TestConfig
     version_lock_file: Path
     version_lock: Dict[str, dict]
-    version_strategy: Literal['auto', 'manual'] = "auto"
 
     action_dir: Optional[Path] = None
+    bypass_version_lock: bool = False
     exception_dir: Optional[Path] = None
 
     def __post_init__(self):
@@ -261,6 +261,9 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     # rule_dirs
     # paths are relative
     contents['rule_dirs'] = [base_dir.joinpath(d).resolve() for d in loaded.get('rule_dirs')]
+
+    # version strategy
+    contents['bypass_version_lock'] = loaded.get('bypass_version_lock', False)
 
     try:
         rules_config = RulesConfig(test_config=test_config, **contents)

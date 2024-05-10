@@ -468,13 +468,10 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
         error_message = " and ".join(error_fields)
 
-        # Check each config directory against restricted directories
-        for config_dir in RULES_CONFIG.rule_dirs:
-            for restricted_dir in [RULES_DIR, RULES_BBR_DIR]:
-                if config_dir == restricted_dir or restricted_dir in config_dir.parents:
-                    msg = (f"Configuration error: Rule {data['name']} - {data['rule_id']} in "
-                           f"{config_dir} should not contain rules with `{error_message}` set.")
-                    raise ValidationError(msg)
+        if 'Elastic' == data.get('author')[0]:
+            msg = (f"Configuration error: Rule {data['name']} - {data['rule_id']} "
+                   f"authored by Elastic should not contain rules with `{error_message}` set.")
+            raise ValidationError(msg)
 
 
 class DataValidator:
@@ -992,11 +989,17 @@ class BaseRuleContents(ABC):
     @property
     def autobumped_version(self) -> Optional[int]:
         """Retrieve the current version of the rule, accounting for automatic increments."""
-        version = self.data.get("version") or self.latest_version
+        version = self.latest_version
+        if not RULES_CONFIG.bypass_version_lock and self.data.get("version"):
+            print(f"Warning: Rule {self.name} - {self.id} has a version set in the rule TOML."
+                  "This `version` will be ignored and defaulted to the version.lock.json file.")
+        else:
+            version = self.data.get("version")
+
         if version is None:
             return 1
 
-        return version + 1 if self.is_dirty and RULES_CONFIG.version_strategy == "auto" else version
+        return version + 1 if self.is_dirty and not RULES_CONFIG.bypass_version_lock else version
 
     @classmethod
     def convert_supported_version(cls, stack_version: Optional[str]) -> Version:
