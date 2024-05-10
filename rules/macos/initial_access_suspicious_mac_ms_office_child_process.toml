@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: process.Ext.effective_parent"
 min_stack_version = "8.11.0"
-updated_date = "2024/02/07"
+updated_date = "2024/05/10"
 
 [rule]
 author = ["Elastic"]
@@ -53,16 +53,13 @@ type = "eql"
 
 query = '''
 process where event.action == "exec" and
-  descendant of [
-    process where event.action == "exec" and
-    process.name: (
+    process.parent.name: (
       "Microsoft Word",
       "Microsoft Outlook",
       "Microsoft Excel",
       "Microsoft PowerPoint",
       "Microsoft OneNote"
-    )
-  ] and
+    ) and
   process.name : (
     "curl",
     "nscurl",
