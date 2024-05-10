@@ -135,7 +135,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             continue
 
         # these are set at package release time depending on the version strategy
-        if (name == 'version' or name == 'revision') and not RULES_CONFIG.ignore_version_lock:
+        if (name == 'version' or name == 'revision') and not RULES_CONFIG.bypass_version_lock:
             continue
 
         if required_only and name not in required_fields:
