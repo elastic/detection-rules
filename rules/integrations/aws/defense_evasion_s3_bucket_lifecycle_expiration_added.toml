@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
 min_stack_version = "8.9.0"
-updated_date = "2024/04/12"
+updated_date = "2024/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -28,6 +28,47 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS S3 Bucket Expiration Lifecycle Configuration Added"
+note = """
+
+## Triage and Analysis
+
+### Investigating AWS S3 Bucket Expiration Lifecycle Configuration Added
+
+This rule detects when an expiration lifecycle configuration is added to an S3 bucket in AWS. Such configurations can automate the deletion of objects within a bucket after a specified period, potentially obfuscating evidence of unauthorized access or malicious activity by automatically removing logs or other data.
+
+#### Detailed Investigation Steps
+
+- **Review the Affected S3 Bucket**: Check the bucket details (`bucketName`) where the lifecycle configuration has been added.
+    - Determine the contents and importance of the data stored in this bucket to assess the impact of the lifecycle policy.
+- **Analyze the Lifecycle Configuration**:
+  - **Expiration Policy**: Note the `Days` parameter under `Expiration` in the lifecycle rule. This indicates how long after creation data will remain in the bucket before being automatically deleted.
+  - **Rule ID and Status**: Review the `ID` and `Status` of the lifecycle rule to understand its operational scope and activation status.
+- **User Identity and Activity**:
+  - **User Details**: Investigate the user (`user_identity.arn`) who made the change. Determine whether this user's role typically involves managing S3 bucket configurations.
+  - **Authentication Details**: Examine the authentication method and whether the access key used (`access_key_id`) is routinely used for such configurations or if it has deviated from normal usage patterns.
+- **Source IP and User Agent**:
+  - **Source IP Address**: The IP address (`source.ip`) from which the request was made can provide clues about the geographical location of the requester. Determine if this location aligns with the user’s known locations.
+  - **User Agent**: Analyze the user agent string to understand the type of client or service that made the request, which can help identify scripted automation versus manual changes.
+
+#### Possible Indicators of Compromise or Misuse
+
+- **Frequent Changes**: Look for frequent modifications to lifecycle policies in the same or multiple buckets, which can indicate attempts to manipulate data retention dynamically.
+- **Unusual User Activity**: Activities that do not correlate with the user's typical behavior patterns, such as making changes during odd hours or from unusual locations, should be flagged for further investigation.
+
+### False Positive Analysis
+
+- Verify the operational requirements that might necessitate such lifecycle policies, especially in environments where data retention policies are strictly governed for compliance and cost-saving reasons.
+
+### Response and Remediation
+
+- **Immediate Review**: If the change was unauthorized, consider reverting the lifecycle configuration change immediately to prevent potential data loss.
+- **Enhance Monitoring**: Implement monitoring to alert on changes to lifecycle configurations across your S3 environments.
+- **User Education**: Ensure that users with access to critical resources like S3 buckets are aware of the best practices and company policies regarding data retention and security.
+
+### Additional Information
+
+For further guidance on managing S3 lifecycle policies and ensuring compliance with organizational data retention and security policies, refer to the AWS official documentation on [S3 Lifecycle Configuration](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html).
+"""
 references = [
     "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html",
 ]
