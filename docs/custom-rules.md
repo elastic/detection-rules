@@ -3,7 +3,7 @@
 A custom rule is any rule that is not maintained by Elastic under `rules/` or `rules_building_block`. These docs are intended
 to show how to manage custom rules using this repository.
 
-For more detailed breakdown and explanation of employing a detections-as-code approach, refer to the 
+For more detailed breakdown and explanation of employing a detections-as-code approach, refer to the
 [dac-reference](https://dac-reference.readthedocs.io/en/latest/index.html).
 
 
@@ -35,7 +35,7 @@ custom-rules
 ```
 
 This structure represents a portable set of custom rules. This is just an example, and the exact locations of the files
-should be defined in the `_config.yaml` file. Refer to the details in the default 
+should be defined in the `_config.yaml` file. Refer to the details in the default
 [_config.yaml](../detection_rules/etc/_config.yaml) for more information.
 
 * deprecated_rules.json - tracks all deprecated rules (optional)
@@ -44,7 +44,7 @@ should be defined in the `_config.yaml` file. Refer to the details in the defaul
 * test-config.yml - a config file for testing (optional)
 * version.lock.json - this tracks versioning for rules (optional depending on versioning strategy)
 
-To initialize a custom rule directory, run `python -m detection_rules custom-rules init-config <directory>`
+To initialize a custom rule directory, run `python -m detection_rules custom-rules setup-config <directory>`
 
 ### Defining a config
 
@@ -75,9 +75,9 @@ testing:
   config: etc/example_test_config.yaml
 ```
 
-This points to the testing config file (see example under detection_rules/etc/example_test_config.yaml) and can either 
-be set in `_config.yaml` or as the environment variable `DETECTION_RULES_TEST_CONFIG`, with precedence going to the 
-environment variable if both are set. Having both these options allows for configuring testing on prebuilt Elastic rules 
+This points to the testing config file (see example under detection_rules/etc/example_test_config.yaml) and can either
+be set in `_config.yaml` or as the environment variable `DETECTION_RULES_TEST_CONFIG`, with precedence going to the
+environment variable if both are set. Having both these options allows for configuring testing on prebuilt Elastic rules
 without specifying a rules _config.yaml.
 
 
@@ -109,7 +109,7 @@ class RulesConfig:
 
     action_dir: Optional[Path] = None
     exception_dir: Optional[Path] = None
-    
+
 # using the stack_schema_map
 RULES_CONFIG.stack_schema_map
 ```
