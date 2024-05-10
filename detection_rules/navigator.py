@@ -17,7 +17,6 @@ import json
 from .attack import CURRENT_ATTACK_VERSION
 from .mixins import MarshmallowDataclassMixin
 from .rule import TOMLRule
-from .rule_loader import DEFAULT_PREBUILT_RULES_DIRS, DEFAULT_PREBUILT_BBR_DIRS
 from .schemas import definitions
 
 
@@ -164,13 +163,7 @@ class NavigatorBuilder:
     def rule_links_dict(self, rule: TOMLRule) -> dict:
         """Create a links dictionary for a rule."""
         base_url = 'https://github.com/elastic/detection-rules/blob/main/rules/'
-        base_path = None
-        for rules_dir in DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS:
-            try:
-                base_path = str(rule.path.resolve().relative_to(rules_dir))
-                break
-            except ValueError:
-                continue
+        base_path = rule.get_rules_dir_path()
 
         if base_path is None:
             raise ValueError("Could not find a valid base path for the rule")

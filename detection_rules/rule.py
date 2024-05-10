@@ -32,6 +32,7 @@ from .integrations import (find_least_compatible_version, get_integration_schema
                            parse_datasets)
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
+from .rule_loader import DEFAULT_PREBUILT_BBR_DIRS, DEFAULT_PREBUILT_RULES_DIRS
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas,
                       strip_non_public_fields)
@@ -1320,6 +1321,17 @@ class TOMLRule:
     def get_asset(self) -> dict:
         """Generate the relevant fleet compatible asset."""
         return {"id": self.id, "attributes": self.contents.to_api_format(), "type": definitions.SAVED_OBJECT_TYPE}
+
+    def get_rules_dir_path(self) -> str:
+        """Get the rules directory for the rule."""
+        rules_dir_path = None
+        for rules_dir in DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS:
+            try:
+                rules_dir_path = str(self.path.resolve().relative_to(rules_dir))
+                break
+            except ValueError:
+                continue
+        return rules_dir_path
 
     def save_toml(self):
         assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"

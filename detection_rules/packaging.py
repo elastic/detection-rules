@@ -23,7 +23,7 @@ from .config import load_current_package_version, parse_rules_config
 from .misc import JS_LICENSE, cached
 from .navigator import NavigatorBuilder, Navigator
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
-from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_PREBUILT_RULES_DIRS, DEFAULT_PREBUILT_BBR_DIRS
+from .rule_loader import DeprecatedCollection, RuleCollection
 from .schemas import definitions
 from .utils import Ndjson, get_path, get_etc_path
 from .version_lock import loaded_version_lock
@@ -479,13 +479,7 @@ class Package(object):
 
             bulk_upload_docs.append(create)
 
-            relative_path = None
-            for rules_dir in DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS:
-                try:
-                    relative_path = str(rule.path.resolve().relative_to(rules_dir))
-                    break
-                except ValueError:
-                    continue
+            relative_path = rule.get_rules_dir_path()
 
             if relative_path is None:
                 raise ValueError(f"Could not find a valid relative path for the rule: {rule.id}")
