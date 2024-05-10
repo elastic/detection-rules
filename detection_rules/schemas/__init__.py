@@ -29,7 +29,7 @@ __all__ = (
     "all_versions",
 )
 
-SCHEMA_DIR = Path(get_etc_path("api_schemas"))
+SCHEMA_DIR = get_etc_path("api_schemas")
 migrations = {}
 
 
@@ -54,7 +54,7 @@ def migrate(version: str):
 
 @cached
 def get_schema_file(version: Version, rule_type: str) -> dict:
-    path = Path(SCHEMA_DIR) / str(version) / f"{version}.{rule_type}.json"
+    path = SCHEMA_DIR / str(version) / f"{version}.{rule_type}.json"
 
     if not path.exists():
         raise ValueError(f"Unsupported rule type {rule_type}. Unable to downgrade to {version}")

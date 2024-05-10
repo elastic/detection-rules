@@ -578,7 +578,7 @@ def license_check(ctx, ignore_directory):
     """Check that all code files contain a valid license."""
     ignore_directory += ("env",)
     failed = False
-    base_path = Path(get_path())
+    base_path = get_path()
 
     for path in base_path.rglob('*.py'):
         relative_path = path.relative_to(base_path)
@@ -619,7 +619,7 @@ def test_version_lock(branches: tuple, remote: str):
 
     finally:
         diff = git('--no-pager', 'diff', get_etc_path('version.lock.json'))
-        outfile = Path(get_path()).joinpath('lock-diff.txt')
+        outfile = get_path().joinpath('lock-diff.txt')
         outfile.write_text(diff)
         click.echo(f'diff saved to {outfile}')
 
@@ -737,7 +737,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
                                    deprecation_date=today,
                                    maturity='deprecated')
     contents = dataclasses.replace(rule.contents, metadata=new_meta)
-    new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
+    new_rule = TOMLRule(contents=contents, path=deprecated_path)
     new_rule.save_toml()
 
     # remove the old rule

@@ -6,6 +6,7 @@
 """RTA to rule mappings."""
 import os
 from collections import defaultdict
+from pathlib import Path
 
 from rta import get_available_tests
 
@@ -71,9 +72,9 @@ class RtaMappings:
 
         for rta_name in rta_list:
             # rip off the extension and add .py
-            rta_name, _ = os.path.splitext(os.path.basename(rta_name))
-            rta_path = os.path.abspath(os.path.join(RTA_DIR, rta_name + ".py"))
-            if os.path.exists(rta_path):
+            rta_name = Path(rta_name).stem
+            rta_path = (RTA_DIR / rta_name).with_suffix(".py").resolve()
+            if rta_path.exists():
                 rta_files.add(rta_path)
 
         return list(sorted(rta_files))

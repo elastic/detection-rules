@@ -85,14 +85,14 @@ def get_json_iter(f):
     return data
 
 
-def get_path(*paths) -> str:
+def get_path(*paths) -> Path:
     """Get a file by relative path."""
-    return str(ROOT_DIR.joinpath(*paths))
+    return ROOT_DIR.joinpath(*paths)
 
 
-def get_etc_path(*paths) -> str:
+def get_etc_path(*paths) -> Path:
     """Load a file from the detection_rules/etc/ folder."""
-    return str(ETC_DIR.joinpath(*paths))
+    return ETC_DIR.joinpath(*paths)
 
 
 def get_etc_glob_path(*patterns) -> list:

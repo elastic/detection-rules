@@ -25,8 +25,8 @@ from .misc import load_current_package_version
 from .utils import cached, get_etc_path, read_gzip, unzip
 from .schemas import definitions
 
-MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
-SCHEMA_FILE_PATH = Path(get_etc_path('integration-schemas.json.gz'))
+MANIFEST_FILE_PATH = get_etc_path('integration-manifests.json.gz')
+SCHEMA_FILE_PATH = get_etc_path('integration-schemas.json.gz')
 _notified_integrations = set()
 
 

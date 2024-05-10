@@ -69,7 +69,7 @@ def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: Optional[di
     return True
 
 
-CURRENT_RELEASE_PATH = Path(RELEASE_DIR) / load_current_package_version()
+CURRENT_RELEASE_PATH = RELEASE_DIR / load_current_package_version()
 
 
 class Package(object):
@@ -419,7 +419,7 @@ class Package(object):
                 asset_path = rules_dir / f'{asset["id"]}.json'
             asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
-        notice_contents = Path(NOTICE_FILE).read_text()
+        notice_contents = NOTICE_FILE.read_text()
         readme_text = textwrap.dedent("""
         # Prebuilt Security Detection Rules
 
