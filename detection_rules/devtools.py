@@ -103,7 +103,11 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     package = Package.from_config(config=config, verbose=verbose)
 
     if update_version_lock:
-        loaded_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
+        if not RULES_CONFIG.bypass_version_lock:
+            loaded_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
+        else:
+            click.echo('WARNING: Skipping version lock update'
+                       'Unset `bypass_version_lock` in the config to enable version lock updates')
     package.save(verbose=verbose)
 
     previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga",

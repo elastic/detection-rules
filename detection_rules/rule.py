@@ -991,8 +991,9 @@ class BaseRuleContents(ABC):
         """Retrieve the current version of the rule, accounting for automatic increments."""
         version = self.latest_version
         if not RULES_CONFIG.bypass_version_lock and self.data.get("version"):
-            print(f"Warning: Rule {self.name} - {self.id} has a version set in the rule TOML."
-                  "This `version` will be ignored and defaulted to the version.lock.json file.")
+            print(f"WARNING: Rule {self.name} - {self.id} has a version set in the rule TOML."
+                  "This `version` will be ignored and defaulted to the version.lock.json file."
+                  "Set `bypass_version_lock` to `True` in the rules config to use the TOML version.")
         else:
             version = self.data.get("version")
 
