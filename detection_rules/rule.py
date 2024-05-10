@@ -1323,16 +1323,13 @@ class TOMLRule:
         """Generate the relevant fleet compatible asset."""
         return {"id": self.id, "attributes": self.contents.to_api_format(), "type": definitions.SAVED_OBJECT_TYPE}
 
-    def get_base_rule_dir(self) -> Path:
+    def get_base_rule_dir(self) -> Path | None:
         """Get the base rule directory for the rule."""
-        rules_dir_path = None
+        rule_path = self.path.resolve()
         for rules_dir in DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS:
-            try:
-                rules_dir_path = self.path.resolve().relative_to(rules_dir)
-                break
-            except ValueError:
-                continue
-        return rules_dir_path
+            if rule_path.is_relative_to(rules_dir):
+                return rule_path.relative_to(rules_dir)
+        return None
 
     def save_toml(self):
         assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"
