@@ -2,9 +2,9 @@
 creation_date = "2021/01/12"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/15"
+min_stack_comments = "New fields added: process.Ext.effective_parent"
+min_stack_version = "8.7.0"
+updated_date = "2024/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -57,18 +57,19 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
       process.args : ("read", "-read", "list", "-list", "ls", "search", "-search") and
       process.args : ("/Active Directory/*", "/Users*", "/Groups*"))
 	) and
-  not process.parent.executable : ("/Applications/NoMAD.app/Contents/MacOS/NoMAD",
-     "/Applications/ZoomPresence.app/Contents/MacOS/ZoomPresence",
-     "/Applications/Sourcetree.app/Contents/MacOS/Sourcetree",
-     "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon",
-     "/Applications/Jamf Connect.app/Contents/MacOS/Jamf Connect",
-     "/usr/local/jamf/bin/jamf",
-     "/Library/Application Support/AirWatch/hubd",
-     "/opt/jc/bin/jumpcloud-agent",
-     "/Applications/ESET Endpoint Antivirus.app/Contents/MacOS/esets_daemon",
-     "/Applications/ESET Endpoint Security.app/Contents/MacOS/esets_daemon",
-     "/Library/PrivilegedHelperTools/com.fortinet.forticlient.uninstall_helper"
-    )
+  ((process.Ext.effective_parent.executable : ("/Volumes/*", "/Applications/*") or process.parent.executable : ("/Volumes/*", "/Applications/*")) or
+   (process.Ext.effective_parent.name : ".*" or process.parent.name : ".*")) and
+  not process.Ext.effective_parent.executable : ("/Applications/QualysCloudAgent.app/Contents/MacOS/qualys-cloud-agent",
+                                                 "/Applications/Kaspersky Anti-Virus For Mac.app/Contents/MacOS/kavd.app/Contents/MacOS/kavd",
+                                                 "/Applications/ESET Endpoint Security.app/Contents/MacOS/esets_ctl",
+                                                 "/Applications/NordVPN.app/Contents/MacOS/NordVPN",
+                                                 "/Applications/Xcode.app/Contents/MacOS/Xcode",
+                                                 "/Applications/ESET Endpoint Security.app/Contents/Helpers/Uninstaller.app/Contents/MacOS/Uninstaller",
+                                                 "/Applications/Parallels Desktop.app/Contents/MacOS/prl_client_app",
+                                                 "/Applications/Zscaler/Zscaler.app/Contents/MacOS/Zscaler",
+                                                 "/Applications/com.avast.av.uninstaller.app/Contents/MacOS/com.avast.av.uninstaller",
+                                                 "/Applications/NoMAD.app/Contents/MacOS/NoMAD",
+                                                 "/Applications/ESET Management Agent.app/Contents/MacOS/ERAAgent")
 '''
 
 
