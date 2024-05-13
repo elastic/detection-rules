@@ -147,6 +147,20 @@ class TestValidRules(BaseRuleTest):
         with self.assertRaises(ValidationError):
             build_rule(query=query, from_field="now-10m", interval="10m")
 
+    def test_max_signals_note(self):
+        """Ensure the max_signals note is present when max_signals > 1000."""
+        max_signal_standard_note = 'The `max_signals` field is set to a value greater than the default value (1000) ' \
+                                   'set by `system_limit`. This is to ensure that all alerts are captured.\n' \
+                                   'To bypass this default, configure the `xpack.alerting.rules.run.alerts.max` '\
+                                   'setting in the Kibana config.'
+        for rule in self.all_rules:
+            if rule.contents.data.max_signals and rule.contents.data.max_signals > 1000:
+                self.assertIsNotNone(rule.contents.data.note, f'{self.rule_str(rule)} note required for max_signals > 1000')
+                if max_signal_standard_note not in rule.contents.data.note:
+                    self.fail(f'{self.rule_str(rule)} expected max_signals note missing\n\n'
+                              f'Expected: {max_signal_standard_note}\n\n'
+                              f'Actual: {rule.contents.data.note}')
+
 
 class TestThreatMappings(BaseRuleTest):
     """Test threat mapping data for rules."""
@@ -870,7 +884,7 @@ class TestIntegrationRules(BaseRuleTest):
             note_str = integration_notes.get(integration)
 
             if note_str:
-                self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
+                self.assertIsNotNone(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
 
                 if note_str not in rule.contents.data.note:
                     self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
