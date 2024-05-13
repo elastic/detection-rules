@@ -9,12 +9,10 @@ from collections import defaultdict
 
 from rta import get_available_tests
 
-from .config import parse_rules_config
 from .rule import TOMLRule
 from .schemas import validate_rta_mapping
 from .utils import get_path, load_etc_dump, save_etc_dump
 
-RULES_CONFIG = parse_rules_config()
 RTA_DIR = get_path("rta")
 RTA_PLATFORM_TYPES = ["windows", "linux", "macos"]
 
