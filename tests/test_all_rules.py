@@ -157,10 +157,10 @@ class TestValidRules(BaseRuleTest):
             if rule.contents.data.max_signals and rule.contents.data.max_signals > 1000:
                 error_message = f'{self.rule_str(rule)} note required for max_signals > 1000'
                 self.assertIsNotNone(rule.contents.data.setup, error_message)
-                if max_signal_standard_setup not in rule.contents.data.note:
+                if max_signal_standard_setup not in rule.contents.data.setup:
                     self.fail(f'{self.rule_str(rule)} expected max_signals note missing\n\n'
                               f'Expected: {max_signal_standard_setup}\n\n'
-                              f'Actual: {rule.contents.data.note}')
+                              f'Actual: {rule.contents.data.setup}')
 
 
 class TestThreatMappings(BaseRuleTest):
