@@ -6,7 +6,7 @@
 """Configuration support for custom components."""
 import fnmatch
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from functools import cached_property
 from typing import Dict, List, Optional
@@ -186,7 +186,7 @@ class RulesConfig:
     version_lock: Dict[str, dict]
 
     action_dir: Optional[Path] = None
-    bbr_rules_dirs: Optional[List[Path]] = None
+    bbr_rules_dirs: Optional[List[Path]] = field(default_factory=list)
     exception_dir: Optional[Path] = None
 
     def __post_init__(self):
