@@ -149,16 +149,16 @@ class TestValidRules(BaseRuleTest):
 
     def test_max_signals_note(self):
         """Ensure the max_signals note is present when max_signals > 1000."""
-        max_signal_standard_note = 'The `max_signals` field is set to a value greater than the default value (1000) ' \
-                                   'set by `system_limit`. This is to ensure that all alerts are captured.\n' \
-                                   'To bypass this default, configure the `xpack.alerting.rules.run.alerts.max` '\
-                                   'setting in the Kibana config.'
+        max_signal_standard_setup = 'The `max_signals` field is set to a value greater than the default value (1000) ' \
+                                    'set by `system_limit`. This is to ensure that all alerts are captured.\n' \
+                                    'To bypass this default, configure the `xpack.alerting.rules.run.alerts.max` '\
+                                    'setting in the Kibana config.'
         for rule in self.all_rules:
             if rule.contents.data.max_signals and rule.contents.data.max_signals > 1000:
-                self.assertIsNotNone(rule.contents.data.note, f'{self.rule_str(rule)} note required for max_signals > 1000')  # noqa: E501
-                if max_signal_standard_note not in rule.contents.data.note:
+                self.assertIsNotNone(rule.contents.data.setup, f'{self.rule_str(rule)} note required for max_signals > 1000')  # noqa: E501
+                if max_signal_standard_setup not in rule.contents.data.note:
                     self.fail(f'{self.rule_str(rule)} expected max_signals note missing\n\n'
-                              f'Expected: {max_signal_standard_note}\n\n'
+                              f'Expected: {max_signal_standard_setup}\n\n'
                               f'Actual: {rule.contents.data.note}')
 
 
