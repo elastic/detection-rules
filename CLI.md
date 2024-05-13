@@ -262,7 +262,7 @@ Alternatively, rules can be exported into a consolidated ndjson file which can b
 directly.
 
 ```console
-Usage: detection_rules export-rules [OPTIONS]
+Usage: detection_rules export-rules-from-repo [OPTIONS]
 
   Export rule(s) into an importable ndjson file.
 
