@@ -164,9 +164,6 @@ def toml_write(rule_contents, outfile=None):
     """Write rule in TOML."""
     def write(text, nl=True):
         if outfile:
-            # Transform instances of \ to \\ as calling write will convert \\ to \.
-            # This will ensure that the output file has the correct number of backslashes.
-            text = text.replace("\\", "\\\\")
             outfile.write(text)
             if nl:
                 outfile.write(u"\n")
@@ -218,6 +215,11 @@ def toml_write(rule_contents, outfile=None):
                 # explicitly preserve formatting for message field in actions
                 preserved_fields = ["params.message"]
                 v = [preserve_formatting_for_fields(action, preserved_fields) for action in v]
+
+            if k == 'note' and isinstance(v, str):
+                # Transform instances of \ to \\ as calling write will convert \\ to \.
+                # This will ensure that the output file has the correct number of backslashes.
+                v = v.replace("\\", "\\\\")
 
             if isinstance(v, dict):
                 bottom[k] = OrderedDict(sorted(v.items()))
