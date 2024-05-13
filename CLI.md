@@ -36,7 +36,7 @@ EX: `DR_USER=joe`
 
 ## Importing rules into the repo
 
-You can import rules into the repo using the `create-rule` or `import-rules` commands. Both of these commands will
+You can import rules into the repo using the `create-rule` or `import-rules-to-repo` commands. Both of these commands will
 require that the rules are schema-compliant and able to pass full validation. The biggest benefit to using these
 commands is that they will strip[*](#note) additional fields[**](#note-2) and prompt for missing required
 fields.
@@ -69,10 +69,10 @@ and will accept any valid rule in the following formats:
 * yaml (yup)
 * ndjson (as long as it contains only a single rule and has the extension `.ndjson` or `.jsonl`)
 
-#### `import-rules`
+#### `import-rules-to-repo`
 
 ```console
-Usage: detection_rules import-rules [OPTIONS] [INPUT_FILE]...
+Usage: detection_rules import-rules-to-repo [OPTIONS] [INPUT_FILE]...
 
   Import rules from json, toml, yaml, or Kibana exported rule file(s).
 
@@ -334,7 +334,7 @@ Options:
 Example usage of a successful upload:
 
 ```
-python -m detection_rules kibana import-rules -f test-export-rules/credential_access_NEW_RULE.toml        
+python -m detection_rules kibana import-rules -f test-export-rules/credential_access_NEW_RULE.toml
 
 █▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
 █  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
@@ -373,7 +373,7 @@ python -m detection_rules kibana import-rules -f test-export-rules/credential_ac
 
 The rule loader detects a collision in name and fails as intended:
 ```
-python -m detection_rules kibana import-rules -d test-export-rules                               
+python -m detection_rules kibana import-rules -d test-export-rules
 
 █▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
 █  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
@@ -531,7 +531,7 @@ web_application_suspicious_activity_unauthorized_method.toml.toml
 Output of the `_errors.txt` file:
 
 ```
-cat test-export-rules/_errors.txt 
+cat test-export-rules/_errors.txt
 - Stolen Credentials Used to Login to Okta Account After MFA Reset - {'_schema': ['Setup header found in both note and setup fields.']}
 - First Occurrence of Okta User Session Started via Proxy - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}
 - ESQL test: cmd child of Explorer - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}, 'language': ['Must be equal to eql.']}), ValidationError({'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}}), ValidationError({'type': ['Must be equal to threshold.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}, 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}, 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}, 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}}), ValidationError({'type': ['Must be equal to new_terms.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}, 'new_terms': ['Missing data for required field.']})]}
@@ -550,7 +550,7 @@ Unknown field
 data_stream.dataset:osquery_manager.result and osquery_meta.counter>0 and osquery_meta.type:diff and osquery.last_run_code:0 and osquery_meta.action:removed
                                                                           ^^^^^^^^^^^^^^^^^
 stack: 8.9.0, beats: 8.9.0, ecs: 8.9.0
-- name - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}(venv312) ➜  detection-rules-fork git:(refresh-kibana-module-with-new-APIs) ✗ 
+- name - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}(venv312) ➜  detection-rules-fork git:(refresh-kibana-module-with-new-APIs) ✗
 ```
 
 
