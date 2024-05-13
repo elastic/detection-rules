@@ -2,9 +2,9 @@
 creation_date = "2021/01/04"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/15"
+min_stack_comments = "New fields added: process.Ext.effective_parent"
+min_stack_version = "8.11.0"
+updated_date = "2024/05/10"
 
 [rule]
 author = ["Elastic"]
@@ -52,31 +52,37 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "macos" and event.type in ("start", "process_started") and
- process.parent.name:("Microsoft Word", "Microsoft PowerPoint", "Microsoft Excel") and
- process.name:
- (
-   "bash",
-   "dash",
-   "sh",
-   "tcsh",
-   "csh",
-   "zsh",
-   "ksh",
-   "fish",
-   "python*",
-   "perl*",
-   "php*",
-   "osascript",
-   "pwsh",
-   "curl",
-   "wget",
-   "cp",
-   "mv",
-   "base64",
-   "launchctl"
+process where event.action == "exec" and
+    process.parent.name: (
+      "Microsoft Word",
+      "Microsoft Outlook",
+      "Microsoft Excel",
+      "Microsoft PowerPoint",
+      "Microsoft OneNote"
+    ) and
+  process.name : (
+    "curl",
+    "nscurl",
+    "bash",
+    "sh",
+    "osascript",
+    "python*",
+    "perl*",
+    "mktemp",
+    "chmod",
+    "php",
+    "nohup",
+    "openssl",
+    "plutil",
+    "PlistBuddy",
+    "xattr",
+    "mktemp",
+    "sqlite3",
+    "funzip",
+    "popen"
   ) and
-  /* noisy false positives related to product version discovery and office errors reporting */
+
+  // Filter FPs related to product version discovery and Office error reporting behavior
   not process.args:
     (
       "ProductVersion",
@@ -85,8 +91,34 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
       "ProductName",
       "ProductUserVisibleVersion",
       "ProductBuildVersion",
-      "/Library/Application Support/Microsoft/MERP*/Microsoft Error Reporting.app/Contents/MacOS/Microsoft Error Reporting"
-    )
+      "/Library/Application Support/Microsoft/MERP*/Microsoft Error Reporting.app/Contents/MacOS/Microsoft Error Reporting",
+      "open -a Safari *",
+      "defaults read *",
+      "sysctl hw.model*",
+      "ioreg -d2 -c IOPlatformExpertDevice *",
+      "ps aux | grep 'ToDesk_Desktop' | grep -v grep",
+      "PIPE=\"$CFFIXED_USER_HOME/.zoteroIntegrationPipe*"
+    ) and
+
+   not process.parent.executable :
+        (
+          "/Applications/ToDesk.app/Contents/MacOS/ToDesk_Service",
+          "/usr/local/Privacy-i/PISupervisor",
+          "/Library/Addigy/lan-cache",
+          "/Library/Elastic/Agent/*",
+          "/opt/jc/bin/jumpcloud-agent",
+          "/usr/sbin/networksetup"
+        ) and
+   not (process.name : "sh" and process.command_line : "*$CFFIXED_USER_HOME/.zoteroIntegrationPipe*") and
+
+   not process.Ext.effective_parent.executable : (
+        "/Applications/ToDesk.app/Contents/MacOS/ToDesk_Service",
+        "/usr/local/Privacy-i/PISupervisor",
+        "/Library/Addigy/auditor",
+        "/Library/Elastic/Agent/*",
+        "/opt/jc/bin/jumpcloud-agent",
+        "/usr/sbin/networksetup"
+      )
 '''
 
 
