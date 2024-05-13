@@ -155,7 +155,7 @@ class TestValidRules(BaseRuleTest):
                                    'setting in the Kibana config.'
         for rule in self.all_rules:
             if rule.contents.data.max_signals and rule.contents.data.max_signals > 1000:
-                self.assertIsNotNone(rule.contents.data.note, f'{self.rule_str(rule)} note required for max_signals > 1000')
+                self.assertIsNotNone(rule.contents.data.note, f'{self.rule_str(rule)} note required for max_signals > 1000')  # noqa: E501
                 if max_signal_standard_note not in rule.contents.data.note:
                     self.fail(f'{self.rule_str(rule)} expected max_signals note missing\n\n'
                               f'Expected: {max_signal_standard_note}\n\n'
@@ -884,7 +884,7 @@ class TestIntegrationRules(BaseRuleTest):
             note_str = integration_notes.get(integration)
 
             if note_str:
-                self.assertIsNotNone(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
+                self.assertIsNotNone(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')  # noqa: E501
 
                 if note_str not in rule.contents.data.note:
                     self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
