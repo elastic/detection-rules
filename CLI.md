@@ -268,18 +268,23 @@ Usage: detection_rules export-rules-from-repo [OPTIONS]
 
 Options:
   -f, --rule-file FILE
-  -d, --directory DIRECTORY       Recursively export rules from a directory
+  -d, --directory DIRECTORY       Recursively load rules from a directory
   -id, --rule-id TEXT
-  -o, --outfile FILE              Name of file for exported rules
+  -o, --outfile PATH              Name of file for exported rules
   -r, --replace-id                Replace rule IDs with new IDs before export
-  --stack-version [7.8|7.9|7.10|7.11|7.12]
+  --stack-version [7.10|7.11|7.12|7.13|7.14|7.15|7.16|7.8|7.9|8.0|8.1|8.10|8.11|8.12|8.13|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9]
                                   Downgrade a rule version to be compatible
                                   with older instances of Kibana
   -s, --skip-unsupported          If `--stack-version` is passed, skip rule
                                   types which are unsupported (an error will
                                   be raised otherwise)
+  --include-metadata              Add metadata to the exported rules
   -h, --help                      Show this message and exit.
 ```
+
+_*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click
+the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
+
 
 _*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click
 the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
