@@ -27,7 +27,8 @@ def create_config_content() -> str:
     """Create the content for the _config.yaml file."""
     # Base structure of the configuration
     config_content = {
-        'rule_dirs': ['rules', 'rules_building_block'],
+        'rule_dirs': ['rules'],
+        'bbr_rules_dirs': [],
         'files': {
             'deprecated_rules': 'etc/deprecated_rules.json',
             'packages': 'etc/packages.yml',
