@@ -1,0 +1,54 @@
+[metadata]
+creation_date = "2024/03/14"
+integration = ["endpoint", "windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/05/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of an Alternate Data Stream (ADS) at a volume root directory, which can indicate the
+attempt to hide tools and malware, as ADSs created in this directory are not displayed by system utilities.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Alternate Data Stream Creation/Execution at Volume Root Directory"
+references = ["https://www.crowdstrike.com/blog/anatomy-of-alpha-spider-ransomware/"]
+risk_score = 47
+rule_id = "ff6cf8b9-b76c-4cc1-ac1b-4935164d1029"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and event.category in ("file", "process") and 
+  (
+    (event.type == "creation" and file.path regex~ """[A-Z]:\\:.+""") or 
+    (event.type == "start" and process.executable regex~ """[A-Z]:\\:.+""")
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.004"
+name = "NTFS File Attributes"
+reference = "https://attack.mitre.org/techniques/T1564/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
