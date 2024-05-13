@@ -164,6 +164,9 @@ def toml_write(rule_contents, outfile=None):
     """Write rule in TOML."""
     def write(text, nl=True):
         if outfile:
+            # Transform instances of \ to \\ as calling write will convert \\ to \.
+            # This will ensure that the output file has the correct number of backslashes.
+            text = text.replace("\\", "\\\\")
             outfile.write(text)
             if nl:
                 outfile.write(u"\n")
