@@ -5,6 +5,7 @@
 
 import copy
 import datetime
+import functools
 import os
 import typing
 from pathlib import Path
@@ -13,14 +14,12 @@ from typing import List, Optional
 import click
 
 import kql
-import functools
+
 from . import ecs
-from .attack import matrix, tactics, build_threat_map_entry
-from .rule import TOMLRule, TOMLRuleContents
-from .rule_loader import (RuleCollection,
-                          BYPASS_VERSION_LOCK,
-                          DEFAULT_PREBUILT_RULES_DIRS,
-                          DEFAULT_PREBUILT_BBR_DIRS,
+from .attack import build_threat_map_entry, matrix, tactics
+from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents
+from .rule_loader import (DEFAULT_PREBUILT_BBR_DIRS,
+                          DEFAULT_PREBUILT_RULES_DIRS, RuleCollection,
                           dict_filter)
 from .schemas import definitions
 from .utils import clear_caches
