@@ -348,7 +348,7 @@ def update_lock_versions(rule_ids):
     if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
         return
 
-    if not RULES_CONFIG.bypass_version_lock:
+    if RULES_CONFIG.bypass_version_lock:
         click.echo('WARNING: You cannot run this command when the versioning strategy is configured to bypass the '
                    'version lock. Set `bypass_version_lock` to `False` in the rules config to use the version lock.')
         return []
