@@ -108,12 +108,28 @@ class RulesConfig:
     test_config: TestConfig
 
     action_dir: Optional[Path] = None
+    bypass_version_lock: bool = False
     exception_dir: Optional[Path] = None
 
 # using the stack_schema_map
 RULES_CONFIG.stack_schema_map
 ```
 
+### Version Strategy Warning
+
+- General (`bypass_version_lock = False`)
+  - Default
+  - Versions from Kibana or the TOML file are ignored
+  - Version lock file usage is permitted
+- General (`bypass_version_lock = True`)
+  - Must be explicitly set in the config
+  - Versions from Kibana or the TOML file are used
+  - Version lock file usage is not permitted
+- Tactical Warning Messages
+  - Rule import to TOML file will skip version and revision fields when supplied (*rule_prompt* & *import_rules_into_repo*) if `bypass_version_lock = False`. No warning message is issued.
+  - Rule version lock will not be updated or used if `bypass_version_lock = True` when building a release package (*build_release*). A warning message is issued.
+  - If versions are in the TOML file, and `bypass_version_lock = False`, the versions in the TOML file will not be used (*autobumped_version*). A warning message is issued.
+  - If `bypass_version_lock = False`, when autobumping the version, it will check the version lock file and increment if is_dirty (*autobumped_version*), otherwise just use the version supplied. No warning message is issued.
 
 ### Custom actions and exceptions lists
 
