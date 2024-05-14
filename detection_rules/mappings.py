@@ -4,7 +4,6 @@
 # 2.0.
 
 """RTA to rule mappings."""
-import os
 from collections import defaultdict
 from pathlib import Path
 

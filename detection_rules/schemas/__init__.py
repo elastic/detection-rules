@@ -4,7 +4,6 @@
 # 2.0.
 import json
 from collections import OrderedDict
-from pathlib import Path
 from typing import List, Optional
 from typing import OrderedDict as OrderedDictType
 

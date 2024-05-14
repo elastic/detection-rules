@@ -5,14 +5,13 @@
 
 # coding=utf-8
 """Shell for detection-rules."""
-import os
 import sys
+from pathlib import Path
 
 import click
 
 assert (3, 12) <= sys.version_info < (4, 0), "Only Python 3.12+ supported"
 
-from pathlib import Path
 
 from .main import root  # noqa: E402
 
