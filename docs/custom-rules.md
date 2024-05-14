@@ -130,6 +130,8 @@ RULES_CONFIG.stack_schema_map
   - Rule version lock will not be updated or used if `bypass_version_lock = True` when building a release package (*build_release*). A warning message is issued.
   - If versions are in the TOML file, and `bypass_version_lock = False`, the versions in the TOML file will not be used (*autobumped_version*). A warning message is issued.
   - If `bypass_version_lock = False`, when autobumping the version, it will check the version lock file and increment if is_dirty (*autobumped_version*), otherwise just use the version supplied. No warning message is issued.
+  - If `bypass_version_lock = True`, the updating the version lock file will disabled (*update_lock_versions*). A warning message is issued.
+  - If `bypass_version_lock = True`, loading the version lock file is disabled and skipped. (*from_dict*, *load_from_file*, *manage_versions*, *test_version_lock_has_nested_previous*). A warning message is issued.
 
 ### Custom actions and exceptions lists
 

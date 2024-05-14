@@ -6,13 +6,13 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Dict, List, Optional, Union
+from typing import ClassVar, Dict, List, Optional, Type, Union
 
 import click
 from semver import Version
 
 from .config import parse_rules_config
-from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
+from .mixins import LockDataclassMixin, MarshmallowDataclassMixin, ClassT
 from .rule_loader import RuleCollection
 from .schemas import definitions
 from .utils import cached
@@ -63,6 +63,24 @@ class VersionLockFile(LockDataclassMixin):
         if item not in self.data:
             raise KeyError(item)
         return self.data[item]
+
+    @classmethod
+    def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
+        """Deserialize and validate a dataclass from a dict using marshmallow."""
+        if RULES_CONFIG.bypass_version_lock:
+            print("WARNING: Version Lock usage is bypassed."
+                  "Set `bypass_version_lock: false` in the rules config to enable.")
+            return super().from_dict(dict(data={}))
+        return super().from_dict(obj)
+
+    @classmethod
+    def load_from_file(cls: Type[ClassT], lock_file: Optional[Path] = None) -> ClassT:
+        """Load and validate a version lock file."""
+        if RULES_CONFIG.bypass_version_lock:
+            print("WARNING: Version Lock usage is bypassed."
+                  "Set `bypass_version_lock: false` in the rules config to enable.")
+            return super().from_dict(dict(data={}))
+        return super().load_from_file(lock_file)
 
 
 @dataclass(frozen=True)
@@ -172,6 +190,11 @@ class VersionLock:
                         verbose=True, buffer_int: int = 100) -> (List[str], List[str], List[str]):
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
+
+        if RULES_CONFIG.bypass_version_lock:
+            click.echo("WARNING: Version Lock usage is bypassed."
+                       "Set `bypass_version_lock: false` in the rules config to enable.")
+            return [], [], []
 
         version_lock_hash = self.version_lock.sha256()
         lock_file_contents = deepcopy(self.version_lock.to_dict())

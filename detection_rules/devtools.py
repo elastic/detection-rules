@@ -103,11 +103,8 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     package = Package.from_config(config=config, verbose=verbose)
 
     if update_version_lock:
-        if not RULES_CONFIG.bypass_version_lock:
-            loaded_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
-        else:
-            click.echo('WARNING: Skipping version lock update'
-                       'Unset `bypass_version_lock` in the config to enable version lock updates')
+        loaded_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
+
     package.save(verbose=verbose)
 
     previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga",
@@ -350,6 +347,11 @@ def update_lock_versions(rule_ids):
 
     if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
         return
+
+    if not RULES_CONFIG.bypass_version_lock:
+        click.echo('WARNING: You cannot run this command when the versioning strategy is configured to bypass the '
+                   'version lock. Set `bypass_version_lock` to `False` in the rules config to use the version lock.')
+        return []
 
     # this command may not function as expected anymore due to previous changes eliminating the use of add_new=False
     changed, new, _ = loaded_version_lock.manage_versions(rules, exclude_version_update=True, save_changes=True)
