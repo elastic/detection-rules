@@ -62,8 +62,9 @@ directories:
   exceptions_dir: exceptions
 ```
 
-* Note: the paths in this file are relative to the custom rules directory (CUSTOM_RULES_DIR/)
+* Note: The paths in this file are relative to the custom rules directory (CUSTOM_RULES_DIR/)
 * Note: Refer to each original source file for purpose and proper formatting
+* Note: You can also add an optional `bbr_rules_dirs` section for custom BBR rules.
 
 When using the repo, set the environment variable `CUSTOM_RULES_DIR=<directory-with-_config.yaml>`
 
@@ -101,13 +102,15 @@ class RulesConfig:
     deprecated_rules: Dict[str, dict]
     packages_file: Path
     packages: Dict[str, dict]
+    rule_dirs: List[Path]
     stack_schema_map_file: Path
     stack_schema_map: Dict[str, dict]
+    test_config: TestConfig
     version_lock_file: Path
     version_lock: Dict[str, dict]
-    test_config: TestConfig
 
     action_dir: Optional[Path] = None
+    bbr_rules_dirs: Optional[List[Path]] = field(default_factory=list)
     exception_dir: Optional[Path] = None
 
 # using the stack_schema_map
