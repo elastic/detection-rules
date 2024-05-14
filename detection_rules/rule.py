@@ -991,16 +991,21 @@ class BaseRuleContents(ABC):
     def autobumped_version(self) -> Optional[int]:
         """Retrieve the current version of the rule, accounting for automatic increments."""
         version = self.latest_version
-        if BYPASS_VERSION_LOCK and self.data.get("version"):
-            version = self.data.get("version")
-        else:
-            print(f"WARNING: Rule {self.name} - {self.id} has a version set in the rule TOML."
-                  "This `version` will be ignored and defaulted to the version.lock.json file."
-                  "Set `bypass_version_lock` to `True` in the rules config to use the TOML version.")
+        toml_version = self.data.get("version")
 
+        if toml_version:
+            if BYPASS_VERSION_LOCK:
+                version = toml_version
+            else:
+                print(f"WARNING: Rule {self.name} - {self.id} has a version set in the rule TOML."
+                      " This `version` will be ignored and defaulted to the version.lock.json file."
+                      " Set `bypass_version_lock` to `True` in the rules config to use the TOML version.")
+
+        # Default to version 1 if no version is set yet
         if version is None:
             return 1
 
+        # Auto-increment version if the rule is 'dirty' and not bypassing version lock
         return version + 1 if self.is_dirty and not BYPASS_VERSION_LOCK else version
 
     @classmethod
