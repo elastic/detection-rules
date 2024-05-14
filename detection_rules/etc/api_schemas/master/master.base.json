@@ -52,15 +52,109 @@
     },
     "filters": {
       "items": {
-        "additionalProperties": {
-          "type": [
-            "string",
-            "number",
-            "object",
-            "array",
-            "boolean"
-          ]
+        "additionalProperties": false,
+        "properties": {
+          "$state": {
+            "additionalProperties": false,
+            "properties": {
+              "store": {
+                "enum": [
+                  "appState",
+                  "globalState"
+                ],
+                "enumNames": [],
+                "type": "string"
+              }
+            },
+            "required": [
+              "store"
+            ],
+            "type": "object"
+          },
+          "meta": {
+            "additionalProperties": false,
+            "properties": {
+              "alias": {
+                "type": "string"
+              },
+              "controlledBy": {
+                "type": "string"
+              },
+              "disabled": {
+                "type": "boolean"
+              },
+              "group": {
+                "type": "string"
+              },
+              "index": {
+                "type": "string"
+              },
+              "isMultiIndex": {
+                "type": "boolean"
+              },
+              "key": {
+                "type": "string"
+              },
+              "negate": {
+                "type": "boolean"
+              },
+              "params": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "wildcard": {
+                    "additionalProperties": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "case_insensitive": {
+                          "type": "boolean"
+                        },
+                        "value": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "case_insensitive",
+                        "value"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": {
+                  "type": [
+                    "string",
+                    "number",
+                    "object",
+                    "array",
+                    "boolean"
+                  ]
+                },
+                "type": "object"
+              }
+            ]
+          }
         },
+        "required": [
+          "meta"
+        ],
         "type": "object"
       },
       "type": "array"
@@ -73,14 +167,30 @@
       "pattern": "^\\d+[mshd]$",
       "type": "string"
     },
+    "investigation_fields": {
+      "additionalProperties": false,
+      "properties": {
+        "field_names": {
+          "items": {
+            "description": "NonEmptyStr",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "field_names"
+      ],
+      "type": "object"
+    },
     "license": {
       "type": "string"
     },
     "max_signals": {
       "description": "MaxSignals",
-      "format": "integer",
       "minimum": 1,
-      "type": "number"
+      "type": "integer"
     },
     "meta": {
       "additionalProperties": {
@@ -96,7 +206,7 @@
     },
     "name": {
       "description": "RuleName",
-      "pattern": "^[a-zA-Z0-9].+?[a-zA-Z0-9()]$",
+      "pattern": "^[a-zA-Z0-9].+?[a-zA-Z0-9\\[\\]()]$",
       "type": "string"
     },
     "note": {
@@ -168,10 +278,9 @@
     },
     "risk_score": {
       "description": "MaxSignals",
-      "format": "integer",
       "maximum": 100,
       "minimum": 1,
-      "type": "number"
+      "type": "integer"
     },
     "risk_score_mapping": {
       "items": {
