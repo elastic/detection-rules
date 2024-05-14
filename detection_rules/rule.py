@@ -45,6 +45,7 @@ TIME_NOW = time.strftime('%Y/%m/%d')
 RULES_CONFIG = parse_rules_config()
 DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
 DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_rules_dirs
+BYPASS_VERSION_LOCK = RULES_CONFIG.bypass_version_lock
 
 
 BUILD_FIELD_VERSIONS = {
@@ -990,7 +991,7 @@ class BaseRuleContents(ABC):
     def autobumped_version(self) -> Optional[int]:
         """Retrieve the current version of the rule, accounting for automatic increments."""
         version = self.latest_version
-        if not RULES_CONFIG.bypass_version_lock and self.data.get("version"):
+        if not BYPASS_VERSION_LOCK and self.data.get("version"):
             print(f"WARNING: Rule {self.name} - {self.id} has a version set in the rule TOML."
                   "This `version` will be ignored and defaulted to the version.lock.json file."
                   "Set `bypass_version_lock` to `True` in the rules config to use the TOML version.")
@@ -1000,7 +1001,7 @@ class BaseRuleContents(ABC):
         if version is None:
             return 1
 
-        return version + 1 if self.is_dirty and not RULES_CONFIG.bypass_version_lock else version
+        return version + 1 if self.is_dirty and not BYPASS_VERSION_LOCK else version
 
     @classmethod
     def convert_supported_version(cls, stack_version: Optional[str]) -> Version:

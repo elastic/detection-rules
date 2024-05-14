@@ -34,7 +34,7 @@ from .schemas import all_versions, definitions, get_incompatible_fields, get_sch
 from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
-RULES_DIR = RULES_CONFIG.rule_dirs
+RULES_DIRS = RULES_CONFIG.rule_dirs
 
 
 @click.group('detection-rules', context_settings={'help_option_names': ['-h', '--help']})
@@ -99,7 +99,10 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 @click.argument('input-file', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-def import_rules_into_repo(input_file, required_only, directory):
+@click.option('--save-directory', '-s', type=click.Path(file_okay=False, exists=True),
+              help='Save imported rules to a directory')
+def import_rules_into_repo(input_file: click.Path, required_only: bool, directory: click.Path,
+                           save_directory: click.Path):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
@@ -114,7 +117,7 @@ def import_rules_into_repo(input_file, required_only, directory):
     for contents in rule_contents:
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
         base_path = rulename_to_filename(base_path) if base_path else base_path
-        rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
+        rule_path = os.path.join(save_directory if save_directory is not None else RULES_DIRS[0], base_path)
         additional = ['index'] if not contents.get('data_view_id') else ['data_view_id']
         rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
                     additional_required=additional, **contents)

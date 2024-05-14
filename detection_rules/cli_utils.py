@@ -16,17 +16,14 @@ import kql
 import functools
 from . import ecs
 from .attack import matrix, tactics, build_threat_map_entry
-from .config import parse_rules_config
 from .rule import TOMLRule, TOMLRuleContents
 from .rule_loader import (RuleCollection,
+                          BYPASS_VERSION_LOCK,
                           DEFAULT_PREBUILT_RULES_DIRS,
                           DEFAULT_PREBUILT_BBR_DIRS,
                           dict_filter)
 from .schemas import definitions
-from .utils import clear_caches, get_path
-
-RULES_CONFIG = parse_rules_config()
-RULES_DIR = get_path("rules")
+from .utils import clear_caches
 
 
 def single_collection(f):
@@ -135,7 +132,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             continue
 
         # these are set at package release time depending on the version strategy
-        if (name == 'version' or name == 'revision') and not RULES_CONFIG.bypass_version_lock:
+        if (name == 'version' or name == 'revision') and not BYPASS_VERSION_LOCK:
             continue
 
         if required_only and name not in required_fields:
