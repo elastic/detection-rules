@@ -77,9 +77,10 @@ Usage: detection_rules import-rules-to-repo [OPTIONS] [INPUT_FILE]...
   Import rules from json, toml, yaml, or Kibana exported rule file(s).
 
 Options:
-  --required-only            Only prompt for required fields
-  -d, --directory DIRECTORY  Load files from a directory
-  -h, --help                 Show this message and exit.
+  --required-only                 Only prompt for required fields
+  -d, --directory DIRECTORY       Load files from a directory
+  -s, --save-directory DIRECTORY  Save imported rules to a directory
+  -h, --help                      Show this message and exit.
 ```
 
 The primary advantage of using this command is the ability to import multiple rules at once. Multiple rule paths can be
@@ -88,6 +89,8 @@ a combination of both.
 
 In addition to the formats mentioned using `create-rule`, this will also accept an `.ndjson`/`jsonl` file
 containing multiple rules (as would be the case with a bulk export).
+
+The `-s/--save-directory` is an optional parameter to specify a non default directory to place imported rules. If it is not specified, the first directory specified in the rules config will be used.
 
 This will also strip additional fields and prompt for missing required fields.
 
@@ -281,6 +284,10 @@ Options:
   --include-metadata              Add metadata to the exported rules
   -h, --help                      Show this message and exit.
 ```
+
+_*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click
+the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
+
 
 _*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click
 the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._

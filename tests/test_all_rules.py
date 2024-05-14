@@ -26,10 +26,10 @@ from detection_rules.integrations import (find_latest_compatible_version,
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryValidator,
                                   ThresholdAlertSuppression, TOMLRuleContents)
-from detection_rules.rule_loader import FILE_PATTERN
+from detection_rules.rule_loader import FILE_PATTERN, RULES_CONFIG
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, load_etc_dump
 from detection_rules.version_lock import loaded_version_lock
 from rta import get_available_tests
 
@@ -570,20 +570,22 @@ class TestRuleMetadata(BaseRuleTest):
         versions = loaded_version_lock.version_lock
         deprecations = self.rules_config.deprecated_rules
         deprecated_rules = {}
-        rules_path = self.custom_dir if self.custom_dir else get_path('rules')
-        deprecated_path = Path(rules_path).joinpath("_deprecated")
+        rules_paths = RULES_CONFIG.rule_dirs
 
         misplaced_rules = []
         for r in self.all_rules:
             if "rules_building_block" in str(r.path):
                 if r.contents.metadata.maturity == "deprecated":
                     misplaced_rules.append(r)
-            elif "_deprecated" in r.path.relative_to(rules_path).parts \
-                    and r.contents.metadata.maturity != "deprecated":
-                misplaced_rules.append(r)
+            else:
+                for rules_path in rules_paths:
+                    if "_deprecated" in r.path.relative_to(rules_path).parts \
+                            and r.contents.metadata.maturity != "deprecated":
+                        misplaced_rules.append(r)
+                        break
 
         misplaced = '\n'.join(f'{self.rule_str(r)} {r.contents.metadata.maturity}' for r in misplaced_rules)
-        err_str = f'The following rules are stored in {deprecated_path} but are not marked as deprecated:\n{misplaced}'
+        err_str = f'The following rules are stored in _deprecated but are not marked as deprecated:\n{misplaced}'
         self.assertListEqual(misplaced_rules, [], err_str)
 
         for rule in self.deprecated_rules:
@@ -596,7 +598,7 @@ class TestRuleMetadata(BaseRuleTest):
 
             rule_path = rule.path.relative_to(rules_path)
             err_msg = f'{self.rule_str(rule)} deprecated rules should be stored in ' \
-                      f'"{deprecated_path}" folder'
+                      f'"{rule_path.parent / "_deprecated"}" folder'
             self.assertEqual('_deprecated', rule_path.parts[-2], err_msg)
 
             err_msg = f'{self.rule_str(rule)} missing deprecation date'
