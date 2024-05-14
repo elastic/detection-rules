@@ -21,7 +21,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(*metadata.platforms)
 def main():
     from ctypes import c_long, c_int, c_uint, c_ushort, Structure, Union
     from ctypes import WINFUNCTYPE, windll, byref, sizeof, pointer, WinError
