@@ -63,7 +63,7 @@ def hook_procedure(code, w_param, l_paraml):
     return user32.CallNextHookEx(hHook, code, w_param, l_paraml)
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(*metadata.platforms)
 def SetWindowsHookEx():
     import ctypes
     from ctypes.wintypes import LPARAM, WPARAM
