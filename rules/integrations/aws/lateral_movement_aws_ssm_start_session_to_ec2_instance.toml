@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
 min_stack_version = "8.9.0"
-updated_date = "2024/05/06"
+updated_date = "2024/05/14"
 
 [rule]
 author = ["Elastic"]
@@ -20,10 +20,10 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "First Occurrence of AWS Resource Starting SSM Session to EC2 Instance"
+name = "SSM Session Started to EC2 Instance"
 note = """## Triage and Analysis
 
-### Investigating First Occurrence of AWS Resource Starting SSM Session to EC2 Instance
+### Investigating SSM Session Started to EC2 Instance
 
 This rule detects the first instance of an AWS resource initiating an SSM session to an EC2 instance, which could be indicative of legitimate administrative activities or potential malicious actions like command execution or lateral movement.
 
@@ -78,8 +78,8 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "aws.cloudtrail" and event.provider: "ssm.amazonaws.com"
-    and event.action: "StartSession" and event.outcome:success
+event.dataset:"aws.cloudtrail" and event.provider:"ssm.amazonaws.com"
+    and event.action:"StartSession" and event.outcome:"success"
 '''
 
 
@@ -103,7 +103,7 @@ reference = "https://attack.mitre.org/tactics/TA0008/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.id"]
+value = ["aws.cloudtrail.user_identity.arn"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
