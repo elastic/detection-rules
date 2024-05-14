@@ -2,9 +2,9 @@
 creation_date = "2020/12/18"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/15"
+min_stack_comments = "New fields added: process.Ext.effective_parent"
+min_stack_version = "8.11.0"
+updated_date = "2024/02/07"
 
 [rule]
 author = ["Elastic"]
@@ -66,9 +66,13 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
     "com.insynchq.Insync.Insync-Finder-Integration",
     "com.box.desktop.findersyncext"
   ) and
-  not process.parent.executable : (
-    "/Library/Application Support/IDriveforMac/IDriveHelperTools/FinderPluginApp.app/Contents/MacOS/FinderPluginApp"
-  )
+  not process.parent.executable : ("/Library/Application Support/IDriveforMac/IDriveHelperTools/FinderPluginApp.app/Contents/MacOS/FinderPluginApp",
+                                   "/Applications/Google Drive.app/Contents/MacOS/Google Drive") and
+  not process.Ext.effective_parent.executable : ("/Applications/Google Drive.app/Contents/MacOS/Google Drive",
+                                                 "/usr/local/jamf/bin/jamf",
+                                                 "/Applications/Nextcloud.app/Contents/MacOS/Nextcloud",
+                                                 "/Library/Application Support/Checkpoint/Endpoint Security/AMFinderExtensions.app/Contents/MacOS/AMFinderExtensions",
+                                                 "/Applications/pCloud Drive.app/Contents/MacOS/pCloud Drive")
 '''
 
 
