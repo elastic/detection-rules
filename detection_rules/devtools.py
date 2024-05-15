@@ -292,7 +292,7 @@ class GitChangeEntry:
 def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list: str):
     """Prune the git staging area to remove changes to incompatible rules."""
     exceptions = {
-        "detection_rules/etc/packages.yml",
+        "detection_rules/etc/packages.yaml",
     }
     exceptions.update(exception_list.split(","))
 
@@ -1080,7 +1080,7 @@ def utils_group():
 
 
 @utils_group.command('get-branches')
-@click.option('--outfile', '-o', type=Path, default=get_etc_path("target-branches.yml"), help='File to save output to')
+@click.option('--outfile', '-o', type=Path, default=get_etc_path("target-branches.yaml"), help='File to save output to')
 def get_branches(outfile: Path):
     branch_list = get_stack_versions(drop_patch=True)
     target_branches = json.dumps(branch_list[:-1]) + "\n"

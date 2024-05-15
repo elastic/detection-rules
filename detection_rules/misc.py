@@ -30,7 +30,7 @@ except ImportError:
     GitRelease = None  # noqa: N806
     GitReleaseAsset = None  # noqa: N806
 
-from .utils import add_params, cached, get_path
+from .utils import add_params, cached, get_path, load_etc_dump
 
 _CONFIG = {}
 
@@ -267,6 +267,12 @@ def get_kibana_rules(*rule_paths, repo='elastic/kibana', branch='master', verbos
     pool.join()
 
     return kibana_rules
+
+
+@cached
+def load_current_package_version() -> str:
+    """Load the current package version from config file."""
+    return load_etc_dump('packages.yaml')['package']['name']
 
 
 def get_default_config() -> Optional[Path]:
