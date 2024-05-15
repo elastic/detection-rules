@@ -38,7 +38,7 @@ def get_attack_file_path() -> Path:
     return Path(attack_file[0])
 
 
-_, _attack_path_base = get_attack_file_path().split('-v')
+_, _attack_path_base = str(get_attack_file_path()).split('-v')
 _ext_length = len('.json.gz')
 CURRENT_ATTACK_VERSION = _attack_path_base[:-_ext_length]
 
@@ -98,7 +98,7 @@ sub_technique_id_list = [t for t in technique_lookup if '.' in t]
 
 def refresh_attack_data(save=True) -> (Optional[dict], Optional[bytes]):
     """Refresh ATT&CK data from Mitre."""
-    attack_path = get_attack_file_path()
+    attack_path = str(get_attack_file_path())
     filename, _, _ = attack_path.name.rsplit('.', 2)
 
     def get_version_from_tag(name, pattern='att&ck-v'):
