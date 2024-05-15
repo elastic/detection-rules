@@ -31,7 +31,7 @@ def create_config_content() -> str:
         'bbr_rules_dirs': ['rules_building_block'],
         'files': {
             'deprecated_rules': 'etc/deprecated_rules.json',
-            'packages': 'etc/packages.yml',
+            'packages': 'etc/packages.yaml',
             'stack_schema_map': 'etc/stack-schema-map.yaml',
             'version_lock': 'etc/version.lock.json',
         },
@@ -57,7 +57,7 @@ def create_test_config_content() -> str:
 
 @custom_rules.command('setup-config')
 @click.argument('directory', type=Path)
-@click.argument('kibana-version', type=str, default=load_etc_dump('packages.yml')['package']['name'])
+@click.argument('kibana-version', type=str, default=load_etc_dump('packages.yaml')['package']['name'])
 @click.option('--overwrite', is_flag=True, help="Overwrite the existing _config.yaml file.")
 def setup_config(directory: Path, kibana_version: str, overwrite: bool):
     """Setup the custom rules configuration directory and files with defaults."""
@@ -68,7 +68,7 @@ def setup_config(directory: Path, kibana_version: str, overwrite: bool):
 
     etc_dir = directory / 'etc'
     test_config = etc_dir / 'test_config.yaml'
-    package_config = etc_dir / 'packages.yml'
+    package_config = etc_dir / 'packages.yaml'
     stack_schema_map_config = etc_dir / 'stack-schema-map.yaml'
     config_files = [
         package_config,
@@ -106,7 +106,7 @@ def setup_config(directory: Path, kibana_version: str, overwrite: bool):
     latest_entry = {latest_version: stack_schema_map_content[latest_version]}
     stack_schema_map_config.write_text(yaml.safe_dump(latest_entry, default_flow_style=False))
 
-    # Create default packages.yml
+    # Create default packages.yaml
     package_content = {'package': {'name': kibana_version}}
     package_config.write_text(yaml.safe_dump(package_content, default_flow_style=False))
 

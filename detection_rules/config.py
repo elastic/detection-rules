@@ -190,12 +190,12 @@ class RulesConfig:
     exception_dir: Optional[Path] = None
 
     def __post_init__(self):
-        """Perform post validation on packages.yml file."""
+        """Perform post validation on packages.yaml file."""
         if 'package' not in self.packages:
-            raise ValueError('Missing the `package` field defined in packages.yml.')
+            raise ValueError('Missing the `package` field defined in packages.yaml.')
 
         if 'name' not in self.packages['package']:
-            raise ValueError('Missing the `name` field defined in packages.yml.')
+            raise ValueError('Missing the `name` field defined in packages.yaml.')
 
 
 @cached
@@ -270,7 +270,7 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     try:
         rules_config = RulesConfig(test_config=test_config, **contents)
     except (ValueError, TypeError) as e:
-        raise SystemExit(f'Error parsing packages.yml: {str(e)}')
+        raise SystemExit(f'Error parsing packages.yaml: {str(e)}')
 
     return rules_config
 
