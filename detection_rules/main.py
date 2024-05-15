@@ -431,7 +431,7 @@ def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
     es_client: Elasticsearch = ctx.obj['es']
 
     click.echo(f'Attempting to load dnstwist data from {input_file}')
-    dnstwist_data: dict = load_dump(input_file)
+    dnstwist_data: dict = load_dump(str(input_file))
     click.echo(f'{len(dnstwist_data)} records loaded')
 
     original_domain = next(r['domain-name'] for r in dnstwist_data if r.get('fuzzer', '') == 'original*')

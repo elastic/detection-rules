@@ -90,7 +90,7 @@ def dev_group():
 def build_release(config_file, update_version_lock: bool, generate_navigator: bool, generate_docs: str,
                   update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
-    config = load_dump(config_file)['package']
+    config = load_dump(str(config_file))['package']
     registry_data = config['registry_data']
 
     if generate_navigator:
