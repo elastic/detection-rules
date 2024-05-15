@@ -55,7 +55,7 @@ class TestPackages(BaseRuleTest):
         """Test that packages are loading correctly."""
 
     def test_package_loader_default_configs(self):
-        """Test configs in detection_rules/etc/packages.yml."""
+        """Test configs in detection_rules/etc/packages.yaml."""
         Package.from_config(package_configs)
 
     def test_package_summary(self):
