@@ -102,7 +102,7 @@ class Package(object):
 
     @classmethod
     def load_configs(cls):
-        """Load configs from packages.yml."""
+        """Load configs from packages.yaml."""
         return RULES_CONFIG.packages['package']
 
     @staticmethod

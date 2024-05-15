@@ -22,9 +22,9 @@ custom-rules
     ├── example_rule_2.toml
 └── etc
     ├── deprecated_rules.json
-    ├── packages.yml
+    ├── packages.yaml
     ├── stack-schema-map.yaml
-    ├── test-config.yml
+    ├── test_config.yaml
     └── version.lock.json
 └── actions
     ├── action_1.toml
@@ -39,9 +39,9 @@ should be defined in the `_config.yaml` file. Refer to the details in the defaul
 [_config.yaml](../detection_rules/etc/_config.yaml) for more information.
 
 * deprecated_rules.json - tracks all deprecated rules (optional)
-* packages.yml - information for building packages (mostly optional, but the current version is required)
+* packages.yaml - information for building packages (mostly optional, but the current version is required)
 * stack-schema-map.yaml - a mapping of schemas for query validation
-* test-config.yml - a config file for testing (optional)
+* test_config.yaml - a config file for testing (optional)
 * version.lock.json - this tracks versioning for rules (optional depending on versioning strategy)
 
 To initialize a custom rule directory, run `python -m detection_rules custom-rules setup-config <directory>`
@@ -54,7 +54,7 @@ rule_dirs:
   - rules_building_block
 files:
   deprecated_rules: deprecated_rules.json
-  packages: packages.yml
+  packages: packages.yaml
   stack_schema_map: stack-schema-map.yaml
   version_lock: version.lock.json
 directories:
