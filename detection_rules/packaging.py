@@ -100,7 +100,7 @@ class Package(object):
     @classmethod
     def load_configs(cls):
         """Load configs from packages.yml."""
-        return load_etc_dump(PACKAGE_FILE)['package']
+        return load_etc_dump(str(PACKAGE_FILE))['package']
 
     @staticmethod
     def _package_kibana_notice_file(save_dir):
