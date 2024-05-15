@@ -28,7 +28,7 @@ def create_config_content() -> str:
     # Base structure of the configuration
     config_content = {
         'rule_dirs': ['rules'],
-        'bbr_rules_dirs': [],
+        'bbr_rules_dirs': ['rules_building_block'],
         'files': {
             'deprecated_rules': 'etc/deprecated_rules.json',
             'packages': 'etc/packages.yml',
