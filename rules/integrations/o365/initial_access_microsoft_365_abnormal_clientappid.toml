@@ -20,13 +20,21 @@ license = "Elastic License v2"
 name = "Suspicious Microsoft 365 Mail Access by ClientAppId"
 note = """## Triage and analysis
 
+### Investigating Suspicious Microsoft 365 Mail Access by ClientAppId
+
+- Verify the ClientAppId, source.ip and geolocation associated with Mail Access.
+- Verify the total number of used ClientAppId by that specific user.id.
+- Verify if the mailbox owner was on leave and just resumed working or not.
+- Verify if there are other alerts associated with the same user.id.
+- Verify the total number of connections from that ClientAppId, if it's accessing other mailboxes and with a high frequency there is a high chance it's a false positive.
+
 ### False positive analysis
 
 - Legit Microsoft or third party ClientAppId.
 - User changing of ClientAppId or new connection post an extended period of leave.
-- Verify the total number of connections from that ClientAppId, if it's accessing other mailboxes and with a high frequency there is a high chance it's a false positive.
-
-### Setup
+- If the total number of accessed Mailboxes by ClientAppId is too high there is a high chance it's a false positive.
+"""
+setup = """## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 """
