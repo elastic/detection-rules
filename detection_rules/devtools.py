@@ -195,7 +195,7 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, new_package: str, maturity: str):
     """Bump the versions"""
 
-    pkg_data = load_etc_dump('packages.yml')['package']
+    pkg_data = load_etc_dump('packages.yaml')['package']
     kibana_ver = Version.parse(pkg_data["name"], optional_minor_and_patch=True)
     pkg_ver = Version.parse(pkg_data["registry_data"]["version"])
     pkg_kibana_ver = Version.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
@@ -236,7 +236,7 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
     click.echo(f"Package version: {pkg_data['registry_data']['version']}")
 
-    save_etc_dump({"package": pkg_data}, "packages.yml")
+    save_etc_dump({"package": pkg_data}, "packages.yaml")
 
 
 @dataclasses.dataclass
@@ -293,7 +293,7 @@ class GitChangeEntry:
 def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list: list):
     """Prune the git staging area to remove changes to incompatible rules."""
     exceptions = {
-        "detection_rules/etc/packages.yml",
+        "detection_rules/etc/packages.yaml",
     }
     exceptions.update(exception_list.split(","))
 
