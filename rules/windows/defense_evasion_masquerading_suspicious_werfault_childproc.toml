@@ -3,13 +3,13 @@ creation_date = "2020/08/24"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/29"
+min_stack_version = "8.10.1"
+updated_date = "2024/05/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-A suspicious WerFault child process was detected, which may indicate an attempt to run via the SilentProcessExit 
+A suspicious WerFault child process was detected, which may indicate an attempt to run via the SilentProcessExit
 registry key manipulation. Verify process details such as command line, network connections and file writes.
 """
 false_positives = ["Custom Windows error reporting debugger or applications restarted by WerFault after a crash."]
@@ -42,11 +42,11 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
 
-  process.parent.name : "WerFault.exe" and 
-  
+  process.parent.name : "WerFault.exe" and
+
   /* args -s and -t used to execute a process via SilentProcessExit mechanism */
-  (process.parent.args : "-s" and process.parent.args : "-t" and process.parent.args : "-c") and 
-  
+  (process.parent.args : "-s" and process.parent.args : "-t" and process.parent.args : "-c") and
+
   not process.executable : ("?:\\Windows\\SysWOW64\\Initcrypt.exe", "?:\\Program Files (x86)\\Heimdal\\Heimdal.Guard.exe")
 '''
 

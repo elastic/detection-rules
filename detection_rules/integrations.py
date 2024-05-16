@@ -59,7 +59,7 @@ class IntegrationManifestSchema(Schema):
         return data
 
 
-def build_integrations_manifest(overwrite: bool, rule_integrations: list = [], integration: str = None) -> None:
+def build_integrations_manifest(overwrite: bool, rule_integrations: list = [], integration: str = None, prerelease: bool = False) -> None:
     """Builds a new local copy of manifest.yaml from integrations Github."""
 
     def write_manifests(integrations: dict) -> None:
@@ -77,7 +77,7 @@ def build_integrations_manifest(overwrite: bool, rule_integrations: list = [], i
 
     rule_integrations = rule_integrations or [integration]
     for integration in rule_integrations:
-        integration_manifests = get_integration_manifests(integration)
+        integration_manifests = get_integration_manifests(integration, prerelease=prerelease)
         for manifest in integration_manifests:
             validated_manifest = IntegrationManifestSchema(unknown=EXCLUDE).load(manifest)
             package_version = validated_manifest.pop("version")
