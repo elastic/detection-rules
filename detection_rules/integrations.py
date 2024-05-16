@@ -59,7 +59,8 @@ class IntegrationManifestSchema(Schema):
         return data
 
 
-def build_integrations_manifest(overwrite: bool, rule_integrations: list = [], integration: str = None, prerelease: bool = False) -> None:
+def build_integrations_manifest(overwrite: bool, rule_integrations: list = [],
+                                integration: str = None, prerelease: bool = False) -> None:
     """Builds a new local copy of manifest.yaml from integrations Github."""
 
     def write_manifests(integrations: dict) -> None:
