@@ -1,0 +1,72 @@
+name: Push Latest to Kibana
+
+on:
+  push:
+    branches:
+      - DAC-feature
+  workflow_dispatch:
+    inputs:
+      overwrite:
+        description: 'Overwrite existing rules'
+        required: false
+        default: 'true'
+      overwrite_exceptions:
+        description: 'Overwrite existing exceptions'
+        required: false
+        default: 'true'
+      overwrite_action_connectors:
+        description: 'Overwrite existing action connectors'
+        required: false
+        default: 'true'
+      space:
+        description: 'Kibana space to use (Dev_8.13 or Prod_8.13)'
+        required: false
+        default: 'Prod_8.13'
+
+jobs:
+  sync-to-production:
+    runs-on: ubuntu-latest
+    env:
+      CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.12'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip cache purge
+        pip install .[dev]
+
+    - name: Import Rules to Kibana
+      run: |
+        FLAGS=""
+        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite }}" == "true" ]]; then
+          FLAGS="$FLAGS --overwrite"
+        fi
+        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite_exceptions }}" == "true" ]]; then
+          FLAGS="$FLAGS --overwrite-exceptions"
+        fi
+        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite_action_connectors }}" == "true" ]]; then
+          FLAGS="$FLAGS --overwrite-action-connectors"
+        fi
+        if [[ "${{ github.event_name }}" == "push" ]]; then
+          SPACE="Prod_8.13"  # Default to production for push events
+        elif [[ "${{ inputs.space }}" == "Dev_8.13" || "${{ inputs.space }}" == "Prod_8.13" ]]; then
+          SPACE="${{ inputs.space }}"  # Use provided space if valid
+        else
+          echo "::error::Invalid space provided. Defaulting to 'Dev_8.13'."
+          SPACE="Dev_8.13"
+        fi
+        SPACE_FLAG="--space $SPACE"
+        python -m detection_rules kibana import-rules $FLAGS $SPACE_FLAG
+      env:
+        DR_KIBANA_URL: ${{ env.ELASTIC_KIBANA_URL }}
+        DR_KIBANA_USERNAME: ${{ env.ELASTIC_USERNAME }}
+        DR_KIBANA_PASSWORD: ${{ env.ELASTIC_PASSWORD }}
