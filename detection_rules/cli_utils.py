@@ -74,11 +74,13 @@ def multi_collection(f):
 
         rules = RuleCollection()
 
-        if not (directories or rule_id or rule_files):
+        if not (directories or rule_id or rule_files or DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS):
             client_error('Required: at least one of --rule-id, --rule-file, or --directory')
 
         rules.load_files(Path(p) for p in rule_files)
         rules.load_directories(Path(d) for d in directories)
+        if not rule_files and not directories:
+            rules.load_directories(Path(d) for d in DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS)
 
         if rule_id:
             rules.load_directories(DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS,
