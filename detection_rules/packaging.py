@@ -198,7 +198,9 @@ class Package(object):
             shutil.make_archive(extras_dir / self.name, 'zip', root_dir=rules_dir.parent, base_dir=rules_dir.name)
 
             # zip everything and place in release root
-            shutil.make_archive(save_dir / f'{self.name}-all', 'zip', root_dir=extras_dir.parent, base_dir=extras_dir.name)
+            shutil.make_archive(
+                save_dir / f"{self.name}-all", "zip", root_dir=extras_dir.parent, base_dir=extras_dir.name
+            )
 
         if verbose:
             click.echo(f'Package saved to: {save_dir}')
