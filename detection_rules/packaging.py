@@ -185,7 +185,7 @@ class Package(object):
         extras_dir.mkdir(parents=True, exist_ok=True)
 
         for rule in self.rules:
-            rule.save_json(rules_dir / rule.path.name.with_suffix('.json'))
+            rule.save_json(rules_dir / Path(rule.path.name).with_suffix('.json'))
 
         self._package_kibana_notice_file(rules_dir)
         self._package_kibana_index_file(rules_dir)
