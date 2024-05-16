@@ -192,6 +192,7 @@ class KQLValidator(QueryValidator):
                 integration_schema_data["integration"],
             )
             integration_schema = integration_schema_data["schema"]
+            stack_version = integration_schema_data["stack_version"]
 
             # Add non-ecs-schema fields
             for index_name in data.index:
