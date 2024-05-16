@@ -45,7 +45,12 @@ def create_config_content() -> str:
 
 def create_test_config_content(enable_prebuilt_tests: bool) -> str:
     """Generate the content for the test_config.yaml with special content and references."""
-    comment_char = '#' if enable_prebuilt_tests else ''
+
+    def format_test_string(test_string: str, comment_char: str) -> str:
+        """Generate a yaml formatted string with a comment character."""
+        return f"{comment_char}  - {test_string}"
+
+    comment_char = "#" if enable_prebuilt_tests else ""
     example_test_config_path = DEFAULT_CONFIG_PATH.parent.joinpath("example_test_config.yaml")
 
     lines = [
@@ -56,13 +61,15 @@ def create_test_config_content(enable_prebuilt_tests: bool) -> str:
         "",
         "unit_tests:",
         "  bypass:",
-        f"{comment_char}  - tests.test_gh_workflows.TestWorkflows.test_matrix_to_lock_version_defaults",
-        f"{comment_char}  - tests.test_schemas.TestVersionLockSchema.test_version_lock_has_nested_previous",
-        f"{comment_char}  - tests.test_packages.TestRegistryPackage.test_registry_package_config",
-        f"{comment_char}  - tests.test_all_rules.TestValidRules.test_schema_and_dupes",
+        format_test_string("tests.test_gh_workflows.TestWorkflows.test_matrix_to_lock_version_defaults", comment_char),
+        format_test_string(
+            "tests.test_schemas.TestVersionLockSchema.test_version_lock_has_nested_previous", comment_char
+        ),
+        format_test_string("tests.test_packages.TestRegistryPackage.test_registry_package_config", comment_char),
+        format_test_string("tests.test_all_rules.TestValidRules.test_schema_and_dupes", comment_char),
     ]
 
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 @custom_rules.command('setup-config')
