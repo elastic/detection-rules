@@ -47,7 +47,7 @@ def create_test_config_content(enable_prebuilt_tests: bool) -> str:
     """Generate the content for the test_config.yaml with special content and references."""
     comment_char = '#' if enable_prebuilt_tests else ''
     example_test_config_path = DEFAULT_CONFIG_PATH.parent.joinpath("example_test_config.yaml")
-    
+
     lines = [
         "# For more details, refer to the example configuration:",
         f"# {example_test_config_path}",
@@ -58,6 +58,8 @@ def create_test_config_content(enable_prebuilt_tests: bool) -> str:
         "  bypass:",
         f"{comment_char}  - tests.test_gh_workflows.TestWorkflows.test_matrix_to_lock_version_defaults",
         f"{comment_char}  - tests.test_schemas.TestVersionLockSchema.test_version_lock_has_nested_previous",
+        f"{comment_char}  - tests.test_packages.TestRegistryPackage.test_registry_package_config",
+        f"{comment_char}  - tests.test_all_rules.TestValidRules.test_schema_and_dupes",
     ]
 
     return '\n'.join(lines)
