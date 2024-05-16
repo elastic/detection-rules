@@ -22,7 +22,7 @@ class RtaMappings:
 
     def __init__(self):
         """Rta-mapping validation and prep."""
-        self.mapping: dict = load_etc_dump('rule-mapping.yml')
+        self.mapping: dict = load_etc_dump('rule-mapping.yaml')
         self.validate()
 
         self._rta_mapping = defaultdict(list)
@@ -48,7 +48,7 @@ class RtaMappings:
 
         mapping[rule.id] = rule_map
         self.mapping = dict(sorted(mapping.items()))
-        save_etc_dump(self.mapping, 'rule-mapping.yml')
+        save_etc_dump(self.mapping, 'rule-mapping.yaml')
         return rule_map
 
     def get_rta_mapping(self):

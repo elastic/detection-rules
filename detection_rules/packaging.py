@@ -28,7 +28,7 @@ from .utils import Ndjson, get_path, get_etc_path, load_etc_dump
 from .version_lock import default_version_lock
 
 RELEASE_DIR = get_path("releases")
-PACKAGE_FILE = get_etc_path('packages.yml')
+PACKAGE_FILE = get_etc_path('packages.yaml')
 NOTICE_FILE = get_path('NOTICE.txt')
 FLEET_PKG_LOGO = get_etc_path("security-logo-color-64px.svg")
 
