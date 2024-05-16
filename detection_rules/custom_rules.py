@@ -43,23 +43,34 @@ def create_config_content() -> str:
     return yaml.safe_dump(config_content, default_flow_style=False)
 
 
-def create_test_config_content() -> str:
+def create_test_config_content(enable_prebuilt_tests: bool) -> str:
     """Generate the content for the test_config.yaml with special content and references."""
+    comment_char = '#' if enable_prebuilt_tests else ''
     example_test_config_path = DEFAULT_CONFIG_PATH.parent.joinpath("example_test_config.yaml")
-    content = f"# For more details, refer to the example configuration:\n# {example_test_config_path}\n" \
-              "# Define tests to explicitly bypass, with all others being run.\n" \
-              "# To run all tests, set bypass to empty or leave this file commented out.\n\n" \
-              "unit_tests:\n  bypass:\n#  - tests.test_all_rules.TestValidRules.test_schema_and_dupes\n" \
-              "#  - tests.test_packages.TestRegistryPackage.test_registry_package_config\n"
+    
+    lines = [
+        "# For more details, refer to the example configuration:",
+        f"# {example_test_config_path}",
+        "# Define tests to explicitly bypass, with all others being run.",
+        "# To run all tests, set bypass to empty or leave this file commented out.",
+        "",
+        "unit_tests:",
+        "  bypass:",
+        f"{comment_char}  - tests.test_gh_workflows.TestWorkflows.test_matrix_to_lock_version_defaults",
+        f"{comment_char}  - tests.test_schemas.TestVersionLockSchema.test_version_lock_has_nested_previous",
+    ]
 
-    return content
+    return '\n'.join(lines)
 
 
 @custom_rules.command('setup-config')
 @click.argument('directory', type=Path)
 @click.argument('kibana-version', type=str, default=load_etc_dump('packages.yaml')['package']['name'])
 @click.option('--overwrite', is_flag=True, help="Overwrite the existing _config.yaml file.")
-def setup_config(directory: Path, kibana_version: str, overwrite: bool):
+@click.option(
+    "--enable-prebuilt-tests", "-e", is_flag=True, help="Enable all prebuilt tests instead of default subset."
+)
+def setup_config(directory: Path, kibana_version: str, overwrite: bool, enable_prebuilt_tests: bool):
     """Setup the custom rules configuration directory and files with defaults."""
 
     config = directory / '_config.yaml'
@@ -111,7 +122,7 @@ def setup_config(directory: Path, kibana_version: str, overwrite: bool):
     package_config.write_text(yaml.safe_dump(package_content, default_flow_style=False))
 
     # Create and configure test_config.yaml
-    test_config.write_text(create_test_config_content())
+    test_config.write_text(create_test_config_content(enable_prebuilt_tests))
 
     # Create and configure _config.yaml
     config.write_text(create_config_content())
