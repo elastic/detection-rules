@@ -175,17 +175,17 @@ class Package(object):
 
     def save(self, verbose=True):
         """Save a package and all artifacts."""
-        save_dir = os.path.join(RELEASE_DIR, self.name)
-        rules_dir = os.path.join(save_dir, 'rules')
-        extras_dir = os.path.join(save_dir, 'extras')
+        save_dir = RELEASE_DIR / self.name
+        rules_dir = save_dir / 'rules'
+        extras_dir = save_dir / 'extras'
 
         # remove anything that existed before
         shutil.rmtree(save_dir, ignore_errors=True)
-        os.makedirs(rules_dir, exist_ok=True)
-        os.makedirs(extras_dir, exist_ok=True)
+        rules_dir.mkdir(parents=True, exist_ok=True)
+        extras_dir.mkdir(parents=True, exist_ok=True)
 
         for rule in self.rules:
-            rule.save_json(Path(rules_dir).joinpath(rule.path.name).with_suffix('.json'))
+            rule.save_json(rules_dir / rule.path.name.with_suffix('.json'))
 
         self._package_kibana_notice_file(rules_dir)
         self._package_kibana_index_file(rules_dir)
@@ -195,15 +195,13 @@ class Package(object):
             self.save_release_files(extras_dir, self.changed_ids, self.new_ids, self.removed_ids)
 
             # zip all rules only and place in extras
-            shutil.make_archive(os.path.join(extras_dir, self.name), 'zip', root_dir=os.path.dirname(rules_dir),
-                                base_dir=os.path.basename(rules_dir))
+            shutil.make_archive(extras_dir / self.name, 'zip', root_dir=rules_dir.parent, base_dir=rules_dir.name)
 
             # zip everything and place in release root
-            shutil.make_archive(os.path.join(save_dir, '{}-all'.format(self.name)), 'zip',
-                                root_dir=os.path.dirname(extras_dir), base_dir=os.path.basename(extras_dir))
+            shutil.make_archive(save_dir / f'{self.name}-all', 'zip', root_dir=extras_dir.parent, base_dir=extras_dir.name)
 
         if verbose:
-            click.echo('Package saved to: {}'.format(save_dir))
+            click.echo(f'Package saved to: {save_dir}')
 
     def export(self, outfile, downgrade_version=None, verbose=True, skip_unsupported=False):
         """Export rules into a consolidated ndjson file."""

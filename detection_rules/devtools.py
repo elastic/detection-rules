@@ -438,7 +438,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     stack_version = Package.load_configs()["name"]
     package_version = Package.load_configs()["registry_data"]["version"]
 
-    release_dir = Path(RELEASE_DIR) / stack_version / "fleet" / package_version
+    release_dir = RELEASE_DIR / stack_version / "fleet" / package_version
     message = f"[Security Rules] Update security rules package to v{package_version}"
 
     if not release_dir.exists():
@@ -619,7 +619,7 @@ def test_version_lock(branches: tuple, remote: str):
 
     finally:
         diff = git('--no-pager', 'diff', get_etc_path('version.lock.json'))
-        outfile = get_path().joinpath('lock-diff.txt')
+        outfile = get_path() / 'lock-diff.txt'
         outfile.write_text(diff)
         click.echo(f'diff saved to {outfile}')
 
