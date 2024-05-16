@@ -27,6 +27,7 @@ ENDPOINT_NAME = "endpoint_schemas"
 ENDPOINT_SCHEMAS_DIR = get_etc_path(ENDPOINT_NAME)
 RULES_CONFIG = parse_rules_config()
 
+
 def add_field(schema, name, info):
     """Nest a dotted field within a dictionary."""
     if "." not in name:
