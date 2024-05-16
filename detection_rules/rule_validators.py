@@ -197,6 +197,11 @@ class KQLValidator(QueryValidator):
             for index_name in data.index:
                 integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
 
+            # Add custom schema fields for appropriate stack version
+            if data.index:
+                for index_name in data.index:
+                    integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
+
             # Add endpoint schema fields for multi-line fields
             integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
             if integration:
@@ -386,6 +391,11 @@ class EQLValidator(QueryValidator):
             if data.index:
                 for index_name in data.index:
                     integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+
+            # Add custom schema fields for appropriate stack version
+            if data.index:
+                for index_name in data.index:
+                    integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
 
             # add endpoint schema fields for multi-line fields
             integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))

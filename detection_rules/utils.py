@@ -112,6 +112,16 @@ def load_etc_dump(*path):
     return eql.utils.load_dump(get_etc_path(*path))
 
 
+def load_schemas_from_dir(schema_dir: Path) -> dict:
+    """Load all schemas from a directory."""
+    schemas_dump = {}
+    for file_path in schema_dir.iterdir():
+        if file_path.is_file() and file_path.suffix in [".json", ".yaml", ".yml"]:
+            schemas_dump.update(eql.utils.load_dump(str(file_path)))
+
+    return schemas_dump
+
+
 def save_etc_dump(contents, *path, **kwargs):
     """Save a json/yml/toml file from the detection_rules/etc/ folder."""
     path = get_etc_path(*path)

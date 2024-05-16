@@ -319,7 +319,7 @@ def load_stack_schema_map() -> dict:
 
 @cached
 def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType[str, dict]:
-    """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
+    """Return all ECS + beats + custom to stack versions for every stack version >= specified stack version and <= package."""
     stack_version = Version.parse(stack_version or '0.0.0', optional_minor_and_patch=True)
     current_package = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
 
