@@ -89,7 +89,7 @@ class Kibana(object):
         # If a space is defined update the URL accordingly
         uri = uri.lstrip('/')
         if self.space:
-            uri = "s/{}/{}".format(self.space, uri)
+            uri = "s/{}/{}".format(self.space.lower(), uri)
         return f"{self.kibana_url}/{uri}"
 
     def request(self, method, uri, params=None, data=None, raw_data=None, error=True, verbose=True, raw=False,
