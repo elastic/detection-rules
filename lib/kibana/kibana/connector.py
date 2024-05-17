@@ -11,8 +11,8 @@ import sys
 import threading
 import uuid
 from typing import List, Optional, Union
-from urllib.parse import urljoin
 
+from urllib.parse import urljoin
 import requests
 from elasticsearch import Elasticsearch
 
@@ -87,20 +87,11 @@ class Kibana(object):
     def url(self, uri):
         """Get the full URL given a URI."""
         assert self.kibana_url is not None
-        normalized_uri = uri.lstrip('/')
-
-        # Construct the space path if a space is defined
+        # If a space is defined update the URL accordingly
+        uri = uri.lstrip('/')
         if self.space:
-            space_path = f"s/{self.space.lower()}/"
-            full_path = urljoin(space_path, normalized_uri)
-        else:
-            full_path = normalized_uri
-
-        # Ensure the base Kibana URL ends with a '/' to correctly form a base URL for urljoin
-        if not self.kibana_url.endswith('/'):
-            self.kibana_url += '/'
-
-        return urljoin(self.kibana_url, full_path)
+            uri = "s/{}/{}".format(self.space.lower(), uri)
+        return f"{self.kibana_url}/{uri}"
 
     def request(self, method, uri, params=None, data=None, raw_data=None, error=True, verbose=True, raw=False,
                 **kwargs) -> Optional[Union[requests.Response, dict]]:
