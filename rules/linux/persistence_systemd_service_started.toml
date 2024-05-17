@@ -196,20 +196,18 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and
-process.executable:/usr/bin/systemctl and process.args:(reenable or start or enable) and
+process.executable:/usr/bin/systemctl and process.args:(enable or reenable or start) and
 not (
-  (process.entry_leader.entry_meta.type:(unknown or init or container) or not process.entry_leader.entry_meta.type:*) or
-  (process.parent.pid:1) or
-  (process.parent.executable:(/bin/sudo or /usr/bin/sudo)) or
-  (process.args_count >= 5) or
-  (process.parent.executable:(
-    /bin/dpkg or /usr/bin/dpkg or /bin/useradd or /usr/sbin/useradd or /bin/adduser or /usr/sbin/adduser or
-    /bin/dockerd or /usr/bin/dockerd or /bin/microdnf or /usr/bin/microdnf or /bin/rpm or /usr/bin/rpm or
-    /bin/snapd or /usr/bin/snapd or /bin/yum or /usr/bin/yum or /bin/dnf or /usr/bin/dnf or /bin/podman or
-    /usr/bin/podman or /bin/dnf-automatic or /usr/bin/dnf-automatic or /bin/pacman or /usr/bin/pacman or
-    /usr/sbin/invoke-rc.d or /var/lib/dpkg/*
-    )
-  )
+  process.entry_leader.entry_meta.type:(container or init or unknown or not *) or
+  process.parent.pid:1 or
+  process.parent.executable:(
+    /bin/adduser or /bin/dnf or /bin/dnf-automatic or /bin/dockerd or /bin/dpkg or /bin/microdnf or /bin/pacman or
+    /bin/podman or /bin/rpm or /bin/snapd or /bin/sudo or /bin/useradd or /bin/yum or /usr/bin/dnf or
+    /usr/bin/dnf-automatic or /usr/bin/dockerd or /usr/bin/dpkg or /usr/bin/microdnf or /usr/bin/pacman or
+    /usr/bin/podman or /usr/bin/rpm or /usr/bin/snapd or /usr/bin/sudo or /usr/bin/yum or /usr/sbin/adduser or
+    /usr/sbin/invoke-rc.d or /usr/sbin/useradd or /var/lib/dpkg/*
+  ) or
+  process.args_count >= 5
 )
 '''
 
