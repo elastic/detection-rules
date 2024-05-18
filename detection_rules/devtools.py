@@ -334,7 +334,8 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
 
 @dev_group.command('update-lock-versions')
 @click.argument('rule-ids', nargs=-1, required=False)
-def update_lock_versions(rule_ids):
+@click.option('--force', is_flag=True, help='Force update without confirmation')
+def update_lock_versions(rule_ids: Tuple[str, ...], force: bool):
     """Update rule hashes in version.lock.json file without bumping version."""
     rules = RuleCollection.default()
 
@@ -343,7 +344,9 @@ def update_lock_versions(rule_ids):
     else:
         rules = rules.filter(production_filter)
 
-    if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
+    if not force and not click.confirm(
+        f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'
+    ):
         return
 
     # this command may not function as expected anymore due to previous changes eliminating the use of add_new=False
