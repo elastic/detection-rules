@@ -108,12 +108,12 @@ def get_etc_file(name, mode="r"):
 
 
 def load_etc_dump(*path):
-    """Load a json/yml/toml file from the detection_rules/etc/ folder."""
+    """Load a json/yml/yaml/toml file from the detection_rules/etc/ folder."""
     return eql.utils.load_dump(get_etc_path(*path))
 
 
 def save_etc_dump(contents, *path, **kwargs):
-    """Save a json/yml/toml file from the detection_rules/etc/ folder."""
+    """Save a json/yml/yaml/toml file from the detection_rules/etc/ folder."""
     path = get_etc_path(*path)
     _, ext = os.path.splitext(path)
     sort_keys = kwargs.pop('sort_keys', True)
