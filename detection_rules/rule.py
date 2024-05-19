@@ -364,7 +364,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     references: Optional[List[str]]
     related_integrations: Optional[List[RelatedIntegrations]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     required_fields: Optional[List[RequiredFields]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
-    revision: Optional[definitions.PositiveInteger] = field(metadata=dict(metadata=dict(min_compat="8.8")))
+    revision: Optional[int] = field(metadata=dict(metadata=dict(min_compat="8.8")))
     risk_score: definitions.RiskScore
     risk_score_mapping: Optional[List[RiskScoreMapping]]
     rule_id: definitions.UUIDString
@@ -462,14 +462,14 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
     @validates_schema
     def validates_data(self, data, **kwargs):
-        """Validate rule directories against restricted directories."""
+        """Validate version and revision fields not supplied for Elastic authored rules."""
         error_fields = [field for field in ['version', 'revision'] if data.get(field) is not None]
         if not error_fields:
             return
 
         error_message = " and ".join(error_fields)
 
-        if 'Elastic' == data.get('author')[0]:
+        if data.get('author') and data['author'][0] == 'Elastic':
             msg = (f"Configuration error: Rule {data['name']} - {data['rule_id']} "
                    f"authored by Elastic should not contain rules with `{error_message}` set.")
             raise ValidationError(msg)
