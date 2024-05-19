@@ -103,6 +103,11 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     package = Package.from_config(config=config, verbose=verbose)
 
     if update_version_lock:
+        if RULES_CONFIG.bypass_version_lock:
+            click.echo('WARNING: You cannot update the version lock when the versioning strategy is configured to '
+                       'bypass the version lock. Set `bypass_version_lock` to `false` in the rules config to '
+                       'use the version lock.')
+            return []
         loaded_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
 
     package.save(verbose=verbose)
@@ -336,7 +341,8 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
 
 @dev_group.command('update-lock-versions')
 @click.argument('rule-ids', nargs=-1, required=False)
-def update_lock_versions(rule_ids):
+@click.pass_context
+def update_lock_versions(ctx: click.Context, rule_ids):
     """Update rule hashes in version.lock.json file without bumping version."""
     rules = RuleCollection.default()
 
@@ -351,7 +357,7 @@ def update_lock_versions(rule_ids):
     if RULES_CONFIG.bypass_version_lock:
         click.echo('WARNING: You cannot run this command when the versioning strategy is configured to bypass the '
                    'version lock. Set `bypass_version_lock` to `False` in the rules config to use the version lock.')
-        return []
+        ctx.exit()
 
     # this command may not function as expected anymore due to previous changes eliminating the use of add_new=False
     changed, new, _ = loaded_version_lock.manage_versions(rules, exclude_version_update=True, save_changes=True)
@@ -727,6 +733,11 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 @click.pass_context
 def deprecate_rule(ctx: click.Context, rule_file: Path):
     """Deprecate a rule."""
+    if RULES_CONFIG.bypass_version_lock:
+        click.echo('Cannot deprecate a rule when the versioning strategy is configured to bypass the version '
+                   'lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock.')
+        ctx.exit()
+
     version_info = loaded_version_lock.version_lock
     rule_collection = RuleCollection()
     contents = rule_collection.load_file(rule_file).contents
@@ -819,13 +830,19 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 @dev_group.command('trim-version-lock')
 @click.argument('stack_version')
 @click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
-def trim_version_lock(stack_version: str, dry_run: bool):
+@click.pass_context
+def trim_version_lock(ctx: click.Context, stack_version: str, dry_run: bool):
     """Trim all previous entries within the version lock file which are lower than the min_version."""
     stack_versions = get_stack_versions()
     assert stack_version in stack_versions, \
         f'Unknown min_version ({stack_version}), expected: {", ".join(stack_versions)}'
 
     min_version = Version.parse(stack_version)
+
+    if RULES_CONFIG.bypass_version_lock:
+        click.echo('Cannot trim the version lock when the versioning strategy is configured to bypass the version '
+                   'lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock.')
+        ctx.exit()
     version_lock_dict = loaded_version_lock.version_lock.to_dict()
     removed = {}
 

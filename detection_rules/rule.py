@@ -983,30 +983,30 @@ class BaseRuleContents(ABC):
 
     @property
     def latest_version(self) -> Optional[int]:
-        """Retrieve the latest known version of the rule."""
-        min_stack = self.get_supported_version()
-        return self.version_lock.get_locked_version(self.id, min_stack)
+        """Retrieve the latest known version of the rule, considering the version lock setting."""
+        toml_version = self.data.get("version")
+
+        if BYPASS_VERSION_LOCK and toml_version:
+            return toml_version
+
+        if toml_version:
+            print(f"WARNING: Rule {self.name} - {self.id} has a version set in the rule TOML."
+                  " This `version` will be ignored and defaulted to the version.lock.json file."
+                  " Set `bypass_version_lock` to `True` in the rules config to use the TOML version.")
+
+        return self.version_lock.get_locked_version(self.id, self.get_supported_version())
 
     @property
     def autobumped_version(self) -> Optional[int]:
         """Retrieve the current version of the rule, accounting for automatic increments."""
         version = self.latest_version
-        toml_version = self.data.get("version")
-
-        if toml_version:
-            if BYPASS_VERSION_LOCK:
-                version = toml_version
-            else:
-                print(f"WARNING: Rule {self.name} - {self.id} has a version set in the rule TOML."
-                      " This `version` will be ignored and defaulted to the version.lock.json file."
-                      " Set `bypass_version_lock` to `True` in the rules config to use the TOML version.")
 
         # Default to version 1 if no version is set yet
         if version is None:
             return 1
 
         # Auto-increment version if the rule is 'dirty' and not bypassing version lock
-        return version + 1 if self.is_dirty and not BYPASS_VERSION_LOCK else version
+        return version + 1 if not BYPASS_VERSION_LOCK and self.is_dirty else version
 
     @classmethod
     def convert_supported_version(cls, stack_version: Optional[str]) -> Version:
@@ -1062,11 +1062,15 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def set_version_lock(self, value):
         from .version_lock import VersionLock
 
-        if value and not isinstance(value, VersionLock):
-            raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
+        if RULES_CONFIG.bypass_version_lock:
+            print('Cannot set the version lock when the versioning strategy is configured to bypass the version '
+                  'lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock.')
+        else:
+            if value and not isinstance(value, VersionLock):
+                raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
 
-        # circumvent frozen class
-        self.__dict__['_version_lock'] = value
+            # circumvent frozen class
+            self.__dict__['_version_lock'] = value
 
     @classmethod
     def all_rule_types(cls) -> set:
@@ -1390,11 +1394,15 @@ class DeprecatedRuleContents(BaseRuleContents):
     def set_version_lock(self, value):
         from .version_lock import VersionLock
 
-        if value and not isinstance(value, VersionLock):
-            raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
+        if RULES_CONFIG.bypass_version_lock:
+            print('Cannot set the version lock when the versioning strategy is configured to bypass the version '
+                  'lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock.')
+        else:
+            if value and not isinstance(value, VersionLock):
+                raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
 
-        # circumvent frozen class
-        self.__dict__['_version_lock'] = value
+            # circumvent frozen class
+            self.__dict__['_version_lock'] = value
 
     @property
     def id(self) -> str:

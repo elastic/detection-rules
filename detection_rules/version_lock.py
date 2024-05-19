@@ -142,22 +142,29 @@ class VersionLock:
     def __init__(self, version_lock_file: Optional[Path] = None, deprecated_lock_file: Optional[Path] = None,
                  version_lock: Optional[dict] = None, deprecated_lock: Optional[dict] = None,
                  name: Optional[str] = None):
-        assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
-        assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
 
-        self.name = name
-        self.version_lock_file = version_lock_file
-        self.deprecated_lock_file = deprecated_lock_file
-
-        if version_lock_file:
-            self.version_lock = VersionLockFile.load_from_file(version_lock_file)
+        if RULES_CONFIG.bypass_version_lock:
+            # if bypassed, we don't need to load the file
+            self.version_lock = {}
+            self.deprecated_lock = {}
         else:
-            self.version_lock = VersionLockFile.from_dict(dict(data=version_lock))
 
-        if deprecated_lock_file:
-            self.deprecated_lock = DeprecatedRulesFile.load_from_file(deprecated_lock_file)
-        else:
-            self.deprecated_lock = DeprecatedRulesFile.from_dict(dict(data=deprecated_lock))
+            assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
+            assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
+
+            self.name = name
+            self.version_lock_file = version_lock_file
+            self.deprecated_lock_file = deprecated_lock_file
+
+            if version_lock_file:
+                self.version_lock = VersionLockFile.load_from_file(version_lock_file)
+            else:
+                self.version_lock = VersionLockFile.from_dict(dict(data=version_lock))
+
+            if deprecated_lock_file:
+                self.deprecated_lock = DeprecatedRulesFile.load_from_file(deprecated_lock_file)
+            else:
+                self.deprecated_lock = DeprecatedRulesFile.from_dict(dict(data=deprecated_lock))
 
     @staticmethod
     def save_file(path: Path, lock_file: Union[VersionLockFile, DeprecatedRulesFile]):
