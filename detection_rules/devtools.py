@@ -85,9 +85,15 @@ def dev_group():
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
 @click.option('--generate-docs', is_flag=True, default=False, help='Generate markdown documentation')
 @click.option('--update-message', type=str, help='Update message for new package')
-def build_release(config_file, update_version_lock: bool, generate_navigator: bool, generate_docs: str,
-                  update_message: str, release=None, verbose=True):
+@click.pass_context
+def build_release(ctx: click.Context, config_file, update_version_lock: bool, generate_navigator: bool,
+                  generate_docs: str, update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
+    if RULES_CONFIG.bypass_version_lock:
+        click.echo('WARNING: You cannot run this command when the versioning strategy is configured to bypass the '
+                   'version lock. Set `bypass_version_lock` to `False` in the rules config to use the version lock.')
+        ctx.exit()
+
     config = load_dump(config_file)['package']
     registry_data = config['registry_data']
 
