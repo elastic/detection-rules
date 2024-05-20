@@ -1064,7 +1064,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         err_msg = "Cannot access the version lock when the versioning strategy is configured to bypass the version" \
                   " lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock."
-        assert RULES_CONFIG.bypass_version_lock, err_msg
+
+        if RULES_CONFIG.bypass_version_lock is True:
+            raise ValueError(err_msg)
 
         return getattr(self, '_version_lock', None) or loaded_version_lock
 
