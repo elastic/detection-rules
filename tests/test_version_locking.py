@@ -10,12 +10,13 @@ import unittest
 from semver import Version
 
 from detection_rules.schemas import get_min_supported_stack_version
-from detection_rules.version_lock import loaded_version_lock
+from detection_rules.version_lock import loaded_version_lock, RULES_CONFIG
 
 
 class TestVersionLock(unittest.TestCase):
     """Test version locking."""
 
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, 'Version lock bypassed')
     def test_previous_entries_gte_current_min_stack(self):
         """Test that all previous entries for all locks in the version lock are >= the current min_stack."""
         errors = {}

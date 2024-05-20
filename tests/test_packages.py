@@ -53,10 +53,12 @@ class TestPackages(BaseRuleTest):
     def test_package_loader_production_config(self):
         """Test that packages are loading correctly."""
 
+    @unittest.skipIf(rule_loader.RULES_CONFIG.bypass_version_lock, 'Version lock bypassed')
     def test_package_loader_default_configs(self):
         """Test configs in detection_rules/etc/packages.yaml."""
         Package.from_config(rule_collection=self.rc, config=package_configs)
 
+    @unittest.skipIf(rule_loader.RULES_CONFIG.bypass_version_lock, 'Version lock bypassed')
     def test_package_summary(self):
         """Test the generation of the package summary."""
         rules = self.rc

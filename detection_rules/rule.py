@@ -462,16 +462,18 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
     @validates_schema
     def validates_data(self, data, **kwargs):
-        """Validate version and revision fields not supplied for Elastic authored rules."""
-        error_fields = [field for field in ['version', 'revision'] if data.get(field) is not None]
-        if not error_fields:
+        """Validate fields and data for marshmallow schemas."""
+
+        # Validate version and revision fields not supplied for Elastic authored rules.
+        disallowed_fields = [field for field in ['version', 'revision'] if data.get(field) is not None]
+        if not disallowed_fields:
             return
 
-        error_message = " and ".join(error_fields)
+        error_message = " and ".join(disallowed_fields)
 
-        if data.get('author') and data['author'][0] == 'Elastic':
+        if BYPASS_VERSION_LOCK is not True:
             msg = (f"Configuration error: Rule {data['name']} - {data['rule_id']} "
-                   f"authored by Elastic should not contain rules with `{error_message}` set.")
+                   f"authored should not contain rules with `{error_message}` set.")
             raise ValidationError(msg)
 
 
@@ -986,8 +988,8 @@ class BaseRuleContents(ABC):
         """Retrieve the latest known version of the rule, considering the version lock setting."""
         toml_version = self.data.get("version")
 
-        if BYPASS_VERSION_LOCK and toml_version:
-            return toml_version
+        if BYPASS_VERSION_LOCK:
+            return toml_version if toml_version else 1
 
         if toml_version:
             print(f"WARNING: Rule {self.name} - {self.id} has a version set in the rule TOML."
@@ -1001,12 +1003,15 @@ class BaseRuleContents(ABC):
         """Retrieve the current version of the rule, accounting for automatic increments."""
         version = self.latest_version
 
+        if BYPASS_VERSION_LOCK:
+            return version
+
         # Default to version 1 if no version is set yet
         if version is None:
             return 1
 
         # Auto-increment version if the rule is 'dirty' and not bypassing version lock
-        return version + 1 if not BYPASS_VERSION_LOCK and self.is_dirty else version
+        return version + 1 if self.is_dirty else version
 
     @classmethod
     def convert_supported_version(cls, stack_version: Optional[str]) -> Version:
@@ -1062,15 +1067,15 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def set_version_lock(self, value):
         from .version_lock import VersionLock
 
-        if RULES_CONFIG.bypass_version_lock:
-            print('Cannot set the version lock when the versioning strategy is configured to bypass the version '
-                  'lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock.')
-        else:
-            if value and not isinstance(value, VersionLock):
-                raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
+        err_msg = "Cannot set the version lock when the versioning strategy is configured to bypass the version lock." \
+                  " Set `bypass_version_lock` to `false` in the rules config to use the version lock."
+        assert not RULES_CONFIG.bypass_version_lock, err_msg
 
-            # circumvent frozen class
-            self.__dict__['_version_lock'] = value
+        if value and not isinstance(value, VersionLock):
+            raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
+
+        # circumvent frozen class
+        self.__dict__['_version_lock'] = value
 
     @classmethod
     def all_rule_types(cls) -> set:

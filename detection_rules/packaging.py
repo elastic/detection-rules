@@ -97,9 +97,7 @@ class Package(object):
         if max_version is not None:
             self.rules = self.rules.filter(lambda r: max_version >= r.contents.latest_version)
 
-        if RULES_CONFIG.bypass_version_lock:
-            print('WARNING: Cannot bypass version lock. Version lock is enabled. '
-                  'Set `bypass_version_lock` to `false` in the rules config to use the version lock.')
+        assert not RULES_CONFIG.bypass_version_lock, "Packaging can not be used when version locking is bypassed."
         self.changed_ids, self.new_ids, self.removed_ids = \
             loaded_version_lock.manage_versions(self.rules, verbose=verbose, save_changes=False)
 

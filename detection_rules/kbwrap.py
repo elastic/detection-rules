@@ -128,6 +128,7 @@ def kibana_export_rules(ctx: click.Context, directory: Path, rule_id: Optional[I
     for rule_resource in results:
         try:
             if strip_version:
+                rule_resource.pop('revision', None)
                 rule_resource.pop('version', None)
 
             contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity='production')

@@ -405,13 +405,15 @@ class RuleCollection(BaseCollection):
         # bypass rule object load (load_dict) and load as a dict only
         if obj.get('metadata', {}).get('maturity', '') == 'deprecated':
             contents = DeprecatedRuleContents.from_dict(obj)
-            contents.set_version_lock(self._version_lock)
+            if not RULES_CONFIG.bypass_version_lock:
+                contents.set_version_lock(self._version_lock)
             deprecated_rule = DeprecatedRule(path, contents)
             self.add_deprecated_rule(deprecated_rule)
             return deprecated_rule
         else:
             contents = TOMLRuleContents.from_dict(obj)
-            contents.set_version_lock(self._version_lock)
+            if not RULES_CONFIG.bypass_version_lock:
+                contents.set_version_lock(self._version_lock)
             rule = TOMLRule(path=path, contents=contents)
             self.add_rule(rule)
             return rule

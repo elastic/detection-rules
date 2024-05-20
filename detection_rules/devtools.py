@@ -103,11 +103,6 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     package = Package.from_config(config=config, verbose=verbose)
 
     if update_version_lock:
-        if RULES_CONFIG.bypass_version_lock:
-            click.echo('WARNING: You cannot update the version lock when the versioning strategy is configured to '
-                       'bypass the version lock. Set `bypass_version_lock` to `false` in the rules config to '
-                       'use the version lock.')
-            return []
         loaded_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
 
     package.save(verbose=verbose)
@@ -733,19 +728,14 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 @click.pass_context
 def deprecate_rule(ctx: click.Context, rule_file: Path):
     """Deprecate a rule."""
-    if RULES_CONFIG.bypass_version_lock:
-        click.echo('Cannot deprecate a rule when the versioning strategy is configured to bypass the version '
-                   'lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock.')
-        ctx.exit()
-
     version_info = loaded_version_lock.version_lock
     rule_collection = RuleCollection()
     contents = rule_collection.load_file(rule_file).contents
     rule = TOMLRule(path=rule_file, contents=contents)
 
-    if rule.contents.id not in version_info:
+    if rule.contents.id not in version_info and not RULES_CONFIG.bypass_version_lock:
         click.echo('Rule has not been version locked and so does not need to be deprecated. '
-                   'Delete the file or update the maturity to `development` instead')
+                   'Delete the file or update the maturity to `development` instead.')
         ctx.exit()
 
     today = time.strftime('%Y/%m/%d')
