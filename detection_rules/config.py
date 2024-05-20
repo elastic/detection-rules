@@ -198,6 +198,10 @@ class RulesConfig:
         if 'name' not in self.packages['package']:
             raise ValueError('Missing the `name` field defined in packages.yaml.')
 
+        if 'registry_data' not in self.packages:
+            print('WARNING: Missing registry_data in packages.yaml',
+                  f'See the prebuilt {get_etc_path("packages.yaml")} file for reference.')
+
 
 @cached
 def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
