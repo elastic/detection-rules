@@ -1361,7 +1361,9 @@ class TOMLRule:
         rule_path = self.path.resolve()
         for rules_dir in DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS:
             if rule_path.is_relative_to(rules_dir):
-                return rule_path.relative_to(rules_dir).parent
+                # Subtract rules_dir from the rule_path and return the directory part only
+                relative_directory = rule_path.relative_to(rules_dir).parent
+                return rules_dir / relative_directory
         return None
 
     def save_toml(self):
