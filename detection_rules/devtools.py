@@ -758,6 +758,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
                                    maturity='deprecated')
     contents = dataclasses.replace(rule.contents, metadata=new_meta)
     new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
+    deprecated_path.parent.mkdir(parents=True, exist_ok=True)
     new_rule.save_toml()
 
     # remove the old rule
