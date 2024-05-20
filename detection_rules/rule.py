@@ -473,7 +473,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
         if BYPASS_VERSION_LOCK is not True:
             msg = (f"Configuration error: Rule {data['name']} - {data['rule_id']} "
-                   f"authored should not contain rules with `{error_message}` set.")
+                   f"should not contain rules with `{error_message}` set.")
             raise ValidationError(msg)
 
 
@@ -989,7 +989,7 @@ class BaseRuleContents(ABC):
         toml_version = self.data.get("version")
 
         if BYPASS_VERSION_LOCK:
-            return toml_version if toml_version else 1
+            return toml_version or 1
 
         if toml_version:
             print(f"WARNING: Rule {self.name} - {self.id} has a version set in the rule TOML."
@@ -1061,6 +1061,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def version_lock(self):
         # VersionLock
         from .version_lock import loaded_version_lock
+
+        err_msg = "Cannot access the version lock when the versioning strategy is configured to bypass the version" \
+                  " lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock."
+        assert RULES_CONFIG.bypass_version_lock, err_msg
 
         return getattr(self, '_version_lock', None) or loaded_version_lock
 
