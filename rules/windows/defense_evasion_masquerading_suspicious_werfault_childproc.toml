@@ -1,20 +1,20 @@
 [metadata]
 creation_date = "2020/08/24"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+min_stack_comments = "SentinelOne integration package minimum version for validation."
+min_stack_version = "8.11.0"
+updated_date = "2024/05/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-A suspicious WerFault child process was detected, which may indicate an attempt to run via the SilentProcessExit 
+A suspicious WerFault child process was detected, which may indicate an attempt to run via the SilentProcessExit
 registry key manipulation. Verify process details such as command line, network connections and file writes.
 """
 false_positives = ["Custom Windows error reporting debugger or applications restarted by WerFault after a crash."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious WerFault Child Process"
@@ -35,18 +35,18 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: SentinelOne"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
 
-  process.parent.name : "WerFault.exe" and 
-  
+  process.parent.name : "WerFault.exe" and
+
   /* args -s and -t used to execute a process via SilentProcessExit mechanism */
-  (process.parent.args : "-s" and process.parent.args : "-t" and process.parent.args : "-c") and 
-  
+  (process.parent.args : "-s" and process.parent.args : "-t" and process.parent.args : "-c") and
+
   not process.executable : ("?:\\Windows\\SysWOW64\\Initcrypt.exe", "?:\\Program Files (x86)\\Heimdal\\Heimdal.Guard.exe")
 '''
 

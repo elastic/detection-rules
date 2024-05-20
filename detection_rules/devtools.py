@@ -195,7 +195,7 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, new_package: str, maturity: str):
     """Bump the versions"""
 
-    pkg_data = load_etc_dump('packages.yml')['package']
+    pkg_data = load_etc_dump('packages.yaml')['package']
     kibana_ver = Version.parse(pkg_data["name"], optional_minor_and_patch=True)
     pkg_ver = Version.parse(pkg_data["registry_data"]["version"])
     pkg_kibana_ver = Version.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
@@ -236,7 +236,7 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
     click.echo(f"Package version: {pkg_data['registry_data']['version']}")
 
-    save_etc_dump({"package": pkg_data}, "packages.yml")
+    save_etc_dump({"package": pkg_data}, "packages.yaml")
 
 
 @dataclasses.dataclass
@@ -293,7 +293,7 @@ class GitChangeEntry:
 def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list: list):
     """Prune the git staging area to remove changes to incompatible rules."""
     exceptions = {
-        "detection_rules/etc/packages.yml",
+        "detection_rules/etc/packages.yaml",
     }
     exceptions.update(exception_list.split(","))
 
@@ -334,7 +334,8 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
 
 @dev_group.command('update-lock-versions')
 @click.argument('rule-ids', nargs=-1, required=False)
-def update_lock_versions(rule_ids):
+@click.option('--force', is_flag=True, help='Force update without confirmation')
+def update_lock_versions(rule_ids: Tuple[str, ...], force: bool):
     """Update rule hashes in version.lock.json file without bumping version."""
     rules = RuleCollection.default()
 
@@ -343,7 +344,9 @@ def update_lock_versions(rule_ids):
     else:
         rules = rules.filter(production_filter)
 
-    if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
+    if not force and not click.confirm(
+        f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'
+    ):
         return
 
     # this command may not function as expected anymore due to previous changes eliminating the use of add_new=False
@@ -1077,7 +1080,7 @@ def utils_group():
 
 
 @utils_group.command('get-branches')
-@click.option('--outfile', '-o', type=Path, default=get_etc_path("target-branches.yml"), help='File to save output to')
+@click.option('--outfile', '-o', type=Path, default=get_etc_path("target-branches.yaml"), help='File to save output to')
 def get_branches(outfile: Path):
     branch_list = get_stack_versions(drop_patch=True)
     target_branches = json.dumps(branch_list[:-1]) + "\n"
@@ -1092,7 +1095,8 @@ def integrations_group():
 @integrations_group.command('build-manifests')
 @click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-manifest.json.gz file")
 @click.option("--integration", "-i", type=str, help="Adds an integration tag to the manifest file")
-def build_integration_manifests(overwrite: bool, integration: str):
+@click.option("--prerelease", "-p", is_flag=True, default=False, help="Include prerelease versions")
+def build_integration_manifests(overwrite: bool, integration: str, prerelease: bool = False):
     """Builds consolidated integrations manifests file."""
     click.echo("loading rules to determine all integration tags")
 
@@ -1100,7 +1104,7 @@ def build_integration_manifests(overwrite: bool, integration: str):
         return list(set([tag for tags in tag_list for tag in (flatten(tags) if isinstance(tags, list) else [tags])]))
 
     if integration:
-        build_integrations_manifest(overwrite=False, integration=integration)
+        build_integrations_manifest(overwrite=False, integration=integration, prerelease=prerelease)
     else:
         rules = RuleCollection.default()
         integration_tags = [r.contents.metadata.integration for r in rules if r.contents.metadata.integration]

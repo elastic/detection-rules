@@ -11,7 +11,7 @@ The simplest way to index rules from the repo into elasticsearch is to run
 `python -m detection-rules es index-rules`
 
 This will index an enriched version of all rules included and sent to the index `rules-repo-<package-version>-<package_hash>`
-- `package-version` is the version defined in `detection_rules/etc/packages.yml`
+- `package-version` is the version defined in `detection_rules/etc/packages.yaml`
 - `package hash` is the sha256 hash of the consolidated rules:
    - sorted by name
    - flattened
