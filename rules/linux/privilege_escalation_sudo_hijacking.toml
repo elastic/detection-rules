@@ -9,8 +9,8 @@ updated_date = "2023/10/16"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation of a sudo binary located at /usr/bin/sudo. Attackers may hijack the default sudo binary and 
-replace it with a custom binary or script that can read the user's password in clear text to escalate privileges or 
+Identifies the creation of a sudo binary located at /usr/bin/sudo. Attackers may hijack the default sudo binary and
+replace it with a custom binary or script that can read the user's password in clear text to escalate privileges or
 enable persistence onto the system every time the sudo binary is executed.
 """
 from = "now-9m"
@@ -53,7 +53,7 @@ tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: 
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where event.type in ("creation", "file_create_event") and file.path == "/usr/bin/sudo"
+file where event.type in ("creation", "file_create_event") and host.os.type == "linux" and file.path == "/usr/bin/sudo"
 '''
 
 [[rule.threat]]
