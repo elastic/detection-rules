@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2021/03/15"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+min_stack_comments = "SentinelOne integration package minimum version for validation."
+min_stack_version = "8.11.0"
+updated_date = "2024/05/16"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ task scheduling functionality to facilitate initial or recurring execution of ma
 """
 false_positives = ["Legitimate scheduled jobs may be created during installation of new software."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Scheduled Job Creation"
@@ -29,7 +29,7 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon", "Data Source: SentinelOne"]
 timestamp_override = "event.ingested"
 type = "eql"
 
