@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/02/06"
+updated_date = "2024/05/17"
 
 [rule]
 author = ["Elastic"]
@@ -55,7 +55,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.action == "extended_attributes_delete" and process.executable != null and
+file where event.action == "extended_attributes_delete" and host.os.type == "macos" and process.executable != null and
 (process.code_signature.trusted == false or process.code_signature.exists == false) and not
 process.executable : ("/usr/bin/xattr", 
                       "/System/*", 
