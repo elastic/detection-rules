@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/05/17"
 
 [rule]
 author = ["Elastic"]
@@ -61,12 +61,13 @@ tags = [
 type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan=5s
-  [network where event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
-   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and destination.ip != null and 
-   not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
-  [process where event.type == "start" and event.action == "exec" and 
-   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
-     (process.args : ("-i", "-l")) or (process.parent.name == "socat" and process.parent.args : "*exec*")
+  [network where event.type == "start" and host.os.type == "linux" and
+     event.action in ("connection_attempted", "connection_accepted") and
+     process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and destination.ip != null and
+     not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
+  [process where event.type == "start" and host.os.type == "linux" and event.action == "exec" and
+     process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
+       (process.args : ("-i", "-l")) or (process.parent.name == "socat" and process.parent.args : "*exec*")
    )]
 '''
 
