@@ -63,6 +63,7 @@ class TestPackages(BaseRuleTest):
         package = Package(rules, 'test-package')
         package.generate_summary_and_changelog(package.changed_ids, package.new_ids, package.removed_ids)
 
+    @unittest.skipIf(rule_loader.RULES_CONFIG.bypass_version_lock, 'Version lock bypassed')
     def test_rule_versioning(self):
         """Test that all rules are properly versioned and tracked"""
         self.maxDiff = None

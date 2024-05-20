@@ -68,7 +68,7 @@ class VersionLockFile(LockDataclassMixin):
     def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
         """Deserialize and validate a dataclass from a dict using marshmallow."""
         if RULES_CONFIG.bypass_version_lock:
-            print("WARNING: Version Lock usage is bypassed."
+            print("WARNING: Version Lock usage is bypassed. "
                   "Set `bypass_version_lock: false` in the rules config to enable.")
             return super().from_dict(dict(data={}))
         return super().from_dict(obj)
@@ -77,7 +77,7 @@ class VersionLockFile(LockDataclassMixin):
     def load_from_file(cls: Type[ClassT], lock_file: Optional[Path] = None) -> ClassT:
         """Load and validate a version lock file."""
         if RULES_CONFIG.bypass_version_lock:
-            print("WARNING: Version Lock usage is bypassed."
+            print("WARNING: Version Lock usage is bypassed. "
                   "Set `bypass_version_lock: false` in the rules config to enable.")
             return super().from_dict(dict(data={}))
         return super().load_from_file(lock_file)
