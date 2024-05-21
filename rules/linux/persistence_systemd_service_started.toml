@@ -196,9 +196,10 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and
-process.executable:/usr/bin/systemctl and process.args:(enable or reenable or start) and
+process.executable:/usr/bin/systemctl and process.args:(enable or reenable or start) and 
+process.entry_leader.entry_meta.type:* and
 not (
-  process.entry_leader.entry_meta.type:(container or init or unknown or not *) or
+  process.entry_leader.entry_meta.type:(container or init or unknown) or
   process.parent.pid:1 or
   process.parent.executable:(
     /bin/adduser or /bin/dnf or /bin/dnf-automatic or /bin/dockerd or /bin/dpkg or /bin/microdnf or /bin/pacman or
