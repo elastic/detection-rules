@@ -11,6 +11,7 @@ import sys
 assert (3, 12) <= sys.version_info < (4, 0), "Only Python 3.12+ supported"
 
 from . import (  # noqa: E402
+    'custom_schemas',
     custom_rules,
     devtools,
     docs,
@@ -30,6 +31,7 @@ from . import (  # noqa: E402
 
 __all__ = (
     'custom_rules',
+    'custom_schemas',
     'devtools',
     'docs',
     'eswrap',
