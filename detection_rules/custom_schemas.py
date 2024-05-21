@@ -16,7 +16,7 @@ RULES_CONFIG = parse_rules_config()
 
 
 @cached
-def get_custom_schemas(stack_version: str):
+def get_custom_schemas(stack_version: str) -> dict:
     """Load custom schemas if present."""
     custom_schema_dump = {}
     stack_schema_map = RULES_CONFIG.stack_schema_map[stack_version]
