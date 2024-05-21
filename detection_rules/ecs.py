@@ -18,8 +18,9 @@ from semver import Version
 import yaml
 
 from .config import parse_rules_config
+from .custom_schemas import get_custom_schemas
 from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
-                    load_etc_dump, load_schemas_from_dir, read_gzip, unzip)
+                    load_etc_dump, read_gzip, unzip)
 
 ECS_NAME = "ecs_schemas"
 ECS_SCHEMAS_DIR = get_etc_path(ECS_NAME)
@@ -148,23 +149,6 @@ def flatten(schema):
 def get_non_ecs_schema():
     """Load non-ecs schema."""
     return load_etc_dump('non-ecs-schema.json')
-
-
-@cached
-def get_custom_schemas(stack_version: str):
-    """Load custom schemas if present."""
-    custom_schema_dump = {}
-    stack_schema_map = RULES_CONFIG.stack_schema_map[stack_version]
-
-    for schema, value in stack_schema_map.items():
-        if schema not in ["beats", "ecs", "endgame"]:
-            schema_path = RULES_CONFIG.stack_schema_map_file.parent / value
-            if schema_path.is_file():
-                custom_schema_dump.update(eql.utils.load_dump(str(schema_path)))
-            elif schema_path.is_dir():
-                custom_schema_dump.update(load_schemas_from_dir(schema_path))
-
-    return custom_schema_dump
 
 
 @cached
