@@ -313,7 +313,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
             continue
 
         # it's a change to a rule file, load it and check the version
-        if str(change.path.absolute()).startswith(RULES_DIR) and change.path.suffix == ".toml":
+        if str(change.path.absolute()).startswith(str(RULES_DIR)) and change.path.suffix == ".toml":
             # bypass TOML validation in case there were schema changes
             dict_contents = RuleCollection.deserialize_toml_string(change.read())
             min_stack_version: Optional[str] = dict_contents.get("metadata", {}).get("min_stack_version")
