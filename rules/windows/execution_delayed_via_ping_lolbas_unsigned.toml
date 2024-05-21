@@ -2,9 +2,7 @@
 creation_date = "2023/09/25"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/05"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +18,14 @@ name = "Delayed Execution via Ping"
 risk_score = 21
 rule_id = "e00b8d49-632f-4dc6-94a5-76153a481915"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
 
 query = '''
@@ -62,88 +67,86 @@ sequence by process.parent.entity_id with maxspan=1m
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-name = "Command and Scripting Interpreter"
 id = "T1059"
+name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  name = "Visual Basic"
-  id = "T1059.005"
-  reference = "https://attack.mitre.org/techniques/T1059/005/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.005"
+name = "Visual Basic"
+reference = "https://attack.mitre.org/techniques/T1059/005/"
 
-  [[rule.threat.technique.subtechnique]]
-  name = "PowerShell"
-  id = "T1059.001"
-  reference = "https://attack.mitre.org/techniques/T1059/001/"
 
-  [rule.threat.tactic]
-  name = "Execution"
-  id = "TA0002"
-  reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1216"
+name = "System Script Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1216/"
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.003"
+name = "CMSTP"
+reference = "https://attack.mitre.org/techniques/T1218/003/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.004"
+name = "InstallUtil"
+reference = "https://attack.mitre.org/techniques/T1218/004/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.009"
+name = "Regsvcs/Regasm"
+reference = "https://attack.mitre.org/techniques/T1218/009/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.010"
+name = "Regsvr32"
+reference = "https://attack.mitre.org/techniques/T1218/010/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.011"
+name = "Rundll32"
+reference = "https://attack.mitre.org/techniques/T1218/011/"
+
+
+[[rule.threat.technique]]
+id = "T1220"
+name = "XSL Script Processing"
+reference = "https://attack.mitre.org/techniques/T1220/"
 
 [[rule.threat.technique]]
 id = "T1497"
 name = "Virtualization/Sandbox Evasion"
 reference = "https://attack.mitre.org/techniques/T1497/"
+[[rule.threat.technique.subtechnique]]
+id = "T1497.003"
+name = "Time Based Evasion"
+reference = "https://attack.mitre.org/techniques/T1497/003/"
 
-  [[rule.threat.technique.subtechnique]]
-  name = "Time Based Evasion"
-  id = "T1497.003"
-  reference = "https://attack.mitre.org/techniques/T1497/003/"
-
-[[rule.threat.technique]]
-name = "System Binary Proxy Execution"
-id = "T1218"
-reference = "https://attack.mitre.org/techniques/T1218/"
-
-  [[rule.threat.technique.subtechnique]]
-  name = "CMSTP"
-  id = "T1218.003"
-  reference = "https://attack.mitre.org/techniques/T1218/003/"
-
-  [[rule.threat.technique.subtechnique]]
-  name = "InstallUtil"
-  id = "T1218.004"
-  reference = "https://attack.mitre.org/techniques/T1218/004/"
-
-  [[rule.threat.technique.subtechnique]]
-  name = "Mshta"
-  id = "T1218.005"
-  reference = "https://attack.mitre.org/techniques/T1218/005/"
-
-  [[rule.threat.technique.subtechnique]]
-  name = "Regsvcs/Regasm"
-  id = "T1218.009"
-  reference = "https://attack.mitre.org/techniques/T1218/009/"
-
-  [[rule.threat.technique.subtechnique]]
-  name = "Regsvr32"
-  id = "T1218.010"
-  reference = "https://attack.mitre.org/techniques/T1218/010/"
-
-  [[rule.threat.technique.subtechnique]]
-  name = "Rundll32"
-  id = "T1218.011"
-  reference = "https://attack.mitre.org/techniques/T1218/011/"
-
-  [[rule.threat.technique]]
-  name = "System Script Proxy Execution"
-  id = "T1216"
-  reference = "https://attack.mitre.org/techniques/T1216/"
-
-  [[rule.threat.technique]]
-  name = "XSL Script Processing"
-  id = "T1220"
-  reference = "https://attack.mitre.org/techniques/T1220/"
 
 
 [rule.threat.tactic]
-name = "Defense Evasion"
 id = "TA0005"
+name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 

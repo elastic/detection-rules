@@ -2,20 +2,19 @@
 creation_date = "2023/07/14"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/05"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies the use of Cmdlets and methods related to Microsoft Exchange Transport Agents install. Adversaries may
 leverage malicious Microsoft Exchange Transport Agents to execute tasks in response to adversary-defined criteria,
 establishing persistence.
 """
 from = "now-119m"
-interval = "60m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
+interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft Exchange Transport Agent Install Script"
@@ -33,14 +32,20 @@ Turn on PowerShell Script Block Logging (Enable)
 ```
 Steps to implement the logging policy via registry:
 ```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+reg add "hklm\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: PowerShell Logs", "Rule Type: BBR"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: PowerShell Logs",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "query"
-building_block_type = "default"
 
 query = '''
 event.category: "process" and host.os.type:windows and
@@ -58,34 +63,35 @@ event.category: "process" and host.os.type:windows and
   )
 '''
 
+
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Users\\\\*\\\\AppData\\\\Roaming\\\\Microsoft\\\\Exchange\\\\RemotePowerShell\\\\*"
-
+case_insensitive = true
+value = "?:\\\\Users\\\\*\\\\AppData\\\\Roaming\\\\Microsoft\\\\Exchange\\\\RemotePowerShell\\\\*"
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
-
+case_insensitive = true
+value = "?:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Windows\\\\TEMP\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
-
+case_insensitive = true
+value = "?:\\\\Windows\\\\TEMP\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
 [[rule.filters]]
+
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
-"case_insensitive" = true
-"value" = "?:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\*\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
-
+case_insensitive = true
+value = "?:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\*\\\\tmp_????????.???\\\\tmp_????????.???.ps?1"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -120,3 +126,4 @@ reference = "https://attack.mitre.org/techniques/T1059/001/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
