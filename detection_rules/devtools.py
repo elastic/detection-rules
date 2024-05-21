@@ -343,7 +343,8 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
 @dev_group.command('update-lock-versions')
 @click.argument('rule-ids', nargs=-1, required=False)
 @click.pass_context
-def update_lock_versions(ctx: click.Context, rule_ids):
+@click.option('--force', is_flag=True, help='Force update without confirmation')
+def update_lock_versions(ctx: click.Context, rule_ids: Tuple[str, ...], force: bool):
     """Update rule hashes in version.lock.json file without bumping version."""
     rules = RuleCollection.default()
 
@@ -352,7 +353,9 @@ def update_lock_versions(ctx: click.Context, rule_ids):
     else:
         rules = rules.filter(production_filter)
 
-    if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
+    if not force and not click.confirm(
+        f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'
+    ):
         return
 
     if RULES_CONFIG.bypass_version_lock:
@@ -1115,7 +1118,8 @@ def integrations_group():
 @integrations_group.command('build-manifests')
 @click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-manifest.json.gz file")
 @click.option("--integration", "-i", type=str, help="Adds an integration tag to the manifest file")
-def build_integration_manifests(overwrite: bool, integration: str):
+@click.option("--prerelease", "-p", is_flag=True, default=False, help="Include prerelease versions")
+def build_integration_manifests(overwrite: bool, integration: str, prerelease: bool = False):
     """Builds consolidated integrations manifests file."""
     click.echo("loading rules to determine all integration tags")
 
@@ -1123,7 +1127,7 @@ def build_integration_manifests(overwrite: bool, integration: str):
         return list(set([tag for tags in tag_list for tag in (flatten(tags) if isinstance(tags, list) else [tags])]))
 
     if integration:
-        build_integrations_manifest(overwrite=False, integration=integration)
+        build_integrations_manifest(overwrite=False, integration=integration, prerelease=prerelease)
     else:
         rules = RuleCollection.default()
         integration_tags = [r.contents.metadata.integration for r in rules if r.contents.metadata.integration]
