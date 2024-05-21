@@ -812,8 +812,9 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 
 @dev_group.command('trim-version-lock')
 @click.argument('stack_version')
+@click.option('--skip-rule-updates', is_flag=True, help='Skip updating the rules')
 @click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
-def trim_version_lock(stack_version: str, dry_run: bool):
+def trim_version_lock(stack_version: str, skip_rule_updates: bool, dry_run: bool):
     """Trim all previous entries within the version lock file which are lower than the min_version."""
     stack_versions = get_stack_versions()
     assert stack_version in stack_versions, \
@@ -825,11 +826,13 @@ def trim_version_lock(stack_version: str, dry_run: bool):
     rule_msv_drops = []
 
     today = time.strftime('%Y/%m/%d')
+    rc: RuleCollection | None = None
     if dry_run:
         rc = RuleCollection()
     else:
-        click.echo('Loading rules ...')
-        rc = RuleCollection.default()
+        if not skip_rule_updates:
+            click.echo('Loading rules ...')
+            rc = RuleCollection.default()
 
     for rule_id, lock in version_lock_dict.items():
         file_min_stack: Version | None = None
@@ -844,18 +847,22 @@ def trim_version_lock(stack_version: str, dry_run: bool):
 
                 if not dry_run:
                     lock.pop('min_stack_version')
-                    # remove the min_stack_version and min_stack_comments from rules as well (and update updated_date)
-                    rule = rc.id_map.get(rule_id)
-                    if rule:
-                        new_meta = dataclasses.replace(
-                            rule.contents.metadata, updated_date=today, min_stack_version=None, min_stack_comments=None
-                        )
-                        contents = dataclasses.replace(rule.contents, metadata=new_meta)
-                        new_rule = TOMLRule(contents=contents, path=rule.path)
-                        new_rule.save_toml()
-                        removed[rule_id].append(f'rule min_stack_version dropped')
-                    else:
-                        removed[rule_id].append(f'rule not found to update!')
+                    if not skip_rule_updates:
+                        # remove the min_stack_version and min_stack_comments from rules as well (and update date)
+                        rule = rc.id_map.get(rule_id)
+                        if rule:
+                            new_meta = dataclasses.replace(
+                                rule.contents.metadata,
+                                updated_date=today,
+                                min_stack_version=None,
+                                min_stack_comments=None
+                            )
+                            contents = dataclasses.replace(rule.contents, metadata=new_meta)
+                            new_rule = TOMLRule(contents=contents, path=rule.path)
+                            new_rule.save_toml()
+                            removed[rule_id].append('rule min_stack_version dropped')
+                        else:
+                            removed[rule_id].append('rule not found to update!')
 
         if 'previous' in lock:
             prev_vers = [Version.parse(v, optional_minor_and_patch=True) for v in list(lock['previous'])]
