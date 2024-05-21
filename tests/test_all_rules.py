@@ -310,6 +310,7 @@ class TestRuleTags(BaseRuleTest):
             'logs-endpoint.alerts-*': {'all': ['Data Source: Elastic Defend']},
             'logs-windows.sysmon_operational-*': {'all': ['Data Source: Sysmon']},
             'logs-windows.powershell*': {'all': ['Data Source: PowerShell Logs']},
+            'logs-sentinel_one_cloud_funnel.*': {'all': ['Data Source: SentinelOne']},
         }
 
         for rule in self.all_rules:
