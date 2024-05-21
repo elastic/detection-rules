@@ -4,6 +4,7 @@
 # 2.0.
 import json
 from collections import OrderedDict
+from pathlib import Path
 from typing import List, Optional
 from typing import OrderedDict as OrderedDictType
 
@@ -28,7 +29,7 @@ __all__ = (
     "all_versions",
 )
 
-SCHEMA_DIR = get_etc_path("api_schemas")
+SCHEMA_DIR = Path(get_etc_path("api_schemas"))
 migrations = {}
 
 
@@ -53,7 +54,7 @@ def migrate(version: str):
 
 @cached
 def get_schema_file(version: Version, rule_type: str) -> dict:
-    path = SCHEMA_DIR / str(version) / f"{version}.{rule_type}.json"
+    path = Path(SCHEMA_DIR) / str(version) / f"{version}.{rule_type}.json"
 
     if not path.exists():
         raise ValueError(f"Unsupported rule type {rule_type}. Unable to downgrade to {version}")

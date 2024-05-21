@@ -9,6 +9,7 @@ import glob
 import json
 import os
 import shutil
+from pathlib import Path
 
 import eql
 import eql.types
@@ -87,7 +88,7 @@ def get_max_version(include_master=False):
     versions = get_schema_map().keys()
 
     if include_master and any([v.startswith('master') for v in versions]):
-        return list(ECS_SCHEMAS_DIR.glob('master*'))[0].name
+        return list(Path(ECS_SCHEMAS_DIR).glob('master*'))[0].name
 
     return str(max([Version.parse(v) for v in versions if not v.startswith('master')]))
 
@@ -302,9 +303,9 @@ def download_endpoint_schemas(target: str, overwrite: bool = True) -> None:
             flattened[f"{root_name}.{f['name']}"] = f['type']
 
     # save schema to disk
-    ENDPOINT_SCHEMAS_DIR.mkdir(parents=True, exist_ok=True)
+    Path(ENDPOINT_SCHEMAS_DIR).mkdir(parents=True, exist_ok=True)
     compressed = gzip_compress(json.dumps(flattened, sort_keys=True, cls=DateTimeEncoder))
-    new_path = ENDPOINT_SCHEMAS_DIR / f"endpoint_{target}.json.gz"
+    new_path = Path(ENDPOINT_SCHEMAS_DIR) / f"endpoint_{target}.json.gz"
     if overwrite:
         shutil.rmtree(new_path, ignore_errors=True)
     with open(new_path, 'wb') as f:

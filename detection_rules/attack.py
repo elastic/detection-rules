@@ -17,8 +17,8 @@ from semver import Version
 from .utils import cached, clear_caches, get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
-CROSSWALK_FILE = get_etc_path('attack-crosswalk.json')
-TECHNIQUES_REDIRECT_FILE = get_etc_path('attack-technique-redirects.json')
+CROSSWALK_FILE = Path(get_etc_path('attack-crosswalk.json'))
+TECHNIQUES_REDIRECT_FILE = Path(get_etc_path('attack-technique-redirects.json'))
 
 tactics_map = {}
 
@@ -28,17 +28,17 @@ def load_techniques_redirect() -> dict:
     return json.loads(TECHNIQUES_REDIRECT_FILE.read_text())['mapping']
 
 
-def get_attack_file_path() -> Path:
+def get_attack_file_path() -> str:
     pattern = 'attack-v*.json.gz'
     attack_file = get_etc_glob_path(pattern)
     if len(attack_file) < 1:
         raise FileNotFoundError(f'Missing required {pattern} file')
     elif len(attack_file) != 1:
         raise FileExistsError(f'Multiple files found with {pattern} pattern. Only one is allowed')
-    return Path(attack_file[0])
+    return attack_file[0]
 
 
-_, _attack_path_base = str(get_attack_file_path()).split('-v')
+_, _attack_path_base = get_attack_file_path().split('-v')
 _ext_length = len('.json.gz')
 CURRENT_ATTACK_VERSION = _attack_path_base[:-_ext_length]
 
@@ -98,7 +98,7 @@ sub_technique_id_list = [t for t in technique_lookup if '.' in t]
 
 def refresh_attack_data(save=True) -> (Optional[dict], Optional[bytes]):
     """Refresh ATT&CK data from Mitre."""
-    attack_path = get_attack_file_path()
+    attack_path = Path(get_attack_file_path())
     filename, _, _ = attack_path.name.rsplit('.', 2)
 
     def get_version_from_tag(name, pattern='att&ck-v'):
@@ -126,7 +126,7 @@ def refresh_attack_data(save=True) -> (Optional[dict], Optional[bytes]):
     compressed = gzip_compress(json.dumps(attack_data, sort_keys=True))
 
     if save:
-        new_path = get_etc_path(f'attack-v{latest_version}.json.gz')
+        new_path = Path(get_etc_path(f'attack-v{latest_version}.json.gz'))
         new_path.write_bytes(compressed)
         attack_path.unlink()
         print(f'Replaced file: {attack_path} with {new_path}')

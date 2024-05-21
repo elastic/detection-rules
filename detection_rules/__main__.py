@@ -5,19 +5,18 @@
 
 # coding=utf-8
 """Shell for detection-rules."""
+import os
 import sys
-from pathlib import Path
 
 import click
 
 assert (3, 12) <= sys.version_info < (4, 0), "Only Python 3.12+ supported"
 
-
 from .main import root  # noqa: E402
 
-CURR_DIR = Path(__file__).resolve().parent
-CLI_DIR = CURR_DIR.parent
-ROOT_DIR = CLI_DIR.parent
+CURR_DIR = os.path.dirname(os.path.abspath(__file__))
+CLI_DIR = os.path.dirname(CURR_DIR)
+ROOT_DIR = os.path.dirname(CLI_DIR)
 
 BANNER = r"""
 █▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄

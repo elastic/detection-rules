@@ -7,12 +7,13 @@
 import json
 import shutil
 import sys
+from pathlib import Path
 
 import eql
 
 from .utils import ETC_DIR, DateTimeEncoder, cached, gzip_compress, read_gzip
 
-ENDGAME_SCHEMA_DIR = ETC_DIR / "endgame_schemas"
+ENDGAME_SCHEMA_DIR = Path(ETC_DIR) / "endgame_schemas"
 
 
 class EndgameSchemaManager:

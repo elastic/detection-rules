@@ -24,8 +24,8 @@ from .rule import (
 from .schemas import definitions
 from .utils import cached, get_path
 
-DEFAULT_RULES_DIR = get_path("rules")
-DEFAULT_BBR_DIR = get_path("rules_building_block")
+DEFAULT_RULES_DIR = Path(get_path("rules"))
+DEFAULT_BBR_DIR = Path(get_path("rules_building_block"))
 DEFAULT_DEPRECATED_DIR = DEFAULT_RULES_DIR / '_deprecated'
 RTA_DIR = get_path("rta")
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'

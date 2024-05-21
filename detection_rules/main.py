@@ -79,7 +79,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     bulk_upload_docs, importable_rules_docs = package.create_bulk_index_body()
 
     if save_files:
-        path = get_path('enriched-rule-indexes', package_hash)
+        path = Path(get_path('enriched-rule-indexes', package_hash))
         path.mkdir(parents=True, exist_ok=overwrite)
         bulk_upload_docs.dump(path.joinpath('enriched-rules-index-uploadable.ndjson'), sort_keys=True)
         importable_rules_docs.dump(path.joinpath('enriched-rules-index-importable.ndjson'), sort_keys=True)
@@ -431,7 +431,7 @@ def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
     es_client: Elasticsearch = ctx.obj['es']
 
     click.echo(f'Attempting to load dnstwist data from {input_file}')
-    dnstwist_data: dict = load_dump(str(input_file))
+    dnstwist_data: dict = load_dump(input_file)
     click.echo(f'{len(dnstwist_data)} records loaded')
 
     original_domain = next(r['domain-name'] for r in dnstwist_data if r.get('fuzzer', '') == 'original*')
@@ -496,10 +496,10 @@ def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
 @click.argument('author')
 def prep_rule(author: str):
     """Prep the detection threat match rule for dnstwist data with a rule_id and author."""
-    rule_template_file = get_etc_path('rule_template_typosquatting_domain.json')
+    rule_template_file = Path(get_etc_path('rule_template_typosquatting_domain.json'))
     template_rule = json.loads(rule_template_file.read_text())
     template_rule.update(author=[author], rule_id=str(uuid4()))
-    updated_rule = get_path('rule_typosquatting_domain.ndjson')
+    updated_rule = Path(get_path('rule_typosquatting_domain.ndjson'))
     updated_rule.write_text(json.dumps(template_rule, sort_keys=True))
     click.echo(f'Rule saved to: {updated_rule}. Import this to Kibana to create alerts on all dnstwist-* indexes')
     click.echo('Note: you only need to import and enable this rule one time for all dnstwist-* indexes')
