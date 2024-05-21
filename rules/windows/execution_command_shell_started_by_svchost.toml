@@ -29,7 +29,6 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
-
 [rule]
 author = ["Elastic"]
 description = "Identifies a suspicious parent child process relationship with cmd.exe descending from svchost.exe"
@@ -102,14 +101,13 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Execution",
-    "Resources: Investigation Guide",
-    "Data Source: Elastic Defend",
-]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timeline_id = "e70679c2-6cde-4510-9764-4823df18f7db"
 timeline_title = "Comprehensive Process Timeline"
 timestamp_override = "event.ingested"
@@ -121,43 +119,42 @@ process.name:("cmd.exe" or "Cmd.exe" or "CMD.EXE") and
 not process.command_line : "\"cmd.exe\" /C sc control hptpsmarthealthservice 211"
 '''
 
-
 [[rule.filters]]
-
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."process.args"]
-case_insensitive = true
-value = "?:\\\\Windows\\\\system32\\\\silcollector.cmd"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\system32\\\\silcollector.cmd"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."process.command_line"]
-case_insensitive = true
-value = "*?:\\\\Program Files\\\\Npcap\\\\CheckStatus.bat*"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "*?:\\\\Program Files\\\\Npcap\\\\CheckStatus.bat*"
 
+
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."process.command_line"]
-case_insensitive = true
-value = "*?:\\\\Program Files*\\\\Pulseway\\\\watchdog.bat*"
-[[rule.filters]]
+"case_insensitive" = true
+"value" = "*?:\\\\Program Files*\\\\Pulseway\\\\watchdog.bat*"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."process.command_line"]
-case_insensitive = true
-value = "cmd /C \".\\\\inetsrv\\\\iissetup.exe /keygen \""
-'
+"case_insensitive" = true
+"value" = "cmd /C \".\\\\inetsrv\\\\iissetup.exe /keygen \""
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 
 [rule.threat.tactic]
 id = "TA0002"
@@ -167,8 +164,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "process.command_line", "user.id"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
-
-
