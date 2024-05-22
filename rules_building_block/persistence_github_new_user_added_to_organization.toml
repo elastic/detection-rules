@@ -1,18 +1,14 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/12/21"
-bypass_bbr_timing = true
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
-description = """
-A new user was added to a GitHub organization.
-"""
+description = "A new user was added to a GitHub organization.\n"
 from = "now-9m"
 index = ["logs-github.audit-*"]
 language = "eql"
@@ -21,19 +17,21 @@ name = "New User Added To GitHub Organization"
 risk_score = 21
 rule_id = "61336fe6-c043-4743-ab6e-41292f439603"
 severity = "low"
-tags = ["Domain: Cloud",
-        "Use Case: Threat Detection",
-        "Use Case: UEBA",
-        "Tactic: Persistence",
-        "Rule Type: BBR",
-        "Data Source: Github"
-        ]
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Tactic: Persistence",
+    "Rule Type: BBR",
+    "Data Source: Github",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "org.add_member"
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -46,7 +44,10 @@ id = "T1098.001"
 name = "Additional Cloud Credentials"
 reference = "https://attack.mitre.org/techniques/T1098/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
