@@ -2,14 +2,12 @@
 creation_date = "2023/09/27"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of a hosted XSL script using the Microsoft.XMLDOM COM interface via Microsoft Office processes. 
+Identifies the execution of a hosted XSL script using the Microsoft.XMLDOM COM interface via Microsoft Office processes.
 This behavior may indicate adversarial activity to execute malicious JScript or VBScript on the system.
 """
 from = "now-9m"
@@ -20,7 +18,14 @@ name = "Remote XSL Script Execution via COM"
 risk_score = 21
 rule_id = "48f657ee-de4f-477c-aa99-ed88ee7af97a"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
 
 query = '''
@@ -37,6 +42,7 @@ sequence with maxspan=1m
          "?:\\Program Files\\*.exe",
          "?:\\Program Files (x86)\\*exe")] by process.parent.entity_id
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -55,7 +61,6 @@ reference = "https://attack.mitre.org/techniques/T1566/002/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -68,3 +73,4 @@ reference = "https://attack.mitre.org/techniques/T1220/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

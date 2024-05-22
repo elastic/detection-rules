@@ -2,14 +2,12 @@
 creation_date = "2023/09/22"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/03/08"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Monitors for the execution of different processes that might be used by attackers for malicious intent. An alert from 
+Monitors for the execution of different processes that might be used by attackers for malicious intent. An alert from
 this rule should be investigated further, as hack tools are commonly used by blue teamers and system administrators as
 well.
 """
@@ -47,17 +45,18 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-timestamp_override = "event.ingested"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend",
-        "Data Source: Auditd Manager"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+]
+timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
  and process.name in (
@@ -78,6 +77,7 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -85,3 +85,4 @@ framework = "MITRE ATT&CK"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
