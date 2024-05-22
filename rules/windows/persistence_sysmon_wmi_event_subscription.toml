@@ -2,9 +2,7 @@
 creation_date = "2023/02/02"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "Related integrations field type changes in 8.8.0"
-min_stack_version = "8.8.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -18,13 +16,19 @@ language = "eql"
 license = "Elastic License v2"
 name = "Suspicious WMI Event Subscription Created"
 references = [
-  "https://www.blackhat.com/docs/us-15/materials/us-15-Graeber-Abusing-Windows-Management-Instrumentation-WMI-To-Build-A-Persistent%20Asynchronous-And-Fileless-Backdoor-wp.pdf",
-  "https://medium.com/threatpunter/detecting-removing-wmi-persistence-60ccbb7dff96",
+    "https://www.blackhat.com/docs/us-15/materials/us-15-Graeber-Abusing-Windows-Management-Instrumentation-WMI-To-Build-A-Persistent%20Asynchronous-And-Fileless-Backdoor-wp.pdf",
+    "https://medium.com/threatpunter/detecting-removing-wmi-persistence-60ccbb7dff96",
 ]
 risk_score = 47
 rule_id = "e72f87d0-a70e-4f8d-8443-a6407bc34643"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -33,18 +37,19 @@ any where event.dataset == "windows.sysmon_operational" and event.code == "21" a
     winlog.event_data.Operation : "Created" and winlog.event_data.Consumer : ("*subscription:CommandLineEventConsumer*", "*subscription:ActiveScriptEventConsumer*")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1546"
 name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.003"
+name = "Windows Management Instrumentation Event Subscription"
+reference = "https://attack.mitre.org/techniques/T1546/003/"
 
-    [[rule.threat.technique.subtechnique]]
-    id = "T1546.003"
-    name = "Windows Management Instrumentation Event Subscription"
-    reference = "https://attack.mitre.org/techniques/T1546/003/"
+
 
 [rule.threat.tactic]
 id = "TA0003"

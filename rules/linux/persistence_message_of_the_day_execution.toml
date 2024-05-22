@@ -2,9 +2,7 @@
 creation_date = "2023/02/28"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/05/17"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -18,20 +16,11 @@ query = "SELECT * FROM file WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
 query = """
-SELECT
-  f.path,
-  u.username AS file_owner,
-  g.groupname AS group_owner,
-  datetime(f.atime, 'unixepoch') AS file_last_access_time,
-  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
-  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
-  datetime(f.btime, 'unixepoch') AS file_created_time,
-  f.size AS size_bytes
-FROM
-  file f
-  LEFT JOIN users u ON f.uid = u.uid
-  LEFT JOIN groups g ON f.gid = g.gid
-WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE '/usr/lib/update-notifier/%')
+SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
+file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
+file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE
+'/usr/lib/update-notifier/%')
 """
 
 [[transform.osquery]]
@@ -41,15 +30,17 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 [[transform.osquery]]
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
+
+
 [rule]
 author = ["Elastic"]
 description = """
-Message of the day (MOTD) is the message that is presented to the user when a user connects to a Linux server via SSH 
-or a serial connection. Linux systems contain several default MOTD files located in the "/etc/update-motd.d/" and 
-"/usr/lib/update-notifier/" directories. These scripts run as the root user every time a user connects over SSH or a 
-serial connection. Adversaries may create malicious MOTD files that grant them persistence onto the target every time a 
-user connects to the system by executing a backdoor script or command. This rule detects the execution of potentially 
-malicious processes through the MOTD utility. 
+Message of the day (MOTD) is the message that is presented to the user when a user connects to a Linux server via SSH or
+a serial connection. Linux systems contain several default MOTD files located in the "/etc/update-motd.d/" and
+"/usr/lib/update-notifier/" directories. These scripts run as the root user every time a user connects over SSH or a
+serial connection. Adversaries may create malicious MOTD files that grant them persistence onto the target every time a
+user connects to the system by executing a backdoor script or command. This rule detects the execution of potentially
+malicious processes through the MOTD utility.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -115,7 +106,7 @@ This rule identifies the execution of potentially malicious processes from a MOT
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = [
-    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd"
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd",
 ]
 risk_score = 73
 rule_id = "4ec47004-b34a-42e6-8003-376a123ea447"
@@ -146,16 +137,17 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "high"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Data Source: Elastic Endgame",
-        "Resources: Investigation Guide",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where event.type == "start" and host.os.type == "linux" and event.action : ("exec", "exec_event") and
   process.parent.executable : ("/etc/update-motd.d/*", "/usr/lib/update-notifier/*") and (
@@ -186,15 +178,17 @@ not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
