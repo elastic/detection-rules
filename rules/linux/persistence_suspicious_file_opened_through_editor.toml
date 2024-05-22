@@ -1,19 +1,17 @@
 [metadata]
 creation_date = "2023/07/25"
-maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/05/17"
 integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the potential edit of a suspicious file. In Linux, when editing a file through an editor, a 
+This rule monitors for the potential edit of a suspicious file. In Linux, when editing a file through an editor, a
 temporary .swp file is created. By monitoring for the creation of this .swp file, we can detect potential file edits of
-suspicious files. The execution of this rule is not a clear sign of the file being edited, as just opening the file 
+suspicious files. The execution of this rule is not a clear sign of the file being edited, as just opening the file
 through an editor will trigger this event. Attackers may alter any of the files added in this rule to establish
-persistence, escalate privileges or perform reconnaisance on the system. 
+persistence, escalate privileges or perform reconnaisance on the system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -25,16 +23,17 @@ risk_score = 21
 rule_id = "3728c08d-9b70-456b-b6b8-007c7d246128"
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Tactic: Privilege Escalation",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.action in ("creation", "file_create_event") and file.extension == "swp" and
 file.path : (
@@ -57,58 +56,59 @@ file.path : (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1037.004"
 name = "RC Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/004/"
 
-[[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1574.006"
-name = "Dynamic Linker Hijacking"
-reference = "https://attack.mitre.org/techniques/T1574/006/"
 
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
 
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.006"
+name = "Dynamic Linker Hijacking"
+reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
-[[rule.threat.technique]]
-id = "T1548"
-name = "Abuse Elevation Control Mechanism"
-reference = "https://attack.mitre.org/techniques/T1548/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1548.003"
-name = "Sudo and Sudo Caching"
-reference = "https://attack.mitre.org/techniques/T1548/003/"

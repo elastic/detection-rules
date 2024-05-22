@@ -812,8 +812,9 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 
 @dev_group.command('trim-version-lock')
 @click.argument('stack_version')
+@click.option('--skip-rule-updates', is_flag=True, help='Skip updating the rules')
 @click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
-def trim_version_lock(stack_version: str, dry_run: bool):
+def trim_version_lock(stack_version: str, skip_rule_updates: bool, dry_run: bool):
     """Trim all previous entries within the version lock file which are lower than the min_version."""
     stack_versions = get_stack_versions()
     assert stack_version in stack_versions, \
@@ -821,36 +822,78 @@ def trim_version_lock(stack_version: str, dry_run: bool):
 
     min_version = Version.parse(stack_version)
     version_lock_dict = default_version_lock.version_lock.to_dict()
-    removed = {}
+    removed = defaultdict(list)
+    rule_msv_drops = []
+
+    today = time.strftime('%Y/%m/%d')
+    rc: RuleCollection | None = None
+    if dry_run:
+        rc = RuleCollection()
+    else:
+        if not skip_rule_updates:
+            click.echo('Loading rules ...')
+            rc = RuleCollection.default()
 
     for rule_id, lock in version_lock_dict.items():
+        file_min_stack: Version | None = None
+        if 'min_stack_version' in lock:
+            file_min_stack = Version.parse((lock['min_stack_version']), optional_minor_and_patch=True)
+            if file_min_stack <= min_version:
+                removed[rule_id].append(
+                    f'locked min_stack_version <= {min_version} - {"will remove" if dry_run else "removing"}!'
+                )
+                rule_msv_drops.append(rule_id)
+                file_min_stack = None
+
+                if not dry_run:
+                    lock.pop('min_stack_version')
+                    if not skip_rule_updates:
+                        # remove the min_stack_version and min_stack_comments from rules as well (and update date)
+                        rule = rc.id_map.get(rule_id)
+                        if rule:
+                            new_meta = dataclasses.replace(
+                                rule.contents.metadata,
+                                updated_date=today,
+                                min_stack_version=None,
+                                min_stack_comments=None
+                            )
+                            contents = dataclasses.replace(rule.contents, metadata=new_meta)
+                            new_rule = TOMLRule(contents=contents, path=rule.path)
+                            new_rule.save_toml()
+                            removed[rule_id].append('rule min_stack_version dropped')
+                        else:
+                            removed[rule_id].append('rule not found to update!')
+
         if 'previous' in lock:
             prev_vers = [Version.parse(v, optional_minor_and_patch=True) for v in list(lock['previous'])]
-            outdated_vers = [f"{v.major}.{v.minor}" for v in prev_vers if v < min_version]
+            outdated_vers = [v for v in prev_vers if v < min_version]
 
             if not outdated_vers:
                 continue
 
             # we want to remove all "old" versions, but save the latest that is >= the min version supplied as the new
             # stack_version.
+            latest_version = max(outdated_vers)
 
-            if dry_run:
-                outdated_minus_current = [str(v) for v in outdated_vers if v < stack_version]
-                if outdated_minus_current:
-                    removed[rule_id] = outdated_minus_current
             for outdated in outdated_vers:
-                popped = lock['previous'].pop(str(outdated))
-                if outdated >= stack_version:
-                    lock['previous'][str(Version(stack_version[:2]))] = popped
+                short_outdated = f"{outdated.major}.{outdated.minor}"
+                popped = lock['previous'].pop(str(short_outdated))
+                # the core of the update - we only need to keep previous entries that are newer than the min supported
+                # version (from stack-schema-map and stack-version parameter) and older than the locked
+                # min_stack_version for a given rule, if one exists
+                if file_min_stack and outdated == latest_version and outdated < file_min_stack:
+                    lock['previous'][f'{min_version.major}.{min_version.minor}'] = popped
+                    removed[rule_id].append(f'{short_outdated} updated to: {min_version.major}.{min_version.minor}')
+                else:
+                    removed[rule_id].append(f'{outdated} dropped')
 
             # remove the whole previous entry if it is now blank
             if not lock['previous']:
                 lock.pop('previous')
 
-    if dry_run:
-        click.echo(f'The following versions would be collapsed to {stack_version}:' if removed else 'No changes')
-        click.echo('\n'.join(f'{k}: {", ".join(v)}' for k, v in removed.items()))
-    else:
+    click.echo(f'Changes {"that will be " if dry_run else ""} applied:' if removed else 'No changes')
+    click.echo('\n'.join(f'{k}: {", ".join(v)}' for k, v in removed.items()))
+    if not dry_run:
         new_lock = VersionLockFile.from_dict(dict(data=version_lock_dict))
         new_lock.save_to_file()
 
