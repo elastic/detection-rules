@@ -2,17 +2,15 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2023/11/02"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule monitors for the execution of several commonly used system commands executed by a previously unknown
-executable located in commonly abused directories. An alert from this rule can indicate the presence of potentially 
-malicious activity, such as the execution of unauthorized or suspicious processes attempting to run malicious code. 
-Detecting and investigating such behavior can help identify and mitigate potential security threats, protecting the 
+executable located in commonly abused directories. An alert from this rule can indicate the presence of potentially
+malicious activity, such as the execution of unauthorized or suspicious processes attempting to run malicious code.
+Detecting and investigating such behavior can help identify and mitigate potential security threats, protecting the
 system and its data from potential compromise.
 """
 from = "now-9m"
@@ -48,7 +46,14 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -64,28 +69,30 @@ process.executable:(
   not process.parent.executable:(/bin/* or /usr/bin/* or /run/k3s/* or /etc/network/* or /opt/Elastic/*)
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-  
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
-name = "Command and Scripting Interpreter"
 id = "T1059"
+name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
-name = "Unix Shell"
 id = "T1059.004"
+name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "user.id", "process.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

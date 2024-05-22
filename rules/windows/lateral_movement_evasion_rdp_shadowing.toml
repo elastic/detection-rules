@@ -2,9 +2,7 @@
 creation_date = "2021/04/12"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +12,13 @@ indicative of an active RDP shadowing session. An adversary may abuse the RDP Sh
 other users active RDP sessions.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "logs-endpoint.events.registry-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-endpoint.events.registry-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Remote Desktop Shadowing Activity"
@@ -33,7 +37,15 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -63,11 +75,12 @@ framework = "MITRE ATT&CK"
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1021.001"
 name = "Remote Desktop Protocol"
 reference = "https://attack.mitre.org/techniques/T1021/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0008"
