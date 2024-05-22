@@ -1,25 +1,20 @@
 [metadata]
-bypass_bbr_timing = true
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/04/05"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
-building_block_type = "default"
 description = """
 Identifies the use of Windows Management Instrumentation Command (WMIC) to discover certain System Security Settings
 such as AntiVirus or Host Firewall details.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.process-*",
-    "winlogbeat-*",
-    "logs-windows.*",
-    "endgame-*",
-    "logs-system.security*",
-]
+index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Security Software Discovery using WMIC"
@@ -62,17 +57,17 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Resources: Investigation Guide",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Rule Type: BBR",
-]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend",
+        "Rule Type: BBR"
+        ]
 timestamp_override = "event.ingested"
+building_block_type = "default"
 type = "eql"
 
 query = '''
@@ -81,31 +76,31 @@ process where host.os.type == "windows" and event.type == "start" and
 process.args : "/namespace:\\\\root\\SecurityCenter2" and process.args : "Get"
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1518"
 name = "Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1518.001"
 name = "Security Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1047"
 name = "Windows Management Instrumentation"
 reference = "https://attack.mitre.org/techniques/T1047/"
-
 
 [rule.threat.tactic]
 id = "TA0002"

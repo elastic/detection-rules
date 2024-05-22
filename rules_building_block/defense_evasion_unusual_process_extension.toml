@@ -2,31 +2,28 @@
 creation_date = "2023/08/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/04/05"
 
 [rule]
 author = ["Elastic"]
-building_block_type = "default"
-description = "Identifies processes running with unusual extensions that are not typically valid for Windows executables.\n"
+description = """
+Identifies processes running with unusual extensions that are not typically valid for Windows executables.
+"""
 from = "now-119m"
-index = ["logs-endpoint.events.process-*"]
 interval = "60m"
+index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Process Extension"
 risk_score = 21
 rule_id = "800e01be-a7a4-46d0-8de9-69f3c9582b44"
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Rule Type: BBR",
-]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Rule Type: BBR"]
 timestamp_override = "event.ingested"
 type = "eql"
+building_block_type = "default"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
@@ -60,22 +57,19 @@ process where host.os.type == "windows" and event.type == "start" and
   )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1036.008"
 name = "Masquerade File Type"
 reference = "https://attack.mitre.org/techniques/T1036/008/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

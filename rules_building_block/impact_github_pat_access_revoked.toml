@@ -1,14 +1,18 @@
 [metadata]
-bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/12/14"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
-description = "Access to private GitHub organization resources was revoked for a PAT.\n"
+description = """
+Access to private GitHub organization resources was revoked for a PAT.
+"""
 from = "now-9m"
 index = ["logs-github.audit-*"]
 language = "eql"
@@ -17,21 +21,19 @@ name = "GitHub PAT Access Revoked"
 risk_score = 21
 rule_id = "8a0fd93a-7df8-410d-8808-4cc5e340f2b9"
 severity = "low"
-tags = [
-    "Domain: Cloud",
-    "Use Case: Threat Detection",
-    "Use Case: UEBA",
-    "Tactic: Impact",
-    "Rule Type: BBR",
-    "Data Source: Github",
-]
+tags = ["Domain: Cloud",
+        "Use Case: Threat Detection",
+        "Use Case: UEBA",        
+        "Tactic: Impact",
+        "Rule Type: BBR",
+        "Data Source: Github"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "personal_access_token.access_revoked"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -45,4 +47,3 @@ reference = "https://attack.mitre.org/techniques/T1531/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-

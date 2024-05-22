@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2022/11/16"
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2023/06/22"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
 
 [rule]
 author = ["Elastic"]
@@ -18,8 +20,8 @@ false_positives = [
     """,
 ]
 from = "now-24h"
-index = [".alerts-security.*"]
 interval = "1h"
+index = [".alerts-security.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Multiple Alerts Involving a User"
@@ -34,13 +36,10 @@ query = '''
 signal.rule.name:* and user.name:* and not user.id:("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
 '''
 
-
-
 [rule.threshold]
 field = ["user.name"]
 value = 1
+
 [[rule.threshold.cardinality]]
 field = "signal.rule.rule_id"
 value = 5
-
-

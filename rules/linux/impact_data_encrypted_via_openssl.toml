@@ -2,7 +2,9 @@
 creation_date = "2023/06/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/11/02"
 
 [rule]
 author = ["Elastic"]
@@ -17,8 +19,8 @@ language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Data Encryption via OpenSSL Utility"
 references = [
-    "https://www.welivesecurity.com/2017/06/30/telebots-back-supply-chain-attacks-against-ukraine/",
-    "https://www.trendmicro.com/en_us/research/21/f/bash-ransomware-darkradiation-targets-red-hat--and-debian-based-linux-distributions.html",
+  "https://www.welivesecurity.com/2017/06/30/telebots-back-supply-chain-attacks-against-ukraine/",
+  "https://www.trendmicro.com/en_us/research/21/f/bash-ransomware-darkradiation-targets-red-hat--and-debian-based-linux-distributions.html",
 ]
 risk_score = 47
 rule_id = "f530ca17-153b-4a7a-8cd3-98dd4b4ddf73"
@@ -48,15 +50,8 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Impact",
-    "Data Source: Elastic Defend",
-]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Impact", "Data Source: Elastic Defend"]
 type = "eql"
-
 query = '''
 sequence by host.id, user.name, process.parent.entity_id with maxspan=5s
   [ process where host.os.type == "linux" and event.action == "exec" and 
@@ -67,17 +62,15 @@ sequence by host.id, user.name, process.parent.entity_id with maxspan=5s
     not process.args in ("-d", "-a", "-A", "-base64", "-none", "-nosalt") ] with runs=10
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1486"
-name = "Data Encrypted for Impact"
-reference = "https://attack.mitre.org/techniques/T1486/"
-
 
 [rule.threat.tactic]
-id = "TA0040"
 name = "Impact"
+id = "TA0040"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
+[[rule.threat.technique]]
+name = "Data Encrypted for Impact"
+id = "T1486"
+reference = "https://attack.mitre.org/techniques/T1486/"

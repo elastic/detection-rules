@@ -3,12 +3,16 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/12/14"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
-description = "Detects a new private repo interaction for a GitHub user not seen in the last 14 days.\n"
+description = """
+Detects a new private repo interaction for a GitHub user not seen in the last 14 days.
+"""
 from = "now-9m"
 index = ["logs-github.audit-*"]
 language = "kuery"
@@ -17,14 +21,13 @@ name = "First Occurrence of GitHub User Interaction with Private Repo"
 risk_score = 21
 rule_id = "01c49712-25bc-49d2-a27d-d7ce52f5dc49"
 severity = "low"
-tags = [
-    "Domain: Cloud",
-    "Use Case: Threat Detection",
-    "Use Case: UEBA",
-    "Tactic: Execution",
-    "Rule Type: BBR",
-    "Data Source: Github",
-]
+tags = ["Domain: Cloud",
+        "Use Case: Threat Detection",
+        "Use Case: UEBA",        
+        "Tactic: Execution",
+        "Rule Type: BBR",
+        "Data Source: Github"
+        ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -33,7 +36,6 @@ event.dataset:"github.audit" and event.category:"configuration" and
 github.repo:* and user.name:* and 
 github.repository_public:false
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -48,11 +50,11 @@ id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["user.name", "github.repo"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
-
-

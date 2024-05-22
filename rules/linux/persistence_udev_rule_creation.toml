@@ -2,7 +2,9 @@
 creation_date = "2023/10/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2024/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -47,16 +49,15 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-]
-timestamp_override = "event.ingested"
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 type = "new_terms"
-
+timestamp_override = "event.ingested"
 query = '''
 host.os.type:"linux" and event.category:"file" and
 event.type:("change" or "file_modify_event" or "creation" or "file_create_event") and
@@ -66,14 +67,13 @@ file.path:/lib/udev/* and process.executable:* and not (
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
-
 
 [rule.threat.tactic]
 id = "TA0003"
@@ -83,8 +83,7 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "process.executable", "file.path"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
-
-

@@ -1,13 +1,14 @@
 [metadata]
-bypass_bbr_timing = true
 creation_date = "2023/08/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_comments = "New fields added: dll.Ext.relative_file_creation_time is populated in Elastic Endpoint 8.4 and above."
+min_stack_version = "8.4.0"
+updated_date = "2024/04/05"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
-building_block_type = "default"
 description = """
 Identifies suspicious instances of default system32 DLLs either unsigned or signed with non-MS certificates. This can
 potentially indicate the attempt to masquerade as system DLLs, perform DLL Search Order Hijacking or backdoor and resign
@@ -21,16 +22,9 @@ name = "Potential Masquerading as System32 DLL"
 risk_score = 21
 rule_id = "fb01d790-9f74-4e76-97dd-b4b0f7bf6435"
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "Data Source: Elastic Defend",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Tactic: Persistence",
-    "Rule Type: BBR",
-]
+tags = ["Domain: Endpoint", "Data Source: Elastic Defend", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Persistence", "Rule Type: BBR"]
 timestamp_override = "event.ingested"
+building_block_type = "default"
 type = "eql"
 
 query = '''
@@ -112,6 +106,7 @@ framework = "MITRE ATT&CK"
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1036.001"
 name = "Invalid Code Signature"
@@ -122,11 +117,11 @@ id = "T1036.005"
 name = "Match Legitimate Name or Location"
 reference = "https://attack.mitre.org/techniques/T1036/005/"
 
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1574.001"
 name = "DLL Search Order Hijacking"
@@ -138,18 +133,18 @@ name = "DLL Side-Loading"
 reference = "https://attack.mitre.org/techniques/T1574/002/"
 
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1554"
 name = "Compromise Client Software Binary"
 reference = "https://attack.mitre.org/techniques/T1554/"
-
 
 [rule.threat.tactic]
 id = "TA0003"

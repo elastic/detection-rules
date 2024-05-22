@@ -1,40 +1,35 @@
 [metadata]
-bypass_bbr_timing = true
 creation_date = "2023/01/24"
 integration = ["windows", "endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/04/05"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
 Detects the usage of commonly used system time discovery techniques, which attackers may use during the reconnaissance
-phase after compromising a system.
+phase after compromising a system. 
 """
 from = "now-9m"
-index = [
-    "winlogbeat-*",
-    "logs-endpoint.events.process-*",
-    "logs-windows.*",
-    "endgame-*",
-    "logs-system.security*",
-]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "System Time Discovery"
 risk_score = 21
 rule_id = "06568a02-af29-4f20-929c-f3af281e41aa"
 severity = "low"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame",
-    "Rule Type: BBR",
-]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Rule Type: BBR"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -50,17 +45,15 @@ process where host.os.type == "windows" and event.type == "start" and
 ) and not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20")
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1124"
 name = "System Time Discovery"
 reference = "https://attack.mitre.org/techniques/T1124/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
