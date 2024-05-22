@@ -2,28 +2,24 @@
 creation_date = "2024/03/13"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-min_stack_comments = "The sampling feature within EQL was introduced in 8.6.0"
-min_stack_version = "8.6.0"
-updated_date = "2024/03/13"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Monitors for the execution of a unix binary with read, write and execute memory region permissions, followed by a 
+Monitors for the execution of a unix binary with read, write and execute memory region permissions, followed by a
 network connection. The mprotect() system call is used to change the access protections on a region of memory that has
 already been allocated. This syscall allows a process to modify the permissions of pages in its virtual address space,
 enabling or disabling permissions such as read, write, and execute for those pages. RWX permissions on memory is in many
-cases overly permissive, and should (especially in conjunction with an outbound network connection) be analyzed 
-thoroughly. 
+cases overly permissive, and should (especially in conjunction with an outbound network connection) be analyzed
+thoroughly.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Network Connection from Binary with RWX Memory Region"
-references = [
-    "https://man7.org/linux/man-pages/man2/mprotect.2.html"
-]
+references = ["https://man7.org/linux/man-pages/man2/mprotect.2.html"]
 risk_score = 47
 rule_id = "32300431-c2d5-432d-8ec8-0e03f9924756"
 setup = """## Setup
@@ -45,15 +41,16 @@ Add the newly installed `auditd manager` to an agent policy, and deploy the agen
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Elastic Defend",
-        "Data Source: Auditd Manager"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 sample by host.id, process.pid, process.name
   /* auditd.data.a2 == "7" translates to RWX memory region protection (PROT_READ | PROT_WRITE | PROT_EXEC) */
@@ -62,33 +59,34 @@ sample by host.id, process.pid, process.name
    not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+
 
 [rule.threat.tactic]
-name = "Command and Control"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
 id = "TA0011"
+name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat.technique]]
-name = "Application Layer Protocol"
-id = "T1071"
-reference = "https://attack.mitre.org/techniques/T1071/"

@@ -2,9 +2,7 @@
 creation_date = "2021/01/19"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/22"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -64,15 +62,16 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint",
-        "OS: Linux",
-        "OS: macOS",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Resources: Investigation Guide",
-        "Use Case: Vulnerability",
-        "Data Source: Elastic Defend"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -86,18 +85,19 @@ event.category:process and event.type:("start" or "process_started") and process
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.007"
 name = "JavaScript"
 reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
 
 [rule.threat.tactic]
 id = "TA0002"
@@ -107,7 +107,8 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "process.command_line"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

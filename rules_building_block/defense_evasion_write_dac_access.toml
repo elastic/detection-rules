@@ -2,12 +2,11 @@
 creation_date = "2023/08/15"
 integration = ["system", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies the access on an object with WRITEDAC permissions. With the WRITEDAC permission, the user can perform a Write
 Discretionary Access Control List (WriteDACL) operation, which is used to modify the access control rules associated
@@ -16,11 +15,16 @@ compromised accounts additional rights, ultimately compromising the target objec
 lateral movement, and persistence.
 """
 from = "now-119m"
-interval = "60m"
 index = ["winlogbeat-*", "logs-system.security*", "logs-windows.*"]
+interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
 name = "WRITEDAC Access on Active Directory Object"
+references = [
+    "https://www.blackhat.com/docs/us-17/wednesday/us-17-Robbins-An-ACE-Up-The-Sleeve-Designing-Active-Directory-DACL-Backdoors.pdf",
+]
+risk_score = 21
+rule_id = "f5861570-e39a-4b8a-9259-abd39f84cb97"
 setup = """## Setup
 
 The 'Audit Directory Service Access' logging policy must be configured for (Success, Failure).
@@ -37,34 +41,37 @@ DS Access >
 Audit Directory Service Access (Success,Failure)
 ```
 """
-references = [
-    "https://www.blackhat.com/docs/us-17/wednesday/us-17-Robbins-An-ACE-Up-The-Sleeve-Designing-Active-Directory-DACL-Backdoors.pdf"
-]
-risk_score = 21
-rule_id = "f5861570-e39a-4b8a-9259-abd39f84cb97"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Active Directory", "Use Case: Active Directory Monitoring", "Rule Type: BBR"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Active Directory",
+    "Use Case: Active Directory Monitoring",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "query"
-building_block_type = "default"
 
 query = '''
 host.os.type: "windows" and event.action : ("Directory Service Access" or "object-operation-performed") and
   event.code : "4662" and winlog.event_data.AccessMask:"0x40000"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1222"
-reference = "https://attack.mitre.org/techniques/T1222/"
 name = "File and Directory Permissions Modification"
-
+reference = "https://attack.mitre.org/techniques/T1222/"
 [[rule.threat.technique.subtechnique]]
 id = "T1222.001"
 name = "Windows File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0005"

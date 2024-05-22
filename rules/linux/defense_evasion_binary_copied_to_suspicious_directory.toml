@@ -2,16 +2,14 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the copying or moving of a system binary to a suspicious directory. Adversaries may copy/move 
-and rename system binaries to evade detection. Copying a system binary to a different location should not occur often,
-so if it does, the activity should be investigated. 
+This rule monitors for the copying or moving of a system binary to a suspicious directory. Adversaries may copy/move and
+rename system binaries to evade detection. Copying a system binary to a different location should not occur often, so if
+it does, the activity should be investigated.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -47,13 +45,14 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
@@ -84,25 +83,27 @@ sequence by host.id, process.entity_id with maxspan=1s
   ) and not file.path : ("/tmp/rear*", "/var/tmp/rear*", "/var/tmp/dracut*", "/var/tmp/mkinitramfs*")]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.003"
+name = "Rename System Utilities"
+reference = "https://attack.mitre.org/techniques/T1036/003/"
+
 
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
 
-[[rule.threat.technique]]
-id = "T1036"
-name = "Masquerading"
-reference = "https://attack.mitre.org/techniques/T1036/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1036.003"
-name = "Rename System Utilities"
-reference = "https://attack.mitre.org/techniques/T1036/003/"
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
