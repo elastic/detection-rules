@@ -2,33 +2,20 @@
 creation_date = "2023/10/26"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/05/17"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
-query = """
-SELECT * FROM file WHERE path = {{file.path}}
-"""
+query = "SELECT * FROM file WHERE path = {{file.path}}\n"
+
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
 query = """
-SELECT
-  f.path,
-  u.username AS file_owner,
-  g.groupname AS group_owner,
-  datetime(f.atime, 'unixepoch') AS file_last_access_time,
-  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
-  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
-  datetime(f.btime, 'unixepoch') AS file_created_time,
-  f.size AS size_bytes
-FROM
-  file f
-  LEFT JOIN users u ON f.uid = u.uid
-  LEFT JOIN groups g ON f.gid = g.gid
-WHERE path = {{file.path}}
+SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
+file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
+file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE path = {{file.path}}
 """
 
 [[transform.osquery]]
@@ -55,10 +42,11 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
 
+
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for a file creation event originating from a kworker parent process. kworker, or kernel worker, 
+This rule monitors for a file creation event originating from a kworker parent process. kworker, or kernel worker,
 processes are part of the kernel's workqueue mechanism. They are responsible for executing work that has been scheduled
 to be done in kernel space, which might include tasks like handling interrupts, background activities, and other
 kernel-related tasks. Attackers may attempt to evade detection by masquerading as a kernel worker process.
@@ -165,15 +153,16 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.action in ("creation", "file_create_event") and
   process.name : "kworker*" and not (
@@ -182,29 +171,29 @@ file where host.os.type == "linux" and event.action in ("creation", "file_create
   )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat.technique]]
-name = "Rootkit"
-id = "T1014"
-reference = "https://attack.mitre.org/techniques/T1014/"
 

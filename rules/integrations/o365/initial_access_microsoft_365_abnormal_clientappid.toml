@@ -2,9 +2,7 @@
 creation_date = "2023/07/18"
 integration = ["o365"]
 maturity = "production"
-min_stack_comments = "Breaking change at 8.8.0 for Microsoft 365 Integration."
-min_stack_version = "8.8.0"
-updated_date = "2024/05/15"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -34,15 +32,20 @@ note = """## Triage and analysis
 - User changing of ClientAppId or new connection post an extended period of leave.
 - If the total number of accessed Mailboxes by ClientAppId is too high there is a high chance it's a false positive.
 """
+references = ["https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-193a"]
+risk_score = 47
+rule_id = "48819484-9826-4083-9eba-1da74cd0eaf2"
 setup = """## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 """
-references = ["https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-193a"]
-risk_score = 47
-rule_id = "48819484-9826-4083-9eba-1da74cd0eaf2"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Configuration Audit", "Tactic: Initial Access"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: Microsoft 365",
+    "Use Case: Configuration Audit",
+    "Tactic: Initial Access",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -107,10 +110,11 @@ id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
-
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["o365.audit.ClientAppId"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-25d"
+
+

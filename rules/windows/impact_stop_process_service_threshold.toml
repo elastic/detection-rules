@@ -2,9 +2,7 @@
 creation_date = "2020/12/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +11,13 @@ This rule identifies a high number (10) of process terminations (stop, delete, o
 short time period.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-windows.*",
+    "endgame-*",
+    "logs-system.security*",
+]
 language = "kuery"
 license = "Elastic License v2"
 name = "High Number of Process and/or Service Terminations"
@@ -52,9 +56,17 @@ references = ["https://www.elastic.co/security-labs/luna-ransomware-attack-patte
 risk_score = 47
 rule_id = "035889c4-2686-4583-a7df-67f89c292f2c"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Impact", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
-type = "threshold"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
+type = "threshold"
 
 query = '''
 event.category:process and host.os.type:windows and event.type:start and process.name:(net.exe or sc.exe or taskkill.exe) and

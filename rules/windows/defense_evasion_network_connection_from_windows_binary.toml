@@ -2,9 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +37,12 @@ Identifies network activity from unexpected system applications. This may indica
 applications are often leveraged by adversaries to execute code and evade detection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "logs-endpoint.events.network-*", "winlogbeat-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-endpoint.events.network-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Network Activity from a Windows System Binary"
@@ -100,7 +103,15 @@ This rule identifies network connections established by trusted developer utilit
 risk_score = 47
 rule_id = "1fe3b299-fbb5-4657-a937-1d746f2c711a"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 type = "eql"
 
 query = '''
@@ -167,6 +178,16 @@ sequence by process.entity_id with maxspan=5m
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.005"
+name = "Match Legitimate Name or Location"
+reference = "https://attack.mitre.org/techniques/T1036/005/"
+
+
+[[rule.threat.technique]]
 id = "T1127"
 name = "Trusted Developer Utilities Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1127/"
@@ -180,15 +201,7 @@ id = "T1218.005"
 name = "Mshta"
 reference = "https://attack.mitre.org/techniques/T1218/005/"
 
-[[rule.threat.technique]]
-id = "T1036"
-name = "Masquerading"
-reference = "https://attack.mitre.org/techniques/T1036/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1036.005"
-name = "Match Legitimate Name or Location"
-reference = "https://attack.mitre.org/techniques/T1036/005/"
 
 [rule.threat.tactic]
 id = "TA0005"

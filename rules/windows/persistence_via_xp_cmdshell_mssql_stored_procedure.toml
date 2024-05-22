@@ -2,9 +2,7 @@
 creation_date = "2020/08/14"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +11,13 @@ Identifies execution via MSSQL xp_cmdshell stored procedure. Malicious users may
 using xp_cmdshell, which is disabled by default, thus, it's important to review the context of it's use.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-windows.*",
+    "endgame-*",
+    "logs-system.security*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Execution via MSSQL xp_cmdshell Stored Procedure"
@@ -62,7 +66,15 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -81,36 +93,35 @@ process where host.os.type == "windows" and event.type == "start" and process.pa
   )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1505.001"
 name = "SQL Stored Procedures"
 reference = "https://attack.mitre.org/techniques/T1505/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
+
 
 
 [rule.threat.tactic]

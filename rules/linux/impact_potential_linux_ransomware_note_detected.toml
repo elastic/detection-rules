@@ -2,18 +2,16 @@
 creation_date = "2023/03/20"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/21"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies a sequence of a mass file encryption event in conjunction with the creation of a .txt file with 
-a file name containing ransomware keywords executed by the same process in a 1 second timespan. Ransomware is a type of
+This rule identifies a sequence of a mass file encryption event in conjunction with the creation of a .txt file with a
+file name containing ransomware keywords executed by the same process in a 1 second timespan. Ransomware is a type of
 malware that encrypts a victim's files or systems and demands payment (usually in cryptocurrency) in exchange for the
 decryption key. One important indicator of a ransomware attack is the mass encryption of the file system, after which a
-new file extension is added to the file. 
+new file extension is added to the file.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -49,13 +47,14 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Impact",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by process.entity_id, host.id with maxspan=1s 
   [file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and file.extension : "?*" 
@@ -75,15 +74,17 @@ sequence by process.entity_id, host.id with maxspan=1s
   ]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1486"
 name = "Data Encrypted for Impact"
 reference = "https://attack.mitre.org/techniques/T1486/"
 
+
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
