@@ -1,0 +1,46 @@
+[metadata]
+creation_date = "2024/05/22"
+maturity = "production"
+updated_date = "2024/05/22"
+min_stack_comments = "ES|QL rule type is still in experimental as of 8.13, however this rule was tested successfully; integration in experimental"
+min_stack_version = "8.13.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when Azure OpenAI requests result in zero response length, potentially indicating issues in output handling that might lead to security exploits such as data leaks or code execution. This can occur in cases where the API fails to handle outputs correctly under certain input conditions.
+"""
+false_positives = ["Queries that are designed to expect empty responses or benign system errors"]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Azure OpenAI Insecure Output Handling Detection"
+references = [
+    "https://genai.owasp.org/llmrisk/llm02-insecure-output-handling"
+]
+risk_score = 21
+rule_id = "fb16f9ef-cb03-4234-adc2-44641f3b71ee"
+setup = """## Setup
+
+For more information on streaming events, see the Azure OpenAI documentation:
+
+https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/stream-monitoring-data-event-hubs
+"""
+severity = "low"
+tags = [
+    "Domain: LLM",
+    "Data Source: Azure OpenAI",
+    "Data Source: Azure Event Hubs",
+    "Use Case: Insecure Output Handling"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure_openai.logs-*
+| where azure.open_ai.properties.response_length == 0 and azure.open_ai.result_signature == "200" and azure.open_ai.operation_name == "ChatCompletions_Create"
+| stats count = count() by azure.resource.id, azure.open_ai.operation_name
+| where count > 10
+| sort count desc
+'''

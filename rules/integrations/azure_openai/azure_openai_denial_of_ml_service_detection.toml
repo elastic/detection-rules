@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2024/05/05"
+maturity = "production"
+updated_date = "2024/05/05"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
+min_stack_version = "8.13.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects patterns indicative of Denial of Service attacks on ML models, focusing on unusually high volume and frequency of requests or patterns of requests that are known to cause performance degradation or service disruption, such as large input sizes or rapid API calls.
+"""
+false_positives = ["Unexpected system errors", "Legitimate spikes in usage due to business processes"]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Denial of Azure OpenAI ML Service Detection"
+references = [
+    "https://genai.owasp.org/llmrisk/llm04-model-denial-of-service",
+    "https://atlas.mitre.org/techniques/AML.T0029"
+]
+risk_score = 47
+rule_id = "b0450411-46e5-46d2-9b35-8b5dd9ba763e"
+setup = """## Setup
+
+For more information on streaming events, see the Azure OpenAI documentation:
+
+https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/stream-monitoring-data-event-hubs
+"""
+severity = "medium"
+tags = [
+    "Domain: LLM",
+    "Data Source: Azure OpenAI",
+    "Data Source: Azure Event Hubs",
+    "Use Case: Denial of Service",
+    "Mitre Atlas: T0029"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure_openai.logs-*
+| where azure.open_ai.operation_name == "ChatCompletions_Create"
+| stats count = count(), avg_request_size = avg(azure.open_ai.properties.request_length) by azure.resource.id
+| where count > 1000 OR avg_request_size > 5000
+| sort count desc
+'''
