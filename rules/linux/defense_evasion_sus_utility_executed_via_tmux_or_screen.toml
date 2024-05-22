@@ -2,15 +2,13 @@
 creation_date = "2023/09/04"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the execution of suspicious commands via screen and tmux. When launching a command and detaching 
-directly, the commands will be executed in the background via its parent process. Attackers may leverage screen or tmux 
+This rule monitors for the execution of suspicious commands via screen and tmux. When launching a command and detaching
+directly, the commands will be executed in the background via its parent process. Attackers may leverage screen or tmux
 to execute commands while attempting to evade detection.
 """
 from = "now-9m"
@@ -22,15 +20,16 @@ risk_score = 21
 rule_id = "e0cc3807-e108-483c-bf66-5a4fbe0d7e89"
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
 process.parent.name in ("screen", "tmux") and process.name : (
@@ -39,15 +38,17 @@ process.parent.name in ("screen", "tmux") and process.name : (
   )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1218"
 name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
