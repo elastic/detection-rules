@@ -2,9 +2,7 @@
 creation_date = "2020/10/26"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/03/28"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +37,13 @@ Identifies an attempt to bypass User Account Control (UAC) by masquerading as a 
 Attackers may bypass UAC to stealthily execute code with elevated permissions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-windows.*",
+    "endgame-*",
+    "logs-system.security*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "UAC Bypass Attempt via Windows Directory Masquerading"
@@ -108,7 +112,16 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -135,9 +148,18 @@ reference = "https://attack.mitre.org/techniques/T1548/002/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.005"
+name = "Match Legitimate Name or Location"
+reference = "https://attack.mitre.org/techniques/T1036/005/"
+
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
@@ -147,15 +169,6 @@ id = "T1548.002"
 name = "Bypass User Account Control"
 reference = "https://attack.mitre.org/techniques/T1548/002/"
 
-[[rule.threat.technique]]
-id = "T1036"
-name = "Masquerading"
-reference = "https://attack.mitre.org/techniques/T1036/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1036.005"
-name = "Match Legitimate Name or Location"
-reference = "https://attack.mitre.org/techniques/T1036/005/"
 
 
 [rule.threat.tactic]

@@ -2,18 +2,22 @@
 creation_date = "2024/03/26"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies suspicious processes being spawned by the ScreenConnect server process (ScreenConnect.Service.exe). This activity may
-indicate exploitation activity or access to an existing web shell backdoor.
+Identifies suspicious processes being spawned by the ScreenConnect server process (ScreenConnect.Service.exe). This
+activity may indicate exploitation activity or access to an existing web shell backdoor.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "logs-system.security*", "endgame-*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+    "logs-system.security*",
+    "endgame-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "ScreenConnect Server Spawning Suspicious Processes"
@@ -21,7 +25,16 @@ references = ["https://blackpointcyber.com/resources/blog/breaking-through-the-s
 risk_score = 73
 rule_id = "3d00feab-e203-4acc-a463-c3e15b7e9a73"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -45,7 +58,6 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -56,10 +68,12 @@ reference = "https://attack.mitre.org/techniques/T1059/"
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
+
 
 
 [rule.threat.tactic]

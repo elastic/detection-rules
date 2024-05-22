@@ -2,15 +2,13 @@
 creation_date = "2023/08/28"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors a sequence involving a program compilation event followed by its execution and a subsequent 
-alteration of UID permissions to root privileges. This behavior can potentially indicate the execution of a kernel or 
+This rule monitors a sequence involving a program compilation event followed by its execution and a subsequent
+alteration of UID permissions to root privileges. This behavior can potentially indicate the execution of a kernel or
 software privilege escalation exploit.
 """
 from = "now-9m"
@@ -46,8 +44,16 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Use Case: Vulnerability", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by host.id with maxspan=1m
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
@@ -60,15 +66,17 @@ sequence by host.id with maxspan=1m
    user.id == "0"] by process.name
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

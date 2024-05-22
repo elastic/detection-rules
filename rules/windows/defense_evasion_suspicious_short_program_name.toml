@@ -2,9 +2,7 @@
 creation_date = "2020/11/15"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -31,10 +29,13 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of a process with a single character process name, differing from the original file name. This is often done by adversaries while staging, executing temporary utilities, or trying to bypass security detections based on the process name.
+Identifies the execution of a process with a single character process name, differing from the original file name. This
+is often done by adversaries while staging, executing temporary utilities, or trying to bypass security detections based
+on the process name.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*"]
@@ -92,7 +93,16 @@ Identifies the execution of a process with a single character process name, diff
 risk_score = 47
 rule_id = "17c7f6a5-5bc9-4e1f-92bf-13632d24384d"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 

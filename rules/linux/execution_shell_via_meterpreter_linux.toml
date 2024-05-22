@@ -2,16 +2,14 @@
 creation_date = "2023/08/10"
 integration = ["auditd_manager"]
 maturity = "production"
-min_stack_comments = "The sampling feature within EQL was introduced in 8.6.0"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/19"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This detection rule identifies a sample of suspicious Linux system file reads used for system fingerprinting, leveraged 
+This detection rule identifies a sample of suspicious Linux system file reads used for system fingerprinting, leveraged
 by the Metasploit Meterpreter shell to gather information about the target that it is executing its shell on. Detecting
-this pattern is indicative of a successful meterpreter shell connection. 
+this pattern is indicative of a successful meterpreter shell connection.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
@@ -60,14 +58,15 @@ However, if more advanced configuration is required to detect specific behavior,
 """
 severity = "medium"
 tags = [
-        "Data Source: Auditd Manager",
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution"
-        ]
+    "Data Source: Auditd Manager",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 sample by host.id, process.pid, user.id
   [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/etc/machine-id"]
@@ -77,33 +76,34 @@ sample by host.id, process.pid, user.id
   [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/proc/net/if_inet6"]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+
 
 [rule.threat.tactic]
-name = "Command and Control"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
 id = "TA0011"
+name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat.technique]]
-name = "Application Layer Protocol"
-id = "T1071"
-reference = "https://attack.mitre.org/techniques/T1071/"
