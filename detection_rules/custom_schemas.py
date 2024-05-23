@@ -13,6 +13,7 @@ from .config import parse_rules_config
 from .utils import cached
 
 RULES_CONFIG = parse_rules_config()
+RESERVED_SCHEMA_NAMES = ["beats", "ecs", "endgame"]
 
 
 @cached
@@ -22,7 +23,7 @@ def get_custom_schemas(stack_version: str) -> dict:
     stack_schema_map = RULES_CONFIG.stack_schema_map[stack_version]
 
     for schema, value in stack_schema_map.items():
-        if schema not in ["beats", "ecs", "endgame"]:
+        if schema not in RESERVED_SCHEMA_NAMES:
             schema_path = Path(value)
             if not schema_path.is_absolute():
                 schema_path = RULES_CONFIG.stack_schema_map_file.parent / value
