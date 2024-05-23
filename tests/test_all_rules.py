@@ -988,6 +988,7 @@ class TestRuleTiming(BaseRuleTest):
 
         for rule in self.all_rules:
             # Skip rules that do not leverage queries (i.e., machine learning)
+            # Exception for machine learning analytic rules
             if not isinstance(rule.contents.data, (QueryRuleData, MachineLearningRuleData)):
                 continue
 
