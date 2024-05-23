@@ -2,9 +2,7 @@
 creation_date = "2020/11/11"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +11,13 @@ Identifies execution from the Remote Desktop Protocol (RDP) shared mountpoint ts
 indicate a lateral movement attempt.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "winlogbeat-*",
+    "logs-windows.*",
+    "endgame-*",
+    "logs-system.security*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Execution via TSClient Mountpoint"
@@ -29,7 +33,14 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -44,11 +55,11 @@ framework = "MITRE ATT&CK"
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1021.001"
 name = "Remote Desktop Protocol"
 reference = "https://attack.mitre.org/techniques/T1021/001/"
+
 
 
 [rule.threat.tactic]

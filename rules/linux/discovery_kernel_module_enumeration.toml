@@ -2,9 +2,7 @@
 creation_date = "2020/04/23"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -53,15 +51,16 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:(exec or exec_event) and (
  (process.name:(lsmod or modinfo)) or 
@@ -72,13 +71,14 @@ or readykernel or lvm2 or vz-start or iscsi or mdadm or ovalprobes or bcache or 
 weak-modules or zfs)
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
+
 
 [rule.threat.tactic]
 id = "TA0007"
@@ -88,7 +88,8 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.parent.command_line", "process.command_line", "host.id"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+
