@@ -1315,7 +1315,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         flattened.update(self.metadata.to_dict())
         return flattened
 
-    def to_api_format(self, include_version: bool = True, include_metadata: bool = False) -> dict:
+    def to_api_format(self, include_version: bool = not BYPASS_VERSION_LOCK, include_metadata: bool = False) -> dict:
         """Convert the TOML rule to the API format."""
         rule_dict = self.to_dict()
         converted_data = rule_dict['rule']
@@ -1432,7 +1432,7 @@ class DeprecatedRuleContents(BaseRuleContents):
         kwargs['transform'] = obj['transform'] if 'transform' in obj else None
         return cls(**kwargs)
 
-    def to_api_format(self, include_version=True) -> dict:
+    def to_api_format(self, include_version: bool = not BYPASS_VERSION_LOCK) -> dict:
         """Convert the TOML rule to the API format."""
         data = copy.deepcopy(self.data)
         if self.transform:
