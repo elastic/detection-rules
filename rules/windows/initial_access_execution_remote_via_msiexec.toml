@@ -2,15 +2,13 @@
 creation_date = "2023/09/28"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of the built-in Windows Installer, msiexec.exe, to install a remote package. Adversaries may abuse
-msiexec.exe to launch local or network accessible MSI files.
+Identifies the execution of the built-in Windows Installer, msiexec.exe, to install a remote package. Adversaries may
+abuse msiexec.exe to launch local or network accessible MSI files.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process-*", "logs-endpoint.events.network-*"]
@@ -20,7 +18,14 @@ name = "Potential Remote File Execution via MSIEXEC"
 risk_score = 21
 rule_id = "3e441bdb-596c-44fd-8628-2cfdf4516ada"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
 
 query = '''
@@ -57,6 +62,7 @@ sequence with maxspan=1m
   ] by process.parent.entity_id
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -68,11 +74,12 @@ id = "T1566.002"
 name = "Spearphishing Link"
 reference = "https://attack.mitre.org/techniques/T1566/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -90,3 +97,4 @@ reference = "https://attack.mitre.org/techniques/T1218/007/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

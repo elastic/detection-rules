@@ -2,9 +2,7 @@
 creation_date = "2024/03/13"
 integration = ["auditd_manager"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/03/13"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -13,16 +11,14 @@ Monitors for the execution of a previously unknown unix binary with read, write 
 The mprotect() system call is used to change the access protections on a region of memory that has already been
 allocated. This syscall allows a process to modify the permissions of pages in its virtual address space, enabling or
 disabling permissions such as read, write, and execute for those pages. RWX permissions on memory is in many cases
-overly permissive, and should be analyzed thoroughly. 
+overly permissive, and should be analyzed thoroughly.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unknown Execution of Binary with RWX Memory Region"
-references = [
-    "https://man7.org/linux/man-pages/man2/mprotect.2.html"
-]
+references = ["https://man7.org/linux/man-pages/man2/mprotect.2.html"]
 risk_score = 47
 rule_id = "23bcd283-2bc0-4db2-81d4-273fc051e5c0"
 setup = """## Setup
@@ -44,40 +40,43 @@ Add the newly installed `auditd manager` to an agent policy, and deploy the agen
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Auditd Manager"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Auditd Manager",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:process and host.os.type:linux and auditd.data.syscall:mprotect and auditd.data.a2:7
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "process.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+

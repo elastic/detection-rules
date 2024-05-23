@@ -2,16 +2,14 @@
 creation_date = "2023/08/30"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the execution of a suspicious sudo command that is leveraged in CVE-2019-14287 to escalate 
+This rule monitors for the execution of a suspicious sudo command that is leveraged in CVE-2019-14287 to escalate
 privileges to root. Sudo does not verify the presence of the designated user ID and proceeds to execute using a user ID
-that can be chosen arbitrarily. By using the sudo privileges, the command "sudo -u#-1" translates to an ID of 0, 
+that can be chosen arbitrarily. By using the sudo privileges, the command "sudo -u#-1" translates to an ID of 0,
 representing the root user. This exploit may work for sudo versions prior to v1.28.
 """
 from = "now-9m"
@@ -49,31 +47,34 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Privilege Escalation",
-        "Data Source: Elastic Defend",
-        "Use Case: Vulnerability",
-        "Data Source: Elastic Endgame",
-        "Data Source: Auditd Manager"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
  and process.name == "sudo" and process.args == "-u#-1"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
