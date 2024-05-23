@@ -2,9 +2,7 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2023/12/12"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -30,6 +28,7 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 [[transform.osquery]]
 label = "Osquery - Retrieve Process Info"
 query = "SELECT name, cmdline, parent, path, uid FROM processes"
+
 
 [rule]
 author = ["Elastic"]
@@ -169,13 +168,13 @@ Packetbeat is a real-time network packet analyzer that you can use for applicati
 """
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Command and Control",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -200,13 +199,14 @@ not destination.ip:(
 not destination.port:(22 or 80 or 443)
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
+
 
 [rule.threat.tactic]
 id = "TA0011"
@@ -216,7 +216,8 @@ reference = "https://attack.mitre.org/tactics/TA0011/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "destination.ip", "process.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

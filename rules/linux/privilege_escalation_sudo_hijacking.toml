@@ -2,15 +2,13 @@
 creation_date = "2023/07/26"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/21"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation of a sudo binary located at /usr/bin/sudo. Attackers may hijack the default sudo binary and 
-replace it with a custom binary or script that can read the user's password in clear text to escalate privileges or 
+Identifies the creation of a sudo binary located at /usr/bin/sudo. Attackers may hijack the default sudo binary and
+replace it with a custom binary or script that can read the user's password in clear text to escalate privileges or
 enable persistence onto the system every time the sudo binary is executed.
 """
 from = "now-9m"
@@ -54,40 +52,41 @@ tags = [
     "Tactic: Privilege Escalation",
     "Tactic: Persistence",
     "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend"
-    ]
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 host.os.type:linux and event.category:file and event.type:("creation" or "file_create_event") and
 file.path:("/usr/bin/sudo" or "/bin/sudo") and not process.name:(docker or dockerd or pacman)
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
+
 
 [rule.threat.tactic]
 id = "TA0003"
@@ -97,7 +96,8 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "user.id", "process.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+

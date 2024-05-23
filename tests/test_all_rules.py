@@ -28,7 +28,7 @@ from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryV
                                   ThresholdAlertSuppression, TOMLRuleContents)
 from detection_rules.rule_loader import FILE_PATTERN, RULES_CONFIG
 from detection_rules.rule_validators import EQLValidator, KQLValidator
-from detection_rules.schemas import definitions, get_stack_schemas
+from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
 from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, load_etc_dump
 from detection_rules.version_lock import loaded_version_lock
 from rta import get_available_tests
@@ -1114,6 +1114,7 @@ class TestBuildTimeFields(BaseRuleTest):
     def test_build_fields_min_stack(self):
         """Test that newly introduced build-time fields for a min_stack for applicable rules."""
         current_stack_ver = PACKAGE_STACK_VERSION
+        min_supported_stack_version = get_min_supported_stack_version()
         invalids = []
 
         for rule in self.all_rules:
@@ -1123,7 +1124,12 @@ class TestBuildTimeFields(BaseRuleTest):
             errors = []
             for build_field, field_versions in build_fields.items():
                 start_ver, end_ver = field_versions
-                if start_ver is not None and current_stack_ver >= start_ver:
+                # when a _new_ build time field is introduced, _all_ rules _must_ have a min_stack_version for the stack
+                # version in which the field was introduced. This is because the initial change will result in a hash
+                # change which is different because of the build time fields.
+                # This also ensures that the introduced version is greater than the min supported, in order to age off
+                # old and unneeded checks. (i.e. 8.3.0 < 8.9.0 min supported, so it is irrelevant now)
+                if start_ver is not None and current_stack_ver >= start_ver >= min_supported_stack_version:
                     if min_stack is None or not Version.parse(min_stack) >= start_ver:
                         errors.append(f'{build_field} >= {start_ver}')
 
