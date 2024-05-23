@@ -18,7 +18,7 @@ from semver import Version
 import kql
 
 from . import ecs, endgame
-from .config import load_current_package_version
+from .config import CUSTOM_RULES_DIR, load_current_package_version
 from .integrations import (get_integration_schema_data,
                            load_integrations_manifests)
 from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
@@ -199,7 +199,7 @@ class KQLValidator(QueryValidator):
                 integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
 
             # Add custom schema fields for appropriate stack version
-            if data.index:
+            if data.index and CUSTOM_RULES_DIR:
                 for index_name in data.index:
                     integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
 
@@ -394,7 +394,7 @@ class EQLValidator(QueryValidator):
                     integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
 
             # Add custom schema fields for appropriate stack version
-            if data.index:
+            if data.index and CUSTOM_RULES_DIR:
                 for index_name in data.index:
                     integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
 
