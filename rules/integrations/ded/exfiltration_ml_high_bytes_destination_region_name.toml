@@ -2,7 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["ded", "endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/05/22"
 
 [rule]
 anomaly_threshold = 75
@@ -12,6 +12,7 @@ A machine learning job has detected data exfiltration to a particular geo-locati
 geo-locations that are outside the normal traffic patterns of an organization could indicate exfiltration over command
 and control channels.
 """
+timestamp_override = "event.ingested"
 from = "now-6h"
 interval = "15m"
 license = "Elastic License v2"
@@ -26,10 +27,10 @@ risk_score = 21
 rule_id = "bfba5158-1fd6-4937-a205-77d96213b341"
 setup = """## Setup
 
-The rule requires the Data Exfiltration Detection integration assets to be installed, as well as network and file events collected by integrations such as Elastic Defend and Network Packet Capture (for network events only).  
+The rule requires the Data Exfiltration Detection integration assets to be installed, as well as network and file events collected by integrations such as Elastic Defend and Network Packet Capture (for network events only).
 
 ### Data Exfiltration Detection Setup
-The Data Exfiltration Detection integration detects data exfiltration activity by identifying abnormalities in network and file events. Anomalies are detected using Elastic's Anomaly Detection feature. 
+The Data Exfiltration Detection integration detects data exfiltration activity by identifying abnormalities in network and file events. Anomalies are detected using Elastic's Anomaly Detection feature.
 
 #### Prerequisite Requirements:
 - Fleet is required for Data Exfiltration Detection.
@@ -44,7 +45,7 @@ The Data Exfiltration Detection integration detects data exfiltration activity b
 - Under Settings, click Install Data Exfiltration Detection assets and follow the prompts to install the assets.
 
 #### Anomaly Detection Setup
-Before you can enable rules for Data Exfiltration Detection, you'll need to enable the corresponding Anomaly Detection jobs. 
+Before you can enable rules for Data Exfiltration Detection, you'll need to enable the corresponding Anomaly Detection jobs.
 - Go to the Kibana homepage. Under Analytics, click Machine Learning.
 - Under Anomaly Detection, click Jobs, and then click "Create job". Select the Data View containing your network data. For example, this would be `logs-endpoint.events.*` if you used Elastic Defend to collect events, or `logs-network_traffic.*` if you used Network Packet Capture.
 - If the selected Data View contains events that match the query in [this](https://github.com/elastic/integrations/blob/main/packages/ded/kibana/ml_module/ded-ml.json) configuration file, you will see a card for Data Exfiltration Detection under "Use preconfigured jobs".

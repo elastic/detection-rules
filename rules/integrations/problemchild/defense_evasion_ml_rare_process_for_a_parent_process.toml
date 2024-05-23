@@ -2,7 +2,7 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/05/22"
 
 [rule]
 anomaly_threshold = 75
@@ -13,6 +13,7 @@ ways. It was predicted to be malicious by the ProblemChild supervised ML model, 
 process name, for the parent process, by an unsupervised ML model. Such a process may be an instance of suspicious or
 malicious activity, possibly involving LOLbins, that may be resistant to detection using conventional search rules.
 """
+timestamp_override = "event.ingested"
 from = "now-45m"
 interval = "15m"
 license = "Elastic License v2"
@@ -27,7 +28,7 @@ risk_score = 21
 rule_id = "ea09ff26-3902-4c53-bb8e-24b7a5d029dd"
 setup = """## Setup
 
-The rule requires the Living off the Land (LotL) Attack Detection integration assets to be installed, as well as Windows process events collected by integrations such as Elastic Defend or Winlogbeat.  
+The rule requires the Living off the Land (LotL) Attack Detection integration assets to be installed, as well as Windows process events collected by integrations such as Elastic Defend or Winlogbeat.
 
 ### LotL Attack Detection Setup
 The LotL Attack Detection integration detects living-off-the-land activity in Windows process events.
@@ -74,7 +75,7 @@ The LotL Attack Detection integration detects living-off-the-land activity in Wi
 ```
 
 ### Anomaly Detection Setup
-**Before you can enable this rule**, you'll need to enable the corresponding Anomaly Detection job. 
+**Before you can enable this rule**, you'll need to enable the corresponding Anomaly Detection job.
 - Go to the Kibana homepage. Under Analytics, click Machine Learning.
 - Under Anomaly Detection, click Jobs, and then click "Create job". Select the Data View containing your enriched Windows process events. For example, this would be `logs-endpoint.events.*` if you used Elastic Defend to collect events, or `winlogbeat-*` if you used Winlogbeat.
 - If the selected Data View contains events that match the query in [this](https://github.com/elastic/integrations/blob/main/packages/problemchild/kibana/ml_module/problemchild-ml.json) configuration file, you will see a card for "Living off the Land Attack Detection" under "Use preconfigured jobs". Warning: if the ingest pipeline hasn't run for some reason, such as no eligible data in winlogbeat has come in yet, _you won't be able to see this card yet_. If that is the case, try troubleshooting the ingest pipeline, and if any ProblemChild predictions have been populated yet.

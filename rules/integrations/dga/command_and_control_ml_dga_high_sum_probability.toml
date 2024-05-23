@@ -2,7 +2,7 @@
 creation_date = "2023/09/14"
 integration = ["dga", "endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/05/22"
 
 [rule]
 anomaly_threshold = 70
@@ -12,6 +12,7 @@ A population analysis machine learning job detected potential DGA (domain genera
 is often used by malware command and control (C2) channels. This machine learning job looks for a source IP address
 making DNS requests that have an aggregate high probability of being DGA activity.
 """
+timestamp_override = "event.ingested"
 from = "now-45m"
 interval = "15m"
 license = "Elastic License v2"
@@ -26,7 +27,7 @@ risk_score = 21
 rule_id = "ff0d807d-869b-4a0d-a493-52bc46d2f1b1"
 setup = """## Setup
 
-The rule requires the Domain Generation Algorithm (DGA) Detection integration assets to be installed, as well as DNS events collected by integrations such as Elastic Defend, Network Packet Capture, or Packetbeat.  
+The rule requires the Domain Generation Algorithm (DGA) Detection integration assets to be installed, as well as DNS events collected by integrations such as Elastic Defend, Network Packet Capture, or Packetbeat.
 
 ### DGA Detection Setup
 The DGA Detection integration consists of an ML-based framework to detect DGA activity in DNS events.
@@ -71,7 +72,7 @@ Before you can enable this rule, you'll need to enrich DNS events with predictio
 ```
 
 ### Anomaly Detection Setup
-Before you can enable this rule, you'll need to enable the corresponding Anomaly Detection job. 
+Before you can enable this rule, you'll need to enable the corresponding Anomaly Detection job.
 - Go to the Kibana homepage. Under Analytics, click Machine Learning.
 - Under Anomaly Detection, click Jobs, and then click "Create job". Select the Data View containing your enriched DNS events. For example, this would be `logs-endpoint.events.*` if you used Elastic Defend to collect events, or `logs-network_traffic.*` if you used Network Packet Capture.
 - If the selected Data View contains events that match the query in [this](https://github.com/elastic/integrations/blob/main/packages/dga/kibana/ml_module/dga-ml.json) configuration file, you will see a card for DGA under "Use preconfigured jobs".
