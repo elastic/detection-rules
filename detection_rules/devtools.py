@@ -734,8 +734,9 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 
 @dev_group.command('deprecate-rule')
 @click.argument('rule-file', type=Path)
+@click.option('--deprecation-folder', '-d', type=Path)
 @click.pass_context
-def deprecate_rule(ctx: click.Context, rule_file: Path):
+def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path):
     """Deprecate a rule."""
     version_info = loaded_version_lock.version_lock
     rule_collection = RuleCollection()
@@ -748,7 +749,10 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
         ctx.exit()
 
     today = time.strftime('%Y/%m/%d')
-    deprecated_path = rule.get_base_rule_dir() / '_deprecated' / rule_file.name
+    if not deprecation_folder:
+        deprecation_folder = RULES_CONFIG.rule_dirs[0] / '_deprecated'
+
+    deprecated_path = deprecation_folder / rule_file.name
 
     # create the new rule and save it
     new_meta = dataclasses.replace(rule.contents.metadata,
@@ -831,7 +835,8 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 @click.argument('stack_version')
 @click.option('--skip-rule-updates', is_flag=True, help='Skip updating the rules')
 @click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
-def trim_version_lock(stack_version: str, skip_rule_updates: bool, dry_run: bool):
+@click.pass_context
+def trim_version_lock(ctx: click.Context, stack_version: str, skip_rule_updates: bool, dry_run: bool):
     """Trim all previous entries within the version lock file which are lower than the min_version."""
     stack_versions = get_stack_versions()
     assert stack_version in stack_versions, \
@@ -840,8 +845,8 @@ def trim_version_lock(stack_version: str, skip_rule_updates: bool, dry_run: bool
     min_version = Version.parse(stack_version)
 
     if RULES_CONFIG.bypass_version_lock:
-        click.echo('Cannot trim the version lock when the versioning strategy is configured to bypass the version '
-                   'lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock.')
+        click.echo('WARNING: Cannot trim the version lock when the versioning strategy is configured to bypass the '
+                   'version lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock.')
         ctx.exit()
     version_lock_dict = loaded_version_lock.version_lock.to_dict()
     removed = defaultdict(list)

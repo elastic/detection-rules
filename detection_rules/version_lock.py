@@ -67,19 +67,19 @@ class VersionLockFile(LockDataclassMixin):
     @classmethod
     def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
         """Deserialize and validate a dataclass from a dict using marshmallow."""
-        if RULES_CONFIG.bypass_version_lock:
-            print("WARNING: Version Lock usage is bypassed. "
-                  "Set `bypass_version_lock: false` in the rules config to enable.")
-            return super().from_dict(dict(data={}))
+        # if RULES_CONFIG.bypass_version_lock:
+        #     print("WARNING: Version Lock usage is bypassed. "
+        #           "Set `bypass_version_lock: false` in the rules config to enable.")
+        #     return super().from_dict(dict(data={}))
         return super().from_dict(obj)
 
     @classmethod
     def load_from_file(cls: Type[ClassT], lock_file: Optional[Path] = None) -> ClassT:
         """Load and validate a version lock file."""
-        if RULES_CONFIG.bypass_version_lock:
-            print("WARNING: Version Lock usage is bypassed. "
-                  "Set `bypass_version_lock: false` in the rules config to enable.")
-            return super().from_dict(dict(data={}))
+        # if RULES_CONFIG.bypass_version_lock:
+        #     print("WARNING: Version Lock usage is bypassed. "
+        #           "Set `bypass_version_lock: false` in the rules config to enable.")
+        #     return super().from_dict(dict(data={}))
         return super().load_from_file(lock_file)
 
 
@@ -141,30 +141,37 @@ class VersionLock:
 
     def __init__(self, version_lock_file: Optional[Path] = None, deprecated_lock_file: Optional[Path] = None,
                  version_lock: Optional[dict] = None, deprecated_lock: Optional[dict] = None,
-                 name: Optional[str] = None):
+                 name: Optional[str] = None, invalidated: Optional[bool] = False):
 
-        if RULES_CONFIG.bypass_version_lock:
-            # if bypassed, we don't need to load the file
-            self.version_lock = {}
-            self.deprecated_lock = {}
+        if invalidated:
+            err_msg = "This VersionLock configuration is not valid when configued to bypass_version_lock."
+            raise NotImplementedError(err_msg)
+
+        assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
+        assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
+
+        # if RULES_CONFIG.bypass_version_lock:
+        #     # if bypassed, we don't need to load the file
+        #     self.version_lock = {}
+        #     self.deprecated_lock = {}
+        # else:
+
+        assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
+        assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
+
+        self.name = name
+        self.version_lock_file = version_lock_file
+        self.deprecated_lock_file = deprecated_lock_file
+
+        if version_lock_file:
+            self.version_lock = VersionLockFile.load_from_file(version_lock_file)
         else:
+            self.version_lock = VersionLockFile.from_dict(dict(data=version_lock))
 
-            assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
-            assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
-
-            self.name = name
-            self.version_lock_file = version_lock_file
-            self.deprecated_lock_file = deprecated_lock_file
-
-            if version_lock_file:
-                self.version_lock = VersionLockFile.load_from_file(version_lock_file)
-            else:
-                self.version_lock = VersionLockFile.from_dict(dict(data=version_lock))
-
-            if deprecated_lock_file:
-                self.deprecated_lock = DeprecatedRulesFile.load_from_file(deprecated_lock_file)
-            else:
-                self.deprecated_lock = DeprecatedRulesFile.from_dict(dict(data=deprecated_lock))
+        if deprecated_lock_file:
+            self.deprecated_lock = DeprecatedRulesFile.load_from_file(deprecated_lock_file)
+        else:
+            self.deprecated_lock = DeprecatedRulesFile.from_dict(dict(data=deprecated_lock))
 
     @staticmethod
     def save_file(path: Path, lock_file: Union[VersionLockFile, DeprecatedRulesFile]):
@@ -198,10 +205,10 @@ class VersionLock:
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
 
-        if RULES_CONFIG.bypass_version_lock:
-            click.echo("WARNING: Version Lock usage is bypassed."
-                       "Set `bypass_version_lock: false` in the rules config to enable.")
-            return [], [], []
+        # if RULES_CONFIG.bypass_version_lock:
+        #     click.echo("WARNING: Version Lock usage is bypassed."
+        #                " Set `bypass_version_lock: false` in the rules config to enable.")
+        #     return [], [], []
 
         version_lock_hash = self.version_lock.sha256()
         lock_file_contents = deepcopy(self.version_lock.to_dict())

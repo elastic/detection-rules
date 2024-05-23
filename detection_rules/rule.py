@@ -1062,10 +1062,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # VersionLock
         from .version_lock import loaded_version_lock
 
-        err_msg = "Cannot access the version lock when the versioning strategy is configured to bypass the version" \
-                  " lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock."
-
         if RULES_CONFIG.bypass_version_lock is True:
+            err_msg = "Cannot access the version lock when the versioning strategy is configured to bypass the" \
+                      " version lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock."
             raise ValueError(err_msg)
 
         return getattr(self, '_version_lock', None) or loaded_version_lock
@@ -1372,9 +1371,7 @@ class TOMLRule:
         rule_path = self.path.resolve()
         for rules_dir in DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS:
             if rule_path.is_relative_to(rules_dir):
-                # Subtract rules_dir from the rule_path and return the directory part only
-                relative_directory = rule_path.relative_to(rules_dir).parent
-                return rules_dir / relative_directory
+                return rule_path.relative_to(rules_dir)
         return None
 
     def save_toml(self):
@@ -1407,15 +1404,15 @@ class DeprecatedRuleContents(BaseRuleContents):
     def set_version_lock(self, value):
         from .version_lock import VersionLock
 
-        if RULES_CONFIG.bypass_version_lock:
-            print('Cannot set the version lock when the versioning strategy is configured to bypass the version '
-                  'lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock.')
-        else:
-            if value and not isinstance(value, VersionLock):
-                raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
+        err_msg = "Cannot set the version lock when the versioning strategy is configured to bypass the version lock." \
+                  " Set `bypass_version_lock` to `false` in the rules config to use the version lock."
+        assert not RULES_CONFIG.bypass_version_lock, err_msg
 
-            # circumvent frozen class
-            self.__dict__['_version_lock'] = value
+        if value and not isinstance(value, VersionLock):
+            raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
+
+        # circumvent frozen class
+        self.__dict__['_version_lock'] = value
 
     @property
     def id(self) -> str:
