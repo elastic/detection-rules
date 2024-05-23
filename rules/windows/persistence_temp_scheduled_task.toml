@@ -2,9 +2,7 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +20,13 @@ references = ["https://docs.microsoft.com/en-us/windows/security/threat-protecti
 risk_score = 47
 rule_id = "81ff45f8-f8c2-4e28-992e-5a0e8d98e0fe"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Execution"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+]
 type = "eql"
 
 query = '''
@@ -30,6 +34,7 @@ sequence by winlog.computer_name, winlog.event_data.TaskName with maxspan=5m
    [iam where event.action == "scheduled-task-created" and not user.name : "*$"]
    [iam where event.action == "scheduled-task-deleted" and not user.name : "*$"]
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -48,18 +53,17 @@ reference = "https://attack.mitre.org/techniques/T1053/005/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.005"
 name = "Scheduled Task"
 reference = "https://attack.mitre.org/techniques/T1053/005/"
+
 
 
 [rule.threat.tactic]

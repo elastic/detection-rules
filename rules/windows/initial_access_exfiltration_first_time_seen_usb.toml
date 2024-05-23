@@ -2,9 +2,7 @@
 creation_date = "2023/03/16"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
-min_stack_version = "8.4.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -17,14 +15,23 @@ index = ["logs-endpoint.events.registry-*", "winlogbeat-*", "logs-windows.sysmon
 language = "kuery"
 license = "Elastic License v2"
 name = "First Time Seen Removable Device"
+references = [
+    "https://winreg-kb.readthedocs.io/en/latest/sources/system-keys/USB-storage.html",
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/usb-device-specific-registry-settings",
+]
 risk_score = 21
 rule_id = "0859355c-0f08-4b43-8ff5-7d2a4789fc08"
 severity = "low"
-references = [
-"https://winreg-kb.readthedocs.io/en/latest/sources/system-keys/USB-storage.html", 
-"https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/usb-device-specific-registry-settings"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Exfiltration",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
 ]
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Exfiltration", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -40,23 +47,22 @@ id = "T1091"
 name = "Replication Through Removable Media"
 reference = "https://attack.mitre.org/techniques/T1091/"
 
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1052"
 name = "Exfiltration Over Physical Medium"
 reference = "https://attack.mitre.org/techniques/T1052/"
+[[rule.threat.technique.subtechnique]]
+id = "T1052.001"
+name = "Exfiltration over USB"
+reference = "https://attack.mitre.org/techniques/T1052/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1052.001"
-  name = "Exfiltration over USB"
-  reference = "https://attack.mitre.org/techniques/T1052/001/"
 
 
 [rule.threat.tactic]
@@ -64,10 +70,11 @@ id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
 
-
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["registry.path"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+

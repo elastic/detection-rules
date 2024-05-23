@@ -2,26 +2,33 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/07/27"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+updated_date = "2024/05/21"
 
 [transform]
-    [[transform.osquery]]
-    label = "Osquery - Retrieve DNS Cache"
-    query = "SELECT * FROM dns_cache"
+[[transform.osquery]]
+label = "Osquery - Retrieve DNS Cache"
+query = "SELECT * FROM dns_cache"
 
-    [[transform.osquery]]
-    label = "Osquery - Retrieve All Services"
-    query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
+[[transform.osquery]]
+label = "Osquery - Retrieve All Services"
+query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
 
-    [[transform.osquery]]
-    label = "Osquery - Retrieve Services Running on User Accounts"
-    query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR user_account == null)"
+[[transform.osquery]]
+label = "Osquery - Retrieve Services Running on User Accounts"
+query = """
+SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
+NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
+user_account == null)
+"""
 
-    [[transform.osquery]]
-    label = "Retrieve Service Unisgned Executables with Virustotal Link"
-    query = "SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'"
+[[transform.osquery]]
+label = "Retrieve Service Unisgned Executables with Virustotal Link"
+query = """
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
+services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
+authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
+"""
+
 
 [rule]
 anomaly_threshold = 50
@@ -107,21 +114,27 @@ references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs
 risk_score = 21
 rule_id = "6d448b96-c922-4adb-b51c-b767f1ea5b76"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning", "Tactic: Persistence", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
 type = "machine_learning"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
 
-
-    [[rule.threat.technique.subtechnique]]
-    id = "T1543.003"
-    name = "Windows Service"
-    reference = "https://attack.mitre.org/techniques/T1543/003/"
 
 
 [rule.threat.tactic]
