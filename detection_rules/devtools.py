@@ -95,6 +95,10 @@ def build_release(ctx: click.Context, config_file, update_version_lock: bool, ge
         ctx.exit()
 
     config = load_dump(config_file)['package']
+
+    err_msg = f'No `registry_data` in package config. Please see the {get_etc_path("package.yaml")} file for an' \
+              f' example on how to supply this field in {PACKAGE_FILE}.'
+    assert 'registry_data' in config, err_msg
     registry_data = config['registry_data']
 
     if generate_navigator:
