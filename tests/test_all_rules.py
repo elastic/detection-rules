@@ -25,7 +25,7 @@ from detection_rules.integrations import (find_latest_compatible_version,
 from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryValidator,
-                                  ThresholdAlertSuppression, TOMLRuleContents)
+                                  ThresholdAlertSuppression, TOMLRuleContents, MachineLearningRuleData)
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
@@ -987,22 +987,30 @@ class TestRuleTiming(BaseRuleTest):
         errors = []
 
         for rule in self.all_rules:
-            # skip rules that do not leverage queries (i.e. machine learning)
-            # filters to acceptable query languages in definitions.FilterLanguages
-            # QueryRuleData should inherently ignore machine learning rules
-            if isinstance(rule.contents.data, QueryRuleData):
-                rule_language = rule.contents.data.language
-                has_event_ingested = rule.contents.data.get('timestamp_override') == 'event.ingested'
-                rule_str = self.rule_str(rule, trailer=None)
+            # Skip rules that do not leverage queries (i.e., machine learning)
+            if not isinstance(rule.contents.data, (QueryRuleData, MachineLearningRuleData)):
+                continue
 
-                if not has_event_ingested:
-                    # TODO: determine if we expand this to ES|QL
-                    # ignores any rule that does not use EQL or KQL queries specifically
-                    # this does not avoid rule types where variants of KQL are used (e.g. new terms)
-                    if rule_language not in ('eql', 'kuery') or getattr(rule.contents.data, 'is_sequence', False):
-                        continue
-                    else:
-                        errors.append(f'{rule_str} - rule must have `timestamp_override: event.ingested`')
+            ml_integration_names = list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
+            rule_integrations = rule.contents.metadata.get('integration', [])
+            rule_language = rule.contents.data.get('language')
+            rule_type = rule.contents.data.type
+
+            # Skip machine learning rules without acceptable integrations
+            if rule_type == 'machine_learning' and not any(
+                    integration in ml_integration_names
+                    for integration in rule_integrations):
+                continue
+
+            has_event_ingested = rule.contents.data.get('timestamp_override') == 'event.ingested'
+            rule_str = self.rule_str(rule, trailer=None)
+
+            if not has_event_ingested:
+                # Ignore rules that do not use EQL or KQL queries specifically
+                # and ignore sequence rules
+                if ((rule_language in ('eql', 'kuery') and not getattr(rule.contents.data, 'is_sequence', False))
+                        or rule_type == 'machine_learning'):  # noqa: W503
+                    errors.append(f'{rule_str} - rule must have `timestamp_override: event.ingested`')
 
         if errors:
             self.fail('The following rules are invalid:\n' + '\n'.join(errors))
