@@ -99,6 +99,7 @@ def build_release(ctx: click.Context, config_file, update_version_lock: bool, ge
     err_msg = f'No `registry_data` in package config. Please see the {get_etc_path("package.yaml")} file for an' \
               f' example on how to supply this field in {PACKAGE_FILE}.'
     assert 'registry_data' in config, err_msg
+
     registry_data = config['registry_data']
 
     if generate_navigator:
@@ -459,7 +460,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     stack_version = Package.load_configs()["name"]
     package_version = Package.load_configs()["registry_data"]["version"]
 
-    release_dir = Path(RELEASE_DIR) / stack_version / "fleet" / package_version
+    release_dir = RELEASE_DIR / stack_version / "fleet" / package_version
     message = f"[Security Rules] Update security rules package to v{package_version}"
 
     if not release_dir.exists():
@@ -599,7 +600,7 @@ def license_check(ctx, ignore_directory):
     """Check that all code files contain a valid license."""
     ignore_directory += ("env",)
     failed = False
-    base_path = Path(get_path())
+    base_path = get_path()
 
     for path in base_path.rglob('*.py'):
         relative_path = path.relative_to(base_path)
@@ -642,7 +643,7 @@ def test_version_lock(ctx: click.Context, branches: tuple, remote: str):
     finally:
         rules_config = ctx.obj['rules_config']
         diff = git('--no-pager', 'diff', str(rules_config.version_lock_file))
-        outfile = Path(get_path()).joinpath('lock-diff.txt')
+        outfile = get_path() / 'lock-diff.txt'
         outfile.write_text(diff)
         click.echo(f'diff saved to {outfile}')
 
@@ -764,7 +765,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path
                                    deprecation_date=today,
                                    maturity='deprecated')
     contents = dataclasses.replace(rule.contents, metadata=new_meta)
-    new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
+    new_rule = TOMLRule(contents=contents, path=deprecated_path)
     deprecated_path.parent.mkdir(parents=True, exist_ok=True)
     new_rule.save_toml()
 

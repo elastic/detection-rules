@@ -30,10 +30,10 @@ from eql.utils import load_dump, stream_json_lines
 
 import kql
 
-CURR_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(CURR_DIR)
-ETC_DIR = os.path.join(ROOT_DIR, "detection_rules", "etc")
-INTEGRATION_RULE_DIR = os.path.join(ROOT_DIR, "rules", "integrations")
+CURR_DIR = Path(__file__).resolve().parent
+ROOT_DIR = CURR_DIR.parent
+ETC_DIR = ROOT_DIR / "detection_rules" / "etc"
+INTEGRATION_RULE_DIR = ROOT_DIR / "rules" / "integrations"
 
 
 class NonelessDict(dict):
@@ -85,20 +85,20 @@ def get_json_iter(f):
     return data
 
 
-def get_path(*paths) -> str:
+def get_path(*paths) -> Path:
     """Get a file by relative path."""
-    return os.path.join(ROOT_DIR, *paths)
+    return ROOT_DIR.joinpath(*paths)
 
 
-def get_etc_path(*paths):
+def get_etc_path(*paths) -> Path:
     """Load a file from the detection_rules/etc/ folder."""
-    return os.path.join(ETC_DIR, *paths)
+    return ETC_DIR.joinpath(*paths)
 
 
-def get_etc_glob_path(*patterns):
+def get_etc_glob_path(*patterns) -> list:
     """Load a file from the detection_rules/etc/ folder."""
     pattern = os.path.join(*patterns)
-    return glob.glob(os.path.join(ETC_DIR, pattern))
+    return glob.glob(str(ETC_DIR / pattern))
 
 
 def get_etc_file(name, mode="r"):
@@ -108,13 +108,13 @@ def get_etc_file(name, mode="r"):
 
 
 def load_etc_dump(*path):
-    """Load a json/yml/yaml/toml file from the detection_rules/etc/ folder."""
-    return eql.utils.load_dump(get_etc_path(*path))
+    """Load a json/yml/toml file from the detection_rules/etc/ folder."""
+    return eql.utils.load_dump(str(get_etc_path(*path)))
 
 
 def save_etc_dump(contents, *path, **kwargs):
-    """Save a json/yml/yaml/toml file from the detection_rules/etc/ folder."""
-    path = get_etc_path(*path)
+    """Save a json/yml/toml file from the detection_rules/etc/ folder."""
+    path = str(get_etc_path(*path))
     _, ext = os.path.splitext(path)
     sort_keys = kwargs.pop('sort_keys', True)
     indent = kwargs.pop('indent', 2)
