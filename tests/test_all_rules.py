@@ -979,12 +979,8 @@ class TestRuleTiming(BaseRuleTest):
 
     def test_event_override(self):
         """Test that timestamp_override is properly applied to rules."""
-        # kql: always require (fallback to @timestamp enabled)
-        # eql:
-        #   sequences: never
-        #   min_stack_version >= 8.2: any - fallback to @timestamp enabled https://github.com/elastic/kibana/pull/127989
-        #  if 'event.ingested' is missing, '@timestamp' will be default
         errors = []
+        load_schemas = load_integrations_schemas()
 
         for rule in self.all_rules:
             # Skip rules that do not leverage queries (i.e., machine learning)
@@ -999,8 +995,7 @@ class TestRuleTiming(BaseRuleTest):
 
             # Skip machine learning rules without acceptable integrations
             if rule_type == 'machine_learning' and not any(
-                    integration in ml_integration_names
-                    for integration in rule_integrations):
+                    integration in ml_integration_names for integration in rule_integrations):
                 continue
 
             has_event_ingested = rule.contents.data.get('timestamp_override') == 'event.ingested'
@@ -1012,6 +1007,47 @@ class TestRuleTiming(BaseRuleTest):
                 if ((rule_language in ('eql', 'kuery') and not getattr(rule.contents.data, 'is_sequence', False))
                         or rule_type == 'machine_learning'):  # noqa: W503
                     errors.append(f'{rule_str} - rule must have `timestamp_override: event.ingested`')
+
+            # Check if the integration supports the timestamp_override
+            if has_event_ingested and rule_integrations:
+                for integration in rule_integrations:
+                    schema = []
+                    integration = integration.lower()
+                    integration_schema = load_schemas.get(integration)
+
+                    # if integration schema exists, find the latest compatible version
+                    if integration_schema:
+                        min_stack_version = rule.contents.metadata.min_stack_version
+                        if min_stack_version:
+                            min_stack_version = Version.parse(min_stack_version, optional_minor_and_patch=True)
+                        else:
+                            min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+
+                        latest_compat_ver = find_latest_compatible_version(
+                            package=integration,
+                            integration="",
+                            rule_stack_version=min_stack_version,
+                            packages_manifest=load_integrations_manifests()
+                        )
+
+                        # if a compatible version is found, check if the integration supports the timestamp_override
+                        if latest_compat_ver:
+                            integration_schema = integration_schema.get(latest_compat_ver[0])
+
+                            # if integration schema includes policy templates or fields, handle accordingly
+                            if integration_schema:
+                                integration_keys = list(integration_schema.keys())
+                                if isinstance(integration_schema.get(integration_keys[0]), str):
+                                    schema.extend(integration_schema.keys())
+                                elif isinstance(integration_schema.get(integration_keys[0]), dict):
+                                    for policy_template in integration_keys:
+                                        if policy_template != 'jobs':
+                                            schema.extend(integration_schema[policy_template].keys())
+
+                                # if the integration schema does not support the timestamp_override, add to errors
+                                if 'event.ingested' not in schema:
+                                    errors.append(f'{rule_str} - integration `{integration}` does not support '
+                                                f'`timestamp_override: event.ingested`')
 
         if errors:
             self.fail('The following rules are invalid:\n' + '\n'.join(errors))
