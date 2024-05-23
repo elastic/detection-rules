@@ -67,19 +67,11 @@ class VersionLockFile(LockDataclassMixin):
     @classmethod
     def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
         """Deserialize and validate a dataclass from a dict using marshmallow."""
-        # if RULES_CONFIG.bypass_version_lock:
-        #     print("WARNING: Version Lock usage is bypassed. "
-        #           "Set `bypass_version_lock: false` in the rules config to enable.")
-        #     return super().from_dict(dict(data={}))
         return super().from_dict(obj)
 
     @classmethod
     def load_from_file(cls: Type[ClassT], lock_file: Optional[Path] = None) -> ClassT:
         """Load and validate a version lock file."""
-        # if RULES_CONFIG.bypass_version_lock:
-        #     print("WARNING: Version Lock usage is bypassed. "
-        #           "Set `bypass_version_lock: false` in the rules config to enable.")
-        #     return super().from_dict(dict(data={}))
         return super().load_from_file(lock_file)
 
 
@@ -150,12 +142,6 @@ class VersionLock:
         assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
         assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
 
-        # if RULES_CONFIG.bypass_version_lock:
-        #     # if bypassed, we don't need to load the file
-        #     self.version_lock = {}
-        #     self.deprecated_lock = {}
-        # else:
-
         assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
         assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
 
@@ -204,11 +190,6 @@ class VersionLock:
                         verbose=True, buffer_int: int = 100) -> (List[str], List[str], List[str]):
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
-
-        # if RULES_CONFIG.bypass_version_lock:
-        #     click.echo("WARNING: Version Lock usage is bypassed."
-        #                " Set `bypass_version_lock: false` in the rules config to enable.")
-        #     return [], [], []
 
         version_lock_hash = self.version_lock.sha256()
         lock_file_contents = deepcopy(self.version_lock.to_dict())
