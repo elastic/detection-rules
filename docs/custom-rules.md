@@ -141,3 +141,37 @@ from detection_rules.generic_loader import GenericLoader
 loader = GenericLoader()
 loader.load_directory(...)
 ```
+
+### Using Custom Schemas
+
+You can specify custom defined schemas for custom indexes using the `etc/stack-schema-map.yaml` in your custom rules directory.
+
+To add a custom schema, add a sub key in the `etc/stack-schema-map.yaml` file under the stack version you wish the custom schema to apply.
+Then for its value, reference the json file, or folder of files, where you have your schema defined.
+
+Example:
+
+```yaml
+8.14.0:
+  beats: 8.12.2
+  ecs: 8.11.0
+  endgame: 8.4.0
+  custom: schemas/custom-schema.json
+```
+
+Note: the `custom` key can be any alpha numeric value except `beats`, `ecs`, or `endgame` as these are reserved terms. 
+
+Example schema json:
+
+```json
+
+{
+    "custom-index*": {
+      "process.NewCustomValue": "keyword",
+      "process.AnotherCustomValue": "keyword"
+    }
+}
+```
+
+This can then be used in a rule query by adding the index to the applicable rule e.g. `index = ["logs-endpoint.events.*", "custom-index*"]`.
+Then one can use the index in the query e.g. `process where host.os.type == "linux" and process.NewCustomValue == "GoodValue"`
