@@ -147,7 +147,7 @@ loader.load_directory(...)
 You can specify custom defined schemas for custom indexes using the `etc/stack-schema-map.yaml` in your custom rules directory.
 
 To add a custom schema, add a sub key in the `etc/stack-schema-map.yaml` file under the stack version you wish the custom schema to apply.
-Then for its value, reference the json file, or folder of files, where you have your schema defined.
+Then for its value, reference the json file, or folder of files, where you have your schema defined. Please note, to validate rules with a `min_stack_version` set, the `stack-schema-map.yaml` needs an entry for the highest version.
 
 Example:
 
