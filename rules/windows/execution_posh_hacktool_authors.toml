@@ -2,9 +2,7 @@
 creation_date = "2024/05/08"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/05/08"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +16,11 @@ index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential PowerShell HackTool Script by Author"
+references = [
+    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
+]
+risk_score = 73
+rule_id = "2553a9af-52a4-4a05-bb03-85b2a479a0a0"
 setup = """## Setup
 
 The 'PowerShell Script Block Logging' logging policy must be enabled.
@@ -36,13 +39,14 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-references = [
-    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
-]
-risk_score = 73
-rule_id = "2553a9af-52a4-4a05-bb03-85b2a479a0a0"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: PowerShell Logs"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: PowerShell Logs",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
