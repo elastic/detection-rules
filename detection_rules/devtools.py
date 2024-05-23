@@ -90,7 +90,7 @@ def dev_group():
 def build_release(config_file, update_version_lock: bool, generate_navigator: bool, generate_docs: str,
                   update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
-    config = load_dump(config_file)['package']
+    config = load_dump(str(config_file))['package']
     registry_data = config['registry_data']
 
     if generate_navigator:
@@ -313,7 +313,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
             continue
 
         # it's a change to a rule file, load it and check the version
-        if str(change.path.absolute()).startswith(RULES_DIR) and change.path.suffix == ".toml":
+        if str(change.path.absolute()).startswith(str(RULES_DIR)) and change.path.suffix == ".toml":
             # bypass TOML validation in case there were schema changes
             dict_contents = RuleCollection.deserialize_toml_string(change.read())
             min_stack_version: Optional[str] = dict_contents.get("metadata", {}).get("min_stack_version")
@@ -441,7 +441,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     stack_version = Package.load_configs()["name"]
     package_version = Package.load_configs()["registry_data"]["version"]
 
-    release_dir = Path(RELEASE_DIR) / stack_version / "fleet" / package_version
+    release_dir = RELEASE_DIR / stack_version / "fleet" / package_version
     message = f"[Security Rules] Update security rules package to v{package_version}"
 
     if not release_dir.exists():
@@ -581,7 +581,7 @@ def license_check(ctx, ignore_directory):
     """Check that all code files contain a valid license."""
     ignore_directory += ("env",)
     failed = False
-    base_path = Path(get_path())
+    base_path = get_path()
 
     for path in base_path.rglob('*.py'):
         relative_path = path.relative_to(base_path)
@@ -622,7 +622,7 @@ def test_version_lock(branches: tuple, remote: str):
 
     finally:
         diff = git('--no-pager', 'diff', get_etc_path('version.lock.json'))
-        outfile = Path(get_path()).joinpath('lock-diff.txt')
+        outfile = get_path() / 'lock-diff.txt'
         outfile.write_text(diff)
         click.echo(f'diff saved to {outfile}')
 
@@ -740,7 +740,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
                                    deprecation_date=today,
                                    maturity='deprecated')
     contents = dataclasses.replace(rule.contents, metadata=new_meta)
-    new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
+    new_rule = TOMLRule(contents=contents, path=deprecated_path)
     new_rule.save_toml()
 
     # remove the old rule
