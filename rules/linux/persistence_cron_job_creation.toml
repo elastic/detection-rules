@@ -2,59 +2,33 @@
 creation_date = "2023/06/09"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/21"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
 query = """
-SELECT * FROM file WHERE (
-  path LIKE '/etc/cron.allow.d/%' OR
-  path LIKE '/etc/cron.d/%' OR
-  path LIKE '/etc/cron.hourly/%' OR
-  path LIKE '/etc/cron.daily/%' OR
-  path LIKE '/etc/cron.weekly/%' OR
-  path LIKE '/etc/cron.monthly/%'
-)
+SELECT * FROM file WHERE ( path LIKE '/etc/cron.allow.d/%' OR path LIKE '/etc/cron.d/%' OR path LIKE
+'/etc/cron.hourly/%' OR path LIKE '/etc/cron.daily/%' OR path LIKE '/etc/cron.weekly/%' OR path LIKE
+'/etc/cron.monthly/%' )
 """
+
 [[transform.osquery]]
 label = "Osquery - Retrieve rc-local.service File Information"
 query = """
-SELECT * FROM file WHERE (
-  path = '/etc/cron.allow' OR
-  path = '/etc/cron.deny' OR
-  path = '/etc/crontab' OR
-  path = '/usr/sbin/cron' OR
-  path = '/usr/sbin/anacron'
-)
+SELECT * FROM file WHERE ( path = '/etc/cron.allow' OR path = '/etc/cron.deny' OR path = '/etc/crontab' OR path =
+'/usr/sbin/cron' OR path = '/usr/sbin/anacron' )
 """
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
 query = """
-SELECT
-  f.path,
-  u.username AS file_owner,
-  g.groupname AS group_owner,
-  datetime(f.atime, 'unixepoch') AS file_last_access_time,
-  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
-  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
-  datetime(f.btime, 'unixepoch') AS file_created_time,
-  f.size AS size_bytes
-FROM
-  file f
-  LEFT JOIN users u ON f.uid = u.uid
-  LEFT JOIN groups g ON f.gid = g.gid
-WHERE (
-  path LIKE '/etc/cron.allow.d/%' OR
-  path LIKE '/etc/cron.d/%' OR
-  path LIKE '/etc/cron.hourly/%' OR
-  path LIKE '/etc/cron.daily/%' OR
-  path LIKE '/etc/cron.weekly/%' OR
-  path LIKE '/etc/cron.monthly/%'
-)
+SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
+file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
+file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE ( path LIKE '/etc/cron.allow.d/%' OR path LIKE
+'/etc/cron.d/%' OR path LIKE '/etc/cron.hourly/%' OR path LIKE '/etc/cron.daily/%' OR path LIKE '/etc/cron.weekly/%' OR
+path LIKE '/etc/cron.monthly/%' )
 """
 
 [[transform.osquery]]
@@ -76,6 +50,7 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 [[transform.osquery]]
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
+
 
 [rule]
 author = ["Elastic"]
@@ -160,7 +135,7 @@ This rule monitors the creation of previously unknown cron jobs by monitoring fo
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = [
-    "https://pberba.github.io/security/2022/01/30/linux-threat-hunting-for-persistence-systemd-timers-cron/"
+    "https://pberba.github.io/security/2022/01/30/linux-threat-hunting-for-persistence-systemd-timers-cron/",
 ]
 risk_score = 47
 rule_id = "ff10d4d8-fea7-422d-afb1-e5a2702369a9"
@@ -191,17 +166,18 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Tactic: Privilege Escalation",
-        "Tactic: Execution",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 host.os.type : "linux" and event.action : ("change" or "file_modify_event" or "creation" or "file_create_event") and 
 file.path : (/etc/cron.allow or /etc/cron.deny or /etc/cron.d/* or /etc/cron.hourly/* or /etc/cron.daily/* or 
@@ -216,54 +192,53 @@ and not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.003"
 name = "Cron"
 reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.003"
 name = "Cron"
 reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.003"
 name = "Cron"
 reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0002"
@@ -273,7 +248,8 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "file.path", "process.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
+
+
