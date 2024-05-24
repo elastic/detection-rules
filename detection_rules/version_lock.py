@@ -6,7 +6,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Dict, Optional, Union
+from typing import ClassVar, Dict, List, Optional, Union
 
 import click
 from semver import Version
