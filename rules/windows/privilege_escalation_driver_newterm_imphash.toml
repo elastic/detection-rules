@@ -1,30 +1,32 @@
 [metadata]
 creation_date = "2022/12/19"
-maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
-min_stack_version = "8.6.0"
 integration = ["endpoint"]
-updated_date = "2024/03/28"
+maturity = "production"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve All Non-Microsoft Drivers with Virustotal Link"
 query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image, issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image = authenticode.path JOIN hash ON drivers.image = hash.path WHERE NOT (provider == "Microsoft" AND signed == "1")
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image,
+issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image =
+authenticode.path JOIN hash ON drivers.image = hash.path WHERE NOT (provider == "Microsoft" AND signed == "1")
 """
 
 [[transform.osquery]]
 label = "Osquery - Retrieve All Unsigned Drivers with Virustotal Link"
 query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image, issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image = authenticode.path JOIN hash ON drivers.image = hash.path WHERE signed == "0"
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image,
+issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image =
+authenticode.path JOIN hash ON drivers.image = hash.path WHERE signed == "0"
 """
+
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the load of a driver with an original file name and signature values that were observed
-for the first time during the last 30 days. This rule type can help baseline drivers installation
-within your environment.
+Identifies the load of a driver with an original file name and signature values that were observed for the first time
+during the last 30 days. This rule type can help baseline drivers installation within your environment.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.library-*"]
@@ -97,13 +99,22 @@ references = ["https://www.elastic.co/kr/security-labs/stopping-vulnerable-drive
 risk_score = 47
 rule_id = "df0fd41e-5590-4965-ad5e-cd079ec22fa9"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Persistence", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
 event.category:"driver" and host.os.type:windows and event.action:"load"
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -117,8 +128,6 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -129,6 +138,7 @@ reference = "https://attack.mitre.org/techniques/T1543/"
 id = "T1543.003"
 name = "Windows Service"
 reference = "https://attack.mitre.org/techniques/T1543/003/"
+
 
 
 [rule.threat.tactic]
@@ -142,3 +152,5 @@ value = ["dll.pe.original_file_name", "dll.code_signature.subject_name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-30d"
+
+

@@ -2,9 +2,7 @@
 creation_date = "2023/02/28"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/21"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -18,20 +16,11 @@ query = "SELECT * FROM file WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
 query = """
-SELECT
-  f.path,
-  u.username AS file_owner,
-  g.groupname AS group_owner,
-  datetime(f.atime, 'unixepoch') AS file_last_access_time,
-  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
-  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
-  datetime(f.btime, 'unixepoch') AS file_created_time,
-  f.size AS size_bytes
-FROM
-  file f
-  LEFT JOIN users u ON f.uid = u.uid
-  LEFT JOIN groups g ON f.gid = g.gid
-WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE '/usr/lib/update-notifier/%')
+SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
+file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
+file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE
+'/usr/lib/update-notifier/%')
 """
 
 [[transform.osquery]]
@@ -41,6 +30,7 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 [[transform.osquery]]
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
+
 
 [rule]
 author = ["Elastic"]
@@ -116,7 +106,7 @@ This rule identifies the creation of new files within the `/etc/update-motd.d/` 
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = [
-    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd"
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd",
 ]
 risk_score = 47
 rule_id = "96d11d31-9a79-480f-8401-da28b194608f"
@@ -147,16 +137,17 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Data Source: Elastic Endgame",
-        "Resources: Investigation Guide",
-        "Data Source: Elastic Defend"
-        ]
-type = "new_terms"
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
+type = "new_terms"
+
 query = '''
 host.os.type :linux and event.action:(creation or file_create_event or rename or file_rename_event) and
 file.path : (/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not process.name : (
@@ -167,13 +158,14 @@ file.path : (/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not process
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
+
 
 [rule.threat.tactic]
 id = "TA0003"
@@ -183,7 +175,8 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "file.path", "process.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
+
+
