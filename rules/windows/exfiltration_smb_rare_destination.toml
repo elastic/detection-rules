@@ -2,15 +2,13 @@
 creation_date = "2023/12/04"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
-
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects rare internet network connections via the SMB protocol. SMB is commonly used to leak NTLM credentials via rogue UNC path injection.
+This rule detects rare internet network connections via the SMB protocol. SMB is commonly used to leak NTLM credentials
+via rogue UNC path injection.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.network-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*"]
@@ -21,7 +19,15 @@ references = ["https://www.securify.nl/en/blog/living-off-the-land-stealing-netn
 risk_score = 47
 rule_id = "f580bf0a-2d23-43bb-b8e1-17548bb947ec"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Exfiltration", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -64,7 +70,6 @@ event.category:network and host.os.type:windows and process.pid:4 and
 '''
 
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -78,12 +83,11 @@ id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
 
-
-
-
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["destination.ip"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+

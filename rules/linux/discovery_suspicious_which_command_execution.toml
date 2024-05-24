@@ -2,16 +2,14 @@
 creation_date = "2023/08/30"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the usage of the which command with an unusual amount of process arguments. Attackers may leverage
-the which command to enumerate the system for useful installed utilities that may be used after compromising a system to
-escalate privileges or move latteraly across the network. 
+This rule monitors for the usage of the which command with an unusual amount of process arguments. Attackers may
+leverage the which command to enumerate the system for useful installed utilities that may be used after compromising a
+system to escalate privileges or move latteraly across the network.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -22,15 +20,16 @@ risk_score = 21
 rule_id = "5b18eef4-842c-4b47-970f-f08d24004bde"
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
 process.name == "which" and process.args_count >= 10 and not process.parent.name == "jem" and 
@@ -39,18 +38,20 @@ not process.args == "--tty-only"
 /* potential tuning if rule would turn out to be noisy
 and process.args in ("nmap", "nc", "ncat", "netcat", nc.traditional", "gcc", "g++", "socat") and 
 process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
-*/ 
+*/
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+

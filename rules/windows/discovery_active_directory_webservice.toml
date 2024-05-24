@@ -2,15 +2,13 @@
 creation_date = "2024/01/31"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies processes loading Active Directory related modules followed by a network connection to the ADWS dedicated TCP port. 
-Adversaries may abuse the ADWS Windows service that allows Active Directory to be queried via this web service.
+Identifies processes loading Active Directory related modules followed by a network connection to the ADWS dedicated TCP
+port. Adversaries may abuse the ADWS Windows service that allows Active Directory to be queried via this web service.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.library-*", "logs-endpoint.events.network-*"]
@@ -21,7 +19,13 @@ references = ["https://github.com/FalconForceTeam/SOAPHound"]
 risk_score = 47
 rule_id = "9c951837-7d13-4b0c-be7a-f346623c8795"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -41,15 +45,17 @@ sequence by process.entity_id with maxspan=3m
   network.direction == "egress" and network.transport == "tcp" and not cidrmatch(destination.ip, "127.0.0.0/8", "::1/128")]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1018"
 name = "Remote System Discovery"
 reference = "https://attack.mitre.org/techniques/T1018/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+

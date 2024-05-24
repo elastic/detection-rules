@@ -76,18 +76,22 @@ Collecting Click==7.0
   Downloading Click-7.0-py2.py3-none-any.whl (81 kB)
      |████████████████████████████████| 81 kB 2.6 MB/s
 ...
-pip3 install packages/kibana packages/kql
 ```
 
-Note: The `kibana` and `kql` packages are not available on PyPI and must be installed from the `packages` directory or `git`.
+Note: The `kibana` and `kql` packages are not available on PyPI and must be installed from the `lib` directory.
 
 ```console
+
+# Install from the repository
 pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=kibana
 pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=kql
 
-# or locally
+# Or locally for development
 pip3 install lib/kibana lib/kql
 ```
+
+Remember, make sure to activate your virtual environment if you are using one. If installed via `make`, the associated virtual environment is created in `env/detection-rules-build/`.
+If you are having trouble using a Python 3.12 environment, please see the relevant section in our [troubleshooting guide](./Troubleshooting.md).
 
 To confirm that everything was properly installed, run with the `--help` flag
 ```console
