@@ -6,13 +6,13 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Dict, List, Optional, Type, Union
+from typing import ClassVar, Dict, Optional, Union
 
 import click
 from semver import Version
 
 from .config import parse_rules_config
-from .mixins import LockDataclassMixin, MarshmallowDataclassMixin, ClassT
+from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .rule_loader import RuleCollection
 from .schemas import definitions
 from .utils import cached
