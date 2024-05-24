@@ -64,16 +64,6 @@ class VersionLockFile(LockDataclassMixin):
             raise KeyError(item)
         return self.data[item]
 
-    @classmethod
-    def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
-        """Deserialize and validate a dataclass from a dict using marshmallow."""
-        return super().from_dict(obj)
-
-    @classmethod
-    def load_from_file(cls: Type[ClassT], lock_file: Optional[Path] = None) -> ClassT:
-        """Load and validate a version lock file."""
-        return super().load_from_file(lock_file)
-
 
 @dataclass(frozen=True)
 class DeprecatedRulesEntry(MarshmallowDataclassMixin):
