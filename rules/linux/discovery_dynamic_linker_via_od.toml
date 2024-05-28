@@ -2,9 +2,7 @@
 creation_date = "2024/02/01"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -50,16 +48,17 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame",
-        "Data Source: Auditd Manager"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
  and process.name == "od" and process.args in (
@@ -68,15 +67,17 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
 reference = "https://attack.mitre.org/techniques/T1057/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
