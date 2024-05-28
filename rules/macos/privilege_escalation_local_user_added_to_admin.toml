@@ -2,9 +2,9 @@
 creation_date = "2020/01/05"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/15"
+min_stack_comments = "New fields added: process.Ext.effective_parent"
+min_stack_version = "8.11.0"
+updated_date = "2024/02/07"
 
 [rule]
 author = ["Elastic"]
@@ -52,7 +52,11 @@ type = "query"
 
 query = '''
 event.category:process and host.os.type:macos and event.type:(start or process_started) and
- process.name:(dscl or dseditgroup) and process.args:(("/Groups/admin" or admin) and ("-a" or "-append"))
+ process.name:(dscl or dseditgroup) and process.args:(("/Groups/admin" or admin) and ("-a" or "-append")) and
+ not process.Ext.effective_parent.executable : ("/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon" or
+                                                "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfManagementService.app/Contents/MacOS/JamfManagementService" or
+                                                "/opt/jc/bin/jumpcloud-agent" or
+                                                "/Library/Addigy/go-agent")
 '''
 
 
