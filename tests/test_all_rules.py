@@ -982,65 +982,70 @@ class TestRuleTiming(BaseRuleTest):
         errors = []
         load_schemas = load_integrations_schemas()
 
-        for rule in self.all_rules:
-            # Skip rules that do not leverage queries (i.e., machine learning)
-            # Exception for machine learning analytic rules
-            if not isinstance(rule.contents.data, QueryRuleData):
-                continue
+        # Ignore specific warnings during this test
+        # Warnings are expected for certain integrations
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
 
-            rule_integrations = rule.contents.metadata.get('integration', [])
+            for rule in self.all_rules:
+                # Skip rules that do not leverage queries (i.e., machine learning)
+                # Exception for machine learning analytic rules
+                if not isinstance(rule.contents.data, QueryRuleData):
+                    continue
 
-            has_event_ingested = rule.contents.data.get('timestamp_override') == 'event.ingested'
-            rule_str = self.rule_str(rule, trailer=None)
+                rule_integrations = rule.contents.metadata.get('integration', [])
 
-            if not has_event_ingested:
-                # Valid check on all Query related rules that do not use sequences
-                if not getattr(rule.contents.data, 'is_sequence', False):
-                    errors.append(f'{rule_str} - rule must have `timestamp_override: event.ingested`')
+                has_event_ingested = rule.contents.data.get('timestamp_override') == 'event.ingested'
+                rule_str = self.rule_str(rule, trailer=None)
 
-            # Check if the integration supports the timestamp_override
-            # Soft warning if the integration does not support the timestamp_override
-            # Integrations can leverage dynamic field generation on ingestion for ECS fields
-            if has_event_ingested and rule_integrations:
-                for integration in rule_integrations:
-                    schema = []
-                    integration = integration.lower()
-                    integration_schema = load_schemas.get(integration)
+                if not has_event_ingested:
+                    # Valid check on all Query related rules that do not use sequences
+                    if not getattr(rule.contents.data, 'is_sequence', False):
+                        errors.append(f'{rule_str} - rule must have `timestamp_override: event.ingested`')
 
-                    # if integration schema exists, find the latest compatible version
-                    if integration_schema:
-                        min_stack_version = rule.contents.metadata.min_stack_version
-                        if min_stack_version:
-                            min_stack_version = Version.parse(min_stack_version, optional_minor_and_patch=True)
-                        else:
-                            min_stack_version = Version.parse(load_current_package_version(),
-                                                              optional_minor_and_patch=True)
+                # Check if the integration supports the timestamp_override
+                # Soft warning if the integration does not support the timestamp_override
+                # Integrations can leverage dynamic field generation on ingestion for ECS fields
+                if has_event_ingested and rule_integrations:
+                    for integration in rule_integrations:
+                        schema = []
+                        integration = integration.lower()
+                        integration_schema = load_schemas.get(integration)
 
-                        latest_compat_ver = find_latest_compatible_version(
-                            package=integration,
-                            integration="",
-                            rule_stack_version=min_stack_version,
-                            packages_manifest=load_integrations_manifests()
-                        )
+                        # if integration schema exists, find the latest compatible version
+                        if integration_schema:
+                            min_stack_version = rule.contents.metadata.min_stack_version
+                            if min_stack_version:
+                                min_stack_version = Version.parse(min_stack_version, optional_minor_and_patch=True)
+                            else:
+                                min_stack_version = Version.parse(load_current_package_version(),
+                                                                optional_minor_and_patch=True)
 
-                        # if a compatible version is found, check if the integration supports the timestamp_override
-                        if latest_compat_ver:
-                            integration_schema = integration_schema.get(latest_compat_ver[0])
+                            latest_compat_ver = find_latest_compatible_version(
+                                package=integration,
+                                integration="",
+                                rule_stack_version=min_stack_version,
+                                packages_manifest=load_integrations_manifests()
+                            )
 
-                            # if integration schema includes policy templates or fields, handle accordingly
-                            if integration_schema:
-                                integration_keys = list(integration_schema.keys())
-                                if isinstance(integration_schema.get(integration_keys[0]), str):
-                                    schema.extend(integration_schema.keys())
-                                elif isinstance(integration_schema.get(integration_keys[0]), dict):
-                                    for policy_template in integration_keys:
-                                        if policy_template != 'jobs':
-                                            schema.extend(integration_schema[policy_template].keys())
+                            # if a compatible version is found, check if the integration supports the timestamp_override
+                            if latest_compat_ver:
+                                integration_schema = integration_schema.get(latest_compat_ver[0])
 
-                                # if the integration schema does not support the timestamp_override, add to errors
-                                if 'event.ingested' not in schema:
-                                    warnings.warn(f'{rule_str} - integration `{integration}` does not statically map '
-                                                  f'`timestamp_override: event.ingested`')
+                                # if integration schema includes policy templates or fields, handle accordingly
+                                if integration_schema:
+                                    integration_keys = list(integration_schema.keys())
+                                    if isinstance(integration_schema.get(integration_keys[0]), str):
+                                        schema.extend(integration_schema.keys())
+                                    elif isinstance(integration_schema.get(integration_keys[0]), dict):
+                                        for policy_template in integration_keys:
+                                            if policy_template != 'jobs':
+                                                schema.extend(integration_schema[policy_template].keys())
+
+                                    # if the integration schema does not support the timestamp_override, add to errors
+                                    if 'event.ingested' not in schema:
+                                        warnings.warn(f'{rule_str} - integration `{integration}` does not statically map '
+                                                    f'`timestamp_override: event.ingested`')
 
         if errors:
             self.fail('The following rules are invalid:\n' + '\n'.join(errors))
