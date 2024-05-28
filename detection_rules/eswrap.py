@@ -371,7 +371,7 @@ def es_group(ctx: click.Context, **kwargs):
 @click.option('--query', '-q', help='KQL query to scope search')
 @click.option('--index', '-i', multiple=True, help='Index(es) to search against (default: all indexes)')
 @click.option('--rta-name', '-r', help='Name of RTA in order to save events directly to unit tests data directory')
-@click.option('--rule-id', help='Updates rule mapping in rule-mapping.yml file (requires --rta-name)')
+@click.option('--rule-id', help='Updates rule mapping in rule-mapping.yaml file (requires --rta-name)')
 @click.option('--view-events', is_flag=True, help='Print events after saving')
 @click.pass_context
 def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):

@@ -267,11 +267,11 @@ def get_kibana_rules(*rule_paths, repo='elastic/kibana', branch='master', verbos
 @cached
 def load_current_package_version() -> str:
     """Load the current package version from config file."""
-    return load_etc_dump('packages.yml')['package']['name']
+    return load_etc_dump('packages.yaml')['package']['name']
 
 
 def get_default_config() -> Optional[Path]:
-    return next(Path(get_path()).glob('.detection-rules-cfg.*'), None)
+    return next(get_path().glob('.detection-rules-cfg.*'), None)
 
 
 @cached
