@@ -25,7 +25,7 @@ from detection_rules.integrations import (find_latest_compatible_version,
 from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryValidator,
-                                  ThresholdAlertSuppression, TOMLRuleContents, MachineLearningRuleData)
+                                  ThresholdAlertSuppression, TOMLRuleContents)
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
@@ -985,30 +985,22 @@ class TestRuleTiming(BaseRuleTest):
         for rule in self.all_rules:
             # Skip rules that do not leverage queries (i.e., machine learning)
             # Exception for machine learning analytic rules
-            if not isinstance(rule.contents.data, (QueryRuleData, MachineLearningRuleData)):
+            if not isinstance(rule.contents.data, QueryRuleData):
                 continue
 
-            ml_integration_names = list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
             rule_integrations = rule.contents.metadata.get('integration', [])
-            rule_language = rule.contents.data.get('language')
-            rule_type = rule.contents.data.type
-
-            # Skip machine learning rules without acceptable integrations
-            if rule_type == 'machine_learning' and not any(
-                    integration in ml_integration_names for integration in rule_integrations):
-                continue
 
             has_event_ingested = rule.contents.data.get('timestamp_override') == 'event.ingested'
             rule_str = self.rule_str(rule, trailer=None)
 
             if not has_event_ingested:
-                # Ignore rules that do not use EQL or KQL queries specifically
-                # and ignore sequence rules
-                if ((rule_language in ('eql', 'kuery') and not getattr(rule.contents.data, 'is_sequence', False))
-                        or rule_type == 'machine_learning'):  # noqa: W503
+                # Valid check on all Query related rules that do not use sequences
+                if not getattr(rule.contents.data, 'is_sequence', False):
                     errors.append(f'{rule_str} - rule must have `timestamp_override: event.ingested`')
 
             # Check if the integration supports the timestamp_override
+            # Soft warning if the integration does not support the timestamp_override
+            # Integrations can leverage dynamic field generation on ingestion for ECS fields
             if has_event_ingested and rule_integrations:
                 for integration in rule_integrations:
                     schema = []
@@ -1021,7 +1013,8 @@ class TestRuleTiming(BaseRuleTest):
                         if min_stack_version:
                             min_stack_version = Version.parse(min_stack_version, optional_minor_and_patch=True)
                         else:
-                            min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+                            min_stack_version = Version.parse(load_current_package_version(),
+                                                              optional_minor_and_patch=True)
 
                         latest_compat_ver = find_latest_compatible_version(
                             package=integration,
@@ -1046,8 +1039,8 @@ class TestRuleTiming(BaseRuleTest):
 
                                 # if the integration schema does not support the timestamp_override, add to errors
                                 if 'event.ingested' not in schema:
-                                    errors.append(f'{rule_str} - integration `{integration}` does not support '
-                                                f'`timestamp_override: event.ingested`')
+                                    warnings.warn(f'{rule_str} - integration `{integration}` does not statically map '
+                                                  f'`timestamp_override: event.ingested`')
 
         if errors:
             self.fail('The following rules are invalid:\n' + '\n'.join(errors))
