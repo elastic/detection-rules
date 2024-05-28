@@ -2,18 +2,15 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/08/30"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects setting modifications for protected branches of a GitHub repository. Branch protection rules 
-can be used to enforce certain workflows or requirements before a contributor can push changes to a branch in 
-your repository. Changes to these protected branch settings should be investigated and verified as legitimate 
-activity. Unauthorized changes could be used to lower your organization's security posture and leave you exposed 
-for future attacks. 
+This rule detects setting modifications for protected branches of a GitHub repository. Branch protection rules can be
+used to enforce certain workflows or requirements before a contributor can push changes to a branch in your repository.
+Changes to these protected branch settings should be investigated and verified as legitimate activity. Unauthorized
+changes could be used to lower your organization's security posture and leave you exposed for future attacks.
 """
 from = "now-9m"
 index = ["logs-github.audit-*"]
@@ -26,10 +23,12 @@ severity = "medium"
 tags = ["Domain: Cloud", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Github"]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 configuration where event.dataset == "github.audit" 
-  and github.category == "protected_branch" and event.type == "change" 
+  and github.category == "protected_branch" and event.type == "change"
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

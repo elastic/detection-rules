@@ -20,14 +20,9 @@ clean:
 	rm -rf $(VENV) *.egg-info .eggs .egg htmlcov build dist packages .build .tmp .tox __pycache__  lib/kql/build lib/kibana/build lib/kql/*.egg-info lib/kibana/*.egg-info
 
 .PHONY: deps
-deps: $(VENV) install-packages
+deps: $(VENV)
 	@echo "Installing all dependencies..."
 	$(PIP) install .[dev]
-
-.PHONY: install-packages
-install-packages:
-	@echo "Installing kql and kibana packages..."
-	$(PIP) install lib/kql lib/kibana
 
 .PHONY: pytest
 pytest: $(VENV) deps

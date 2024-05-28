@@ -3,8 +3,8 @@ creation_date = "2021/01/14"
 integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/15"
+min_stack_version = "8.11.0"
+updated_date = "2024/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Modification of Environment Variable via Launchctl"
+name = "Modification of Environment Variable via Unsigned or Untrusted Parent"
 references = [
     "https://github.com/rapid7/metasploit-framework/blob/master//modules/post/osx/escalate/tccbypass.rb",
 ]
@@ -56,6 +56,7 @@ type = "query"
 query = '''
 event.category:process and host.os.type:macos and event.type:start and 
   process.name:launchctl and 
+  (process.parent.code_signature.exists : false or process.parent.code_signature.trusted : false) and
   process.args:(setenv and not (ANT_HOME or 
                                 DBUS_LAUNCHD_SESSION_BUS_SOCKET or 
                                 EDEN_ENV or 

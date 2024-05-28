@@ -2,17 +2,15 @@
 creation_date = "2023/07/24"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the usage of the "find" command in conjunction with SUID and SGUID permission arguments. SUID 
-(Set User ID) and SGID (Set Group ID) are special permissions in Linux that allow a program to execute with the 
-privileges of the file owner or group, respectively, rather than the privileges of the user running the program. In
-case an attacker is able to enumerate and find a binary that is misconfigured, they might be able to leverage this 
+This rule monitors for the usage of the "find" command in conjunction with SUID and SGUID permission arguments. SUID
+(Set User ID) and SGID (Set Group ID) are special permissions in Linux that allow a program to execute with the
+privileges of the file owner or group, respectively, rather than the privileges of the user running the program. In case
+an attacker is able to enumerate and find a binary that is misconfigured, they might be able to leverage this
 misconfiguration to escalate privileges by exploiting vulnerabilities or built-in features in the privileged program.
 """
 from = "now-9m"
@@ -48,9 +46,17 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
 process.name == "find" and process.args : "-perm" and process.args : (
@@ -61,37 +67,36 @@ process.name == "find" and process.args : "-perm" and process.args : (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1083"
 name = "File and Directory Discovery"
 reference = "https://attack.mitre.org/techniques/T1083/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.001"
 name = "Setuid and Setgid"
 reference = "https://attack.mitre.org/techniques/T1548/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -99,3 +104,4 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

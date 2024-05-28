@@ -84,7 +84,6 @@ jobs:
             python -m pip install --upgrade pip
             pip cache purge
             pip install .[dev]
-            pip install lib/kql lib/kibana
 
         - name: Bump prebuilt rules package version
           env:
@@ -101,7 +100,7 @@ jobs:
           if: github.event.inputs.package_maturity == 'ga'
           run: |
             cd detection-rules
-            output=$(cat detection_rules/etc/packages.yml | grep -oP '(?<=\sversion: )\S+')
+            output=$(cat detection_rules/etc/packages.yaml | grep -oP '(?<=\sversion: )\S+')
             echo "pkg_version=$output" >> $GITHUB_ENV
 
         - name: Create release tag

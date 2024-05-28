@@ -2,68 +2,51 @@
 creation_date = "2021/01/06"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/12/19"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
 query = """
-SELECT * FROM file WHERE (
-  path LIKE '/home/%/.config/autostart/%.sh' OR path LIKE '/home/%/.config/autostart/%.desktop' OR
-  path LIKE '/root/.config/autostart/%.sh' OR path LIKE '/root/.config/autostart/%.desktop' OR
-  path LIKE '/home/%/.kde/Autostart/%.sh' OR path LIKE '/home/%/.kde/Autostart/%.desktop' OR
-  path LIKE '/root/.kde/Autostart/%.sh' OR path LIKE '/root/.kde/Autostart/%.desktop' OR
-  path LIKE '/home/%/.kde4/Autostart/%.sh' OR path LIKE '/home/%/.kde4/Autostart/%.desktop' OR
-  path LIKE '/root/.kde4/Autostart/%.sh' OR path LIKE '/root/.kde4/Autostart/%.desktop' OR
-  path LIKE '/home/%/.kde/share/autostart/%.sh' OR path LIKE '/home/%/.kde/share/autostart/%.desktop' OR
-  path LIKE '/root/.kde/share/autostart/%.sh' OR path LIKE '/root/.kde/share/autostart/%.desktop' OR
-  path LIKE '/home/%/.kde4/share/autostart/%.sh' OR path LIKE '/home/%/.kde4/share/autostart/%.desktop' OR
-  path LIKE '/root/.kde4/share/autostart/%.sh' OR path LIKE '/root/.kde4/share/autostart/%.desktop' OR
-  path LIKE '/home/%/.local/share/autostart/%.sh' OR path LIKE '/home/%/.local/share/autostart/%.desktop' OR
-  path LIKE '/root/.local/share/autostart/%.sh' OR path LIKE '/root/.local/share/autostart/%.desktop' OR
-  path LIKE '/home/%/.config/autostart-scripts/%.sh' OR path LIKE '/home/%/.config/autostart-scripts/%.desktop' OR
-  path LIKE '/root/.config/autostart-scripts/%.sh' OR path LIKE '/root/.config/autostart-scripts/%.desktop' OR
-  path LIKE '/etc/xdg/autostart/%.sh' OR path LIKE '/etc/xdg/autostart/%.desktop' OR
-  path LIKE '/usr/share/autostart/%.sh' OR path LIKE '/usr/share/autostart/%.desktop'
-)
+SELECT * FROM file WHERE ( path LIKE '/home/%/.config/autostart/%.sh' OR path LIKE '/home/%/.config/autostart/%.desktop'
+OR path LIKE '/root/.config/autostart/%.sh' OR path LIKE '/root/.config/autostart/%.desktop' OR path LIKE
+'/home/%/.kde/Autostart/%.sh' OR path LIKE '/home/%/.kde/Autostart/%.desktop' OR path LIKE '/root/.kde/Autostart/%.sh'
+OR path LIKE '/root/.kde/Autostart/%.desktop' OR path LIKE '/home/%/.kde4/Autostart/%.sh' OR path LIKE
+'/home/%/.kde4/Autostart/%.desktop' OR path LIKE '/root/.kde4/Autostart/%.sh' OR path LIKE
+'/root/.kde4/Autostart/%.desktop' OR path LIKE '/home/%/.kde/share/autostart/%.sh' OR path LIKE
+'/home/%/.kde/share/autostart/%.desktop' OR path LIKE '/root/.kde/share/autostart/%.sh' OR path LIKE
+'/root/.kde/share/autostart/%.desktop' OR path LIKE '/home/%/.kde4/share/autostart/%.sh' OR path LIKE
+'/home/%/.kde4/share/autostart/%.desktop' OR path LIKE '/root/.kde4/share/autostart/%.sh' OR path LIKE
+'/root/.kde4/share/autostart/%.desktop' OR path LIKE '/home/%/.local/share/autostart/%.sh' OR path LIKE
+'/home/%/.local/share/autostart/%.desktop' OR path LIKE '/root/.local/share/autostart/%.sh' OR path LIKE
+'/root/.local/share/autostart/%.desktop' OR path LIKE '/home/%/.config/autostart-scripts/%.sh' OR path LIKE
+'/home/%/.config/autostart-scripts/%.desktop' OR path LIKE '/root/.config/autostart-scripts/%.sh' OR path LIKE
+'/root/.config/autostart-scripts/%.desktop' OR path LIKE '/etc/xdg/autostart/%.sh' OR path LIKE
+'/etc/xdg/autostart/%.desktop' OR path LIKE '/usr/share/autostart/%.sh' OR path LIKE '/usr/share/autostart/%.desktop' )
 """
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
 query = """
-SELECT
-  f.path,
-  u.username AS file_owner,
-  g.groupname AS group_owner,
-  datetime(f.atime, 'unixepoch') AS file_last_access_time,
-  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
-  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
-  datetime(f.btime, 'unixepoch') AS file_created_time,
-  f.size AS size_bytes
-FROM
-  file f
-  LEFT JOIN users u ON f.uid = u.uid
-  LEFT JOIN groups g ON f.gid = g.gid
-WHERE (
-  path LIKE '/home/%/.config/autostart/%.sh' OR path LIKE '/home/%/.config/autostart/%.desktop' OR
-  path LIKE '/root/.config/autostart/%.sh' OR path LIKE '/root/.config/autostart/%.desktop' OR
-  path LIKE '/home/%/.kde/Autostart/%.sh' OR path LIKE '/home/%/.kde/Autostart/%.desktop' OR
-  path LIKE '/root/.kde/Autostart/%.sh' OR path LIKE '/root/.kde/Autostart/%.desktop' OR
-  path LIKE '/home/%/.kde4/Autostart/%.sh' OR path LIKE '/home/%/.kde4/Autostart/%.desktop' OR
-  path LIKE '/root/.kde4/Autostart/%.sh' OR path LIKE '/root/.kde4/Autostart/%.desktop' OR
-  path LIKE '/home/%/.kde/share/autostart/%.sh' OR path LIKE '/home/%/.kde/share/autostart/%.desktop' OR
-  path LIKE '/root/.kde/share/autostart/%.sh' OR path LIKE '/root/.kde/share/autostart/%.desktop' OR
-  path LIKE '/home/%/.kde4/share/autostart/%.sh' OR path LIKE '/home/%/.kde4/share/autostart/%.desktop' OR
-  path LIKE '/root/.kde4/share/autostart/%.sh' OR path LIKE '/root/.kde4/share/autostart/%.desktop' OR
-  path LIKE '/home/%/.local/share/autostart/%.sh' OR path LIKE '/home/%/.local/share/autostart/%.desktop' OR
-  path LIKE '/root/.local/share/autostart/%.sh' OR path LIKE '/root/.local/share/autostart/%.desktop' OR
-  path LIKE '/home/%/.config/autostart-scripts/%.sh' OR path LIKE '/home/%/.config/autostart-scripts/%.desktop' OR
-  path LIKE '/root/.config/autostart-scripts/%.sh' OR path LIKE '/root/.config/autostart-scripts/%.desktop' OR
-  path LIKE '/etc/xdg/autostart/%.sh' OR path LIKE '/etc/xdg/autostart/%.desktop' OR
-  path LIKE '/usr/share/autostart/%.sh' OR path LIKE '/usr/share/autostart/%.desktop'
-)
+SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
+file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
+file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE ( path LIKE '/home/%/.config/autostart/%.sh' OR
+path LIKE '/home/%/.config/autostart/%.desktop' OR path LIKE '/root/.config/autostart/%.sh' OR path LIKE
+'/root/.config/autostart/%.desktop' OR path LIKE '/home/%/.kde/Autostart/%.sh' OR path LIKE
+'/home/%/.kde/Autostart/%.desktop' OR path LIKE '/root/.kde/Autostart/%.sh' OR path LIKE
+'/root/.kde/Autostart/%.desktop' OR path LIKE '/home/%/.kde4/Autostart/%.sh' OR path LIKE
+'/home/%/.kde4/Autostart/%.desktop' OR path LIKE '/root/.kde4/Autostart/%.sh' OR path LIKE
+'/root/.kde4/Autostart/%.desktop' OR path LIKE '/home/%/.kde/share/autostart/%.sh' OR path LIKE
+'/home/%/.kde/share/autostart/%.desktop' OR path LIKE '/root/.kde/share/autostart/%.sh' OR path LIKE
+'/root/.kde/share/autostart/%.desktop' OR path LIKE '/home/%/.kde4/share/autostart/%.sh' OR path LIKE
+'/home/%/.kde4/share/autostart/%.desktop' OR path LIKE '/root/.kde4/share/autostart/%.sh' OR path LIKE
+'/root/.kde4/share/autostart/%.desktop' OR path LIKE '/home/%/.local/share/autostart/%.sh' OR path LIKE
+'/home/%/.local/share/autostart/%.desktop' OR path LIKE '/root/.local/share/autostart/%.sh' OR path LIKE
+'/root/.local/share/autostart/%.desktop' OR path LIKE '/home/%/.config/autostart-scripts/%.sh' OR path LIKE
+'/home/%/.config/autostart-scripts/%.desktop' OR path LIKE '/root/.config/autostart-scripts/%.sh' OR path LIKE
+'/root/.config/autostart-scripts/%.desktop' OR path LIKE '/etc/xdg/autostart/%.sh' OR path LIKE
+'/etc/xdg/autostart/%.desktop' OR path LIKE '/usr/share/autostart/%.sh' OR path LIKE '/usr/share/autostart/%.desktop' )
 """
 
 [[transform.osquery]]
@@ -89,6 +72,7 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 [[transform.osquery]]
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
+
 
 [rule]
 author = ["Elastic"]
@@ -212,13 +196,13 @@ For versions <8.2, you need to add a custom ingest pipeline to populate `event.i
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -240,13 +224,14 @@ file where host.os.type == "linux" and event.type != "deletion" and
     "rpm", "pacman", "podman", "nautilus", "remmina", "cinnamon-settings.py")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
+
 
 [rule.threat.tactic]
 id = "TA0003"

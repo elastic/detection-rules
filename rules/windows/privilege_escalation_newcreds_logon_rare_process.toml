@@ -2,25 +2,23 @@
 creation_date = "2023/11/15"
 integration = ["system", "windows"]
 maturity = "production"
-min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
-min_stack_version = "8.4.0"
-updated_date = "2024/01/15"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a new credentials logon type performed by an unusual process. This may indicate the existence of an access token
-forging capability that are often abused to bypass access control restrictions.
+Identifies a new credentials logon type performed by an unusual process. This may indicate the existence of an access
+token forging capability that are often abused to bypass access control restrictions.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "First Time Seen NewCredentials Logon Process"
+references = ["https://www.elastic.co/pt/blog/how-attackers-abuse-access-token-manipulation"]
 risk_score = 47
 rule_id = "e468f3f6-7c4c-45bb-846a-053738b3fe5d"
 severity = "medium"
-references = ["https://www.elastic.co/pt/blog/how-attackers-abuse-access-token-manipulation"]
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation"]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -42,11 +40,11 @@ name = "Token Impersonation/Theft"
 reference = "https://attack.mitre.org/techniques/T1134/001/"
 
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 
 [rule.new_terms]
 field = "new_terms_fields"
@@ -54,3 +52,5 @@ value = ["process.executable"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+
