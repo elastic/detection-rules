@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/11/25"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+min_stack_comments = "SentinelOne integration package minimum version for validation."
+min_stack_version = "8.11.0"
+updated_date = "2024/05/16"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies the creation of a new port forwarding rule. An adversary may abuse th
 segmentation restrictions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Port Forwarding Rule Addition"
@@ -81,7 +81,8 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
-    "Data Source: Sysmon"
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -89,7 +90,8 @@ type = "eql"
 query = '''
 registry where host.os.type == "windows" and registry.path : (
   "HKLM\\SYSTEM\\*ControlSet*\\Services\\PortProxy\\v4tov4\\*",
-  "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\PortProxy\\v4tov4\\*"
+  "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\PortProxy\\v4tov4\\*",
+  "MACHINE\\SYSTEM\\*ControlSet*\\Services\\PortProxy\\v4tov4\\*"
 )
 '''
 
