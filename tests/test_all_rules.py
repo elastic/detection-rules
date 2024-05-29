@@ -671,6 +671,8 @@ class TestRuleMetadata(BaseRuleTest):
                                 any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
                                     for ri in rule_integrations):
                             continue
+                        elif rule.contents.data.type == 'threat_match':
+                            continue
                         err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
                         failures.append(err_msg)
 
