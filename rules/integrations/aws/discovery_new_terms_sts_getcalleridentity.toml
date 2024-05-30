@@ -23,7 +23,7 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS GetCallerIdentity API Called for the First Time"
+name = "AWS STS GetCallerIdentity API Called for the First Time"
 note = """## Triage and analysis
 
 ### Investigating AWS GetCallerIdentity API Called for the First Time
@@ -51,6 +51,7 @@ This rule looks for use of the `GetCallerIdentity` operation. This is a [New Ter
 ### False positive analysis
 
 - False positives may occur due to the intended usage of the service. Tuning is needed in order to have higher confidence. Consider adding exceptions — preferably with a combination of user agent and IP address conditions.
+- Automation workflows that rely on the results from this API request may also generate false-positives. We recommend adding exceptions related to the `user.name` or `aws.cloudtrail.user_identity.arn` values to ignore these.
 
 ### Response and remediation
 
@@ -71,9 +72,6 @@ This rule looks for use of the `GetCallerIdentity` operation. This is a [New Ter
 - Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
-
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
     "https://docs.aws.amazon.com/STS/latest/APIReference/API_GetCallerIdentity.html",
     "https://www.secureworks.com/research/detecting-the-use-of-stolen-aws-lambda-credentials",
@@ -120,5 +118,5 @@ field = "new_terms_fields"
 value = ["aws.cloudtrail.user_identity.arn"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-15d"
+value = "now-10d"
 
