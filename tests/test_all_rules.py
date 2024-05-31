@@ -1290,7 +1290,8 @@ class TestDeprecatedRule(BaseRuleTest):
     """Test deprecated rule modifications"""
 
     def test_deprecated_rule_modified(self):
-        
+        """Test to ensure deprecated rules are not modified."""
+
         # Iterate over all the files in the deprecated rules directory
         for rule in self.deprecated_rules:
             # Use git diff to check if the file has changed
