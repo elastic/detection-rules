@@ -1284,7 +1284,8 @@ class TestAlertSuppression(BaseRuleTest):
                     if fld not in schema.keys():
                         self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
                             found in ECS, Beats, or non-ecs schemas")
-                        
+                   
+
 class TestDeprecatedRule(BaseRuleTest):
     """Test deprecated rule modifications"""
 
@@ -1298,4 +1299,3 @@ class TestDeprecatedRule(BaseRuleTest):
             # If the output is not empty, the file has changed
             if result.stdout:
                 self.fail(f"Deprecated rule {rule.path} has been modified.")
-
