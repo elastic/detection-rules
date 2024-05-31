@@ -1295,7 +1295,7 @@ class TestDeprecatedRule(BaseRuleTest):
         # Iterate over all the files in the deprecated rules directory
         for rule in self.deprecated_rules:
             # Use git diff to check if the file has changed
-            result = subprocess.run(['git', 'diff', 'main', '--name-only', rule.path], stdout=subprocess.PIPE)
+            result = subprocess.run(['git', 'diff', 'origin/main', '--name-only', rule.path], stdout=subprocess.PIPE)
 
             # If the output is not empty, the file has changed
             if result.stdout:
