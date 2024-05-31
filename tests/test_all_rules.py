@@ -627,6 +627,18 @@ class TestRuleMetadata(BaseRuleTest):
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
+    def test_deprecated_rules_modified(self):
+        """Test to ensure deprecated rules are not modified."""
+
+        rules_path = get_path("rules", "_deprecated")
+
+        # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
+        result = subprocess.run(['git', 'diff', '--diff-filter=M', 'origin/main', '--name-only', rules_path], stdout=subprocess.PIPE, text=True)
+
+        # If the output is not empty, then file(s) have changed in the directory
+        if result.stdout:
+            self.fail(f"Deprecated rules {result.stdout} has been modified.")
+
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
     def test_integration_tag(self):
@@ -1284,19 +1296,3 @@ class TestAlertSuppression(BaseRuleTest):
                     if fld not in schema.keys():
                         self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
                             found in ECS, Beats, or non-ecs schemas")
-
-
-class TestDeprecatedRule(BaseRuleTest):
-    """Test deprecated rule modifications"""
-
-    def test_deprecated_rule_modified(self):
-        """Test to ensure deprecated rules are not modified."""
-
-        # Iterate over all the files in the deprecated rules directory
-        for rule in self.deprecated_rules:
-            # Use git diff to check if the file has changed
-            result = subprocess.run(['git', 'diff', 'origin/main', '--name-only', rule.path], stdout=subprocess.PIPE)
-
-            # If the output is not empty, the file has changed
-            if result.stdout:
-                self.fail(f"Deprecated rule {rule.path} has been modified.")
