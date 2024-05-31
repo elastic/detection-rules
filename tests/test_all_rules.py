@@ -633,13 +633,12 @@ class TestRuleMetadata(BaseRuleTest):
         rules_path = get_path("rules", "_deprecated")
 
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
-        self.assertWarns(UserWarning, self.test_deprecated_rules_modified, rules_path)
         result = subprocess.run(['/usr/bin/git', 'diff', '--diff-filter=M', 'origin/main', '--name-only', rules_path],
                                 stdout=subprocess.PIPE, text=True)
 
         # If the output is not empty, then file(s) have changed in the directory
         if result.stdout:
-            self.fail(f"Deprecated rules {result.stdout} has been modified.")
+            self.fail(f"Deprecated rules {result.stdout} has been modified with command args: {result.args}")
 
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
