@@ -633,7 +633,8 @@ class TestRuleMetadata(BaseRuleTest):
         rules_path = get_path("rules", "_deprecated")
 
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
-        result = subprocess.run(['git', 'diff', '--diff-filter=M', 'origin/main', '--name-only', rules_path], stdout=subprocess.PIPE, text=True)
+        result = subprocess.run(['git', 'diff', '--diff-filter=M', 'origin/main', '--name-only', rules_path], 
+                                stdout=subprocess.PIPE, text=True)
 
         # If the output is not empty, then file(s) have changed in the directory
         if result.stdout:
