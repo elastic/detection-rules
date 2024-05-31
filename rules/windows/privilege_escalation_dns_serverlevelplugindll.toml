@@ -11,10 +11,10 @@ Identifies unusual DLLs loaded by the DNS Server process, potentially indicating
 functionality. This can lead to privilege escalation and remote code execution with SYSTEM privileges.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.library-*"]
+index = ["logs-endpoint.events.library-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential DNS Server Privilege Escalation via ServerLevelPluginDll"
+name = "Unsigned DLL loaded by DNS Service"
 references = [
     "https://cube0x0.github.io/Pocing-Beyond-DA/",
     "https://adsecurity.org/?p=4064",
@@ -28,15 +28,18 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-library where host.os.type == "windows" and
-  process.name : "dns.exe" and
-  not dll.code_signature.subject_name : "Microsoft*"
+any where host.os.type == "windows" and event.category : ("library", "process") and
+  event.type : ("start", "change") and event.action : ("load", "Image loaded*") and
+  process.executable : "?:\\windows\\system32\\dns.exe" and 
+  not ?dll.code_signature.trusted == "true" and
+  not file.code_signature.status != "Valid"
 '''
 
 
