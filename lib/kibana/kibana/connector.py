@@ -10,7 +10,9 @@ import json
 import sys
 import threading
 import uuid
+from typing import List, Optional, Union
 
+from urllib.parse import urljoin
 import requests
 from elasticsearch import Elasticsearch
 
@@ -72,23 +74,34 @@ class Kibana(object):
         if self.status:
             return self.status.get("version", {}).get("number")
 
+    @staticmethod
+    def ndjson_file_data_prep(lines: List[dict], filename: str) -> (dict, str):
+        """Prepare a request for an ndjson file upload to Kibana."""
+        data = ('\n'.join(json.dumps(r) for r in lines) + '\n')
+        boundary = '----JustAnotherBoundary'
+        bounded_data = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+                        f'Content-Type: application/x-ndjson\r\n\r\n{data}\r\n--{boundary}--\r\n').encode('utf-8')
+        headers = {'content-type': f'multipart/form-data; boundary={boundary}'}
+        return headers, bounded_data
+
     def url(self, uri):
         """Get the full URL given a URI."""
         assert self.kibana_url is not None
         # If a space is defined update the URL accordingly
         uri = uri.lstrip('/')
         if self.space:
-            uri = "s/{}/{}".format(self.space, uri)
+            uri = "s/{}/{}".format(self.space.lower(), uri)
         return f"{self.kibana_url}/{uri}"
 
-    def request(self, method, uri, params=None, data=None, error=True, verbose=True, raw=False, **kwargs):
+    def request(self, method, uri, params=None, data=None, raw_data=None, error=True, verbose=True, raw=False,
+                **kwargs) -> Optional[Union[requests.Response, dict]]:
         """Perform a RESTful HTTP request with JSON responses."""
-        params = params or {}
         url = self.url(uri)
-        params = {k: v for k, v in params.items()}
-        body = None
-        if data is not None:
-            body = json.dumps(data)
+        params = params or {}
+        body = json.dumps(data) if data is not None else None
+        assert not (body and raw_data), "Cannot provide both data and raw_data"
+
+        body = body or raw_data
 
         response = self.session.request(method, url, params=params, data=body, **kwargs)
 
@@ -100,6 +113,8 @@ class Kibana(object):
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError:
+                if response.status_code == 404:
+                    raise NotImplementedError(f'API endpoint {uri} not implemented for Kibana version {self.version}')
                 if verbose:
                     print(response.content.decode("utf-8"), file=sys.stderr)
                 raise
@@ -107,7 +122,7 @@ class Kibana(object):
         if not response.content:
             return
 
-        return response.content if raw else response.json()
+        return response if raw else response.json()
 
     def get(self, uri, params=None, data=None, error=True, **kwargs):
         """Perform an HTTP GET."""

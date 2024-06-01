@@ -2,9 +2,7 @@
 creation_date = "2020/04/23"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/21"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -67,13 +65,14 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Lateral Movement",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by process.entity_id
   [process where host.os.type == "linux" and process.name == "telnet" and event.type == "start"]
@@ -87,15 +86,17 @@ sequence by process.entity_id
   ]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
 
+
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+
