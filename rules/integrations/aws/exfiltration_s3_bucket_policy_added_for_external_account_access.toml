@@ -83,7 +83,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "aws.cloudtrail" and event.provider == "s3.amazonaws.com"
+any where event.dataset == "aws.cloudtrail"
+    and event.provider == "s3.amazonaws.com"
     and event.action == "PutBucketPolicy" and event.outcome == "success"
     and stringContains(aws.cloudtrail.request_parameters, "Effect=Allow")
     and not stringContains(aws.cloudtrail.request_parameters, aws.cloudtrail.recipient_account_id)
