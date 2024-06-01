@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
 min_stack_version = "8.9.0"
-updated_date = "2024/04/17"
+updated_date = "2024/06/01"
 
 [rule]
 author = ["Elastic"]
@@ -25,10 +25,50 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 interval = "10m"
 language = "eql"
 license = "Elastic License v2"
-name = "AWS S3 Bucket Object Retrieval, Deletion, and Potential Ransom Note Replacement"
+name = "Potential AWS S3 Bucket Ransomware Activity"
+note = """
+
+## Triage and Analysis
+
+### Investigating Potential AWS S3 Bucket Ransomware Activity
+
+This rule detects potential ransomware activity in AWS S3 buckets by identifying a sequence of events that includes successful `GetObject`, `DeleteObjects`, and `PutObject` actions. This rule triggers when multiple S3 bucket objects are accessed, deleted, and replaced with ransom note file extensions such as `.txt`, `.note`, or `.ransom`. Adversaries with access to a misconfigured S3 bucket may retrieve, delete, and replace objects with ransom notes to extort victims.
+
+#### Possible Investigation Steps:
+
+- **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify who performed the actions. Verify if this actor typically performs such actions and if they have the necessary permissions.
+- **Review the Sequence of Events**: Examine the sequence of `GetObject`, `DeleteObjects`, and `PutObject` actions to understand the extent and pattern of the activity. Determine if the actions involve multiple objects and match the pattern of ransomware activity.
+- **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the requests. An external or unexpected location might indicate compromised credentials or unauthorized access.
+- **Contextualize with Timestamp**: Use the `@timestamp` field to check when the sequence of events occurred. Multiple accesses, deletions, and uploads in a short period might indicate malicious activity.
+- **Inspect the Ransom Note**: Review the `aws.cloudtrail.request_parameters` for the `PutObject` action to identify the characteristics of the uploaded ransom note. Look for common ransomware file extensions such as `.txt`, `.note`, `.ransom`, or `.html`.
+- **Correlate with Other Activities**: Search for related CloudTrail events before and after this sequence to see if the same actor or IP address engaged in other potentially suspicious activities.
+
+### False Positive Analysis:
+
+- **Legitimate Administrative Actions**: Confirm if the sequence of accessing, deleting, and uploading objects aligns with scheduled updates, maintenance activities, or legitimate administrative tasks documented in change management systems.
+- **Consistency Check**: Compare the sequence of actions against historical data of similar activities performed by the user or within the organization. If the sequence is consistent with past legitimate activities, it might indicate a false alarm.
+- **Verify through Outcomes**: Check the `aws.cloudtrail.response_elements` and the `event.outcome` to confirm if the actions were successful and intended according to policy.
+
+### Response and Remediation:
+
+- **Immediate Review and Reversal if Necessary**: If the activity was unauthorized, restore the affected objects from backups and remove any uploaded ransom notes.
+- **Enhance Monitoring and Alerts**: Adjust monitoring systems to alert on similar sequences of events, especially those involving sensitive data or unusual file extensions.
+- **Educate and Train**: Provide additional training to users with administrative rights on the importance of security best practices concerning S3 bucket management and the risks of ransomware.
+- **Audit S3 Bucket Policies and Permissions**: Conduct a comprehensive audit of all S3 bucket policies and associated permissions to ensure they adhere to the principle of least privilege.
+- **Incident Response**: If there's an indication of malicious intent or a security breach, initiate the incident response protocol to mitigate any damage and prevent future occurrences.
+
+### Additional Information:
+
+For further guidance on managing S3 bucket security and protecting against ransomware, refer to the [AWS S3 documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html) and AWS best practices for security. Additionally, consult the following resources for specific details on S3 ransomware protection:
+- [ERMETIC REPORT - AWS S3 Ransomware Exposure in the Wild](https://s3.amazonaws.com/bizzabo.file.upload/PtZzA0eFQwV2RA5ysNeo_ERMETIC%20REPORT%20-%20AWS%20S3%20Ransomware%20Exposure%20in%20the%20Wild.pdf)
+- [AWS S3 Ransomware Batch Deletion](https://stratus-red-team.cloud/attack-techniques/AWS/aws.impact.s3-ransomware-batch-deletion/)
+- [S3 Ransomware Part 1: Attack Vector](https://rhinosecuritylabs.com/aws/s3-ransomware-part-1-attack-vector/)
+
+"""
 references = [
     "https://s3.amazonaws.com/bizzabo.file.upload/PtZzA0eFQwV2RA5ysNeo_ERMETIC%20REPORT%20-%20AWS%20S3%20Ransomware%20Exposure%20in%20the%20Wild.pdf",
     "https://stratus-red-team.cloud/attack-techniques/AWS/aws.impact.s3-ransomware-batch-deletion/",
+    "https://rhinosecuritylabs.com/aws/s3-ransomware-part-1-attack-vector/",
 ]
 risk_score = 73
 rule_id = "7fda9bb2-fd28-11ee-85f9-f661ea17fbce"
@@ -46,18 +86,28 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by tls.client.server_name with maxspan=10m
+sequence by tls.client.server_name with maxspan=5m
 
     /* sequence on tls.client.server_name is the s3 bucket name the client is accessing */
     /* Check for multiple S3 bucket objects being accessed */
-    [any where event.dataset == "aws.cloudtrail" and event.provider == "s3.amazonaws.com" and event.action == "GetObject" and event.outcome == "success"] with runs=5
+    [any where event.dataset == "aws.cloudtrail"
+        and event.provider == "s3.amazonaws.com"
+        and event.action == "GetObject"
+        and event.outcome == "success"] with runs=5
 
     /* Check for objects being deleted after accessed, indicating retrieval */
-    [any where event.dataset == "aws.cloudtrail" and event.provider == "s3.amazonaws.com" and event.action == "DeleteObjects" and event.outcome == "success"]
+    /* Ideally we would use the object key to correlate the objects being accessed and deleted */
+    [any where event.dataset == "aws.cloudtrail"
+        and event.provider == "s3.amazonaws.com"
+        and event.action == "DeleteObjects"
+        and event.outcome == "success"]
 
     /* Check for a ransom note being pushed to the same bucket objects were just retrieved and deleted from */
-    [any where event.dataset == "aws.cloudtrail" and event.provider == "s3.amazonaws.com" and event.action == "PutObject" and event.outcome == "success"
-        and aws.cloudtrail.request_parameters regex ".*key=.*(txt|note|ransom|html)}"]
+    [any where event.dataset == "aws.cloudtrail"
+        and event.provider == "s3.amazonaws.com"
+        and event.action == "PutObject"
+        and event.outcome == "success"
+        and aws.cloudtrail.request_parameters regex ".*key=.*(txt|note|ransom|html|lock|crypt|enc|readme|how_to_decrypt|decrypt_instructions|recovery|datarescue)}"]
 '''
 
 
