@@ -739,7 +739,8 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 
 @dev_group.command('deprecate-rule')
 @click.argument('rule-file', type=Path)
-@click.option('--deprecation-folder', '-d', type=Path)
+@click.option('--deprecation-folder', '-d', type=Path, required=True,
+              help='Location to move the deprecated rule file to')
 @click.pass_context
 def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path):
     """Deprecate a rule."""
@@ -754,9 +755,6 @@ def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path
         ctx.exit()
 
     today = time.strftime('%Y/%m/%d')
-    if not deprecation_folder:
-        deprecation_folder = RULES_CONFIG.rule_dirs[0] / '_deprecated'
-
     deprecated_path = deprecation_folder / rule_file.name
 
     # create the new rule and save it

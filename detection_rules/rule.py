@@ -937,7 +937,7 @@ class BaseRuleContents(ABC):
         pass
 
     def lock_info(self, bump=True) -> dict:
-        version = self.autobumped_version if bump else (self.latest_version or 1)
+        version = self.autobumped_version if bump else (self.saved_version or 1)
         contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version, "type": self.type}
 
         return contents
@@ -984,12 +984,12 @@ class BaseRuleContents(ABC):
             return max_allowable_version - current_version - 1
 
     @property
-    def latest_version(self) -> Optional[int]:
-        """Retrieve the latest known version of the rule, considering the version lock setting."""
+    def saved_version(self) -> Optional[int]:
+        """Retrieve the version from the version.lock or from the file if version locking is bypassed."""
         toml_version = self.data.get("version")
 
         if BYPASS_VERSION_LOCK:
-            return toml_version or 1
+            return toml_version
 
         if toml_version:
             print(f"WARNING: Rule {self.name} - {self.id} has a version set in the rule TOML."
@@ -1001,10 +1001,10 @@ class BaseRuleContents(ABC):
     @property
     def autobumped_version(self) -> Optional[int]:
         """Retrieve the current version of the rule, accounting for automatic increments."""
-        version = self.latest_version
+        version = self.saved_version
 
         if BYPASS_VERSION_LOCK:
-            return version
+            raise NotImplementedError("This method is not implemented when version locking is not in use.")
 
         # Default to version 1 if no version is set yet
         if version is None:
@@ -1012,6 +1012,14 @@ class BaseRuleContents(ABC):
 
         # Auto-increment version if the rule is 'dirty' and not bypassing version lock
         return version + 1 if self.is_dirty else version
+
+    def get_synthetic_version(self, use_default: bool) -> Optional[int]:
+        """
+        Get the latest actual representation of a rule's version, where changes are accounted for automatically when
+        version locking is used, otherwise, return the version defined in the rule toml if present else optionally
+        default to 1.
+        """
+        return self.autobumped_version or self.saved_version or (1 if use_default else None)
 
     @classmethod
     def convert_supported_version(cls, stack_version: Optional[str]) -> Version:

@@ -189,7 +189,7 @@ class VersionLock:
 
         already_deprecated = set(current_deprecated_lock)
         deprecated_rules = set(rules.deprecated.id_map)
-        new_rules = set(rule.id for rule in rules if rule.contents.latest_version is None) - deprecated_rules
+        new_rules = set(rule.id for rule in rules if rule.contents.saved_version is None) - deprecated_rules
         changed_rules = set(rule.id for rule in rules if rule.contents.is_dirty) - deprecated_rules
 
         # manage deprecated rules
