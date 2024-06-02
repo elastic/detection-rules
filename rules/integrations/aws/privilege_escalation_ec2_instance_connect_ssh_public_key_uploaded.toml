@@ -9,8 +9,11 @@ updated_date = "2024/06/02"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a new SSH public key is uploaded to an AWS EC2 instance using the EC2 Instance Connect service.
-Adversaries may upload SSH public keys to EC2 instances to maintain access to the instance.
+This threat detection rule identifies when a new SSH public key is uploaded to an AWS EC2 instance using the EC2
+Instance Connect service. This action could indicate an adversary attempting to maintain access to the instance. The
+rule also detects the `SendSerialConsoleSSHPublicKey` API action, which could be used for privilege escalation if the
+serial console is enabled. Monitoring these activities helps ensure unauthorized access attempts are detected and
+mitigated promptly.
 """
 false_positives = ["Administrators may upload SSH public keys to EC2 instances for legitimate purposes."]
 from = "now-9m"
@@ -19,7 +22,6 @@ language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Instance Connect SSH Public Key Uploaded"
 note = """
-
 ## Triage and Analysis
 
 ### Investigating AWS EC2 Instance Connect SSH Public Key Uploaded
@@ -61,7 +63,7 @@ references = [
     "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-privilege-escalation/aws-ec2-privesc",
     "https://medium.parttimepolymath.net/aws-ec2-instance-connect-a-very-neat-trick-4d2fc0c28010",
     "https://docs.aws.amazon.com/ec2-instance-connect/latest/APIReference/API_SendSSHPublicKey.html",
-    "https://docs.aws.amazon.com/ec2-instance-connect/latest/APIReference/API_SendSerialConsoleSSHPublicKey.html"
+    "https://docs.aws.amazon.com/ec2-instance-connect/latest/APIReference/API_SendSerialConsoleSSHPublicKey.html",
 ]
 risk_score = 21
 rule_id = "873b5452-074e-11ef-852e-f661ea17fbcc"
