@@ -3,8 +3,8 @@ creation_date = "2024/04/16"
 integration = ["aws"]
 maturity = "production"
 min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
-min_stack_version = "8.9.0"
-updated_date = "2024/05/28"
+min_stack_version = "8.13.0"
+updated_date = "2024/06/02"
 
 [rule]
 author = ["Elastic"]
@@ -18,17 +18,15 @@ false_positives = [
     AMI sharing is a common practice in AWS environments. Ensure that the sharing is authorized before taking action.
     """,
 ]
-from = "now-60m"
-index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
-language = "kuery"
+from = "now-9m"
+language = "esql"
 license = "Elastic License v2"
-name = "EC2 EBS Snapshot Shared with Another Account"
+name = "AWS EC2 EBS Snapshot Shared with Another Account"
 note = """
 
 ## Triage and Analysis
 
-### Investigating EC2 EBS Snapshot Shared with Another Account
+### Investigating AWS EC2 EBS Snapshot Shared with Another Account
 
 This rule detects when an AWS EC2 EBS snapshot is shared with another AWS account. EBS virtual disks can be copied into snapshots, which can then be shared with an external AWS account or made public. Adversaries may attempt this to copy the snapshot into an environment they control to access the data. Understanding the context and legitimacy of such changes is crucial to determine if the action is benign or malicious.
 
@@ -78,13 +76,14 @@ tags = [
     "Tactic: Exfiltration",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-event.dataset: aws.cloudtrail
-    and event.provider: ec2.amazonaws.com and event.action: ModifySnapshotAttribute and event.outcome: success
-    and aws.cloudtrail.flattened.request_parameters.attributeType: CREATE_VOLUME_PERMISSION
-    and aws.cloudtrail.request_parameters: (*add* and *userId*)
+from logs-aws.cloudtrail-*
+| where event.provider == "ec2.amazonaws.com" and event.action == "ModifySnapshotAttribute" and event.outcome == "success"
+| dissect aws.cloudtrail.request_parameters "{%{?snapshotId}=%{snapshotId},%{?attributeType}=%{attributeType},%{?createVolumePermission}={%{operationType}={%{?items}=[{%{?userId}=%{userId}}]}}}"
+| where operationType == "add" and cloud.account.id != userId
+| keep @timestamp, aws.cloudtrail.user_identity.arn, cloud.account.id, event.action, snapshotId, attributeType, operationType, userId
 '''
 
 
