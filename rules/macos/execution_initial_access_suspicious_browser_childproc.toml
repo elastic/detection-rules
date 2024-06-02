@@ -2,9 +2,7 @@
 creation_date = "2020/12/23"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/15"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -50,7 +48,14 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Execution", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -65,6 +70,8 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
       "hw.model",
       "IOPlatformExpertDevice",
       "/Volumes/Google Chrome/Google Chrome.app/Contents/Frameworks/*/Resources/install.sh",
+      "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/*/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer)",
+      "/Applications/Firefox.app/Contents/MacOS/plugin-container.app/Contents/MacOS/plugin-container",
       "--defaults-torrc",
       "*Chrome.app",
       "Framework.framework/Versions/*/Resources/keystone_promote_preflight.sh",

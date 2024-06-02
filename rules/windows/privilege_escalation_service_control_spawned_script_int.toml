@@ -2,9 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "system", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -26,6 +24,7 @@ SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, des
 services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
+
 
 [rule]
 author = ["Elastic"]
@@ -80,7 +79,17 @@ The `sc.exe` command line utility is used to manage and control Windows services
 risk_score = 21
 rule_id = "e8571d5f-bea1-46c2-9f56-998de2d3ed95"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Defense Evasion", "Tactic: Execution", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -108,13 +117,19 @@ id = "T1543.003"
 name = "Windows Service"
 reference = "https://attack.mitre.org/techniques/T1543/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1047"
+name = "Windows Management Instrumentation"
+reference = "https://attack.mitre.org/techniques/T1047/"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
@@ -123,35 +138,29 @@ reference = "https://attack.mitre.org/techniques/T1059/"
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.005"
 name = "Visual Basic"
 reference = "https://attack.mitre.org/techniques/T1059/005/"
 
 
-[[rule.threat.technique]]
-id = "T1047"
-name = "Windows Management Instrumentation"
-reference = "https://attack.mitre.org/techniques/T1047/"
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1218"
 name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1218.010"
 name = "Regsvr32"
@@ -161,6 +170,7 @@ reference = "https://attack.mitre.org/techniques/T1218/010/"
 id = "T1218.011"
 name = "Rundll32"
 reference = "https://attack.mitre.org/techniques/T1218/011/"
+
 
 
 [rule.threat.tactic]

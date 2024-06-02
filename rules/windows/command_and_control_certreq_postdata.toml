@@ -2,9 +2,7 @@
 creation_date = "2023/01/13"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -31,13 +29,21 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+
 [rule]
 author = ["Elastic"]
 description = """
-Identifies Certreq making an HTTP Post request. Adversaries could abuse Certreq to download files or upload data to a remote URL.
+Identifies Certreq making an HTTP Post request. Adversaries could abuse Certreq to download files or upload data to a
+remote URL.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-windows.*",
+    "endgame-*",
+    "logs-system.security*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential File Transfer via Certreq"
@@ -98,7 +104,16 @@ references = ["https://lolbas-project.github.io/lolbas/Binaries/Certreq/"]
 risk_score = 47
 rule_id = "79f0a1f7-ed6b-471c-8eb1-23abd6470b1c"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Command and Control", "Tactic: Exfiltration", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Command and Control",
+    "Tactic: Exfiltration",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -120,8 +135,6 @@ reference = "https://attack.mitre.org/techniques/T1105/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -134,13 +147,13 @@ reference = "https://attack.mitre.org/techniques/T1218/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1567"
 name = "Exfiltration Over Web Service"
 reference = "https://attack.mitre.org/techniques/T1567/"
+
 
 [rule.threat.tactic]
 id = "TA0010"

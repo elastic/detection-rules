@@ -2,9 +2,7 @@
 creation_date = "2023/03/21"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/21"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -18,20 +16,11 @@ query = "SELECT * FROM file WHERE (path LIKE '/etc/init.d/%' OR path LIKE '/run/
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
 query = """
-SELECT
-  f.path,
-  u.username AS file_owner,
-  g.groupname AS group_owner,
-  datetime(f.atime, 'unixepoch') AS file_last_access_time,
-  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
-  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
-  datetime(f.btime, 'unixepoch') AS file_created_time,
-  f.size AS size_bytes
-FROM
-  file f
-  LEFT JOIN users u ON f.uid = u.uid
-  LEFT JOIN groups g ON f.gid = g.gid
-WHERE (path LIKE '/etc/init.d/%' OR path LIKE '/run/systemd/generator.late/%')
+SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
+file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
+file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE (path LIKE '/etc/init.d/%' OR path LIKE
+'/run/systemd/generator.late/%')
 """
 
 [[transform.osquery]]
@@ -42,14 +31,14 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
 
+
 [rule]
 author = ["Elastic"]
 description = """
 Files that are placed in the /etc/init.d/ directory in Unix can be used to start custom applications, services, scripts
-or commands during start-up. Init.d has been mostly replaced in favor of Systemd. However, the 
-"systemd-sysv-generator" can convert init.d files to service unit files that run at boot. Adversaries may add or 
-alter files located in the /etc/init.d/ directory to execute malicious code upon boot in order to gain persistence 
-on the system. 
+or commands during start-up. Init.d has been mostly replaced in favor of Systemd. However, the "systemd-sysv-generator"
+can convert init.d files to service unit files that run at boot. Adversaries may add or alter files located in the
+/etc/init.d/ directory to execute malicious code upon boot in order to gain persistence on the system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -121,8 +110,7 @@ This rule looks for the creation of new files within the `/etc/init.d/` director
 references = [
     "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
     "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
-    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/"
-
+    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
 ]
 risk_score = 47
 rule_id = "474fd20e-14cc-49c5-8160-d9ab4ba16c8b"
@@ -153,16 +141,17 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Data Source: Elastic Endgame",
-        "Resources: Investigation Guide",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and 
 file.path : /etc/init.d/* and not (
@@ -175,13 +164,14 @@ file.path : /etc/init.d/* and not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
+
 
 [rule.threat.tactic]
 id = "TA0003"
@@ -191,7 +181,8 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["file.path", "process.name", "host.id"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+

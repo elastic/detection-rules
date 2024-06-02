@@ -2,16 +2,14 @@
 creation_date = "2023/04/11"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.5.0"
-updated_date = "2023/11/02"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies instances where the "index.html" file within the "/usr/lib/vmware/*" directory is renamed on a Linux system.
-The rule monitors for the "rename" event action associated with this specific file and path,
-which could indicate malicious activity.
+The rule monitors for the "rename" event action associated with this specific file and path, which could indicate
+malicious activity.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -49,9 +47,16 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.action == "rename" and file.name : "index.html" and
 file.Ext.original.path : "/usr/lib/vmware/*"
@@ -75,3 +80,4 @@ reference = "https://attack.mitre.org/techniques/T1036/003/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

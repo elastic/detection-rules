@@ -1,11 +1,9 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/07/12"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/01/11"
-bypass_bbr_timing = true
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -23,13 +21,14 @@ name = "Discovery of Internet Capabilities via Built-in Tools"
 risk_score = 21
 rule_id = "7f89afef-9fc5-4e7b-bf16-75ffdf27f8db"
 severity = "low"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Rule Type: BBR",
-        "Data Source: Elastic Defend"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -39,18 +38,19 @@ process.name.caseless:("ping.exe" or "tracert.exe" or "pathping.exe") and
 not process.args:("127.0.0.1" or "0.0.0.0" or "localhost" or "::1")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1016"
 name = "System Network Configuration Discovery"
 reference = "https://attack.mitre.org/techniques/T1016/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1016.001"
 name = "Internet Connection Discovery"
 reference = "https://attack.mitre.org/techniques/T1016/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0007"
@@ -60,7 +60,8 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "user.id", "process.command_line"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+
