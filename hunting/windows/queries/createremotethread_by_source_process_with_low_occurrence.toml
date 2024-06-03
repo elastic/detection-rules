@@ -6,10 +6,10 @@ name = "CreateRemoteThread by source process with low occurrence"
 language = "ES|QL"
 license = "Elastic License v2"
 notes = [
-    "This hunt aggregate Sysmon CreateRemoteThread events by source process and returns the ones that we observed in only one unique host. This may indicate remote process injection.",
-    "adding winlog.event_data.TargetImage to the group by clause can be beneficial but may introduce more legit hits.",
+    "This hunt aggregates Sysmon CreateRemoteThread events by source process and returns the ones that we observed in only one unique host. This may indicate remote process injection.",
+    "Adding winlog.event_data.TargetImage to the group by clause can be beneficial but may introduce more legit hits.",
 ]
-mitre = [ "T1055",]
+mitre = ["T1055"]
 
 query = '''
 from logs-windows.sysmon_operational-* 
@@ -17,6 +17,6 @@ from logs-windows.sysmon_operational-*
 | where host.os.family == "windows" and event.category == "process" and event.action == "CreateRemoteThread"
 | eval source_process = replace(process.executable, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9ñ\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
 | stats cc = count(*), hosts = count_distinct(host.id) by source_process
- /* unique source and target process combin observed in 1 host*/
+ /* unique source and target processes combined and observed in 1 host */
 | where hosts == 1 and cc == 1
 '''

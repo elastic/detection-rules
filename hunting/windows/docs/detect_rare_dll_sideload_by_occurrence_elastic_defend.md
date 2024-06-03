@@ -27,7 +27,7 @@ from logs-endpoint.events.library-*
 
 ## Notes
 
-- Based on the returned restuls you can further investigate suspicious DLLs by sha256 and library path.
+- Based on the returned results you can further investigate suspicious DLLs by sha256 and library path.
 - Paths like C:\\Users\\Public and C:\\ProgramData\\ are often observed in malware employing DLL side-loading.
 - Elastic Defned DLL Events include dll.Ext.relative_file_creation_time which help us limit the hunt to recently dropped DLLs.
 ## MITRE ATT&CK Techniques
