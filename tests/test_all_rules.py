@@ -633,9 +633,9 @@ class TestRuleMetadata(BaseRuleTest):
         rules_path = get_path("rules", "_deprecated")
 
         # Use git log to check the latest commit message in remote runs
-        commit_message = subprocess.run(['/usr/bin/git', 'log', '--pretty=format:%s', '|', 'head',
-                                 '-1'], stdout=subprocess.PIPE, text=True)
-        
+        commit_message = subprocess.run(['/usr/bin/git', 'log', '--pretty=format:%s', '|', 'head', '-1'],
+                                        stdout=subprocess.PIPE, text=True)
+
         # The commit message is in the format of "Merge <local_branch_hash> into <main_branch_hash>"
         # Fetch the commit message and extract the main branch hash
         # This works only in remote run cases, and this format is not available in local runs
