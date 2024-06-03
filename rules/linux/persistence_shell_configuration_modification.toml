@@ -14,7 +14,7 @@ Kaiji malware family.
 """
 false_positives = ["Legitimate user shell modification activity."]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Shell Configuration Creation or Modification"
@@ -52,14 +52,12 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and
-event.action in ("rename", "file_rename_event", "creation", "file_create_event") and file.path : (
+file where host.os.type == "linux" and event.action in ("rename", "creation") and file.path : (
   // system-wide configurations
   "/etc/profile", "/etc/profile.d/*", "/etc/bash.bashrc", "/etc/zsh/*",
   "/etc/csh.cshrc", "/etc/csh.login", "/etc/fish/config.fish", "/etc/ksh.kshrc",
