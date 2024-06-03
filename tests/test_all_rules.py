@@ -30,7 +30,7 @@ from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryV
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -633,7 +633,9 @@ class TestRuleMetadata(BaseRuleTest):
         rules_path = get_path("rules", "_deprecated")
 
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
-        result = subprocess.run(['/usr/bin/git', 'diff', '--diff-filter=M', 'origin/main', '--name-only', rules_path],
+        detection_rules_git = make_git()
+        long_commit_hash = detection_rules_git("rev-parse", "origin/main")
+        result = subprocess.run(['/usr/bin/git', 'diff', '--diff-filter=M', long_commit_hash, '--name-only', rules_path],
                                 stdout=subprocess.PIPE, text=True)
 
         # If the output is not empty, then file(s) have changed in the directory
