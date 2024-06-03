@@ -64,7 +64,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
 process.args in ("/etc/rc.local", "/etc/rc.common") and (
   (process.name == "chmod" and process.args : ("*+x*", "1*", "3*", "5*", "7*")) or
   (process.name == "install" and process.args : "-m*" and process.args : ("*7*", "*5*", "*3*", "*1*"))
