@@ -8,7 +8,6 @@ import dataclasses
 import glob
 import json
 import os
-import re
 import time
 from datetime import datetime
 
@@ -29,7 +28,7 @@ from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
-from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents
+from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents, rulename_to_filename
 
 RULES_DIR = get_path('rules')
 
@@ -80,7 +79,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     bulk_upload_docs, importable_rules_docs = package.create_bulk_index_body()
 
     if save_files:
-        path = Path(get_path('enriched-rule-indexes', package_hash))
+        path = get_path('enriched-rule-indexes', package_hash)
         path.mkdir(parents=True, exist_ok=overwrite)
         bulk_upload_docs.dump(path.joinpath('enriched-rules-index-uploadable.ndjson'), sort_keys=True)
         importable_rules_docs.dump(path.joinpath('enriched-rules-index-importable.ndjson'), sort_keys=True)
@@ -92,11 +91,11 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     return bulk_upload_docs, importable_rules_docs
 
 
-@root.command('import-rules')
+@root.command('import-rules-to-repo')
 @click.argument('input-file', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-def import_rules(input_file, required_only, directory):
+def import_rules_into_repo(input_file, required_only, directory):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
@@ -108,12 +107,9 @@ def import_rules(input_file, required_only, directory):
     if not rule_contents:
         click.echo('Must specify at least one file!')
 
-    def name_to_filename(name):
-        return re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_') + '.toml'
-
     for contents in rule_contents:
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
-        base_path = name_to_filename(base_path) if base_path else base_path
+        base_path = rulename_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
         additional = ['index'] if not contents.get('data_view_id') else ['data_view_id']
         rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
@@ -274,7 +270,7 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
             click.echo(f'Skipped {len(unsupported)} unsupported rules: \n- {unsupported_str}')
 
 
-@root.command('export-rules')
+@root.command('export-rules-from-repo')
 @multi_collection
 @click.option('--outfile', '-o', default=Path(get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson')),
               type=Path, help='Name of file for exported rules')
@@ -285,8 +281,8 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
               help='If `--stack-version` is passed, skip rule types which are unsupported '
                    '(an error will be raised otherwise)')
 @click.option('--include-metadata', type=bool, is_flag=True, default=False, help='Add metadata to the exported rules')
-def export_rules(rules, outfile: Path, replace_id, stack_version,
-                 skip_unsupported, include_metadata: bool) -> RuleCollection:
+def export_rules_from_repo(rules, outfile: Path, replace_id, stack_version,
+                           skip_unsupported, include_metadata: bool) -> RuleCollection:
     """Export rule(s) into an importable ndjson file."""
     assert len(rules) > 0, "No rules found"
 
@@ -435,7 +431,7 @@ def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
     es_client: Elasticsearch = ctx.obj['es']
 
     click.echo(f'Attempting to load dnstwist data from {input_file}')
-    dnstwist_data: dict = load_dump(input_file)
+    dnstwist_data: dict = load_dump(str(input_file))
     click.echo(f'{len(dnstwist_data)} records loaded')
 
     original_domain = next(r['domain-name'] for r in dnstwist_data if r.get('fuzzer', '') == 'original*')
@@ -500,10 +496,10 @@ def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
 @click.argument('author')
 def prep_rule(author: str):
     """Prep the detection threat match rule for dnstwist data with a rule_id and author."""
-    rule_template_file = Path(get_etc_path('rule_template_typosquatting_domain.json'))
+    rule_template_file = get_etc_path('rule_template_typosquatting_domain.json')
     template_rule = json.loads(rule_template_file.read_text())
     template_rule.update(author=[author], rule_id=str(uuid4()))
-    updated_rule = Path(get_path('rule_typosquatting_domain.ndjson'))
+    updated_rule = get_path('rule_typosquatting_domain.ndjson')
     updated_rule.write_text(json.dumps(template_rule, sort_keys=True))
     click.echo(f'Rule saved to: {updated_rule}. Import this to Kibana to create alerts on all dnstwist-* indexes')
     click.echo('Note: you only need to import and enable this rule one time for all dnstwist-* indexes')

@@ -2,9 +2,7 @@
 creation_date = "2023/06/26"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -19,9 +17,7 @@ index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Content Extracted or Decompressed via Funzip"
-references = [
-  "https://attack.mitre.org/software/S0482/"
-]
+references = ["https://attack.mitre.org/software/S0482/"]
 risk_score = 47
 rule_id = "dc0b7782-0df0-47ff-8337-db0d678bdb66"
 setup = """## Setup
@@ -50,9 +46,17 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.action in ("exec", "exec_event") and
 ((process.args == "tail" and process.args == "-c" and process.args == "funzip")) and
@@ -61,38 +65,39 @@ not process.parent.executable : ("/usr/bin/dracut", "/sbin/dracut", "/usr/bin/xa
 not (process.parent.name in ("sh", "sudo") and process.parent.command_line : "*nessus_su*")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
-name = "Unix Shell"
 id = "T1059.004"
+name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+
 
 [rule.threat.tactic]
-name = "Defense Evasion"
-id = "TA0005"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-name = "Obfuscated Files or Information"
 id = "T1027"
+name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
 
 [[rule.threat.technique]]
-name = "Deobfuscate/Decode Files or Information"
 id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
 reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
