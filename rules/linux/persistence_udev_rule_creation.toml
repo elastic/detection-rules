@@ -13,7 +13,7 @@ malicious udev rules that trigger on specific events, executing arbitrary comman
 is plugged in or recognized by the system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Systemd-udevd Rule File Creation"
@@ -51,14 +51,12 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and
-event.action in ("rename", "file_rename_event", "creation", "file_create_event") and file.path : (
+file where host.os.type == "linux" and event.action in ("rename", "creation") and file.path : (
   "/lib/udev/*", "/etc/udev/rules.d/*", "/usr/lib/udev/rules.d/*", "/run/udev/rules.d/*"
 ) and not (
   process.executable in (
