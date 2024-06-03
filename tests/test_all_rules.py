@@ -639,7 +639,7 @@ class TestRuleMetadata(BaseRuleTest):
         # The commit message is in the format of "Merge <local_branch_hash> into <main_branch_hash>"
         # Fetch the commit message and extract the main branch hash
         # This works only in remote run cases, and this format is not available in local runs
-        commit_hash_main = commit_message.stdout.split(' ')[4]
+        commit_hash_main = commit_message.stdout.split(' ')[3]
 
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
         result = subprocess.run(['/usr/bin/git', 'diff', '--diff-filter=M', commit_hash_main, '--name-only',
