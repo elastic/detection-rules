@@ -8,26 +8,26 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="631a211d-bdaa-4b9d-a786-31d84d7bc070",
+    uuid="163dbe60-28e0-4042-b2f0-173dddea877b",
     platforms=["linux"],
     endpoint=[
-        {"rule_id": "31da6564-b3d3-4fc8-9a96-75ad0b364363", "rule_name": "Tampering of Bash Command-Line History"},
+        {"rule_name": "Linux init (PID 1) Secret Dump via GDB", "rule_id": "ba70be59-bf50-48a9-8b36-0f0808a50fb8"},
     ],
-    siem=[],
-    techniques=["T1070", "T1070.003"],
+    siem=[{"rule_name": "Linux init (PID 1) Secret Dump via GDB", "rule_id": "d4ff2f53-c802-4d2e-9fb9-9ecc08356c3f"}],
+    techniques=["T1003"],
 )
 
 
-@common.requires_os(*metadata.platforms)
+@common.requires_os(metadata.platforms)
 def main() -> None:
-    masquerade = "/tmp/history"
+    masquerade = "/tmp/gdb"
     source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
 
     # Execute command
-    common.log("Launching fake builtin commands for tampering of bash command line history")
-    command = "-c"
-    common.execute([masquerade, command], timeout=10, kill=True, shell=True)  # noqa: S604
+    common.log("Launching fake GDB commands to hook the init process")
+    common.execute([masquerade, "--pid", "1"], timeout=5, kill=True)
+
     # cleanup
     common.remove_file(masquerade)
 
