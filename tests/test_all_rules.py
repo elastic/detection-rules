@@ -638,10 +638,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         # If the output is not empty, then file(s) have changed in the directory
         if result.stdout:
-            self.fail(f"Deprecated rules {result.stdout} has been modified with command args: {result.args}")
-        # Purely for Debugging will be removed.
-        else:
-            self.fail(f"No deprecated rules have been modified  with command args: {result.args}")
+            self.fail(f"Deprecated rules {result.stdout} has been modified")
 
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
