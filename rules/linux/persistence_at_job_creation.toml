@@ -13,7 +13,7 @@ escalation and command execution. By creating or modifying cron job configuratio
 commands or scripts at predefined intervals, ensuring their continued presence and enabling unauthorized activities.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "At Job Created or Modified"
@@ -52,15 +52,13 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Privilege Escalation",
     "Tactic: Execution",
-    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 file where host.os.type == "linux" and
-event.action in ("rename", "file_rename_event", "creation", "file_create_event") and 
-file.path : "/var/spool/cron/atjobs/*" and not (
+event.action in ("rename", "creation") and file.path : "/var/spool/cron/atjobs/*" and not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
     "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
