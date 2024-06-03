@@ -635,8 +635,8 @@ class TestRuleMetadata(BaseRuleTest):
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
         detection_rules_git = make_git()
         long_commit_hash = detection_rules_git("rev-parse", "origin/main")
-        result = subprocess.run(['/usr/bin/git', 'diff', '--diff-filter=M', long_commit_hash, '--name-only', rules_path],
-                                stdout=subprocess.PIPE, text=True)
+        result = subprocess.run(['/usr/bin/git', 'diff', '--diff-filter=M', long_commit_hash, '--name-only',
+                                 rules_path], stdout=subprocess.PIPE, text=True)
 
         # If the output is not empty, then file(s) have changed in the directory
         if result.stdout:
