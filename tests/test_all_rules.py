@@ -30,7 +30,7 @@ from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryV
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -632,10 +632,17 @@ class TestRuleMetadata(BaseRuleTest):
 
         rules_path = get_path("rules", "_deprecated")
 
+        # Use git log to check the latest commit message in remote runs
+        commit_message = subprocess.run(['/usr/bin/git', 'log', '--pretty=format:%s', '|', 'head',
+                                 '-1'], stdout=subprocess.PIPE, text=True)
+        
+        # The commit message is in the format of "Merge <local_branch_hash> into <main_branch_hash>"
+        # Fetch the commit message and extract the main branch hash
+        # This works only in remote run cases, and this format is not available in local runs
+        commit_hash_main = commit_message.split(' ')[4]
+
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
-        detection_rules_git = make_git()
-        long_commit_hash = detection_rules_git("rev-parse", "HEAD")
-        result = subprocess.run(['/usr/bin/git', 'diff', '--diff-filter=M', long_commit_hash, '--name-only',
+        result = subprocess.run(['/usr/bin/git', 'diff', '--diff-filter=M', commit_hash_main, '--name-only',
                                  rules_path], stdout=subprocess.PIPE, text=True)
 
         # If the output is not empty, then file(s) have changed in the directory
