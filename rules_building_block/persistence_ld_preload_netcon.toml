@@ -1,0 +1,146 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2024/06/03"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/06/03"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+This rule monitors for the execution of a Linux process with the `LD_PRELOAD` or `LD_LIBRARY_PATH` environment variable
+set, followed by an immediate network connection. `LD_PRELOAD` and `LD_LIBRARY_PATH` are environment variables that can
+be used to load shared libraries before the standard libraries. Attackers can abuse these environment variables to load
+malicious libraries and execute arbitrary code. This rule helps to detect potential attempts to hijack the execution
+flow of a process, which can be used for defense evasion, persistence, and privilege escalation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "LD_Preload or LD_Library_Path Process Execution Followed by Network Connection"
+risk_score = 21
+rule_id = "950ddb7f-dba4-47b5-9f91-758adb22eb0a"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR"
+]
+type = "eql"
+query = '''
+sequence by host.id, process.entity_id with maxspan=1s 
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+   process.env_vars: ("LD_PRELOAD=?*", "LD_LIBRARY_PATH=?*") and length(process.env_vars) < 60 and
+   process.entry_leader.entry_meta.type in ("sshd", "terminal", "console") and not (
+     process.env_vars : "*:*" or 
+     process.env_vars : (
+       "LD_PRELOAD=/opt/containerd/*",
+       "LD_PRELOAD=/usr/local/lib/libjemalloc.so",
+       "LD_PRELOAD=/home/*/Android/Sdk/emulator/lib64/qt/lib/libfreetype.so.6",
+       "LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so",
+       "LD_PRELOAD=libpseudo.so",
+       "LD_PRELOAD=/opt/hds/Base/libCvDllFilter.so",
+       "LD_PRELOAD=/opt/nessus/lib/nessus/libjemalloc.so",
+       "LD_PRELOAD=libjemalloc.so",
+       "LD_PRELOAD=libjemalloc.so.2:",
+       "LD_PRELOAD=/opt/google/chrome*",
+       "LD_PRELOAD=/var/opt/tableau/tableau_server/data/tabsvc/services/*", 
+       "LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2"
+     ) or
+     process.executable : (
+       "/usr/lib/check_mk_agent/plugins/3600/cmk-update-agent", 
+       "3600/cmk-update-agent", 
+       "/var/lib/rancher/*", 
+       "/opt/nessus_agent/*",
+       "/srv/nessus_agent/*",
+       "/usr/bin/containerd", 
+       "/snap/microk8s/*", 
+       "/opt/nessus/*"
+     ) or
+     process.parent.executable : (
+       "/opt/firefox/firefox-bin", 
+       "/usr/local/bin/docker-compose", 
+       "/opt/microsoft/mdatp/sbin/wdavdaemon", 
+       "/usr/bin/containerd", 
+       "/usr/local/bin/capa",
+       "/snap/*",
+       "/usr/lib/firefox/firefox",
+       "/usr/lib/dracut/dracut-install",
+       "/opt/google/chrome/chrome", 
+       "/var/lib/rancher/*", 
+       "/opt/Brim/resources/app.asar.unpacked/zdeps/suricata/bin/suricata-update"
+     )
+   )
+  ]
+[network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted"]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  name = "Hijack Execution Flow"
+  id = "T1574"
+  reference = "https://attack.mitre.org/techniques/T1574/"
+
+  [[rule.threat.technique.subtechnique]]
+  name = "Dynamic Linker Hijacking"
+  id = "T1574.006"
+  reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  name = "Hijack Execution Flow"
+  id = "T1574"
+  reference = "https://attack.mitre.org/techniques/T1574/"
+
+  [[rule.threat.technique.subtechnique]]
+  name = "Dynamic Linker Hijacking"
+  id = "T1574.006"
+  reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Privilege Escalation"
+  id = "TA0004"
+  reference = "https://attack.mitre.org/tactics/TA0004/"
+
+  [[rule.threat.technique]]
+  name = "Hijack Execution Flow"
+  id = "T1574"
+  reference = "https://attack.mitre.org/techniques/T1574/"
+
+  [[rule.threat.technique.subtechnique]]
+  name = "Dynamic Linker Hijacking"
+  id = "T1574.006"
+  reference = "https://attack.mitre.org/techniques/T1574/006/"
