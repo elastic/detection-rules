@@ -632,11 +632,8 @@ class TestRuleMetadata(BaseRuleTest):
 
         rules_path = get_path("rules", "_deprecated")
 
-        # Use environment variable to check the latest commit message in remote runs
-        commit_hash_main = os.environ.get('COMMIT_HASH')
-
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
-        result = subprocess.run(['/usr/bin/git', 'diff', '--diff-filter=M', commit_hash_main, '--name-only',
+        result = subprocess.run(['/usr/bin/git', 'diff', '--diff-filter=M', 'origin/main', '--name-only',
                                  rules_path], stdout=subprocess.PIPE, text=True)
 
         # If the output is not empty, then file(s) have changed in the directory
