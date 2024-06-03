@@ -2,9 +2,7 @@
 creation_date = "2023/02/28"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/01/05"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -17,21 +15,24 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 
 [[transform.osquery]]
 label = "Osquery - Retrieve rc-local.service File Information"
-query = "SELECT * FROM file WHERE (path = '/run/systemd/generator/multi-user.target.wants/rc-local.service' OR path = '/run/systemd/generator/multi-user.target.wants/rc-local.service')"
+query = """
+SELECT * FROM file WHERE (path = '/run/systemd/generator/multi-user.target.wants/rc-local.service' OR path =
+'/run/systemd/generator/multi-user.target.wants/rc-local.service')
+"""
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
 
+
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors the creation/alteration of the rc.local file by a previously unknown process executable
-through the use of the new terms rule type. The /etc/rc.local file is used to start custom applications,
-services, scripts or commands during start-up. The rc.local file has mostly been replaced by Systemd.
-However, through the "systemd-rc-local-generator", rc.local files can be converted to services that run at
-boot. Adversaries may alter rc.local to execute malicious code at start-up, and gain persistence onto the
-system.
+This rule monitors the creation/alteration of the rc.local file by a previously unknown process executable through the
+use of the new terms rule type. The /etc/rc.local file is used to start custom applications, services, scripts or
+commands during start-up. The rc.local file has mostly been replaced by Systemd. However, through the
+"systemd-rc-local-generator", rc.local files can be converted to services that run at boot. Adversaries may alter
+rc.local to execute malicious code at start-up, and gain persistence onto the system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -100,8 +101,7 @@ Detection alerts from this rule indicate the creation of a new `/etc/rc.local` f
 references = [
     "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
     "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
-    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/"
-
+    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
 ]
 risk_score = 47
 rule_id = "0f4d35e4-925e-4959-ab24-911be207ee6f"
@@ -132,16 +132,17 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Data Source: Elastic Endgame",
-        "Resources: Investigation Guide",
-        "Data Source: Elastic Defend"
-        ]
-type = "new_terms"
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
+type = "new_terms"
+
 query = '''
 host.os.type : "linux" and event.category : "file" and
 event.type : ("change" or "file_modify_event" or "creation" or "file_create_event") and
@@ -150,18 +151,19 @@ file.path : "/etc/rc.local" and not process.name : (
 ) and not file.extension : ("swp" or "swpx")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1037.004"
 name = "RC Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
@@ -171,7 +173,8 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "process.executable", "user.id"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+

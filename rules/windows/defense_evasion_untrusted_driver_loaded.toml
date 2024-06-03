@@ -2,27 +2,31 @@
 creation_date = "2023/01/27"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/15"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve All Non-Microsoft Drivers with Virustotal Link"
 query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image, issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image = authenticode.path JOIN hash ON drivers.image = hash.path WHERE NOT (provider == "Microsoft" AND signed == "1")
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image,
+issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image =
+authenticode.path JOIN hash ON drivers.image = hash.path WHERE NOT (provider == "Microsoft" AND signed == "1")
 """
 
 [[transform.osquery]]
 label = "Osquery - Retrieve All Unsigned Drivers with Virustotal Link"
 query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image, issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image = authenticode.path JOIN hash ON drivers.image = hash.path WHERE signed == "0"
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image,
+issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image =
+authenticode.path JOIN hash ON drivers.image = hash.path WHERE signed == "0"
 """
+
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies attempt to load an untrusted driver. Adversaries may modify code signing policies to enable execution of unsigned or self-signed code.
+Identifies attempt to load an untrusted driver. Adversaries may modify code signing policies to enable execution of
+unsigned or self-signed code.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.library-*"]
@@ -89,13 +93,20 @@ This rule identifies an attempt to load an untrusted driver, which effectively m
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = [
-  "https://github.com/hfiref0x/TDL",
-  "https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653559(v=vs.85)?redirectedfrom=MSDN"
+    "https://github.com/hfiref0x/TDL",
+    "https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653559(v=vs.85)?redirectedfrom=MSDN",
 ]
 risk_score = 73
 rule_id = "d8ab1ec1-feeb-48b9-89e7-c12e189448aa"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -112,11 +123,12 @@ framework = "MITRE ATT&CK"
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1036.001"
 name = "Invalid Code Signature"
 reference = "https://attack.mitre.org/techniques/T1036/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0005"
