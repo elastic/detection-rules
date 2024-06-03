@@ -41,7 +41,7 @@ malicious MOTD files that grant them persistence onto the target every time a us
 a backdoor script or command. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Message-of-the-Day (MOTD) File Creation"
@@ -139,15 +139,13 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and
-event.action in ("rename", "file_rename_event", "creation", "file_create_event") and
+file where host.os.type == "linux" and event.action in ("rename", "creation") and
 file.path : "/etc/update-motd.d/*" and not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
