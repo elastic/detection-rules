@@ -13,7 +13,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
+    - name: Extract latest commit hash of origin/main
+      run: |
+          cd detection-rules
+          COMMIT_HASH=$(git rev-parse HEAD)
+          echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
+          echo "Extracted commit hash: $COMMIT_HASH"
+    
     - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
@@ -34,6 +43,8 @@ jobs:
         python -m detection_rules dev license-check
 
     - name: Unit tests
+      env: 
+        COMMIT_HASH: $COMMIT_HASH"
       run: |
         python -m detection_rules test
 
