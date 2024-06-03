@@ -47,7 +47,7 @@ timers can be set up to execute on boot time, or on a specific point in time, wh
 case the connection to the infected asset was lost.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Systemd Timer Created"
@@ -147,15 +147,13 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and
-event.action in ("rename", "file_rename_event", "creation", "file_create_event") and file.path : (
+file where host.os.type == "linux" and event.action in ("rename", "creation") and file.path : (
   "/etc/systemd/system/*", "/usr/local/lib/systemd/system/*", "/lib/systemd/system/*",
   "/usr/lib/systemd/system/*", "/home/*/.config/systemd/user/*", "/home/*/.local/share/systemd/user/*",
   "/root/.config/systemd/user/*", "/root/.local/share/systemd/user/*"
