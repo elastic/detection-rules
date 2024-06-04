@@ -343,7 +343,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     exceptions_list: Optional[list]
     license: Optional[str]
     false_positives: Optional[List[str]]
-    filters: Optional[List[Filter]]
+    filters: Optional[List[dict]]
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
     interval: Optional[definitions.Interval]
