@@ -2,9 +2,7 @@
 creation_date = "2020/08/14"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -59,16 +57,17 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Execution", 
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Endgame",
-        "Resources: Investigation Guide",
-        "Data Source: Elastic Defend",
-        "Data Source: Sysmon"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -77,24 +76,24 @@ process where host.os.type == "windows" and event.type == "start" and
   process.pe.original_file_name : "psexesvc.exe" and not process.name : "PSEXESVC.exe"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1569"
 name = "System Services"
 reference = "https://attack.mitre.org/techniques/T1569/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1569.002"
 name = "Service Execution"
 reference = "https://attack.mitre.org/techniques/T1569/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
