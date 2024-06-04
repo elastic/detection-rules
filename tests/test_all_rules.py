@@ -633,7 +633,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
         detection_rules_git = make_git()
-        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only", "rules/_deprecated/")
+        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only", rules_path)
 
         # If the output is not empty, then file(s) have changed in the directory
         if result:
