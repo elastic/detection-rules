@@ -11,7 +11,6 @@ import uuid
 import warnings
 from collections import defaultdict
 from pathlib import Path
-import subprocess
 
 import eql.ast
 
@@ -30,7 +29,7 @@ from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryV
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -633,12 +632,12 @@ class TestRuleMetadata(BaseRuleTest):
         rules_path = get_path("rules", "_deprecated")
 
         # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
-        result = subprocess.run(['/usr/bin/git', 'diff', '--diff-filter=M', 'origin/main', '--name-only',
-                                 rules_path], stdout=subprocess.PIPE, text=True)
+        detection_rules_git = make_git()
+        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only", "rules/_deprecated/")
 
         # If the output is not empty, then file(s) have changed in the directory
-        if result.stdout:
-            self.fail(f"Deprecated rules {result.stdout} has been modified")
+        if result:
+            self.fail(f"Deprecated rules {result} has been modified")
 
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
