@@ -6,7 +6,7 @@
 
 - **Author:** Elastic
 - **UUID:** `de929347-c04a-4a94-8be2-cbe87b25bb25`
-- **Integration:** `logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-system.security-*`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `ES|QL`
 
 ## Query
@@ -25,7 +25,7 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 ## Notes
 
 - Pivoting can be done via process.parent.name.
-- Certain Microsoft binaries like lsass, winlogon,spoolsv and others should never spawn cmd.exe powershell.exe or conhost.exe, if so it's high likely malicious.
+- Certain Microsoft binaries like LSASS, winlogon, spoolsv and others should never spawn cmd.exe powershell.exe or conhost.exe, if so it's highly likely malicious.
 ## MITRE ATT&CK Techniques
 
 - [T1059](https://attack.mitre.org/techniques/T1059)

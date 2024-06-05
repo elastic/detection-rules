@@ -6,7 +6,7 @@
 
 - **Author:** Elastic
 - **UUID:** `b6b14385-4ed2-44af-98fe-dad5b1581174`
-- **Integration:** `logs-system.security-*`
+- **Integration:** [system](https://docs.elastic.co/integrations/system)
 - **Language:** `ES|QL`
 
 ## Query

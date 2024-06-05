@@ -6,7 +6,7 @@
 
 - **Author:** Elastic
 - **UUID:** `dc181967-c32c-46c9-b84b-ec4c8811c6a0`
-- **Integration:** `aws_bedrock.invocation`
+- **Integration:** [aws_bedrock.invocation](https://docs.elastic.co/integrations/aws_bedrock)
 - **Language:** `ES|QL`
 
 ## Query

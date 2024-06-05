@@ -6,7 +6,7 @@
 
 - **Author:** Elastic
 - **UUID:** `3b2900fe-74d9-4c49-b3df-cbeceb02e841`
-- **Integration:** `logs-endpoint.events.file-*`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `ES|QL`
 
 ## Query

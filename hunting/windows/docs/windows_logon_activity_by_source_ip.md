@@ -6,7 +6,7 @@
 
 - **Author:** Elastic
 - **UUID:** `7bdea198-eb09-4eca-ae3d-bfc3b52c89a9`
-- **Integration:** `logs-system.security-*`
+- **Integration:** [system](https://docs.elastic.co/integrations/system)
 - **Language:** `ES|QL`
 
 ## Query
@@ -27,7 +27,7 @@ from logs-system.security-*
 
 ## Notes
 
-- This hunt return the total number of failed logons, successful ones and the number of unique account names grouped by source.ip.
+- This hunt returns the total number of failed logons, successful ones and the number of unique account names grouped by source.ip.
 - Pay close attention to IP addresses source of a high number of failures associated with low success attempts and high number of used accounts.
 ## MITRE ATT&CK Techniques
 

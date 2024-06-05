@@ -9,7 +9,7 @@ Here are the queries currently available:
 
 
 ## macos
-- [Suspicious Network Connections by unsigned machO](./macos/docs/suspicious_network_connections_by_unsigned_macho.md) (ES|QL)
+- [Suspicious Network Connections by Unsigned Mach-O](./macos/docs/suspicious_network_connections_by_unsigned_macho.md) (ES|QL)
 
 
 ## windows

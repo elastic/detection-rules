@@ -6,7 +6,7 @@
 
 - **Author:** Elastic
 - **UUID:** `e0acab7d-30bd-4be0-9682-5c3457bbeb4f`
-- **Integration:** `logs-endpoint.events.network-*, logs-windows.sysmon_operational-*`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `ES|QL`
 
 ## Query

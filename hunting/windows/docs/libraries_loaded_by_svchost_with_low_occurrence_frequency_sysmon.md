@@ -6,7 +6,7 @@
 
 - **Author:** Elastic
 - **UUID:** `1ae6bfd7-34ce-4d7b-b956-f12d3797ac68`
-- **Integration:** `logs-windows.sysmon_operational-*`
+- **Integration:** [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `ES|QL`
 
 ## Query

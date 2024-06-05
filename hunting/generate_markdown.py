@@ -14,6 +14,13 @@ HUNTING_DIR = Path(__file__).parent
 ATLAS_URL = "https://atlas.mitre.org/techniques/"
 ATTACK_URL = "https://attack.mitre.org/techniques/"
 
+# the standard link takes `integration.package` and converts the link to `integration/package`, however, there are
+# some exceptions such as `aws_bedrock.invocation` which should be linked to `aws_bedrock` instead
+# https://docs.elastic.co/integrations/aws_bedrock
+STATIC_INTEGRATION_LINK_MAP = {
+    'aws_bedrock.invocation': 'aws_bedrock'
+}
+
 
 @dataclass
 class Hunt:
@@ -46,13 +53,26 @@ def load_all_toml(base_path: Path) -> List[tuple[Hunt, Path]]:
     return hunts
 
 
+def generate_integration_links(integrations: list[str]) -> list[str]:
+    base_url = 'https://docs.elastic.co/integrations'
+    generated = []
+    for integration in integrations:
+        if integration in STATIC_INTEGRATION_LINK_MAP:
+            link_str = STATIC_INTEGRATION_LINK_MAP[integration]
+        else:
+            link_str = integration.replace('.', '/')
+        generated.append(f'[{integration}]({base_url}/{link_str})')
+
+    return generated
+
+
 def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
     """Convert Hunt to Markdown format."""
     markdown = f"# {hunt_config.name}\n\n---\n\n"
     markdown += "## Metadata\n\n"
     markdown += f"- **Author:** {hunt_config.author}\n"
     markdown += f"- **UUID:** `{hunt_config.uuid}`\n"
-    markdown += f"- **Integration:** `{hunt_config.integration}`\n"
+    markdown += f"- **Integration:** {", ".join(generate_integration_links(hunt_config.integration))}\n"
     markdown += f"- **Language:** `{hunt_config.language}`\n\n"
     markdown += "## Query\n\n"
     markdown += f"```sql\n{hunt_config.query}```\n\n"

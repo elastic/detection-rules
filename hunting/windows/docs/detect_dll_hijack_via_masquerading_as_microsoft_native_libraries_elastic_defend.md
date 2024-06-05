@@ -6,7 +6,7 @@
 
 - **Author:** Elastic
 - **UUID:** `87c97865-fdaa-48b2-bfa6-67bed7cf56ef`
-- **Integration:** `logs-endpoint.events.library-*`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `ES|QL`
 
 ## Query
@@ -31,9 +31,8 @@ from logs-endpoint.events.library-*
 ## Notes
 
 - This hunt require the creation of an enrichment policy to use with the ES|QL (ENRICH command).
-- Using dll.hash.sha256 for Elastic Defend or file.hash.sha256 for Sysmon you can pivot to further investigate the DLL origin and purpose.
+- The `dll.hash.sha256` field can be used to pivot and further investigate the DLL origin and purpose.
 - Paths like C:\Users\Public and C:\ProgramData\ are often observed in malware employing DLL side-loading.
-- Process code signature information is not captured in Sysmon Image Load Events (not present in the ES|QL hunt).
 ## MITRE ATT&CK Techniques
 
 - [T1574](https://attack.mitre.org/techniques/T1574)
