@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2024/04/16"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
+min_stack_version = "8.13.0"
+updated_date = "2024/06/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies AWS EC2 EBS snaphots being shared with another AWS account. EBS virtual disks can be copied into snapshots,
+which can then be shared with an external AWS account or made public. Adversaries may attempt this in order to copy the
+snapshot into an environment they control, to access the data.
+"""
+false_positives = [
+    """
+    AMI sharing is a common practice in AWS environments. Ensure that the sharing is authorized before taking action.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS EC2 EBS Snapshot Shared with Another Account"
+note = """
+
+## Triage and Analysis
+
+### Investigating AWS EC2 EBS Snapshot Shared with Another Account
+
+This rule detects when an AWS EC2 EBS snapshot is shared with another AWS account. EBS virtual disks can be copied into snapshots, which can then be shared with an external AWS account or made public. Adversaries may attempt this to copy the snapshot into an environment they control to access the data. Understanding the context and legitimacy of such changes is crucial to determine if the action is benign or malicious.
+
+#### Possible Investigation Steps:
+
+- **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify who made the change. Verify if this actor typically performs such actions and if they have the necessary permissions.
+- **Review the Request Details**: Examine the `aws.cloudtrail.request_parameters` to understand the specific changes made to the snapshot permissions. Look for any unusual parameters that could suggest unauthorized or malicious modifications.
+- **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access.
+- **Contextualize with Timestamp**: Use the `@timestamp` field to check when the change occurred. Modifications during non-business hours or outside regular maintenance windows might require further scrutiny.
+- **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities.
+
+### False Positive Analysis:
+
+- **Legitimate Administrative Actions**: Confirm if the snapshot sharing aligns with scheduled updates, development activities, or legitimate administrative tasks documented in change management systems.
+- **Consistency Check**: Compare the action against historical data of similar actions performed by the user or within the organization. If the action is consistent with past legitimate activities, it might indicate a false alarm.
+- **Verify through Outcomes**: Check the `aws.cloudtrail.response_elements` and the `event.outcome` to confirm if the change was successful and intended according to policy.
+
+### Response and Remediation:
+
+- **Immediate Review and Reversal if Necessary**: If the change was unauthorized, update the snapshot permissions to remove any unauthorized accounts and restore it to its previous state.
+- **Enhance Monitoring and Alerts**: Adjust monitoring systems to alert on similar actions, especially those involving sensitive data or permissions.
+- **Educate and Train**: Provide additional training to users with administrative rights on the importance of security best practices concerning snapshot management and sharing permissions.
+- **Audit Snapshots and Policies**: Conduct a comprehensive audit of all snapshots and associated policies to ensure they adhere to the principle of least privilege.
+- **Incident Response**: If there's an indication of malicious intent or a security breach, initiate the incident response protocol to mitigate any damage and prevent future occurrences.
+
+### Additional Information:
+
+For further guidance on managing EBS snapshots and securing AWS environments, refer to the [AWS EBS documentation](https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html) and AWS best practices for security. Additionally, consult the following resources for specific details on EBS snapshot security:
+- [AWS EBS Snapshot Permissions](https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html)
+- [AWS API ModifySnapshotAttribute](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifySnapshotAttribute.html)
+- [AWS EBS Snapshot Dump](https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-post-exploitation/aws-ec2-ebs-ssm-and-vpc-post-exploitation/aws-ebs-snapshot-dump)
+"""
+references = [
+    "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifySnapshotAttribute.html",
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-post-exploitation/aws-ec2-ebs-ssm-and-vpc-post-exploitation/aws-ebs-snapshot-dump",
+]
+risk_score = 21
+rule_id = "4182e486-fc61-11ee-a05d-f661ea17fbce"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-*
+| where event.provider == "ec2.amazonaws.com" and event.action == "ModifySnapshotAttribute" and event.outcome == "success"
+| dissect aws.cloudtrail.request_parameters "{%{?snapshotId}=%{snapshotId},%{?attributeType}=%{attributeType},%{?createVolumePermission}={%{operationType}={%{?items}=[{%{?userId}=%{userId}}]}}}"
+| where operationType == "add" and cloud.account.id != userId
+| keep @timestamp, aws.cloudtrail.user_identity.arn, cloud.account.id, event.action, snapshotId, attributeType, operationType, userId
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
