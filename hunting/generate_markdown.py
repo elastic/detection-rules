@@ -6,6 +6,7 @@
 """Lightweight builtin toml-markdown converter."""
 
 import tomllib
+import urllib3
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -53,6 +54,13 @@ def load_all_toml(base_path: Path) -> List[tuple[Hunt, Path]]:
     return hunts
 
 
+def validate_link(link: str):
+    """Validate and return the link."""
+    response = urllib3.request('get', link)
+    if response.status != 200:
+        raise ValueError(f"Invalid link: {link}")
+
+
 def generate_integration_links(integrations: list[str]) -> list[str]:
     base_url = 'https://docs.elastic.co/integrations'
     generated = []
@@ -61,7 +69,9 @@ def generate_integration_links(integrations: list[str]) -> list[str]:
             link_str = STATIC_INTEGRATION_LINK_MAP[integration]
         else:
             link_str = integration.replace('.', '/')
-        generated.append(f'[{integration}]({base_url}/{link_str})')
+        link = f'{base_url}/{link_str}'
+        validate_link(link)
+        generated.append(f'[{integration}]({link})')
 
     return generated
 
