@@ -2,24 +2,21 @@
 creation_date = "2023/06/09"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
-min_stack_version = "8.6.0"
-updated_date = "2024/05/24"
+updated_date = "2024/05/31"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
 query = """
-SELECT * FROM file WHERE ( path LIKE '/etc/cron.allow.d/%' OR path LIKE '/etc/cron.d/%' OR path LIKE
+SELECT * FROM file WHERE (path LIKE '/etc/cron.allow.d/%' OR path LIKE '/etc/cron.d/%' OR path LIKE
 '/etc/cron.hourly/%' OR path LIKE '/etc/cron.daily/%' OR path LIKE '/etc/cron.weekly/%' OR path LIKE
-'/etc/cron.monthly/%' )
+'/etc/cron.monthly/%' OR path LIKE '/var/spool/cron/crontabs/%')
 """
 
 [[transform.osquery]]
-label = "Osquery - Retrieve rc-local.service File Information"
+label = "Osquery - Retrieve Cron File Information"
 query = """
-SELECT * FROM file WHERE ( path = '/etc/cron.allow' OR path = '/etc/cron.deny' OR path = '/etc/crontab' OR path =
-'/usr/sbin/cron' OR path = '/usr/sbin/anacron' )
+SELECT * FROM file WHERE (path = '/etc/cron.allow' OR path = '/etc/cron.deny' OR path = '/etc/crontab')
 """
 
 [[transform.osquery]]
@@ -30,7 +27,7 @@ file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time
 file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
 JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE ( path LIKE '/etc/cron.allow.d/%' OR path LIKE
 '/etc/cron.d/%' OR path LIKE '/etc/cron.hourly/%' OR path LIKE '/etc/cron.daily/%' OR path LIKE '/etc/cron.weekly/%' OR
-path LIKE '/etc/cron.monthly/%' )
+path LIKE '/etc/cron.monthly/%' OR path LIKE '/var/spool/cron/crontabs/%')
 """
 
 [[transform.osquery]]
@@ -53,27 +50,28 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
 
-
 [rule]
 author = ["Elastic"]
 description = """
-Linux cron jobs are scheduled tasks that can be leveraged by malicious actors for persistence, privilege escalation and
-command execution. By creating or modifying cron job configurations, attackers can execute malicious commands or scripts
-at predefined intervals, ensuring their continued presence and enabling unauthorized activities.
+This rule monitors for (ana)cron jobs being created or renamed. Linux cron jobs are scheduled tasks that can be
+leveraged by system administrators to set up scheduled tasks, but may be abused by malicious actors for persistence,
+privilege escalation and command execution. By creating or modifying cron job configurations, attackers can execute
+malicious commands or scripts at predefined intervals, ensuring their continued presence and enabling unauthorized
+activities.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
-language = "kuery"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
 license = "Elastic License v2"
-name = "Cron Job Created or Changed by Previously Unknown Process"
+name = "Cron Job Created or Modified"
 note = """## Triage and analysis
 
-### Investigating Cron Job Created or Changed by Previously Unknown Process
+### Investigating Cron Job Created or Modified
 Linux cron jobs are scheduled tasks that run at specified intervals or times, managed by the cron daemon. 
 
 By creating or modifying cron job configurations, attackers can execute malicious commands or scripts at predefined intervals, ensuring their continued presence and enabling unauthorized activities.
 
-This rule monitors the creation of previously unknown cron jobs by monitoring for file creation events in the most common cron job task location directories.
+This rule monitors the creation of cron jobs by monitoring for file creation and rename events in the most common cron job task location directories.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -118,8 +116,8 @@ This rule monitors the creation of previously unknown cron jobs by monitoring fo
 - Suspicious File Creation in /etc for Persistence - 1c84dd64-7e6c-4bad-ac73-a5014ee37042
 - Potential Persistence Through Run Control Detected - 0f4d35e4-925e-4959-ab24-911be207ee6f
 - Potential Persistence Through init.d Detected - 474fd20e-14cc-49c5-8160-d9ab4ba16c8b
-- New Systemd Timer Created - 7fb500fa-8e24-4bd1-9480-2a819352602c
-- New Systemd Service Created by Previously Unknown Process - 17b0a495-4d9f-414c-8ad0-92f018b8e001
+- Systemd Timer Created - 7fb500fa-8e24-4bd1-9480-2a819352602c
+- Systemd Service Created - 17b0a495-4d9f-414c-8ad0-92f018b8e001
 
 ### Response and remediation
 
@@ -174,27 +172,33 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Privilege Escalation",
     "Tactic: Execution",
-    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
-
+type = "eql"
 query = '''
-host.os.type : "linux" and event.action : (
-  change or file_modify_event or creation or file_create_event or rename or file_rename_event
-) and file.path : (
-  /etc/cron.allow or /etc/cron.deny or /etc/cron.d/* or /etc/cron.hourly/* or /etc/cron.daily/* or /etc/cron.weekly/* or
-  /etc/cron.monthly/* or /etc/crontab or /usr/sbin/cron or /usr/sbin/anacron or /var/spool/cron/crontabs/*
+file where host.os.type == "linux" and
+event.action in ("rename", "creation") and file.path : (
+  "/etc/cron.allow", "/etc/cron.deny", "/etc/cron.d/*", "/etc/cron.hourly/*", "/etc/cron.daily/*", "/etc/cron.weekly/*",
+  "/etc/cron.monthly/*", "/etc/crontab", "/var/spool/cron/crontabs/*", "/var/spool/anacron/*"
 ) and not (
-  (process.name : (
-    dpkg or dockerd or rpm or snapd or yum or exe or dnf or podman or dnf-automatic or puppet or autossl_check)
-  ) or 
-  (file.extension : (swp or swpx)) or 
-  (process.name : sed and file.name : sed*) or 
-  (process.name : perl and file.name : e2scrub_all.tmp*) or
-  (process.executable : /var/lib/dpkg*) or
-  (file.path:/var/spool/cron/crontabs/tmp.*)
+  process.executable in (
+    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
+    "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
+    "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
+    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
+    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
+    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
+    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
+    "/bin/pamac-daemon", "/usr/local/bin/dockerd"
+  ) or
+  file.path : "/var/spool/cron/crontabs/tmp.*" or
+  file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
+  file.Ext.original.extension == "dpkg-new" or
+  process.executable : ("/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*") or
+  process.executable == null or
+  (process.name == "sed" and file.name : "sed*") or
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
 
@@ -251,11 +255,3 @@ reference = "https://attack.mitre.org/techniques/T1053/003/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "file.path", "process.executable"]
-
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-10d"
