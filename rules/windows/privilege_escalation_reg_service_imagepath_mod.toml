@@ -1,0 +1,201 @@
+[metadata]
+creation_date = "2024/06/05"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2024/06/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies registry modifications to default services that could enable privilege escalation to SYSTEM. Attackers with
+privileges from groups like Server Operators may change the ImagePath of services to executables under their control or
+to execute commands.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Privilege Escalation via Service ImagePath Modification"
+references = [
+    "https://cube0x0.github.io/Pocing-Beyond-DA/"
+]
+risk_score = 47
+rule_id = "b66b7e2b-d50a-49b9-a6fc-3a383baedc6b"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+  event.action == "modification" and registry.value == "ImagePath" and
+  registry.key : (
+    "SYSTEM\\*ControlSet*\\Services\\ADWS",
+    "SYSTEM\\*ControlSet*\\Services\\AppHostSvc",
+    "SYSTEM\\*ControlSet*\\Services\\AppReadiness",
+    "SYSTEM\\*ControlSet*\\Services\\AudioEndpointBuilder",
+    "SYSTEM\\*ControlSet*\\Services\\AxInstSV",
+    "SYSTEM\\*ControlSet*\\Services\\camsvc",
+    "SYSTEM\\*ControlSet*\\Services\\CertSvc",
+    "SYSTEM\\*ControlSet*\\Services\\COMSysApp",
+    "SYSTEM\\*ControlSet*\\Services\\CscService",
+    "SYSTEM\\*ControlSet*\\Services\\defragsvc",
+    "SYSTEM\\*ControlSet*\\Services\\DeviceAssociationService",
+    "SYSTEM\\*ControlSet*\\Services\\DeviceInstall",
+    "SYSTEM\\*ControlSet*\\Services\\DevQueryBroker",
+    "SYSTEM\\*ControlSet*\\Services\\Dfs",
+    "SYSTEM\\*ControlSet*\\Services\\DFSR",
+    "SYSTEM\\*ControlSet*\\Services\\diagnosticshub.standardcollector.service",
+    "SYSTEM\\*ControlSet*\\Services\\DiagTrack",
+    "SYSTEM\\*ControlSet*\\Services\\DmEnrollmentSvc",
+    "SYSTEM\\*ControlSet*\\Services\\DNS",
+    "SYSTEM\\*ControlSet*\\Services\\dot3svc",
+    "SYSTEM\\*ControlSet*\\Services\\Eaphost",
+    "SYSTEM\\*ControlSet*\\Services\\GraphicsPerfSvc",
+    "SYSTEM\\*ControlSet*\\Services\\hidserv",
+    "SYSTEM\\*ControlSet*\\Services\\HvHost",
+    "SYSTEM\\*ControlSet*\\Services\\IISADMIN",
+    "SYSTEM\\*ControlSet*\\Services\\IKEEXT",
+    "SYSTEM\\*ControlSet*\\Services\\InstallService",
+    "SYSTEM\\*ControlSet*\\Services\\iphlpsvc",
+    "SYSTEM\\*ControlSet*\\Services\\IsmServ",
+    "SYSTEM\\*ControlSet*\\Services\\LanmanServer",
+    "SYSTEM\\*ControlSet*\\Services\\MSiSCSI",
+    "SYSTEM\\*ControlSet*\\Services\\NcbService",
+    "SYSTEM\\*ControlSet*\\Services\\Netlogon",
+    "SYSTEM\\*ControlSet*\\Services\\Netman",
+    "SYSTEM\\*ControlSet*\\Services\\NtFrs",
+    "SYSTEM\\*ControlSet*\\Services\\PlugPlay",
+    "SYSTEM\\*ControlSet*\\Services\\Power",
+    "SYSTEM\\*ControlSet*\\Services\\PrintNotify",
+    "SYSTEM\\*ControlSet*\\Services\\ProfSvc",
+    "SYSTEM\\*ControlSet*\\Services\\PushToInstall",
+    "SYSTEM\\*ControlSet*\\Services\\RSoPProv",
+    "SYSTEM\\*ControlSet*\\Services\\sacsvr",
+    "SYSTEM\\*ControlSet*\\Services\\SENS",
+    "SYSTEM\\*ControlSet*\\Services\\SensorDataService",
+    "SYSTEM\\*ControlSet*\\Services\\SgrmBroker",
+    "SYSTEM\\*ControlSet*\\Services\\ShellHWDetection",
+    "SYSTEM\\*ControlSet*\\Services\\shpamsvc",
+    "SYSTEM\\*ControlSet*\\Services\\StorSvc",
+    "SYSTEM\\*ControlSet*\\Services\\svsvc",
+    "SYSTEM\\*ControlSet*\\Services\\swprv",
+    "SYSTEM\\*ControlSet*\\Services\\SysMain",
+    "SYSTEM\\*ControlSet*\\Services\\Themes",
+    "SYSTEM\\*ControlSet*\\Services\\TieringEngineService",
+    "SYSTEM\\*ControlSet*\\Services\\TokenBroker",
+    "SYSTEM\\*ControlSet*\\Services\\TrkWks",
+    "SYSTEM\\*ControlSet*\\Services\\UALSVC",
+    "SYSTEM\\*ControlSet*\\Services\\UserManager",
+    "SYSTEM\\*ControlSet*\\Services\\vm3dservice",
+    "SYSTEM\\*ControlSet*\\Services\\vmicguestinterface",
+    "SYSTEM\\*ControlSet*\\Services\\vmicheartbeat",
+    "SYSTEM\\*ControlSet*\\Services\\vmickvpexchange",
+    "SYSTEM\\*ControlSet*\\Services\\vmicrdv",
+    "SYSTEM\\*ControlSet*\\Services\\vmicshutdown",
+    "SYSTEM\\*ControlSet*\\Services\\vmicvmsession",
+    "SYSTEM\\*ControlSet*\\Services\\vmicvss",
+    "SYSTEM\\*ControlSet*\\Services\\vmvss",
+    "SYSTEM\\*ControlSet*\\Services\\VSS",
+    "SYSTEM\\*ControlSet*\\Services\\w3logsvc",
+    "SYSTEM\\*ControlSet*\\Services\\W3SVC",
+    "SYSTEM\\*ControlSet*\\Services\\WalletService",
+    "SYSTEM\\*ControlSet*\\Services\\WAS",
+    "SYSTEM\\*ControlSet*\\Services\\wercplsupport",
+    "SYSTEM\\*ControlSet*\\Services\\WerSvc",
+    "SYSTEM\\*ControlSet*\\Services\\Winmgmt",
+    "SYSTEM\\*ControlSet*\\Services\\wisvc",
+    "SYSTEM\\*ControlSet*\\Services\\wmiApSrv",
+    "SYSTEM\\*ControlSet*\\Services\\WPDBusEnum",
+    "SYSTEM\\*ControlSet*\\Services\\WSearch"
+  ) and
+  not (
+    registry.data.strings : (
+        "C:\\system32\\*.exe",
+        "%systemroot%\\system32\\*.exe",
+        "%windir%\\system32\\*.exe",
+        "%SystemRoot%\\system32\\svchost.exe -k *",
+        "%windir%\\system32\\svchost.exe -k *"
+    ) and
+        not registry.data.strings : (
+            "*\\cmd.exe",
+            "*\\cscript.exe",
+            "*\\ieexec.exe",
+            "*\\iexpress.exe",
+            "*\\installutil.exe",
+            "*\\Microsoft.Workflow.Compiler.exe",
+            "*\\msbuild.exe",
+            "*\\mshta.exe",
+            "*\\msiexec.exe",
+            "*\\msxsl.exe",
+            "*\\powershell.exe",
+            "*\\pwsh.exe",
+            "*\\reg.exe",
+            "*\\RegAsm.exe",
+            "*\\RegSvcs.exe",
+            "*\\regsvr32.exe",
+            "*\\rundll32.exe",
+            "*\\vssadmin.exe",
+            "*\\wbadmin.exe",
+            "*\\wmic.exe",
+            "*\\wscript.exe"
+        )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.011"
+name = "Services Registry Permissions Weakness"
+reference = "https://attack.mitre.org/techniques/T1574/011/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1569"
+name = "System Services"
+reference = "https://attack.mitre.org/techniques/T1569/"
+[[rule.threat.technique.subtechnique]]
+id = "T1569.002"
+name = "Service Execution"
+reference = "https://attack.mitre.org/techniques/T1569/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
