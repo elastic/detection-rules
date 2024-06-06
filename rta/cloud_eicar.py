@@ -8,26 +8,29 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="631a211d-bdaa-4b9d-a786-31d84d7bc070",
+    uuid="8d6f2979-747a-42d9-813a-ddadd90650d2",
     platforms=["linux"],
     endpoint=[
-        {"rule_id": "31da6564-b3d3-4fc8-9a96-75ad0b364363", "rule_name": "Tampering of Bash Command-Line History"},
+        {
+            "rule_id": "7b9ddfc8-8ea8-45d5-b62f-3fbd142c8f08",
+            "rule_name": "Behavior Protection - Cloud Reputation EICAR",
+        },
     ],
     siem=[],
-    techniques=["T1070", "T1070.003"],
+    techniques=["TA0002"],
 )
 
 
-@common.requires_os(*metadata.platforms)
+@common.requires_os(metadata.platforms)
 def main() -> None:
-    masquerade = "/tmp/history"
+    masquerade = "/tmp/bash"
     source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
 
     # Execute command
-    common.log("Launching fake builtin commands for tampering of bash command line history")
-    command = "-c"
-    common.execute([masquerade, command], timeout=10, kill=True, shell=True)  # noqa: S604
+    common.log("Launching Behavior Protection - Cloud Reputation EICAR")
+    common.execute([masquerade, "test-cloudreputationrule-5020a0031cad"], timeout=10, kill=True)
+
     # cleanup
     common.remove_file(masquerade)
 

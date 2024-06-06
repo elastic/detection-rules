@@ -4,9 +4,10 @@
 # 2.0.
 
 import os
-from . import common
 import pathlib
-from . import RtaMetadata
+import sys
+
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="c69a06f3-3873-4d5d-8584-035e0921b4a8",
@@ -15,7 +16,7 @@ metadata = RtaMetadata(
         {
             "rule_id": "15019d7c-42e6-4cf7-88b0-0c3a6963e6f5",
             "rule_name": "Suspicious Recursive File Deletion via Built-In Utilities",
-        }
+        },
     ],
     siem=[],
     techniques=["T1565", "T1485"],
@@ -23,14 +24,14 @@ metadata = RtaMetadata(
 
 
 @common.requires_os(*metadata.platforms)
-def main():
-
+def main() -> None:
     masquerade = "/tmp/xargs"
     masquerade2 = "/tmp/rm"
     # used only for linux at 2 places to enumerate xargs as parent process.
     working_dir = "/tmp/fake_folder/xargs"
     if common.CURRENT_OS == "linux":
-        source = common.get_path("bin", "linux.ditto_and_spawn")
+        # Using the Linux binary that simulates parent-> child process in Linux
+        source = common.get_path("bin", "linux_ditto_and_spawn_parent_child")
         common.copy_file(source, masquerade)
         common.copy_file(source, masquerade2)
         # As opposed to macos, where the masquerade is being projected as parent process,
@@ -47,7 +48,7 @@ def main():
     # Execute command
     common.log("Launching fake builtin commands to recursively delete")
     command = f"{masquerade2} -rf arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 /home/test"
-    common.execute([masquerade, "childprocess", command], timeout=10, kill=True, shell=True)
+    common.execute([masquerade, "childprocess", command], timeout=10, kill=True, shell=True)  # noqa: S604
 
     # cleanup
     common.remove_file(masquerade)
@@ -57,4 +58,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

