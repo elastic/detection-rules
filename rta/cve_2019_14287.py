@@ -8,26 +8,34 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="631a211d-bdaa-4b9d-a786-31d84d7bc070",
+    uuid="df91f5f2-a0a0-47e8-848b-d01526a43d60",
     platforms=["linux"],
     endpoint=[
-        {"rule_id": "31da6564-b3d3-4fc8-9a96-75ad0b364363", "rule_name": "Tampering of Bash Command-Line History"},
+        {
+            "rule_name": "Potential Sudo Privilege Escalation via CVE-2019-14287",
+            "rule_id": "b382c343-892d-46e1-8fad-22576a086598",
+        },
     ],
-    siem=[],
-    techniques=["T1070", "T1070.003"],
+    siem=[
+        {
+            "rule_name": "Potential Sudo Privilege Escalation via CVE-2019-14287",
+            "rule_id": "8af5b42f-8d74-48c8-a8d0-6d14b4197288",
+        },
+    ],
+    techniques=["T1068"],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
-    masquerade = "/tmp/history"
+    masquerade = "/tmp/sudo"
     source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
 
     # Execute command
-    common.log("Launching fake builtin commands for tampering of bash command line history")
-    command = "-c"
-    common.execute([masquerade, command], timeout=10, kill=True, shell=True)  # noqa: S604
+    common.log("Launching fake sudo command to simulate CVE-2019-14287")
+    common.execute([masquerade, "-u#-1"], timeout=5, kill=True)
+
     # cleanup
     common.remove_file(masquerade)
 
