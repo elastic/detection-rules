@@ -2,9 +2,7 @@
 creation_date = "2023/10/05"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Linux environment variable capture feature via the Elastic Defend Integration was added in 8.6."
-min_stack_version = "8.6.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +15,9 @@ index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via CVE-2023-4911"
-references = ["https://blog.qualys.com/vulnerabilities-threat-research/2023/10/03/cve-2023-4911-looney-tunables-local-privilege-escalation-in-the-glibcs-ld-so"]
+references = [
+    "https://blog.qualys.com/vulnerabilities-threat-research/2023/10/03/cve-2023-4911-looney-tunables-local-privilege-escalation-in-the-glibcs-ld-so",
+]
 risk_score = 73
 rule_id = "6d8685a1-94fa-4ef7-83de-59302e7c4ca8"
 setup = """## Setup
@@ -60,29 +60,32 @@ For more information on capturing environment variables refer to the [helper gui
 """
 severity = "high"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Privilege Escalation",
-        "Use Case: Vulnerability",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.parent.entity_id, process.executable with maxspan=5s
  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
   process.env_vars : "*GLIBC_TUNABLES=glibc.*=glibc.*=*"] with runs=5
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

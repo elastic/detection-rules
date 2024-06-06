@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/01/17"
-integration = ["windows", "endpoint"]
+integration = ["windows", "endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+min_stack_comments = "SentinelOne integration package minimum version for validation."
+min_stack_version = "8.11.0"
+updated_date = "2024/05/16"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,7 @@ Identifies the creation of the Antimalware Scan Interface (AMSI) DLL in an unusu
 attempt to bypass AMSI by loading a rogue AMSI module instead of the legit one.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Antimalware Scan Interface DLL"
@@ -103,7 +103,8 @@ tags = [
     "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
-    "Data Source: Sysmon"
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne"
 ]
 timestamp_override = "event.ingested"
 type = "eql"

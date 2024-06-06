@@ -2,16 +2,14 @@
 creation_date = "2023/08/30"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/20"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the usage of the sudo -l command, which is used to list the allowed and forbidden commands for 
-the invoking user. Attackers may execute this command to enumerate commands allowed to be executed with sudo permissions,
-potentially allowing to escalate privileges to root. 
+This rule monitors for the usage of the sudo -l command, which is used to list the allowed and forbidden commands for
+the invoking user. Attackers may execute this command to enumerate commands allowed to be executed with sudo
+permissions, potentially allowing to escalate privileges to root.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -47,14 +45,15 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
 process.name == "sudo" and process.args == "-l" and process.args_count == 2 and
@@ -62,15 +61,17 @@ process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish
 not group.Ext.real.id : "0" and not user.Ext.real.id : "0" and not process.args == "dpkg"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1033"
 name = "System Owner/User Discovery"
 reference = "https://attack.mitre.org/techniques/T1033/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+

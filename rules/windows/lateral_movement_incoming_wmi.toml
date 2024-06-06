@@ -2,9 +2,7 @@
 creation_date = "2020/11/15"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -13,14 +11,26 @@ Identifies processes executed via Windows Management Instrumentation (WMI) on a 
 adversary lateral movement, but could be noisy if administrators use WMI to remotely manage hosts.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "logs-endpoint.events.network-*", "winlogbeat-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-endpoint.events.network-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "WMI Incoming Lateral Movement"
 risk_score = 47
 rule_id = "f3475224-b179-4f78-8877-c2bd64c26b88"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 type = "eql"
 
 query = '''
@@ -51,11 +61,11 @@ sequence by host.id with maxspan = 2s
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
+
 
 [rule.threat.tactic]
 id = "TA0008"
