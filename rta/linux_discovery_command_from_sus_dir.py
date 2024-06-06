@@ -17,7 +17,6 @@ metadata = RtaMetadata(
             "rule_id": "c932c9f0-76ed-4d78-a242-cfaade43080c",
         },
     ],
-    siem=[],
     techniques=["T1059", "T1033"],
 )
 
