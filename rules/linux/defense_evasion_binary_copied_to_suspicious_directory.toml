@@ -2,21 +2,22 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the copying or moving of a system binary to a suspicious directory. Adversaries may copy/move and
-rename system binaries to evade detection. Copying a system binary to a different location should not occur often, so if
-it does, the activity should be investigated.
+This rule monitors for the copying or moving of a system binary. Adversaries may copy/move and rename system binaries
+to evade detection. Copying a system binary to a different location should not occur often, so if it does, the
+activity should be investigated.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
-name = "System Binary Copied and/or Moved to Suspicious Directory"
-risk_score = 21
+name = "System Binary Moved or Copied"
+references = ["https://intezer.com/blog/research/kaiji-new-chinese-linux-malware-turning-to-golang/"]
+risk_score = 47
 rule_id = "fda1d332-5e08-4f27-8a9b-8c802e3292a6"
 setup = """## Setup
 
@@ -43,7 +44,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -51,59 +52,58 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
 ]
+timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-sequence by host.id, process.entity_id with maxspan=1s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
-   process.name in ("cp", "mv") and process.args : (
-   // Shells
-   "/bin/*sh", "/usr/bin/*sh", 
-
-   // Interpreters
-   "/bin/python*", "/usr/bin/python*", "/bin/php*", "/usr/bin/php*", "/bin/ruby*", "/usr/bin/ruby*", "/bin/perl*",
-   "/usr/bin/perl*", "/bin/lua*", "/usr/bin/lua*", "/bin/java*", "/usr/bin/java*", 
-
-   // Compilers
-   "/bin/gcc*", "/usr/bin/gcc*", "/bin/g++*", "/usr/bin/g++*", "/bin/cc", "/usr/bin/cc",
-
-   // Suspicious utilities
-   "/bin/nc", "/usr/bin/nc", "/bin/ncat", "/usr/bin/ncat", "/bin/netcat", "/usr/bin/netcat", "/bin/nc.openbsd",
-   "/usr/bin/nc.openbsd", "/bin/*awk", "/usr/bin/*awk", "/bin/socat", "/usr/bin/socat", "/bin/openssl",
-   "/usr/bin/openssl", "/bin/telnet", "/usr/bin/telnet", "/bin/mkfifo", "/usr/bin/mkfifo", "/bin/mknod",
-   "/usr/bin/mknod", "/bin/ping*", "/usr/bin/ping*", "/bin/nmap", "/usr/bin/nmap",
-
-   // System utilities
-   "/bin/ls", "/usr/bin/ls", "/bin/cat", "/usr/bin/cat", "/bin/sudo", "/usr/bin/sudo", "/bin/curl", "/usr/bin/curl",
-   "/bin/wget", "/usr/bin/wget", "/bin/tmux", "/usr/bin/tmux", "/bin/screen", "/usr/bin/screen", "/bin/ssh",
-   "/usr/bin/ssh", "/bin/ftp", "/usr/bin/ftp"
-  ) and not process.parent.name in ("dracut-install", "apticron", "generate-from-dir", "platform-python")]
-  [file where host.os.type == "linux" and event.action == "creation" and file.path : (
-    "/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*"
-  ) and not file.path : ("/tmp/rear*", "/var/tmp/rear*", "/var/tmp/dracut*", "/var/tmp/mkinitramfs*")]
+file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and
+file.Ext.original.path : (
+  "/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*"
+) and not (
+  process.executable in (
+    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
+    "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
+    "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
+    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
+    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
+    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
+    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
+    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/libexec/netplan/generate",
+    "/usr/bin/update-alternatives", "/bin/update-alternatives", "/usr/sbin/update-alternatives",
+    "/sbin/update-alternatives", "/usr/bin/pip3", "/bin/pip3", "/usr/local/bin/pip3", "/usr/local/bin/node",
+    "/bin/node", "/usr/bin/node", "/sbin/apk", "/usr/sbin/apk", "/usr/local/sbin/apk", "/usr/bin/pip", "/bin/pip",
+    "/usr/local/bin/pip"
+  ) or
+  file.Ext.original.path : (
+    "/bin/*.tmp", "/usr/bin/*.tmp", "/usr/local/bin/*.tmp", "/sbin/*.tmp", "/usr/sbin/*.tmp", "/usr/local/sbin/*.tmp"
+  ) or
+  file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
+  file.Ext.original.extension == "dpkg-new" or
+  process.executable : ("/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*") or
+  process.executable == null or
+  (process.name == "sed" and file.name : "sed*") or
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1036.003"
 name = "Rename System Utilities"
 reference = "https://attack.mitre.org/techniques/T1036/003/"
-
 
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
