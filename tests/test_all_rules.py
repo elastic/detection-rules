@@ -26,10 +26,10 @@ from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryValidator,
                                   ThresholdAlertSuppression, TOMLRuleContents)
-from detection_rules.rule_loader import FILE_PATTERN
+from detection_rules.rule_loader import FILE_PATTERN, RuleCollection
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -546,6 +546,31 @@ class TestRuleFiles(BaseRuleTest):
                 # Is the rule of type BBR and not in the correct directory
                 self.assertEqual(rule.contents.data.building_block_type, None,
                                  f'{self.rule_str(rule)} should be in {proper_directory}')
+    
+    def test_rule_change_has_updated_date(self):
+        """Test to ensure modified rules have updated_date field updated."""
+
+        rules_path = get_path("rules")
+        rules__bbr_path = get_path("rules_building_block")
+
+        # Use git diff to check if the file(s) has been modified in rules/ directory ignoring rules/_deprecated
+        detection_rules_git = make_git()
+        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only",rules_path, rules__bbr_path)
+
+        # If the output is not empty, then file(s) have changed in the directory(s)
+        if result:
+            rules = result.splitlines()
+            rc = RuleCollection()
+            failed_rules = []
+            for rule_path in rules:
+                rule = rc.load_file(Path(rule_path))
+                last_commit_date = detection_rules_git('log', '-1', '--format=%cd', '--date=short', rule_path)
+                if rule.contents.metadata.updated_date < last_commit_date.replace('-', '/'):
+                    # Rule has been modified but updated_date has not been changed, add to list
+                    failed_rules.append(rule_path)
+
+            if failed_rules:
+                self.fail(f'Rules {failed_rules} has been modified but updated_date has not been updated')
 
 
 class TestRuleMetadata(BaseRuleTest):
