@@ -29,17 +29,7 @@ def get_custom_schemas(stack_version: str) -> dict:
                 schema_path = RULES_CONFIG.stack_schema_map_file.parent / value
             if schema_path.is_file():
                 custom_schema_dump.update(eql.utils.load_dump(str(schema_path)))
-            elif schema_path.is_dir():
-                custom_schema_dump.update(load_schemas_from_dir(schema_path))
+            else:
+                raise ValueError(f"Custom schema must be a file: {schema_path}")
 
     return custom_schema_dump
-
-
-def load_schemas_from_dir(schema_dir: Path) -> dict:
-    """Load all schemas from a directory."""
-    schemas_dump = {}
-    for file_path in schema_dir.iterdir():
-        if file_path.is_file() and file_path.suffix == ".json":
-            schemas_dump.update(eql.utils.load_dump(str(file_path)))
-
-    return schemas_dump
