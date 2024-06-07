@@ -16,6 +16,8 @@ import requests
 from semver import Version
 import yaml
 
+from .config import parse_rules_config
+from .custom_schemas import get_custom_schemas
 from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
                     load_etc_dump, read_gzip, unzip)
 
@@ -23,6 +25,7 @@ ECS_NAME = "ecs_schemas"
 ECS_SCHEMAS_DIR = get_etc_path(ECS_NAME)
 ENDPOINT_NAME = "endpoint_schemas"
 ENDPOINT_SCHEMAS_DIR = get_etc_path(ENDPOINT_NAME)
+RULES_CONFIG = parse_rules_config()
 
 
 def add_field(schema, name, info):
@@ -145,6 +148,11 @@ def flatten(schema):
 def get_non_ecs_schema():
     """Load non-ecs schema."""
     return load_etc_dump('non-ecs-schema.json')
+
+
+@cached
+def get_custom_index_schema(index_name: str, stack_version: str):
+    return get_custom_schemas(stack_version).get(index_name, {})
 
 
 @cached
