@@ -8,26 +8,25 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="631a211d-bdaa-4b9d-a786-31d84d7bc070",
+    uuid="425ba45e-10eb-4067-93f4-95701d26da3d",
     platforms=["linux"],
-    endpoint=[
-        {"rule_id": "31da6564-b3d3-4fc8-9a96-75ad0b364363", "rule_name": "Tampering of Bash Command-Line History"},
-    ],
+    endpoint=[{"rule_id": "fbf9342e-3d1e-4fba-a828-92fa0fb4d21b", "rule_name": "Suspicious Mining Process Events"}],
     siem=[],
-    techniques=["T1070", "T1070.003"],
+    techniques=["T1059", "T1059.004"],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
-    masquerade = "/tmp/history"
+    masquerade = "/tmp/systemctl"
     source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
 
     # Execute command
-    common.log("Launching fake builtin commands for tampering of bash command line history")
-    command = "-c"
-    common.execute([masquerade, command], timeout=10, kill=True, shell=True)  # noqa: S604
+    common.log("Launching fake builtin commands for disabling common mining services by name")
+    command = "start"
+    command1 = "apache4.service"
+    common.execute([masquerade, command, command1], timeout=10, kill=True, shell=True)  # noqa: S604
     # cleanup
     common.remove_file(masquerade)
 
