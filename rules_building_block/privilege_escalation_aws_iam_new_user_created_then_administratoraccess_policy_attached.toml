@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2024/06/07"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
+min_stack_version = "8.9.0"
+updated_date = "2024/06/07"
+bypass_bbr_timing = true
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by
+creating a new user and attaching permissions. This rule looks for use of the IAM `AttachUserPolicy` API operation
+to attach the highly permissive `AdministratorAccess` AWS managed policy to a newly created IAM user. This is a [building block
+rule](https://www.elastic.co/guide/en/security/current/building-block-rule.html) that does not generate an alert on its own. 
+It is meant to be used as a signal to trigger the related rule : "AWS IAM AdministratorAccess Policy Attached to New User" - "2c0e450c-527e-4149-b810-4fc9ab29ae65". 
+This rule captures when the `AttachUserPolicy` event is ingested after the `CreateUser` user event as expected.
+"""
+false_positives = [
+    """
+    Legitimate user management activity can trigger this signal. Ensure that the changes are authorized and align
+    with your organization's policies.
+    """,
+]
+from = "now-10m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM New User Created then AdministratorAccess Policy Attached"
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_AttachUserPolicy.html",
+    "https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AdministratorAccess.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateUser.html",
+]
+risk_score = 47
+rule_id = "58febb7b-f589-43b3-9110-14756abe0aad"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+sequence by user.target.name with maxspan=10m
+[iam where event.provider == "iam.amazonaws.com" and event.action == "CreateUser" and event.outcome == "success"]
+[iam where event.provider == "iam.amazonaws.com" and event.action == "AttachUserPolicy" and event.outcome == "success" and stringContains(aws.cloudtrail.request_parameters, "policy/AdministratorAccess")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
