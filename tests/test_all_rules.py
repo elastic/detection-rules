@@ -547,16 +547,19 @@ class TestRuleFiles(BaseRuleTest):
                 # Is the rule of type BBR and not in the correct directory
                 self.assertEqual(rule.contents.data.building_block_type, None,
                                  f'{self.rule_str(rule)} should be in {proper_directory}')
-    
+
     def test_rule_change_has_updated_date(self):
         """Test to ensure modified rules have updated_date field updated."""
 
         rules_path = get_path("rules")
         rules__bbr_path = get_path("rules_building_block")
 
-        # Use git diff to check if the file(s) has been modified in rules/ directory ignoring rules/_deprecated
+        # Use git diff to check if the file(s) has been modified in rules/ directory
+        # For now this checks even rules/_deprecated but we may combine
+        # with a test case for deprecated rules modification
         detection_rules_git = make_git()
-        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only",rules_path, rules__bbr_path)
+        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only",
+                                     rules_path, rules__bbr_path)
 
         # If the output is not empty, then file(s) have changed in the directory(s)
         if result:
