@@ -85,10 +85,21 @@ def dev_group():
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
 @click.option('--generate-docs', is_flag=True, default=False, help='Generate markdown documentation')
 @click.option('--update-message', type=str, help='Update message for new package')
-def build_release(config_file, update_version_lock: bool, generate_navigator: bool, generate_docs: str,
-                  update_message: str, release=None, verbose=True):
+@click.pass_context
+def build_release(ctx: click.Context, config_file, update_version_lock: bool, generate_navigator: bool,
+                  generate_docs: str, update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
-    config = load_dump(str(config_file))['package']
+    if RULES_CONFIG.bypass_version_lock:
+        click.echo('WARNING: You cannot run this command when the versioning strategy is configured to bypass the '
+                   'version lock. Set `bypass_version_lock` to `False` in the rules config to use the version lock.')
+        ctx.exit()
+
+    config = load_dump(config_file)['package']
+
+    err_msg = f'No `registry_data` in package config. Please see the {get_etc_path("package.yaml")} file for an' \
+              f' example on how to supply this field in {PACKAGE_FILE}.'
+    assert 'registry_data' in config, err_msg
+
     registry_data = config['registry_data']
 
     if generate_navigator:
@@ -104,6 +115,7 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
 
     if update_version_lock:
         loaded_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
+
     package.save(verbose=verbose)
 
     previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga",
@@ -335,8 +347,9 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
 
 @dev_group.command('update-lock-versions')
 @click.argument('rule-ids', nargs=-1, required=False)
+@click.pass_context
 @click.option('--force', is_flag=True, help='Force update without confirmation')
-def update_lock_versions(rule_ids: Tuple[str, ...], force: bool):
+def update_lock_versions(ctx: click.Context, rule_ids: Tuple[str, ...], force: bool):
     """Update rule hashes in version.lock.json file without bumping version."""
     rules = RuleCollection.default()
 
@@ -349,6 +362,11 @@ def update_lock_versions(rule_ids: Tuple[str, ...], force: bool):
         f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'
     ):
         return
+
+    if RULES_CONFIG.bypass_version_lock:
+        click.echo('WARNING: You cannot run this command when the versioning strategy is configured to bypass the '
+                   'version lock. Set `bypass_version_lock` to `False` in the rules config to use the version lock.')
+        ctx.exit()
 
     # this command may not function as expected anymore due to previous changes eliminating the use of add_new=False
     changed, new, _ = loaded_version_lock.manage_versions(rules, exclude_version_update=True, save_changes=True)
@@ -721,21 +739,23 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 
 @dev_group.command('deprecate-rule')
 @click.argument('rule-file', type=Path)
+@click.option('--deprecation-folder', '-d', type=Path, required=True,
+              help='Location to move the deprecated rule file to')
 @click.pass_context
-def deprecate_rule(ctx: click.Context, rule_file: Path):
+def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path):
     """Deprecate a rule."""
     version_info = loaded_version_lock.version_lock
     rule_collection = RuleCollection()
     contents = rule_collection.load_file(rule_file).contents
     rule = TOMLRule(path=rule_file, contents=contents)
 
-    if rule.contents.id not in version_info:
+    if rule.contents.id not in version_info and not RULES_CONFIG.bypass_version_lock:
         click.echo('Rule has not been version locked and so does not need to be deprecated. '
-                   'Delete the file or update the maturity to `development` instead')
+                   'Delete the file or update the maturity to `development` instead.')
         ctx.exit()
 
     today = time.strftime('%Y/%m/%d')
-    deprecated_path = rule.get_base_rule_dir() / '_deprecated' / rule_file.name
+    deprecated_path = deprecation_folder / rule_file.name
 
     # create the new rule and save it
     new_meta = dataclasses.replace(rule.contents.metadata,
@@ -744,6 +764,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
                                    maturity='deprecated')
     contents = dataclasses.replace(rule.contents, metadata=new_meta)
     new_rule = TOMLRule(contents=contents, path=deprecated_path)
+    deprecated_path.parent.mkdir(parents=True, exist_ok=True)
     new_rule.save_toml()
 
     # remove the old rule
@@ -817,13 +838,19 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 @click.argument('stack_version')
 @click.option('--skip-rule-updates', is_flag=True, help='Skip updating the rules')
 @click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
-def trim_version_lock(stack_version: str, skip_rule_updates: bool, dry_run: bool):
+@click.pass_context
+def trim_version_lock(ctx: click.Context, stack_version: str, skip_rule_updates: bool, dry_run: bool):
     """Trim all previous entries within the version lock file which are lower than the min_version."""
     stack_versions = get_stack_versions()
     assert stack_version in stack_versions, \
         f'Unknown min_version ({stack_version}), expected: {", ".join(stack_versions)}'
 
     min_version = Version.parse(stack_version)
+
+    if RULES_CONFIG.bypass_version_lock:
+        click.echo('WARNING: Cannot trim the version lock when the versioning strategy is configured to bypass the '
+                   'version lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock.')
+        ctx.exit()
     version_lock_dict = loaded_version_lock.version_lock.to_dict()
     removed = defaultdict(list)
     rule_msv_drops = []

@@ -566,6 +566,7 @@ class TestRuleMetadata(BaseRuleTest):
             err_msg = f'The following rules have an updated_date older than the creation_date\n {rules_str}'
             self.fail(err_msg)
 
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Skipping deprecated version lock check")
     def test_deprecated_rules(self):
         """Test that deprecated rules are properly handled."""
         versions = loaded_version_lock.version_lock
@@ -1091,7 +1092,7 @@ class TestRuleTiming(BaseRuleTest):
 
 class TestLicense(BaseRuleTest):
     """Test rule license."""
-
+    @unittest.skipIf(os.environ.get('CUSTOM_RULES_DIR'), 'Skipping test for custom rules.')
     def test_elastic_license_only_v2(self):
         """Test to ensure that production rules with the elastic license are only v2."""
         for rule in self.all_rules:

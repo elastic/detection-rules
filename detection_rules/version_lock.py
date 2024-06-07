@@ -123,7 +123,15 @@ class VersionLock:
 
     def __init__(self, version_lock_file: Optional[Path] = None, deprecated_lock_file: Optional[Path] = None,
                  version_lock: Optional[dict] = None, deprecated_lock: Optional[dict] = None,
-                 name: Optional[str] = None):
+                 name: Optional[str] = None, invalidated: Optional[bool] = False):
+
+        if invalidated:
+            err_msg = "This VersionLock configuration is not valid when configued to bypass_version_lock."
+            raise NotImplementedError(err_msg)
+
+        assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
+        assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
+
         assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
         assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
 
@@ -181,7 +189,7 @@ class VersionLock:
 
         already_deprecated = set(current_deprecated_lock)
         deprecated_rules = set(rules.deprecated.id_map)
-        new_rules = set(rule.id for rule in rules if rule.contents.latest_version is None) - deprecated_rules
+        new_rules = set(rule.id for rule in rules if rule.contents.saved_version is None) - deprecated_rules
         changed_rules = set(rule.id for rule in rules if rule.contents.is_dirty) - deprecated_rules
 
         # manage deprecated rules

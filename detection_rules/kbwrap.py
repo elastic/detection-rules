@@ -111,9 +111,10 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @click.option('--directory', '-d', required=True, type=Path, help='Directory to export rules to')
 @click.option('--rule-id', '-r', multiple=True, help='Optional Rule IDs to restrict export to')
 @click.option('--skip-errors', '-s', is_flag=True, help='Skip errors when exporting rules')
+@click.option('--strip-version', '-sv', is_flag=True, help='Strip the version fields from all rules')
 @click.pass_context
-def kibana_export_rules(ctx: click.Context, directory: Path,
-                        rule_id: Optional[Iterable[str]] = None, skip_errors: bool = False) -> List[TOMLRule]:
+def kibana_export_rules(ctx: click.Context, directory: Path, rule_id: Optional[Iterable[str]] = None,
+                        skip_errors: bool = False, strip_version: bool = False) -> List[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj['kibana']
     with kibana:
@@ -126,6 +127,10 @@ def kibana_export_rules(ctx: click.Context, directory: Path,
     exported = []
     for rule_resource in results:
         try:
+            if strip_version:
+                rule_resource.pop('revision', None)
+                rule_resource.pop('version', None)
+
             contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity='production')
             threat = contents.data.get('threat')
             first_tactic = threat[0].tactic.name if threat else ''

@@ -187,6 +187,7 @@ class RulesConfig:
 
     action_dir: Optional[Path] = None
     bbr_rules_dirs: Optional[List[Path]] = field(default_factory=list)
+    bypass_version_lock: bool = False
     exception_dir: Optional[Path] = None
 
     def __post_init__(self):
@@ -261,6 +262,9 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     # rule_dirs
     # paths are relative
     contents['rule_dirs'] = [base_dir.joinpath(d).resolve() for d in loaded.get('rule_dirs')]
+
+    # version strategy
+    contents['bypass_version_lock'] = loaded.get('bypass_version_lock', False)
 
     # bbr_rules_dirs
     # paths are relative

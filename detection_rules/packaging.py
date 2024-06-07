@@ -92,11 +92,12 @@ class Package(object):
         self.historical = historical
 
         if min_version is not None:
-            self.rules = self.rules.filter(lambda r: min_version <= r.contents.latest_version)
+            self.rules = self.rules.filter(lambda r: min_version <= r.contents.saved_version)
 
         if max_version is not None:
-            self.rules = self.rules.filter(lambda r: max_version >= r.contents.latest_version)
+            self.rules = self.rules.filter(lambda r: max_version >= r.contents.saved_version)
 
+        assert not RULES_CONFIG.bypass_version_lock, "Packaging can not be used when version locking is bypassed."
         self.changed_ids, self.new_ids, self.removed_ids = \
             loaded_version_lock.manage_versions(self.rules, verbose=verbose, save_changes=False)
 

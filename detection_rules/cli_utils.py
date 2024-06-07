@@ -5,6 +5,7 @@
 
 import copy
 import datetime
+import functools
 import os
 import typing
 from pathlib import Path
@@ -13,13 +14,12 @@ from typing import List, Optional
 import click
 
 import kql
-import functools
+
 from . import ecs
-from .attack import matrix, tactics, build_threat_map_entry
-from .rule import TOMLRule, TOMLRuleContents
-from .rule_loader import (RuleCollection,
-                          DEFAULT_PREBUILT_RULES_DIRS,
-                          DEFAULT_PREBUILT_BBR_DIRS,
+from .attack import build_threat_map_entry, matrix, tactics
+from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents
+from .rule_loader import (DEFAULT_PREBUILT_BBR_DIRS,
+                          DEFAULT_PREBUILT_RULES_DIRS, RuleCollection,
                           dict_filter)
 from .schemas import definitions
 from .utils import clear_caches
@@ -132,8 +132,8 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             contents[name] = rule_type
             continue
 
-        # these are set at package release time
-        if name == 'version':
+        # these are set at package release time depending on the version strategy
+        if (name == 'version' or name == 'revision') and not BYPASS_VERSION_LOCK:
             continue
 
         if required_only and name not in required_fields:

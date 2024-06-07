@@ -475,6 +475,8 @@ python -m detection_rules kibana import-rules -d test-export-rules -o
 
 ### Exporting rules
 
+This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way proper validation is applied to versioning when the rules are downloaded. See the [custom rules docs](docs/custom-rules.md) for more information.
+
 Example of a rule exporting, with errors skipped
 
 ```

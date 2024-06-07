@@ -45,6 +45,7 @@ TIME_NOW = time.strftime('%Y/%m/%d')
 RULES_CONFIG = parse_rules_config()
 DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
 DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_rules_dirs
+BYPASS_VERSION_LOCK = RULES_CONFIG.bypass_version_lock
 
 
 BUILD_FIELD_VERSIONS = {
@@ -363,6 +364,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     references: Optional[List[str]]
     related_integrations: Optional[List[RelatedIntegrations]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     required_fields: Optional[List[RequiredFields]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
+    revision: Optional[int] = field(metadata=dict(metadata=dict(min_compat="8.8")))
     risk_score: definitions.RiskScore
     risk_score_mapping: Optional[List[RiskScoreMapping]]
     rule_id: definitions.UUIDString
@@ -378,6 +380,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     to: Optional[str]
     type: definitions.RuleType
     threat: Optional[List[ThreatMapping]]
+    version: Optional[definitions.PositiveInteger]
 
     @classmethod
     def save_schema(cls):
@@ -456,6 +459,22 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             process_note_plugins()
 
         return obj
+
+    @validates_schema
+    def validates_data(self, data, **kwargs):
+        """Validate fields and data for marshmallow schemas."""
+
+        # Validate version and revision fields not supplied for Elastic authored rules.
+        disallowed_fields = [field for field in ['version', 'revision'] if data.get(field) is not None]
+        if not disallowed_fields:
+            return
+
+        error_message = " and ".join(disallowed_fields)
+
+        if BYPASS_VERSION_LOCK is not True:
+            msg = (f"Configuration error: Rule {data['name']} - {data['rule_id']} "
+                   f"should not contain rules with `{error_message}` set.")
+            raise ValidationError(msg)
 
 
 class DataValidator:
@@ -918,7 +937,7 @@ class BaseRuleContents(ABC):
         pass
 
     def lock_info(self, bump=True) -> dict:
-        version = self.autobumped_version if bump else (self.latest_version or 1)
+        version = self.autobumped_version if bump else (self.saved_version or 1)
         contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version, "type": self.type}
 
         return contents
@@ -965,19 +984,42 @@ class BaseRuleContents(ABC):
             return max_allowable_version - current_version - 1
 
     @property
-    def latest_version(self) -> Optional[int]:
-        """Retrieve the latest known version of the rule."""
-        min_stack = self.get_supported_version()
-        return self.version_lock.get_locked_version(self.id, min_stack)
+    def saved_version(self) -> Optional[int]:
+        """Retrieve the version from the version.lock or from the file if version locking is bypassed."""
+        toml_version = self.data.get("version")
+
+        if BYPASS_VERSION_LOCK:
+            return toml_version
+
+        if toml_version:
+            print(f"WARNING: Rule {self.name} - {self.id} has a version set in the rule TOML."
+                  " This `version` will be ignored and defaulted to the version.lock.json file."
+                  " Set `bypass_version_lock` to `True` in the rules config to use the TOML version.")
+
+        return self.version_lock.get_locked_version(self.id, self.get_supported_version())
 
     @property
     def autobumped_version(self) -> Optional[int]:
         """Retrieve the current version of the rule, accounting for automatic increments."""
-        version = self.latest_version
+        version = self.saved_version
+
+        if BYPASS_VERSION_LOCK:
+            raise NotImplementedError("This method is not implemented when version locking is not in use.")
+
+        # Default to version 1 if no version is set yet
         if version is None:
             return 1
 
+        # Auto-increment version if the rule is 'dirty' and not bypassing version lock
         return version + 1 if self.is_dirty else version
+
+    def get_synthetic_version(self, use_default: bool) -> Optional[int]:
+        """
+        Get the latest actual representation of a rule's version, where changes are accounted for automatically when
+        version locking is used, otherwise, return the version defined in the rule toml if present else optionally
+        default to 1.
+        """
+        return self.autobumped_version or self.saved_version or (1 if use_default else None)
 
     @classmethod
     def convert_supported_version(cls, stack_version: Optional[str]) -> Version:
@@ -1028,10 +1070,19 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # VersionLock
         from .version_lock import loaded_version_lock
 
+        if RULES_CONFIG.bypass_version_lock is True:
+            err_msg = "Cannot access the version lock when the versioning strategy is configured to bypass the" \
+                      " version lock. Set `bypass_version_lock` to `false` in the rules config to use the version lock."
+            raise ValueError(err_msg)
+
         return getattr(self, '_version_lock', None) or loaded_version_lock
 
     def set_version_lock(self, value):
         from .version_lock import VersionLock
+
+        err_msg = "Cannot set the version lock when the versioning strategy is configured to bypass the version lock." \
+                  " Set `bypass_version_lock` to `false` in the rules config to use the version lock."
+        assert not RULES_CONFIG.bypass_version_lock, err_msg
 
         if value and not isinstance(value, VersionLock):
             raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
@@ -1272,7 +1323,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         flattened.update(self.metadata.to_dict())
         return flattened
 
-    def to_api_format(self, include_version: bool = True, include_metadata: bool = False) -> dict:
+    def to_api_format(self, include_version: bool = not BYPASS_VERSION_LOCK, include_metadata: bool = False) -> dict:
         """Convert the TOML rule to the API format."""
         rule_dict = self.to_dict()
         converted_data = rule_dict['rule']
@@ -1361,6 +1412,10 @@ class DeprecatedRuleContents(BaseRuleContents):
     def set_version_lock(self, value):
         from .version_lock import VersionLock
 
+        err_msg = "Cannot set the version lock when the versioning strategy is configured to bypass the version lock." \
+                  " Set `bypass_version_lock` to `false` in the rules config to use the version lock."
+        assert not RULES_CONFIG.bypass_version_lock, err_msg
+
         if value and not isinstance(value, VersionLock):
             raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
 
@@ -1385,7 +1440,7 @@ class DeprecatedRuleContents(BaseRuleContents):
         kwargs['transform'] = obj['transform'] if 'transform' in obj else None
         return cls(**kwargs)
 
-    def to_api_format(self, include_version=True) -> dict:
+    def to_api_format(self, include_version: bool = not BYPASS_VERSION_LOCK) -> dict:
         """Convert the TOML rule to the API format."""
         data = copy.deepcopy(self.data)
         if self.transform:

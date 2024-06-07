@@ -13,7 +13,7 @@ import eql
 from detection_rules import utils
 from detection_rules.config import load_current_package_version
 from detection_rules.rule import TOMLRuleContents
-from detection_rules.schemas import downgrade
+from detection_rules.schemas import downgrade, RULES_CONFIG
 from detection_rules.version_lock import VersionLockFile
 from marshmallow import ValidationError
 
@@ -271,6 +271,7 @@ class TestVersionLockSchema(unittest.TestCase):
         version_lock_contents = copy.deepcopy(self.version_lock_contents)
         VersionLockFile.from_dict(dict(data=version_lock_contents))
 
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, 'Version lock bypassed')
     def test_version_lock_has_nested_previous(self):
         """Fail field validation on version lock with nested previous fields"""
         version_lock_contents = copy.deepcopy(self.version_lock_contents)
