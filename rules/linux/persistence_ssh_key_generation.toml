@@ -1,0 +1,84 @@
+[metadata]
+creation_date = "2024/05/31"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/05/31"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies the creation of SSH keys using the ssh-keygen tool, which is the standard utility for generating
+SSH keys. Users often create SSH keys for authentication with remote services. However, threat actors can exploit this
+tool to move laterally across a network or maintain persistence by generating unauthorized SSH keys, granting them SSH
+access to systems.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "SSH Key Generated via ssh-keygen"
+risk_score = 21
+rule_id = "7df3cb8b-5c0c-4228-b772-bb6cd619053c"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.action in ("creation", "file_create_event") and
+process.executable == "/usr/bin/ssh-keygen" and file.path : ("/home/*/.ssh/*", "/root/.ssh/*", "/etc/ssh/*") and
+not file.name : "known_hosts.*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.004"
+name = "SSH Authorized Keys"
+reference = "https://attack.mitre.org/techniques/T1098/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[[rule.threat.technique]]
+id = "T1563"
+name = "Remote Service Session Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1563.001"
+name = "SSH Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/001/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
