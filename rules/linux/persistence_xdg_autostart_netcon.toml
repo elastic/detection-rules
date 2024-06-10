@@ -7,16 +7,20 @@ updated_date = "2024/06/03"
 [rule]
 author = ["Elastic"]
 description = """
-Detects network connections initiated through XDG autostart entries for GNOME and XFCE-based Linux distributions. XDG
-Autostart entries can be used to execute arbitrary commands or scripts when a user logs in. This rule helps to identify
-potential malicious activity where an attacker may have modified XDG autostart scripts to establish persistence on the
-system.
+Detects network connections initiated through Cross-Desktop Group (XDG) autostart entries for GNOME and XFCE-based
+Linux distributions. XDG Autostart entries can be used to execute arbitrary commands or scripts when a user logs in.
+This rule helps to identify potential malicious activity where an attacker may have modified XDG autostart scripts
+to establish persistence on the system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Network Connections Initiated Through XDG Autostart Entry"
+references = [
+  "https://specifications.freedesktop.org/autostart-spec/autostart-spec-latest.html",
+  "https://hadess.io/the-art-of-linux-persistence/"
+]
 risk_score = 47
 rule_id = "dd52d45a-4602-4195-9018-ebe0f219c273"
 setup = """## Setup
@@ -64,15 +68,14 @@ tags = [
     "Domain: Endpoint",
     "OS: Linux",
     "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
+    "Tactic: Persistence"
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
-  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
      (process.parent.executable == "/usr/bin/xfce4-session") or
      (process.executable == "/bin/sh" and process.args == "-e" and process.args == "-u" and
       process.args == "-c" and process.args : "export GIO_LAUNCHED_DESKTOP_FILE_PID=$$;*")
