@@ -3,9 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
+import sys
 
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="4d7ce5b3-f8e4-434c-9caa-c7e133146b27",
@@ -17,8 +17,7 @@ metadata = RtaMetadata(
 
 
 @common.requires_os(*metadata.platforms)
-def main():
-
+def main() -> None:
     masquerade = "/tmp/bash"
     if common.CURRENT_OS == "linux":
         source = common.get_path("bin", "linux.ditto_and_spawn")
@@ -39,4 +38,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())
