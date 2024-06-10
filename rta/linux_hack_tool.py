@@ -8,26 +8,24 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="631a211d-bdaa-4b9d-a786-31d84d7bc070",
+    uuid="9b0bbe6d-2116-4327-930b-51e3e5097487",
     platforms=["linux"],
-    endpoint=[
-        {"rule_id": "31da6564-b3d3-4fc8-9a96-75ad0b364363", "rule_name": "Tampering of Bash Command-Line History"},
-    ],
-    siem=[],
-    techniques=["T1070", "T1070.003"],
+    endpoint=[{"rule_name": "Potential Linux Hack Tool Launched", "rule_id": "3337a10c-e950-4827-a44e-96a688fba221"}],
+    siem=[{"rule_name": "Potential Linux Hack Tool Launched", "rule_id": "1df1152b-610a-4f48-9d7a-504f6ee5d9da"}],
+    techniques=[""],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
-    masquerade = "/tmp/history"
+    masquerade = "/tmp/crackmapexec"
     source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
 
     # Execute command
-    common.log("Launching fake builtin commands for tampering of bash command line history")
-    command = "-c"
-    common.execute([masquerade, command], timeout=10, kill=True, shell=True)  # noqa: S604
+    common.log("Launching fake command to simulate a CME process")
+    common.execute([masquerade], timeout=5, kill=True)
+
     # cleanup
     common.remove_file(masquerade)
 
