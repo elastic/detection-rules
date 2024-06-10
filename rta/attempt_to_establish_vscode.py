@@ -8,26 +8,26 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="631a211d-bdaa-4b9d-a786-31d84d7bc070",
+    uuid="a078ecca-e8b8-4ae8-a76c-3238e74ca34d",
     platforms=["linux"],
     endpoint=[
-        {"rule_id": "31da6564-b3d3-4fc8-9a96-75ad0b364363", "rule_name": "Tampering of Bash Command-Line History"},
+        {"rule_id": "13fd98ce-f1c3-423f-9441-45c50eb462c0", "rule_name": "Attempt to etablish VScode Remote Tunnel"},
     ],
     siem=[],
-    techniques=["T1070", "T1070.003"],
+    techniques=["T1102", "T1059"],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
-    masquerade = "/tmp/history"
+    masquerade = "/tmp/code"
     source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
 
     # Execute command
-    common.log("Launching fake builtin commands for tampering of bash command line history")
-    command = "-c"
-    common.execute([masquerade, command], timeout=10, kill=True, shell=True)  # noqa: S604
+    common.log("Executing Fake commands to test Attempt to etablish VScode Remote Tunnel")
+    common.execute([masquerade, "tunnel"], timeout=10, kill=True)
+
     # cleanup
     common.remove_file(masquerade)
 
