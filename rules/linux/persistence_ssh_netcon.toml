@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2024/06/06"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/06/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies an egress internet connection initiated by an SSH Daemon child process. This behavior is
+indicative of the alteration of a shell configuration file or other mechanism that launches a process when a
+new SSH login occurs. Attackers can also backdoor the SSH daemon to allow for persistence, call out to a C2
+or to steal credentials.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Network Connection Initiated by SSHD Child Process"
+references = ["https://hadess.io/the-art-of-linux-persistence/"]
+risk_score = 47
+rule_id = "63431796-f813-43af-820b-492ee2efec8e"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence by host.id with maxspan=1s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+   process.parent.executable == "/usr/sbin/sshd"] by process.entity_id
+  [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and not (
+     destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
+     destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
+     "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+     "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10",
+     "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
+     "FF00::/8", "172.31.0.0/16"
+     )
+    )
+  ] by process.parent.entity_id
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.004"
+name = "Unix Shell Configuration Modification"
+reference = "https://attack.mitre.org/techniques/T1546/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[[rule.threat.technique]]
+id = "T1563"
+name = "Remote Service Session Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1563.001"
+name = "SSH Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/001/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
