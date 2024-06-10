@@ -18,7 +18,8 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "APT Package Manager Configuration File Creation"
-risk_score = 21
+references = ["https://packetstormsecurity.com/files/152668/APT-Package-Manager-Persistence.html"]
+risk_score = 47
 rule_id = "7c2e1297-7664-42bc-af11-6d5d35220b6b"
 setup = """## Setup
 
@@ -45,7 +46,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -57,8 +58,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.action == "creation" and file.path : "/etc/apt/apt.conf.d/*" and
-not (
+file where host.os.type == "linux" and event.action in ("rename", "creation") and
+file.path : "/etc/apt/apt.conf.d/*" and not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
     "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
@@ -67,7 +68,8 @@ not (
     "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
     "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
-    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/libexec/netplan/generate"
+    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/libexec/netplan/generate",
+    "/usr/local/bin/apt-get", "/usr/bin/apt-get"
   ) or
   file.path :("/etc/apt/apt.conf.d/*.tmp*") or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
