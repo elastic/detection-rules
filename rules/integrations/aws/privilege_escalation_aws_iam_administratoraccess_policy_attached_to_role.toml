@@ -1,0 +1,142 @@
+[metadata]
+creation_date = "2024/05/31"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2024/05/31"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully"
+min_stack_version = "8.13.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by
+attaching additional permissions to compromised IAM roles. This rule looks for use of the IAM `AttachRolePolicy` API operation
+to attach the highly permissive `AdministratorAccess` AWS managed policy to an existing IAM role.
+"""
+false_positives = [
+    """
+    While this can be normal behavior, it should be investigated to ensure validity.
+    Verify whether the user identity should be using the IAM `AttachRolePolicy` API operation
+    to attach the `AdministratorAccess` policy to the target role. 
+    """,
+]
+from = "now-10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS IAM AdministratorAccess Policy Attached to Role"
+note = """## Triage and analysis
+
+### Investigating AWS IAM AdministratorAccess Policy Attached to Role
+
+The AWS IAM `AdministratorAccess` managed policy provides full access to all AWS services and resources. 
+With access to the `iam:AttachRolePolicy` permission, a set of compromised credentials could be used to attach
+this policy to a compromised role for privilege escalation or as a means of persistence. This rule uses [ES|QL](https://www.elastic.co/guide/en/security/master/rules-ui-create.html#create-esql-rule)
+to look for use of the `AttachRolePolicy` operation along with request_parameters where the policyName is `AdministratorAccess`.
+
+
+#### Possible investigation steps
+
+- Identify the account and its role in the environment.
+- Review IAM permission policies for the user identity.
+- Identify the applications or users that should use this account.
+- Investigate other alerts associated with the account during the past 48 hours.
+- Investigate abnormal values in the `user_agent.original` field by comparing them with the intended and authorized usage and historical data. Suspicious user agent values include non-SDK, AWS CLI, custom user agents, etc.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Considering the source IP address and geolocation of the user who issued the command:
+    - Do they look normal for the calling user?
+    - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts or is the source IP from an EC2 instance that's not under your control?
+    - If it is an authorized EC2 instance, is the activity associated with normal behavior for the instance role or roles? Are there any other alerts or signs of suspicious activity involving this instance?
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
+    - Determine what other API calls were made by the user.
+    - Assess whether this behavior is prevalent in the environment by looking for similar occurrences involving other users.
+
+### False positive analysis
+
+- False positives may occur due to the intended usage of the IAM `AdministratorAccess` managed policy. Verify the `aws.cloudtrail.user_identity.arn` should have the `iam:AttachRolePolicy` permission and that the `role.name` should be given full administrative access.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+    - Rotate user credentials
+    - Remove the `AdministratorAccess` policy from the affected role(s)
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Assess the criticality of affected services and servers.
+    - Work with your IT team to identify and minimize the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. 
+    - Rotate secrets or delete API keys as needed to revoke the attacker's access to the environment. 
+    - Work with your IT teams to minimize the impact on business operations during these actions.
+- Check if unauthorized new users were created, remove unauthorized new accounts, and request password resets for other IAM users.
+- Consider enabling multi-factor authentication for users.
+- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Implement security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
+- Take the actions needed to return affected systems, data, or services to their normal operational levels.
+- Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_AttachRolePolicy.html",
+    "https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AdministratorAccess.html",
+    "https://hackingthe.cloud/aws/exploitation/iam_privilege_escalation/",
+]
+risk_score = 47
+rule_id = "dde13d58-bc39-4aa0-87fd-b4bdbf4591da"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-*
+| where event.provider == "iam.amazonaws.com" and event.action == "AttachRolePolicy" and event.outcome == "success"
+| dissect aws.cloudtrail.request_parameters "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{policyName},%{?roleName}=%{role.name}}"
+| where policyName == "AdministratorAccess"
+| keep @timestamp, aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.access_key_id, event.action, policyName, role.name, user_agent.original, source.address, source.geo.location
+| sort aws.cloudtrail.user_identity.arn
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
