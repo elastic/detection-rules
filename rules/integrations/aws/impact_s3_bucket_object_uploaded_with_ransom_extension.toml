@@ -10,7 +10,7 @@ updated_date = "2024/06/05"
 author = ["Elastic"]
 description = """
 Identifies potential ransomware note being uploaded to an AWS S3 bucket. This rule detects the `PutObject` S3 API call
-with a common ransomware note file extension such as `.txt`, `.note`, `.ransom`, or `.lock`. Adversaries with access to
+with a common ransomware note file extension such as `.ransom`, or `.lock`. Adversaries with access to
 a misconfigured S3 bucket may retrieve, delete, and replace objects with ransom notes to extort victims.
 """
 false_positives = [
@@ -29,7 +29,7 @@ note = """
 
 ### Investigating Potential AWS S3 Bucket Ransomware Note Uploaded
 
-This rule detects the `PutObject` S3 API call with a common ransomware note file extension such as `.txt`, `.note`, `.ransom`, or `.lock`. Adversaries with access to a misconfigured S3 bucket may retrieve, delete, and replace objects with ransom notes to extort victims.
+This rule detects the `PutObject` S3 API call with a common ransomware note file extension such as `.ransom`, or `.lock`. Adversaries with access to a misconfigured S3 bucket may retrieve, delete, and replace objects with ransom notes to extort victims.
 
 #### Possible Investigation Steps:
 
@@ -95,7 +95,7 @@ from logs-aws.cloudtrail-*
 | dissect aws.cloudtrail.request_parameters "%{?ignore_values}key=%{object_name}}"
 
 // regex on common ransomware note extensions
-| where object_name rlike "(.*).(txt|ecc|note|ransom|lock|crypt|enc|readme|how_to_decrypt|decrypt_instructions|recovery|datarescue)"
+| where object_name rlike "(.*).(ransom|lock|crypt|enc|readme|how_to_decrypt|decrypt_instructions|recovery|datarescue)"
 
 // aggregate by S3 bucket, resource and object name
 | stats note_upload_count = count(*) by tls.client.server_name, aws.cloudtrail.user_identity.arn, object_name
