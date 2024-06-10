@@ -547,34 +547,6 @@ class TestRuleFiles(BaseRuleTest):
                 self.assertEqual(rule.contents.data.building_block_type, None,
                                  f'{self.rule_str(rule)} should be in {proper_directory}')
 
-    def test_rule_change_has_updated_date(self):
-        """Test to ensure modified rules have updated_date field updated."""
-
-        rules_path = get_path("rules")
-        rules__bbr_path = get_path("rules_building_block")
-
-        # Use git diff to check if the file(s) has been modified in rules/ directory
-        # For now this checks even rules/_deprecated but we may combine
-        # with a test case for deprecated rules modification
-        detection_rules_git = make_git()
-        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only",
-                                     rules_path, rules__bbr_path)
-
-        # If the output is not empty, then file(s) have changed in the directory(s)
-        if result:
-            rules = result.splitlines()
-            rc = RuleCollection()
-            failed_rules = []
-            for rule_path in rules:
-                rule = rc.load_file(Path(rule_path))
-                last_commit_date = detection_rules_git('log', '-1', '--format=%cd', '--date=short', rule_path)
-                if rule.contents.metadata.updated_date < last_commit_date.replace('-', '/'):
-                    # Rule has been modified but updated_date has not been changed, add to list
-                    failed_rules.append(rule_path)
-
-            if failed_rules:
-                self.fail(f'Rules {failed_rules} has been modified but updated_date has not been updated')
-
 
 class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
@@ -666,6 +638,35 @@ class TestRuleMetadata(BaseRuleTest):
         # If the output is not empty, then file(s) have changed in the directory
         if result:
             self.fail(f"Deprecated rules {result} has been modified")
+
+    def test_rule_change_has_updated_date(self):
+        """Test to ensure modified rules have updated_date field updated."""
+
+        rules_path = get_path("rules")
+        rules__bbr_path = get_path("rules_building_block")
+
+        # Use git diff to check if the file(s) has been modified in rules/ directory
+        # For now this checks even rules/_deprecated any modification there will fail test test_deprecated_rules_modified
+        # Potential an ignore directory is not required as there is a specific test for deprecated rules
+        
+        detection_rules_git = make_git()
+        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only",
+                                     rules_path, rules__bbr_path)
+
+        # If the output is not empty, then file(s) have changed in the directory(s)
+        if result:
+            rules = result.splitlines()
+            rc = RuleCollection()
+            failed_rules = []
+            for rule_path in rules:
+                rule = rc.load_file(Path(rule_path))
+                last_commit_date = detection_rules_git('log', '-1', '--format=%cd', '--date=short', rule_path)
+                if rule.contents.metadata.updated_date < last_commit_date.replace('-', '/'):
+                    # Rule has been modified but updated_date has not been changed, add to list
+                    failed_rules.append(rule_path)
+
+            if failed_rules:
+                self.fail(f'Rules {failed_rules} has been modified but updated_date has not been updated')
 
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
