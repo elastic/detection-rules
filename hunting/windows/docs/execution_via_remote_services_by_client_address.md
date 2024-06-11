@@ -13,7 +13,7 @@
 
 ```sql
 from logs-endpoint.events.process-*
-| where  @timestamp > now() - 7 day and where host.os.family == "windows" and 
+| where  @timestamp > now() - 7 day and host.os.family == "windows" and 
   event.category == "process" and event.action == "start" and 
   /* network logon type */
   process.Ext.session_info.logon_type == "Network" and 
