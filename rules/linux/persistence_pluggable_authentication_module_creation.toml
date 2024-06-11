@@ -39,7 +39,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.action in ("rename", "creation") and (
+file where host.os.type == "linux" and event.action in ("rename", "creation") and 
+process.executable != null and (
   (file.path : ("/lib/security/*", "/lib64/security/*", "/usr/lib/security/*", "/usr/lib64/security/*",
   "/usr/lib/x86_64-linux-gnu/security/*") and file.extension == "so") or
   (file.path : "/etc/pam.d/*" and file.extension == null) or 
@@ -54,14 +55,16 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
     "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
     "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/sbin/pam-auth-update",
-    "/usr/lib/systemd/systemd"
+    "/usr/lib/systemd/systemd", "/usr/libexec/packagekitd", "/usr/bin/bsdtar"
   ) or
+  file.path : (
+    "/tmp/snap.rootfs_*/pam_*.so", "/tmp/newroot/lib/*/pam_*.so", "/tmp/newroot/usr/lib64/security/pam_*.so"
+  )
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
   file.Ext.original.extension == "dpkg-new" or
   process.executable : (
-    "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*"
+    "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*"
   ) or
-  process.executable == null or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
