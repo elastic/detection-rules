@@ -1,5 +1,5 @@
 [metadata]
-creation_date = "2023/07/26"
+creation_date = "2024/06/03"
 integration = ["endpoint"]
 maturity = "production"
 updated_date = "2024/06/03"
@@ -7,18 +7,25 @@ updated_date = "2024/06/03"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation of a sudo binary located at /usr/bin/sudo. Attackers may hijack the default sudo binary and
-replace it with a custom binary or script that can read the user's password in clear text to escalate privileges or
-enable persistence onto the system every time the sudo binary is executed.
+This rule monitors for the addition of an executable bit of the `/etc/rc.local` or `/etc/rc.common` files. These files
+are used to start custom applications, services, scripts or commands during start-up. They require executable
+permissions to be executed on boot. An alert of this rule is an indicator that this method is being set up within
+your environment. This method has mostly been replaced by Systemd. However, through the `systemd-rc-local-generator`,
+these files can be converted to services that run at boot. Adversaries may alter these files to execute malicious code
+at start-up, and gain persistence onto the system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
+index = ["logs-endpoint.events.process*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Sudo Hijacking"
-references = ["https://eapolsniper.github.io/2020/08/17/Sudo-Hijacking/"]
+name = "Executable Bit Set for rc.local/rc.common"
+references = [
+    "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
+    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
+]
 risk_score = 47
-rule_id = "88fdcb8c-60e5-46ee-9206-2663adf1b1ce"
+rule_id = "94418745-529f-4259-8d25-a713a6feb6ae"
 setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
@@ -49,30 +56,18 @@ tags = [
     "Domain: Endpoint",
     "OS: Linux",
     "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
     "Tactic: Persistence",
-    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
-file where host.os.type == "linux" and event.action in ("creation", "rename") and
-file.path in ("/usr/bin/sudo", "/bin/sudo") and not (
-  file.Ext.original.path in ("/usr/bin/sudo", "/bin/sudo") or
-  process.executable in (
-    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
-    "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum", "/bin/dnf", "/usr/bin/dnf",
-    "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic", "/bin/pacman", "/usr/bin/pacman",
-    "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk", "/usr/local/sbin/apk", "/usr/bin/apt",
-    "/usr/sbin/pacman", "/usr/bin/microdnf", "/usr/local/bin/dockerd", "/usr/local/bin/podman", "/usr/local/bin/dnf",
-    "/kaniko/executor", "/proc/self/exe", "/usr/bin/apt-get", "/usr/bin/apt-cache", "/usr/bin/apt-mark"
-  ) or
-  file.Ext.original.extension == "dpkg-new" or
-  process.executable : (
-    "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/var/lib/docker/*"
-  ) or
-  process.executable == null or
-  (process.name == "sed" and file.name : "sed*")
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
+process.args in ("/etc/rc.local", "/etc/rc.common") and (
+  (process.name == "chmod" and process.args : ("*+x*", "1*", "3*", "5*", "7*")) or
+  (process.name == "install" and process.args : "-m*" and process.args : ("*7*", "*5*", "*3*", "*1*"))
 )
 '''
 
@@ -80,27 +75,14 @@ file.path in ("/usr/bin/sudo", "/bin/sudo") and not (
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1548"
-name = "Abuse Elevation Control Mechanism"
-reference = "https://attack.mitre.org/techniques/T1548/"
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
 
 [[rule.threat.technique.subtechnique]]
-id = "T1548.003"
-name = "Sudo and Sudo Caching"
-reference = "https://attack.mitre.org/techniques/T1548/003/"
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
+id = "T1037.004"
+name = "RC Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/004/"
 
 [rule.threat.tactic]
 id = "TA0003"

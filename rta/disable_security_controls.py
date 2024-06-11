@@ -8,26 +8,30 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="631a211d-bdaa-4b9d-a786-31d84d7bc070",
+    uuid="4eceac28-10c3-425f-a007-c03a9b57956f",
     platforms=["linux"],
     endpoint=[
-        {"rule_id": "31da6564-b3d3-4fc8-9a96-75ad0b364363", "rule_name": "Tampering of Bash Command-Line History"},
+        {
+            "rule_id": "b63df89d-ac6f-44d7-80fa-ddf038295e42",
+            "rule_name": "Attempt to Disable Linux Security and Logging Controls",
+        },
     ],
     siem=[],
-    techniques=["T1070", "T1070.003"],
+    techniques=["T1562", "T1562.001"],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
-    masquerade = "/tmp/history"
+    masquerade = "/tmp/systemctl"
     source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
 
     # Execute command
-    common.log("Launching fake builtin commands for tampering of bash command line history")
-    command = "-c"
-    common.execute([masquerade, command], timeout=10, kill=True, shell=True)  # noqa: S604
+    common.log("Launching fake builtin commands for disabling security controls")
+    command = "stop"
+    command1 = "apparmor"
+    common.execute([masquerade, command, command1], timeout=10, kill=True, shell=True)  # noqa: S604
     # cleanup
     common.remove_file(masquerade)
 

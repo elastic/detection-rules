@@ -8,26 +8,29 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="631a211d-bdaa-4b9d-a786-31d84d7bc070",
+    uuid="43ce7648-d48a-4609-80a5-f68384e498d3",
     platforms=["linux"],
     endpoint=[
-        {"rule_id": "31da6564-b3d3-4fc8-9a96-75ad0b364363", "rule_name": "Tampering of Bash Command-Line History"},
+        {
+            "rule_id": "05f95917-6942-4aab-a904-37c6db906503",
+            "rule_name": "Potential Linux Credential Dumping via Unshadow",
+        },
     ],
     siem=[],
-    techniques=["T1070", "T1070.003"],
+    techniques=["T1003"],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
-    masquerade = "/tmp/history"
+    masquerade = "/tmp/unshadow"
     source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
 
     # Execute command
-    common.log("Launching fake builtin commands for tampering of bash command line history")
-    command = "-c"
-    common.execute([masquerade, command], timeout=10, kill=True, shell=True)  # noqa: S604
+    common.log("Executing Fake commands to test Credential Dumping via Unshadow")
+    common.execute([masquerade, "shadow password"], timeout=10, kill=True)
+
     # cleanup
     common.remove_file(masquerade)
 
