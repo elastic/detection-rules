@@ -80,7 +80,7 @@ class TestRTAs(unittest.TestCase):
         for rta_test in sorted(get_available_tests().values(), key=lambda r: r['name']):
 
             self.assertIsNotNone(rta_test.get("uuid"), f'RTA {rta_test.get("name")} missing uuid')
-            for rule_info in rta_test.get("siem"):
+            for rule_info in rta_test.get("siem") or []:
                 for rule_key in rule_keys:
                     self.assertIsNotNone(rule_info.get(rule_key),
                                          f'RTA {rta_test.get("name")} - {rta_test.get("uuid")} missing {rule_key}')
