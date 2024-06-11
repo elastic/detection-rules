@@ -2,7 +2,7 @@
 creation_date = "2023/06/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/05/31"
 
 [transform]
 [[transform.osquery]]
@@ -12,8 +12,10 @@ query = "SELECT * FROM file WHERE path = {{file.path}}"
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
 query = """
-SELECT * FROM file WHERE ( path LIKE '/etc/systemd/system/%' OR path LIKE '/usr/local/lib/systemd/system/%' OR path LIKE
-'/lib/systemd/system/%' OR path LIKE '/usr/lib/systemd/system/%' OR path LIKE '/home/user/.config/systemd/user/%' )
+SELECT * FROM file WHERE (path LIKE '/etc/systemd/system/%' OR path LIKE '/usr/local/lib/systemd/system/%'
+OR path LIKE '/lib/systemd/system/%' OR path LIKE '/usr/lib/systemd/system/%'
+OR path LIKE '/home/{{user.name}}/.config/systemd/user/%' OR path LIKE '/home/{{user.name}}/.local/share/systemd/user/%'
+OR path LIKE '/root/.config/systemd/user/%' OR path LIKE '/root/.local/share/systemd/user/%')
 """
 
 [[transform.osquery]]
@@ -24,7 +26,8 @@ file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time
 file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
 JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE ( path LIKE '/etc/systemd/system/%' OR path LIKE
 '/usr/local/lib/systemd/system/%' OR path LIKE '/lib/systemd/system/%' OR path LIKE '/usr/lib/systemd/system/%' OR path
-LIKE '/home/{{user.name}}/.config/systemd/user/%' )
+LIKE '/home/{{user.name}}/.config/systemd/user/%' OR path LIKE '/home/{{user.name}}/.local/share/systemd/user/%'
+OR path LIKE '/root/.config/systemd/user/%' OR path LIKE '/root/.local/share/systemd/user/%')
 """
 
 [[transform.osquery]]
@@ -51,23 +54,23 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
 
-
 [rule]
 author = ["Elastic"]
 description = """
-Systemd service files are configuration files in Linux systems used to define and manage system services. Malicious
-actors can leverage systemd service files to achieve persistence by creating or modifying service files to execute
-malicious commands or payloads during system startup. This allows them to maintain unauthorized access, execute
-additional malicious activities, or evade detection.
+This rule detects the creation or renaming of a new Systemd file in all of the common Systemd service locations for both
+root and regular users. Systemd service files are configuration files in Linux systems used to define and manage system
+services. Malicious actors can leverage systemd service files to achieve persistence by creating or modifying services
+to execute malicious commands or payloads during system startup or at a predefined interval by adding a systemd timer.
+This allows them to maintain unauthorized access, execute additional malicious activities, or evade detection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
-language = "kuery"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
 license = "Elastic License v2"
-name = "New Systemd Service Created by Previously Unknown Process"
+name = "Systemd Service Created"
 note = """## Triage and analysis
 
-### Investigating New Systemd Service Created by Previously Unknown Process
+### Investigating Systemd Service Created
 
 Systemd service files are configuration files in Linux systems used to define and manage system services.
 
@@ -120,7 +123,7 @@ This rule monitors the creation of new systemd service files, potentially indica
 
 - Potential Persistence Through Run Control Detected - 0f4d35e4-925e-4959-ab24-911be207ee6f
 - Potential Persistence Through init.d Detected - 474fd20e-14cc-49c5-8160-d9ab4ba16c8b
-- New Systemd Timer Created - 7fb500fa-8e24-4bd1-9480-2a819352602c
+- Systemd Timer Created - 7fb500fa-8e24-4bd1-9480-2a819352602c
 
 ### Response and remediation
 
@@ -138,7 +141,6 @@ This rule monitors the creation of new systemd service files, potentially indica
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = [
-    "https://opensource.com/article/20/7/systemd-timers",
     "https://pberba.github.io/security/2022/01/30/linux-threat-hunting-for-persistence-systemd-timers-cron/",
 ]
 risk_score = 47
@@ -175,71 +177,69 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Tactic: Privilege Escalation",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
-
+type = "eql"
 query = '''
-host.os.type:linux and event.category:file and event.action:("creation" or "file_create_event") and file.path:(
-  /etc/systemd/system/* or 
-  /usr/local/lib/systemd/system/* or 
-  /lib/systemd/system/* or 
-  /usr/lib/systemd/system/* or 
-  /home/*/.config/systemd/user/*
-) and 
-not (
-  process.name:(
-    "dpkg" or "dockerd" or "rpm" or "snapd" or "yum" or "exe" or "dnf" or "dnf-automatic" or python* or "puppetd" or
-    "elastic-agent" or "cinc-client" or "chef-client" or "pacman" or "puppet" or "cloudflared" or "packagekitd" or
-    "podman"
-  ) or 
-  file.extension:("swp" or "swpx")
+file where host.os.type == "linux" and event.action in ("rename", "creation") and file.path : (
+  "/etc/systemd/system/*", "/usr/local/lib/systemd/system/*", "/lib/systemd/system/*",
+  "/usr/lib/systemd/system/*", "/home/*/.config/systemd/user/*", "/home/*/.local/share/systemd/user/*",
+  "/root/.config/systemd/user/*", "/root/.local/share/systemd/user/*"
+) and file.extension == "service" and not (
+  process.executable in (
+    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
+    "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
+    "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
+    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
+    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
+    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
+    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
+    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd"
+  ) or
+  file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
+  file.Ext.original.extension == "dpkg-new" or
+  process.executable : (
+    "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*"
+  ) or
+  process.executable == null or
+  (process.name == "sed" and file.name : "sed*") or
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
-
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "file.path", "process.executable"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-10d"
-
-
