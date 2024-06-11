@@ -56,7 +56,9 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.action in ("rename", "creation") and file.path : (
+file where host.os.type == "linux" and event.action in ("rename", "creation") and 
+process.executable != null and 
+file.path : (
   "/lib/udev/*", "/etc/udev/rules.d/*", "/usr/lib/udev/rules.d/*", "/run/udev/rules.d/*"
 ) and not (
   process.executable in (
