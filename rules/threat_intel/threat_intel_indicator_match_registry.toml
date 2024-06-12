@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2023/05/22"
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/10"
 
 [transform]
 [[transform.osquery]]
@@ -32,39 +32,32 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 [rule]
 author = ["Elastic"]
 description = """
-This rule is triggered when a URL indicator from the Threat Intel Filebeat module or integrations has a match against an
-event that contains URL data, like DNS events, network logs, etc.
+This rule is triggered when a Windows registry indicator from the Threat Intel Filebeat module or integrations has a
+match against an event that contains registry data.
 """
 from = "now-65m"
-index = ["auditbeat-*", "endgame-*", "filebeat-*", "logs-*", "packetbeat-*", "winlogbeat-*"]
+index = ["auditbeat-*", "endgame-*", "filebeat-*", "logs-*", "winlogbeat-*"]
 interval = "1h"
 language = "kuery"
 license = "Elastic License v2"
-name = "Threat Intel URL Indicator Match"
+name = "Threat Intel Windows Registry Indicator Match"
 note = """## Triage and Analysis
 
-### Investigating Threat Intel URL Indicator Match
+### Investigating Threat Intel Windows Registry Indicator Match
 
 Threat Intel indicator match rules allow matching from a local observation, such as an endpoint event that records a file hash with an entry of a file hash stored within the Threat Intel integrations index.
 
 Matches are based on threat intelligence data that's been ingested during the last 30 days. Some integrations don't place expiration dates on their threat indicators, so we strongly recommend validating ingested threat indicators and reviewing match results. When reviewing match results, check associated activity to determine whether the event requires additional investigation.
 
-This rule is triggered when a URL indicator from the Threat Intel Filebeat module or a threat intelligence integration matches against an event that contains URL data, like DNS events, network logs, etc.
+This rule is triggered when a Windows registry indicator from the Threat Intel Filebeat module or a threat intelligence integration matches against an event that contains registry data.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
-- Investigate the URL, which can be found in the `threat.indicator.matched.atomic` field:
-  - Identify the type of malicious activity related to the URL (phishing, malware, etc.).
-  - Check the reputation of the IP address in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-  - Execute a WHOIS lookup to retrieve information about the domain registration and contacts to report abuse.
-  - If dealing with a phishing incident:
-    - Contact the user to gain more information around the delivery method, information sent, etc.
-    - Analyze whether the URL is trying to impersonate a legitimate address. Look for typosquatting, extra or unusual subdomains, or other anomalies that could lure the user.
-    - Investigate the phishing page to identify which information may have been sent to the attacker by the user.
-- Identify the process responsible for the connection, and investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Check related threat reports to gain context about the registry indicator of compromise (IoC) and to understand if it's a system-native mechanism abused for persistence, to store data, to disable security mechanisms, etc. Use this information to define the appropriate triage and respond steps.
+- Identify the process responsible for the registry operation and investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Retrieve the involved process executable and examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
@@ -81,8 +74,7 @@ This rule is triggered when a URL indicator from the Threat Intel Filebeat modul
 
 ### False Positive Analysis
 
-- False positives might occur after large and publicly written campaigns if curious employees interact with attacker infrastructure.
-- Some feeds may include internal or known benign addresses by mistake (e.g., 8.8.8.8, google.com, 127.0.0.1, etc.). Make sure you understand how blocking a specific domain or address might impact the organization or normal system functioning.
+- Adversaries can leverage dual-use registry mechanisms that are commonly used by normal applications. These registry keys can be added into indicator lists creating the potential for false positives.
 
 ### Response and Remediation
 
@@ -93,7 +85,6 @@ This rule is triggered when a URL indicator from the Threat Intel Filebeat modul
   - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
   - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Consider reporting the address for abuse using the provided contact information.
 - Remove and block malicious artifacts identified during triage.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
@@ -105,7 +96,7 @@ references = [
     "https://www.elastic.co/security/tip",
 ]
 risk_score = 99
-rule_id = "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
+rule_id = "a61809f3-fb5b-465c-8bff-23a8a068ac60"
 setup = """## Setup
 
 This rule needs threat intelligence indicators to work.
@@ -116,12 +107,12 @@ or a [custom integration](https://www.elastic.co/guide/en/security/current/es-th
 More information can be found [here](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html).
 """
 severity = "critical"
-tags = ["OS: Windows", "Data Source: Elastic Endgame", "Rule Type: Indicator Match"]
+tags = ["OS: Windows", "Data Source: Elastic Endgame", "Rule Type: Threat Match"]
 threat_index = ["filebeat-*", "logs-ti_*"]
 threat_indicator_path = "threat.indicator"
 threat_language = "kuery"
 threat_query = """
-@timestamp >= "now-30d/d" and event.module:(threatintel or ti_*) and threat.indicator.url.full:* and not
+@timestamp >= "now-30d/d" and event.module:(threatintel or ti_*) and threat.indicator.registry.path:* and not
 labels.is_ioc_transform_source:"true"
 """
 timeline_id = "495ad7a7-316e-4544-8a0f-9c098daee76e"
@@ -130,7 +121,7 @@ timestamp_override = "event.ingested"
 type = "threat_match"
 
 query = '''
-url.full:*
+registry.path:*
 '''
 
 
@@ -176,15 +167,8 @@ query = "indicator"
 [[rule.threat_mapping]]
 
 [[rule.threat_mapping.entries]]
-field = "url.full"
+field = "registry.path"
 type = "mapping"
-value = "threat.indicator.url.full"
-
-[[rule.threat_mapping]]
-
-[[rule.threat_mapping.entries]]
-field = "url.original"
-type = "mapping"
-value = "threat.indicator.url.original"
+value = "threat.indicator.registry.path"
 
 
