@@ -18,9 +18,9 @@ from semver import Version
 import kql
 
 from . import ecs, endgame
+from .config import CUSTOM_RULES_DIR, load_current_package_version
 from .integrations import (get_integration_schema_data,
                            load_integrations_manifests)
-from .misc import load_current_package_version
 from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
                    TOMLRuleContents, set_eql_config)
 from .schemas import get_stack_schemas
@@ -192,10 +192,16 @@ class KQLValidator(QueryValidator):
                 integration_schema_data["integration"],
             )
             integration_schema = integration_schema_data["schema"]
+            stack_version = integration_schema_data["stack_version"]
 
             # Add non-ecs-schema fields
             for index_name in data.index:
                 integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+
+            # Add custom schema fields for appropriate stack version
+            if data.index and CUSTOM_RULES_DIR:
+                for index_name in data.index:
+                    integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
 
             # Add endpoint schema fields for multi-line fields
             integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
@@ -386,6 +392,11 @@ class EQLValidator(QueryValidator):
             if data.index:
                 for index_name in data.index:
                     integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+
+            # Add custom schema fields for appropriate stack version
+            if data.index and CUSTOM_RULES_DIR:
+                for index_name in data.index:
+                    integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
 
             # add endpoint schema fields for multi-line fields
             integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))

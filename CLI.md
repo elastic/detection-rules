@@ -5,7 +5,7 @@ the [README](README.md). Basic use of the CLI such as [creating a rule](CONTRIBU
 [testing](CONTRIBUTING.md#testing-a-rule-with-the-cli) are referenced in the [contribution guide](CONTRIBUTING.md).
 
 
-## Using a config file or environment variables
+## Using a user config file or environment variables
 
 CLI commands which are tied to Kibana and Elasticsearch are capable of parsing auth-related keyword args from a config
 file or environment variables.
@@ -17,9 +17,9 @@ follows:
 * config values
 * prompt (this only applies to certain values)
 
-#### Setup a config file
+#### Setup a user config file
 
-In the root directory of this repo, create the file `.detection-rules-cfg.json` and add relevant values
+In the root directory of this repo, create the file `.detection-rules-cfg.json` (or `.yaml`) and add relevant values
 
 Currently supported arguments:
 * elasticsearch_url
@@ -33,13 +33,6 @@ Currently supported arguments:
 Environment variables using the argument format: `DR_<UPPERCASED_ARG_NAME>` will be parsed in commands which expect it.
 EX: `DR_USER=joe`
 
-
-Using the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE` will bypass the Detection Rules validation on the `note` field in toml files.
-
-Using the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION` will bypass the Detection Rules lookback and interval validation
-on the building block rules.
-
-Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detection Rules Unit Tests on the `tags` field in toml files.
 
 ## Importing rules into the repo
 
@@ -84,9 +77,10 @@ Usage: detection_rules import-rules-to-repo [OPTIONS] [INPUT_FILE]...
   Import rules from json, toml, yaml, or Kibana exported rule file(s).
 
 Options:
-  --required-only            Only prompt for required fields
-  -d, --directory DIRECTORY  Load files from a directory
-  -h, --help                 Show this message and exit.
+  --required-only                 Only prompt for required fields
+  -d, --directory DIRECTORY       Load files from a directory
+  -s, --save-directory DIRECTORY  Save imported rules to a directory
+  -h, --help                      Show this message and exit.
 ```
 
 The primary advantage of using this command is the ability to import multiple rules at once. Multiple rule paths can be
@@ -95,6 +89,8 @@ a combination of both.
 
 In addition to the formats mentioned using `create-rule`, this will also accept an `.ndjson`/`jsonl` file
 containing multiple rules (as would be the case with a bulk export).
+
+The `-s/--save-directory` is an optional parameter to specify a non default directory to place imported rules. If it is not specified, the first directory specified in the rules config will be used.
 
 This will also strip additional fields and prompt for missing required fields.
 
@@ -293,6 +289,10 @@ _*To load a custom rule, the proper index must be setup first. The simplest way 
 the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
 
 
+_*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click
+the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
+
+
 ### Using `import-rules`
 
 This is a better option than `upload-rule` as it is built on refreshed APIs
@@ -474,6 +474,8 @@ python -m detection_rules kibana import-rules -d test-export-rules -o
 </details>
 
 ### Exporting rules
+
+This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way proper validation is applied to versioning when the rules are downloaded. See the [custom rules docs](docs/custom-rules.md) for more information.
 
 Example of a rule exporting, with errors skipped
 

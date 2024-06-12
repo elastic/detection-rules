@@ -7,14 +7,15 @@
 import os
 import re
 import time
+import unittest
 import uuid
 from pathlib import Path
-
 from functools import wraps
 from typing import NoReturn, Optional
 
 import click
 import requests
+
 
 # this is primarily for type hinting - all use of the github client should come from GithubClient class
 try:
@@ -47,6 +48,10 @@ JS_LICENSE = """
 {}
  */
 """.strip().format("\n".join(' * ' + line for line in LICENSE_LINES))
+
+
+ROOT_DIR = Path(__file__).parent.parent
+CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
 
 
 class ClientError(click.ClickException):
@@ -109,8 +114,8 @@ def nest_from_dot(dots, value):
 
     nested = {fields.pop(): value}
 
-    for field in reversed(fields):
-        nested = {field: nested}
+    for field_ in reversed(fields):
+        nested = {field_: nested}
 
     return nested
 
@@ -275,7 +280,7 @@ def get_default_config() -> Optional[Path]:
 
 
 @cached
-def parse_config():
+def parse_user_config():
     """Parse a default config file."""
     import eql
 
@@ -290,10 +295,27 @@ def parse_config():
     return config
 
 
+def discover_tests(start_dir: str = 'tests', pattern: str = 'test*.py', top_level_dir: Optional[str] = None):
+    """Discover all unit tests in a directory."""
+    def list_tests(s, tests=None):
+        if tests is None:
+            tests = []
+        for test in s:
+            if isinstance(test, unittest.TestSuite):
+                list_tests(test, tests)
+            else:
+                tests.append(test.id())
+        return tests
+
+    loader = unittest.defaultTestLoader
+    suite = loader.discover(start_dir, pattern=pattern, top_level_dir=top_level_dir or str(ROOT_DIR))
+    return list_tests(suite)
+
+
 def getdefault(name):
     """Callback function for `default` to get an environment variable."""
     envvar = f"DR_{name.upper()}"
-    config = parse_config()
+    config = parse_user_config()
     return lambda: os.environ.get(envvar, config.get(name))
 
 

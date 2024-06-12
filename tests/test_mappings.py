@@ -30,7 +30,7 @@ class TestMappings(BaseRuleTest):
         mismatched_ecs = []
         mappings = load_etc_dump('rule-mapping.yaml')
 
-        for rule in self.production_rules:
+        for rule in self.all_rules:
             if rule.contents.data.type == "query" and rule.contents.data.language == "kuery":
                 if rule.id not in mappings:
                     continue
@@ -63,7 +63,7 @@ class TestMappings(BaseRuleTest):
 
     def test_false_positives(self):
         """Test that expected results return against false positives."""
-        for rule in self.production_rules:
+        for rule in self.all_rules:
             if rule.contents.data.type == "query" and rule.contents.data.language == "kuery":
                 for fp_name, merged_data in get_fp_data_files().items():
                     msg = 'Unexpected FP match for: {} - {}, against: {}'.format(rule.id, rule.name, fp_name)

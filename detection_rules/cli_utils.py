@@ -5,6 +5,7 @@
 
 import copy
 import datetime
+import functools
 import os
 import typing
 from pathlib import Path
@@ -13,18 +14,15 @@ from typing import List, Optional
 import click
 
 import kql
-import functools
+
 from . import ecs
-from .attack import matrix, tactics, build_threat_map_entry
-from .rule import TOMLRule, TOMLRuleContents
-from .rule_loader import (RuleCollection,
-                          DEFAULT_RULES_DIR,
-                          DEFAULT_BBR_DIR,
+from .attack import build_threat_map_entry, matrix, tactics
+from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents
+from .rule_loader import (DEFAULT_PREBUILT_BBR_DIRS,
+                          DEFAULT_PREBUILT_RULES_DIRS, RuleCollection,
                           dict_filter)
 from .schemas import definitions
-from .utils import clear_caches, get_path
-
-RULES_DIR = get_path("rules")
+from .utils import clear_caches
 
 
 def single_collection(f):
@@ -49,7 +47,7 @@ def single_collection(f):
         rules.load_directories(Path(d) for d in directories)
 
         if rule_id:
-            rules.load_directories((DEFAULT_RULES_DIR, DEFAULT_BBR_DIR),
+            rules.load_directories(DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS,
                                    obj_filter=dict_filter(rule__rule_id=rule_id))
             if len(rules) != 1:
                 client_error(f"Could not find rule with ID {rule_id}")
@@ -76,14 +74,16 @@ def multi_collection(f):
 
         rules = RuleCollection()
 
-        if not (directories or rule_id or rule_files):
+        if not (directories or rule_id or rule_files or DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS):
             client_error('Required: at least one of --rule-id, --rule-file, or --directory')
 
         rules.load_files(Path(p) for p in rule_files)
         rules.load_directories(Path(d) for d in directories)
+        if not rule_files and not directories:
+            rules.load_directories(Path(d) for d in DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS)
 
         if rule_id:
-            rules.load_directories((DEFAULT_RULES_DIR, DEFAULT_BBR_DIR),
+            rules.load_directories(DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS,
                                    obj_filter=dict_filter(rule__rule_id=rule_id))
             found_ids = {rule.id for rule in rules}
             missing = set(rule_id).difference(found_ids)
@@ -132,8 +132,8 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             contents[name] = rule_type
             continue
 
-        # these are set at package release time
-        if name == 'version':
+        # these are set at package release time depending on the version strategy
+        if (name == 'version' or name == 'revision') and not BYPASS_VERSION_LOCK:
             continue
 
         if required_only and name not in required_fields:
@@ -187,7 +187,8 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
 
             contents[name] = result
 
-    suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
+    # DEFAULT_PREBUILT_RULES_DIRS[0] is a required directory just as a suggestion
+    suggested_path = os.path.join(DEFAULT_PREBUILT_RULES_DIRS[0], contents['name'])
     path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
     meta = {'creation_date': creation_date, 'updated_date': creation_date, 'maturity': 'development'}
 

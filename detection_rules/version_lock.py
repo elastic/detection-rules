@@ -11,15 +11,14 @@ from typing import ClassVar, Dict, List, Optional, Union
 import click
 from semver import Version
 
+from .config import parse_rules_config
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .rule_loader import RuleCollection
 from .schemas import definitions
-from .utils import cached, get_etc_path
+from .utils import cached
 
-ETC_VERSION_LOCK_FILE = "version.lock.json"
-ETC_VERSION_LOCK_PATH = get_etc_path() / ETC_VERSION_LOCK_FILE
-ETC_DEPRECATED_RULES_FILE = "deprecated_rules.json"
-ETC_DEPRECATED_RULES_PATH = get_etc_path() / ETC_DEPRECATED_RULES_FILE
+
+RULES_CONFIG = parse_rules_config()
 
 # This was the original version the lock was created under. This constant has been replaced by
 # schemas.get_min_supported_stack_version to dynamically determine the minimum
@@ -53,7 +52,7 @@ class VersionLockFileEntry(MarshmallowDataclassMixin, BaseEntry):
 class VersionLockFile(LockDataclassMixin):
     """Schema for the full version lock file."""
     data: Dict[Union[definitions.UUIDString, definitions.KNOWN_BAD_RULE_IDS], VersionLockFileEntry]
-    file_path: ClassVar[Path] = ETC_VERSION_LOCK_PATH
+    file_path: ClassVar[Path] = RULES_CONFIG.version_lock_file
 
     def __contains__(self, rule_id: str):
         """Check if a rule is in the map by comparing IDs."""
@@ -78,7 +77,7 @@ class DeprecatedRulesEntry(MarshmallowDataclassMixin):
 class DeprecatedRulesFile(LockDataclassMixin):
     """Schema for the full deprecated rules file."""
     data: Dict[Union[definitions.UUIDString, definitions.KNOWN_BAD_RULE_IDS], DeprecatedRulesEntry]
-    file_path: ClassVar[Path] = ETC_DEPRECATED_RULES_PATH
+    file_path: ClassVar[Path] = RULES_CONFIG.deprecated_rules_file
 
     def __contains__(self, rule_id: str):
         """Check if a rule is in the map by comparing IDs."""
@@ -124,7 +123,15 @@ class VersionLock:
 
     def __init__(self, version_lock_file: Optional[Path] = None, deprecated_lock_file: Optional[Path] = None,
                  version_lock: Optional[dict] = None, deprecated_lock: Optional[dict] = None,
-                 name: Optional[str] = None):
+                 name: Optional[str] = None, invalidated: Optional[bool] = False):
+
+        if invalidated:
+            err_msg = "This VersionLock configuration is not valid when configued to bypass_version_lock."
+            raise NotImplementedError(err_msg)
+
+        assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
+        assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
+
         assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
         assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
 
@@ -182,7 +189,7 @@ class VersionLock:
 
         already_deprecated = set(current_deprecated_lock)
         deprecated_rules = set(rules.deprecated.id_map)
-        new_rules = set(rule.id for rule in rules if rule.contents.latest_version is None) - deprecated_rules
+        new_rules = set(rule.id for rule in rules if rule.contents.saved_version is None) - deprecated_rules
         changed_rules = set(rule.id for rule in rules if rule.contents.is_dirty) - deprecated_rules
 
         # manage deprecated rules
@@ -331,4 +338,5 @@ class VersionLock:
         return changed_rules, list(new_rules), newly_deprecated
 
 
-default_version_lock = VersionLock(ETC_VERSION_LOCK_PATH, ETC_DEPRECATED_RULES_PATH, name='default')
+name = str(RULES_CONFIG.version_lock_file)
+loaded_version_lock = VersionLock(RULES_CONFIG.version_lock_file, RULES_CONFIG.deprecated_rules_file, name=name)
