@@ -2,7 +2,7 @@
 creation_date = "2023/07/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/03"
 
 [rule]
 author = ["Elastic"]
@@ -12,10 +12,10 @@ replace it with a custom binary or script that can read the user's password in c
 enable persistence onto the system every time the sudo binary is executed.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
-language = "kuery"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
 license = "Elastic License v2"
-name = "Potential Sudo Hijacking Detected"
+name = "Potential Sudo Hijacking"
 references = ["https://eapolsniper.github.io/2020/08/17/Sudo-Hijacking/"]
 risk_score = 47
 rule_id = "88fdcb8c-60e5-46ee-9206-2663adf1b1ce"
@@ -51,53 +51,58 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
     "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
-
+type = "eql"
 query = '''
-host.os.type:linux and event.category:file and event.type:("creation" or "file_create_event") and
-file.path:("/usr/bin/sudo" or "/bin/sudo") and not process.name:(docker or dockerd or pacman)
+file where host.os.type == "linux" and event.action in ("creation", "rename") and
+file.path in ("/usr/bin/sudo", "/bin/sudo") and not (
+  file.Ext.original.path in ("/usr/bin/sudo", "/bin/sudo") or
+  process.executable in (
+    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
+    "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum", "/bin/dnf", "/usr/bin/dnf",
+    "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic", "/bin/pacman", "/usr/bin/pacman",
+    "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk", "/usr/local/sbin/apk", "/usr/bin/apt",
+    "/usr/sbin/pacman", "/usr/bin/microdnf", "/usr/local/bin/dockerd", "/usr/local/bin/podman", "/usr/local/bin/dnf",
+    "/kaniko/executor", "/proc/self/exe", "/usr/bin/apt-get", "/usr/bin/apt-cache", "/usr/bin/apt-mark"
+  ) or
+  file.Ext.original.extension == "dpkg-new" or
+  process.executable : (
+    "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/var/lib/docker/*"
+  ) or
+  process.executable == null or
+  (process.name == "sed" and file.name : "sed*")
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
 
-
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "user.id", "process.executable"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
-
-
