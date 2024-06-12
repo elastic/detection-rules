@@ -21,6 +21,7 @@ class TestHunt(unittest.TestCase):
         uuid = "dc181967-c32c-46c9-b84b-ec4c8811c6a0"
         name = "Denial of Service or Resource Exhaustion Attacks Detection"
         language = "ES|QL"
+        license = "Elastic License v2"
         query = 'SELECT * FROM logs'
         notes = ["High token usage can strain system resources."]
         mitre = ["AML.T0034"]
