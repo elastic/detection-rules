@@ -665,7 +665,8 @@ class TestRuleMetadata(BaseRuleTest):
                 last_commit_date = detection_rules_git('log', '-1', '--format=%cd', '--date=short', rule_path)
                 if rule.contents.metadata.updated_date < last_commit_date.replace('-', '/'):
                     # Rule has been modified but updated_date has not been changed, add to list
-                    warn_msg = f'{self.rule_str(rule)} Rule has updated_date {rule.contents.metadata.updated_date} but modified on {last_commit_date.replace('-', '/')}'
+                    warn_msg = f'Rule {self.rule_str(rule)} has updated_date {rule.contents.metadata.updated_date} \
+                        but modified on {last_commit_date.replace('-', '/')}'
                     failed_rules.append(warn_msg)
 
             if failed_rules:
