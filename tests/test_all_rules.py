@@ -311,6 +311,7 @@ class TestRuleTags(BaseRuleTest):
             'logs-windows.sysmon_operational-*': {'all': ['Data Source: Sysmon']},
             'logs-windows.powershell*': {'all': ['Data Source: PowerShell Logs']},
             'logs-sentinel_one_cloud_funnel.*': {'all': ['Data Source: SentinelOne']},
+            'logs-fim.event-*': {'all': ['Data Source: File Integrity Monitoring']}
         }
 
         for rule in self.all_rules:
@@ -713,6 +714,8 @@ class TestRuleMetadata(BaseRuleTest):
                         if rule_integration == "windows" and re.search("winlog", integration_string) or \
                                 any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
                                     for ri in rule_integrations):
+                            continue
+                        elif rule.contents.data.type == 'threat_match':
                             continue
                         err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
                         failures.append(err_msg)
