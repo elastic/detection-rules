@@ -1,18 +1,19 @@
 [hunt]
 author = "Elastic"
-description = "This hunt detects DLL hijacking by identifying DLLs that are not located in the system32 or syswow64 folders and are masquerading as Microsoft native libraries."
+description = "This hunt identifies when a process loads a DLL normally located in `System32` or `SysWOW64` folders from an unusual path. Adversaries may execute their own malicious payloads by side-loading malicious DLLs. The hosts count also should help exclude false-positives by looking at low occurrences when this abnormal behavior is limited to unique agents."
 integration = ["endpoint"]
 uuid = "87c97865-fdaa-48b2-bfa6-67bed7cf56ef"
 name = "DLL Hijack via Masquerading as Microsoft Native Libraries"
 language = "ES|QL"
 license = "Elastic License v2"
+mitre = ["T1574", "T1574.001"]
 notes = [
     "This hunt has two optional queries, one for Elastic Defend data and another for Sysmon data.",
     "This hunt require the creation of an enrichment policy to use with the ES|QL (ENRICH command).",
     "The `dll.hash.sha256` field can be used to pivot and further investigate the DLL origin and purpose.",
     "Paths like `C:\\Users\\Public and C:\\ProgramData\\` are often observed in malware employing DLL side-loading.",
 ]
-mitre = ["T1574", "T1574.001"]
+
 query = [
 '''
 from logs-endpoint.events.library-*
