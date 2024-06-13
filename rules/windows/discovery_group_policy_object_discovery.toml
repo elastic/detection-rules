@@ -2,20 +2,23 @@
 creation_date = "2023/01/18"
 integration = ["windows", "endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
-
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the usage of gpresult.exe to query group policy objects. Attackers may query group policy 
-objects during the reconnaissance phase after compromising a system to gain a better understanding 
-of the active directory environment and possible methods to escalate privileges or move laterally. 
+Detects the usage of gpresult.exe to query group policy objects. Attackers may query group policy objects during the
+reconnaissance phase after compromising a system to gain a better understanding of the active directory environment and
+possible methods to escalate privileges or move laterally.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-windows.*",
+    "endgame-*",
+    "logs-system.security*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Group Policy Discovery via Microsoft GPResult Utility"
@@ -55,7 +58,14 @@ The detection rule 'Group Policy Discovery via Microsoft GPResult Utility' is de
 risk_score = 21
 rule_id = "94a401ba-4fa2-455c-b7ae-b6e037afc0b7"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -64,6 +74,7 @@ process where host.os.type == "windows" and event.type == "start" and
 (process.name: "gpresult.exe" or ?process.pe.original_file_name == "gprslt.exe") and process.args: ("/z", "/v", "/r", "/x")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -71,7 +82,9 @@ id = "T1615"
 name = "Group Policy Discovery"
 reference = "https://attack.mitre.org/techniques/T1615/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+

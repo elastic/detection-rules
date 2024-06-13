@@ -2,16 +2,14 @@
 creation_date = "2023/10/18"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/04/30"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule monitors for network connections from a kworker process. kworker, or kernel worker, processes are part of the
-kernel's workqueue mechanism. They are responsible for executing work that has been scheduled to be done in kernel 
-space, which might include tasks like handling interrupts, background activities, and other kernel-related tasks. 
+kernel's workqueue mechanism. They are responsible for executing work that has been scheduled to be done in kernel
+space, which might include tasks like handling interrupts, background activities, and other kernel-related tasks.
 Attackers may attempt to evade detection by masquerading as a kernel worker process.
 """
 from = "now-9m"
@@ -49,14 +47,15 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Command and Control",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 host.os.type:linux and event.category:network and event.action:(connection_attempted or connection_accepted) and 
 process.name:kworker* and not destination.ip:(
@@ -72,50 +71,49 @@ process.name:kworker* and not destination.ip:(
 ) and not destination.port:2049
 '''
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-  [rule.threat.tactic]
-  id = "TA0011"
-  name = "Command and Control"
-  reference = "https://attack.mitre.org/tactics/TA0011/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-  [rule.threat.tactic]
-  id = "TA0005"
-  name = "Defense Evasion"
-  reference = "https://attack.mitre.org/tactics/TA0005/"
-
-  [[rule.threat.technique]]
-  name = "Masquerading"
-  id = "T1036"
-  reference = "https://attack.mitre.org/techniques/T1036/"
-
-  [[rule.threat.technique]]
-  name = "Rootkit"
-  id = "T1014"
-  reference = "https://attack.mitre.org/techniques/T1014/"
-
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
 
-  [rule.threat.tactic]
-  id = "TA0010"
-  name = "Exfiltration"
-  reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
 
-  [[rule.threat.technique]]
-  name = "Exfiltration Over C2 Channel"
-  id = "T1041"
-  reference = "https://attack.mitre.org/techniques/T1041/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1041"
+name = "Exfiltration Over C2 Channel"
+reference = "https://attack.mitre.org/techniques/T1041/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
 
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.name", "destination.ip", "destination.port"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
 

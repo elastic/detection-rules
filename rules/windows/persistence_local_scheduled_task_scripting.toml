@@ -2,9 +2,7 @@
 creation_date = "2020/11/29"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +12,13 @@ an adversary to establish persistence.
 """
 false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-endpoint.events.library-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.registry-*",
+    "logs-endpoint.events.library-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Scheduled Task Created by a Windows Script"
@@ -24,7 +28,16 @@ Decode the base64 encoded Tasks Actions registry value to investigate the task's
 risk_score = 47
 rule_id = "689b9d57-e4d5-4357-ad17-9c334609d79a"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 type = "eql"
 
 query = '''
@@ -56,7 +69,6 @@ reference = "https://attack.mitre.org/techniques/T1053/005/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

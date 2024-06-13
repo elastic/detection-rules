@@ -33,7 +33,15 @@ ELASTICSEARCH_EQL_FEATURES = {
     "allow_sample": (Version.parse('8.6.0'), None),
     "elasticsearch_validate_optional_fields": (Version.parse('7.16.0'), None)
 }
-NON_DATASET_PACKAGES = ['apm', 'auditd_manager', 'cloud_defend', 'endpoint', 'network_traffic', 'system', 'windows']
+NON_DATASET_PACKAGES = ['apm',
+                        'auditd_manager',
+                        'cloud_defend',
+                        'endpoint',
+                        'network_traffic',
+                        'system',
+                        'windows',
+                        'sentinel_one_cloud_funnel',
+                        'ti_rapid7_threat_command']
 NON_PUBLIC_FIELDS = {
     "related_integrations": (Version.parse('8.3.0'), None),
     "required_fields": (Version.parse('8.3.0'), None),
@@ -88,6 +96,7 @@ EXPECTED_RULE_TAGS = [
     'Domain: Cloud',
     'Domain: Container',
     'Domain: Endpoint',
+    'Mitre Atlas: *',
     'OS: Linux',
     'OS: macOS',
     'OS: Windows',

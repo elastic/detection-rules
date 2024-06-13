@@ -2,18 +2,16 @@
 creation_date = "2022/06/20"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for suspicious activities that may indicate an attacker attempting to execute arbitrary code within 
-a PostgreSQL environment. Attackers can execute code via PostgreSQL as a result of gaining unauthorized access to a
-public facing PostgreSQL database or exploiting vulnerabilities, such as remote command execution and SQL injection
-attacks, which can result in unauthorized access and malicious actions, and facilitate post-exploitation activities
-for unauthorized access and malicious actions.
+This rule monitors for suspicious activities that may indicate an attacker attempting to execute arbitrary code within a
+PostgreSQL environment. Attackers can execute code via PostgreSQL as a result of gaining unauthorized access to a public
+facing PostgreSQL database or exploiting vulnerabilities, such as remote command execution and SQL injection attacks,
+which can result in unauthorized access and malicious actions, and facilitate post-exploitation activities for
+unauthorized access and malicious actions.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -48,13 +46,14 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -66,20 +65,22 @@ user.name == "postgres" and (
 ) and not process.parent.name : "puppet"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
