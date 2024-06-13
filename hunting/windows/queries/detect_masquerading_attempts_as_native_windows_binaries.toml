@@ -1,13 +1,13 @@
 [hunt]
 author = "Elastic"
-description = "Adversaries may attempt to manipulate features of their artifacts to make them appear legitimate or benign to users and/or security tools. Masquerading occurs when the name or location of an object, legitimate or malicious, is manipulated or abused for the sake of evading defenses and observation. This hunt detects processes named as legit Microsoft native binaries located in the system32 folder."
+description = "This hunt detects processes named as legit Microsoft native binaries located in the system32 folder. Adversaries may attempt to manipulate features of their artifacts to make them appear legitimate or benign to users and/or security tools. Masquerading occurs when the name or location of an object, legitimate or malicious, is manipulated or abused for the sake of evading defenses and observation. "
 integration = ["endpoint"]
 uuid = "93a72542-a1f7-4407-9175-8f066343db60"
 mitre = ["T1036"]
 name = "Masquerading Attempts as Native Windows Binaries"
 language = "ES|QL"
 license = "Elastic License v2"
-query = '''
+query = ['''
 from logs-endpoint.events.process-*
 | where  @timestamp > NOW() - 7 day
 | where event.type == "start" and event.action == "start" and host.os.name == "Windows" and not starts_with(process.executable, "C:\\Program Files\\WindowsApps\\") and not starts_with(process.executable, "C:\\Windows\\System32\\DriverStore\\") and process.name != "setup.exe"
@@ -19,7 +19,7 @@ from logs-endpoint.events.process-*
 | stats count_system_bin = count(system_bin), count_non_system_bin = count(non_system_bin) by process.name.caseless, host.id
  /* filter where the same process.name is present in both system_bin and non_system_bin */
 | where count_system_bin >= 1 and count_non_system_bin >= 1
-'''
+''']
 notes = [
     "Output of the query is the `process.name` and `host.id` where you can pivot by `host.id` and `process.name(non Microsoft signed)` to find the specific suspicious instances.",
     "Potential false-positives include processes with missing code signature details due to enrichment bugs.",
