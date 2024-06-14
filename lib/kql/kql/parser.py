@@ -16,6 +16,7 @@ from lark.visitors import Interpreter
 
 from kql.errors import KqlParseError
 from .ast import *  # noqa: F403
+from .utils import check_whitespace, collect_token_positions
 
 
 STRING_FIELDS = ("keyword", "text")
@@ -376,7 +377,14 @@ def lark_parse(text):
     walker = BaseKqlParser(text)
 
     try:
-        return lark_parser.parse(text)
+        tree = lark_parser.parse(text)
+
+        # Check for whitespace around "and" and "or" tokens
+        lines = text.split('\n')
+        check_whitespace(collect_token_positions(tree, "and"), 'and', lines)
+        check_whitespace(collect_token_positions(tree, "or"), 'or', lines)
+
+        return tree
     except UnexpectedEOF:
         raise KqlParseError("Unexpected EOF", len(walker.lines), len(walker.lines[-1].strip()), walker.lines[-1])
     except LarkError as exc:
