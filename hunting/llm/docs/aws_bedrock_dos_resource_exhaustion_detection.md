@@ -1,10 +1,12 @@
-# Denial of Service or Resource Exhaustion Attacks Detection
+# AWS Bedrock LLM Denial-of-Service or Resource Exhaustion
 
 ---
 
 ## Metadata
 
 - **Author:** Elastic
+- **Description:** This hunting query identifies unusual spikes in token usage that may indicate malicious attempts to disrupt services. High token usage can strain system resources and degrade performance, aligning with tactics observed in DoS attacks.
+
 - **UUID:** `dc181967-c32c-46c9-b84b-ec4c8811c6a0`
 - **Integration:** [aws_bedrock.invocation](https://docs.elastic.co/integrations/aws_bedrock)
 - **Language:** `ES|QL`
@@ -29,7 +31,7 @@ from logs-aws_bedrock.invocation-*
 
 ## Notes
 
-- This query identifies unusual spikes in token usage that may indicate malicious attempts to disrupt services. High token usage can strain system resources and degrade performance, aligning with tactics observed in DoS attacks.
+- 
 - Consider reviewing the context of high token requests to differentiate between legitimate heavy usage and potential abuse. Monitor the source of requests and patterns over time for better assessment.
 - Ensure logging and monitoring are correctly configured to capture detailed metrics on token usage. This will facilitate accurate detection and allow for a quick response to potential threats.
 - Collect evidence from logs that detail the timestamp, user ID, session information, and token counts for incidents flagged by this analytic. This information will be crucial for forensic analysis in the event of a security incident.
@@ -40,7 +42,7 @@ from logs-aws_bedrock.invocation-*
 
 - https://www.elastic.co/security-labs/elastic-advances-llm-security
 - https://owasp.org/www-project-top-10-for-large-language-model-applications/
-- [Denial of Service or Resource Exhaustion Attacks Detection](../queries/llm_dos_resource_exhaustion_detection.toml)
+- [AWS Bedrock LLM Denial-of-Service or Resource Exhaustion](../queries/aws_bedrock_dos_resource_exhaustion_detection.toml)
 
 ## License
 
