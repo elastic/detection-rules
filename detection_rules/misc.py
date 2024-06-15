@@ -271,7 +271,7 @@ def load_current_package_version() -> str:
 
 
 def get_default_config() -> Optional[Path]:
-    return next(Path(get_path()).glob('.detection-rules-cfg.*'), None)
+    return next(get_path().glob('.detection-rules-cfg.*'), None)
 
 
 @cached

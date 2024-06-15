@@ -16,6 +16,18 @@ These queries are designed for use with the Elastic Security platform, part of t
 
 Contributing to the `hunting` folder is a great way to share your expertise and enhance the security community's capabilities. Here’s how you can contribute:
 
+### Names and Related Queries
+
+All query names should be unique and descriptive. If a query's intent is identical or related to another query, consider 
+adding a suffix with the integration(s) to the name to indicate the relationship and distinguish them from each other. 
+Otherwise, the names do not require the integration, since it is already annotated within the `integration` field.
+
+The filename should reflect the query name.
+
+For example:
+- `Detect DLL Hijack via Masquerading as Microsoft Native Libraries - Elastic Defend`
+- `Detect DLL Hijack via Masquerading as Microsoft Native Libraries - Sysmon`
+
 ### Adding New Queries
 - **TOML File Naming and Organization**: Ensure that any new queries are named descriptively and grouped by the type of threat they address. Place your TOML files inside the `queries` folder and ensure they are named in a way that reflects the nature of the threat or behavior they are designed to detect.
 - **TOML Fields**: To ensure the hunt queries are consistent and comprehensive, it's important to structure the threat detection rules with specific fields. When contributing a new rule, please include the following fields in the TOML file to describe and configure the analytic:

@@ -2,7 +2,7 @@
 creation_date = "2023/02/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/05/31"
 
 [transform]
 [[transform.osquery]]
@@ -11,7 +11,7 @@ query = "SELECT * FROM file WHERE path = {{file.path}}"
 
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
-query = "SELECT * FROM file WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE '/usr/lib/update-notifier/%')"
+query = "SELECT * FROM file WHERE path LIKE '/etc/update-motd.d/%'"
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
@@ -19,8 +19,7 @@ query = """
 SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
 file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
 file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
-JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE
-'/usr/lib/update-notifier/%')
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE path LIKE '/etc/update-motd.d/%'
 """
 
 [[transform.osquery]]
@@ -31,31 +30,30 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
 
-
 [rule]
 author = ["Elastic"]
 description = """
-Message of the day (MOTD) is the message that is presented to the user when a user connects to a Linux server via SSH or
-a serial connection. Linux systems contain several default MOTD files located in the "/etc/update-motd.d/" and
-"/usr/lib/update-notifier/" directories. These scripts run as the root user every time a user connects over SSH or a
-serial connection. Adversaries may create malicious MOTD files that grant them persistence onto the target every time a
-user connects to the system by executing a backdoor script or command. This rule detects the creation of potentially
-malicious files within the default MOTD file directories.
+This rule detects the creation of potentially malicious files within the default MOTD file directories. Message of the
+day (MOTD) is the message that is presented to the user when a user connects to a Linux server via SSH or a serial
+connection. Linux systems contain several default MOTD files located in the "/etc/update-motd.d/" directory. These
+scripts run as the root user every time a user connects over SSH or a serial connection. Adversaries may create
+malicious MOTD files that grant them persistence onto the target every time a user connects to the system by executing
+a backdoor script or command. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
-language = "kuery"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
 license = "Elastic License v2"
-name = "Potential Persistence Through MOTD File Creation Detected"
+name = "Message-of-the-Day (MOTD) File Creation"
 note = """## Triage and analysis
 
-### Investigating Potential Persistence Through MOTD File Creation Detected
+### Investigating Message-of-the-Day (MOTD) File Creation
 
 The message-of-the-day (MOTD) is used to display a customizable system-wide message or information to users upon login in Linux.
 
-Attackers can abuse message-of-the-day (motd) files to run scripts, commands or malicious software every time a user connects to a system over SSH or a serial connection, by creating a new file within the `/etc/update-motd.d/` or `/usr/lib/update-notifier/` directory. Executable files in these directories automatically run with root privileges.
+Attackers can abuse message-of-the-day (motd) files to run scripts, commands or malicious software every time a user connects to a system over SSH or a serial connection, by creating a new file within the `/etc/update-motd.d/` directory. Executable files in these directories automatically run with root privileges.
 
-This rule identifies the creation of new files within the `/etc/update-motd.d/` or `/usr/lib/update-notifier/` directories.
+This rule identifies the creation of new files within the `/etc/update-motd.d/` directory.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -65,7 +63,7 @@ This rule identifies the creation of new files within the `/etc/update-motd.d/` 
 
 - Investigate the file that was created or modified.
   - $osquery_0
-- Investigate whether any other files in the `/etc/update-motd.d/` or `/usr/lib/update-notifier/` directories have been altered.
+- Investigate whether any other files in the `/etc/update-motd.d/` directory have been altered.
   - $osquery_1
   - $osquery_2
 - Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence and whether they are located in expected locations.
@@ -84,7 +82,7 @@ This rule identifies the creation of new files within the `/etc/update-motd.d/` 
 
 ### Related Rules
 
-- Suspicious Process Spawned from MOTD Detected - 4ec47004-b34a-42e6-8003-376a123ea447
+- Process Spawned from Message-of-the-Day (MOTD) - 4ec47004-b34a-42e6-8003-376a123ea447
 
 ### False positive analysis
 
@@ -141,42 +139,44 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
-
+type = "eql"
 query = '''
-host.os.type :linux and event.action:(creation or file_create_event or rename or file_rename_event) and
-file.path : (/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not process.name : (
-  dpkg or dockerd or rpm or executor or dnf or podman or ln or yum 
-) and not (
-  (process.name:mv and file.extension:dpkg-remove) or
-  (file.extension:(swp or swpx))
+file where host.os.type == "linux" and event.action in ("rename", "creation") and
+file.path : "/etc/update-motd.d/*" and not (
+  process.executable in (
+    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
+    "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
+    "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
+    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
+    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
+    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
+    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
+    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd"
+  ) or
+  file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
+  file.Ext.original.extension == "dpkg-new" or
+  process.executable : (
+    "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*"
+  ) or
+  process.executable == null or
+  (process.name == "sed" and file.name : "sed*") or
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "file.path", "process.executable"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-10d"
-
-
