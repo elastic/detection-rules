@@ -12,7 +12,8 @@ notes = [
     "Suspicious `process.executable` paths and LOLBins should be reviewed further.",
 ]
 mitre = [ "T1547", "T1547.001"]
-query = '''
+query = [
+'''
 from logs-endpoint.events.file-*, logs-windows.sysmon_operational-default-*
 | where  @timestamp > now() - 7 day
 | where host.os.family == "windows" and event.category == "file" and event.action in ("creation", "FileCreate") and
@@ -24,3 +25,4 @@ from logs-endpoint.events.file-*, logs-windows.sysmon_operational-default-*
 | stats number_hosts = count_distinct(host.id) by process_path, file.name
 | where number_hosts == 1
 '''
+]

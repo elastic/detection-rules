@@ -12,7 +12,8 @@ notes = [
     "Further investigation can done pivoting by `Persistence.name` and `args`.",
 ]
 mitre = [ "T1547", "T1547.011", "T1543", "T1543.001", "T1543.004"]
-query = '''
+query = [
+'''
 from logs-endpoint.events.file-*
 | where  @timestamp > now() - 7 day
 | where host.os.family == "macos" and event.category == "file" and event.action == "launch_daemon" and
@@ -23,3 +24,4 @@ from logs-endpoint.events.file-*
 | stats agents = count_distinct(host.id), total = count(*) by process.name, Persistence.name, args
 | where starts_with(args, "/") and agents == 1 and total == 1
 '''
+]
