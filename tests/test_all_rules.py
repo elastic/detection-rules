@@ -672,7 +672,7 @@ class TestRuleMetadata(BaseRuleTest):
                 fail_msg = """
                 The following rules have been modified but updated_date has not been changed \n
                 """
-                self.fail(fail_msg + '\n'.join(failed_rules))     
+                self.fail(fail_msg + '\n'.join(failed_rules))
 
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
