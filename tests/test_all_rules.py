@@ -662,17 +662,17 @@ class TestRuleMetadata(BaseRuleTest):
             failed_rules = []
             for rule_path in rules:
                 rule = rc.load_file(Path(rule_path))
-                last_commit_date = detection_rules_git('log', '-1', '--format=%cd', '--date=short', rule_path)
-                if rule.contents.metadata.updated_date < last_commit_date.replace('-', '/'):
+                diff_output = detection_rules_git('diff', 'origin/main', rule_path)
+                if not re.search(r'\+\s*updated_date =', diff_output):
                     # Rule has been modified but updated_date has not been changed, add to list
-                    warn_msg = f'Rule {self.rule_str(rule)} has updated_date {rule.contents.metadata.updated_date} but modified on {last_commit_date.replace('-', '/')}'  # noqa: E501
-                    failed_rules.append(warn_msg)
+                    fail_msg = f'Rule {self.rule_str(rule)} been modified but updated_date {rule.contents.metadata.updated_date} has not been changed'  # noqa: E501
+                    failed_rules.append(fail_msg)
 
             if failed_rules:
-                warn_msg = """
+                fail_msg = """
                 The following rules have been modified but updated_date has not been changed \n
                 """
-                warnings.warn(warn_msg + '\n'.join(failed_rules))
+                self.fail(fail_msg + '\n'.join(failed_rules))     
 
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
