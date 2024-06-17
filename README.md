@@ -78,7 +78,7 @@ Collecting Click==7.0
 ...
 ```
 
-Note: The `kibana` and `kql` packages are not available on PyPI and must be installed from the `lib` directory.
+Note: The `kibana` and `kql` packages are unavailable on PyPI and must be installed from the `lib` directory.
 
 ```console
 
@@ -123,7 +123,7 @@ Commands:
 
 Note:
 - If you are using a virtual environment, make sure to activate it before running the above command.
-- If using Windows, you may have to also run `<venv_directory>\Scripts\pywin32_postinstall.py -install` depending on your python version.
+- If using Windows, you may have also to run `<venv_directory>\Scripts\pywin32_postinstall.py -install` depending on your python version.
 
 The [contribution guide](CONTRIBUTING.md) describes how to use the `create-rule` and `test` commands to create and test a new rule when contributing to Detection Rules.
 
