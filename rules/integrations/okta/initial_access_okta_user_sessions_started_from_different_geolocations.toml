@@ -6,18 +6,21 @@ min_stack_comments = "Breaking change in Okta integration bumping version to ^2.
 min_stack_version = "8.10.0"
 updated_date = "2024/06/18"
 
-
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a specific Okta actor has multiple sessions started from different geolocations. Adversaries may attempt to launch an attack by using a list of known usernames and passwords to gain unauthorized access to user accounts from different locations.
+Detects when a specific Okta actor has multiple sessions started from different geolocations. Adversaries may attempt to
+launch an attack by using a list of known usernames and passwords to gain unauthorized access to user accounts from
+different locations.
 """
 from = "now-30m"
 interval = "15m"
 language = "esql"
 license = "Elastic License v2"
 name = "Okta User Sessions Started from Different Geolocations"
-note = """## Triage and analysis
+note = """
+
+## Triage and analysis
 
 ### Investigating Okta User Sessions Started from Different Geolocations
 
@@ -60,7 +63,7 @@ references = [
     "https://developer.okta.com/docs/reference/api/event-types/",
     "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
     "https://sec.okta.com/articles/2023/08/cross-tenant-impersonation-prevention-and-detection",
-    "https://www.rezonate.io/blog/okta-logs-decoded-unveiling-identity-threats-through-threat-hunting/"
+    "https://www.rezonate.io/blog/okta-logs-decoded-unveiling-identity-threats-through-threat-hunting/",
 ]
 risk_score = 47
 rule_id = "2e56e1bc-867a-11ee-b13e-f661ea17fbcd"
@@ -68,6 +71,7 @@ severity = "medium"
 tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Initial Access"]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 FROM logs-okta*
 | WHERE
@@ -82,20 +86,22 @@ FROM logs-okta*
     geo_auth_counts >= 2
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
