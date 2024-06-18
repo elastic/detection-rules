@@ -646,7 +646,7 @@ class TestRuleMetadata(BaseRuleTest):
         rules_path = get_path("rules")
         rules_bbr_path = get_path("rules_building_block")
 
-        # Use git diff to check if the file(s) has been modified in rules/ directory
+        # Use git diff to check if the file(s) has been modified in rules/ rules_build_block/ directory
         # For now this checks even rules/_deprecated any modification there will fail
         # the test case "test_deprecated_rules_modified", which means an ignore directory
         # is not required as there is a specific test for deprecated rules
