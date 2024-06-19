@@ -2,7 +2,7 @@
 creation_date = "2020/07/13"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/18"
 
 [rule]
 anomaly_threshold = 50
@@ -23,6 +23,27 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "high_distinct_count_error_message"
 name = "Spike in AWS Error Messages"
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from AWS.
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### AWS Integration Setup
+The AWS integration allows you to collect logs and metrics from Amazon Web Services (AWS) with Elastic Agent.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "aws" to your system:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “AWS” and select the integration to see more details about it.
+- Click “Add AWS”.
+- Configure the integration name and optionally add a description.
+- Review optional and advanced settings accordingly.
+- Add the newly installed “aws” to an existing or a new agent policy, and deploy the agent on your system from which aws log files are desirable.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/current/integrations/aws).
+"""
 note = """## Triage and analysis
 
 ### Investigating Spike in AWS Error Messages
@@ -76,10 +97,6 @@ This rule uses a machine learning job to detect a significant spike in the rate 
 - Take the actions needed to return affected systems, data, or services to their normal operational levels.
 - Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 """
 references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
 risk_score = 21
