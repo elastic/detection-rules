@@ -8,7 +8,7 @@
 - **Description:** This hunt returns the SHA256 hash and the `dll.path` of unsigned libraries loaded by svchost where the presence of unique path/hash is limited to a unique host. Adversaries may use Windows service DLLs to maintain persistence or run with System privileges.
 
 - **UUID:** `e37fe0b9-1b70-4800-8989-58bac5a0a9bb`
-- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `ES|QL`
 
 ## Query
@@ -46,7 +46,8 @@ from logs-windows.sysmon_operational-*
 
 ## Notes
 
-- The hunt using Elastic Defend library events uses an extra optional condition `dll.Ext.relative_file_creation_time` to scope if for recently dropped DLLs.
+- This hunt includes two queries to cover both Sysmon and Elastic Defend data sources.
+- The hunt uses Elastic Defend library events for an extra optional condition `dll.Ext.relative_file_creation_time` to scope if for recently dropped DLLs.
 - The `count_dlls_per_folder` variable filter is used to avoid cases where multiple DLLs with different names are loaded from same directory (often observed in FPs loaded multiple dependencies from same dir).
 - Pay close attention unknown hashes and suspicious paths, usually ServiceDLLs are located in trusted directories like `%programfiles%` and `system32/syswow64`.
 ## MITRE ATT&CK Techniques
