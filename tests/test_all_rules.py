@@ -26,7 +26,7 @@ from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryValidator,
                                   ThresholdAlertSuppression, TOMLRuleContents)
-from detection_rules.rule_loader import FILE_PATTERN, RuleCollection
+from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
 from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
@@ -657,20 +657,17 @@ class TestRuleMetadata(BaseRuleTest):
 
         # If the output is not empty, then file(s) have changed in the directory(s)
         if result:
-            rules = result.splitlines()
-            rc = RuleCollection()
+            modified_rules = result.splitlines()
             failed_rules = []
-            for rule_path in rules:
-                rule = rc.load_file(Path(rule_path))
-                diff_output = detection_rules_git('diff', 'origin/main', rule_path)
+            for modified_rule_path in modified_rules:
+                diff_output = detection_rules_git('diff', 'origin/main', modified_rule_path)
                 if not re.search(r'\+\s*updated_date =', diff_output):
-                    # Rule has been modified but updated_date has not been changed, add to list
-                    fail_msg = f'Rule {self.rule_str(rule)} been modified but updated_date {rule.contents.metadata.updated_date} has not been changed'  # noqa: E501
-                    failed_rules.append(fail_msg)
+                    # Rule has been modified but updated_date has not been changed, add to list of failed rules
+                    failed_rules.append(f'{modified_rule_path}')
 
             if failed_rules:
                 fail_msg = """
-                The following rules have been modified but updated_date has not been changed \n
+                The following rules in the below path(s) have been modified but updated_date has not been changed \n
                 """
                 self.fail(fail_msg + '\n'.join(failed_rules))
 
