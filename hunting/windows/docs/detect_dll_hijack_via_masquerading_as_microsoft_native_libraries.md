@@ -5,7 +5,7 @@
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** This hunt identifies when a process loads a DLL normally located in `System32` or `SysWOW64` folders from an unusual path. Adversaries may execute their own malicious payloads by side-loading malicious DLLs. The hosts count also should help exclude false-positives by looking at low occurrences when this abnormal behavior is limited to unique agents.
+- **Description:** This hunt identifies when a process loads a DLL normally located in `System32` or `SysWOW64` folders from an unusual path. Adversaries may execute their own malicious payloads by side-loading malicious DLLs. The host count also should help exclude false-positives by looking at low occurrences when this abnormal behavior is limited to unique agents.
 - **UUID:** `87c97865-fdaa-48b2-bfa6-67bed7cf56ef`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `ES|QL`
@@ -49,7 +49,7 @@ from logs-windows.sysmon_operational-*
 ## Notes
 
 - This hunt has two optional queries, one for Elastic Defend data and another for Sysmon data.
-- This hunt require the creation of an enrichment policy to use with the ES|QL (ENRICH command).
+- This hunt requires the creation of an [enrichment policy](https://www.elastic.co/guide/en/elasticsearch/reference/current/esql-enrich-data.html) to use with the ES|QL (ENRICH command).
 - The `dll.hash.sha256` field can be used to pivot and further investigate the DLL origin and purpose.
 - Paths like `C:\Users\Public and C:\ProgramData\` are often observed in malware employing DLL side-loading.
 ## MITRE ATT&CK Techniques

@@ -40,7 +40,7 @@ from logs-windows.sysmon_operational-*
 - This hunt includes two optional queries, one for Elastic Defend data and another for Sysmon data.
 - Sysmon file events don't populate file header and process code signature information thus we use `file.extension`.
 - Some exploits may result in the creation of an executable file by the exploited process.
-- Further investigation can be done by pivoting on`process.executable` and filtering for executable file creation.
+- Further investigation can be done by pivoting on `process.executable` and filtering for executable file creation.
 ## MITRE ATT&CK Techniques
 
 - [T1211](https://attack.mitre.org/techniques/T1211)
