@@ -2,7 +2,7 @@
 creation_date = "2021/01/09"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/07"
 
 [rule]
 author = ["Elastic", "Skoetting"]
@@ -72,15 +72,39 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-iam where winlog.api:"wineventlog" and event.action == "added-member-to-group" and
-  group.name : ("Admin*",
-                "Local Administrators",
-                "Domain Admins",
-                "Enterprise Admins",
-                "Backup Admins",
-                "Schema Admins",
-                "DnsAdmins",
-                "Exchange Organization Administrators")
+iam where winlog.api == "wineventlog" and event.action == "added-member-to-group" and
+(
+    (
+        group.name : (
+            "Admin*",
+            "Local Administrators",
+            "Domain Admins",
+            "Enterprise Admins",
+            "Backup Admins",
+            "Schema Admins",
+            "DnsAdmins",
+            "Exchange Organization Administrators",
+            "Print Operators",
+            "Server Operators",
+            "Account Operators"
+        )
+    ) or
+    (
+        group.id : (
+            "S-1-5-32-544",
+            "S-1-5-21-*-544",
+            "S-1-5-21-*-512",
+            "S-1-5-21-*-519",
+            "S-1-5-21-*-551",
+            "S-1-5-21-*-518",
+            "S-1-5-21-*-1101",
+            "S-1-5-21-*-1102",
+            "S-1-5-21-*-550",
+            "S-1-5-21-*-549",
+            "S-1-5-21-*-548"
+        )
+    )
+)
 '''
 
 
