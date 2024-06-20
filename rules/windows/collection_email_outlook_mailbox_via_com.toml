@@ -31,7 +31,7 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=1m
+sequence with maxspan=1m
 [process where host.os.type == "windows" and event.action == "start" and
   (
     process.name : (
@@ -43,9 +43,9 @@ sequence by host.id with maxspan=1m
       (process.Ext.relative_file_creation_time <= 500 or process.Ext.relative_file_name_modify_time <= 500)
     )
   )
-] by process.executable
+] by process.entity_id
 [process where host.os.type == "windows" and event.action == "start" and process.name : "OUTLOOK.EXE" and
-  process.Ext.effective_parent.name != null] by process.Ext.effective_parent.executable
+  process.Ext.effective_parent.name != null] by process.Ext.effective_parent.entity_id
 '''
 
 
