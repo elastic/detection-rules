@@ -1,0 +1,136 @@
+[metadata]
+creation_date = "2024/06/05"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2024/06/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies registry modifications to default services that could enable privilege escalation to SYSTEM. Attackers with
+privileges from groups like Server Operators may change the ImagePath of services to executables under their control or
+to execute commands.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Privilege Escalation via Service ImagePath Modification"
+references = [
+    "https://cube0x0.github.io/Pocing-Beyond-DA/"
+]
+risk_score = 47
+rule_id = "b66b7e2b-d50a-49b9-a6fc-3a383baedc6b"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and process.executable != null and 
+  event.action == "modification" and registry.value == "ImagePath" and
+  registry.key : (
+    "*\\ADWS", "*\\AppHostSvc", "*\\AppReadiness", "*\\AudioEndpointBuilder", "*\\AxInstSV", "*\\camsvc", "*\\CertSvc",
+    "*\\COMSysApp", "*\\CscService", "*\\defragsvc", "*\\DeviceAssociationService", "*\\DeviceInstall", "*\\DevQueryBroker",
+    "*\\Dfs", "*\\DFSR", "*\\diagnosticshub.standardcollector.service", "*\\DiagTrack", "*\\DmEnrollmentSvc", "*\\DNS",
+    "*\\dot3svc", "*\\Eaphost", "*\\GraphicsPerfSvc", "*\\hidserv", "*\\HvHost", "*\\IISADMIN", "*\\IKEEXT",
+    "*\\InstallService", "*\\iphlpsvc", "*\\IsmServ", "*\\LanmanServer", "*\\MSiSCSI", "*\\NcbService", "*\\Netlogon",
+    "*\\Netman", "*\\NtFrs", "*\\PlugPlay", "*\\Power", "*\\PrintNotify", "*\\ProfSvc", "*\\PushToInstall", "*\\RSoPProv",
+    "*\\sacsvr", "*\\SENS", "*\\SensorDataService", "*\\SgrmBroker", "*\\ShellHWDetection", "*\\shpamsvc", "*\\StorSvc",
+    "*\\svsvc", "*\\swprv", "*\\SysMain", "*\\Themes", "*\\TieringEngineService", "*\\TokenBroker", "*\\TrkWks",
+    "*\\UALSVC", "*\\UserManager", "*\\vm3dservice", "*\\vmicguestinterface", "*\\vmicheartbeat", "*\\vmickvpexchange",
+    "*\\vmicrdv", "*\\vmicshutdown", "*\\vmicvmsession", "*\\vmicvss", "*\\vmvss", "*\\VSS", "*\\w3logsvc", "*\\W3SVC",
+    "*\\WalletService", "*\\WAS", "*\\wercplsupport", "*\\WerSvc", "*\\Winmgmt", "*\\wisvc", "*\\wmiApSrv",
+    "*\\WPDBusEnum", "*\\WSearch"
+  ) and
+  not (
+    registry.data.strings : (
+        "?:\\Windows\\system32\\*.exe",
+        "%systemroot%\\system32\\*.exe",
+        "%windir%\\system32\\*.exe",
+        "%SystemRoot%\\system32\\svchost.exe -k *",
+        "%windir%\\system32\\svchost.exe -k *"
+    ) and
+        not registry.data.strings : (
+            "*\\cmd.exe",
+            "*\\cscript.exe",
+            "*\\ieexec.exe",
+            "*\\iexpress.exe",
+            "*\\installutil.exe",
+            "*\\Microsoft.Workflow.Compiler.exe",
+            "*\\msbuild.exe",
+            "*\\mshta.exe",
+            "*\\msiexec.exe",
+            "*\\msxsl.exe",
+            "*\\net.exe",
+            "*\\powershell.exe",
+            "*\\pwsh.exe",
+            "*\\reg.exe",
+            "*\\RegAsm.exe",
+            "*\\RegSvcs.exe",
+            "*\\regsvr32.exe",
+            "*\\rundll32.exe",
+            "*\\vssadmin.exe",
+            "*\\wbadmin.exe",
+            "*\\wmic.exe",
+            "*\\wscript.exe"
+        )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.011"
+name = "Services Registry Permissions Weakness"
+reference = "https://attack.mitre.org/techniques/T1574/011/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1569"
+name = "System Services"
+reference = "https://attack.mitre.org/techniques/T1569/"
+[[rule.threat.technique.subtechnique]]
+id = "T1569.002"
+name = "Service Execution"
+reference = "https://attack.mitre.org/techniques/T1569/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
