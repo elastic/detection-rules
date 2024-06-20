@@ -29,7 +29,7 @@ from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryV
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -311,6 +311,7 @@ class TestRuleTags(BaseRuleTest):
             'logs-windows.sysmon_operational-*': {'all': ['Data Source: Sysmon']},
             'logs-windows.powershell*': {'all': ['Data Source: PowerShell Logs']},
             'logs-sentinel_one_cloud_funnel.*': {'all': ['Data Source: SentinelOne']},
+            'logs-fim.event-*': {'all': ['Data Source: File Integrity Monitoring']}
         }
 
         for rule in self.all_rules:
@@ -626,6 +627,19 @@ class TestRuleMetadata(BaseRuleTest):
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
+    def test_deprecated_rules_modified(self):
+        """Test to ensure deprecated rules are not modified."""
+
+        rules_path = get_path("rules", "_deprecated")
+
+        # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
+        detection_rules_git = make_git()
+        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only", rules_path)
+
+        # If the output is not empty, then file(s) have changed in the directory
+        if result:
+            self.fail(f"Deprecated rules {result} has been modified")
+
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
     def test_integration_tag(self):
@@ -670,6 +684,8 @@ class TestRuleMetadata(BaseRuleTest):
                         if rule_integration == "windows" and re.search("winlog", integration_string) or \
                                 any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
                                     for ri in rule_integrations):
+                            continue
+                        elif rule.contents.data.type == 'threat_match':
                             continue
                         err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
                         failures.append(err_msg)
