@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2023/05/22"
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/10"
 
 [transform]
 [[transform.osquery]]
@@ -32,35 +32,38 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 [rule]
 author = ["Elastic"]
 description = """
-This rule is triggered when an IP address indicator from the Threat Intel Filebeat module or integrations has a match
-against a network event.
+This rule is triggered when a URL indicator from the Threat Intel Filebeat module or integrations has a match against an
+event that contains URL data, like DNS events, network logs, etc.
 """
 from = "now-65m"
 index = ["auditbeat-*", "endgame-*", "filebeat-*", "logs-*", "packetbeat-*", "winlogbeat-*"]
 interval = "1h"
 language = "kuery"
 license = "Elastic License v2"
-name = "Threat Intel IP Address Indicator Match"
+name = "Threat Intel URL Indicator Match"
 note = """## Triage and Analysis
 
-### Investigating Threat Intel IP Address Indicator Match
+### Investigating Threat Intel URL Indicator Match
 
 Threat Intel indicator match rules allow matching from a local observation, such as an endpoint event that records a file hash with an entry of a file hash stored within the Threat Intel integrations index.
 
 Matches are based on threat intelligence data that's been ingested during the last 30 days. Some integrations don't place expiration dates on their threat indicators, so we strongly recommend validating ingested threat indicators and reviewing match results. When reviewing match results, check associated activity to determine whether the event requires additional investigation.
 
-This rule is triggered when an IP address indicator from the Threat Intel Filebeat module or a threat intelligence integration matches against a network event.
+This rule is triggered when a URL indicator from the Threat Intel Filebeat module or a threat intelligence integration matches against an event that contains URL data, like DNS events, network logs, etc.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
-- Gain context about the field that matched the local observation so you can understand the nature of the connection. This information can be found in the `threat.indicator.matched.field` field.
-- Investigate the IP address, which can be found in the `threat.indicator.matched.atomic` field:
+- Investigate the URL, which can be found in the `threat.indicator.matched.atomic` field:
+  - Identify the type of malicious activity related to the URL (phishing, malware, etc.).
   - Check the reputation of the IP address in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-  - Execute a reverse DNS lookup to retrieve hostnames associated with the given IP address.
-- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
+  - Execute a WHOIS lookup to retrieve information about the domain registration and contacts to report abuse.
+  - If dealing with a phishing incident:
+    - Contact the user to gain more information around the delivery method, information sent, etc.
+    - Analyze whether the URL is trying to impersonate a legitimate address. Look for typosquatting, extra or unusual subdomains, or other anomalies that could lure the user.
+    - Investigate the phishing page to identify which information may have been sent to the attacker by the user.
 - Identify the process responsible for the connection, and investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Retrieve the involved process executable and examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
@@ -78,7 +81,6 @@ This rule is triggered when an IP address indicator from the Threat Intel Filebe
 
 ### False Positive Analysis
 
-- When a match is found, it's important to consider the indicator's initial release date. Threat intelligence is useful for augmenting existing security processes but can quickly become outdated. In other words, some threat intelligence only represents a specific set of activity observed at a specific time. For example, an IP address may have hosted malware observed in a Dridex campaign months ago, but it's possible that IP has been remediated and no longer represents any threat.
 - False positives might occur after large and publicly written campaigns if curious employees interact with attacker infrastructure.
 - Some feeds may include internal or known benign addresses by mistake (e.g., 8.8.8.8, google.com, 127.0.0.1, etc.). Make sure you understand how blocking a specific domain or address might impact the organization or normal system functioning.
 
@@ -91,6 +93,7 @@ This rule is triggered when an IP address indicator from the Threat Intel Filebe
   - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
   - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Consider reporting the address for abuse using the provided contact information.
 - Remove and block malicious artifacts identified during triage.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
@@ -102,7 +105,7 @@ references = [
     "https://www.elastic.co/security/tip",
 ]
 risk_score = 99
-rule_id = "0c41e478-5263-4c69-8f9e-7dfd2c22da64"
+rule_id = "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
 setup = """## Setup
 
 This rule needs threat intelligence indicators to work.
@@ -113,12 +116,12 @@ or a [custom integration](https://www.elastic.co/guide/en/security/current/es-th
 More information can be found [here](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html).
 """
 severity = "critical"
-tags = ["OS: Windows", "Data Source: Elastic Endgame", "Rule Type: Indicator Match"]
+tags = ["OS: Windows", "Data Source: Elastic Endgame", "Rule Type: Threat Match"]
 threat_index = ["filebeat-*", "logs-ti_*"]
 threat_indicator_path = "threat.indicator"
 threat_language = "kuery"
 threat_query = """
-@timestamp >= "now-30d/d" and event.module:(threatintel or ti_*) and threat.indicator.ip:* and not
+@timestamp >= "now-30d/d" and event.module:(threatintel or ti_*) and threat.indicator.url.full:* and not
 labels.is_ioc_transform_source:"true"
 """
 timeline_id = "495ad7a7-316e-4544-8a0f-9c098daee76e"
@@ -127,7 +130,7 @@ timestamp_override = "event.ingested"
 type = "threat_match"
 
 query = '''
-source.ip:* or destination.ip:*
+url.full:*
 '''
 
 
@@ -173,15 +176,15 @@ query = "indicator"
 [[rule.threat_mapping]]
 
 [[rule.threat_mapping.entries]]
-field = "source.ip"
+field = "url.full"
 type = "mapping"
-value = "threat.indicator.ip"
+value = "threat.indicator.url.full"
 
 [[rule.threat_mapping]]
 
 [[rule.threat_mapping.entries]]
-field = "destination.ip"
+field = "url.original"
 type = "mapping"
-value = "threat.indicator.ip"
+value = "threat.indicator.url.original"
 
 
