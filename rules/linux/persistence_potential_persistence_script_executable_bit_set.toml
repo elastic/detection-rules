@@ -7,14 +7,10 @@ updated_date = "2024/06/21"
 [rule]
 author = ["Elastic"]
 description = """
-
-
-This rule monitors for the addition of an executable bit of the `/etc/rc.local` or `/etc/rc.common` files. These files
-are used to start custom applications, services, scripts or commands during start-up. They require executable
-permissions to be executed on boot. An alert of this rule is an indicator that this method is being set up within
-your environment. This method has mostly been replaced by Systemd. However, through the `systemd-rc-local-generator`,
-these files can be converted to services that run at boot. Adversaries may alter these files to execute malicious code
-at start-up, and gain persistence onto the system.
+This rule monitors for the addition of an executable bit for scripts that are located in directories which are
+commonly abused for persistence. An alert of this rule is an indicator that a persistence mechanism is being set up
+within your environment. Adversaries may create these scripts to execute malicious code at start-up, or at a set 
+interval to gain persistence onto the system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*", "endgame-*"]
@@ -69,6 +65,7 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 process.args : (
   // Misc.
   "/etc/rc.local", "/etc/rc.common", "/etc/init.d/*", "/etc/update-motd.d/*", "/etc/apt/apt.conf.d/*", "/etc/cron*",
+  "/etc/init/*",
 
   // XDG
   "/etc/xdg/autostart/*", "/home/*/.config/autostart/*", "/root/.config/autostart/*",
