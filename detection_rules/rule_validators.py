@@ -107,7 +107,7 @@ class KQLValidator(QueryValidator):
 
     @cached_property
     def ast(self) -> kql.ast.Expression:
-        return kql.parse(self.query)
+        return kql.parse(self.query, normalize_kql_keywords=(CUSTOM_RULES_DIR is not None))
 
     @cached_property
     def unique_fields(self) -> List[str]:
@@ -151,7 +151,7 @@ class KQLValidator(QueryValidator):
                                                                     beats_version, ecs_version)
 
             try:
-                kql.parse(self.query, schema=schema)
+                kql.parse(self.query, schema=schema, normalize_kql_keywords=(CUSTOM_RULES_DIR is not None))
             except kql.KqlParseError as exc:
                 message = exc.error_msg
                 trailer = err_trailer
@@ -212,7 +212,7 @@ class KQLValidator(QueryValidator):
 
             # Validate the query against the schema
             try:
-                kql.parse(self.query, schema=integration_schema)
+                kql.parse(self.query, schema=integration_schema, normalize_kql_keywords=(CUSTOM_RULES_DIR is not None))
             except kql.KqlParseError as exc:
                 if exc.error_msg == "Unknown field":
                     field = extract_error_field(self.query, exc)
