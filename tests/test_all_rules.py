@@ -640,6 +640,37 @@ class TestRuleMetadata(BaseRuleTest):
         if result:
             self.fail(f"Deprecated rules {result} has been modified")
 
+    def test_rule_change_has_updated_date(self):
+        """Test to ensure modified rules have updated_date field updated."""
+
+        rules_path = get_path("rules")
+        rules_bbr_path = get_path("rules_building_block")
+
+        # Use git diff to check if the file(s) has been modified in rules/ rules_build_block/ directory
+        # For now this checks even rules/_deprecated any modification there will fail
+        # the test case "test_deprecated_rules_modified", which means an ignore directory
+        # is not required as there is a specific test for deprecated rules
+
+        detection_rules_git = make_git()
+        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only",
+                                     rules_path, rules_bbr_path)
+
+        # If the output is not empty, then file(s) have changed in the directory(s)
+        if result:
+            modified_rules = result.splitlines()
+            failed_rules = []
+            for modified_rule_path in modified_rules:
+                diff_output = detection_rules_git('diff', 'origin/main', modified_rule_path)
+                if not re.search(r'\+\s*updated_date =', diff_output):
+                    # Rule has been modified but updated_date has not been changed, add to list of failed rules
+                    failed_rules.append(f'{modified_rule_path}')
+
+            if failed_rules:
+                fail_msg = """
+                The following rules in the below path(s) have been modified but updated_date has not been changed \n
+                """
+                self.fail(fail_msg + '\n'.join(failed_rules))
+
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
     def test_integration_tag(self):
