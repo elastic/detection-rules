@@ -2,8 +2,8 @@
 creation_date = "2024/06/13"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/06/13"
-min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully"
+updated_date = "2024/06/22"
+min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
 min_stack_version = "8.13.0"
 
 [rule]
@@ -100,9 +100,7 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail-*
-| where event.provider == "iam.amazonaws.com" and event.action == "CreateAccessKey" and event.outcome == "success" 
-| where user.name != user.target.name
-| keep @timestamp, user.name, user.target.name, event.action, aws.cloudtrail.request_parameters, aws.cloudtrail.response_elements
+| where event.provider == "iam.amazonaws.com" and event.action == "CreateAccessKey" and event.outcome == "success" and user.name != user.target.name
 '''
 
 
