@@ -639,8 +639,8 @@ class TestRuleMetadata(BaseRuleTest):
         # If the output is not empty, then file(s) have changed in the directory
         if result:
             self.fail(f"Deprecated rules {result} has been modified")
-    
-    @unittest.skipIf(os.getenv('GITHUB_EVENT_NAME') != 'pull_request' or os.getenv('GITHUB_BASE_REF') != 'main', 
+
+    @unittest.skipIf(os.getenv('GITHUB_EVENT_NAME') != 'pull_request' or os.getenv('GITHUB_BASE_REF') != 'main',
                      "Skipping this test when not running on pull requests to main branch")
     def test_rule_change_has_updated_date(self):
         """Test to ensure modified rules have updated_date field updated."""
