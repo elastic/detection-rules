@@ -212,8 +212,8 @@ class KQLValidator(QueryValidator):
 
             # Validate the query against the schema
             try:
-                kql.parse(self.query, 
-                          schema=integration_schema, 
+                kql.parse(self.query,
+                          schema=integration_schema,
                           normalize_kql_keywords=(NORMALIZE_KQL_KEYWORDS is not None))
             except kql.KqlParseError as exc:
                 if exc.error_msg == "Unknown field":
