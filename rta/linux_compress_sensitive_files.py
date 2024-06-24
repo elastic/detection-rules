@@ -31,13 +31,23 @@ def main():
         ["zip", files[1], "/etc/passwd"],
         ["gzip", "/etc/group", files[2]],
     ]
+
     for command in commands:
+        masquerade = f"/tmp/{command[0]}"
+        source = common.get_path("bin", "linux.ditto_and_spawn")
+        common.copy_file(source, masquerade)
+
+        masquerade_command = command
+        masquerade_command[0] = masquerade
+
         try:
-            common.execute(command)
+            common.execute(masquerade_command, timeout=2, kill=True)
         except OSError as exc:
             # command doesn't exist on distro - the rule only needs one to trigger
             # also means we will eventually need to explore per distro ground truth when we expand as counts will vary
             common.log(str(exc))
+
+        common.remove_file(masquerade)
 
 
 if __name__ == "__main__":
