@@ -19,6 +19,7 @@ from .utils import cached, load_etc_dump, get_etc_path
 
 ROOT_DIR = Path(__file__).parent.parent
 CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
+NORMALIZE_KQL_KEYWORDS = os.getenv('NORMALIZE_KQL_KEYWORDS', None)
 
 
 @dataclass

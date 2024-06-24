@@ -18,7 +18,7 @@ from semver import Version
 import kql
 
 from . import ecs, endgame
-from .config import CUSTOM_RULES_DIR, load_current_package_version
+from .config import CUSTOM_RULES_DIR, NORMALIZE_KQL_KEYWORDS, load_current_package_version
 from .integrations import (get_integration_schema_data,
                            load_integrations_manifests)
 from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
@@ -107,7 +107,7 @@ class KQLValidator(QueryValidator):
 
     @cached_property
     def ast(self) -> kql.ast.Expression:
-        return kql.parse(self.query, normalize_kql_keywords=(CUSTOM_RULES_DIR is not None))
+        return kql.parse(self.query, normalize_kql_keywords=(NORMALIZE_KQL_KEYWORDS is not None))
 
     @cached_property
     def unique_fields(self) -> List[str]:
@@ -151,7 +151,7 @@ class KQLValidator(QueryValidator):
                                                                     beats_version, ecs_version)
 
             try:
-                kql.parse(self.query, schema=schema, normalize_kql_keywords=(CUSTOM_RULES_DIR is not None))
+                kql.parse(self.query, schema=schema, normalize_kql_keywords=(NORMALIZE_KQL_KEYWORDS is not None))
             except kql.KqlParseError as exc:
                 message = exc.error_msg
                 trailer = err_trailer
@@ -212,7 +212,9 @@ class KQLValidator(QueryValidator):
 
             # Validate the query against the schema
             try:
-                kql.parse(self.query, schema=integration_schema, normalize_kql_keywords=(CUSTOM_RULES_DIR is not None))
+                kql.parse(self.query, 
+                          schema=integration_schema, 
+                          normalize_kql_keywords=(NORMALIZE_KQL_KEYWORDS is not None))
             except kql.KqlParseError as exc:
                 if exc.error_msg == "Unknown field":
                     field = extract_error_field(self.query, exc)

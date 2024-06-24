@@ -19,7 +19,7 @@ from semver import Version
 
 import kql
 from detection_rules import attack
-from detection_rules.config import CUSTOM_RULES_DIR, load_current_package_version
+from detection_rules.config import NORMALIZE_KQL_KEYWORDS, load_current_package_version
 from detection_rules.integrations import (find_latest_compatible_version,
                                           load_integrations_manifests,
                                           load_integrations_schemas)
@@ -67,7 +67,7 @@ class TestValidRules(BaseRuleTest):
                 )
             ):
                 source = rule.contents.data.query
-                tree = kql.parse(source, optimize=False, normalize_kql_keywords=(CUSTOM_RULES_DIR is not None))
+                tree = kql.parse(source, optimize=False, normalize_kql_keywords=(NORMALIZE_KQL_KEYWORDS is not None))
                 optimized = tree.optimize(recursive=True)
                 err_message = f'\n{self.rule_str(rule)} Query not optimized for rule\n' \
                               f'Expected: {optimized}\nActual: {source}'

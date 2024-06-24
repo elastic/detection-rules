@@ -31,7 +31,7 @@ from eql.utils import load_dump, stream_json_lines
 import kql
 
 # Cannot import from detection_rules.config due to circular imports
-CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
+NORMALIZE_KQL_KEYWORDS = os.getenv('NORMALIZE_KQL_KEYWORDS', None)
 
 CURR_DIR = Path(__file__).resolve().parent
 ROOT_DIR = CURR_DIR.parent
@@ -245,7 +245,7 @@ def convert_time_span(span: str) -> int:
 
 def evaluate(rule, events):
     """Evaluate a query against events."""
-    evaluator = kql.get_evaluator(kql.parse(rule.query), normalize_kql_keywords=(CUSTOM_RULES_DIR is not None))
+    evaluator = kql.get_evaluator(kql.parse(rule.query), normalize_kql_keywords=(NORMALIZE_KQL_KEYWORDS is not None))
     filtered = list(filter(evaluator, events))
     return filtered
 
