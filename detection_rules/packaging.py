@@ -15,6 +15,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 from semver import Version
+from itertools import product
+
 
 import click
 import yaml
@@ -271,7 +273,8 @@ class Package(object):
                 indexes.update(index_list)
 
         letters = ascii_uppercase + ascii_lowercase
-        index_map = {index: letters[i] for i, index in enumerate(sorted(indexes))}
+        letters_combination = [''.join(key) for key in product(letters, repeat=2)]
+        index_map = {index: letters_combination[i] for i, index in enumerate(sorted(indexes))}
 
         def get_summary_rule_info(r: TOMLRule):
             r = r.contents
