@@ -1,4 +1,4 @@
-# Frequency of Process Execution and Network Logon by Source Address
+# Frequency of Process Execution via Network Logon by Source Address
 
 ---
 
