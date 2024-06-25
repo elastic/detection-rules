@@ -18,7 +18,7 @@ from semver import Version
 import kql
 
 from . import ecs, endgame
-from .config import CUSTOM_RULES_DIR, NORMALIZE_KQL_KEYWORDS, load_current_package_version
+from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .integrations import (get_integration_schema_data,
                            load_integrations_manifests)
 from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
@@ -33,6 +33,7 @@ EQL_ERROR_TYPES = Union[eql.EqlCompileError,
                         eql.EqlSyntaxError,
                         eql.EqlTypeMismatchError]
 KQL_ERROR_TYPES = Union[kql.KqlCompileError, kql.KqlParseError]
+RULES_CONFIG = parse_rules_config()
 
 
 class ExtendedTypeHint(Enum):
@@ -107,7 +108,7 @@ class KQLValidator(QueryValidator):
 
     @cached_property
     def ast(self) -> kql.ast.Expression:
-        return kql.parse(self.query, normalize_kql_keywords=(NORMALIZE_KQL_KEYWORDS is not None))
+        return kql.parse(self.query, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
 
     @cached_property
     def unique_fields(self) -> List[str]:
@@ -151,7 +152,7 @@ class KQLValidator(QueryValidator):
                                                                     beats_version, ecs_version)
 
             try:
-                kql.parse(self.query, schema=schema, normalize_kql_keywords=(NORMALIZE_KQL_KEYWORDS is not None))
+                kql.parse(self.query, schema=schema, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
             except kql.KqlParseError as exc:
                 message = exc.error_msg
                 trailer = err_trailer
@@ -214,7 +215,7 @@ class KQLValidator(QueryValidator):
             try:
                 kql.parse(self.query,
                           schema=integration_schema,
-                          normalize_kql_keywords=(NORMALIZE_KQL_KEYWORDS is not None))
+                          normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
             except kql.KqlParseError as exc:
                 if exc.error_msg == "Unknown field":
                     field = extract_error_field(self.query, exc)

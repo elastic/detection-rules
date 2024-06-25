@@ -26,7 +26,7 @@ from marshmallow import ValidationError, validates_schema
 import kql
 
 from . import beats, ecs, endgame, utils
-from .config import NORMALIZE_KQL_KEYWORDS, load_current_package_version, parse_rules_config
+from .config import load_current_package_version, parse_rules_config
 from .integrations import (find_least_compatible_version, get_integration_schema_fields,
                            load_integrations_manifests, load_integrations_schemas,
                            parse_datasets)
@@ -1526,7 +1526,7 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
         cfg = set_eql_config(rule.contents.metadata.get('min_stack_version'))
         with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, eql.parser.skip_optimizations, cfg:
-            parsed = (kql.parse(query, normalize_kql_keywords=(NORMALIZE_KQL_KEYWORDS is not None))
+            parsed = (kql.parse(query, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
                       if language == 'kuery' else eql.parse_query(query))
         return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
