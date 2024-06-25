@@ -17,7 +17,7 @@
 from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*
 | where @timestamp > now() - 7 day and
   host.os.family == "windows" and event.category == "process" and event.action in ("start", "Process creation") and
-  process.parent.name.caseless == "wmiprvse.exe" and starts_with(process.code_signature.subject_name, "Microsoft")
+  to_lower(process.parent.name) == "wmiprvse.exe" and starts_with(process.code_signature.subject_name, "Microsoft")
 | keep process.hash.sha256, host.id, process.name
 | stats agents = count_distinct(host.id) by process.name
 | where agents == 1
