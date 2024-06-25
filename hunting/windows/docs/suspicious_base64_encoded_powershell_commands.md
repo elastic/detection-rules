@@ -1,10 +1,12 @@
-# Suspicious Base64 Encoded PowerShell Command
+# Suspicious Base64 Encoded Powershell Command
 
 ---
 
 ## Metadata
 
 - **Author:** Elastic
+- **Description:** This hunt identifies base64 encoded powershell commands in process start events and filters ones with suspicious keywords like downloaders and evasion related commands.
+
 - **UUID:** `8bf800de-b3a2-4b36-9484-7d9dae2a1992`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `ES|QL`
@@ -27,7 +29,8 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 
 ## Notes
 
-- This hunt decode base64 obfuscated powershell commands in process start events and filter ones with suspicious keywords like downloaders and evasion related commands.
+- This hunt can be expanded to include more evasion techniques and downloaders.
+- Pivoting by `agent.id` can provide more context on the affected hosts.
 ## MITRE ATT&CK Techniques
 
 - [T1059](https://attack.mitre.org/techniques/T1059)
