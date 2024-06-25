@@ -23,7 +23,7 @@ Here are the queries currently available:
 - [Excessive RDP Network Activity by Host and User](./windows/docs/excessive_rdp_network_activity_by_source_host_and_user.md) (ES|QL)
 - [Excessive SMB Network Activity by Process ID](./windows/docs/excessive_smb_network_activity_by_process_id.md) (ES|QL)
 - [Executable File Creation by an Unusual Microsoft Binary](./windows/docs/executable_file_creation_by_an_unusual_microsoft_binary.md) (ES|QL)
-- [Frequency of Process Execution and Network Logon by Source Address](./windows/docs/execution_via_network_logon_by_occurrence_frequency_by_top_source_ip.md) (ES|QL)
+- [Frequency of Process Execution via Network Logon by Source Address](./windows/docs/execution_via_network_logon_by_occurrence_frequency_by_top_source_ip.md) (ES|QL)
 - [Execution via Remote Services by Client Address](./windows/docs/execution_via_remote_services_by_client_address.md) (ES|QL)
 - [Startup Execution with Low Occurrence Frequency by Unique Host](./windows/docs/execution_via_startup_with_low_occurrence_frequency.md) (ES|QL)
 - [Low Frequency of Process Execution via WMI by Unique Agent](./windows/docs/execution_via_windows_management_instrumentation_by_occurrence_frequency_by_unique_agent.md) (ES|QL)
