@@ -17,7 +17,7 @@
 from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-system.security-*
 | where host.os.family == "windows" and @timestamp > NOW() - 15 day and
   event.category == "process" and event.action in ("start", "Process creation", "created-process") and
-  process.parent.name.caseless in ("winword.exe", "excel.exe", "powerpnt.exe") and not starts_with(process.executable, "C:\\Program Files")
+  to_lower(process.parent.name) in ("winword.exe", "excel.exe", "powerpnt.exe") and not starts_with(process.executable, "C:\\Program Files")
 // normalize user home profile paths
 | eval process_path = replace(process.executable.caseless, """[c]:\\[u][s][e][r][s]\\[a-zA-Z0-9\.\-\_\$]+\\""", "c:\\\\users\\\\user\\\\")
 | stats occurrences = count(*), agents = count_distinct(agent.id) by process_path, process.parent.name
