@@ -113,6 +113,7 @@ class RulesConfig:
     bbr_rules_dirs: Optional[List[Path]] = field(default_factory=list)
     bypass_version_lock: bool = False
     exception_dir: Optional[Path] = None
+    normalize_kql_keywords: bool = True
 
 # using the stack_schema_map
 RULES_CONFIG.stack_schema_map
