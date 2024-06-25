@@ -7,16 +7,19 @@ updated_date = "2024/06/25"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the execution of the `grep` command with the `plugins=1` argument on Linux systems. This command is
-used to search for plugins in the `/etc/yum.conf`, `/usr/lib/yum-plugins/*`, and `/etc/yum/pluginconf.d/*` directories, 
-that have plugins enabled. This behavior may indicate an attacker is attempting to establish persistence in a Yum plugin.
+This rule detects the execution of the `grep` command with the `plugins` argument on Linux systems. This command is
+used to search for YUM/DNF configurations and/or plugins with an enabled state. This behavior may indicate an
+attacker is attempting to establish persistence in a YUM or DNF plugin.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Yum Plugin Status Discovery"
-references = ["https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/linux/local/yum_package_manager_persistence.rb"]
+name = "Yum/DNF Plugin Status Discovery"
+references = [
+  "https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/linux/local/yum_package_manager_persistence.rb",
+  "https://pwnshift.github.io/2020/10/01/persistence.html"
+]
 risk_score = 21
 rule_id = "78390eb5-c838-4c1d-8240-69dd7397cfb7"
 setup = """## Setup
@@ -53,8 +56,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
-process.name == "grep" and process.args == "plugins=1" and
-process.args : ("/etc/yum.conf", "/usr/lib/yum-plugins/*", "/etc/yum/pluginconf.d/*")
+process.name == "grep" and process.args : "plugins*" and process.args : (
+  "/etc/yum.conf", "/usr/lib/yum-plugins/*", "/etc/yum/pluginconf.d/*",
+  "/usr/lib/python*/site-packages/dnf-plugins/*", "/etc/dnf/plugins/*", "/etc/dnf/dnf.conf"
+)
 '''
 
 [[rule.threat]]
