@@ -1,10 +1,12 @@
-# Excessive SMB Network Activity by process Id
+# Excessive SMB Network Activity by Process ID
 
 ---
 
 ## Metadata
 
 - **Author:** Elastic
+- **Description:** This hunt looks for a high occurrence of SMB connections from the same process by unique destination IP addresses. The number of unique destination IP addresses is compared to a defined threshold. This could be a sign of SMB scanning or lateral movement via remote services that depend on the SMB protocol.
+
 - **UUID:** `6949135b-76d7-47a3-ae95-ef482508fb7c`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `ES|QL`
@@ -12,9 +14,9 @@
 ## Query
 
 ```sql
-from logs-endpoint.events.network-*, logs-windows.sysmon_operational-* 
-| where @timestamp > now() - 7 day and 
-  host.os.family == "windows" and event.category == "network" and network.direction == "egress" and 
+from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
+| where @timestamp > now() - 7 day and
+  host.os.family == "windows" and event.category == "network" and network.direction == "egress" and
   network.transport == "tcp"and destination.port == 445 and source.port >= 49152 and process.pid == 4
 | keep destination.ip, process.entity_id, host.id
 | stats count_unique_dst = count_distinct(destination.ip) by process.entity_id, host.id
@@ -24,9 +26,8 @@ from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 
 ## Notes
 
-- This hunt looks for high number of SMB connections from same process to more than a defined threshold of unique destination Ip addresses. This could be a sign of SMB scanning or some lateral movement via remote services that depend on SMB protocol.
-- Further investigation can done pivoting by process.entity_id and host.id.
-- Maximum number of unique destination.ip by process can be adjusted to your environment to reduce normal noisy hosts by Id.
+- Further investigation can done pivoting by `process.entity_id` and `host.id.`
+- Maximum number of unique `destination.ip` by process can be adjusted to your environment to reduce normal noisy hosts by process ID.
 ## MITRE ATT&CK Techniques
 
 - [T1021](https://attack.mitre.org/techniques/T1021)
