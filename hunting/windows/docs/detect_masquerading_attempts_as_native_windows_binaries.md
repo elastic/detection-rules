@@ -1,10 +1,11 @@
-# Detect masquerading attempts as native Windows binaries
+# Masquerading Attempts as Native Windows Binaries
 
 ---
 
 ## Metadata
 
 - **Author:** Elastic
+- **Description:** This hunt detects processes named as legit Microsoft native binaries located in the system32 folder. Adversaries may attempt to manipulate features of their artifacts to make them appear legitimate or benign to users and/or security tools. Masquerading occurs when the name or location of an object, legitimate or malicious, is manipulated or abused for the sake of evading defenses and observation. 
 - **UUID:** `93a72542-a1f7-4407-9175-8f066343db60`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `ES|QL`
@@ -27,8 +28,8 @@ from logs-endpoint.events.process-*
 
 ## Notes
 
-- Output of the query is the process.name and host.id, you can pivot by host.id and process.name(non Microsoft signed) to find the specific suspicious instances.
-- Potential false positives include processes with missing code signature details due to enrichment bugs.
+- Output of the query is the `process.name` and `host.id` where you can pivot by `host.id` and `process.name` (non Microsoft signed) to find the specific suspicious instances.
+- Potential false-positives include processes with missing code signature details due to enrichment bugs.
 - The queried index must capture process start events with code signature information (e.g. Windows event 4688 is not supported).
 ## MITRE ATT&CK Techniques
 
