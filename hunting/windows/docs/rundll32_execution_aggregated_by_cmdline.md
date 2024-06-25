@@ -17,7 +17,7 @@
 from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-system.security-*
 | where  @timestamp > now() - 7 day
 | where host.os.family == "windows" and event.category == "process" and event.action in ("start", "Process creation", "created-process") and
-  process.name.caseless == "rundll32.exe" and
+  to_lower(process.name) == "rundll32.exe" and
   not process.command_line rlike """.*(zzzzInvokeManagedCustomActionOutOfProc|GeneralTel.dll,RunInUserCxt|ShOpenVerbApplication|davclnt.dll,DavSetCookie|FileProtocolHandler|EDGEHTML.dll|FirewallControlPanel.dll,ShowNotificationDialog|printui.dll,PrintUIEntryDPIAware|Program Files|SHCreateLocalServerRunDll|ImageView_Fullscreen|StatusMonitorEntryPoint|Control_RunDLL|HotPlugSafeRemovalDriveNotification|AppxDeploymentClient.dll|acproxy.dll,PerformAutochkOperations|CapabilityAccessManagerDoStoreMaintenance|dfshim.dll|display.dll,ShowAdapterSettings|ForceProxyDetectionOnNextRun|PfSvWsSwapAssessmentTask|acmigration.dll,ApplyMigrationShims|LenovoBatteryGaugePackage.dll|-localserver|DriverStore|CnmDxPEntryPoint|DeferredDelete|DeviceProperties_RunDLL|AppxDeploymentClient.dll|spool\\DRIVERS|printui.dll,PrintUIEntry|DfdGetDefaultPolicyAndSMART|cryptext.dll,CryptExt|WininetPlugin.dll|ClearMyTracksByProcess|SusRunTask|OpenURL|CleanupTemporaryState).*"""
 | keep process.parent.name, process.command_line, host.id
 | eval cmdline = replace(process.command_line, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
