@@ -1,0 +1,79 @@
+[metadata]
+creation_date = "2024/05/31"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2024/05/31"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies changes to the DNS Global Query Block List (GQBL), a security feature that prevents the resolution of certain
+DNS names often exploited in attacks like WPAD spoofing. Attackers with certain privileges, such as DNSAdmins, can
+modify or disable the GQBL, allowing exploitation of hosts running WPAD with default settings for privilege escalation
+and lateral movement.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "DNS Global Query Block List Modified or Disabled"
+references = [
+    "https://cube0x0.github.io/Pocing-Beyond-DA/",
+    "https://www.thehacker.recipes/ad/movement/mitm-and-coerced-authentications/wpad-spoofing",
+    "https://www.netspi.com/blog/technical-blog/network-penetration-testing/adidns-revisited/"
+]
+risk_score = 47
+rule_id = "57bfa0a9-37c0-44d6-b724-54bf16787492"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type : "change" and
+(
+  (registry.value : "EnableGlobalQueryBlockList" and registry.data.strings : ("0", "0x00000000")) or
+  (registry.value : "GlobalQueryBlockList" and not registry.data.strings : "wpad")
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1557"
+name = "Adversary-in-the-Middle"
+reference = "https://attack.mitre.org/techniques/T1557/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+

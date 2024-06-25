@@ -679,15 +679,19 @@ class TestRuleMetadata(BaseRuleTest):
                             failures.append(err_msg)
 
                     # checks if an index pattern exists if the package integration tag exists
+                    # and is of pattern logs-{integration}*
                     integration_string = "|".join(indices)
-                    if not re.search(rule_integration, integration_string):
+                    if not re.search(f"logs-{rule_integration}*", integration_string):
                         if rule_integration == "windows" and re.search("winlog", integration_string) or \
                                 any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
                                     for ri in rule_integrations):
                             continue
+                        elif rule_integration == "apm" and \
+                                re.search("apm-*-transaction*|traces-apm*", integration_string):
+                            continue
                         elif rule.contents.data.type == 'threat_match':
                             continue
-                        err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
+                        err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing or incorrect.'
                         failures.append(err_msg)
 
                 # checks if event.dataset exists in query object and a tag exists in metadata
