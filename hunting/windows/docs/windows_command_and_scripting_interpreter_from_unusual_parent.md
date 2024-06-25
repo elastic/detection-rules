@@ -18,7 +18,7 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 | where  @timestamp > now() - 7 day
 | where host.os.family == "windows" and event.category == "process" and event.action in ("start", "Process creation", "created-process") and
   process.name.caseless in ("cmd.exe", "powershell.exe", "conhost.exe") and
-  (starts_with(process.parent.executable.caseless, "c:\\windows\\system32") or starts_with(process.parent.executable.caseless, "c:\\windows\\syswow64"))
+  (starts_with(to_lower(process.parent.executable), "c:\\windows\\system32") or starts_with(to_lower(process.parent.executable), "c:\\windows\\syswow64"))
 | keep process.name, process.parent.name, host.id
 | stats hosts = count_distinct(host.id), cc = count(*) by process.parent.name
 | where cc <= 10 and hosts == 1
