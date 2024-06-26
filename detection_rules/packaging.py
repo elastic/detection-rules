@@ -261,7 +261,7 @@ class Package(object):
             'unchanged': defaultdict(list)
         }
 
-        # build an index map first
+        # Build an index map first
         longest_name = 0
         indexes = set()
         for rule in self.rules:
@@ -270,8 +270,7 @@ class Package(object):
             if index_list:
                 indexes.update(index_list)
 
-        letters = ascii_uppercase + ascii_lowercase
-        index_map = {index: letters[i] for i, index in enumerate(sorted(indexes))}
+        index_map = {index: str(i) for i, index in enumerate(sorted(indexes))}
 
         def get_summary_rule_info(r: TOMLRule):
             r = r.contents
