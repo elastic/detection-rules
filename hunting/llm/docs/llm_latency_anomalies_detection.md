@@ -6,7 +6,7 @@
 
 - **Author:** Elastic
 - **UUID:** `3708787b-811b-43b1-b2e7-c7276b8db48c`
-- **Integration:** `aws_bedrock.invocation`
+- **Integration:** [aws_bedrock.invocation](https://docs.elastic.co/integrations/aws_bedrock)
 - **Language:** `ES|QL`
 
 ## Query
@@ -31,9 +31,12 @@ from logs-aws_bedrock.invocation-*
 ## MITRE ATT&CK Techniques
 
 - [AML.T0029](https://atlas.mitre.org/techniques/AML.T0029)
-
 ## References
 
 - https://www.elastic.co/security-labs/elastic-advances-llm-security
 - https://owasp.org/www-project-top-10-for-large-language-model-applications/
 - [Monitoring for Latency Anomalies](../queries/llm_latency_anomalies_detection.toml)
+
+## License
+
+- `Elastic License v2`
