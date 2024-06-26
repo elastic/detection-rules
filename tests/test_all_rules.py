@@ -28,8 +28,8 @@ from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryV
                                   ThresholdAlertSuppression, TOMLRuleContents)
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
-from detection_rules.schemas import definitions, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump
+from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -311,6 +311,8 @@ class TestRuleTags(BaseRuleTest):
             'logs-windows.sysmon_operational-*': {'all': ['Data Source: Sysmon']},
             'logs-windows.powershell*': {'all': ['Data Source: PowerShell Logs']},
             'logs-sentinel_one_cloud_funnel.*': {'all': ['Data Source: SentinelOne']},
+            'logs-fim.event-*': {'all': ['Data Source: File Integrity Monitoring']},
+            'logs-m365_defender.event-*': {'all': ['Data Source: Microsoft Defender for Endpoint']}
         }
 
         for rule in self.all_rules:
@@ -626,6 +628,19 @@ class TestRuleMetadata(BaseRuleTest):
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
+    def test_deprecated_rules_modified(self):
+        """Test to ensure deprecated rules are not modified."""
+
+        rules_path = get_path("rules", "_deprecated")
+
+        # Use git diff to check if the file(s) has been modified in rules/_deprecated directory
+        detection_rules_git = make_git()
+        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only", rules_path)
+
+        # If the output is not empty, then file(s) have changed in the directory
+        if result:
+            self.fail(f"Deprecated rules {result} has been modified")
+
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
     def test_integration_tag(self):
@@ -665,13 +680,19 @@ class TestRuleMetadata(BaseRuleTest):
                             failures.append(err_msg)
 
                     # checks if an index pattern exists if the package integration tag exists
+                    # and is of pattern logs-{integration}*
                     integration_string = "|".join(indices)
-                    if not re.search(rule_integration, integration_string):
+                    if not re.search(f"logs-{rule_integration}*", integration_string):
                         if rule_integration == "windows" and re.search("winlog", integration_string) or \
                                 any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
                                     for ri in rule_integrations):
                             continue
-                        err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
+                        elif rule_integration == "apm" and \
+                                re.search("apm-*-transaction*|traces-apm*", integration_string):
+                            continue
+                        elif rule.contents.data.type == 'threat_match':
+                            continue
+                        err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing or incorrect.'
                         failures.append(err_msg)
 
                 # checks if event.dataset exists in query object and a tag exists in metadata
@@ -1111,6 +1132,7 @@ class TestBuildTimeFields(BaseRuleTest):
     def test_build_fields_min_stack(self):
         """Test that newly introduced build-time fields for a min_stack for applicable rules."""
         current_stack_ver = PACKAGE_STACK_VERSION
+        min_supported_stack_version = get_min_supported_stack_version()
         invalids = []
 
         for rule in self.production_rules:
@@ -1120,7 +1142,12 @@ class TestBuildTimeFields(BaseRuleTest):
             errors = []
             for build_field, field_versions in build_fields.items():
                 start_ver, end_ver = field_versions
-                if start_ver is not None and current_stack_ver >= start_ver:
+                # when a _new_ build time field is introduced, _all_ rules _must_ have a min_stack_version for the stack
+                # version in which the field was introduced. This is because the initial change will result in a hash
+                # change which is different because of the build time fields.
+                # This also ensures that the introduced version is greater than the min supported, in order to age off
+                # old and unneeded checks. (i.e. 8.3.0 < 8.9.0 min supported, so it is irrelevant now)
+                if start_ver is not None and current_stack_ver >= start_ver >= min_supported_stack_version:
                     if min_stack is None or not Version.parse(min_stack) >= start_ver:
                         errors.append(f'{build_field} >= {start_ver}')
 

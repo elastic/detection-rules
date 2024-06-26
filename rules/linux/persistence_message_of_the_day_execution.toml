@@ -2,9 +2,7 @@
 creation_date = "2023/02/28"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/05/17"
+updated_date = "2024/05/31"
 
 [transform]
 [[transform.osquery]]
@@ -13,25 +11,15 @@ query = "SELECT * FROM file WHERE path = {{file.path}}"
 
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
-query = "SELECT * FROM file WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE '/usr/lib/update-notifier/%')"
+query = "SELECT * FROM file WHERE path LIKE '/etc/update-motd.d/%'"
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
 query = """
-SELECT
-  f.path,
-  u.username AS file_owner,
-  g.groupname AS group_owner,
-  datetime(f.atime, 'unixepoch') AS file_last_access_time,
-  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
-  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
-  datetime(f.btime, 'unixepoch') AS file_created_time,
-  f.size AS size_bytes
-FROM
-  file f
-  LEFT JOIN users u ON f.uid = u.uid
-  LEFT JOIN groups g ON f.gid = g.gid
-WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE '/usr/lib/update-notifier/%')
+SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
+file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
+file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE path LIKE '/etc/update-motd.d/%'
 """
 
 [[transform.osquery]]
@@ -41,28 +29,29 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 [[transform.osquery]]
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
+
 [rule]
 author = ["Elastic"]
 description = """
-Message of the day (MOTD) is the message that is presented to the user when a user connects to a Linux server via SSH 
-or a serial connection. Linux systems contain several default MOTD files located in the "/etc/update-motd.d/" and 
-"/usr/lib/update-notifier/" directories. These scripts run as the root user every time a user connects over SSH or a 
-serial connection. Adversaries may create malicious MOTD files that grant them persistence onto the target every time a 
-user connects to the system by executing a backdoor script or command. This rule detects the execution of potentially 
-malicious processes through the MOTD utility. 
+Message of the day (MOTD) is the message that is presented to the user when a user connects to a Linux server via SSH or
+a serial connection. Linux systems contain several default MOTD files located in the "/etc/update-motd.d/" directory.
+These scripts run as the root user every time a user connects over SSH or a serial connection. Adversaries may create
+malicious MOTD files that grant them persistence onto the target every time a user connects to the system by executing
+a backdoor script or command. This rule detects the execution of potentially malicious processes through the MOTD
+utility.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.process*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Suspicious Process Spawned from MOTD Detected"
+name = "Process Spawned from Message-of-the-Day (MOTD)"
 note = """## Triage and analysis
 
-### Investigating Suspicious Process Spawned from MOTD Detected
+### Investigating Process Spawned from Message-of-the-Day (MOTD)
 
 The message-of-the-day (MOTD) is used to display a customizable system-wide message or information to users upon login in Linux.
 
-Attackers can abuse message-of-the-day (motd) files to run scripts, commands or malicious software every time a user connects to a system over SSH or a serial connection, by creating a new file within the `/etc/update-motd.d/` or `/usr/lib/update-notifier/` directory. Files in these directories will automatically run with root privileges when they are made executable.
+Attackers can abuse message-of-the-day (motd) files to run scripts, commands or malicious software every time a user connects to a system over SSH or a serial connection, by creating a new file within the `/etc/update-motd.d/` directory. Files in these directories will automatically run with root privileges when they are made executable.
 
 This rule identifies the execution of potentially malicious processes from a MOTD script, which is not likely to occur as default benign behavior. 
 
@@ -74,7 +63,7 @@ This rule identifies the execution of potentially malicious processes from a MOT
 
 - Investigate the file that was created or modified from which the suspicious process was executed.
   - $osquery_0
-- Investigate whether any other files in the `/etc/update-motd.d/` or `/usr/lib/update-notifier/` directories have been altered.
+- Investigate whether any other files in the `/etc/update-motd.d/` directory have been altered.
   - $osquery_1
   - $osquery_2
 - Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence and whether they are located in expected locations.
@@ -93,7 +82,7 @@ This rule identifies the execution of potentially malicious processes from a MOT
 
 ### Related Rules
 
-- Potential Persistence Through MOTD File Creation Detected - 96d11d31-9a79-480f-8401-da28b194608f
+- Message-of-the-Day (MOTD) File Creation - 96d11d31-9a79-480f-8401-da28b194608f
 
 ### False positive analysis
 
@@ -115,7 +104,7 @@ This rule identifies the execution of potentially malicious processes from a MOT
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = [
-    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd"
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd",
 ]
 risk_score = 73
 rule_id = "4ec47004-b34a-42e6-8003-376a123ea447"
@@ -146,19 +135,19 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "high"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Data Source: Elastic Endgame",
-        "Resources: Investigation Guide",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where event.type == "start" and host.os.type == "linux" and event.action : ("exec", "exec_event") and
-  process.parent.executable : ("/etc/update-motd.d/*", "/usr/lib/update-notifier/*") and (
+  process.parent.executable : "/etc/update-motd.d/*" and (
   (process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
     (process.args : ("-i", "-l")) or (process.parent.name == "socat" and process.parent.args : "*exec*"))) or
   (process.name : ("nc", "ncat", "netcat", "nc.openbsd") and process.args_count >= 3 and 
@@ -177,12 +166,17 @@ process where event.type == "start" and host.os.type == "linux" and event.action
   )) or
   (process.name : "php*" and process.args : "-r" and process.args : "*fsockopen*" and process.args : "*/bin/*sh*") or 
   (process.name : ("awk", "gawk", "mawk", "nawk") and process.args : "*/inet/tcp/*") or 
-  (process.name in ("openssl", "telnet"))
+  (process.name in ("openssl", "telnet")) or
+  (process.args : (
+    "./*", "/boot/*", "/dev/shm/*", "/etc/cron.*/*", "/etc/init.d/*", "/etc/update-motd.d/*", "/run/*", "/srv/*",
+    "/tmp/*", "/var/tmp/*", "/var/log/*", "/opt/*"
+    ) and process.args_count == 1
+  )
 ) and 
 not (
-  (process.parent.args : "--force") or
-  (process.args : ("/usr/games/lolcat", "/usr/bin/screenfetch")) or
-  (process.parent.name == "system-crash-notification")
+  process.parent.args == "--force" or
+  process.args in ("/usr/games/lolcat", "/usr/bin/screenfetch") or
+  process.parent.name == "system-crash-notification"
 )
 '''
 

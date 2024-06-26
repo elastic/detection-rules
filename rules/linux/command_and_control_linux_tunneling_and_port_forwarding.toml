@@ -2,9 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/30"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -31,12 +29,14 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 label = "Osquery - Retrieve Process Info"
 query = "SELECT name, cmdline, parent, path, uid FROM processes"
 
+
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for a set of Linux utilities that can be used for tunneling and port forwarding. Attackers can 
-leverage tunneling and port forwarding techniques to bypass network defenses, establish hidden communication channels, 
-and gain unauthorized access to internal resources, facilitating data exfiltration, lateral movement, and remote control.
+This rule monitors for a set of Linux utilities that can be used for tunneling and port forwarding. Attackers can
+leverage tunneling and port forwarding techniques to bypass network defenses, establish hidden communication channels,
+and gain unauthorized access to internal resources, facilitating data exfiltration, lateral movement, and remote
+control.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -108,8 +108,8 @@ This rule looks for several utilities that are capable of setting up tunnel netw
 """
 references = [
     "https://blog.bitsadmin.com/living-off-the-foreign-land-windows-as-offensive-platform",
-    "https://book.hacktricks.xyz/generic-methodologies-and-resources/tunneling-and-port-forwarding"
-    ]
+    "https://book.hacktricks.xyz/generic-methodologies-and-resources/tunneling-and-port-forwarding",
+]
 risk_score = 47
 rule_id = "6ee947e9-de7e-4281-a55d-09289bdf947e"
 setup = """## Setup
@@ -139,15 +139,16 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Command and Control",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
   (
@@ -168,15 +169,17 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1572"
 name = "Protocol Tunneling"
 reference = "https://attack.mitre.org/techniques/T1572/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
