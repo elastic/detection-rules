@@ -2,29 +2,32 @@
 creation_date = "2023/01/31"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve All Non-Microsoft Drivers with Virustotal Link"
 query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image, issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image = authenticode.path JOIN hash ON drivers.image = hash.path WHERE NOT (provider == "Microsoft" AND signed == "1")
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image,
+issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image =
+authenticode.path JOIN hash ON drivers.image = hash.path WHERE NOT (provider == "Microsoft" AND signed == "1")
 """
 
 [[transform.osquery]]
 label = "Osquery - Retrieve All Unsigned Drivers with Virustotal Link"
 query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image, issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image = authenticode.path JOIN hash ON drivers.image = hash.path WHERE signed == "0"
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image,
+issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image =
+authenticode.path JOIN hash ON drivers.image = hash.path WHERE signed == "0"
 """
+
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies attempts to disable the code signing policy through the registry. Code signing provides authenticity on a
 program, and grants the user with the ability to check whether the program has been tampered with. By allowing the
-execution of unsigned or self-signed code, threat actors can craft and execute malicious code. 
+execution of unsigned or self-signed code, threat actors can craft and execute malicious code.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*"]
@@ -90,7 +93,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
-    "Data Source: Sysmon"
+    "Data Source: Sysmon",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -108,8 +111,14 @@ registry where host.os.type == "windows" and event.type : ("creation", "change")
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
 [[rule.threat.technique]]
 id = "T1553"
 name = "Subvert Trust Controls"
@@ -119,12 +128,10 @@ id = "T1553.006"
 name = "Code Signing Policy Modification"
 reference = "https://attack.mitre.org/techniques/T1553/006/"
 
-[[rule.threat.technique]]
-id = "T1112"
-name = "Modify Registry"
-reference = "https://attack.mitre.org/techniques/T1112/"
+
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

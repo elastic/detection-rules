@@ -2,16 +2,14 @@
 creation_date = "2023/07/20"
 integration = ["auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/19"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule leverages auditd to monitor for processes scanning different processes within the /proc directory using the 
-openat syscall. This is a strong indication for the usage of the pspy utility. Attackers may leverage the pspy process 
-monitoring utility to monitor system processes without requiring root permissions, in order to find potential privilege 
+This rule leverages auditd to monitor for processes scanning different processes within the /proc directory using the
+openat syscall. This is a strong indication for the usage of the pspy utility. Attackers may leverage the pspy process
+monitoring utility to monitor system processes without requiring root permissions, in order to find potential privilege
 escalation vectors.
 """
 from = "now-9m"
@@ -48,22 +46,23 @@ However, if more advanced configuration is required to detect specific behavior,
 """
 severity = "low"
 tags = [
-        "Data Source: Auditd Manager",
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery"
-        ]
+    "Data Source: Auditd Manager",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+]
 type = "eql"
+
 query = '''
 sequence by process.pid, host.id with maxspan=5s
   [file where host.os.type == "linux" and auditd.data.syscall == "openat" and file.path == "/proc" and
    auditd.data.a0 : ("ffffffffffffff9c", "ffffff9c") and auditd.data.a2 : ("80000", "88000") ] with runs=10
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
@@ -74,7 +73,9 @@ id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+

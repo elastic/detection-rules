@@ -2,9 +2,7 @@
 creation_date = "2023/06/26"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -18,12 +16,19 @@ language = "eql"
 license = "Elastic License v2"
 name = "Expired or Revoked Driver Loaded"
 references = [
-  "https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653559(v=vs.85)?redirectedfrom=MSDN"
+    "https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653559(v=vs.85)?redirectedfrom=MSDN",
 ]
 risk_score = 47
 rule_id = "d12bac54-ab2a-4159-933f-d7bcefa7b61d"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -31,6 +36,7 @@ query = '''
 driver where host.os.type == "windows" and process.pid == 4 and
   dll.code_signature.status : ("errorExpired", "errorRevoked")
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -44,18 +50,17 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1036.001"
 name = "Invalid Code Signature"
 reference = "https://attack.mitre.org/techniques/T1036/001/"
+
 
 
 [rule.threat.tactic]
