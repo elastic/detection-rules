@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2024/06/26"
+integration = ["system", "windows"]
+maturity = "production"
+updated_date = "2024/06/26"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies modifications to active directory (AD) objects by the SYSTEM (S-1-5-18) user. This behavior can indicate that
+the attacker has achieved SYSTEM privileges in a domain controller, which attackers can obtain by exploiting
+vulnerabilities or abusing default group privileges (e.g., Server Operators), and is tampering with AD objects.
+"""
+from = "now-119m"
+index = ["winlogbeat-*", "logs-system.security*", "logs-windows.forwarded*"]
+interval = "60m"
+language = "eql"
+license = "Elastic License v2"
+name = "Active Directory Object Modification by SYSTEM"
+risk_score = 21
+rule_id = "80e3f08f-7b0e-4d48-afcb-8a20a01e57ac"
+setup = """## Setup
+
+The 'Audit Directory Service Changes' logging policy must be configured for (Success).
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Policies >
+Windows Settings >
+Security Settings >
+Advanced Audit Policies Configuration >
+Audit Policies >
+DS Access >
+Audit Directory Service Changes (Success)
+```
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Privilege Escalation",
+    "Data Source: Active Directory",
+    "Use Case: Active Directory Monitoring",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and event.code == "5136" and user.id : "S-1-5-18" and
+
+/* Remote Desktop Session Host SPN */
+not (
+  winlog.event_data.AttributeLDAPDisplayName : "servicePrincipalName" and
+  winlog.event_data.AttributeValue : "TERMSRV/*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.002"
+name = "Domain Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/002/"
+
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.002"
+name = "Domain Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/002/"
+
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
