@@ -7,8 +7,7 @@ updated_date = "2024/06/25"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies an AWS RDS DB snapshot being shared with another AWS account. DB snapshots contain a full backup of an entire DB instance including sensitive data that can be abused if shared with unauthorized accounts or made public. 
-Adversaries may use snapshots to restore a DB Instance in an environment they control as a means of data exfiltration.
+Identifies an AWS RDS DB snapshot being shared with another AWS account. DB snapshots contain a full backup of an entire DB instance including sensitive data that can be abused if shared with unauthorized accounts or made public. Adversaries may use snapshots to restore a DB Instance in an environment they control as a means of data exfiltration.
 
 """
 false_positives = [
@@ -82,6 +81,7 @@ type = "eql"
 query = '''
 any where event.dataset == "aws.cloudtrail"
     and event.provider == "rds.amazonaws.com"
+    and event.outcome == "success"
     and event.action in ("ModifyDBSnapshotAttribute", "ModifyDBClusterSnapshotAttribute") 
     and stringContains(aws.cloudtrail.request_parameters, "attributeName=restore")
     and stringContains(aws.cloudtrail.request_parameters, "valuesToAdd=[*]")
