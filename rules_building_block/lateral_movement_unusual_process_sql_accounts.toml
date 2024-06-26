@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -70,8 +70,9 @@ process where event.type == "start" and host.os.type == "windows" and
     )
   ) and
   not (
-    (process.name : "cmd.exe" and process.parent.name : "sqlservr.exe") or
-    (process.name : "cmd.exe" and process.parent.name : "forfiles.exe" and process.command_line : "/c echo *")
+    (process.name : "cmd.exe" and process.parent.name : ("sqlservr.exe", "cmd.exe")) or
+    (process.name : "cmd.exe" and process.parent.name : "forfiles.exe" and process.command_line : "/c echo *") or
+    (process.name : "findstr.exe" and process.parent.name : "cmd.exe")
   )
 '''
 

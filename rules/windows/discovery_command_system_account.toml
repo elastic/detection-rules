@@ -2,7 +2,7 @@
 creation_date = "2020/03/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/26"
 
 [rule]
 author = ["Elastic"]
@@ -73,7 +73,7 @@ process where host.os.type == "windows" and event.type == "start" and
   (?process.Ext.token.integrity_level_name : "System" or
   ?winlog.event_data.IntegrityLevel : "System") and
   (
-    process.name : "whoami.exe" or
+    (process.name : "whoami.exe" and not process.working_directory : "?:\\Program Files\\ArcGIS\\Portal\\framework\\etc\\") or
     (
       process.name : "net1.exe" and not process.parent.name : "net.exe" and not process.args : ("start", "stop", "/active:*")
     )
