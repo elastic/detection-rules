@@ -112,8 +112,8 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
                                                            registry_data['conditions']['kibana.version'].strip("^"))
     sde = SecurityDetectionEngine()
     historical_rules = sde.load_integration_assets(previous_pkg_version)
-    historical_rules = sde.transform_legacy_assets(historical_rules)
-    package.add_historical_rules(historical_rules, registry_data['version'])
+    limited_historical_rules = sde.keep_latest_versions(historical_rules)
+    historical_rules = sde.transform_legacy_assets(limited_historical_rules)
     click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
 
     # NOTE: stopgap solution until security doc migration

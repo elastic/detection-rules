@@ -8,7 +8,7 @@ import glob
 import gzip
 import json
 import re
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 from pathlib import Path
 from typing import Generator, List, Tuple, Union, Optional
 
@@ -26,6 +26,7 @@ from .utils import cached, get_etc_path, read_gzip, unzip
 from .schemas import definitions
 
 MANIFEST_FILE_PATH = get_etc_path('integration-manifests.json.gz')
+NUM_LATEST_RULE_VERSIONS = 2
 SCHEMA_FILE_PATH = get_etc_path('integration-schemas.json.gz')
 _notified_integrations = set()
 
@@ -411,6 +412,31 @@ class SecurityDetectionEngine:
             assets = {x.split("/")[-1].replace(".json", ""): json.loads(zip_package.read(x).decode('utf-8'))
                       for x in asset_file_names}
         return assets
+
+    def keep_latest_versions(self, assets: dict, num_versions: int = NUM_LATEST_RULE_VERSIONS) -> dict:
+        """Keeps only the latest N versions of each rule to limit historical rule versions in our release package."""
+
+        # Dictionary to hold the sorted list of versions for each base rule ID
+        rule_versions = defaultdict(list)
+
+        # Separate rule ID and version, and group by base rule ID
+        for key in assets:
+            base_id, version = key.rsplit('_', 1)
+            version = int(version)  # Convert version to an integer for sorting
+            rule_versions[base_id].append((version, key))
+
+        # Dictionary to hold the final assets with only the specified number of latest versions
+        filtered_assets = {}
+
+        # Keep only the last/latest num_versions versions for each rule
+        # Sort versions and take the last num_versions
+        # Add the latest versions of the rule to the filtered assets
+        for base_id, versions in rule_versions.items():
+            latest_versions = sorted(versions, key=lambda x: x[0], reverse=True)[:num_versions]
+            for _, key in latest_versions:
+                filtered_assets[key] = assets[key]
+
+        return filtered_assets
 
     def transform_legacy_assets(self, assets: dict) -> dict:
         """Transforms legacy rule assets to historical rules."""
