@@ -1,11 +1,9 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2023/12/13"
-bypass_bbr_timing = true
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +13,7 @@ This rule identifies the execution of commands that can be used to query the Win
 registry to gain situational awareness about the host, like installed security software, programs and settings.
 """
 from = "now-24h"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process-*"]
 interval = "24h"
 language = "kuery"
 license = "Elastic License v2"
@@ -23,13 +21,14 @@ name = "Query Registry using Built-in Tools"
 risk_score = 21
 rule_id = "ded09d02-0137-4ccc-8005-c45e617e8d4c"
 severity = "low"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Rule Type: BBR",
-        "Data Source: Elastic Defend"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -47,16 +46,21 @@ host.os.type:windows and event.category:process and event.type:start and
         "hklm" or "HKLM" or registry\:\:*)
       )
     )
+  ) and
+  not process.command_line : (
+    "C:\\Windows\\system32\\reg.exe  query hklm\\software\\microsoft\\windows\\softwareinventorylogging /v collectionstate /reg:64" or
+    "reg  query \"HKLM\\Software\\WOW6432Node\\Npcap\" /ve  "
   )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1012"
 name = "Query Registry"
 reference = "https://attack.mitre.org/techniques/T1012/"
+
 
 [rule.threat.tactic]
 id = "TA0007"
@@ -66,7 +70,8 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "user.id"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+

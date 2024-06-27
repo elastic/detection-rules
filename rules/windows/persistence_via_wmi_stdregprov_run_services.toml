@@ -2,9 +2,7 @@
 creation_date = "2021/03/15"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -31,6 +29,7 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+
 [rule]
 author = ["Elastic"]
 description = """
@@ -38,7 +37,7 @@ Identifies use of the Windows Management Instrumentation StdRegProv (registry pr
 registry locations for persistence.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.registry-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via WMI Standard Registry Provider"
@@ -101,7 +100,14 @@ references = [
 risk_score = 73
 rule_id = "70d12c9c-0dbd-4a1a-bc44-1467502c9cf6"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 

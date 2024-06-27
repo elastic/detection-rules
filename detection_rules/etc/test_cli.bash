@@ -15,7 +15,7 @@ echo "Viewing rule: threat_intel_indicator_match_address.toml"
 python -m detection_rules view-rule rules/cross-platform/threat_intel_indicator_match_address.toml
 
 echo "Exporting rule by ID: 0a97b20f-4144-49ea-be32-b540ecc445de"
-python -m detection_rules export-rules --rule-id 0a97b20f-4144-49ea-be32-b540ecc445de
+python -m detection_rules export-rules-from-repo --rule-id 0a97b20f-4144-49ea-be32-b540ecc445de
 
 echo "Updating rule data schemas"
 python -m detection_rules dev schemas update-rule-data

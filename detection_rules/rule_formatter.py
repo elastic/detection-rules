@@ -74,6 +74,31 @@ class NonformattedField(str):
     """Non-formatting class."""
 
 
+def preserve_formatting_for_fields(data: OrderedDict, fields_to_preserve: list) -> OrderedDict:
+    """Preserve formatting for specified nested fields in an action."""
+
+    def apply_preservation(target: OrderedDict, keys: list) -> None:
+        """Apply NonformattedField preservation based on keys path."""
+        for key in keys[:-1]:
+            # Iterate to the key, diving into nested dictionaries
+            if key in target and isinstance(target[key], dict):
+                target = target[key]
+            else:
+                # Cannot preserve formatting for missing or non-dict intermediate
+                return
+
+        final_key = keys[-1]
+        if final_key in target:
+            # Apply NonformattedField to the target field if it exists
+            target[final_key] = NonformattedField(target[final_key])
+
+    for field_path in fields_to_preserve:
+        keys = field_path.split('.')
+        apply_preservation(data, keys)
+
+    return data
+
+
 class RuleTomlEncoder(toml.TomlEncoder):
     """Generate a pretty form of toml."""
 
@@ -185,6 +210,16 @@ def toml_write(rule_contents, outfile=None):
 
         for k in sorted(list(_contents)):
             v = _contents.pop(k)
+
+            if k == 'actions':
+                # explicitly preserve formatting for message field in actions
+                preserved_fields = ["params.message"]
+                v = [preserve_formatting_for_fields(action, preserved_fields) for action in v]
+
+            if k == 'note' and isinstance(v, str):
+                # Transform instances of \ to \\ as calling write will convert \\ to \.
+                # This will ensure that the output file has the correct number of backslashes.
+                v = v.replace("\\", "\\\\")
 
             if isinstance(v, dict):
                 bottom[k] = OrderedDict(sorted(v.items()))

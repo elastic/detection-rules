@@ -50,7 +50,7 @@ def single_collection(f):
 
         if rule_id:
             rules.load_directories((DEFAULT_RULES_DIR, DEFAULT_BBR_DIR),
-                                   toml_filter=dict_filter(rule__rule_id=rule_id))
+                                   obj_filter=dict_filter(rule__rule_id=rule_id))
             if len(rules) != 1:
                 client_error(f"Could not find rule with ID {rule_id}")
 
@@ -66,7 +66,7 @@ def multi_collection(f):
 
     @click.option('--rule-file', '-f', multiple=True, type=click.Path(dir_okay=False), required=False)
     @click.option('--directory', '-d', multiple=True, type=click.Path(file_okay=False), required=False,
-                  help='Recursively export rules from a directory')
+                  help='Recursively load rules from a directory')
     @click.option('--rule-id', '-id', multiple=True, required=False)
     @functools.wraps(f)
     def get_collection(*args, **kwargs):
@@ -84,7 +84,7 @@ def multi_collection(f):
 
         if rule_id:
             rules.load_directories((DEFAULT_RULES_DIR, DEFAULT_BBR_DIR),
-                                   toml_filter=dict_filter(rule__rule_id=rule_id))
+                                   obj_filter=dict_filter(rule__rule_id=rule_id))
             found_ids = {rule.id for rule in rules}
             missing = set(rule_id).difference(found_ids)
 
@@ -161,16 +161,24 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
                 contents[name] = threat_map
             continue
 
-        if name == 'threshold':
-            contents[name] = {n: schema_prompt(f'threshold {n}', is_required=n in options['required'], **opts.copy())
-                              for n, opts in options['properties'].items()}
-            continue
-
         if kwargs.get(name):
             contents[name] = schema_prompt(name, value=kwargs.pop(name))
             continue
 
-        result = schema_prompt(name, is_required=name in required_fields, **options.copy())
+        if name == "new_terms":
+            # patch to allow new_term imports
+            result = {"field": "new_terms_fields"}
+            result["value"] = schema_prompt("new_terms_fields", value=kwargs.pop("new_terms_fields"))
+            history_window_start_value = kwargs.pop("history_window_start", None)
+            result["history_window_start"] = [
+                {
+                    "field": "history_window_start",
+                    "value": schema_prompt("history_window_start", value=history_window_start_value),
+                }
+            ]
+
+        else:
+            result = schema_prompt(name, is_required=name in required_fields, **options.copy())
 
         if result:
             if name not in required_fields and result == options.get('default', ''):
@@ -219,6 +227,6 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
         print(' - {}'.format('\n - '.join(skipped)))
 
     # rta_mappings.add_rule_to_mapping_file(rule)
-    # click.echo('Placeholder added to rule-mapping.yml')
+    # click.echo('Placeholder added to rule-mapping.yaml')
 
     return rule

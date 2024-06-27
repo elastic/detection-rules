@@ -2,9 +2,7 @@
 creation_date = "2020/03/19"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 bypass_bbr_timing = true
 
 [transform]
@@ -72,7 +70,7 @@ Identifies certutil.exe making a network connection. Adversaries could abuse cer
 malware, from a remote URL.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.network-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Network Connection via Certutil"
@@ -148,7 +146,8 @@ network where host.os.type == "windows" and process.name : "certutil.exe" and
                                 "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24",
                                 "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24",
                                 "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1",
-                                "FE80::/10", "FF00::/8")
+                                "FE80::/10", "FF00::/8") and
+  not dns.question.name in ("localhost", "*.digicert.com", "ctldl.windowsupdate.com")
 '''
 
 

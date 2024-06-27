@@ -2,9 +2,9 @@
 creation_date = "2023/07/06"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
+min_stack_version = "8.12.0"
+updated_date = "2024/04/05"
 
 
 [rule]
@@ -138,25 +138,64 @@ event.category:process and host.os.type:windows and
     ) or
     "CmdletsToExport=@(\"Add-Content\","
   ) and
-  not user.id : ("S-1-5-18" or "S-1-5-19" or "S-1-5-20") and
-  not file.path : (
-        ?\:\\\\Program?Files\\\\WindowsPowerShell\\\\Modules\\\\*.psd1 or
-        ?\:\\\\Program?Files\\\\WindowsPowerShell\\\\Modules\\\\*.psm1 or
-        ?\:\\\\Program?Files\\\\Microsoft?Azure?AD?Sync\\\\Extensions\\\\AADConnector.psm1* or
-        *ServiceNow?MID?Server*agent\\\\scripts\\\\PowerShell\\\\*.psm1 or
-        ?\:\\\\*\\\\IMECache\\\\HealthScripts\\\\*\\\\detect.ps1
-      ) and
-  not (
-    file.path : (
-      ?\:\\\\*\\\\TEMP\\\\SDIAG* or
-      ?\:\\\\TEMP\\\\SDIAG* or
-      ?\:\\\\Temp\\\\SDIAG* or
-      ?\:\\\\temp\\\\SDIAG* or
-      ?\:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\SDIAG* or
-      ?\:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\*\\\\SDIAG*
-    ) and file.name : "CL_Utility.ps1"
-  )
+  not user.id : ("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
 '''
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\*.ps?1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\Microsoft Azure AD Sync\\\\Extensions\\\\AADConnector.psm1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "*ServiceNow MID Server*\\\\agent\\\\scripts\\\\PowerShell\\\\*.psm1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\IMECache\\\\HealthScripts\\\\*\\\\detect.ps1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Windows\\\\TEMP\\\\SDIAG*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Temp\\\\SDIAG*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\SDIAG*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\Microsoft Monitoring Agent\\\\Agent\\\\Health Service State\\\\Monitoring Host Temporary Files*"
 
 
 [[rule.threat]]

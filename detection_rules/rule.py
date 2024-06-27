@@ -7,6 +7,7 @@ import copy
 import dataclasses
 import json
 import os
+import time
 import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import eql
+import marshmallow
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
@@ -38,12 +40,49 @@ from .utils import cached, convert_time_span, PatchedTemplate
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
+TIME_NOW = time.strftime('%Y/%m/%d')
 
 BUILD_FIELD_VERSIONS = {
     "related_integrations": (Version.parse('8.3.0'), None),
     "required_fields": (Version.parse('8.3.0'), None),
     "setup": (Version.parse('8.3.0'), None)
 }
+
+
+@dataclass
+class DictRule:
+    """Simple object wrapper for raw rule dicts."""
+
+    contents: dict
+    path: Optional[Path] = None
+
+    @property
+    def metadata(self) -> dict:
+        """Metadata portion of TOML file rule."""
+        return self.contents.get('metadata', {})
+
+    @property
+    def data(self) -> dict:
+        """Rule portion of TOML file rule."""
+        return self.contents.get('data') or self.contents
+
+    @property
+    def id(self) -> str:
+        """Get the rule ID."""
+        return self.data['rule_id']
+
+    @property
+    def name(self) -> str:
+        """Get the rule name."""
+        return self.data['name']
+
+    def __hash__(self) -> int:
+        """Get the hash of the rule."""
+        return hash(self.id + self.name)
+
+    def __repr__(self) -> str:
+        """Get a string representation of the rule."""
+        return f"Rule({self.name} {self.id})"
 
 
 @dataclass(frozen=True)
@@ -236,6 +275,47 @@ class ThresholdAlertSuppression:
     """Mapping to alert suppression."""
 
     duration: AlertSuppressionDuration
+
+
+@dataclass(frozen=True)
+class FilterStateStore:
+    store: definitions.StoreType
+
+
+@dataclass(frozen=True)
+class FilterMeta:
+    alias: Optional[Union[str, None]] = None
+    disabled: Optional[bool] = None
+    negate: Optional[bool] = None
+    controlledBy: Optional[str] = None  # identify who owns the filter
+    group: Optional[str] = None  # allows grouping of filters
+    index: Optional[str] = None
+    isMultiIndex: Optional[bool] = None
+    type: Optional[str] = None
+    key: Optional[str] = None
+    params: Optional[str] = None  # Expand to FilterMetaParams when needed
+    value: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class WildcardQuery:
+    case_insensitive: bool
+    value: str
+
+
+@dataclass(frozen=True)
+class Query:
+    wildcard: Optional[Dict[str, WildcardQuery]] = None
+
+
+@dataclass(frozen=True)
+class Filter:
+    """Kibana Filter for Base Rule Data."""
+    # TODO: Currently unused in BaseRuleData. Revisit to extend or remove.
+    # https://github.com/elastic/detection-rules/issues/3773
+    meta: FilterMeta
+    state: Optional[FilterStateStore] = field(metadata=dict(data_key="$state"))
+    query: Optional[Union[Query, Dict[str, Any]]] = None
 
 
 @dataclass(frozen=True)
@@ -518,8 +598,11 @@ class QueryValidator:
         raise NotImplementedError()
 
     @cached
-    def get_required_fields(self, index: str) -> List[dict]:
+    def get_required_fields(self, index: str) -> List[Optional[dict]]:
         """Retrieves fields needed for the query along with type information from the schema."""
+        if isinstance(self, ESQLValidator):
+            return []
+
         current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         ecs_version = get_stack_schemas()[str(current_version)]['ecs']
         beats_version = get_stack_schemas()[str(current_version)]['beats']
@@ -681,7 +764,6 @@ class NewTermsRuleData(QueryRuleData):
 
     def transform(self, obj: dict) -> dict:
         """Transforms new terms data to API format for Kibana."""
-
         obj[obj["new_terms"].get("field")] = obj["new_terms"].get("value")
         obj["history_window_start"] = obj["new_terms"]["history_window_start"][0].get("value")
         del obj["new_terms"]
@@ -1161,6 +1243,15 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     @staticmethod
     def validate_remote(remote_validator: 'RemoteValidator', contents: 'TOMLRuleContents'):
         remote_validator.validate_rule(contents)
+
+    @classmethod
+    def from_rule_resource(
+        cls, rule: dict, creation_date: str = TIME_NOW, updated_date: str = TIME_NOW, maturity: str = 'development'
+    ) -> 'TOMLRuleContents':
+        """Create a TOMLRuleContents from a kibana rule resource."""
+        meta = {'creation_date': creation_date, 'updated_date': updated_date, 'maturity': maturity}
+        contents = cls.from_dict({'metadata': meta, 'rule': rule, 'transforms': None}, unknown=marshmallow.EXCLUDE)
+        return contents
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
