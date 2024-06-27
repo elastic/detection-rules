@@ -2,29 +2,27 @@
 creation_date = "2024/06/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/06/03"
+updated_date = "2024/06/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the addition of an executable bit of the `/etc/rc.local` or `/etc/rc.common` files. These files
-are used to start custom applications, services, scripts or commands during start-up. They require executable
-permissions to be executed on boot. An alert of this rule is an indicator that this method is being set up within
-your environment. This method has mostly been replaced by Systemd. However, through the `systemd-rc-local-generator`,
-these files can be converted to services that run at boot. Adversaries may alter these files to execute malicious code
-at start-up, and gain persistence onto the system.
+This rule monitors for the addition of an executable bit for scripts that are located in directories which are
+commonly abused for persistence. An alert of this rule is an indicator that a persistence mechanism is being set up
+within your environment. Adversaries may create these scripts to execute malicious code at start-up, or at a set 
+interval to gain persistence onto the system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Executable Bit Set for rc.local/rc.common"
+name = "Executable Bit Set for Potential Persistence Script"
 references = [
     "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
     "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
     "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
 ]
-risk_score = 47
+risk_score = 21
 rule_id = "94418745-529f-4259-8d25-a713a6feb6ae"
 setup = """## Setup
 
@@ -51,7 +49,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -62,13 +60,25 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
-process.args in ("/etc/rc.local", "/etc/rc.common") and (
-  (process.name == "chmod" and process.args : ("*+x*", "1*", "3*", "5*", "7*")) or
-  (process.name == "install" and process.args : "-m*" and process.args : ("*7*", "*5*", "*3*", "*1*"))
-)
+process.args : (
+  // Misc.
+  "/etc/rc.local", "/etc/rc.common", "/etc/init.d/*", "/etc/update-motd.d/*", "/etc/apt/apt.conf.d/*", "/etc/cron*",
+  "/etc/init/*",
+
+  // XDG
+  "/etc/xdg/autostart/*", "/home/*/.config/autostart/*", "/root/.config/autostart/*",
+  "/home/*/.local/share/autostart/*", "/root/.local/share/autostart/*", "/home/*/.config/autostart-scripts/*",
+  "/root/.config/autostart-scripts/*", "/etc/xdg/autostart/*", "/usr/share/autostart/*",
+  
+  // udev
+  "/lib/udev/*", "/etc/udev/rules.d/*", "/usr/lib/udev/rules.d/*", "/run/udev/rules.d/*"
+
+) and (
+  (process.name == "chmod" and process.args : ("+x*", "1*", "3*", "5*", "7*")) or
+  (process.name == "install" and process.args : "-m*" and process.args : ("7*", "5*", "3*", "1*"))
+) and not process.parent.executable : "/var/lib/dpkg/*"
 '''
 
 [[rule.threat]]
@@ -83,6 +93,26 @@ reference = "https://attack.mitre.org/techniques/T1037/"
 id = "T1037.004"
 name = "RC Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/004/"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.013"
+name = "XDG Autostart Entries"
+reference = "https://attack.mitre.org/techniques/T1547/013/"
 
 [rule.threat.tactic]
 id = "TA0003"
