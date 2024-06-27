@@ -113,14 +113,13 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     sde = SecurityDetectionEngine()
     historical_rules = sde.load_integration_assets(previous_pkg_version)
     limited_historical_rules = sde.keep_latest_versions(historical_rules)
-    historical_rules = sde.transform_legacy_assets(limited_historical_rules)
     click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
 
     # NOTE: stopgap solution until security doc migration
     if generate_docs:
         click.echo(f'[+] Generating security docs for {registry_data["version"]} package')
         docs = IntegrationSecurityDocsMDX(registry_data['version'], Path(f'releases/{config["name"]}-docs'),
-                                          True, historical_rules, package, note=update_message)
+                                          True, limited_historical_rules, package, note=update_message)
         docs.generate()
 
     if verbose:

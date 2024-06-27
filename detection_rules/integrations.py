@@ -437,15 +437,3 @@ class SecurityDetectionEngine:
                 filtered_assets[key] = assets[key]
 
         return filtered_assets
-
-    def transform_legacy_assets(self, assets: dict) -> dict:
-        """Transforms legacy rule assets to historical rules."""
-        # this code can be removed after the 8.8 minor release
-        # epr prebuilt rule packages should have appropriate file names
-
-        assets_transformed = {}
-        for asset_id, contents in assets.items():
-            new_asset_id = f"{contents['attributes']['rule_id']}_{contents['attributes']['version']}"
-            contents["id"] = new_asset_id
-            assets_transformed[new_asset_id] = contents
-        return assets_transformed
