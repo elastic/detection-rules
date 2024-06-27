@@ -17,7 +17,7 @@
 from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*
 | where @timestamp > now() - 7 day and
   host.os.family == "windows" and event.category == "process" and event.action in ("start", "Process creation") and
-  to_lower(process.parent.name) == "wmiprvse.exe" and starts_with(process.code_signature.subject_name, "Microsoft")
+  process.parent.name == "WmiPrvSE.exe" and starts_with(process.code_signature.subject_name, "Microsoft")
 | keep process.hash.sha256, host.id, process.name
 | stats agents = count_distinct(host.id) by process.name
 | where agents == 1
@@ -28,7 +28,7 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 | where  @timestamp > now() - 7 day and
   host.os.family == "windows" and event.category == "process" and
   event.action in ("start", "Process creation", "created-process") and
-  process.parent.name.caseless == "wmiprvse.exe"
+  to_lower(process.parent.name) == "wmiprvse.exe" 
 | keep process.command_line, host.id
 | eval cmdline = replace(process.command_line, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
 | eval cmdline = replace(cmdline, """([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|ns[a-z][A-Z0-9]{3,4}\.tmp|DX[A-Z0-9]{3,4}\.tmp|7z[A-Z0-9]{3,5}\.tmp|[0-9\.\-\_]{3,})""", "")
