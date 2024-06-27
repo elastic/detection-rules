@@ -113,6 +113,7 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     sde = SecurityDetectionEngine()
     historical_rules = sde.load_integration_assets(previous_pkg_version)
     limited_historical_rules = sde.keep_latest_versions(historical_rules)
+    package.add_historical_rules(historical_rules, registry_data['version'])
     click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
 
     # NOTE: stopgap solution until security doc migration
