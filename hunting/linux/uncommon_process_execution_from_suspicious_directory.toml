@@ -1,0 +1,45 @@
+[hunt]
+author = "Elastic"
+description = """
+This hunt identifies uncommon process executions from suspicious directories on Linux systems. It looks for processes executed from directories that are often associated with malicious activity, such as /dev/shm, /var/www, /boot, /srv, /tmp, /var/tmp, /run, and /var/run. The goal is to detect potentially malicious processes while excluding common, benign ones.
+"""
+integration = ["endpoint", "linux"]
+uuid = "c4a1d5a4-6348-4d4d-a68f-be632ab80e56"
+name = "Uncommon Process Execution from Suspicious Directory"
+language = "ES|QL"
+license = "Elastic License v2"
+notes = [
+    "Excluded /tmp, /var/tmp, /run, /var/run subdirectories to reduce noise.",
+    "Excluded /tmp, /var/tmp files starting or ending with digits to exclude real temporary files.",
+    "Included a process or parent process count of <= 3, and a host count of <= 3 to eliminate common processes across different hosts.",
+    "Telemetry was analyzed and only 7 hits were found in the last 75 days; these were false positives that can be easily tuned in customer environments, but should not be tuned for a general threat hunting query."
+]
+mitre = ["T1036.004", "T1049", "T1059", "T1059.004"]
+
+query = [
+'''
+from logs-endpoint.events.process-*
+| where @timestamp > now() - 7 day
+| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+// Add paths to monitor from your environment here
+  (process.executable like "/dev/shm/*") or
+  (process.executable like "/var/www/*") or
+  (process.executable like "/boot/*") or
+  (process.executable like "/srv/*") or
+  ((process.executable rlike "/tmp/[^/]+" or process.executable rlike "/var/tmp/[^/]+")) or
+  (process.executable rlike "/run/[^/]+") or
+  (process.executable rlike "/var/run/[^/]+")
+) and not (
+  // Exclude noisy (parent) processes, users or directories from your environment here
+  (process.parent.executable in ("/usr/sbin/dpkg-preconfigure")) or
+  // Exclude /tmp and /var/tmp instances starting or ending with digits (usually benign files)
+  (process.executable rlike "/tmp/[0-9].*" or process.executable rlike "/tmp/.*[0-9]/?") or
+  (process.executable rlike "/var/tmp/[0-9].*" or process.executable rlike "/var/tmp/.*[0-9]/?")
+)
+| stats process_count = count(process.executable), parent_process_count = count(process.parent.executable), host_count = count(host.name) by process.executable, process.parent.executable, host.name, user.id
+// Alter this threshold to make sense for your environment
+| where (process_count <= 3 or parent_process_count <= 3) and host_count <= 3
+| sort process_count asc
+| limit 100
+'''
+]
