@@ -1,42 +1,34 @@
 [metadata]
-creation_date = "2024/06/03"
+creation_date = "2024/06/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/06/03"
+updated_date = "2024/06/25"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the addition of an executable bit of the `/etc/rc.local` or `/etc/rc.common` files. These files
-are used to start custom applications, services, scripts or commands during start-up. They require executable
-permissions to be executed on boot. An alert of this rule is an indicator that this method is being set up within
-your environment. This method has mostly been replaced by Systemd. However, through the `systemd-rc-local-generator`,
-these files can be converted to services that run at boot. Adversaries may alter these files to execute malicious code
-at start-up, and gain persistence onto the system.
+This rule detects the execution of the `grep` command with the `plugins` argument on Linux systems. This command is
+used to search for YUM/DNF configurations and/or plugins with an enabled state. This behavior may indicate an
+attacker is attempting to establish persistence in a YUM or DNF plugin.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Executable Bit Set for rc.local/rc.common"
+name = "Yum/DNF Plugin Status Discovery"
 references = [
-    "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
-    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
-    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
+  "https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/linux/local/yum_package_manager_persistence.rb",
+  "https://pwnshift.github.io/2020/10/01/persistence.html"
 ]
-risk_score = 47
-rule_id = "94418745-529f-4259-8d25-a713a6feb6ae"
+risk_score = 21
+rule_id = "78390eb5-c838-4c1d-8240-69dd7397cfb7"
 setup = """## Setup
-
 This rule requires data coming in from Elastic Defend.
-
 ### Elastic Defend Integration Setup
 Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
-
 #### Prerequisite Requirements:
 - Fleet is required for Elastic Defend.
 - To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-
 #### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
 - Go to the Kibana home page and click "Add integrations".
 - In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
@@ -51,23 +43,22 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
     "Use Case: Threat Detection",
-    "Tactic: Persistence",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
-process.args in ("/etc/rc.local", "/etc/rc.common") and (
-  (process.name == "chmod" and process.args : ("*+x*", "1*", "3*", "5*", "7*")) or
-  (process.name == "install" and process.args : "-m*" and process.args : ("*7*", "*5*", "*3*", "*1*"))
+process.name == "grep" and process.args : "plugins*" and process.args : (
+  "/etc/yum.conf", "/usr/lib/yum-plugins/*", "/etc/yum/pluginconf.d/*",
+  "/usr/lib/python*/site-packages/dnf-plugins/*", "/etc/dnf/plugins/*", "/etc/dnf/dnf.conf"
 )
 '''
 
@@ -75,16 +66,11 @@ process.args in ("/etc/rc.local", "/etc/rc.common") and (
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1037"
-name = "Boot or Logon Initialization Scripts"
-reference = "https://attack.mitre.org/techniques/T1037/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1037.004"
-name = "RC Scripts"
-reference = "https://attack.mitre.org/techniques/T1037/004/"
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
