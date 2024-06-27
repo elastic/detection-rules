@@ -1,0 +1,138 @@
+[metadata]
+creation_date = "2024/06/13"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2024/06/22"
+min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
+min_stack_version = "8.13.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by
+creating a new set of credentials for an existing user. This rule looks for use of the IAM `CreateAccessKey` API operation
+to create new programatic access keys for another IAM user. 
+"""
+false_positives = [
+    """
+    While this can be normal behavior, it should be investigated to ensure validity.
+    Verify whether the user identity should be using the IAM `CreateAccessKey` for the targeted user. 
+    """,
+]
+from = "now-10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS IAM User Created Access Keys For Another User"
+note = """## Triage and analysis
+
+### Investigating AWS IAM User Created Access Keys For Another User
+
+AWS access keys created for IAM users or root user are long-term credentials that provide programatic access to AWS. 
+With access to the `iam:CreateAccessKey` permission, a set of compromised credentials could be used to create a new 
+set of credentials for another user for privilege escalation or as a means of persistence. This rule uses [ES|QL](https://www.elastic.co/guide/en/security/master/rules-ui-create.html#create-esql-rule)
+to look for use of the `CreateAccessKey` operation where the user.name is different from the user.target.name.
+
+
+#### Possible investigation steps
+
+- Identify both related accounts and their role in the environment.
+- Review IAM permission policies for the user identities.
+- Identify the applications or users that should use these accounts.
+- Investigate other alerts associated with the accounts during the past 48 hours.
+- Investigate abnormal values in the `user_agent.original` field by comparing them with the intended and authorized usage and historical data. Suspicious user agent values include non-SDK, AWS CLI, custom user agents, etc.
+- Contact the account owners and confirm whether they are aware of this activity.
+- Considering the source IP address and geolocation of the user who issued the command:
+    - Do they look normal for the calling user?
+    - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts or is the source IP from an EC2 instance that's not under your control?
+    - If it is an authorized EC2 instance, is the activity associated with normal behavior for the instance role or roles? Are there any other alerts or signs of suspicious activity involving this instance?
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
+    - Determine what other API calls were made by the user.
+    - Assess whether this behavior is prevalent in the environment by looking for similar occurrences involving other users.
+
+### False positive analysis
+
+- False positives may occur due to the intended usage of the IAM `CreateAccessKey` operation. Verify the `aws.cloudtrail.user_identity.arn` should use this operation against the `user.target.name` account.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+    - Rotate user credentials
+    - Remove the newly created credentials from the affected user(s)
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Assess the criticality of affected services and servers.
+    - Work with your IT team to identify and minimize the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. 
+    - Rotate secrets or delete API keys as needed to revoke the attacker's access to the environment. 
+    - Work with your IT teams to minimize the impact on business operations during these actions.
+- Remove unauthorized new accounts, and request password resets for other IAM users.
+- Consider enabling multi-factor authentication for users.
+- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Implement security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
+- Take the actions needed to return affected systems, data, or services to their normal operational levels.
+- Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://hackingthe.cloud/aws/exploitation/iam_privilege_escalation/#iamcreateaccesskey",
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-iam-persistence",
+    "https://permiso.io/blog/lucr-3-scattered-spider-getting-saas-y-in-the-cloud",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateAccessKey.html",
+]
+risk_score = 47
+rule_id = "696015ef-718e-40ff-ac4a-cc2ba88dbeeb"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-*
+| where event.provider == "iam.amazonaws.com" and event.action == "CreateAccessKey" and event.outcome == "success" and user.name != user.target.name
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
