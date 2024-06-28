@@ -15,7 +15,6 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 from semver import Version
-from itertools import product
 
 
 import click
