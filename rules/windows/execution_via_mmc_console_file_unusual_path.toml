@@ -1,0 +1,85 @@
+[metadata]
+creation_date = "2024/06/19"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/06/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to open a Microsoft Management Console File from untrusted paths. Adversaries may use
+MSC files for initial access and execution.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*", "logs-sentinel_one_cloud_funnel.*", "logs-m365_defender.event-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Microsoft Management Console File from Unusual Path"
+references = ["https://www.elastic.co/security-labs/grimresource"]
+risk_score = 73
+rule_id = "7e23dfef-da2c-4d64-b11d-5f285b638853"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.executable : "?:\\Windows\\System32\\mmc.exe" and process.args : "*.msc" and
+  not process.args : ("?:\\Windows\\System32\\*.msc", "?:\\Windows\\SysWOW64\\*.msc", "?:\\Program files\\*.msc", "?:\\Program Files (x86)\\*.msc")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.005"
+name = "Visual Basic"
+reference = "https://attack.mitre.org/techniques/T1059/005/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.014"
+name = "MMC"
+reference = "https://attack.mitre.org/techniques/T1218/014/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
