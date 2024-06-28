@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 from semver import Version
 
-
 import click
 import yaml
 
@@ -247,7 +246,6 @@ class Package(object):
 
     def generate_summary_and_changelog(self, changed_rule_ids, new_rule_ids, removed_rules):
         """Generate stats on package."""
-        from string import ascii_lowercase, ascii_uppercase
 
         summary = {
             'changed': defaultdict(list),
