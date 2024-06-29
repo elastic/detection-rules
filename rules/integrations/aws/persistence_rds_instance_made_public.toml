@@ -1,17 +1,17 @@
 [metadata]
-creation_date = "2024/06/27"
+creation_date = "2024/06/29"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/06/27"
+updated_date = "2024/06/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the modification of an AWS RDS DB Instance to enable public access. DB instances may contain sensitive data that can be abused if shared with unauthorized accounts or made public. Adversaries may enable public access on a DB Instance to maintain persistence or evade defenses by bypassng access controls.
+Identifies the creation or modification of an AWS RDS DB Instance to enable public access. DB instances may contain sensitive data that can be abused if shared with unauthorized accounts or made public. Adversaries may enable public access on a DB Instance to maintain persistence or evade defenses by bypassng access controls.
 """
 false_positives = [
     """
-    Public access is a common configuration change used to enable access from outside a private VPC. Ensure that the instance should not be modified in this way before taking action.
+    Public access is a common configuration used to enable access from outside a private VPC. Ensure that the instance should not be modified in this way before taking action.
     """,
 ]
 from = "now-10m"
@@ -24,20 +24,20 @@ note = """
 
 ### Investigating AWS RDS DB Instance Made Public
 
-This rule identifies when an RDS DB instance is modified to enable public access. While publicly accessible DB instances are a common practice, adversaries may exploit this feature to maintain persistence or evade defenses in a compromised environment.
+This rule identifies when an RDS DB instance is created or modified to enable public access. While publicly accessible DB instances are a common practice, adversaries may exploit this feature to maintain persistence or evade defenses in a compromised environment.
 
 #### Possible Investigation Steps
 
 - **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify who made the change. Verify if this actor typically performs such actions and if they have the necessary permissions.
-- **Review the Modification Event**: Identify the DB instance involved and review the event details. Look for `ModifyDBInstance` actions where the publiclyAccessible parameter was changed to true.
+- **Review the Creation/Modification Event**: Identify the DB instance involved and review the event details. Look for `ModifyDBInstance`, `CreateDBInstance` or `CreateDBCluster` actions where the publiclyAccessible parameter was set to true.
     - **Request and Response Parameters**: Check the `aws.cloudtrail.request_parameters` field in the CloudTrail event to identify the DB Instance Identifier and any other modifications made to the instance.
-- **Verify the Modified Instance**: Check the DB instance that was modified and its contents to determine the sensitivity of the data stored within it.
-- **Contextualize with Recent Changes**: Compare this modification event against recent changes in RDS DB or Cluster configurations and deployments. Look for any other recent permissions changes or unusual administrative actions.
-- **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities.
+- **Verify the Created/Modified Instance**: Check the DB instance that was created or modified and its contents to determine the sensitivity of the data stored within it.
+- **Contextualize with Recent Changes**: Compare this event against recent changes in RDS DB or Cluster configurations and deployments. Look for any other recent permissions changes or unusual administrative actions.
+- **Correlate with Other Activities**: Search for related CloudTrail events before and after this event to see if the same actor or IP address engaged in other potentially suspicious activities.
 - **Interview Relevant Personnel**: If the modification was initiated by a user, verify the intent and authorization for this action with the person or team responsible for managing DB instances.
 ### False Positive Analysis
 
-- **Legitimate Instance Modification**: Confirm if the DB instance modification aligns with legitimate tasks.
+- **Legitimate Instance Configuration**: Confirm if the DB instance creation or modification aligns with legitimate tasks.
 - **Consistency Check**: Compare the action against historical data of similar actions performed by the user or within the organization. If the action is consistent with past legitimate activities, it might indicate a false alarm.
 
 ### Response and Remediation
@@ -57,6 +57,7 @@ references = [
     "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_ModifyDBInstance.html",
     "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.DBInstance.Modifying.html",
     "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-rds-persistence#make-instance-publicly-accessible-rds-modifydbinstance",
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-privilege-escalation/aws-rds-privesc#rds-createdbinstance",
 ]
 risk_score = 47
 rule_id = "9efb3f79-b77b-466a-9fa0-3645d22d1e7f"
@@ -77,9 +78,12 @@ type = "eql"
 query = '''
 any where event.dataset == "aws.cloudtrail"
     and event.provider == "rds.amazonaws.com"
-    and event.action == "ModifyDBInstance"
     and event.outcome == "success"
-    and stringContains(aws.cloudtrail.request_parameters, "publiclyAccessible=true")
+    and (
+        (event.action == "ModifyDBInstance" and stringContains(aws.cloudtrail.request_parameters, "publiclyAccessible=true"))
+        or 
+        (event.action in ("CreateDBInstance", "CreateDBCluster") and stringContains(aws.cloudtrail.request_parameters, "publiclyAccessible=true"))
+    )
 '''
 
 [[rule.threat]]
