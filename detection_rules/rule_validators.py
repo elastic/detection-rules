@@ -147,7 +147,7 @@ class KQLValidator(QueryValidator):
             ecs_version = mapping['ecs']
             err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-            beat_types, beat_schema, schema = self.get_beats_schema(data.index or [],
+            beat_types, beat_schema, schema = self.get_beats_schema(data.index_or_dataview or [],
                                                                     beats_version, ecs_version)
 
             try:
@@ -195,12 +195,12 @@ class KQLValidator(QueryValidator):
             stack_version = integration_schema_data["stack_version"]
 
             # Add non-ecs-schema fields
-            for index_name in data.index:
+            for index_name in data.index_or_dataview:
                 integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
 
             # Add custom schema fields for appropriate stack version
             if data.index and CUSTOM_RULES_DIR:
-                for index_name in data.index:
+                for index_name in data.index_or_dataview:
                     integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
 
             # Add endpoint schema fields for multi-line fields
@@ -338,9 +338,9 @@ class EQLValidator(QueryValidator):
             err_trailer = f'stack: {stack_version}, beats: {beats_version},' \
                           f'ecs: {ecs_version}, endgame: {endgame_version}'
 
-            beat_types, beat_schema, schema = self.get_beats_schema(data.index or [],
+            beat_types, beat_schema, schema = self.get_beats_schema(data.index_or_dataview or [],
                                                                     beats_version, ecs_version)
-            endgame_schema = self.get_endgame_schema(data.index or [], endgame_version)
+            endgame_schema = self.get_endgame_schema(data.index_or_dataview or [], endgame_version)
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             # validate query against the beats and eql schema
@@ -389,13 +389,13 @@ class EQLValidator(QueryValidator):
             stack_version = integration_schema_data["stack_version"]
 
             # add non-ecs-schema fields for edge cases not added to the integration
-            if data.index:
-                for index_name in data.index:
+            if data.index_or_dataview:
+                for index_name in data.index_or_dataview:
                     integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
 
             # Add custom schema fields for appropriate stack version
-            if data.index and CUSTOM_RULES_DIR:
-                for index_name in data.index:
+            if data.index_or_dataview and CUSTOM_RULES_DIR:
+                for index_name in data.index_or_dataview:
                     integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
 
             # add endpoint schema fields for multi-line fields

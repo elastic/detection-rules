@@ -701,6 +701,13 @@ class QueryRuleData(BaseRuleData):
     alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.8")))
 
     @cached_property
+    def index_or_dataview(self) -> list[str]:
+        """Return the index or dataview depending on which is set."""
+        if self.index is not None:
+            return self.index
+        return [self.dataview]
+
+    @cached_property
     def validator(self) -> Optional[QueryValidator]:
         if self.language == "kuery":
             return KQLValidator(self.query)
