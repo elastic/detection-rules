@@ -122,15 +122,15 @@ def build_release(ctx: click.Context, config_file, update_version_lock: bool, ge
                                                            registry_data['conditions']['kibana.version'].strip("^"))
     sde = SecurityDetectionEngine()
     historical_rules = sde.load_integration_assets(previous_pkg_version)
-    historical_rules = sde.transform_legacy_assets(historical_rules)
-    package.add_historical_rules(historical_rules, registry_data['version'])
+    limited_historical_rules = sde.keep_latest_versions(historical_rules)
+    package.add_historical_rules(limited_historical_rules, registry_data['version'])
     click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
 
     # NOTE: stopgap solution until security doc migration
     if generate_docs:
         click.echo(f'[+] Generating security docs for {registry_data["version"]} package')
         docs = IntegrationSecurityDocsMDX(registry_data['version'], Path(f'releases/{config["name"]}-docs'),
-                                          True, historical_rules, package, note=update_message)
+                                          True, limited_historical_rules, package, note=update_message)
         docs.generate()
 
     if verbose:

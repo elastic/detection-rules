@@ -251,7 +251,6 @@ class Package(object):
 
     def generate_summary_and_changelog(self, changed_rule_ids, new_rule_ids, removed_rules):
         """Generate stats on package."""
-        from string import ascii_lowercase, ascii_uppercase
 
         summary = {
             'changed': defaultdict(list),
@@ -266,7 +265,7 @@ class Package(object):
             'unchanged': defaultdict(list)
         }
 
-        # build an index map first
+        # Build an index map first
         longest_name = 0
         indexes = set()
         for rule in self.rules:
@@ -275,8 +274,7 @@ class Package(object):
             if index_list:
                 indexes.update(index_list)
 
-        letters = ascii_uppercase + ascii_lowercase
-        index_map = {index: letters[i] for i, index in enumerate(sorted(indexes))}
+        index_map = {index: str(i) for i, index in enumerate(sorted(indexes))}
 
         def get_summary_rule_info(r: TOMLRule):
             r = r.contents
