@@ -297,7 +297,8 @@ def getdefault(name):
     return lambda: os.environ.get(envvar, config.get(name))
 
 
-def get_elasticsearch_client(cloud_id=None, elasticsearch_url=None, es_user=None, es_password=None, ctx=None, **kwargs):
+def get_elasticsearch_client(cloud_id: str = None, elasticsearch_url: str = None, es_user: str = None,
+                             es_password: str = None, ctx: click.Context = None, api_key: str = None, **kwargs):
     """Get an authenticated elasticsearch client."""
     from elasticsearch import AuthenticationException, Elasticsearch
 
@@ -305,14 +306,18 @@ def get_elasticsearch_client(cloud_id=None, elasticsearch_url=None, es_user=None
         client_error("Missing required --cloud-id or --elasticsearch-url")
 
     # don't prompt for these until there's a cloud id or elasticsearch URL
-    es_user = es_user or click.prompt("es_user")
-    es_password = es_password or click.prompt("es_password", hide_input=True)
+    basic_auth: (str, str) | None = None
+    if not api_key:
+        es_user = es_user or click.prompt("es_user")
+        es_password = es_password or click.prompt("es_password", hide_input=True)
+        basic_auth = (es_user, es_password)
+
     hosts = [elasticsearch_url] if elasticsearch_url else None
     timeout = kwargs.pop('timeout', 60)
     kwargs['verify_certs'] = not kwargs.pop('ignore_ssl_errors', False)
 
     try:
-        client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(es_user, es_password), timeout=timeout,
+        client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=basic_auth, timeout=timeout, api_key=api_key,
                                **kwargs)
         # force login to test auth
         client.info()
@@ -322,8 +327,9 @@ def get_elasticsearch_client(cloud_id=None, elasticsearch_url=None, es_user=None
         client_error(error_msg, e, ctx=ctx, err=True)
 
 
-def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana_cookie, space, ignore_ssl_errors,
-                      provider_type, provider_name, **kwargs):
+def get_kibana_client(cloud_id: str, kibana_url: str, kibana_user: str, kibana_password: str, kibana_cookie: str,
+                      space: str, ignore_ssl_errors: bool, provider_type: str, provider_name: str, api_key: str,
+                      **kwargs):
     """Get an authenticated Kibana client."""
     from requests import HTTPError
     from kibana import Kibana
@@ -331,7 +337,7 @@ def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana
     if not (cloud_id or kibana_url):
         client_error("Missing required --cloud-id or --kibana-url")
 
-    if not kibana_cookie:
+    if not (kibana_cookie or api_key):
         # don't prompt for these until there's a cloud id or Kibana URL
         kibana_user = kibana_user or click.prompt("kibana_user")
         kibana_password = kibana_password or click.prompt("kibana_password", hide_input=True)
@@ -341,6 +347,9 @@ def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana
     with Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, **kwargs) as kibana:
         if kibana_cookie:
             kibana.add_cookie(kibana_cookie)
+            return kibana
+        elif api_key:
+            kibana.add_api_key(api_key)
             return kibana
 
         try:
@@ -359,6 +368,7 @@ client_options = {
     'kibana': {
         'cloud_id': click.Option(['--cloud-id'], default=getdefault('cloud_id'),
                                  help="ID of the cloud instance."),
+        'api_key': click.Option(['--api-key'], default=getdefault('api_key')),
         'kibana_cookie': click.Option(['--kibana-cookie', '-kc'], default=getdefault('kibana_cookie'),
                                       help='Cookie from an authed session'),
         'kibana_password': click.Option(['--kibana-password', '-kp'], default=getdefault('kibana_password')),
@@ -373,6 +383,7 @@ client_options = {
     },
     'elasticsearch': {
         'cloud_id': click.Option(['--cloud-id'], default=getdefault("cloud_id")),
+        'api_key': click.Option(['--api-key'], default=getdefault('api_key')),
         'elasticsearch_url': click.Option(['--elasticsearch-url'], default=getdefault("elasticsearch_url")),
         'es_user': click.Option(['--es-user', '-eu'], default=getdefault("es_user")),
         'es_password': click.Option(['--es-password', '-ep'], default=getdefault("es_password")),

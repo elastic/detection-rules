@@ -23,6 +23,8 @@ clean:
 deps: $(VENV)
 	@echo "Installing all dependencies..."
 	$(PIP) install .[dev]
+	$(PIP) install lib/kibana
+	$(PIP) install lib/kql
 
 .PHONY: pytest
 pytest: $(VENV) deps
@@ -42,12 +44,12 @@ lint: $(VENV) deps
 test: $(VENV) lint pytest
 
 .PHONY: test-cli
-test-cli: $(VENV)
+test-cli: $(VENV) deps
 	@echo "Executing test_cli script..."
 	@./detection_rules/etc/test_cli.bash
 
 .PHONY: test-remote-cli
-test-remote-cli: $(VENV)
+test-remote-cli: $(VENV) deps
 	@echo "Executing test_remote_cli script..."
 	@./detection_rules/etc/test_remote_cli.bash
 

@@ -194,6 +194,13 @@ class Kibana(object):
         self.status = self.get('/api/status')
         self.authenticated = True
 
+    def add_api_key(self, api_key: str) -> bool:
+        """Add an API key to be used for auth."""
+        self.session.headers['Authorization'] = f'ApiKey {api_key}'
+        self.status = self.get('/api/status')
+        self.authenticated = True
+        return bool(self.status)
+
     def logout(self):
         """Quit the current session."""
         try:
