@@ -1,24 +1,19 @@
-[hunt]
-author = "Elastic"
-description = """
-This hunt identifies potential persistence mechanisms via modifications to shell profile files on Linux systems. It monitors file creation or modification events in system-wide and user-specific profile files, which can indicate attempts to establish persistence through shell modifications. It also monitors processes started by SSH daemons to detect suspicious activity related to SSH logins.
-"""
-integration = ["endpoint"]
-uuid = "x4a4d2u2-3456-4x4x-a24x-be123ab80y45"
-name = "Shell Modification Persistence"
-language = "ES|QL"
-license = "Elastic License v2"
-notes = [
-    "Monitors for file creation or modification events in system-wide and user-specific profile files, such as /etc/profile, /etc/bash.bashrc, /home/*/.bashrc, and others.",
-    "Excludes modifications made by expected update processes such as package managers to reduce false positives.",
-    "Uses EVAL to tag potential persistence events and counts occurrences to identify unusual activity.",
-    "Monitors processes started by SSH daemons (sshd) to detect suspicious activity related to SSH logins.",
-    "OSQuery query is provided to retrieve detailed file information related to profile files."
-]
-mitre = ["T1546.004", "T1053.005"]
+# Shell Modification Persistence
 
-query = [
-'''
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** This hunt identifies potential persistence mechanisms via modifications to shell profile files on Linux systems. It monitors file creation or modification events in system-wide and user-specific profile files, which can indicate attempts to establish persistence through shell modifications. It also monitors processes started by SSH daemons to detect suspicious activity related to SSH logins.
+
+- **UUID:** `x4a4d2u2-3456-4x4x-a24x-be123ab80y45`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `['ES|QL', 'SQL']`
+
+## Query
+
+```sql
 from logs-endpoint.events.file-*
 | where @timestamp > now() - 90 day
 | where host.os.type == "linux" and event.type in ("creation", "change") and (
@@ -59,8 +54,9 @@ from logs-endpoint.events.file-*
 | where pers_count > 0 and pers_count <= 20 and agent_count <= 4
 | sort cc asc
 | limit 500
-''',
-'''
+```
+
+```sql
 from logs-endpoint.events.process-*
 | where @timestamp > now() - 90 day
 | where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name == "sshd"
@@ -68,8 +64,9 @@ from logs-endpoint.events.process-*
 | where cc <= 20 and agent_count <= 4
 | sort cc asc
 | limit 100
-''',
-'''
+```
+
+```sql
 SELECT
     f.filename,
     f.path,
@@ -94,5 +91,20 @@ WHERE
     OR f.path LIKE "/home/%/.bash_login"
     OR f.path LIKE "/home/%/.bash_logout"
     OR f.path LIKE "/home/%/.bashrc"
-'''
-]
+```
+
+## Notes
+
+- Monitors for file creation or modification events in system-wide and user-specific profile files, such as /etc/profile, /etc/bash.bashrc, /home/*/.bashrc, and others.
+- Excludes modifications made by expected update processes such as package managers to reduce false positives.
+- Uses EVAL to tag potential persistence events and counts occurrences to identify unusual activity.
+- Monitors processes started by SSH daemons (sshd) to detect suspicious activity related to SSH logins.
+- OSQuery query is provided to retrieve detailed file information related to profile files.
+## MITRE ATT&CK Techniques
+
+- [T1546.004](https://attack.mitre.org/techniques/T1546/004)
+- [T1053.005](https://attack.mitre.org/techniques/T1053/005)
+
+## License
+
+- `Elastic License v2`

@@ -55,6 +55,7 @@ f.type == "regular" AND
 - Identifies SUID binaries using OSQuery to detect potentially exploitable files with SUID or SGID bits set.
 - Lists all SUID binaries and provides detailed information about these files, including their paths, owners, and permissions.
 - Focuses on regular files owned by root with SUID or SGID bits set to identify potential privilege escalation vectors.
+- OSQuery has limited support for wildcard queries, therefore the query includes multiple LIKE conditions for directories. These can be increased and decreased, based on the environment
 ## MITRE ATT&CK Techniques
 
 - [T1548.001](https://attack.mitre.org/techniques/T1548/001)

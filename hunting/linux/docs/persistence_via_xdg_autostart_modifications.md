@@ -5,11 +5,11 @@
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** This hunt identifies potential persistence mechanisms via modifications to XDG autostart directories on Linux systems. It monitors file creation or modification events in system-wide, user-specific, and root-specific autostart directories. Additionally, it monitors processes started by common Linux desktop session managers to detect suspicious activity related to autostart entries.
+- **Description:** This hunt identifies potential persistence mechanisms via modifications to XDG autostart directories on Linux systems. XDG Autostart entries can be used to execute arbitrary commands or scripts when a user logs in. It monitors file creation or modification events in system-wide, user-specific, and root-specific autostart directories. Additionally, it monitors processes started by common Linux desktop session managers to detect suspicious activity related to autostart entries.
 
 - **UUID:** `y5a5d3v3-4567-4y5y-a35y-be234ab80z56`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `['ES|QL', 'SQL']`
 
 ## Query
 

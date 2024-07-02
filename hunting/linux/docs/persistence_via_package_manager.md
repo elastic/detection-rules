@@ -9,7 +9,7 @@
 
 - **UUID:** `e2a2d9b9-0123-4e2e-a92e-be890ab80f23`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `['ES|QL', 'SQL']`
 
 ## Query
 
@@ -18,7 +18,7 @@ from logs-endpoint.events.file-*
 | where @timestamp > now() - 90 day
 | where host.os.type == "linux" and event.type in ("creation", "change") and (
     file.path like "/etc/apt/apt.conf.d/*" or
-    file.path like "/usr/lib/python%/site-packages/dnf-plugins/*" or
+    file.path like "/usr/lib/python*/site-packages/dnf-plugins/*" or
     file.path like "/etc/dnf/plugins/*" or
     file.path like "/usr/lib/yum-plugins/*" or
     file.path like "/etc/yum/pluginconf.d/*"
@@ -28,7 +28,7 @@ from logs-endpoint.events.file-*
 )
 | eval persistence = case(
     file.path like "/etc/apt/apt.conf.d/*" or
-    file.path like "/usr/lib/python%/site-packages/dnf-plugins/*" or
+    file.path like "/usr/lib/python*/site-packages/dnf-plugins/*" or
     file.path like "/etc/dnf/plugins/*" or
     file.path like "/usr/lib/yum-plugins/*" or
     file.path like "/etc/yum/pluginconf.d/*",

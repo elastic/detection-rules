@@ -1,15 +1,15 @@
-# Persistence via rc.local
+# Persistence via rc.local/rc.common
 
 ---
 
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** This hunt identifies potential persistence mechanisms via rc.local on Linux systems. It monitors for file creation or modification events in the /etc/rc.local and /etc/rc.common files, as well as processes started by these scripts. These activities can indicate attempts to establish persistence through rc.local modifications.
+- **Description:** This hunt identifies potential persistence mechanisms via rc.local and rc.common on Linux systems. RC scripts are used to start custom applications, services, scripts or commands during start-up. RC scripts have mostly been replaced by Systemd. However, through the "systemd-rc-local-generator", these files can be converted to services that run at boot. The query monitors for file creation or modification events in the /etc/rc.local and /etc/rc.common files, as well as processes started by these scripts. These activities can indicate attempts to establish persistence through rc.local modifications.
 
 - **UUID:** `n7a7d4k4-4567-4n7n-a78n-be123ab80l56`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [system](https://docs.elastic.co/integrations/system)
-- **Language:** `ES|QL`
+- **Language:** `['ES|QL', 'SQL']`
 
 ## Query
 

@@ -5,11 +5,11 @@
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** This hunt identifies potential persistence mechanisms via systemd timers on Linux systems. It monitors for file creation or modification events related to systemd service and timer configurations, as well as generators, which can indicate attempts to establish persistence through scheduled tasks.
+- **Description:** This hunt identifies potential persistence mechanisms via systemd (timers) on Linux systems. It monitors for file creation or modification events related to systemd service and timer configurations, as well as generators, which can indicate attempts to establish persistence through scheduled tasks.
 
 - **UUID:** `l5a5d2i2-2345-4l5l-a76l-be901ab80j34`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `['ES|QL', 'SQL']`
 
 ## Query
 

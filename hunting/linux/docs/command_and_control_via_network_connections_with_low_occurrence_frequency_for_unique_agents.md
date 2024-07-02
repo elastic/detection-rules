@@ -1,23 +1,19 @@
-[hunt]
-author = "Elastic"
-description = """
-This hunt identifies network connections with low occurrence frequency for unique agent IDs on Linux systems. It monitors network connection attempts and acceptances, focusing on those initiated by processes that are rarely seen in the environment. By accounting for known low-frequency legitimate binaries (LoLBins) and suspicious directories, this hunt aims to detect unusual network activity that may indicate malicious behavior.
-"""
-integration = ["endpoint"]
-uuid = "q1a1d7n7-7890-4q1q-a91q-be456ab80o89"
-name = "Network Connections with Low Occurrence Frequency for Unique Agent ID"
-language = "ES|QL"
-license = "Elastic License v2"
-notes = [
-    "Monitors for network connections initiated by processes that have low occurrence frequency, focusing on unique agent IDs.",
-    "Excludes common internal IP ranges to minimize false positives.",
-    "Accounts for known low-frequency legitimate binaries (LoLBins) to reduce noise.",
-    "Identifies suspicious directories where processes are executed from, which can indicate malicious activity."
-]
-mitre = ["T1071.001", "T1071.004"]
+# Network Connections with Low Occurrence Frequency for Unique Agent ID
 
-query = [
-'''
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** This hunt identifies network connections with low occurrence frequency for unique agent IDs on Linux systems. It monitors network connection attempts and acceptances, focusing on those initiated by processes that are rarely seen in the environment. By accounting for known low-frequency legitimate binaries (LoLBins) and suspicious directories, this hunt aims to detect unusual network activity that may indicate malicious behavior.
+
+- **UUID:** `q1a1d7n7-7890-4q1q-a91q-be456ab80o89`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `ES|QL`
+
+## Query
+
+```sql
 from logs-endpoint.events.network-*
 | where @timestamp > now() - 7 day
 | where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8")
@@ -25,8 +21,9 @@ from logs-endpoint.events.network-*
 | where agent_count == 1 and process_count > 0 and process_count <= 3
 | limit 100
 | sort process_count asc
-''',
-'''
+```
+
+```sql
 from logs-endpoint.events.network-*
 | where @timestamp > now() - 7 day
 | where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and (
@@ -42,8 +39,9 @@ destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "10.0.0.0/8", "127
 | where agent_count <= 3 and process_count > 0 and process_count <= 5
 | limit 100
 | sort process_count asc
-''',
-'''
+```
+
+```sql
 from logs-endpoint.events.network-*
 | where @timestamp > now() - 90 day
 | where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and (
@@ -61,5 +59,19 @@ destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "127.0.0.0/8", "16
 | where agent_count <= 3 and process_count > 0 and process_count <= 5
 | limit 100
 | sort process_count asc
-'''
-]
+```
+
+## Notes
+
+- Monitors for network connections initiated by processes that have low occurrence frequency, focusing on unique agent IDs.
+- Excludes common internal IP ranges to minimize false positives.
+- Accounts for known low-frequency legitimate binaries (LoLBins) to reduce noise.
+- Identifies suspicious directories where processes are executed from, which can indicate malicious activity.
+## MITRE ATT&CK Techniques
+
+- [T1071.001](https://attack.mitre.org/techniques/T1071/001)
+- [T1071.004](https://attack.mitre.org/techniques/T1071/004)
+
+## License
+
+- `Elastic License v2`
