@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies base64 encoded powershell commands in process start events and filters ones with suspicious keywords like downloaders and evasion related commands.
 
-- **UUID:** `8bf800de-b3a2-4b36-9484-7d9dae2a1992`
+- **UUID:** `2e583d3c-7ad6-4544-a0db-c685b2066493`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

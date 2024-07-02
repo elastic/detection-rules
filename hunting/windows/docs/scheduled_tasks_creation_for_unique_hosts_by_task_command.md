@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** Using aggregation and strings extraction, this hunt identifies instances where a scheduled task is created and set to run a command unique to a specific host. This could be the result of persistence as a Windows Scheduled Task.
 
-- **UUID:** `75804319-122c-4bdc-976e-d6355bca0d78`
+- **UUID:** `44223fd6-8241-4c21-9d54-21201fa15b12`
 - **Integration:** [system](https://docs.elastic.co/integrations/system)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

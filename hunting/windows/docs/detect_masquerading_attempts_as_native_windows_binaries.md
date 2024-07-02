@@ -6,9 +6,9 @@
 
 - **Author:** Elastic
 - **Description:** This hunt detects processes named as legit Microsoft native binaries located in the system32 folder. Adversaries may attempt to manipulate features of their artifacts to make them appear legitimate or benign to users and/or security tools. Masquerading occurs when the name or location of an object, legitimate or malicious, is manipulated or abused for the sake of evading defenses and observation. 
-- **UUID:** `93a72542-a1f7-4407-9175-8f066343db60`
+- **UUID:** `a2006c66-d6ab-43ee-871e-d650e38f7972`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

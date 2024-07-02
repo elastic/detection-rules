@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies instances where a process attempts to open the Local Security Authority Subsystem Service (LSASS) memory and where the number of occurences is limited to one unique agent and a low number of attempts. This may indicate either a rare legitimate condition or a malicious process attempting to obtain credentials or inject code into the LSASS.
 
-- **UUID:** `3978e183-0b70-4e1c-8c40-24e367f6db5a`
+- **UUID:** `d0aed6f5-f84c-4da8-bb2a-b5ca0fbb55e0`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunt aggregate Rundll32 execution by normalized `process.command_line` and returns instances that are unique by frequency. Rundll32 is one of the most abused binaries to proxy execution of malicious commands and modules.
 
-- **UUID:** `30f37cd2-c1d8-4554-bb4a-ed76de9e6857`
+- **UUID:** `44e6adc6-e183-4bfa-b06d-db41669641fa`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for a low occurrence of process execution via the Windows Services Control Manager by unique agent. The Services Control Manager is responsible for starting, stopping, and interacting with system services. This could be a sign of persistence as a Windows service.
 
-- **UUID:** `858b7022-b587-4b95-afd6-8ce597bedce3`
+- **UUID:** `a0a84a86-115f-42f9-90a5-4cb7ceeef981`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

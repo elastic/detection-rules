@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** Using aggregation and the ES|QL `SUM` function, this hunt identifies processes that performed egress connections with total bytes greater or equal to a defined maximum threshold. This may indicate exfiltration or long term command and control activity.
 
-- **UUID:** `977d77f9-86e0-4df6-bdc7-aed87c048290`
+- **UUID:** `24925575-defd-4581-bfda-a8753dcfb46e`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for a high number of executable file transfers via the SMB protocol by the same user or agent to more than a defined maxium threshold of targets. This could be a sign of lateral movement via the Windows Admin Shares.
 
-- **UUID:** `3e66fc1a-2ea0-43a6-ba51-0280c693d152`
+- **UUID:** `814894a4-c951-4f33-ab0b-09354e1cb957`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

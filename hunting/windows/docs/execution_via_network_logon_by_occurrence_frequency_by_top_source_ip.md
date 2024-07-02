@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunt aggregates process execution and remote network logons by source address, account name and process hash. It then limits the results by unique host within a 7 day period. This may indicate lateral movement via remote services.
 
-- **UUID:** `ae07c580-290e-4421-add8-d6ca30509b6a`
+- **UUID:** `24108755-4d1f-4d7a-ad5f-04c2ca55e9a3`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

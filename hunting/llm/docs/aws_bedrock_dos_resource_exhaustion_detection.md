@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunting query identifies unusual spikes in token usage that may indicate malicious attempts to disrupt services. High token usage can strain system resources and degrade performance, aligning with tactics observed in DoS attacks.
 
-- **UUID:** `dc181967-c32c-46c9-b84b-ec4c8811c6a0`
+- **UUID:** `00023411-192e-4472-90aa-da7562bc3f2a`
 - **Integration:** [aws_bedrock.invocation](https://docs.elastic.co/integrations/aws_bedrock)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 
