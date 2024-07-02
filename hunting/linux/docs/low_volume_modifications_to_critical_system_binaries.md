@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies low volume modifications to critical system binaries on Linux systems. It monitors file modification events in critical directories such as /bin, /usr/bin, /sbin, and /usr/sbin. The hunt focuses on modifications made by unique hosts, excluding expected update processes like package managers. This can help detect unauthorized or suspicious modifications to system binaries.
 
-- **UUID:** `u1a1d9r9-9012-4u1u-a91u-be890ab80v12`
+- **UUID:** `c7044817-d9a5-4755-abab-9059e50dab24`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt aggregates process execution via remote network logon by source address, account name and where the parent process is related to remote services such as WMI, WinRM, DCOM and remote PowerShell. This may indicate lateral movement via remote services.
 
-- **UUID:** `e6e54717-2676-4785-a4a6-503577bfb0ea`
+- **UUID:** `5fd5da54-0515-4d6b-b8d7-30fd05f5be33`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

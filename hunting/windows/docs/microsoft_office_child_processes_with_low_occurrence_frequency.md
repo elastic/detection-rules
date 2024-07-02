@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for Microsoft Office child processes with low occurrence frequency. This could be a normal rare behavior as well as potential execution via a malicious document. Adversaries may use Microsoft Office applications to execute malicious code, such as macros, scripts, or other payloads.
 
-- **UUID:** `74b2e54b-7002-4201-83d6-7fd9bd5dcf0f`
+- **UUID:** `f1b8519a-4dae-475f-965a-f53559233eab`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 

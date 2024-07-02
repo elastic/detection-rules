@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt returns the SHA256 hash and the `dll.path` of unsigned libraries loaded by svchost where the presence of unique path/hash is limited to a unique host. Adversaries may use Windows service DLLs to maintain persistence or run with System privileges.
 
-- **UUID:** `e37fe0b9-1b70-4800-8989-58bac5a0a9bb`
+- **UUID:** `c00f1afe-4f25-4542-8cc9-277b23581121`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 

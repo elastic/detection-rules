@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies low volume process injection-related syscalls on Linux systems. It monitors audit logs for syscalls related to process injection, such as ptrace and memfd_create. The hunt focuses on processes that make these syscalls infrequently, which can indicate potential malicious activity.
 
-- **UUID:** `v2a2d0s0-1234-4v2v-a02v-be901ab80w23`
+- **UUID:** `c9931736-d5ec-4c89-b4d2-d71dcf5ca12a`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

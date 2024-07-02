@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies hidden process executions on Linux systems. It detects processes executed from hidden files, which are often used by malicious actors to conceal their activities. By focusing on hidden files rather than directories, this hunt aims to catch stealthy processes while minimizing noise.
 
-- **UUID:** `d7a1d5b4-1234-4d5d-a68f-be123ab80e56`
+- **UUID:** `00461198-9a2d-4823-b4cc-f3d1b5c17935`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

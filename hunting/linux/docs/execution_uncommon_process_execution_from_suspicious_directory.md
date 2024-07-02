@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies uncommon process executions from suspicious directories on Linux systems. It looks for processes executed from directories that are often associated with malicious activity, such as /dev/shm, /var/www, /boot, /srv, /tmp, /var/tmp, /run, and /var/run. The goal is to detect potentially malicious processes while excluding common, benign ones.
 
-- **UUID:** `c4a1d5a4-6348-4d4d-a68f-be632ab80e56`
+- **UUID:** `0ea47044-b161-4785-ba99-e11f46d6ac51`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

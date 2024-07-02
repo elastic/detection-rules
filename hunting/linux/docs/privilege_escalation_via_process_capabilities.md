@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies processes on Linux systems with specific capabilities set. It monitors process execution events where processes have effective or permitted capabilities, which can be indicative of elevated privileges. The hunt focuses on non-root users to detect potential privilege escalation attempts. The hunt lists detailed information for further analysis and investigation.
 
-- **UUID:** `g4a4e1d1-4567-4g4g-a14g-be012ab80h45`
+- **UUID:** `6f67704d-e5b1-4613-912c-e2965660fe17`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

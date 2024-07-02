@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies potential persistence mechanisms via modifications to shell profile files on Linux systems. It monitors file creation or modification events in system-wide and user-specific profile files, which can indicate attempts to establish persistence through shell modifications. It also monitors processes started by SSH daemons to detect suspicious activity related to SSH logins.
 
-- **UUID:** `x4a4d2u2-3456-4x4x-a24x-be123ab80y45`
+- **UUID:** `20a02fad-2a09-44c0-a8ce-ce4502859c8a`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
 

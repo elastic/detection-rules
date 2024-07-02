@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for unique process execution via Windows Management Instrumentation (WMI) by removing random patterns from `process.command_line` and aggregating execution by count of agents with the same command line to limit results to unique ones.
 
-- **UUID:** `b5efeb92-9b51-45b9-839f-be4cdc054ef4`
+- **UUID:** `a95e69af-22ad-4ab7-919e-794501f10c95`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 

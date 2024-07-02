@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This analytic helps identify delays in LLM responses that are outside expected performance parameters, possibly due to malicious disruptions like DDoS attacks or from operational inefficiencies.
 
-- **UUID:** `3708787b-811b-43b1-b2e7-c7276b8db48c`
+- **UUID:** `991b55c3-6327-4af6-8e0c-5d4870748369`
 - **Integration:** [aws_bedrock.invocation](https://docs.elastic.co/integrations/aws_bedrock)
 - **Language:** `[ES|QL]`
 

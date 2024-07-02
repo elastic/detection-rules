@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies potential defense evasion techniques via multi-dot process execution on Linux systems. It looks for processes with executables that contain three or more consecutive dots in their names. Such naming conventions can be used by malicious actors to evade detection and blend in with legitimate processes.
 
-- **UUID:** `e8a1d5c5-5678-4e8f-a69f-be234ab80e67`
+- **UUID:** `11810497-8ce3-4960-9777-9d0e97052682`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

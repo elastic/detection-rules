@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies potential persistence mechanisms via the message-of-the-day (motd) on Linux systems. It monitors for file creation or modification events in the /etc/update-motd.d directory and processes started by these motd scripts. These scripts launch on SSH/terminal connection events, and execute the scripts as root. These activities can indicate attempts to establish persistence through motd modifications.
 
-- **UUID:** `m6a6d3j3-3456-4m6m-a77m-be012ab80k45`
+- **UUID:** `5984a354-d76c-43e6-bdd9-228456f1b371`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
 

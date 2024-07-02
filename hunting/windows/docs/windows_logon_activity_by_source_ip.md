@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt returns a summary of network logon activity by `source.ip` using Windows event IDs 4624 and 4625. The higher the number of failures, low success and multiple accounts the more suspicious the behavior is.
 
-- **UUID:** `7bdea198-eb09-4eca-ae3d-bfc3b52c89a9`
+- **UUID:** `441fba85-47a9-4f1f-aab4-569bbfdc548b`
 - **Integration:** [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 

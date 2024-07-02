@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for a high occurrence of remote desktop connections from the same host and user. The number of unique destination IP addresses is compared to a defined threshold. This could be a sign of discovery or lateral movement via the Remote Desktop Protocol (RDP).
 
-- **UUID:** `fe01a8a5-6367-4c4c-a57b-be513ab80e42`
+- **UUID:** `f7d2054f-b571-4cd0-b39e-a779576e9398`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 

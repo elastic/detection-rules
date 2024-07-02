@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies unusual file download activities on Linux systems. It detects instances where commonly used download utilities such as curl and wget are executed with command lines that contain IP addresses, which can indicate potentially suspicious file downloads.
 
-- **UUID:** `i2a2d9f9-9012-4i2i-a73i-be678ab80g01`
+- **UUID:** `0d061fad-cf35-43a6-b9b7-986c348bf182`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

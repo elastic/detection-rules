@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies low volume external network connections initiated by processes on Linux systems. It focuses on connections attempted by processes that have been seen infrequently (five or fewer connections) and by unique agents. This can help identify potentially suspicious activity that might be missed due to low volume.
 
-- **UUID:** `t4a4d1q1-0123-4t4t-a74t-be789ab80u12`
+- **UUID:** `12526f14-5e35-4f5f-884c-96c6a353a544`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

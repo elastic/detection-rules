@@ -8,7 +8,7 @@
 - **Description:** This hunt identifies executable file creation by an unusual Microsoft native binary. This could be the result of
 code injection or some other form of exploitation for defense evasion.
 
-- **UUID:** `3b2900fe-74d9-4c49-b3df-cbeceb02e841`
+- **UUID:** `b786bcd7-b119-4ff7-b839-3927c2ff7f1f`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 

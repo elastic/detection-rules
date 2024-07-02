@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies potential system binary hijacking attempts on Linux systems. It monitors process execution events where common system binaries such as ls, cat, mkdir, touch, mv, and cp are the parent processes. These activities can indicate attempts to hijack system binaries for malicious purposes. The hunt lists detailed information for further analysis and investigation.
 
-- **UUID:** `h5a5f2e2-5678-4h5h-a25h-be123ab80i56`
+- **UUID:** `d22cbe8f-c84d-4811-aa6d-f1ee00c806b2`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

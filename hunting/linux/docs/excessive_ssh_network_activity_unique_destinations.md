@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies excessive SSH network activity to unique destinations on Linux systems. It monitors network connections over TCP to port 22 (SSH) and counts the number of unique destination IP addresses. A high number of unique destinations could indicate suspicious activity such as discovery or lateral movement.
 
-- **UUID:** `r2a2d8o8-8901-4r2r-a92r-be567ab80p90`
+- **UUID:** `223f812c-a962-4d58-961d-134d8f8b15da`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

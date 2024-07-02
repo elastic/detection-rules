@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies user and group creation or modification activities on Linux systems using OSQuery. It monitors changes to the shadow file, user and group information, and user processes. These activities can indicate potential unauthorized access or privilege escalation attempts. The hunt lists detailed information for further analysis and investigation.
 
-- **UUID:** `b8a8d6y6-7890-4b8b-a68b-be567ab80c89`
+- **UUID:** `f00c9757-d21b-432c-90a6-8372f18075d0`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
 

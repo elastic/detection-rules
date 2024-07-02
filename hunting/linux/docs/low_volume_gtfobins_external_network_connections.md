@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies low volume external network connections initiated by GTFOBins on Linux systems. GTFOBins are Unix binaries that can be exploited by attackers to bypass local security restrictions. The hunt focuses on network connections made by these binaries, excluding common internal IP ranges, to detect potentially malicious activity.
 
-- **UUID:** `w3a3d1t1-2345-4w3w-a13w-be012ab80x34`
+- **UUID:** `783d6091-b98d-45a8-a880-a07f112a8aa2`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

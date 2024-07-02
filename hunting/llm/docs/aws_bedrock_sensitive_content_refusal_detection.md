@@ -6,7 +6,7 @@
 
 - **Author:** Elastic
 - **Description:** This analytic flags multiple instances of LLM refusals to respond to sensitive prompts, helping to maintain ethical guidelines and compliance standards.
-- **UUID:** `8fabae86-7ed2-4006-9623-5db28164f374`
+- **UUID:** `11e33a8f-805b-4394-bee0-08ae8d78b025`
 - **Integration:** [aws_bedrock.invocation](https://docs.elastic.co/integrations/aws_bedrock)
 - **Language:** `[ES|QL]`
 

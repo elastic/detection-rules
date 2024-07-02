@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies potential SSH persistence mechanisms on Linux systems using OSQuery. It monitors SSH keys, authorized_keys files, SSH configuration files, and SSH file information to detect unauthorized access or persistence techniques. The hunt lists detailed information for further analysis and investigation.
 
-- **UUID:** `c9a9d7z7-8901-4c9c-a79c-be678ab80d90`
+- **UUID:** `aa759db0-4499-42f2-9f2f-be3e00fdebfa`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
 

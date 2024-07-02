@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies SUID binaries on Linux systems using OSQuery. SUID binaries can be exploited by attackers to gain elevated privileges. The hunt includes queries to list all SUID binaries and detailed information about these files, focusing on regular files owned by root with SUID or SGID bits set.
 
-- **UUID:** `z6a6d4w4-5678-4z6z-a46z-be345ab80a67`
+- **UUID:** `2db642d2-621a-4183-88b5-b2659dc2c940`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
 

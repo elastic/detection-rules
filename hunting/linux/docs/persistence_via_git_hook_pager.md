@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies potential persistence mechanisms via Git hooks and configurations on Linux systems. It monitors file creation or modification events in Git configuration and hook directories, as well as processes started by Git hooks. These activities can indicate attempts to establish persistence through Git configurations. The hunt lists detailed information for further analysis and investigation.
 
-- **UUID:** `f3a3d0c0-3456-4f3f-a03f-be901ab80g34`
+- **UUID:** `2d7bb29d-d53f-47ab-a0b4-1818adb91423`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
 

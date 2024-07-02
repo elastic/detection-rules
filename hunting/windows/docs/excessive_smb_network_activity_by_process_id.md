@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for a high occurrence of SMB connections from the same process by unique destination IP addresses. The number of unique destination IP addresses is compared to a defined threshold. This could be a sign of SMB scanning or lateral movement via remote services that depend on the SMB protocol.
 
-- **UUID:** `6949135b-76d7-47a3-ae95-ef482508fb7c`
+- **UUID:** `8a95f552-f149-4c71-888e-f2690f5add15`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 

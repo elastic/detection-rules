@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies entries in the sudoers file on Linux systems using OSQuery. The sudoers file controls which users have administrative privileges and can be a target for attackers seeking to escalate their privileges. This hunt lists all sudoers rules for further analysis.
 
-- **UUID:** `a7a7d5x5-6789-4a7a-a57a-be456ab80b78`
+- **UUID:** `6e57e6a6-f150-405d-b8be-e4e666a3a86d`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
 

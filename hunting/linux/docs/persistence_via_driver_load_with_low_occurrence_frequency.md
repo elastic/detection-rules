@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies drivers loaded with low occurrence frequency on Linux systems. It monitors for the loading of kernel modules (drivers) that have only been seen once across a single host within a year. Such activity can indicate the presence of rare or potentially malicious drivers.
 
-- **UUID:** `p9a9d6m6-6789-4p9p-a90p-be345ab80n78`
+- **UUID:** `e1f59c9a-7a2a-4eb8-a524-97b16a041a4a`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

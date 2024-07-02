@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies potential persistence mechanisms via package manager configurations on Linux systems. It monitors file creation or modification events in directories related to APT, YUM, and DNF package managers. Additionally, it monitors processes started by these package managers. These activities can indicate attempts to establish persistence through package manager configurations. The hunt lists detailed information for further analysis and investigation.
 
-- **UUID:** `e2a2d9b9-0123-4e2e-a92e-be890ab80f23`
+- **UUID:** `2d01a413-8d97-407a-8698-02dfc7119c97`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
 

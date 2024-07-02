@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies programs started shortly after user logon and presence limited to a unique host. Run registry key and Startup folder cause programs to run each time that a user logs on and are often abused by malwares to maintain persistence on an endpoint.
 
-- **UUID:** `a447df80-d3d5-48b3-a175-a864264ec487`
+- **UUID:** `52a958e8-0368-4e74-bd4b-a64faf397bf4`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

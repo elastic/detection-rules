@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies browser or svchost instances performing a considerable number of connections per hour over an extended period of hours to a specific destination address, limited to a unique host of the monitored agents. Browsers and svchost are both good targets for masquerading network traffic on the endpoint.
 
-- **UUID:** `ed254a22-e7bb-4a36-9291-196b77762dd8`
+- **UUID:** `5e5aa9c2-96a8-4d5b-bbca-ff2ec8fefa5b`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 

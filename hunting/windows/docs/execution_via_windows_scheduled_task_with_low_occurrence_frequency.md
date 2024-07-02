@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** Aggregating by paths/hash, this hunt identifies rare instances where a program executes as a child process of the Tasks Scheduler service. This could be the result of persistence as a Windows Scheduled Task.
 
-- **UUID:** `96d5afc8-1f25-4265-8a0e-9998091a2e1f`
+- **UUID:** `0d960760-8a40-49c1-bbdd-4deb32c7fd67`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 

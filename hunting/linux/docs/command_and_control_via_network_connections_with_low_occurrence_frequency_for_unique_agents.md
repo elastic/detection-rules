@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies network connections with low occurrence frequency for unique agent IDs on Linux systems. It monitors network connection attempts and acceptances, focusing on those initiated by processes that are rarely seen in the environment. By accounting for known low-frequency legitimate binaries (LoLBins) and suspicious directories, this hunt aims to detect unusual network activity that may indicate malicious behavior.
 
-- **UUID:** `q1a1d7n7-7890-4q1q-a91q-be456ab80o89`
+- **UUID:** `ecd84bc7-32ae-474b-93a8-d1d9736c3464`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 

@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies potential persistence mechanisms via Udev rules on Linux systems. Udev is a device manager for the Linux kernel that manages device nodes in /dev. Udev is responsible for creating and removing device nodes in /dev when devices are added or removed from the system. Udev executes scripts when devices are added or removed from the system. This query monitors file creation or modification events in Udev rule directories and processes started by Udevadm. These activities can indicate attempts to establish persistence through Udev configurations. The hunt lists detailed information for further analysis and investigation.
 
-- **UUID:** `d1a1d8a8-9012-4d1d-a81d-be789ab80e12`
+- **UUID:** `8d42a644-5b60-4165-a8f1-84d5bcdd4ade`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
 
