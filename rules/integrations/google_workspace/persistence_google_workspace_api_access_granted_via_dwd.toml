@@ -2,7 +2,7 @@
 creation_date = "2020/11/12"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/28"
 
 [rule]
 author = ["Elastic"]
@@ -17,15 +17,14 @@ false_positives = [
     configuration change was expected. Exceptions can be added to this rule to filter expected behavior.
     """,
 ]
-from = "now-130m"
+from = "now-9m"
 index = ["filebeat-*", "logs-google_workspace*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "Google Workspace API Access Granted via Domain-Wide Delegation of Authority"
+name = "Google Workspace API Access Granted via Domain-Wide Delegation"
 note = """## Triage and analysis
 
-### Investigating API Access Granted via Domain-Wide Delegation of Authority
+### Investigating Google Workspace API Access Granted via Domain-Wide Delegation
 
 Domain-wide delegation is a feature that allows apps to access users' data across an organization's Google Workspace environment. Only super admins can manage domain-wide delegation, and they must specify each API scope that the application can access. Google Workspace services all have APIs that can be interacted with after domain-wide delegation is established with an OAuth2 client ID of the application. Typically, GCP service accounts and applications are created where the Google Workspace APIs are enabled, thus allowing the application to access resources and services in Google Workspace.
 
@@ -71,7 +70,6 @@ The Google Workspace Fleet integration, Filebeat module, or similarly structured
 
 ### Important Information Regarding Google Workspace Event Lag Times
 - As per Google's documentation, Google Workspace administrators may observe lag times ranging from minutes up to 3 days between the time of an event's occurrence and the event being visible in the Google Workspace admin/audit logs.
-- This rule is configured to run every 10 minutes with a lookback time of 130 minutes.
 - To reduce the risk of false negatives, consider reducing the interval that the Google Workspace (formerly G Suite) Filebeat module polls Google's reporting API for new events.
 - By default, `var.interval` is set to 2 hours (2h). Consider changing this interval to a lower value, such as 10 minutes (10m).
 - See the following references for further information:
@@ -92,7 +90,11 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:AUTHORIZE_API_CLIENT_ACCESS
+event.dataset:google_workspace.admin
+  and event.provider:admin
+  and event.category:iam
+  and event.action:AUTHORIZE_API_CLIENT_ACCESS
+  and event.outcome:success
 '''
 
 

@@ -1,31 +1,32 @@
 [metadata]
-creation_date = "2024/06/03"
+creation_date = "2024/06/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/06/03"
+updated_date = "2024/06/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the addition of an executable bit of the `/etc/rc.local` or `/etc/rc.common` files. These files
-are used to start custom applications, services, scripts or commands during start-up. They require executable
-permissions to be executed on boot. An alert of this rule is an indicator that this method is being set up within
-your environment. This method has mostly been replaced by Systemd. However, through the `systemd-rc-local-generator`,
-these files can be converted to services that run at boot. Adversaries may alter these files to execute malicious code
-at start-up, and gain persistence onto the system.
+This rule detects the potential execution of the `/etc/rc.local` script through the `already_running` event action
+created by the `rc-local.service` systemd service. The `/etc/rc.local` script is a legacy initialization script that is
+executed at the end of the boot process. The `/etc/rc.local` script is not enabled by default on most Linux
+distributions. The `/etc/rc.local` script can be used by attackers to persistently execute malicious commands or scripts
+on a compromised system at reboot. As the rc.local file is executed prior to the initialization of Elastic Defend, the
+execution event is not ingested, and therefore the `already_running` event is leveraged to provide insight into the
+potential execution of `rc.local`.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "endgame-*"]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Executable Bit Set for rc.local/rc.common"
+name = "Potential Execution of rc.local Script"
 references = [
     "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
     "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
     "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
 ]
 risk_score = 47
-rule_id = "94418745-529f-4259-8d25-a713a6feb6ae"
+rule_id = "7318affb-bfe8-4d50-a425-f617833be160"
 setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
@@ -57,18 +58,13 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
-process.args in ("/etc/rc.local", "/etc/rc.common") and (
-  (process.name == "chmod" and process.args : ("*+x*", "1*", "3*", "5*", "7*")) or
-  (process.name == "install" and process.args : "-m*" and process.args : ("*7*", "*5*", "*3*", "*1*"))
-)
+process where host.os.type == "linux" and event.type == "info" and event.action == "already_running" and 
+process.parent.args == "/etc/rc.local" and process.parent.args == "start"
 '''
 
 [[rule.threat]]
