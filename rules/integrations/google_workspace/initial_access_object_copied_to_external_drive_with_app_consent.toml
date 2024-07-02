@@ -2,7 +2,7 @@
 creation_date = "2023/03/07"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/28"
 
 [rule]
 author = ["Elastic"]
@@ -23,15 +23,14 @@ false_positives = [
     container-bound scripts to accomplish a legitimate task.
     """,
 ]
-from = "now-130m"
+from = "now-9m"
 index = ["filebeat-*", "logs-google_workspace*"]
-interval = "10m"
 language = "eql"
 license = "Elastic License v2"
-name = "Google Workspace Object Copied from External Drive and Access Granted to Custom Application"
+name = "Google Workspace Object Copied to External Drive with App Consent"
 note = """## Triage and analysis
 
-### Investigating Google Workspace Resource Copied from External Drive and Access Granted to Custom Application
+### Investigating Google Workspace Object Copied to External Drive with App Consent
 
 Google Workspace users can share access to Drive objects such as documents, sheets, and forms via email delivery or a shared link. Shared link URIs have parameters like `view` or `edit` to indicate the recipient's permissions. The `copy` parameter allows the recipient to copy the object to their own Drive, which grants the object with the same privileges as the recipient. Specific objects in Google Drive allow container-bound scripts that run on Google's Apps Script platform. Container-bound scripts can contain malicious code that executes with the recipient's privileges if in their Drive.
 
@@ -75,7 +74,6 @@ This rule aims to detect when a user copies an external Drive object to their Dr
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 ### Important Information Regarding Google Workspace Event Lag Times
 - As per Google's documentation, Google Workspace administrators may observe lag times ranging from minutes up to 3 days between the time of an event's occurrence and the event being visible in the Google Workspace admin/audit logs.
-- This rule is configured to run every 10 minutes with a lookback time of 130 minutes.
 - To reduce the risk of false negatives, consider reducing the interval that the Google Workspace (formerly G Suite) Filebeat module polls Google's reporting API for new events.
 - By default, `var.interval` is set to 2 hours (2h). Consider changing this interval to a lower value, such as 10 minutes (10m).
 - See the following references for further information:
