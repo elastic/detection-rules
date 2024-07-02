@@ -641,8 +641,8 @@ class TestRuleMetadata(BaseRuleTest):
         if result:
             self.fail(f"Deprecated rules {result} has been modified")
 
-    @unittest.skipIf(os.getenv('GITHUB_EVENT_NAME') == 'push' ,
-                     "Skipping this test when not running on pull requests to main branch")
+    @unittest.skipIf(os.getenv('GITHUB_EVENT_NAME') == 'push',
+                     "Skipping this test when not running on pull requests.")
     def test_rule_change_has_updated_date(self):
         """Test to ensure modified rules have updated_date field updated."""
 
