@@ -9,7 +9,7 @@
 
 - **UUID:** `ebf8eb13-c98a-4d2c-8bdb-3f72a3a3961b`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

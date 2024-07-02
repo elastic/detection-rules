@@ -9,7 +9,7 @@
 
 - **UUID:** `c9a9d7z7-8901-4c9c-a79c-be678ab80d90`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `SQL`
+- **Language:** `[SQL]`
 
 ## Query
 

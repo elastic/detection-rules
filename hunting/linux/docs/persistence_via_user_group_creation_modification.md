@@ -1,4 +1,4 @@
-# Privilege Escalation via User/Group Creation and/or Modification
+# Privilege Escalation/Persistence via User/Group Creation and/or Modification
 
 ---
 
@@ -9,7 +9,7 @@
 
 - **UUID:** `b8a8d6y6-7890-4b8b-a68b-be567ab80c89`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `SQL`
+- **Language:** `[SQL]`
 
 ## Query
 

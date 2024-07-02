@@ -9,7 +9,7 @@
 
 - **UUID:** `e8a1d5c5-5678-4e8f-a69f-be234ab80e67`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 
@@ -27,7 +27,6 @@ from logs-endpoint.events.process-*
 ## Notes
 
 - This query identifies processes with executables containing three or more consecutive dots in their names.
-- While this query might not be noisy, it may be better suited as a detection rule.
 - The process count threshold of <= 10 can be adjusted based on the environment's baseline activity.
 ## MITRE ATT&CK Techniques
 

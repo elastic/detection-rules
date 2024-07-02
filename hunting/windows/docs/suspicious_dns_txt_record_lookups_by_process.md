@@ -10,7 +10,7 @@ Adversaries may leverage DNS TXT queries to stage malicious content or exfiltrat
 
 - **UUID:** `0b7343f7-2d16-43c7-af28-9d1f012b1093`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

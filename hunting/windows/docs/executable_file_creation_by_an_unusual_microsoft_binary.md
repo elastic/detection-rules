@@ -10,7 +10,7 @@ code injection or some other form of exploitation for defense evasion.
 
 - **UUID:** `3b2900fe-74d9-4c49-b3df-cbeceb02e841`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

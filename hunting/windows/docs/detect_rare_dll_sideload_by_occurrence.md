@@ -8,7 +8,7 @@
 - **Description:** This hunt identifies instances where a signed Windows process attempts to load an unsigned DLL from the same process folder. Matches are limited to a unique host with low library load occurrence. Adversaries may execute their own malicious payloads by side-loading malicious DLLs.
 - **UUID:** `bcdb7c29-1312-4974-8f2e-10ddeb09cf5c`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

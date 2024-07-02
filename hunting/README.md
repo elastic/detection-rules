@@ -11,7 +11,7 @@ Note that some hunting files will include a mix of queries with different langua
 - [KQL](https://www.elastic.co/guide/en/kibana/current/kuery-query.html)
 - [EQL](https://www.elastic.co/guide/en/elasticsearch/reference/current/eql.html)
 - [ES|QL](https://www.elastic.co/guide/en/elasticsearch/reference/current/esql.html)
-- [OsQuery](https://www.elastic.co/guide/en/kibana/current/osquery.html)
+- [OsQuery/SQL](https://www.elastic.co/guide/en/kibana/current/osquery.html)
 - [YARA](https://yara.readthedocs.io/en/stable/writingrules.html)
 
 The hunting queries shared in this folder are a mix of the following hunting methods:
@@ -38,7 +38,7 @@ Otherwise, the names do not require the integration, since it is already annotat
   - **integration**: The specific integration or data source the rule applies to, such as `aws_bedrock.invocation`.
   - **uuid**: A unique identifier for the rule to maintain version control and tracking.
   - **name**: A descriptive name for the rule that clearly indicates its purpose.
-  - **language**: The query language used in the rule, such as `KQL`, `EQL`, `ES|QL`, `OsQuery`, or `YARA`.
+  - **language**: The query language(s) used in the rule, such as `KQL`, `EQL`, `ES|QL`, `OsQuery`, or `YARA`.
   - **query**: An array of actual queries or analytic expressions written in the appropriate query language that executes the detection logic.
   - **notes**: An array of strings providing detailed insights into the rationale behind the rule, suggestions for further investigation, and tips on distinguishing false positives from true activity.
   - **mitre**: Reference to applicable MITRE ATT&CK tactics or techniques that the rule addresses, enhancing the contextual understanding of its security implications.

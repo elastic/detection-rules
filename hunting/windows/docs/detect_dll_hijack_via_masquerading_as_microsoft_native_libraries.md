@@ -8,7 +8,7 @@
 - **Description:** This hunt identifies when a process loads a DLL normally located in `System32` or `SysWOW64` folders from an unusual path. Adversaries may execute their own malicious payloads by side-loading malicious DLLs. The host count also should help exclude false-positives by looking at low occurrences when this abnormal behavior is limited to unique agents.
 - **UUID:** `87c97865-fdaa-48b2-bfa6-67bed7cf56ef`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

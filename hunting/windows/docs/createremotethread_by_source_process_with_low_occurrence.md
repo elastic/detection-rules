@@ -8,7 +8,7 @@
 - **Description:** This hunt attempts to identify remote process injection by aggregating Sysmon `CreateRemoteThread` events by source process and returns the ones that we observed in only one unique host.
 - **UUID:** `0545f23f-84a7-4b88-9b5b-b8cfcfdc9276`
 - **Integration:** [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

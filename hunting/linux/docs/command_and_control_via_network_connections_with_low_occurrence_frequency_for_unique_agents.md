@@ -9,7 +9,7 @@
 
 - **UUID:** `q1a1d7n7-7890-4q1q-a91q-be456ab80o89`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 
@@ -27,7 +27,7 @@ from logs-endpoint.events.network-*
 from logs-endpoint.events.network-*
 | where @timestamp > now() - 7 day
 | where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and (
-    (process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat", "java", "awk", "gawk", "mawk", "nawk", "openssl", "nc", "ncat", "netcat", "telnet")) or
+    (process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat", "java", "awk", "gawk", "mawk", "nawk", "openssl", "nc", "ncat", "netcat", "nc.openbsd", "telnet")) or
     (process.name like "python*") or
     (process.name like "perl*") or
     (process.name like "ruby*") or
