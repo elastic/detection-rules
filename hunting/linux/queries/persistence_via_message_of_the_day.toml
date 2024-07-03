@@ -37,7 +37,7 @@ from logs-endpoint.events.process-*
 | where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.action == "exec" and event.type == "start" and process.parent.executable like "/etc/update-motd.d/*" and
 not process.args like "/tmp/tmp.*"
-| stats cc = count(), host_count = count_distinct(host.name) by process.command_line, process.executable, process.parent.executable
+| stats cc = count(), host_count = count_distinct(host.name) by process.executable, process.parent.executable
 | where host_count <= 5
 | sort cc asc
 | limit 100
