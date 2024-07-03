@@ -21,9 +21,9 @@ query = [
 from logs-endpoint.events.process-*
 | where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.action == "exec" and event.type == "start" and process.parent.name in ("ls", "cat", "mkdir", "touch", "mv", "cp")
-| stats process_cli_count = count(process.command_line), process_count = count(process.executable), host_count = count_distinct(host.name) by process.parent.executable, process.executable
+| stats cc = count(), host_count = count_distinct(host.name) by process.parent.executable, process.executable
 | where host_count <= 5
-| sort process_cli_count asc
+| sort cc asc
 | limit 100
 '''
 ]
