@@ -168,7 +168,9 @@ def kibana_export_rules(
             raise
 
         exported.append(rule)
-        exceptions.append(exception)
+
+        if export_exceptions:
+            exceptions.append(exception)
 
     saved = []
     for rule in exported:
