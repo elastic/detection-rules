@@ -148,6 +148,7 @@ def kibana_export_rules(
             rule_name = rulename_to_filename(contents.data.name, tactic_name=first_tactic)
             rule = TOMLRule(contents=contents, path=directory / f'{rule_name}')
 
+            exception = None
             if contents.data.get("exceptions_list") and export_exceptions:
                 for exception_obj in rule_resource.get("exceptions_list", []):
                     with kibana:
@@ -169,7 +170,7 @@ def kibana_export_rules(
 
         exported.append(rule)
 
-        if export_exceptions:
+        if export_exceptions and exception:
             exceptions.append(exception)
 
     saved = []
