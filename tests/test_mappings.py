@@ -9,10 +9,13 @@ import unittest
 import warnings
 
 from . import get_data_files, get_fp_data_files
+from detection_rules.config import parse_rules_config
 from detection_rules.utils import combine_sources, evaluate, load_etc_dump
-from detection_rules.rule_loader import RULES_CONFIG
 from rta import get_available_tests
 from .base import BaseRuleTest
+
+
+RULES_CONFIG = parse_rules_config()
 
 
 class TestMappings(BaseRuleTest):
