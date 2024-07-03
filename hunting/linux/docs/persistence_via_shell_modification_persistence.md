@@ -50,18 +50,18 @@ from logs-endpoint.events.file-*
     process.name,
     null
 )
-| stats cc = count(*), pers_count = count(persistence), agent_count = count(agent.id) by process.executable, file.path, host.name, user.name
-| where pers_count > 0 and pers_count <= 20 and agent_count <= 4
-| sort cc asc
-| limit 500
+| stats pers_count = count(persistence) by process.executable, file.path, host.name, user.name
+| where pers_count > 0 and pers_count <= 20
+| sort pers_count asc
+| limit 100
 ```
 
 ```sql
 from logs-endpoint.events.process-*
 | where @timestamp > now() - 90 day
 | where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name == "sshd"
-| stats cc = count(*), agent_count = count(agent.id) by process.executable, process.command_line, host.name, user.name
-| where cc <= 20 and agent_count <= 4
+| stats cc = count(*) by process.executable, process.command_line, host.name, user.name
+| where cc <= 20
 | sort cc asc
 | limit 100
 ```

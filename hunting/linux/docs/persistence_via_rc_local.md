@@ -18,9 +18,9 @@ from logs-endpoint.events.file-*
 | where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.type in ("creation", "change") and (file.path == "/etc/rc.local" or file.path == "/etc/rc.common")
 | eval persistence = case(file.path == "/etc/rc.local" or file.path == "/etc/rc.common", process.name, null)
-| stats cc = count(*), rc_pers_count = count(persistence), agent_count = count(agent.id) by process.executable
-| where rc_pers_count > 0 and rc_pers_count <= 3 and agent_count <= 3
-| sort cc asc
+| stats pers_count = count(persistence), agent_count = count(agent.id) by process.executable
+| where pers_count > 0 and pers_count <= 3 and agent_count <= 3
+| sort pers_count asc
 | limit 100
 ```
 
@@ -28,9 +28,9 @@ from logs-endpoint.events.file-*
 from logs-system.syslog-*
 | where @timestamp > now() - 30 day
 | where host.os.type == "linux" and process.name in ("rc.local", "rc.common")
-| stats message_count = count(message), host_count = count_distinct(host.name) by message
-| where host_count <= 3 and message_count < 10
-| sort message_count asc
+| stats cc = count(), host_count = count_distinct(host.name) by message
+| where host_count <= 3 and cc < 10
+| sort cc asc
 | limit 100
 ```
 

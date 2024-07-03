@@ -28,9 +28,9 @@ from logs-system.syslog*
 | grok message "\\[%{DATA:timestamp}\\] %{WORD:process}\\[%{NUMBER:pid}\\]: segfault at %{BASE16NUM:segfault_address} ip %{BASE16NUM:instruction_pointer} sp %{BASE16NUM:stack_pointer} error %{NUMBER:error_code} in %{DATA:so_name}\\[%{BASE16NUM:so_base_address}\\+%{BASE16NUM:so_offset}\\] likely on CPU %{NUMBER:cpu} \\(core %{NUMBER:core}, socket %{NUMBER:socket}\\)"
 | eval timestamp = REPLACE(timestamp, "\\s+", "")
 | keep timestamp, process, pid, segfault_address, instruction_pointer, stack_pointer, error_code, so_name, so_base_address, so_offset, cpu, core, socket
-| stats process_count = count(process), so_count = count(so_name) by process, so_name
+| stats cc = count() by process, so_name
 // Alter this threshold to make sense for your environment
-| where process_count > 100
+| where cc > 100
 | limit 10
 ```
 

@@ -33,9 +33,9 @@ from logs-endpoint.events.file-*
     process.name,
     null
 )
-| stats cc = count(*), pers_count = count(persistence), agent_count = count(agent.id) by process.executable, file.path, host.name, user.name
-| where pers_count > 0 and pers_count <= 20 and agent_count <= 4
-| sort cc asc
+| stats pers_count = count(persistence) by process.executable, file.path, host.name, user.name
+| where pers_count > 0 and pers_count <= 20
+| sort pers_count asc
 ```
 
 ```sql
@@ -45,10 +45,10 @@ from logs-endpoint.events.process-*
 // Excluding these because this is typical udev behavior.
 // If you suspect Udev persistence, remove this exclusion in order to do a more elaborate search
 not (process.executable like "/lib/*" or process.executable like "/usr/lib/*")
-| stats process_cli_count = count(process.command_line), process_count = count(process.executable), host_count = count_distinct(host.name) by process.executable
+| stats cc = count(), host_count = count_distinct(host.name) by process.executable
 // Tweak the process/host count if you suspect Udev persistence
-| where host_count <= 5 and process_count < 50
-| sort process_cli_count asc
+| where host_count <= 5 and cc < 50
+| sort cc asc
 | limit 100
 ```
 

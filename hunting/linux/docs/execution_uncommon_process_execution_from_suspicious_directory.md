@@ -32,10 +32,10 @@ from logs-endpoint.events.process-*
   (process.executable rlike "/tmp/[0-9].*" or process.executable rlike "/tmp/.*[0-9]/?") or
   (process.executable rlike "/var/tmp/[0-9].*" or process.executable rlike "/var/tmp/.*[0-9]/?")
 )
-| stats process_count = count(process.executable), parent_process_count = count(process.parent.executable), host_count = count(host.name) by process.executable, process.parent.executable, host.name, user.id
+| stats cc = count(), host_count = count(host.name) by process.executable, process.parent.executable, host.name, user.id
 // Alter this threshold to make sense for your environment
-| where (process_count <= 3 or parent_process_count <= 3) and host_count <= 3
-| sort process_count asc
+| where cc <= 3 and host_count <= 3
+| sort cc asc
 | limit 100
 ```
 

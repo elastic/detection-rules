@@ -17,9 +17,9 @@
 from logs-endpoint.events.process-*
 | where @timestamp > now() - 7 day
 | where host.os.type == "linux" and event.type == "start" and process.name in ("curl", "wget") and process.command_line rlike """.*[0-9]{1,3}(\.[0-9]{1,3}){3}.*"""
-| stats process_cli_count = count(process.command_line), host_count = count(host.name) by process.command_line, process.executable, host.name
-| where process_cli_count <= 10 and host_count <= 5
-| sort process_cli_count asc
+| stats cc = count(), host_count = count(host.name) by process.command_line, process.executable, host.name
+| where cc <= 10 and host_count <= 5
+| sort cc asc
 | limit 100
 ```
 

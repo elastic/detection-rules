@@ -20,9 +20,9 @@ from logs-endpoint.events.process-*
   (process.name rlike """[A-Z]{2,}[a-z]{1,}[0-9]{0,}""") or
   (process.name rlike """[A-Z]{1,}[0-9]{0,}""")
 )
-| stats process_count = count(process.name), host_count = count(host.name) by process.name
+| stats cc = count(), host_count = count(host.name) by process.name
 // Alter this threshold to make sense for your environment
-| where process_count <= 3 and host_count <= 3
+| where cc <= 3 and host_count <= 3
 | limit 100
 ```
 
