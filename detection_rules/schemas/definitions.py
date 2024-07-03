@@ -152,7 +152,7 @@ ExceptionEntryOperator = Literal['included', 'excluded']
 ExceptionEntryType = Literal['match', 'match_any', 'exists', 'list', 'wildcard', 'nested']
 ExceptionNamespaceType = Literal['single', 'agnostic']
 ExceptionItemEndpointTags = Literal['endpoint', 'os:windows', 'os:linux', 'os:macos']
-ExceptionContainerType = Literal['detection', 'endpoint', 'rule_default']
+ExceptionContainerType = Literal['detection', 'endpoint', 'rule_default', 'simple']
 FilterLanguages = Literal["eql", "esql", "kuery", "lucene"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 InvestigateProviderQueryType = Literal["phrase", "range"]

@@ -103,6 +103,7 @@ class ResourceIterator(object):
 
 class RuleResource(BaseResource):
     BASE_URI = "/api/detection_engine/rules"
+    EXCEPTION_LIST_URI = '/api/exception_lists/_find'
 
     @staticmethod
     def _add_internal_filter(is_internal: bool, params: dict) -> dict:
@@ -249,6 +250,14 @@ class RuleResource(BaseResource):
         successful_rule_ids = [r for r in rule_ids if r not in error_rule_ids]
         rule_resources = cls.export_rules(successful_rule_ids) if successful_rule_ids else []
         return response, successful_rule_ids, rule_resources
+
+    @classmethod
+    def export_exception_list(cls, exception_list_id) -> List[dict]:
+        """Export an exception list from Kibana using the list id API."""
+        url_items = f'/api/exception_lists/items/_find?list_id={exception_list_id}'
+        response = Kibana.current().get(url_items, raw=True)
+        items_data = response.json().get('data', [])
+        return items_data
 
     @classmethod
     def export_rules(cls, rule_ids: Optional[List[str]] = None,
