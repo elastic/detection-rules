@@ -2,7 +2,7 @@
 creation_date = "2021/10/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/27"
 
 [rule]
 author = ["Austin Songer"]
@@ -88,6 +88,12 @@ type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.type in ("creation", "change") and
+ process.executable != null and 
+  not process.executable :
+              ("?:\\Windows\\system32\\svchost.exe", 
+               "?:\\Windows\\CCM\\CcmExec.exe", 
+               "?:\\Windows\\System32\\DeviceEnroller.exe", 
+               "?:\\Program Files (x86)\\Trend Micro\\Security Agent\\tmuninst.exe") and 
   (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\PUAProtection" and
   registry.data.strings : ("0", "0x00000000")) or
   (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender Security Center\\App and Browser protection\\DisallowExploitProtectionOverride" and
