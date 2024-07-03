@@ -21,7 +21,7 @@ query = [
 from logs-endpoint.events.process-*
 | where @timestamp > now() - 7 day
 | where host.os.type == "linux" and event.type == "start" and process.name in ("curl", "wget") and process.command_line rlike """.*[0-9]{1,3}(\.[0-9]{1,3}){3}.*"""
-| stats cc = count(), host_count = count(host.name) by process.command_line, process.executable, host.name
+| stats cc = count(), host_count = count_distinct(host.id) by process.command_line, process.executable
 | where cc <= 10 and host_count <= 5
 | sort cc asc
 | limit 100
