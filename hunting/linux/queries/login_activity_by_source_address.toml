@@ -19,7 +19,8 @@ query = [
 '''
 from logs-system.auth-*
 | where @timestamp > now() - 7 day
-| where host.os.type == "linux" and event.category == "authentication" and event.action in ("ssh_login", "user_login") and event.outcome == "failure" and source.ip IS NOT null and not CIDR_MATCH(source.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")
+| where host.os.type == "linux" and event.category == "authentication" and event.action in ("ssh_login", "user_login") and
+  event.outcome == "failure" and source.ip IS NOT null and not CIDR_MATCH(source.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")
 | eval failed = case(event.outcome == "failure", source.ip, null), success = case(event.outcome == "success", source.ip, null)
 | stats count_failed = count(failed), count_success = count(success), count_user = count_distinct(user.name) by source.ip
  /* below threshold should be adjusted to your env logon patterns */
