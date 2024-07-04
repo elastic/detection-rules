@@ -1,0 +1,86 @@
+[metadata]
+creation_date = "2024/06/21"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/06/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the potential execution of the `/etc/rc.local` script through the `already_running` event action
+created by the `rc-local.service` systemd service. The `/etc/rc.local` script is a legacy initialization script that is
+executed at the end of the boot process. The `/etc/rc.local` script is not enabled by default on most Linux
+distributions. The `/etc/rc.local` script can be used by attackers to persistently execute malicious commands or scripts
+on a compromised system at reboot. As the rc.local file is executed prior to the initialization of Elastic Defend, the
+execution event is not ingested, and therefore the `already_running` event is leveraged to provide insight into the
+potential execution of `rc.local`.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Execution of rc.local Script"
+references = [
+    "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
+    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
+]
+risk_score = 47
+rule_id = "7318affb-bfe8-4d50-a425-f617833be160"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "info" and event.action == "already_running" and 
+process.parent.args == "/etc/rc.local" and process.parent.args == "start"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1037.004"
+name = "RC Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
