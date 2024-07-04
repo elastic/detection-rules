@@ -2,7 +2,7 @@
 creation_date = "2020/04/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/19"
 
 [rule]
 author = ["Elastic"]
@@ -15,10 +15,10 @@ future.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "lucene"
+language = "eql"
 license = "Elastic License v2"
 max_signals = 33
-name = "Setuid / Setgid Bit Set via chmod"
+name = "SUID/SGID Bit Set"
 risk_score = 21
 rule_id = "8a1b0278-0f9a-487d-96bd-d4833298e87a"
 severity = "low"
@@ -31,54 +31,41 @@ tags = [
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
-type = "query"
-
+type = "eql"
 query = '''
-event.category:process AND event.type:(start OR process_started) AND
- process.name:chmod AND process.args:("+s" OR "u+s" OR /4[0-9]{3}/ OR g+s OR /2[0-9]{3}/) AND
- NOT process.args:
-           (
-             /.*\/Applications\/VirtualBox.app\/.+/ OR
-             /\/usr\/local\/lib\/python.+/ OR
-             /\/var\/folders\/.+\/FP.*nstallHelper/ OR
-             /\/Library\/Filesystems\/.+/ OR
-             /\/usr\/lib\/virtualbox\/.+/ OR
-             /\/Library\/Application.*/ OR
-             "/run/postgresql" OR
-             "/var/crash" OR
-             "/var/run/postgresql" OR
-             /\/usr\/bin\/.+/ OR /\/usr\/local\/share\/.+/ OR
-             /\/Applications\/.+/ OR /\/usr\/libexec\/.+/ OR
-             "/var/metrics" OR /\/var\/lib\/dpkg\/.+/ OR
-             /\/run\/log\/journal\/.*/ OR
-             \/Users\/*\/.minikube\/bin\/docker-machine-driver-hyperkit
-           ) AND
- NOT process.parent.executable:
-           (
-             /\/var\/lib\/docker\/.+/ OR
-             "/System/Library/PrivateFrameworks/PackageKit.framework/Versions/A/XPCServices/package_script_service.xpc/Contents/MacOS/package_script_service" OR
-             "/var/lib/dpkg/info/whoopsie.postinst"
-           )
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  (process.name == "chmod" and (process.args : ("+s", "u+s", "g+s") or process.args regex "[24][0-9]{3}")) or
+  (process.name == "install" and process.args : "-m" and
+  (process.args : ("+s", "u+s", "g+s") or process.args regex "[24][0-9]{3}"))
+) and not (
+  process.parent.executable : (
+    "/usr/NX/*", "/var/lib/docker/*", "/var/lib/dpkg/info*", "/tmp/newroot/*",
+    "/System/Library/PrivateFrameworks/PackageKit.framework/Versions/A/XPCServices/package_script_service.xpc/Contents/MacOS/package_script_service"
+  ) or
+  process.args : (
+    "/run/*", "/var/run/*", "/usr/bin/keybase-redirector", "/usr/local/share/fonts", "/usr/bin/ssh-agent"
+  )
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1548.001"
 name = "Setuid and Setgid"
 reference = "https://attack.mitre.org/techniques/T1548/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -86,4 +73,3 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
