@@ -310,6 +310,9 @@ class Query:
 
 @dataclass(frozen=True)
 class Filter:
+    """Kibana Filter for Base Rule Data."""
+    # TODO: Currently unused in BaseRuleData. Revisit to extend or remove.
+    # https://github.com/elastic/detection-rules/issues/3773
     meta: FilterMeta
     state: Optional[FilterStateStore] = field(metadata=dict(data_key="$state"))
     query: Optional[Union[Query, Dict[str, Any]]] = None
@@ -343,7 +346,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     exceptions_list: Optional[list]
     license: Optional[str]
     false_positives: Optional[List[str]]
-    filters: Optional[List[Filter]]
+    filters: Optional[List[dict]]
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
     interval: Optional[definitions.Interval]
@@ -595,8 +598,11 @@ class QueryValidator:
         raise NotImplementedError()
 
     @cached
-    def get_required_fields(self, index: str) -> List[dict]:
+    def get_required_fields(self, index: str) -> List[Optional[dict]]:
         """Retrieves fields needed for the query along with type information from the schema."""
+        if isinstance(self, ESQLValidator):
+            return []
+
         current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         ecs_version = get_stack_schemas()[str(current_version)]['ecs']
         beats_version = get_stack_schemas()[str(current_version)]['beats']

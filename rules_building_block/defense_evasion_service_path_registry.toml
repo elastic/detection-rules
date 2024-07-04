@@ -2,19 +2,18 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/05"
+updated_date = "2024/06/27"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies attempts to modify a service path by an unusual process. Attackers may attempt to modify existing services
 for persistence or privilege escalation.
 """
 from = "now-119m"
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*"]
 interval = "60m"
-index = ["logs-endpoint.events.registry-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Service Path Modification"
@@ -28,10 +27,10 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
-    "Rule Type: BBR"
+    "Rule Type: BBR",
+    "Data Source: Sysmon"
 ]
 timestamp_override = "event.ingested"
-building_block_type = "default"
 type = "eql"
 
 query = '''
@@ -62,29 +61,25 @@ reference = "https://attack.mitre.org/techniques/T1112/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
 
-
-    [[rule.threat.technique.subtechnique]]
-    id = "T1543.003"
-    name = "Windows Service"
-    reference = "https://attack.mitre.org/techniques/T1543/003/"
 
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
@@ -100,3 +95,4 @@ reference = "https://attack.mitre.org/techniques/T1543/003/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
