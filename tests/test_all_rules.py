@@ -187,6 +187,7 @@ class TestValidRules(BaseRuleTest):
             """
             self.fail(fail_msg + '\n'.join(failures))
 
+
 class TestThreatMappings(BaseRuleTest):
     """Test threat mapping data for rules."""
 
