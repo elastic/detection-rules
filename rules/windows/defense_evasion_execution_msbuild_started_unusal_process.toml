@@ -2,9 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/03/28"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -35,14 +33,14 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "low"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Defense Evasion",
-        "Tactic: Execution",
-        "Data Source: Elastic Defend"
-        ]
-
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -51,18 +49,18 @@ host.os.type:windows and event.category:process and event.type:start and process
 process.name:("csc.exe" or "iexplore.exe" or "powershell.exe")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1027.004"
 name = "Compile After Delivery"
 reference = "https://attack.mitre.org/techniques/T1027/004/"
+
 
 [[rule.threat.technique]]
 id = "T1127"
@@ -83,7 +81,8 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "user.name"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

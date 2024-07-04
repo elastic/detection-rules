@@ -1,0 +1,58 @@
+[metadata]
+creation_date = "2024/05/29"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/05/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unusual DLLs loaded by the DNS Server process, potentially indicating the abuse of the ServerLevelPluginDll
+functionality. This can lead to privilege escalation and remote code execution with SYSTEM privileges.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.library-*", "logs-windows.sysmon_operational-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unsigned DLL loaded by DNS Service"
+references = [
+    "https://cube0x0.github.io/Pocing-Beyond-DA/",
+    "https://adsecurity.org/?p=4064",
+    "https://github.com/gtworek/PSBits/tree/master/ServerLevelPluginDll"
+]
+risk_score = 47
+rule_id = "5d676480-9655-4507-adc6-4eec311efff8"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and event.category : ("library", "process") and
+  event.type : ("start", "change") and event.action : ("load", "Image loaded*") and
+  process.executable : "?:\\windows\\system32\\dns.exe" and 
+  not ?dll.code_signature.trusted == true and
+  not file.code_signature.status == "Valid"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

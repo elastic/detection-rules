@@ -17,11 +17,13 @@ class TestHunt(unittest.TestCase):
         example_toml = """
         [hunt]
         author = "Elastic"
+        description = "Detects denial of service or resource exhaustion attacks."
         integration = "aws_bedrock.invocation"
         uuid = "dc181967-c32c-46c9-b84b-ec4c8811c6a0"
         name = "Denial of Service or Resource Exhaustion Attacks Detection"
         language = "ES|QL"
-        query = 'SELECT * FROM logs'
+        license = "Elastic License v2"
+        query = ['SELECT * FROM logs']
         notes = ["High token usage can strain system resources."]
         mitre = ["AML.T0034"]
         references = ["https://www.elastic.co"]
@@ -42,6 +44,7 @@ class TestHunt(unittest.TestCase):
             toml_contents = toml_file.read_text()
             hunt = load_toml(toml_contents)
             self.assertTrue(hunt.author)
+            self.assertTrue(hunt.description)
             self.assertTrue(hunt.integration)
             self.assertTrue(hunt.uuid)
             self.assertTrue(hunt.name)

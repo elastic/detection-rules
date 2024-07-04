@@ -2,19 +2,15 @@
 creation_date = "2023/07/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
-description = """
-Adversaries may use built-in applications to get a listing of local system or domain accounts and groups.
-"""
+description = "Adversaries may use built-in applications to get a listing of local system or domain accounts and groups.\n"
 from = "now-119m"
-interval = "60m"
 index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+interval = "60m"
 language = "eql"
 license = "Elastic License v2"
 name = "Account or Group Discovery via Built-In Tools"
@@ -22,18 +18,19 @@ risk_score = 21
 rule_id = "f638a66d-3bbf-46b1-a52c-ef6f39fb6caf"
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "OS: macOS",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Rule Type: BBR",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame",
-        "Data Source: Auditd Manager"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and ( 
   (process.name in ("groups", "id")) or 
@@ -44,14 +41,13 @@ process where event.type == "start" and event.action in ("exec", "exec_event", "
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1069.001"
 name = "Local Groups"
@@ -62,11 +58,11 @@ id = "T1069.002"
 name = "Domain Groups"
 reference = "https://attack.mitre.org/techniques/T1069/002/"
 
+
 [[rule.threat.technique]]
 id = "T1087"
 name = "Account Discovery"
 reference = "https://attack.mitre.org/techniques/T1087/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1087.001"
 name = "Local Account"
@@ -77,7 +73,10 @@ id = "T1087.002"
 name = "Domain Account"
 reference = "https://attack.mitre.org/techniques/T1087/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
