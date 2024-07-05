@@ -28,12 +28,13 @@ class Hunt:
     """Dataclass to represent a hunt."""
 
     author: str
+    description: str
     integration: list[str]
     uuid: str
     name: str
-    language: str
+    language: list[str]
     license: str
-    query: str
+    query: list[str]
     notes: Optional[List[str]] = field(default_factory=list)
     mitre: Optional[List[str]] = field(default_factory=list)
     references: Optional[List[str]] = field(default_factory=list)
@@ -81,11 +82,13 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
     markdown = f"# {hunt_config.name}\n\n---\n\n"
     markdown += "## Metadata\n\n"
     markdown += f"- **Author:** {hunt_config.author}\n"
+    markdown += f"- **Description:** {hunt_config.description}\n"
     markdown += f"- **UUID:** `{hunt_config.uuid}`\n"
     markdown += f"- **Integration:** {", ".join(generate_integration_links(hunt_config.integration))}\n"
-    markdown += f"- **Language:** `{hunt_config.language}`\n\n"
+    markdown += f"- **Language:** `{hunt_config.language}`\n\n".replace("'", "").replace('"', "")
     markdown += "## Query\n\n"
-    markdown += f"```sql\n{hunt_config.query}```\n\n"
+    for query in hunt_config.query:
+        markdown += f"```sql\n{query}```\n\n"
 
     if hunt_config.notes:
         markdown += "## Notes\n\n" + "\n".join(f"- {note}" for note in hunt_config.notes)
@@ -124,7 +127,7 @@ def process_toml_files(base_path: Path) -> None:
         index_content += f"\n\n## {folder}\n"
         for file_path, rule_name, language in sorted(files):
             index_path = "./" + str(file_path)
-            index_content += f"- [{rule_name}]({index_path}) ({language})\n"
+            index_content += f"- [{rule_name}]({index_path}) ({", ".join(language)})\n"
 
     # Write the index file at the base directory level
     index_path = base_path / "index.md"

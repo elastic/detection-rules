@@ -1,21 +1,23 @@
-# Network Discovery via sensitive ports by unusual process
+# Network Discovery via Sensitive Ports by Unusual Process
 
 ---
 
 ## Metadata
 
 - **Author:** Elastic
-- **UUID:** `e0acab7d-30bd-4be0-9682-5c3457bbeb4f`
+- **Description:** This hunt looks for either processes connecting to multiple sensitive TCP ports (SMB, RDP, LDAP, Kerberos and ADWS), a high number of SMB/RDP connections to unique destinations or the same process connecting to both RDP and SMB (should be rare).
+
+- **UUID:** `386f9cec-bb44-4dd2-8368-45e6fa0a425b`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 
 ```sql
-from logs-endpoint.events.network-*, logs-windows.sysmon_operational-* 
+from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 | where @timestamp > now() - 7 day
-| where host.os.family == "windows" and event.category == "network" and network.direction == "egress" and 
-  network.transport == "tcp"and destination.port in (3389, 445, 389, 9389, 88, 5985, 5986, 22) and source.port >= 49152 and 
+| where host.os.family == "windows" and event.category == "network" and network.direction == "egress" and
+  network.transport == "tcp"and destination.port in (3389, 445, 389, 9389, 88, 5985, 5986, 22) and source.port >= 49152 and
   process.pid != 4
 | keep process.executable, destination.port, destination.ip, process.entity_id
  /* network events with SMB or RDP as a target */

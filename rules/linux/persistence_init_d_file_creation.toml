@@ -2,7 +2,7 @@
 creation_date = "2023/03/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/21"
 
 [transform]
 [[transform.osquery]]
@@ -11,7 +11,7 @@ query = "SELECT * FROM file WHERE path = {{file.path}}"
 
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
-query = "SELECT * FROM file WHERE (path LIKE '/etc/init.d/%' OR path LIKE '/run/systemd/generator.late/%')"
+query = "SELECT * FROM file WHERE path LIKE '/etc/init.d/%'"
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
@@ -19,8 +19,7 @@ query = """
 SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
 file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
 file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
-JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE (path LIKE '/etc/init.d/%' OR path LIKE
-'/run/systemd/generator.late/%')
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE path LIKE '/etc/init.d/%'
 """
 
 [[transform.osquery]]
@@ -30,7 +29,6 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 [[transform.osquery]]
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
-
 
 [rule]
 author = ["Elastic"]
@@ -42,12 +40,12 @@ can convert init.d files to service unit files that run at boot. Adversaries may
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
-name = "Potential Persistence Through init.d Detected"
+name = "System V Init Script Created"
 note = """## Triage and analysis
 
-### Investigating Potential Persistence Through init.d Detected
+### Investigating System V Init Script Created
 
 The `/etc/init.d` directory is used in Linux systems to store the initialization scripts for various services and daemons that are executed during system startup and shutdown.
 
@@ -112,7 +110,7 @@ references = [
     "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
     "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
 ]
-risk_score = 47
+risk_score = 21
 rule_id = "474fd20e-14cc-49c5-8160-d9ab4ba16c8b"
 setup = """## Setup
 
@@ -139,7 +137,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -150,39 +148,39 @@ tags = [
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
-
+type = "eql"
 query = '''
-host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and 
-file.path : /etc/init.d/* and not (
-  (process.name : ("dpkg" or "dockerd" or "rpm" or "dnf" or "chef-client" or "apk" or "yum" or "rpm" or
-  "vmis-launcher" or "exe" or "platform-python" or "executor" or "podman")) or
-  (file.extension : ("swp" or "swpx")) or
-  (process.name:mv and file.name:*.dpkg-remove) or
-  (process.name:sed and file.name:sed*) or
-  (process.name:systemd and file.name:*.dpkg-new)
+file where host.os.type == "linux" and event.action in ("creation", "file_create_event", "rename", "file_rename_event")
+and file.path : "/etc/init.d/*" and not (
+  process.executable in (
+    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
+    "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
+    "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
+    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
+    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
+    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
+    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
+    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd"
+  ) or
+  file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
+  process.executable : (
+    "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*"
+  ) or
+  process.executable == null or
+  (process.name == "sed" and file.name : "sed*") or
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["file.path", "process.name", "host.id"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
-
-

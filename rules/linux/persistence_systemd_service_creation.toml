@@ -2,7 +2,7 @@
 creation_date = "2023/06/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2024/06/19"
 
 [transform]
 [[transform.osquery]]
@@ -15,7 +15,8 @@ query = """
 SELECT * FROM file WHERE (path LIKE '/etc/systemd/system/%' OR path LIKE '/usr/local/lib/systemd/system/%'
 OR path LIKE '/lib/systemd/system/%' OR path LIKE '/usr/lib/systemd/system/%'
 OR path LIKE '/home/{{user.name}}/.config/systemd/user/%' OR path LIKE '/home/{{user.name}}/.local/share/systemd/user/%'
-OR path LIKE '/root/.config/systemd/user/%' OR path LIKE '/root/.local/share/systemd/user/%')
+OR path LIKE '/root/.config/systemd/user/%' OR path LIKE '/root/.local/share/systemd/user/%' OR path LIKE
+'/etc/systemd/user/%' OR path LIKE '/usr/lib/systemd/user/%')
 """
 
 [[transform.osquery]]
@@ -27,7 +28,8 @@ file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_tim
 JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE ( path LIKE '/etc/systemd/system/%' OR path LIKE
 '/usr/local/lib/systemd/system/%' OR path LIKE '/lib/systemd/system/%' OR path LIKE '/usr/lib/systemd/system/%' OR path
 LIKE '/home/{{user.name}}/.config/systemd/user/%' OR path LIKE '/home/{{user.name}}/.local/share/systemd/user/%'
-OR path LIKE '/root/.config/systemd/user/%' OR path LIKE '/root/.local/share/systemd/user/%')
+OR path LIKE '/root/.config/systemd/user/%' OR path LIKE '/root/.local/share/systemd/user/%' OR path LIKE
+'/etc/systemd/user/%' OR path LIKE '/usr/lib/systemd/user/%')
 """
 
 [[transform.osquery]]
@@ -183,8 +185,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and file.path : (
-  "/etc/systemd/system/*", "/usr/local/lib/systemd/system/*", "/lib/systemd/system/*",
-  "/usr/lib/systemd/system/*", "/home/*/.config/systemd/user/*", "/home/*/.local/share/systemd/user/*",
+  "/etc/systemd/system/*", "/etc/systemd/user/*", "/usr/local/lib/systemd/system/*",
+  "/lib/systemd/system/*", "/usr/lib/systemd/system/*", "/usr/lib/systemd/user/*",
+  "/home/*/.config/systemd/user/*", "/home/*/.local/share/systemd/user/*",
   "/root/.config/systemd/user/*", "/root/.local/share/systemd/user/*"
 ) and file.extension == "service" and not (
   process.executable in (

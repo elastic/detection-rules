@@ -5,18 +5,20 @@
 ## Metadata
 
 - **Author:** Elastic
-- **UUID:** `e6e54717-2676-4785-a4a6-503577bfb0ea`
+- **Description:** This hunt aggregates process execution via remote network logon by source address, account name and where the parent process is related to remote services such as WMI, WinRM, DCOM and remote PowerShell. This may indicate lateral movement via remote services.
+
+- **UUID:** `5fd5da54-0515-4d6b-b8d7-30fd05f5be33`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 
 ```sql
 from logs-endpoint.events.process-*
-| where  @timestamp > now() - 7 day and host.os.family == "windows" and 
-  event.category == "process" and event.action == "start" and 
+| where  @timestamp > now() - 7 day and host.os.family == "windows" and
+  event.category == "process" and event.action == "start" and
   /* network logon type */
-  process.Ext.session_info.logon_type == "Network" and 
+  process.Ext.session_info.logon_type == "Network" and
   (process.parent.name .caseless in ("wmiprvse.exe", "wsmprovhost.exe", "winrshost.exe") or (process.parent.name == "svchost.exe" and process.parent.args == "DcomLaunch"))
 | stats total = count(*), hosts = count_distinct(host.id) by process.Ext.session_info.client_address, user.name, process.parent.name
  /* sort by top source.ip and account */
@@ -25,7 +27,7 @@ from logs-endpoint.events.process-*
 
 ## Notes
 
-- process.Ext.session_info.* is populated for Elastic Defend version 8.6 and above.
+- `process.Ext.session_info.*` is populated for Elastic Defend versions 8.6.0+.
 ## MITRE ATT&CK Techniques
 
 - [T1021](https://attack.mitre.org/techniques/T1021)
