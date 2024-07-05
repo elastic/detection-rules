@@ -2,7 +2,7 @@
 creation_date = "2024/05/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/20"
 
 [rule]
 author = ["Elastic"]
@@ -70,9 +70,11 @@ query = '''
 sequence by host.id with maxspan=1s
  [network where host.os.type == "windows" and
   event.action == "connection_accepted" and destination.port == 445 and source.port >= 49152 and process.pid == 4 and
-  source.ip != "127.0.0.1" and source.ip != "::1"]
+  source.ip != "127.0.0.1" and source.ip != "::1" and
+  network.type == "ipv4" and not endswith(source.address, destination.address)]
  [file where host.os.type == "windows" and event.action == "creation" and
   process.pid == 4 and user.id : ("S-1-5-21*", "S-1-12-*") and file.extension : ("hta", "txt", "readme", "htm*") and
+  file.path : "C:\\Users\\*" and
    /* ransom file name keywords */
     file.name : ("*read*me*", "*lock*", "*@*", "*RECOVER*", "*decrypt*", "*restore*file*", "*FILES_BACK*", "*how*to*")] with runs=3
 '''
