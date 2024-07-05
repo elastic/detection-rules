@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for either processes connecting to multiple sensitive TCP ports (SMB, RDP, LDAP, Kerberos and ADWS), a high number of SMB/RDP connections to unique destinations or the same process connecting to both RDP and SMB (should be rare).
 
-- **UUID:** `e0acab7d-30bd-4be0-9682-5c3457bbeb4f`
+- **UUID:** `386f9cec-bb44-4dd2-8368-45e6fa0a425b`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 
