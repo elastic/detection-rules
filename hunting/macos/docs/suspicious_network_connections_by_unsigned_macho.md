@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunt aggregates by process ID and destination IP by the number of connections per hour over a period of time greater than a defined threshold. This may indicate suspicious network connections by unsigned Mach-O binaries.
 
-- **UUID:** `44aff0e3-e0d7-4dca-a94f-2dd0b96f18bd`
+- **UUID:** `dc04d70a-80aa-4c3f-ad02-2b18d54af6d4`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for persistence via Launch agent or daemon where the distribution is limited to one unique host.
 
-- **UUID:** `a7dcd1a1-2860-491e-8802-31169a607167`
+- **UUID:** `69fc4f40-8fb1-4652-99b7-52755cd370fe`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 
