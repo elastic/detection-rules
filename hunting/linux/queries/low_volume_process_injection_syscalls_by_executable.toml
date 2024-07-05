@@ -1,0 +1,28 @@
+[hunt]
+author = "Elastic"
+description = """
+This hunt identifies low volume process injection-related syscalls on Linux systems. It monitors audit logs for syscalls related to process injection, such as ptrace and memfd_create. The hunt focuses on processes that make these syscalls infrequently, which can indicate potential malicious activity.
+"""
+integration = ["endpoint"]
+uuid = "c9931736-d5ec-4c89-b4d2-d71dcf5ca12a"
+name = "Low Volume Process Injection-Related Syscalls by Process Executable"
+language = ["ES|QL"]
+license = "Elastic License v2"
+notes = [
+    "Monitors for process injection-related syscalls such as ptrace and memfd_create.",
+    "Counts the occurrences of these syscalls by process executable to identify processes that make these syscalls infrequently.",
+    "Focuses on low volume occurrences to detect potential malicious activity related to process injection."
+]
+mitre = ["T1055.001", "T1055.009"]
+
+query = [
+'''
+from logs-auditd_manager.auditd-*, logs-auditd.log-*, auditbeat-*
+| where @timestamp > now() - 30 day
+| where host.os.type == "linux" and auditd.data.syscall in ("ptrace", "memfd_create")
+| stats cc = count(*) by process.executable, auditd.data.syscall
+| where cc <= 10
+| limit 100
+| sort cc asc
+'''
+]
