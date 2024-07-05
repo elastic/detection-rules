@@ -18,7 +18,7 @@ mitre = ["T1547.006", "T1069.002"]
 query = [
 '''
 from logs-auditd_manager.auditd-*, logs-auditd.log-*, auditbeat-*
-| where @timestamp > now() - 365 day
+| where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.category == "driver" and event.action == "loaded-kernel-module" and auditd.data.syscall in ("init_module", "finit_module")
 | stats host_count = count_distinct(host.id), total_count = count(*) by auditd.data.name, process.executable, process.name
 // Alter this threshold to make sense for your environment

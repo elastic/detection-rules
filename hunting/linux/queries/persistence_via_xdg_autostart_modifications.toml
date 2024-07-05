@@ -20,7 +20,7 @@ mitre = ["T1547.001", "T1053.005"]
 query = [
 '''
 from logs-endpoint.events.file-*
-| where @timestamp > now() - 90 day
+| where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.type in ("creation", "change") and (
 
     // System-wide autostart directories
@@ -68,7 +68,7 @@ from logs-endpoint.events.file-*
 ''',
 '''
 from logs-endpoint.events.process-*
-| where @timestamp > now() - 90 day
+| where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name in (
   "plasmashell", "gnome-session", "xfce4-session", "gnome-session-binary", "mate-session", "cinnamon-session",
   "lxsession", "lxqt-session", "unity-session", "pantheon-session", "enlightenment_start"
