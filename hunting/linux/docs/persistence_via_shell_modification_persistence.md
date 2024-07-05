@@ -15,7 +15,7 @@
 
 ```sql
 from logs-endpoint.events.file-*
-| where @timestamp > now() - 90 day
+| where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.type in ("creation", "change") and (
 
     // System-wide profile files
@@ -50,7 +50,7 @@ from logs-endpoint.events.file-*
     process.name,
     null
 )
-| stats pers_count = count(persistence) by process.executable, file.path, host.name, user.name
+| stats pers_count = count(persistence) by process.executable, file.path
 | where pers_count > 0 and pers_count <= 20
 | sort pers_count asc
 | limit 100
@@ -58,9 +58,9 @@ from logs-endpoint.events.file-*
 
 ```sql
 from logs-endpoint.events.process-*
-| where @timestamp > now() - 90 day
+| where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name == "sshd"
-| stats cc = count(*) by process.executable, process.command_line, host.name, user.name
+| stats cc = count(*) by process.command_line
 | where cc <= 20
 | sort cc asc
 | limit 100

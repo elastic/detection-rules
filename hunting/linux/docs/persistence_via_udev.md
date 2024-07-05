@@ -15,7 +15,7 @@
 
 ```sql
 from logs-endpoint.events.file-*
-| where @timestamp > now() - 90 day
+| where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.type in ("creation", "change") and (
     file.path like "/etc/udev/rules.d/*" or
     file.path like "/run/udev/rules.d/*" or
@@ -33,7 +33,7 @@ from logs-endpoint.events.file-*
     process.name,
     null
 )
-| stats pers_count = count(persistence) by process.executable, file.path, host.name, user.name
+| stats pers_count = count(persistence) by process.executable, file.path
 | where pers_count > 0 and pers_count <= 20
 | sort pers_count asc
 ```

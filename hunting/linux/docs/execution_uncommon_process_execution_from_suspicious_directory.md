@@ -18,21 +18,24 @@ from logs-endpoint.events.process-*
 | where @timestamp > now() - 7 day
 | where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
 // Add paths to monitor from your environment here
-  (process.executable like "/dev/shm/*") or
-  (process.executable like "/var/www/*") or
-  (process.executable like "/boot/*") or
-  (process.executable like "/srv/*") or
-  ((process.executable rlike "/tmp/[^/]+" or process.executable rlike "/var/tmp/[^/]+")) or
-  (process.executable rlike "/run/[^/]+") or
-  (process.executable rlike "/var/run/[^/]+")
+  process.executable like "/dev/shm/*" or
+  process.executable like "/var/www/*" or
+  process.executable like "/boot/*" or
+  process.executable like "/srv/*" or
+  process.executable rlike "/tmp/[^/]+" or
+  process.executable rlike "/var/tmp/[^/]+" or
+  process.executable rlike "/run/[^/]+" or
+  process.executable rlike "/var/run/[^/]+"
 ) and not (
   // Exclude noisy (parent) processes, users or directories from your environment here
-  (process.parent.executable in ("/usr/sbin/dpkg-preconfigure")) or
+  process.parent.executable in ("/usr/sbin/dpkg-preconfigure") or
   // Exclude /tmp and /var/tmp instances starting or ending with digits (usually benign files)
-  (process.executable rlike "/tmp/[0-9].*" or process.executable rlike "/tmp/.*[0-9]/?") or
-  (process.executable rlike "/var/tmp/[0-9].*" or process.executable rlike "/var/tmp/.*[0-9]/?")
+  process.executable rlike "/tmp/[0-9].*" or
+  process.executable rlike "/tmp/.*[0-9]/?" or
+  process.executable rlike "/var/tmp/[0-9].*" or
+  process.executable rlike "/var/tmp/.*[0-9]/?"
 )
-| stats cc = count(), host_count = count(host.name) by process.executable, process.parent.executable, host.name, user.id
+| stats cc = count(), host_count = count_distinct(host.name) by process.executable, process.parent.executable
 // Alter this threshold to make sense for your environment
 | where cc <= 3 and host_count <= 3
 | sort cc asc

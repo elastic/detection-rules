@@ -17,7 +17,7 @@
 from logs-endpoint.events.network-*
 | where @timestamp > now() - 7 day
 | where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8")
-| stats cc = count(), agent_count = count_distinct(agent.id) by process.name
+| stats cc = count(), agent_count = count_distinct(agent.id) by process.executable
 | where agent_count == 1 and cc > 0 and cc <= 3
 | limit 100
 | sort cc asc
@@ -27,12 +27,12 @@ from logs-endpoint.events.network-*
 from logs-endpoint.events.network-*
 | where @timestamp > now() - 7 day
 | where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and (
-    (process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat", "java", "awk", "gawk", "mawk", "nawk", "openssl", "nc", "ncat", "netcat", "nc.openbsd", "telnet")) or
-    (process.name like "python*") or
-    (process.name like "perl*") or
-    (process.name like "ruby*") or
-    (process.name like "lua*") or
-    (process.name like "php*")
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat", "java", "awk", "gawk", "mawk", "nawk", "openssl", "nc", "ncat", "netcat", "nc.openbsd", "telnet") or
+    process.name like "python*" or
+    process.name like "perl*" or
+    process.name like "ruby*" or
+    process.name like "lua*" or
+    process.name like "php*"
 ) and
 destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8")
 | stats cc = count(), agent_count = count_distinct(agent.id) by process.name
@@ -45,14 +45,15 @@ destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "10.0.0.0/8", "127
 from logs-endpoint.events.network-*
 | where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and (
-    (process.executable like "./") or
-    (process.executable like "/dev/shm/*") or
-    (process.executable like "/var/www/*") or
-    (process.executable like "/boot/*") or
-    (process.executable like "/srv/*") or
-    ((process.executable rlike "/tmp/[^/]+" or process.executable rlike "/var/tmp/[^/]+")) or
-    (process.executable rlike "/run/[^/]+") or
-    (process.executable rlike "/var/run/[^/]+")
+    process.executable like "./*" or
+    process.executable like "/dev/shm/*" or
+    process.executable like "/var/www/*" or
+    process.executable like "/boot/*" or
+    process.executable like "/srv/*" or
+    process.executable rlike "/tmp/[^/]+" or
+    process.executable rlike "/var/tmp/[^/]+" or
+    process.executable rlike "/run/[^/]+" or
+    process.executable rlike "/var/run/[^/]+"
 ) and
 destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")
 | stats cc = count(), agent_count = count_distinct(agent.id) by process.executable

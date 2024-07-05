@@ -18,7 +18,7 @@ from logs-endpoint.events.file-*
 | where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.type in ("creation", "change") and (file.path == "/etc/rc.local" or file.path == "/etc/rc.common")
 | eval persistence = case(file.path == "/etc/rc.local" or file.path == "/etc/rc.common", process.name, null)
-| stats pers_count = count(persistence), agent_count = count(agent.id) by process.executable
+| stats pers_count = count(persistence), agent_count = count_distinct(agent.id) by process.executable
 | where pers_count > 0 and pers_count <= 3 and agent_count <= 3
 | sort pers_count asc
 | limit 100

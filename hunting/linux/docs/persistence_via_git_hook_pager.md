@@ -30,7 +30,7 @@ from logs-endpoint.events.file-*
     process.name,
     null
 )
-| stats pers_count = count(persistence), agent_count = count(agent.id) by process.executable, file.path, host.name, user.name
+| stats pers_count = count(persistence), agent_count = count_distinct(agent.id) by process.executable, file.path
 | where pers_count > 0 and pers_count <= 20 and agent_count <= 4
 | sort pers_count asc
 ```

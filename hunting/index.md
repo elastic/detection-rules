@@ -15,6 +15,7 @@ Here are the queries currently available:
 - [Low Volume GTFOBins External Network Connections](./linux/docs/low_volume_gtfobins_external_network_connections.md) (ES|QL)
 - [Low Volume Modifications to Critical System Binaries by Unique Host](./linux/docs/low_volume_modifications_to_critical_system_binaries.md) (ES|QL)
 - [Low Volume Process Injection-Related Syscalls by Process Executable](./linux/docs/low_volume_process_injection_syscalls_by_executable.md) (ES|QL)
+- [Persistence Through Reverse/Bind Shells](./linux/docs/persistence_reverse_bind_shells.md) (SQL)
 - [Persistence via Cron](./linux/docs/persistence_via_cron.md) (ES|QL, SQL)
 - [Drivers Load with Low Occurrence Frequency](./linux/docs/persistence_via_driver_load_with_low_occurrence_frequency.md) (ES|QL)
 - [Git Hook/Pager Persistence](./linux/docs/persistence_via_git_hook_pager.md) (ES|QL, SQL)

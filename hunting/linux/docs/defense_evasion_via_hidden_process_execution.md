@@ -15,11 +15,10 @@
 
 ```sql
 from logs-endpoint.events.process-*
-| where @timestamp > now() - 180 day
-| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  (process.executable rlike "/[^/]+/\\.[^/]+")
-)
-| stats cc = count(), host_count = count(host.name) by process.executable, process.parent.executable, host.name, user.id
+| where @timestamp > now() - 30 day
+| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
+  process.executable rlike "/[^/]+/\\.[^/]+"
+| stats cc = count(), host_count = count_distinct(host.name) by process.executable, process.parent.executable, user.id
 // Alter this threshold to make sense for your environment
 | where cc <= 3 and host_count <= 3
 | sort cc asc

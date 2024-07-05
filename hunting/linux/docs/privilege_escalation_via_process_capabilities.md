@@ -23,7 +23,7 @@ not (
   process.name == "gnome-keyring-daemon" or
   process.thread.capabilities.permitted == "CAP_WAKE_ALARM"
 )
-| stats cc = count(), host_count = count_distinct(host.name) by process.parent.executable, process.executable, process.command_line, process.thread.capabilities.effective, process.thread.capabilities.permitted, user.id
+| stats cc = count(), host_count = count_distinct(host.name) by process.executable, process.thread.capabilities.effective, process.thread.capabilities.permitted
 | where host_count <= 3 and cc < 5
 | sort cc asc
 | limit 100
@@ -31,12 +31,12 @@ not (
 
 ```sql
 from logs-endpoint.events.process-*
-| where @timestamp > now() - 90 day
+| where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.action == "exec" and event.type == "start" and (
   process.thread.capabilities.effective in ("CAP_SYS_MODULE", "CAP_SYS_PTRACE", "CAP_DAC_OVERRIDE", "CAP_DAC_READ_SEARCH", "CAP_SETUID", "CAP_SETGID", "CAP_SYS_ADMIN") or
   process.thread.capabilities.permitted in ("CAP_SYS_MODULE", "CAP_SYS_PTRACE", "CAP_DAC_OVERRIDE", "CAP_DAC_READ_SEARCH", "CAP_SETUID", "CAP_SETGID", "CAP_SYS_ADMIN")
 ) and user.id != "0"
-| stats cc = count(), host_count = count_distinct(host.name) by process.parent.executable, process.executable, process.command_line, process.thread.capabilities.effective, process.thread.capabilities.permitted, user.id
+| stats cc = count(), host_count = count_distinct(host.name) by process.executable, process.thread.capabilities.effective, process.thread.capabilities.permitted
 | where host_count <= 3 and cc < 5
 | sort cc asc
 | limit 100

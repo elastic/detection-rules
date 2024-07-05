@@ -40,7 +40,7 @@ from logs-endpoint.events.file-*
     process.name,
     null
 )
-| stats pers_count = count(persistence), agent_count = count(agent.id) by process.executable, file.path, host.name, user.name
+| stats pers_count = count(persistence), agent_count = count_distinct(agent.id) by process.executable, file.path
 | where pers_count > 0 and pers_count <= 20 and agent_count <= 3
 | sort pers_count asc
 | limit 100
@@ -50,7 +50,7 @@ from logs-endpoint.events.file-*
 from logs-endpoint.events.process-*
 | where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.action == "exec" and event.type == "start" and process.parent.name in ("cron", "fcron", "atd")
-| stats cc = count(), host_count = count_distinct(host.name) by process.command_line, process.executable, process.parent.executable
+| stats cc = count(), host_count = count_distinct(host.id) by process.command_line
 | where host_count <= 3
 | sort cc asc
 | limit 100
