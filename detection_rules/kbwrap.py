@@ -16,6 +16,7 @@ from kibana import Signal, RuleResource
 from .config import parse_rules_config
 from .cli_utils import multi_collection
 from .exception import TOMLException, TOMLExceptionContents
+from .generic_loader import GenericCollection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
 from .rule import downgrade_contents_from_rule, TOMLRuleContents, TOMLRule
@@ -92,8 +93,11 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
     kibana = ctx.obj['kibana']
     rule_dicts = [r.contents.to_api_format() for r in rules]
     with kibana:
+        cl = GenericCollection.default()
+        exception_dicts = [d.contents.to_api_format() for d in cl.items]
         response, successful_rule_ids, results = RuleResource.import_rules(
             rule_dicts,
+            exception_dicts,
             overwrite=overwrite,
             overwrite_exceptions=overwrite_exceptions,
             overwrite_action_connectors=overwrite_action_connectors
