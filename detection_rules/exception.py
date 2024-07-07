@@ -231,7 +231,7 @@ def parse_exceptions_results_from_api(
                 if list_id not in exceptions_items:
                     exceptions_items[list_id] = []
                 exceptions_items[list_id].append(res)
-            except Exception as:
+            except Exception:
                 if skip_errors:
                     # This likely means the data is not an exception and is either
                     # an action list or rule data
