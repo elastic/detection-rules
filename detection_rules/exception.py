@@ -231,10 +231,10 @@ def parse_exceptions_results_from_api(
                 if list_id not in exceptions_items:
                     exceptions_items[list_id] = []
                 exceptions_items[list_id].append(res)
-            except Exception as e:
+            except Exception as:
                 if skip_errors:
-                    print(f"- skipping exceptions export unable to parse API result - {type(e).__name__}")
-                    errors.append(f"- exceptions export - {e}")
+                    # This likely means the data is not an exception and is either
+                    # an action list or rule data
                     unparsed_results.append(res)
                     continue
                 raise
