@@ -17,8 +17,8 @@ from kibana import Signal, RuleResource
 
 from .config import parse_rules_config
 from .cli_utils import multi_collection
-from .exception import (DetectionException, ExceptionContainer, TOMLException,
-                        TOMLExceptionContents)
+from .exception import (TOMLException, TOMLExceptionContents,
+                        parse_exceptions_results_from_api)
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
 from .rule import downgrade_contents_from_rule, TOMLRuleContents, TOMLRule
@@ -178,28 +178,8 @@ def kibana_export_rules(
         exceptions_containers = {}
         exceptions_items = {}
 
-        # Create schemas for your dataclasses
-        ExceptionContainerSchema = class_schema(ExceptionContainer)()  # noqa F821
-        DetectionExceptionSchema = class_schema(DetectionException)()  # noqa F821
-
-        for res in exception_results:
-            try:
-                # Try to load the data into the ExceptionContainer schema
-                ExceptionContainerSchema.load(res, unknown=EXCLUDE)
-                exceptions_containers[res.get("list_id")] = res
-            except ValidationError:
-                try:
-                    # Try to load the data into the DetectionException schema
-                    DetectionExceptionSchema.load(res, unknown=EXCLUDE)
-                    list_id = res.get("list_id")
-                    if list_id not in exceptions_items:
-                        exceptions_items[list_id] = []
-                    exceptions_items[list_id].append(res)
-                except Exception as e:
-                    if skip_errors:
-                        print(f"- skipping exceptions export unable to parse API result - {type(e).__name__}")
-                        errors.append(f"- exceptions export - {e}")
-                    raise
+        exceptions_containers, exceptions_items, parse_errors = parse_exceptions_results_from_api(exception_results, skip_errors)
+        errors.extend(parse_errors)
 
         # Build TOMLException Objects
         for container in exceptions_containers.values():
