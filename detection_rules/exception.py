@@ -6,7 +6,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union, Tuple
 
 import pytoml
 from marshmallow import EXCLUDE, ValidationError, validates_schema
@@ -213,3 +213,40 @@ class TOMLException:
             # Sort the dictionary so that 'metadata' is at the top
             sorted_dict = dict(sorted(contents_dict.items(), key=lambda item: item[0] != "metadata"))
             pytoml.dump(sorted_dict, f)
+
+
+def parse_exceptions_results_from_api(
+    results: List[dict], skip_errors: bool = False
+) -> Tuple[dict, dict, List[str], List[dict]]:
+    """Parse exceptions results from the API into containers and items."""
+    exceptions_containers = {}
+    exceptions_items = {}
+    errors = []
+    unparsed_results = []
+
+    # Create schemas for your dataclasses
+    ExceptionContainerSchema = class_schema(ExceptionContainer)()  # noqa F821
+    DetectionExceptionSchema = class_schema(DetectionException)()  # noqa F821
+
+    for res in results:
+        try:
+            # Try to load the data into the ExceptionContainer schema
+            ExceptionContainerSchema.load(res, unknown=EXCLUDE)
+            exceptions_containers[res.get("list_id")] = res
+        except ValidationError:
+            try:
+                # Try to load the data into the DetectionException schema
+                DetectionExceptionSchema.load(res, unknown=EXCLUDE)
+                list_id = res.get("list_id")
+                if list_id not in exceptions_items:
+                    exceptions_items[list_id] = []
+                exceptions_items[list_id].append(res)
+            except Exception:
+                if skip_errors:
+                    # This likely means the data is not an exception and is either
+                    # an action list or rule data
+                    unparsed_results.append(res)
+                    continue
+                raise
+
+    return exceptions_containers, exceptions_items, errors, unparsed_results

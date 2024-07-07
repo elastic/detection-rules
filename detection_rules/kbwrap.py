@@ -15,7 +15,8 @@ from kibana import Signal, RuleResource
 
 from .config import parse_rules_config
 from .cli_utils import multi_collection
-from .exception import TOMLException, TOMLExceptionContents
+from .exception import (TOMLException, TOMLExceptionContents,
+                        parse_exceptions_results_from_api)
 from .generic_loader import GenericCollection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
@@ -176,30 +177,17 @@ def kibana_export_rules(
     # Parse exceptions results from API return
     exceptions = []
     if export_exceptions:
-        try:
-            # API returns a list of results,
-            # some are exception list containers and some are exception list items
-            exceptions_containers = {
-                res.get("list_id"): res
-                for res in exception_results
-                if "Exception list containing exceptions" in res.get("description")
-            }
-            exceptions_items = {list_id: [] for list_id in exceptions_containers.keys()}
+        exceptions_containers = {}
+        exceptions_items = {}
 
-            for res in exception_results:
-                if res.get("description") == "Exception list item":
-                    list_id = res.get("list_id")
-                    exceptions_items[list_id].append(res)
-        except Exception as e:
-            if skip_errors:
-                print(f"- skipping exceptions export unable to parse API result - {type(e).__name__}")
-                errors.append(f"- exceptions export - {e}")
-            raise
+        exceptions_containers, exceptions_items, parse_errors, _ = parse_exceptions_results_from_api(
+            exception_results, skip_errors
+        )
+        errors.extend(parse_errors)
 
         # Build TOMLException Objects
         for container in exceptions_containers.values():
             try:
-                # Send Rule Name in Metadata From rule_name_table
                 contents = TOMLExceptionContents.from_exceptions_dict(
                     {"container": container, "items": exceptions_items[container.get("list_id")]}
                 )
@@ -212,6 +200,7 @@ def kibana_export_rules(
                 if skip_errors:
                     print(f"- skipping exceptions export - {type(e).__name__}")
                     errors.append(f"- exceptions export - {e}")
+                    continue
                 raise
 
             exceptions.append(exception)
