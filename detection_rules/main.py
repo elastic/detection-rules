@@ -22,7 +22,7 @@ import click
 
 from .attack import build_threat_map_entry
 from .cli_utils import rule_prompt, multi_collection
-from .config import load_current_package_version, parse_rules_config
+from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .exception import (TOMLException, TOMLExceptionContents,
                         parse_exceptions_results_from_api)
 from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
@@ -137,10 +137,13 @@ def import_rules_into_repo(
                 contents = TOMLExceptionContents.from_exceptions_dict(
                     {"container": container, "items": exceptions_items[container.get("list_id")]}
                 )
-                click.echo(f"[+] Building exception(s) for {contents.metadata.rule_name}")
+                exceptions_path = RULES_CONFIG.exception_dir / f"{contents.metadata.rule_name}_exceptions.toml"
+                click.echo(
+                    f"[+] Building exception(s) for {exceptions_path.relative_to(Path(CUSTOM_RULES_DIR).parent)}"
+                )
                 TOMLException(
                     contents=contents,
-                    path=RULES_CONFIG.exception_dir / f"{contents.metadata.rule_name}_exceptions.toml",
+                    path=exceptions_path,
                 ).save_toml()
             except Exception:
                 raise
