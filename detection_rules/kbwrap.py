@@ -184,7 +184,6 @@ def kibana_export_rules(
         # Build TOMLException Objects
         for container in exceptions_containers.values():
             try:
-                # Send Rule Name in Metadata From rule_name_table
                 contents = TOMLExceptionContents.from_exceptions_dict(
                     {"container": container, "items": exceptions_items[container.get("list_id")]}
                 )
