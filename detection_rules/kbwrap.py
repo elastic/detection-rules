@@ -24,6 +24,7 @@ from .utils import format_command_options, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
 
+
 @root.group('kibana')
 @add_params(*kibana_options)
 @click.pass_context
