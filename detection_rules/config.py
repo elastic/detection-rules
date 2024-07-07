@@ -263,6 +263,16 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     # paths are relative
     contents['rule_dirs'] = [base_dir.joinpath(d).resolve() for d in loaded.get('rule_dirs')]
 
+    # exception_dir
+    # paths are relative
+    if loaded.get('exception_dir'):
+        contents['exception_dir'] = base_dir.joinpath(loaded.get('exception_dir')).resolve()
+
+    # action_dir
+    # paths are relative
+    if loaded.get('action_dir'):
+        contents['action_dir'] = base_dir.joinpath(loaded.get('action_dir')).resolve()
+
     # version strategy
     contents['bypass_version_lock'] = loaded.get('bypass_version_lock', False)
 

@@ -4,10 +4,12 @@
 # 2.0.
 """Rule exceptions data."""
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import List, Literal, Optional, Union
 
-from marshmallow import validates_schema, ValidationError
+import pytoml
+from marshmallow import EXCLUDE, ValidationError, validates_schema
 
 from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions
@@ -139,8 +141,36 @@ class Data(MarshmallowDataclassMixin):
 @dataclass(frozen=True)
 class TOMLExceptionContents(MarshmallowDataclassMixin):
     """Data stored in an exception file."""
+
     metadata: ExceptionMeta
     exceptions: List[Data]
+
+    @classmethod
+    def from_exceptions_dict(
+        cls,
+        exceptions_dict: dict,
+    ) -> "TOMLExceptionContents":
+        """Create a TOMLExceptionContents from a kibana rule resource."""
+        # Parse rule name and rule id from Kibana generated exception list name and description
+        rule_name = exceptions_dict["container"]["name"].replace("Exceptions for rule - ", "", 1)
+        rule_id = exceptions_dict["container"]["description"].replace(
+            "Exception list containing exceptions for rule with id: ", "", 1
+        )
+        # Format date to match schema
+        creation_date = datetime.strptime(exceptions_dict["container"]["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime(
+            "%Y/%m/%d"
+        )
+        updated_date = datetime.strptime(exceptions_dict["container"]["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime(
+            "%Y/%m/%d"
+        )
+        metadata = {
+            "creation_date": creation_date,
+            "rule_id": rule_id,
+            "rule_name": rule_name,
+            "updated_date": updated_date,
+        }
+
+        return cls.from_dict({"metadata": metadata, "exceptions": [exceptions_dict]}, unknown=EXCLUDE)
 
 
 @dataclass(frozen=True)
@@ -151,8 +181,24 @@ class TOMLException:
 
     @property
     def name(self):
+        """Return the name of the exception."""
         return self.contents.metadata.rule_name
 
     @property
     def id(self):
+        """Return the rule ID of the exception."""
         return self.contents.metadata.rule_id
+
+    def save_toml(self):
+        """Save the exception to a TOML file."""
+        assert self.path is not None, f"Can't save exception {self.contents.name} without a path"
+        # Check if self.path has a .toml extension
+        path = self.path
+        if path.suffix != ".toml":
+            # If it doesn't, add one
+            path = path.with_suffix(".toml")
+        with path.open("w") as f:
+            contents_dict = self.contents.to_dict()
+            # Sort the dictionary so that 'metadata' is at the top
+            sorted_dict = dict(sorted(contents_dict.items(), key=lambda item: item[0] != "metadata"))
+            pytoml.dump(sorted_dict, f)
