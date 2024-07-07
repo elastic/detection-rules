@@ -9,8 +9,6 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 import click
-from marshmallow import EXCLUDE, ValidationError
-from marshmallow_dataclass import class_schema
 
 import kql
 from kibana import Signal, RuleResource
@@ -178,7 +176,9 @@ def kibana_export_rules(
         exceptions_containers = {}
         exceptions_items = {}
 
-        exceptions_containers, exceptions_items, parse_errors = parse_exceptions_results_from_api(exception_results, skip_errors)
+        exceptions_containers, exceptions_items, parse_errors = parse_exceptions_results_from_api(
+            exception_results, skip_errors
+        )
         errors.extend(parse_errors)
 
         # Build TOMLException Objects
