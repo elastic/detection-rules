@@ -205,11 +205,14 @@ class TOMLException:
             pytoml.dump(sorted_dict, f)
 
 
-def parse_exceptions_results_from_api(results: dict, skip_errors: bool = False) -> Tuple[dict, dict, List[str]]:
+def parse_exceptions_results_from_api(
+    results: List[dict], skip_errors: bool = False
+) -> Tuple[dict, dict, List[str], List[dict]]:
     """Parse exceptions results from the API into containers and items."""
     exceptions_containers = {}
     exceptions_items = {}
     errors = []
+    unparsed_results = []
 
     # Create schemas for your dataclasses
     ExceptionContainerSchema = class_schema(ExceptionContainer)()  # noqa F821
@@ -232,6 +235,8 @@ def parse_exceptions_results_from_api(results: dict, skip_errors: bool = False) 
                 if skip_errors:
                     print(f"- skipping exceptions export unable to parse API result - {type(e).__name__}")
                     errors.append(f"- exceptions export - {e}")
+                    unparsed_results.append(res)
+                    continue
                 raise
 
-    return exceptions_containers, exceptions_items, errors
+    return exceptions_containers, exceptions_items, errors, unparsed_results

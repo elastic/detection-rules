@@ -176,7 +176,7 @@ def kibana_export_rules(
         exceptions_containers = {}
         exceptions_items = {}
 
-        exceptions_containers, exceptions_items, parse_errors = parse_exceptions_results_from_api(
+        exceptions_containers, exceptions_items, parse_errors, _ = parse_exceptions_results_from_api(
             exception_results, skip_errors
         )
         errors.extend(parse_errors)
@@ -196,6 +196,7 @@ def kibana_export_rules(
                 if skip_errors:
                     print(f"- skipping exceptions export - {type(e).__name__}")
                     errors.append(f"- exceptions export - {e}")
+                    continue
                 raise
 
             exceptions.append(exception)
