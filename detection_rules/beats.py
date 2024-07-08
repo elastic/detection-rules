@@ -285,6 +285,14 @@ def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list, version: str = None
 
 
 def parse_beats_from_index(index: Optional[list]) -> List[str]:
+    """Parse beats schema types from index."""
     indexes = index or []
-    beat_types = [index.split(':', 1)[-1].split("-")[0] for index in indexes if "beat-*" in index]
+    beat_types = []
+    for index in indexes:
+        if "beat-*" in index:
+            split_index = index.split(':', 1)
+            if len(split_index) > 1:
+                beat_type = split_index[1].split("-")[0]
+                beat_types.append(beat_type)
+
     return beat_types
