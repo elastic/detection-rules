@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import eql
@@ -21,7 +22,7 @@ import marshmallow
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
-from marshmallow import ValidationError, validates_schema
+from marshmallow import ValidationError, pre_load, validates_schema
 
 import kql
 
@@ -174,6 +175,14 @@ class BaseThreatEntry:
     id: str
     name: str
     reference: str
+
+    @pre_load()
+    def modify_url(self, data: Dict[str, Any], **kwargs):
+        """Modify the URL to support MITRE ATT&CK URLS with and without trailing forward slash."""
+        if urlparse(data["reference"]).scheme:
+            if not data["reference"].endswith("/"):
+                data["reference"] += "/"
+        return data
 
 
 @dataclass(frozen=True)
