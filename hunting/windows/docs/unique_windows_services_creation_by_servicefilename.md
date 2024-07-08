@@ -19,7 +19,7 @@ from logs-endpoint.events.registry-*, logs-windows.sysmon_operational-*
 | where host.os.family == "windows" and event.category == "registry" and event.action in ("modification",  "RegistryEvent (Value Set)") and
   registry.value in ("ServiceDLL", "ImagePath") and starts_with(registry.path, "HKLM\\SYSTEM\\") and
   process.executable != "C:\\Windows\\System32\\services.exe"
-| eval process_path = replace(process.executable, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9ñ\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
+| eval process_path = replace(process.executable, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9Ã±\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
 | stats hosts = count_distinct(host.id), occurrences = count(*) by process_path
 /* unique process.executable found in one agent */
 | where hosts == 1 and occurrences == 1
@@ -33,7 +33,7 @@ from logs-endpoint.events.registry-*, logs-windows.sysmon_operational-*
   not registry.data.strings rlike """(.{1,2}[c-fC-F]:\\Program Files.+)|([c-fC-F]:\\Program Files.+)|(.*\\System32\\DriverStore\\FileRepository\\.+)"""
 | eval ServiceFileName = replace(registry.data.strings, """([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|ns[a-z][A-Z0-9]{3,4}\.tmp|DX[A-Z0-9]{3,4}\.tmp|7z[A-Z0-9]{3,5}\.tmp|[0-9\.\-\_]{3,})""", "")
 | eval ServiceFileName = replace(ServiceFileName, """.inf_amd[a-z0-9]{5,}\\""", "_replaced_")
-| eval ServiceFileName = replace(ServiceFileName, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9ñ\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
+| eval ServiceFileName = replace(ServiceFileName, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9Ã±\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
 | stats cc = count(*), hosts = count_distinct(host.id) by ServiceFileName
  /* unique ServiceFileName observed in 1 host*/
 | where hosts == 1 and cc == 1
@@ -46,7 +46,7 @@ from logs-system.security-*
   not winlog.event_data.ServiceFileName rlike """(.{1,2}[c-fC-F]:\\Program Files.+)|([c-fC-F]:\\Program Files.+)|(.*\\System32\\DriverStore\\FileRepository\\.+)"""
 | eval ServiceFileName = replace(winlog.event_data.ServiceFileName, """([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|ns[a-z][A-Z0-9]{3,4}\.tmp|DX[A-Z0-9]{3,4}\.tmp|7z[A-Z0-9]{3,5}\.tmp|[0-9\.\-\_]{3,})""", "")
 | eval ServiceFileName = replace(ServiceFileName, """.inf_amd[a-z0-9]{5,}\\""", "_replaced_")
-| eval ServiceFileName = replace(ServiceFileName, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9ñ\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
+| eval ServiceFileName = replace(ServiceFileName, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9Ã±\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
 | stats cc = count(*), hosts = count_distinct(host.id) by ServiceFileName
 | where hosts == 1 and cc == 1
 ```
@@ -58,7 +58,7 @@ from logs-system.system-*
   not winlog.event_data.ImagePath rlike """(.{1,2}[c-fC-F]:\\Program Files.+)|([c-fC-F]:\\Program Files.+)|(.*\\System32\\DriverStore\\FileRepository\\.+)"""
 | eval ServiceFileName = replace(winlog.event_data.ImagePath, """([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|ns[a-z][A-Z0-9]{3,4}\.tmp|DX[A-Z0-9]{3,4}\.tmp|7z[A-Z0-9]{3,5}\.tmp|[0-9\.\-\_]{3,})""", "")
 | eval ServiceFileName = replace(ServiceFileName, """.inf_amd[a-z0-9]{5,}\\""", "_replaced_")
-| eval ServiceFileName = replace(ServiceFileName, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9ñ\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
+| eval ServiceFileName = replace(ServiceFileName, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9Ã±\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
 | stats cc = count(*), hosts = count_distinct(host.id) by ServiceFileName
 | where hosts == 1 and cc == 1
 ```

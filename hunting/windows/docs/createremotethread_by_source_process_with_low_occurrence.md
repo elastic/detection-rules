@@ -16,7 +16,7 @@
 from logs-windows.sysmon_operational-*
 | where @timestamp > now() - 7 day
 | where host.os.family == "windows" and event.category == "process" and event.action == "CreateRemoteThread"
-| eval source_process = replace(process.executable, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9ñ\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
+| eval source_process = replace(process.executable, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9Ã±\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
 | stats cc = count(*), hosts = count_distinct(host.id) by source_process
  /* unique source and target processes combined and observed in 1 host */
 | where hosts == 1 and cc == 1
