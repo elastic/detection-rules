@@ -109,31 +109,26 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
 
 def process_toml_files(base_path: Path) -> None:
     """Process all TOML files in the directory recursively and convert them to Markdown."""
+    hunts = load_all_toml(base_path)
     index_content = "# List of Available Queries\n\nHere are the queries currently available:"
     directories = {}
 
-    for platform_dir in base_path.iterdir():
-        if platform_dir.is_dir():
-            queries_dir = platform_dir / "queries"
-            docs_dir = platform_dir / "docs"
-            hunts = load_all_toml(queries_dir)
-
-            for hunt_config, toml_file in hunts:
-                markdown_content = convert_toml_to_markdown(hunt_config, toml_file)
-                markdown_path = docs_dir / toml_file.relative_to(queries_dir).with_suffix(".md")
-                markdown_path.parent.mkdir(parents=True, exist_ok=True)
-                markdown_path.write_text(markdown_content, encoding="utf-8")
-                print(f"Markdown generated: {markdown_path}")
-                relative_path = markdown_path.relative_to(base_path)
-                folder_name = platform_dir.name
-                directories.setdefault(folder_name, []).append((relative_path, hunt_config.name, hunt_config.language))
+    for hunt_config, toml_file in hunts:
+        markdown_content = convert_toml_to_markdown(hunt_config, toml_file)
+        markdown_path = toml_file.parent.parent / "docs" / f"{toml_file.stem}.md"
+        markdown_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown_path.write_text(markdown_content, encoding="utf-8")
+        print(f"Markdown generated: {markdown_path}")
+        relative_path = markdown_path.relative_to(base_path)
+        folder_name = toml_file.parent.parent.name
+        directories.setdefault(folder_name, []).append((relative_path, hunt_config.name, hunt_config.language))
 
     # Build index content
     for folder, files in sorted(directories.items()):
         index_content += f"\n\n## {folder}\n"
         for file_path, rule_name, language in sorted(files):
             index_path = f"./{file_path.as_posix()}"
-            index_content += f"- [{rule_name}]({index_path}) ({", ".join(language)})\n"
+            index_content += f"- [{rule_name}]({index_path}) ({', '.join(language)})\n"
 
     # Write the index file at the base directory level
     index_path = base_path / "index.md"
