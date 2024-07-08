@@ -86,7 +86,7 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
     markdown += f"- **Author:** {hunt_config.author}\n"
     markdown += f"- **Description:** {hunt_config.description}\n"
     markdown += f"- **UUID:** `{hunt_config.uuid}`\n"
-    markdown += f"- **Integration:** {", ".join(generate_integration_links(hunt_config.integration))}\n"
+    markdown += f"- **Integration:** {', '.join(generate_integration_links(hunt_config.integration))}\n"
     markdown += f"- **Language:** `{hunt_config.language}`\n\n".replace("'", "").replace('"', "")
     markdown += "## Query\n\n"
     for query in hunt_config.query:
@@ -134,7 +134,7 @@ def process_toml_files(base_path: Path) -> None:
         index_content += f"\n\n## {folder}\n"
         for file_path, rule_name, language in sorted(files):
             index_path = f"./{str(file_path).replace(os.path.sep, '/')}"
-            index_content += f"- [{rule_name}]({index_path}) ({", ".join(language)})\n"
+            index_content += f"- [{rule_name}]({index_path}) ({', '.join(language)})\n"
 
     # Write the index file at the base directory level
     index_path = base_path / "index.md"
