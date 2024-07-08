@@ -178,7 +178,7 @@ class BaseThreatEntry:
 
     @pre_load()
     def modify_url(self, data: Dict[str, Any], **kwargs):
-        """Modify the URL."""
+        """Modify the URL to support MITRE ATT&CK URLS with and without trailing forward slash."""
         if urlparse(data["reference"]).scheme:
             if not data["reference"].endswith("/"):
                 data["reference"] += "/"
