@@ -174,7 +174,7 @@ class TestValidRules(BaseRuleTest):
     def test_from_filed_value(self):
         """ Add "from" Field Validation for All Rules"""
         failures = []
-        valid_format = re.compile(r'^now-\d+(y|M|w|d|H|h|m|s)$')
+        valid_format = re.compile(r'^now-\d+[yMwdhHms]$')
         for rule in self.all_rules:
             from_field = rule.contents.data.get('from_')
             if from_field is not None:
