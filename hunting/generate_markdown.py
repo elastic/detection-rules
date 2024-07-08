@@ -1,10 +1,4 @@
-# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License
-# 2.0; you may not use this file except in compliance with the Elastic License
-# 2.0.
-
-"""Lightweight builtin toml-markdown converter."""
-
+import os
 import tomllib
 import urllib3
 from dataclasses import dataclass, field
@@ -29,12 +23,12 @@ class Hunt:
 
     author: str
     description: str
-    integration: list[str]
+    integration: List[str]
     uuid: str
     name: str
-    language: list[str]
+    language: List[str]
     license: str
-    query: list[str]
+    query: List[str]
     notes: Optional[List[str]] = field(default_factory=list)
     mitre: Optional[List[str]] = field(default_factory=list)
     references: Optional[List[str]] = field(default_factory=list)
@@ -57,12 +51,13 @@ def load_all_toml(base_path: Path) -> List[tuple[Hunt, Path]]:
 
 def validate_link(link: str):
     """Validate and return the link."""
-    response = urllib3.request('get', link)
+    http = urllib3.PoolManager()
+    response = http.request('GET', link)
     if response.status != 200:
         raise ValueError(f"Invalid link: {link}")
 
 
-def generate_integration_links(integrations: list[str]) -> list[str]:
+def generate_integration_links(integrations: List[str]) -> List[str]:
     base_url = 'https://docs.elastic.co/integrations'
     generated = []
     for integration in integrations:
@@ -108,25 +103,30 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
 
 def process_toml_files(base_path: Path) -> None:
     """Process all TOML files in the directory recursively and convert them to Markdown."""
-    hunts = load_all_toml(base_path)
     index_content = "# List of Available Queries\n\nHere are the queries currently available:"
     directories = {}
 
-    for hunt_config, toml_file in hunts:
-        markdown_content = convert_toml_to_markdown(hunt_config, toml_file)
-        markdown_path = toml_file.parent.parent / "docs" / f"{toml_file.stem}.md"
-        markdown_path.parent.mkdir(parents=True, exist_ok=True)
-        markdown_path.write_text(markdown_content, encoding="utf-8")
-        print(f"Markdown generated: {markdown_path}")
-        relative_path = markdown_path.relative_to(base_path)
-        folder_name = toml_file.parent.parent.name
-        directories.setdefault(folder_name, []).append((relative_path, hunt_config.name, hunt_config.language))
+    for platform_dir in base_path.iterdir():
+        if platform_dir.is_dir():
+            queries_dir = platform_dir / "queries"
+            docs_dir = platform_dir / "docs"
+            hunts = load_all_toml(queries_dir)
+
+            for hunt_config, toml_file in hunts:
+                markdown_content = convert_toml_to_markdown(hunt_config, toml_file)
+                markdown_path = docs_dir / toml_file.relative_to(queries_dir).with_suffix(".md")
+                markdown_path.parent.mkdir(parents=True, exist_ok=True)
+                markdown_path.write_text(markdown_content, encoding="utf-8")
+                print(f"Markdown generated: {markdown_path}")
+                relative_path = os.path.normpath(markdown_path.relative_to(base_path))
+                folder_name = platform_dir.name
+                directories.setdefault(folder_name, []).append((relative_path, hunt_config.name, hunt_config.language))
 
     # Build index content
     for folder, files in sorted(directories.items()):
         index_content += f"\n\n## {folder}\n"
         for file_path, rule_name, language in sorted(files):
-            index_path = "./" + str(file_path)
+            index_path = f"./{str(file_path).replace(os.path.sep, '/')}"
             index_content += f"- [{rule_name}]({index_path}) ({", ".join(language)})\n"
 
     # Write the index file at the base directory level
