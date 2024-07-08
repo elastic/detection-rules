@@ -10,7 +10,7 @@
 - **UUID:** `2db642d2-621a-4183-88b5-b2659dc2c940`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
-
+- **Source File:** [OSQuery SUID Hunting](../queries/privilege_escalation_via_suid_binaries.toml)
 ## Query
 
 ```sql
@@ -56,6 +56,7 @@ f.type == "regular" AND
 - Lists all SUID binaries and provides detailed information about these files, including their paths, owners, and permissions.
 - Focuses on regular files owned by root with SUID or SGID bits set to identify potential privilege escalation vectors.
 - OSQuery has limited support for wildcard queries, therefore the query includes multiple LIKE conditions for directories. These can be increased and decreased, based on the environment
+
 ## MITRE ATT&CK Techniques
 
 - [T1548.001](https://attack.mitre.org/techniques/T1548/001)

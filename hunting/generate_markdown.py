@@ -87,22 +87,22 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
     markdown += f"- **Description:** {hunt_config.description}\n"
     markdown += f"- **UUID:** `{hunt_config.uuid}`\n"
     markdown += f"- **Integration:** {', '.join(generate_integration_links(hunt_config.integration))}\n"
-    markdown += f"- **Language:** `{hunt_config.language}`\n\n".replace("'", "").replace('"', "")
-    markdown += "## Query\n\n"
+    markdown += f"- **Language:** `{hunt_config.language}`\n".replace("'", "").replace('"', "")
+    markdown += f"- **Source File:** [{hunt_config.name}]({Path('../queries') / file_path.name})"
+    markdown += "\n## Query\n\n"
     for query in hunt_config.query:
         markdown += f"```sql\n{query}```\n\n"
 
     if hunt_config.notes:
         markdown += "## Notes\n\n" + "\n".join(f"- {note}" for note in hunt_config.notes)
     if hunt_config.mitre:
-        markdown += "\n## MITRE ATT&CK Techniques\n\n" + "\n".join(
+        markdown += "\n\n## MITRE ATT&CK Techniques\n\n" + "\n".join(
             f"- [{tech}]({ATLAS_URL if tech.startswith('AML') else ATTACK_URL}"
             f"{tech.replace('.', '/') if tech.startswith('T') else tech})"
             for tech in hunt_config.mitre
         )
     if hunt_config.references:
-        markdown += "\n## References\n\n" + "\n".join(f"- {ref}" for ref in hunt_config.references)
-        markdown += f"\n- [{hunt_config.name}]({Path('../queries') / file_path.name})"
+        markdown += "\n\n## References\n\n" + "\n".join(f"- {ref}" for ref in hunt_config.references)
 
     markdown += f"\n\n## License\n\n- `{hunt_config.license}`\n"
     return markdown

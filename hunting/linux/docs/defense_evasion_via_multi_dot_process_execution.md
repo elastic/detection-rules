@@ -10,7 +10,7 @@
 - **UUID:** `11810497-8ce3-4960-9777-9d0e97052682`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Potential Defense Evasion via Multi-Dot Process Execution](../queries/defense_evasion_via_multi_dot_process_execution.toml)
 ## Query
 
 ```sql
@@ -28,6 +28,7 @@ from logs-endpoint.events.process-*
 
 - This query identifies processes with executables containing three or more consecutive dots in their names.
 - The process count threshold of <= 10 can be adjusted based on the environment's baseline activity.
+
 ## MITRE ATT&CK Techniques
 
 - [T1036.004](https://attack.mitre.org/techniques/T1036/004)

@@ -10,7 +10,7 @@
 - **UUID:** `c7044817-d9a5-4755-abab-9059e50dab24`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Low Volume Modifications to Critical System Binaries by Unique Host](../queries/low_volume_modifications_to_critical_system_binaries.toml)
 ## Query
 
 ```sql
@@ -39,6 +39,7 @@ from logs-endpoint.events.file-*
 - Excludes modifications made by expected update processes such as package managers to reduce false positives.
 - Counts the number of unique files modified by each host and the number of modifications made.
 - Focuses on modifications made by unique hosts to detect unauthorized or suspicious changes.
+
 ## MITRE ATT&CK Techniques
 
 - [T1070.004](https://attack.mitre.org/techniques/T1070/004)

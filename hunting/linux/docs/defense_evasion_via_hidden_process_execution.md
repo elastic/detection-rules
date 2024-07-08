@@ -10,7 +10,7 @@
 - **UUID:** `00461198-9a2d-4823-b4cc-f3d1b5c17935`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Hidden Process Execution](../queries/defense_evasion_via_hidden_process_execution.toml)
 ## Query
 
 ```sql
@@ -29,6 +29,7 @@ from logs-endpoint.events.process-*
 
 - Included only hidden files, excluding hidden directories, as hidden directories are common in Unix.
 - Included a process or parent process count of <= 3, and a host count of <= 3 to eliminate common processes across different hosts.
+
 ## MITRE ATT&CK Techniques
 
 - [T1036.004](https://attack.mitre.org/techniques/T1036/004)

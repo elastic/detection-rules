@@ -10,7 +10,7 @@
 - **UUID:** `2d01a413-8d97-407a-8698-02dfc7119c97`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
-
+- **Source File:** [Persistence via Packager Manager](../queries/persistence_via_package_manager.toml)
 ## Query
 
 ```sql
@@ -90,6 +90,7 @@ SELECT * FROM yum_sources
 - Uses EVAL to tag potential persistence events and counts occurrences to identify unusual activity.
 - Monitors processes started by package managers to detect suspicious activity related to package manager configurations.
 - OSQuery queries are provided to retrieve detailed file information related to package manager configurations, as well as sources for APT and YUM.
+
 ## MITRE ATT&CK Techniques
 
 - [T1546.004](https://attack.mitre.org/techniques/T1546/004)

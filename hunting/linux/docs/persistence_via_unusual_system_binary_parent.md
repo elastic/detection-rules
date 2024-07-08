@@ -10,7 +10,7 @@
 - **UUID:** `d22cbe8f-c84d-4811-aa6d-f1ee00c806b2`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Unusual System Binary Parent (Potential System Binary Hijacking Attempt)](../queries/persistence_via_unusual_system_binary_parent.toml)
 ## Query
 
 ```sql
@@ -29,6 +29,7 @@ from logs-endpoint.events.process-*
 - Focuses on identifying unusual or suspicious child processes spawned by these common system binaries.
 - Uses stats to count occurrences and identify unusual activity by looking at the number of unique hosts and processes involved.
 - Requires additional data analysis and investigation into results to identify malicious or unauthorized use of system binaries.
+
 ## MITRE ATT&CK Techniques
 
 - [T1546.004](https://attack.mitre.org/techniques/T1546/004)

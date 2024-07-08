@@ -10,7 +10,7 @@
 - **UUID:** `5984a354-d76c-43e6-bdd9-228456f1b371`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
-
+- **Source File:** [Persistence via Message-of-the-Day](../queries/persistence_via_message_of_the_day.toml)
 ## Query
 
 ```sql
@@ -70,6 +70,7 @@ ORDER BY
 - Uses EVAL to tag potential persistence events and counts occurrences to identify unusual activity.
 - Monitors processes started by motd scripts to detect potential persistence mechanisms.
 - OSQuery query is provided to complement the detection by retrieving detailed file information related to motd scripts.
+
 ## MITRE ATT&CK Techniques
 
 - [T1036.005](https://attack.mitre.org/techniques/T1036/005)

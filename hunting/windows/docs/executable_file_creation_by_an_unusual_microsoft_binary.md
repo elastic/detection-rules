@@ -11,7 +11,7 @@ code injection or some other form of exploitation for defense evasion.
 - **UUID:** `b786bcd7-b119-4ff7-b839-3927c2ff7f1f`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Executable File Creation by an Unusual Microsoft Binary](../queries/executable_file_creation_by_an_unusual_microsoft_binary.toml)
 ## Query
 
 ```sql
@@ -41,6 +41,7 @@ from logs-windows.sysmon_operational-*
 - Sysmon file events don't populate file header and process code signature information thus we use `file.extension`.
 - Some exploits may result in the creation of an executable file by the exploited process.
 - Further investigation can be done by pivoting on `process.executable` and filtering for executable file creation.
+
 ## MITRE ATT&CK Techniques
 
 - [T1211](https://attack.mitre.org/techniques/T1211)

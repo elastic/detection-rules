@@ -10,7 +10,7 @@
 - **UUID:** `44223fd6-8241-4c21-9d54-21201fa15b12`
 - **Integration:** [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Scheduled Tasks Creation for Unique Hosts by Task Command](../queries/scheduled_tasks_creation_for_unique_hosts_by_task_command.toml)
 ## Query
 
 ```sql
@@ -35,6 +35,7 @@ from logs-system.security-default-*
 
 - This hunt returns the aggregation of created tasks by task name, command to execute and number of hosts where this task is present.
 - Close attention should be paid to suspicious paths like `C:\Users\Public and C:\ProgramData\` as well as LOLBins.
+
 ## MITRE ATT&CK Techniques
 
 - [T1053](https://attack.mitre.org/techniques/T1053)

@@ -10,7 +10,7 @@
 - **UUID:** `5fd5da54-0515-4d6b-b8d7-30fd05f5be33`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Execution via Remote Services by Client Address](../queries/execution_via_remote_services_by_client_address.toml)
 ## Query
 
 ```sql
@@ -28,6 +28,7 @@ from logs-endpoint.events.process-*
 ## Notes
 
 - `process.Ext.session_info.*` is populated for Elastic Defend versions 8.6.0+.
+
 ## MITRE ATT&CK Techniques
 
 - [T1021](https://attack.mitre.org/techniques/T1021)

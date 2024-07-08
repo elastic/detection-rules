@@ -10,7 +10,7 @@
 - **UUID:** `a95e69af-22ad-4ab7-919e-794501f10c95`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Low Frequency of Process Execution via WMI by Unique Agent](../queries/execution_via_windows_management_instrumentation_by_occurrence_frequency_by_unique_agent.toml)
 ## Query
 
 ```sql
@@ -49,6 +49,7 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*
 ## Notes
 
 - This hunt contains three queries for Elastic Defend, Sysmon, and Windows Security event 4688.
+
 ## MITRE ATT&CK Techniques
 
 - [T1047](https://attack.mitre.org/techniques/T1047)

@@ -10,7 +10,7 @@
 - **UUID:** `c00f1afe-4f25-4542-8cc9-277b23581121`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Libraries Loaded by svchost with Low Occurrence Frequency](../queries/libraries_loaded_by_svchost_with_low_occurrence_frequency.toml)
 ## Query
 
 ```sql
@@ -50,6 +50,7 @@ from logs-windows.sysmon_operational-*
 - The hunt uses Elastic Defend library events for an extra optional condition `dll.Ext.relative_file_creation_time` to scope if for recently dropped DLLs.
 - The `count_dlls_per_folder` variable filter is used to avoid cases where multiple DLLs with different names are loaded from same directory (often observed in FPs loaded multiple dependencies from same dir).
 - Pay close attention unknown hashes and suspicious paths, usually ServiceDLLs are located in trusted directories like `%programfiles%` and `system32/syswow64`.
+
 ## MITRE ATT&CK Techniques
 
 - [T1543](https://attack.mitre.org/techniques/T1543)

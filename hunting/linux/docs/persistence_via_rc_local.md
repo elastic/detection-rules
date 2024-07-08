@@ -10,7 +10,7 @@
 - **UUID:** `a95f778f-2193-4a3d-bbbe-7b02d5740638`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL, SQL]`
-
+- **Source File:** [Persistence via rc.local/rc.common](../queries/persistence_via_rc_local.toml)
 ## Query
 
 ```sql
@@ -71,6 +71,7 @@ WHERE
 - Monitors processes started by rc.local and rc.common scripts to detect potential persistence mechanisms.
 - Syslog hunting query is provided to complement the detection by analyzing syslog entries related to rc.local and rc.common processes.
 - OSQuery queries are provided to retrieve systemd unit states, startup items, and detailed file information related to rc.local and rc.common.
+
 ## MITRE ATT&CK Techniques
 
 - [T1037.004](https://attack.mitre.org/techniques/T1037/004)

@@ -10,7 +10,7 @@
 - **UUID:** `48b75e53-3c73-40bd-873d-569dd8d7d925`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Unique Windows Services Creation by Service File Name](../queries/unique_windows_services_creation_by_servicefilename.toml)
 ## Query
 
 ```sql
@@ -67,6 +67,7 @@ from logs-system.system-*
 
 - This hunt also identifies services registry modification by unusual process based on number of hosts and occurrences history.
 - Windows event IDs 4697 and 7045 are used to identify service creation and modification.
+
 ## MITRE ATT&CK Techniques
 
 - [T1543](https://attack.mitre.org/techniques/T1543)

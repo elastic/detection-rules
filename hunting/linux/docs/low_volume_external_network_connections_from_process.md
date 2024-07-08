@@ -10,7 +10,7 @@
 - **UUID:** `12526f14-5e35-4f5f-884c-96c6a353a544`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Low Volume External Network Connections from Process by Unique Agent](../queries/low_volume_external_network_connections_from_process.toml)
 ## Query
 
 ```sql
@@ -40,6 +40,7 @@ from logs-endpoint.events.network-*
 - Monitors for network connections attempted by processes that have a low occurrence frequency (five or fewer connections) and are seen by a unique agent.
 - Excludes common internal IP ranges to minimize false positives.
 - A separate query is included to specifically monitor low volume network connections initiated by the root user, as these can be particularly indicative of malicious activity.
+
 ## MITRE ATT&CK Techniques
 
 - [T1071.001](https://attack.mitre.org/techniques/T1071/001)

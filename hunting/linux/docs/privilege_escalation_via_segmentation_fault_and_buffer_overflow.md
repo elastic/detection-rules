@@ -10,7 +10,7 @@
 - **UUID:** `3f3fd2b9-940c-4310-adb1-d8b7d726e281`
 - **Integration:** [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Segmentation Fault & Potential Buffer Overflow Hunting](../queries/privilege_escalation_via_segmentation_fault_and_buffer_overflow.toml)
 ## Query
 
 ```sql
@@ -41,6 +41,7 @@ from logs-system.syslog*
 - Counts occurrences of segfaults within a plain text message field to potentially detect buffer overflow attacks and unsuccessful process injection attempts.
 - Removes prepending spaces from syslog messages using EVAL to ensure consistent parsing.
 - Depending on the Syslog configuration, additional parsing may be required to extract the necessary fields from the message.
+
 ## MITRE ATT&CK Techniques
 
 - [T1203](https://attack.mitre.org/techniques/T1203)

@@ -10,7 +10,7 @@
 - **UUID:** `dc04d70a-80aa-4c3f-ad02-2b18d54af6d4`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Suspicious Network Connections by Unsigned Mach-O](../queries/suspicious_network_connections_by_unsigned_macho.toml)
 ## Query
 
 ```sql
@@ -33,6 +33,7 @@ from logs-endpoint.events.network-*
 
 - This hunt returns a list of processes by entity_id and name that have a high number of connections per hour over a period of time greater than a defined threshold.
 - Pivoting by `process.entity_id` will allow further investigation (parent process, hash, child processes, other network events etc.).
+
 ## MITRE ATT&CK Techniques
 
 - [T1071](https://attack.mitre.org/techniques/T1071)

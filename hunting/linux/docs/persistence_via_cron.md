@@ -10,7 +10,7 @@
 - **UUID:** `e1cffb7c-4acf-4e7a-8d72-b8b7657cf7b8`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
-
+- **Source File:** [Persistence via Cron](../queries/persistence_via_cron.toml)
 ## Query
 
 ```sql
@@ -101,6 +101,7 @@ SELECT * FROM crontab
 - Uses EVAL to tag potential persistence events and counts occurrences to identify unusual activity.
 - Monitors processes started by cron, fcron, or atd to detect potential persistence mechanisms.
 - OSQuery queries are provided to complement the detection by retrieving detailed file information and crontab entries.
+
 ## MITRE ATT&CK Techniques
 
 - [T1053.003](https://attack.mitre.org/techniques/T1053/003)

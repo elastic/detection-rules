@@ -10,7 +10,7 @@
 - **UUID:** `7422faf1-ba51-49c3-b8ba-13759e6bcec4`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
-
+- **Source File:** [Persistence Through Reverse/Bind Shells](../queries/persistence_reverse_bind_shells.toml)
 ## Query
 
 ```sql
@@ -49,6 +49,7 @@ SELECT pid, address, port, socket, protocol, path FROM listening_ports
 - The third hunt query retrieves information about listening ports on the system.
 - Investigate strange or unexpected open sockets, processes, or listening ports on the system.
 - Use the information from each hunt to pivot and investigate further for potential reverse/bind shells.
+
 ## MITRE ATT&CK Techniques
 
 - [T1059.004](https://attack.mitre.org/techniques/T1059/004)

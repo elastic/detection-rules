@@ -10,7 +10,7 @@
 - **UUID:** `44e6adc6-e183-4bfa-b06d-db41669641fa`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Rundll32 Execution Aggregated by Command Line](../queries/rundll32_execution_aggregated_by_cmdline.toml)
 ## Query
 
 ```sql
@@ -30,6 +30,7 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 
 - Execution of DLLs from suspicious paths or with suspicious export function names or from suspicious parent should be further reviewed.
 - Parents such as svchost, `explorer.exe`, `wmiprvse.exe`, `winword.exe` and others should be carefully reviewed.
+
 ## MITRE ATT&CK Techniques
 
 - [T1127](https://attack.mitre.org/techniques/T1127)

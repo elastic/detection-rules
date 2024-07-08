@@ -10,7 +10,7 @@
 - **UUID:** `9d485892-1ca2-464b-9e4e-6b21ab379b9a`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Defense Evasion via Capitalized Process Execution](../queries/defense_evasion_via_capitalized_process_execution.toml)
 ## Query
 
 ```sql
@@ -31,6 +31,7 @@ from logs-endpoint.events.process-*
 - Detects processes that have two or more consecutive capital letters within their names, with optional digits.
 - This technique is often used in malicious payloads, such as Metasploit payloads, to evade detection.
 - Included a process count of <= 3 and a host count of <= 3 to eliminate common processes across different hosts.
+
 ## MITRE ATT&CK Techniques
 
 - [T1036.004](https://attack.mitre.org/techniques/T1036/004)

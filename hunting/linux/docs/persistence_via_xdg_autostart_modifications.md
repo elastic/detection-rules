@@ -10,7 +10,7 @@
 - **UUID:** `8dcc2161-65e0-4448-a03a-1c4e0cbc9330`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
-
+- **Source File:** [XDG Persistence](../queries/persistence_via_xdg_autostart_modifications.toml)
 ## Query
 
 ```sql
@@ -124,6 +124,7 @@ WHERE
 - Uses EVAL to tag potential persistence events and counts occurrences to identify unusual activity.
 - Monitors processes started by common Linux desktop session managers to detect suspicious activity related to autostart entries.
 - OSQuery queries are provided to retrieve enabled XDG startup items and detailed file information related to autostart directories.
+
 ## MITRE ATT&CK Techniques
 
 - [T1547.001](https://attack.mitre.org/techniques/T1547/001)

@@ -9,7 +9,7 @@
 - **UUID:** `d06bc067-6174-412f-b1c9-bf8f15149519`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [DLL Hijack via Masquerading as Microsoft Native Libraries](../queries/detect_dll_hijack_via_masquerading_as_microsoft_native_libraries.toml)
 ## Query
 
 ```sql
@@ -52,6 +52,7 @@ from logs-windows.sysmon_operational-*
 - This hunt requires the creation of an [enrichment policy](https://www.elastic.co/guide/en/elasticsearch/reference/current/esql-enrich-data.html) to use with the ES|QL (ENRICH command).
 - The `dll.hash.sha256` field can be used to pivot and further investigate the DLL origin and purpose.
 - Paths like `C:\Users\Public and C:\ProgramData\` are often observed in malware employing DLL side-loading.
+
 ## MITRE ATT&CK Techniques
 
 - [T1574](https://attack.mitre.org/techniques/T1574)

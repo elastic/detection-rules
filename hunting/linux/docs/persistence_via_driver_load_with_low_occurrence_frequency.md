@@ -10,7 +10,7 @@
 - **UUID:** `e1f59c9a-7a2a-4eb8-a524-97b16a041a4a`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Drivers Load with Low Occurrence Frequency](../queries/persistence_via_driver_load_with_low_occurrence_frequency.toml)
 ## Query
 
 ```sql
@@ -29,6 +29,7 @@ from logs-auditd_manager.auditd-*, logs-auditd.log-*, auditbeat-*
 - Monitors for kernel modules loaded with syscall 'init_module' or 'finit_module', indicating driver load events.
 - Counts the occurrence of each driver across all hosts and identifies those seen only once on a single host within the past year.
 - Such rare driver loads can indicate potentially malicious activity or the presence of uncommon drivers.
+
 ## MITRE ATT&CK Techniques
 
 - [T1547.006](https://attack.mitre.org/techniques/T1547/006)

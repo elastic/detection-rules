@@ -10,7 +10,7 @@
 - **UUID:** `ecd84bc7-32ae-474b-93a8-d1d9736c3464`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
-
+- **Source File:** [Network Connections with Low Occurrence Frequency for Unique Agent ID](../queries/command_and_control_via_network_connections_with_low_occurrence_frequency_for_unique_agents.toml)
 ## Query
 
 ```sql
@@ -68,6 +68,7 @@ destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "127.0.0.0/8", "16
 - Excludes common internal IP ranges to minimize false positives.
 - Accounts for known low-frequency legitimate binaries (LoLBins) to reduce noise.
 - Identifies suspicious directories where processes are executed from, which can indicate malicious activity.
+
 ## MITRE ATT&CK Techniques
 
 - [T1071.001](https://attack.mitre.org/techniques/T1071/001)
