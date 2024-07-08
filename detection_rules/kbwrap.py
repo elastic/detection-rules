@@ -136,6 +136,9 @@ def kibana_export_rules(
 
     if results:
         directory.mkdir(parents=True, exist_ok=True)
+    else:
+        click.echo("No rules found to export")
+        return []
 
     rules_results = results
     if export_exceptions:
