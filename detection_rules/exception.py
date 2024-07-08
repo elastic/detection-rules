@@ -6,7 +6,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Literal, Optional, Union, Tuple
+from typing import List, Literal, Optional, Union
 
 import pytoml
 from marshmallow import EXCLUDE, ValidationError, validates_schema
@@ -207,7 +207,7 @@ class TOMLException:
 
 def parse_exceptions_results_from_api(
     results: List[dict], skip_errors: bool = False
-) -> Tuple[dict, dict, List[str], List[dict]]:
+) -> tuple[dict, dict, List[str], List[dict]]:
     """Parse exceptions results from the API into containers and items."""
     exceptions_containers = {}
     exceptions_items = {}
