@@ -5,7 +5,6 @@
 
 """Lightweight builtin toml-markdown converter."""
 
-import os
 import tomllib
 import urllib3
 from dataclasses import dataclass, field
@@ -125,7 +124,7 @@ def process_toml_files(base_path: Path) -> None:
                 markdown_path.parent.mkdir(parents=True, exist_ok=True)
                 markdown_path.write_text(markdown_content, encoding="utf-8")
                 print(f"Markdown generated: {markdown_path}")
-                relative_path = os.path.normpath(markdown_path.relative_to(base_path))
+                relative_path = markdown_path.relative_to(base_path)
                 folder_name = platform_dir.name
                 directories.setdefault(folder_name, []).append((relative_path, hunt_config.name, hunt_config.language))
 
@@ -133,8 +132,8 @@ def process_toml_files(base_path: Path) -> None:
     for folder, files in sorted(directories.items()):
         index_content += f"\n\n## {folder}\n"
         for file_path, rule_name, language in sorted(files):
-            index_path = f"./{str(file_path).replace(os.path.sep, '/')}"
-            index_content += f"- [{rule_name}]({index_path}) ({', '.join(language)})\n"
+            index_path = f"./{file_path.as_posix()}"
+            index_content += f"- [{rule_name}]({index_path}) ({", ".join(language)})\n"
 
     # Write the index file at the base directory level
     index_path = base_path / "index.md"
