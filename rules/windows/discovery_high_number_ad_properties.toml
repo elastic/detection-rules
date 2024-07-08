@@ -2,7 +2,7 @@
 creation_date = "2023/01/29"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/07/08"
 
 [rule]
 author = ["Elastic"]
@@ -43,7 +43,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.action == "Directory Service Access" and
+any where event.action in ("Directory Service Access", "object-operation-performed") and
  event.code == "4662" and not winlog.event_data.SubjectUserSid : "S-1-5-18" and
  winlog.event_data.AccessMaskDescription == "Read Property" and length(winlog.event_data.Properties) >= 2000
 '''
