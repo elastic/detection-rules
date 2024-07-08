@@ -35,7 +35,7 @@ from logs-aws_bedrock.invocation-*
 
 - https://www.elastic.co/security-labs/elastic-advances-llm-security
 - https://owasp.org/www-project-top-10-for-large-language-model-applications/
-- [AWS Bedrock LLM Sensitive Content Refusals](..\queries\aws_bedrock_sensitive_content_refusal_detection.toml)
+- [AWS Bedrock LLM Sensitive Content Refusals](../queries/aws_bedrock_sensitive_content_refusal_detection.toml)
 
 ## License
 

@@ -41,7 +41,7 @@ from logs-aws_bedrock.invocation-*
 
 - https://www.elastic.co/security-labs/elastic-advances-llm-security
 - https://owasp.org/www-project-top-10-for-large-language-model-applications/
-- [AWS Bedrock LLM Denial-of-Service or Resource Exhaustion](..\queries\aws_bedrock_dos_resource_exhaustion_detection.toml)
+- [AWS Bedrock LLM Denial-of-Service or Resource Exhaustion](../queries/aws_bedrock_dos_resource_exhaustion_detection.toml)
 
 ## License
 
