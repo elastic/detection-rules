@@ -25,6 +25,7 @@ Here are the queries currently available:
 - [Shell Modification Persistence](./linux/docs/persistence_via_shell_modification_persistence.md) (ES|QL, SQL)
 - [Persistence via SSH Configurations and/or Keys](./linux/docs/persistence_via_ssh_configurations_and_keys.md) (SQL)
 - [Persistence via Systemd (Timers)](./linux/docs/persistence_via_systemd_timers.md) (ES|QL, SQL)
+- [Persistence via System V Init](./linux/docs/persistence_via_sysv_init.md) (ES|QL, SQL)
 - [Persistence via Udev](./linux/docs/persistence_via_udev.md) (ES|QL, SQL)
 - [Unusual System Binary Parent (Potential System Binary Hijacking Attempt)](./linux/docs/persistence_via_unusual_system_binary_parent.md) (ES|QL)
 - [Privilege Escalation/Persistence via User/Group Creation and/or Modification](./linux/docs/persistence_via_user_group_creation_modification.md) (SQL)
