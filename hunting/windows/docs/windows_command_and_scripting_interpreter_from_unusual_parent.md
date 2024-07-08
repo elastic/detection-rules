@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for unusual Microsoft native processes spawning `cmd.exe`, `powershell.exe` or `conhost.exe` and limited to a unique host. This could be normal rare behavior as well as an interactive shell activity from an injected parent process to execute system commands.
 
-- **UUID:** `de929347-c04a-4a94-8be2-cbe87b25bb25`
+- **UUID:** `aca4877f-d284-4bdb-8e18-b1414d3a7c20`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 
