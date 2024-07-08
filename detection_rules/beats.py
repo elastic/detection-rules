@@ -290,9 +290,8 @@ def parse_beats_from_index(index: Optional[list]) -> List[str]:
     beat_types = []
     for index in indexes:
         if "beat-*" in index:
-            split_index = index.split(':', 1)
-            if len(split_index) > 1:
-                beat_type = split_index[1].split("-")[0]
-                beat_types.append(beat_type)
-
+            index_parts = index.split(':', 1)
+            last_part = index_parts[-1]
+            beat_type = last_part.split("-")[0]
+            beat_types.append(beat_type)
     return beat_types
