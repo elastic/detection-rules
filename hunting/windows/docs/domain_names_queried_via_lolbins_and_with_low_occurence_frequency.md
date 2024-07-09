@@ -7,9 +7,9 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for DNS queries performed by commonly abused Microsoft binaries that perform remote file transfer or binary proxy execution. Aggregations for the number of occurrences is limited to one host to reduce the number of potentially legitimate hits.
 
-- **UUID:** `ebf8eb13-c98a-4d2c-8bdb-3f72a3a3961b`
+- **UUID:** `1c7be6db-12eb-4281-878d-b6abe0454f36`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 

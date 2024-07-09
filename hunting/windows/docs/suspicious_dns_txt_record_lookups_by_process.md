@@ -8,9 +8,9 @@
 - **Description:** Leveraging aggregation by process executable entities, this hunt identifies identifies a high number of DNS TXT record queries from same process.
 Adversaries may leverage DNS TXT queries to stage malicious content or exfiltrate data.
 
-- **UUID:** `0b7343f7-2d16-43c7-af28-9d1f012b1093`
+- **UUID:** `7a2c8397-d219-47ad-a8e2-93562e568d08`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
 
 ## Query
 
