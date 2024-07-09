@@ -742,6 +742,12 @@ class QueryRuleData(BaseRuleData):
             return validator.get_required_fields(index or [])
 
     @validates_schema
+    def validates_index_and_data_view_id(self, data, **kwargs):
+        """Validate that either index or data_view_id is set, but not both."""
+        if data.get('index') and data.get('data_view_id'):
+            raise ValidationError("Only one of index or data_view_id should be set.")
+
+    @validates_schema
     def validates_query_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
         # alert suppression is only valid for query rule type and not any of its subclasses
