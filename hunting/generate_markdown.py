@@ -63,7 +63,7 @@ def validate_link(link: str):
         raise ValueError(f"Invalid link: {link}")
 
 
-def generate_integration_links(integrations: List[str]) -> List[str]:
+def generate_integration_links(integrations: list[str]) -> list[str]:
     base_url = 'https://docs.elastic.co/integrations'
     generated = []
     for integration in integrations:
