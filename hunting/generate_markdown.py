@@ -29,15 +29,15 @@ class Hunt:
 
     author: str
     description: str
-    integration: List[str]
+    integration: list[str]
     uuid: str
     name: str
-    language: List[str]
+    language: list[str]
     license: str
-    query: List[str]
-    notes: Optional[List[str]] = field(default_factory=list)
-    mitre: Optional[List[str]] = field(default_factory=list)
-    references: Optional[List[str]] = field(default_factory=list)
+    query: list[str]
+    notes: Optional[list[str]] = field(default_factory=list)
+    mitre: Optional[list[str]] = field(default_factory=list)
+    references: Optional[list[str]] = field(default_factory=list)
 
 
 def load_toml(contents: str) -> Hunt:
