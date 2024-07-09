@@ -57,8 +57,8 @@ files:
   stack_schema_map: stack-schema-map.yaml
   version_lock: version.lock.json
 directories:
-  actions_dir: actions
-  exceptions_dir: exceptions
+  action_dir: actions
+  exception_dir: exceptions
 ```
 
 Some notes:
