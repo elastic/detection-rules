@@ -703,9 +703,12 @@ class QueryRuleData(BaseRuleData):
     @cached_property
     def index_or_dataview(self) -> list[str]:
         """Return the index or dataview depending on which is set. If neither returns empty list."""
-        index = getattr(self, 'index', None)
-        dataview = getattr(self, 'dataview', None)
-        return index or [dataview] if dataview is not None else []
+        if self.index is not None:
+            return self.index
+        elif self.dataview is not None:
+            return [self.dataview]
+        else:
+            return []
 
     @cached_property
     def validator(self) -> Optional[QueryValidator]:
