@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
 - **Source File:** [Shell Modification Persistence](../queries/persistence_via_shell_modification_persistence.toml)
+
 ## Query
 
 ```sql

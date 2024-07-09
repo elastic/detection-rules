@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Network Connections with Low Occurrence Frequency for Unique Agent ID](../queries/command_and_control_via_network_connections_with_low_occurrence_frequency_for_unique_agents.toml)
+
 ## Query
 
 ```sql

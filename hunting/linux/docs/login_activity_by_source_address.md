@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Logon Activity by Source IP](../queries/login_activity_by_source_address.toml)
+
 ## Query
 
 ```sql

@@ -12,6 +12,7 @@ code injection or some other form of exploitation for defense evasion.
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [Executable File Creation by an Unusual Microsoft Binary](../queries/executable_file_creation_by_an_unusual_microsoft_binary.toml)
+
 ## Query
 
 ```sql

@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
 - **Source File:** [Persistence Through Reverse/Bind Shells](../queries/persistence_reverse_bind_shells.toml)
+
 ## Query
 
 ```sql

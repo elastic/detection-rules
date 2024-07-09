@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [Rare LSASS Process Access Attempts](../queries/detect_rare_lsass_process_access_attempts.toml)
+
 ## Query
 
 ```sql

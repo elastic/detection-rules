@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
 - **Source File:** [XDG Persistence](../queries/persistence_via_xdg_autostart_modifications.toml)
+
 ## Query
 
 ```sql

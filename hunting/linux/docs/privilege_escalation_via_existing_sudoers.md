@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
 - **Source File:** [Privilege Escalation Identification via Existing Sudoers File](../queries/privilege_escalation_via_existing_sudoers.toml)
+
 ## Query
 
 ```sql

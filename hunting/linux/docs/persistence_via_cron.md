@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
 - **Source File:** [Persistence via Cron](../queries/persistence_via_cron.toml)
+
 ## Query
 
 ```sql

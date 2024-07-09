@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [Excessive RDP Network Activity by Host and User](../queries/excessive_rdp_network_activity_by_source_host_and_user.toml)
+
 ## Query
 
 ```sql

@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
 - **Source File:** [Git Hook/Pager Persistence](../queries/persistence_via_git_hook_pager.toml)
+
 ## Query
 
 ```sql

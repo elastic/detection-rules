@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [Low Frequency of Process Execution via Windows Scheduled Task by Unique Agent](../queries/execution_via_windows_scheduled_task_with_low_occurrence_frequency.toml)
+
 ## Query
 
 ```sql

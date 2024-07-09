@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 - **Source File:** [Low Frequency of Process Execution via WMI by Unique Agent](../queries/execution_via_windows_management_instrumentation_by_occurrence_frequency_by_unique_agent.toml)
+
 ## Query
 
 ```sql

@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 - **Source File:** [Suspicious Base64 Encoded Powershell Command](../queries/suspicious_base64_encoded_powershell_commands.toml)
+
 ## Query
 
 ```sql

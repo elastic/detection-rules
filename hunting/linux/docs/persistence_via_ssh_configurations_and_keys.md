@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
 - **Source File:** [Persistence via SSH Configurations and/or Keys](../queries/persistence_via_ssh_configurations_and_keys.toml)
+
 ## Query
 
 ```sql

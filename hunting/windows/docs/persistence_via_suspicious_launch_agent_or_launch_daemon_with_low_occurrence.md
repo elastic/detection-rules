@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Low Occurrence of Suspicious Launch Agent or Launch Daemon](../queries/persistence_via_suspicious_launch_agent_or_launch_daemon_with_low_occurrence.toml)
+
 ## Query
 
 ```sql
@@ -20,7 +21,7 @@ from logs-endpoint.events.file-*
   (Persistence.runatload == true or Persistence.keepalive == true) and process.executable is not null
 | eval args = MV_CONCAT(Persistence.args, ",")
  /* normalizing users home profile */
-| eval args = replace(args, """/Users/[a-zA-Z0-9ñ\.\-\_\$~ ]+/""", "/Users/user/")
+| eval args = replace(args, """/Users/[a-zA-Z0-9]\.\-\_\$~ ]+/""", "/Users/user/")
 | stats agents = count_distinct(host.id), total = count(*) by process.name, Persistence.name, args
 | where starts_with(args, "/") and agents == 1 and total == 1
 ```

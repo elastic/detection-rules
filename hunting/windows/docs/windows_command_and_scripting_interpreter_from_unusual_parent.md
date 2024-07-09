@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 - **Source File:** [Windows Command and Scripting Interpreter from Unusual Parent Process](../queries/windows_command_and_scripting_interpreter_from_unusual_parent.toml)
+
 ## Query
 
 ```sql

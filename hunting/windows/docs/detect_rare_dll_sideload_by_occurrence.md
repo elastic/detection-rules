@@ -10,6 +10,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [Rare DLL Side-Loading by Occurrence](../queries/detect_rare_dll_sideload_by_occurrence.toml)
+
 ## Query
 
 ```sql

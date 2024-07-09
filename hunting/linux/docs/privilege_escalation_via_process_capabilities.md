@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Process Capability Hunting](../queries/privilege_escalation_via_process_capabilities.toml)
+
 ## Query
 
 ```sql

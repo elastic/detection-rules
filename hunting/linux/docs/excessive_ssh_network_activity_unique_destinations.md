@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Excessive SSH Network Activity to Unique Destinations](../queries/excessive_ssh_network_activity_unique_destinations.toml)
+
 ## Query
 
 ```sql

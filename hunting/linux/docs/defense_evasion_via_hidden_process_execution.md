@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Hidden Process Execution](../queries/defense_evasion_via_hidden_process_execution.toml)
+
 ## Query
 
 ```sql

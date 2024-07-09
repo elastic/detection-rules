@@ -87,7 +87,7 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
     markdown += f"- **UUID:** `{hunt_config.uuid}`\n"
     markdown += f"- **Integration:** {', '.join(generate_integration_links(hunt_config.integration))}\n"
     markdown += f"- **Language:** `{hunt_config.language}`\n".replace("'", "").replace('"', "")
-    markdown += f"- **Source File:** [{hunt_config.name}]({(Path('../queries') / file_path.name).as_posix()})"
+    markdown += f"- **Source File:** [{hunt_config.name}]({(Path('../queries') / file_path.name).as_posix()})\n"
     markdown += "\n## Query\n\n"
     for query in hunt_config.query:
         markdown += f"```sql\n{query}```\n\n"

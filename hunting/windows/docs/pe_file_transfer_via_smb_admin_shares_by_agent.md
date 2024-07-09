@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [PE File Transfer via SMB_Admin Shares by Agent or User](../queries/pe_file_transfer_via_smb_admin_shares_by_agent.toml)
+
 ## Query
 
 ```sql

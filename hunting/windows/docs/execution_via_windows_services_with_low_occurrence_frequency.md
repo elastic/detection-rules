@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 - **Source File:** [Low Occurence of Process Execution via Windows Services with Unique Agent](../queries/execution_via_windows_services_with_low_occurrence_frequency.toml)
+
 ## Query
 
 ```sql

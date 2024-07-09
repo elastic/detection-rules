@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
 - **Source File:** [OSQuery SUID Hunting](../queries/privilege_escalation_via_suid_binaries.toml)
+
 ## Query
 
 ```sql

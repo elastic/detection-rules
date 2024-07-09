@@ -10,6 +10,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [Persistence via Startup with Low Occurrence Frequency by Unique Host](../queries/persistence_via_startup_with_low_occurrence_frequency.toml)
+
 ## Query
 
 ```sql

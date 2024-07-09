@@ -11,6 +11,7 @@
 - **Integration:** [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 - **Source File:** [Windows Logon Activity by Source IP](../queries/windows_logon_activity_by_source_ip.toml)
+
 ## Query
 
 ```sql

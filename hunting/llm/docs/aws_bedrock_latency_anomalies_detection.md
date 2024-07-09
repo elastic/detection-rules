@@ -11,6 +11,7 @@
 - **Integration:** [aws_bedrock.invocation](https://docs.elastic.co/integrations/aws_bedrock)
 - **Language:** `[ES|QL]`
 - **Source File:** [AWS Bedrock LLM Latency Anomalies](../queries/aws_bedrock_latency_anomalies_detection.toml)
+
 ## Query
 
 ```sql

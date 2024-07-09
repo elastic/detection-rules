@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Defense Evasion via Capitalized Process Execution](../queries/defense_evasion_via_capitalized_process_execution.toml)
+
 ## Query
 
 ```sql

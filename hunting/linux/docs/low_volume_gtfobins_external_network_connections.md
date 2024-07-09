@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Low Volume GTFOBins External Network Connections](../queries/low_volume_gtfobins_external_network_connections.toml)
+
 ## Query
 
 ```sql

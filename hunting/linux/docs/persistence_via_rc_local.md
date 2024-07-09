@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL, SQL]`
 - **Source File:** [Persistence via rc.local/rc.common](../queries/persistence_via_rc_local.toml)
+
 ## Query
 
 ```sql

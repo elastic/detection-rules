@@ -11,6 +11,7 @@
 - **Integration:** [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 - **Source File:** [Scheduled Tasks Creation for Unique Hosts by Task Command](../queries/scheduled_tasks_creation_for_unique_hosts_by_task_command.toml)
+
 ## Query
 
 ```sql

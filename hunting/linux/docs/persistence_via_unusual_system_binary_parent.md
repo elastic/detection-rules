@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Unusual System Binary Parent (Potential System Binary Hijacking Attempt)](../queries/persistence_via_unusual_system_binary_parent.toml)
+
 ## Query
 
 ```sql

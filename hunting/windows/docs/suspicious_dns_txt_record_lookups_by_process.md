@@ -12,6 +12,7 @@ Adversaries may leverage DNS TXT queries to stage malicious content or exfiltrat
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [Suspicious DNS TXT Record Lookups by Process](../queries/suspicious_dns_txt_record_lookups_by_process.toml)
+
 ## Query
 
 ```sql

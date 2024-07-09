@@ -11,6 +11,7 @@
 - **Integration:** [aws_bedrock.invocation](https://docs.elastic.co/integrations/aws_bedrock)
 - **Language:** `[ES|QL]`
 - **Source File:** [AWS Bedrock LLM Denial-of-Service or Resource Exhaustion](../queries/aws_bedrock_dos_resource_exhaustion_detection.toml)
+
 ## Query
 
 ```sql

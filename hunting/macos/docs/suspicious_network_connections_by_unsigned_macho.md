@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Suspicious Network Connections by Unsigned Mach-O](../queries/suspicious_network_connections_by_unsigned_macho.toml)
+
 ## Query
 
 ```sql

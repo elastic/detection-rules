@@ -10,6 +10,7 @@
 - **Integration:** [aws_bedrock.invocation](https://docs.elastic.co/integrations/aws_bedrock)
 - **Language:** `[ES|QL]`
 - **Source File:** [AWS Bedrock LLM Sensitive Content Refusals](../queries/aws_bedrock_sensitive_content_refusal_detection.toml)
+
 ## Query
 
 ```sql

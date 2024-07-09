@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [Libraries Loaded by svchost with Low Occurrence Frequency](../queries/libraries_loaded_by_svchost_with_low_occurrence_frequency.toml)
+
 ## Query
 
 ```sql

@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Egress Network Connections with Total Bytes Greater than Threshold](../queries/potential_exfiltration_by_process_total_egress_bytes.toml)
+
 ## Query
 
 ```sql

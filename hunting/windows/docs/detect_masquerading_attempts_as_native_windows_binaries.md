@@ -10,6 +10,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Masquerading Attempts as Native Windows Binaries](../queries/detect_masquerading_attempts_as_native_windows_binaries.toml)
+
 ## Query
 
 ```sql

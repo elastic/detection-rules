@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Low Volume External Network Connections from Process by Unique Agent](../queries/low_volume_external_network_connections_from_process.toml)
+
 ## Query
 
 ```sql

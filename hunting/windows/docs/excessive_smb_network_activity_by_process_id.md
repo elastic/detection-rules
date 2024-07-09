@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [Excessive SMB Network Activity by Process ID](../queries/excessive_smb_network_activity_by_process_id.toml)
+
 ## Query
 
 ```sql

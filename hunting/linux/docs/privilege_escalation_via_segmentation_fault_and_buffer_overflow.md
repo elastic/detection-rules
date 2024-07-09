@@ -11,6 +11,7 @@
 - **Integration:** [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 - **Source File:** [Segmentation Fault & Potential Buffer Overflow Hunting](../queries/privilege_escalation_via_segmentation_fault_and_buffer_overflow.toml)
+
 ## Query
 
 ```sql

@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
 - **Source File:** [Privilege Escalation/Persistence via User/Group Creation and/or Modification](../queries/persistence_via_user_group_creation_modification.toml)
+
 ## Query
 
 ```sql

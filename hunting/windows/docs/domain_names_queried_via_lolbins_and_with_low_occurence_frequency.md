@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [DNS Queries via LOLBins with Low Occurence Frequency](../queries/domain_names_queried_via_lolbins_and_with_low_occurence_frequency.toml)
+
 ## Query
 
 ```sql

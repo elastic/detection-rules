@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [High Count of Network Connection Over Extended Period by Process](../queries/high_count_of_network_connection_over_extended_period_by_process.toml)
+
 ## Query
 
 ```sql

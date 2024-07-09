@@ -10,6 +10,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [DLL Hijack via Masquerading as Microsoft Native Libraries](../queries/detect_dll_hijack_via_masquerading_as_microsoft_native_libraries.toml)
+
 ## Query
 
 ```sql

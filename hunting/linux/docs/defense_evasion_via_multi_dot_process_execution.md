@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Potential Defense Evasion via Multi-Dot Process Execution](../queries/defense_evasion_via_multi_dot_process_execution.toml)
+
 ## Query
 
 ```sql

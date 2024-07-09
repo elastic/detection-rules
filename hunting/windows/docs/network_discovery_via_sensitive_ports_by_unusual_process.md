@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
 - **Source File:** [Network Discovery via Sensitive Ports by Unusual Process](../queries/network_discovery_via_sensitive_ports_by_unusual_process.toml)
+
 ## Query
 
 ```sql

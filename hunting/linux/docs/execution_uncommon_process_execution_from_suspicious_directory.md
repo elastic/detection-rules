@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Uncommon Process Execution from Suspicious Directory](../queries/execution_uncommon_process_execution_from_suspicious_directory.toml)
+
 ## Query
 
 ```sql

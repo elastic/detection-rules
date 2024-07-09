@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
 - **Source File:** [Persistence via Udev](../queries/persistence_via_udev.toml)
+
 ## Query
 
 ```sql

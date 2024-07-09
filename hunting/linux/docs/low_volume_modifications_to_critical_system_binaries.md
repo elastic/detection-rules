@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Low Volume Modifications to Critical System Binaries by Unique Host](../queries/low_volume_modifications_to_critical_system_binaries.toml)
+
 ## Query
 
 ```sql

@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Low Volume Process Injection-Related Syscalls by Process Executable](../queries/low_volume_process_injection_syscalls_by_executable.toml)
+
 ## Query
 
 ```sql

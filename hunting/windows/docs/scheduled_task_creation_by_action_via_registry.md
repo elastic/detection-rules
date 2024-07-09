@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Scheduled tasks Creation by Action via Registry](../queries/scheduled_task_creation_by_action_via_registry.toml)
+
 ## Query
 
 ```sql

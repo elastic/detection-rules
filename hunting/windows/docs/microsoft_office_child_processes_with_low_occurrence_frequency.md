@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 - **Source File:** [Microsoft Office Child Processes with Low Occurrence Frequency by Unique Agent](../queries/microsoft_office_child_processes_with_low_occurrence_frequency.toml)
+
 ## Query
 
 ```sql

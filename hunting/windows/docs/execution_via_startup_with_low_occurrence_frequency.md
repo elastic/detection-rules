@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Startup Execution with Low Occurrence Frequency by Unique Host](../queries/execution_via_startup_with_low_occurrence_frequency.toml)
+
 ## Query
 
 ```sql

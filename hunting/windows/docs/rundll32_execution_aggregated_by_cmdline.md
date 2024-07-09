@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
 - **Source File:** [Rundll32 Execution Aggregated by Command Line](../queries/rundll32_execution_aggregated_by_cmdline.toml)
+
 ## Query
 
 ```sql

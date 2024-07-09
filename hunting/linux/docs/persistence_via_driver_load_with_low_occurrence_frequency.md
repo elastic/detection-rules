@@ -11,6 +11,7 @@
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
 - **Source File:** [Drivers Load with Low Occurrence Frequency](../queries/persistence_via_driver_load_with_low_occurrence_frequency.toml)
+
 ## Query
 
 ```sql
