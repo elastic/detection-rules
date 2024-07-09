@@ -147,7 +147,7 @@ class KQLValidator(QueryValidator):
             ecs_version = mapping['ecs']
             err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-            beat_types, beat_schema, schema = self.get_beats_schema(data.index_or_dataview or [],
+            beat_types, beat_schema, schema = self.get_beats_schema(data.index_or_dataview,
                                                                     beats_version, ecs_version)
 
             try:
@@ -338,9 +338,9 @@ class EQLValidator(QueryValidator):
             err_trailer = f'stack: {stack_version}, beats: {beats_version},' \
                           f'ecs: {ecs_version}, endgame: {endgame_version}'
 
-            beat_types, beat_schema, schema = self.get_beats_schema(data.index_or_dataview or [],
+            beat_types, beat_schema, schema = self.get_beats_schema(data.index_or_dataview,
                                                                     beats_version, ecs_version)
-            endgame_schema = self.get_endgame_schema(data.index_or_dataview or [], endgame_version)
+            endgame_schema = self.get_endgame_schema(data.index_or_dataview, endgame_version)
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             # validate query against the beats and eql schema
