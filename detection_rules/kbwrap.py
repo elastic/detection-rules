@@ -198,7 +198,10 @@ def kibana_export_rules(
             except Exception as e:
                 if skip_errors:
                     print(f"- skipping exceptions export - {type(e).__name__}")
-                    errors.append(f"- exceptions export - {e}")
+                    if not exception_directory:
+                        errors.append(f"- no exceptions directory found - {e}")
+                    else:
+                        errors.append(f"- exceptions export - {e}")
                     continue
                 raise
 
