@@ -51,7 +51,6 @@ To initialize a custom rule directory, run `python -m detection_rules custom-rul
 ```yaml
 rule_dirs:
   - rules
-  - rules_building_block
 files:
   deprecated_rules: deprecated_rules.json
   packages: packages.yaml
@@ -69,7 +68,7 @@ Some notes:
 * You can also add an optional `bbr_rules_dirs` section for custom BBR rules.
 * To bypass using the version lock versioning strategy (version lock file) you can set the optional `bypass_version_lock` value to be `True`
 * To normalize the capitalization KQL keywords in KQL rule queries one can use the optional `normalize_kql_keywords` value set to `True` or `False` as desired.
-* To manage exceptions tied to rules one can set an exceptions directory using the optional `exception_dir` value set to be the desired path. If an exceptions directory is explicitly specified in a CLI command, the config value will be ignored.
+* To manage exceptions tied to rules one can set an exceptions directory using the optional `exception_dir` value (included above) set to be the desired path. If an exceptions directory is explicitly specified in a CLI command, the config value will be ignored.
 
 When using the repo, set the environment variable `CUSTOM_RULES_DIR=<directory-with-_config.yaml>`
 
