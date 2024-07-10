@@ -178,7 +178,7 @@ class TestValidRules(BaseRuleTest):
         for rule in self.all_rules:
             from_field = rule.contents.data.get('from_')
             if from_field is not None:
-                if not bool(valid_format.match(from_field)):
+                if not valid_format.match(from_field):
                     err_msg = f'{self.rule_str(rule)} has invalid value {from_field}'
                     failures.append(err_msg)
         if failures:
