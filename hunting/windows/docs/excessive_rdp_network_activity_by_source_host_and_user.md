@@ -10,6 +10,7 @@
 - **UUID:** `f7d2054f-b571-4cd0-b39e-a779576e9398`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
+- **Source File:** [Excessive RDP Network Activity by Host and User](../queries/excessive_rdp_network_activity_by_source_host_and_user.toml)
 
 ## Query
 
@@ -38,6 +39,7 @@ from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 - Further investigation can done pivoting by `host.id` and `user.name`.
 - Depending on normal SysAdmin RDP activity, the threshold of 10 can be adjusted to reduce normal noisy activity.
 - The second query uses Windows Security log event ID 4624 to summarize numbers of RDP connections by `source.ip` and `user.name` and duration.
+
 ## MITRE ATT&CK Techniques
 
 - [T1021](https://attack.mitre.org/techniques/T1021)

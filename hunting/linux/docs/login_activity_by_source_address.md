@@ -10,6 +10,7 @@
 - **UUID:** `95c1467d-d566-4645-b5f1-37a4b0093bb6`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
+- **Source File:** [Logon Activity by Source IP](../queries/login_activity_by_source_address.toml)
 
 ## Query
 
@@ -29,6 +30,7 @@ from logs-system.auth-*
 - Monitors authentication events and counts failed and successful logon attempts by source IP address.
 - A high number of failed logon attempts combined with a low number of successful logons and multiple distinct usernames can indicate a potential brute force or credential stuffing attack.
 - The thresholds for failed attempts, successful logons, and distinct usernames should be adjusted based on the environment's normal logon patterns.
+
 ## MITRE ATT&CK Techniques
 
 - [T1110](https://attack.mitre.org/techniques/T1110)
