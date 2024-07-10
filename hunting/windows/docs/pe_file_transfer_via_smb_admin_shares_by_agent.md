@@ -10,6 +10,7 @@
 - **UUID:** `814894a4-c951-4f33-ab0b-09354e1cb957`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
+- **Source File:** [PE File Transfer via SMB_Admin Shares by Agent or User](../queries/pe_file_transfer_via_smb_admin_shares_by_agent.toml)
 
 ## Query
 
@@ -35,6 +36,7 @@ from logs-endpoint.events.file-*
 ## Notes
 
 - Further investigation can done pivoting by `host.id` and `user.name`.
+
 ## MITRE ATT&CK Techniques
 
 - [T1021](https://attack.mitre.org/techniques/T1021)

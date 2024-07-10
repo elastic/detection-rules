@@ -10,6 +10,7 @@
 - **UUID:** `24108755-4d1f-4d7a-ad5f-04c2ca55e9a3`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
+- **Source File:** [Frequency of Process Execution via Network Logon by Source Address](../queries/execution_via_network_logon_by_occurrence_frequency_by_top_source_ip.toml)
 
 ## Query
 
@@ -41,6 +42,7 @@ from logs-endpoint.events.process-*
 - `process.Ext.session_info.*` is populated for Elastic Defend versions 8.6.0+ and above.
 - Execution via legitimate Microsoft processes for PowerShell and cmd need to be further investigated via aggregation by `process.command_line`.
 - Aggregation can be also done by `process.executable`, normalizing process path by removing random patterns using the ES|QL REPLACE function.
+
 ## MITRE ATT&CK Techniques
 
 - [T1021](https://attack.mitre.org/techniques/T1021)
