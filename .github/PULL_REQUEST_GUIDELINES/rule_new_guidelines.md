@@ -14,12 +14,14 @@ These guidelines serve as a reminder set of considerations when proposing a new 
 - [ ] `creation_date` matches the date of creation PR initially merged.
 - [ ] `min_stack_version` should support the widest stack versions.
 - [ ] `name` and `description` should be descriptive and not include typos.
-- [ ] `query` should be inclusive, not overly exclusive, considering performance for diverse environments.
+- [ ] `query` should be inclusive, not overly exclusive, considering performance for diverse environments. Non ecs fields should be added to `non-ecs-schema.json` if not available in an integration.
 - [ ] `min_stack_comments` and `min_stack_version` should be included if the rule is only compatible starting from a specific stack version.
-- [ ] `integration` should align with the `index`. If the integration is newly introduced, ensure the manifest and schemas are updated.
+- [ ] `index` should align with the `integration` or data source.
+- [ ] `integration` should align with the `index`. If the integration is newly introduced, ensure the manifest, schemas, and `new_rule.yaml` template are updated.
 - [ ] `setup` should include the necessary steps to configure the integration.
 - [ ] `note` should include any additional information (e.g. Triage and analysis investigation guides, timeline templates).
 - [ ] `tags` should be relevant to the threat and align/added to the `EXPECTED_RULE_TAGS` in the definitions.py file.
+- [ ] `threat`, `techniques`, and `subtechniques` should map to ATT&CK always if possible.
 
 #### New BBR Rules
 - [ ] `building_block_type` should be included if the rule is a building block and the rule should be located in the `rules_building_block` folder.

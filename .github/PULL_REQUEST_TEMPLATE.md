@@ -36,7 +36,7 @@ from your submission, but they are here to help bring them to your attention.
 
 <!-- Delete any items that are not applicable to this PR. -->
 
-- [ ] Added a label for the type of pr: `bug`, `enhancement`, `Rule: New`, `Rule: Deprecation`, `Rule: Promote`, or `Rule: Tuning` so guidelines can be generated
+- [ ] Added a label for the type of pr: `bug`, `enhancement`, `Rule: New`, `Rule: Deprecation`, `Rule: Promote`, `Rule: Tuning`, `Hunt: New`, or `Hunt: Tuning` so guidelines can be generated
 - [ ] Added the `meta:rapid-merge` label if planning to merge within 24 hours
 - [ ] Secret and sensitive material has been managed correctly
 - [ ] Automated testing was updated or added to match the most common scenarios
