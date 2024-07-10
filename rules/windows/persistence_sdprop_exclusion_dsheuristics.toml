@@ -2,7 +2,7 @@
 creation_date = "2022/02/24"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/07/08"
 
 [rule]
 author = ["Elastic"]
@@ -98,7 +98,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.action == "Directory Service Changes" and
+any where event.action in ("Directory Service Changes", "directory-service-object-modified") and
   event.code == "5136" and
   winlog.event_data.AttributeLDAPDisplayName : "dSHeuristics" and
   length(winlog.event_data.AttributeValue) > 15 and
