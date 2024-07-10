@@ -10,6 +10,7 @@
 - **UUID:** `2e583d3c-7ad6-4544-a0db-c685b2066493`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
+- **Source File:** [Suspicious Base64 Encoded Powershell Command](../queries/suspicious_base64_encoded_powershell_commands.toml)
 
 ## Query
 
@@ -31,6 +32,7 @@ from logs-endpoint.events.process-*, logs-windows.sysmon_operational-*, logs-sys
 
 - This hunt can be expanded to include more evasion techniques and downloaders.
 - Pivoting by `agent.id` can provide more context on the affected hosts.
+
 ## MITRE ATT&CK Techniques
 
 - [T1059](https://attack.mitre.org/techniques/T1059)

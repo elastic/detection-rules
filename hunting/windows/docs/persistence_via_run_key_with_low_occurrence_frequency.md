@@ -10,6 +10,7 @@
 - **UUID:** `df4ee961-254d-4ad1-af15-c65c3b65abcd`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
+- **Source File:** [Persistence via Run Key with Low Occurrence Frequency](../queries/persistence_via_run_key_with_low_occurrence_frequency.toml)
 
 ## Query
 
@@ -47,6 +48,7 @@ from logs-windows.sysmon_operational-*
 - This hunt includes two queries to cover both Sysmon and Elastic Defend data sources.
 - Sysmon registry events do not populate process code signature information (hence the separation of the queries).
 - Suspicious paths and LOLBins in the `registry.data.strings` value should be reviewed further.
+
 ## MITRE ATT&CK Techniques
 
 - [T1547](https://attack.mitre.org/techniques/T1547)

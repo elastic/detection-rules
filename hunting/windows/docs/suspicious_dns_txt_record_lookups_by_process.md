@@ -11,6 +11,7 @@ Adversaries may leverage DNS TXT queries to stage malicious content or exfiltrat
 - **UUID:** `7a2c8397-d219-47ad-a8e2-93562e568d08`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
+- **Source File:** [Suspicious DNS TXT Record Lookups by Process](../queries/suspicious_dns_txt_record_lookups_by_process.toml)
 
 ## Query
 
@@ -1592,6 +1593,7 @@ s```
 
 - This hunt returns a list of processes unique pids and executable paths that performs a high number of DNS TXT lookups.
 - Pivoting by `process.entity_id` will allow further investigation (parent process, hash, child processes, other network events etc.).
+
 ## MITRE ATT&CK Techniques
 
 - [T1071](https://attack.mitre.org/techniques/T1071)
