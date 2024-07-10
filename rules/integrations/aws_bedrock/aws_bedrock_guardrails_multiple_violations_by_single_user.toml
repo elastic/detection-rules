@@ -1,0 +1,54 @@
+[metadata]
+creation_date = "2024/05/02"
+maturity = "production"
+updated_date = "2024/05/02"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
+min_stack_version = "8.13.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies multiple violations of AWS Bedrock guardrails by the same user in the same account over a session. Multiple
+violations implies that a user may be intentionally attempting to cirvumvent security controls, access sensitive
+information, or possibly exploit a vulnerability in the system.
+"""
+false_positives = ["Legitimate misunderstanding by users or overly strict policies"]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Bedrock Guardrails Detected Multiple Violations by a Single User Over a Session"
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-components.html",
+    "https://atlas.mitre.org/techniques/AML.T0051",
+    "https://atlas.mitre.org/techniques/AML.T0054",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+]
+risk_score = 47
+rule_id = "0cd2f3e6-41da-40e6-b28b-466f688f00a6"
+setup = """## Setup
+
+This rule requires that guardrails are configured in AWS Bedrock. For more information, see the AWS Bedrock documentation:
+
+https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-create.html
+"""
+severity = "medium"
+tags = [
+    "Domain: LLM",
+    "Data Source: AWS Bedrock",
+    "Data Source: AWS S3",
+    "Resources: Investigation Guide",
+    "Use Case: Policy Violation",
+    "Mitre Atlas: T0051",
+    "Mitre Atlas: T0054",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws_bedrock.invocation-*
+| where gen_ai.compliance.violation_detected
+| stats violations = count(*) by user.id, gen_ai.model.id, cloud.account.id
+| where violations > 1
+| sort violations desc
+'''

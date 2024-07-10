@@ -8,7 +8,7 @@ import glob
 import gzip
 import json
 import re
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 from pathlib import Path
 from typing import Generator, List, Tuple, Union, Optional
 
@@ -25,8 +25,9 @@ from .misc import load_current_package_version
 from .utils import cached, get_etc_path, read_gzip, unzip
 from .schemas import definitions
 
-MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
-SCHEMA_FILE_PATH = Path(get_etc_path('integration-schemas.json.gz'))
+MANIFEST_FILE_PATH = get_etc_path('integration-manifests.json.gz')
+NUM_LATEST_RULE_VERSIONS = 2
+SCHEMA_FILE_PATH = get_etc_path('integration-schemas.json.gz')
 _notified_integrations = set()
 
 
@@ -59,7 +60,8 @@ class IntegrationManifestSchema(Schema):
         return data
 
 
-def build_integrations_manifest(overwrite: bool, rule_integrations: list = [], integration: str = None) -> None:
+def build_integrations_manifest(overwrite: bool, rule_integrations: list = [],
+                                integration: str = None, prerelease: bool = False) -> None:
     """Builds a new local copy of manifest.yaml from integrations Github."""
 
     def write_manifests(integrations: dict) -> None:
@@ -77,7 +79,7 @@ def build_integrations_manifest(overwrite: bool, rule_integrations: list = [], i
 
     rule_integrations = rule_integrations or [integration]
     for integration in rule_integrations:
-        integration_manifests = get_integration_manifests(integration)
+        integration_manifests = get_integration_manifests(integration, prerelease=prerelease)
         for manifest in integration_manifests:
             validated_manifest = IntegrationManifestSchema(unknown=EXCLUDE).load(manifest)
             package_version = validated_manifest.pop("version")
@@ -411,14 +413,27 @@ class SecurityDetectionEngine:
                       for x in asset_file_names}
         return assets
 
-    def transform_legacy_assets(self, assets: dict) -> dict:
-        """Transforms legacy rule assets to historical rules."""
-        # this code can be removed after the 8.8 minor release
-        # epr prebuilt rule packages should have appropriate file names
+    def keep_latest_versions(self, assets: dict, num_versions: int = NUM_LATEST_RULE_VERSIONS) -> dict:
+        """Keeps only the latest N versions of each rule to limit historical rule versions in our release package."""
 
-        assets_transformed = {}
-        for asset_id, contents in assets.items():
-            new_asset_id = f"{contents['attributes']['rule_id']}_{contents['attributes']['version']}"
-            contents["id"] = new_asset_id
-            assets_transformed[new_asset_id] = contents
-        return assets_transformed
+        # Dictionary to hold the sorted list of versions for each base rule ID
+        rule_versions = defaultdict(list)
+
+        # Separate rule ID and version, and group by base rule ID
+        for key in assets:
+            base_id, version = key.rsplit('_', 1)
+            version = int(version)  # Convert version to an integer for sorting
+            rule_versions[base_id].append((version, key))
+
+        # Dictionary to hold the final assets with only the specified number of latest versions
+        filtered_assets = {}
+
+        # Keep only the last/latest num_versions versions for each rule
+        # Sort versions and take the last num_versions
+        # Add the latest versions of the rule to the filtered assets
+        for base_id, versions in rule_versions.items():
+            latest_versions = sorted(versions, key=lambda x: x[0], reverse=True)[:num_versions]
+            for _, key in latest_versions:
+                filtered_assets[key] = assets[key]
+
+        return filtered_assets

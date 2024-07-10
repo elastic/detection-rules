@@ -2,9 +2,7 @@
 creation_date = "2020/11/06"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +12,12 @@ via the MMC20 Application COM Object. This behavior may indicate an attacker abu
 laterally.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-endpoint.events.network-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-endpoint.events.network-*",
+    "logs-windows.sysmon_operational-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Incoming DCOM Lateral Movement with MMC"
@@ -22,7 +25,15 @@ references = ["https://enigma0x3.net/2017/01/05/lateral-movement-using-the-mmc20
 risk_score = 73
 rule_id = "51ce96fb-9e52-4dad-b0ba-99b54440fc9a"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 type = "eql"
 
 query = '''
@@ -53,18 +64,17 @@ reference = "https://attack.mitre.org/techniques/T1021/003/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1218"
 name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1218.014"
 name = "MMC"
 reference = "https://attack.mitre.org/techniques/T1218/014/"
+
 
 
 [rule.threat.tactic]

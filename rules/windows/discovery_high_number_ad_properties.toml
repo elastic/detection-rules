@@ -2,9 +2,7 @@
 creation_date = "2023/01/29"
 integration = ["windows", "system"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/02"
+updated_date = "2024/07/08"
 
 [rule]
 author = ["Elastic"]
@@ -19,8 +17,7 @@ license = "Elastic License v2"
 name = "Suspicious Access to LDAP Attributes"
 risk_score = 73
 rule_id = "68ad737b-f90a-4fe5-bda6-a68fa460044e"
-setup = """
-The 'Audit Directory Service Changes' logging policy must be configured for (Success, Failure).
+setup = """The 'Audit Directory Service Changes' logging policy must be configured for (Success, Failure).
 Steps to implement the logging policy with Advanced Audit Configuration:
 
 Computer Configuration >
@@ -46,7 +43,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.action == "Directory Service Access" and
+any where event.action in ("Directory Service Access", "object-operation-performed") and
  event.code == "4662" and not winlog.event_data.SubjectUserSid : "S-1-5-18" and
  winlog.event_data.AccessMaskDescription == "Read Property" and length(winlog.event_data.Properties) >= 2000
 '''

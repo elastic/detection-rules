@@ -90,7 +90,7 @@ def dev_group():
 def build_release(config_file, update_version_lock: bool, generate_navigator: bool, generate_docs: str,
                   update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
-    config = load_dump(config_file)['package']
+    config = load_dump(str(config_file))['package']
     registry_data = config['registry_data']
 
     if generate_navigator:
@@ -112,15 +112,15 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
                                                            registry_data['conditions']['kibana.version'].strip("^"))
     sde = SecurityDetectionEngine()
     historical_rules = sde.load_integration_assets(previous_pkg_version)
-    historical_rules = sde.transform_legacy_assets(historical_rules)
-    package.add_historical_rules(historical_rules, registry_data['version'])
+    limited_historical_rules = sde.keep_latest_versions(historical_rules)
+    package.add_historical_rules(limited_historical_rules, registry_data['version'])
     click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
 
     # NOTE: stopgap solution until security doc migration
     if generate_docs:
         click.echo(f'[+] Generating security docs for {registry_data["version"]} package')
         docs = IntegrationSecurityDocsMDX(registry_data['version'], Path(f'releases/{config["name"]}-docs'),
-                                          True, historical_rules, package, note=update_message)
+                                          True, limited_historical_rules, package, note=update_message)
         docs.generate()
 
     if verbose:
@@ -195,7 +195,7 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, new_package: str, maturity: str):
     """Bump the versions"""
 
-    pkg_data = load_etc_dump('packages.yml')['package']
+    pkg_data = load_etc_dump('packages.yaml')['package']
     kibana_ver = Version.parse(pkg_data["name"], optional_minor_and_patch=True)
     pkg_ver = Version.parse(pkg_data["registry_data"]["version"])
     pkg_kibana_ver = Version.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
@@ -236,7 +236,7 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
     click.echo(f"Package version: {pkg_data['registry_data']['version']}")
 
-    save_etc_dump({"package": pkg_data}, "packages.yml")
+    save_etc_dump({"package": pkg_data}, "packages.yaml")
 
 
 @dataclasses.dataclass
@@ -293,7 +293,7 @@ class GitChangeEntry:
 def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list: list):
     """Prune the git staging area to remove changes to incompatible rules."""
     exceptions = {
-        "detection_rules/etc/packages.yml",
+        "detection_rules/etc/packages.yaml",
     }
     exceptions.update(exception_list.split(","))
 
@@ -313,7 +313,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
             continue
 
         # it's a change to a rule file, load it and check the version
-        if str(change.path.absolute()).startswith(RULES_DIR) and change.path.suffix == ".toml":
+        if str(change.path.absolute()).startswith(str(RULES_DIR)) and change.path.suffix == ".toml":
             # bypass TOML validation in case there were schema changes
             dict_contents = RuleCollection.deserialize_toml_string(change.read())
             min_stack_version: Optional[str] = dict_contents.get("metadata", {}).get("min_stack_version")
@@ -334,7 +334,8 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
 
 @dev_group.command('update-lock-versions')
 @click.argument('rule-ids', nargs=-1, required=False)
-def update_lock_versions(rule_ids):
+@click.option('--force', is_flag=True, help='Force update without confirmation')
+def update_lock_versions(rule_ids: Tuple[str, ...], force: bool):
     """Update rule hashes in version.lock.json file without bumping version."""
     rules = RuleCollection.default()
 
@@ -343,7 +344,9 @@ def update_lock_versions(rule_ids):
     else:
         rules = rules.filter(production_filter)
 
-    if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
+    if not force and not click.confirm(
+        f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'
+    ):
         return
 
     # this command may not function as expected anymore due to previous changes eliminating the use of add_new=False
@@ -438,7 +441,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     stack_version = Package.load_configs()["name"]
     package_version = Package.load_configs()["registry_data"]["version"]
 
-    release_dir = Path(RELEASE_DIR) / stack_version / "fleet" / package_version
+    release_dir = RELEASE_DIR / stack_version / "fleet" / package_version
     message = f"[Security Rules] Update security rules package to v{package_version}"
 
     if not release_dir.exists():
@@ -578,7 +581,7 @@ def license_check(ctx, ignore_directory):
     """Check that all code files contain a valid license."""
     ignore_directory += ("env",)
     failed = False
-    base_path = Path(get_path())
+    base_path = get_path()
 
     for path in base_path.rglob('*.py'):
         relative_path = path.relative_to(base_path)
@@ -619,7 +622,7 @@ def test_version_lock(branches: tuple, remote: str):
 
     finally:
         diff = git('--no-pager', 'diff', get_etc_path('version.lock.json'))
-        outfile = Path(get_path()).joinpath('lock-diff.txt')
+        outfile = get_path() / 'lock-diff.txt'
         outfile.write_text(diff)
         click.echo(f'diff saved to {outfile}')
 
@@ -737,7 +740,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
                                    deprecation_date=today,
                                    maturity='deprecated')
     contents = dataclasses.replace(rule.contents, metadata=new_meta)
-    new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
+    new_rule = TOMLRule(contents=contents, path=deprecated_path)
     new_rule.save_toml()
 
     # remove the old rule
@@ -809,8 +812,9 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 
 @dev_group.command('trim-version-lock')
 @click.argument('stack_version')
+@click.option('--skip-rule-updates', is_flag=True, help='Skip updating the rules')
 @click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
-def trim_version_lock(stack_version: str, dry_run: bool):
+def trim_version_lock(stack_version: str, skip_rule_updates: bool, dry_run: bool):
     """Trim all previous entries within the version lock file which are lower than the min_version."""
     stack_versions = get_stack_versions()
     assert stack_version in stack_versions, \
@@ -818,36 +822,78 @@ def trim_version_lock(stack_version: str, dry_run: bool):
 
     min_version = Version.parse(stack_version)
     version_lock_dict = default_version_lock.version_lock.to_dict()
-    removed = {}
+    removed = defaultdict(list)
+    rule_msv_drops = []
+
+    today = time.strftime('%Y/%m/%d')
+    rc: RuleCollection | None = None
+    if dry_run:
+        rc = RuleCollection()
+    else:
+        if not skip_rule_updates:
+            click.echo('Loading rules ...')
+            rc = RuleCollection.default()
 
     for rule_id, lock in version_lock_dict.items():
+        file_min_stack: Version | None = None
+        if 'min_stack_version' in lock:
+            file_min_stack = Version.parse((lock['min_stack_version']), optional_minor_and_patch=True)
+            if file_min_stack <= min_version:
+                removed[rule_id].append(
+                    f'locked min_stack_version <= {min_version} - {"will remove" if dry_run else "removing"}!'
+                )
+                rule_msv_drops.append(rule_id)
+                file_min_stack = None
+
+                if not dry_run:
+                    lock.pop('min_stack_version')
+                    if not skip_rule_updates:
+                        # remove the min_stack_version and min_stack_comments from rules as well (and update date)
+                        rule = rc.id_map.get(rule_id)
+                        if rule:
+                            new_meta = dataclasses.replace(
+                                rule.contents.metadata,
+                                updated_date=today,
+                                min_stack_version=None,
+                                min_stack_comments=None
+                            )
+                            contents = dataclasses.replace(rule.contents, metadata=new_meta)
+                            new_rule = TOMLRule(contents=contents, path=rule.path)
+                            new_rule.save_toml()
+                            removed[rule_id].append('rule min_stack_version dropped')
+                        else:
+                            removed[rule_id].append('rule not found to update!')
+
         if 'previous' in lock:
             prev_vers = [Version.parse(v, optional_minor_and_patch=True) for v in list(lock['previous'])]
-            outdated_vers = [f"{v.major}.{v.minor}" for v in prev_vers if v < min_version]
+            outdated_vers = [v for v in prev_vers if v < min_version]
 
             if not outdated_vers:
                 continue
 
             # we want to remove all "old" versions, but save the latest that is >= the min version supplied as the new
             # stack_version.
+            latest_version = max(outdated_vers)
 
-            if dry_run:
-                outdated_minus_current = [str(v) for v in outdated_vers if v < stack_version]
-                if outdated_minus_current:
-                    removed[rule_id] = outdated_minus_current
             for outdated in outdated_vers:
-                popped = lock['previous'].pop(str(outdated))
-                if outdated >= stack_version:
-                    lock['previous'][str(Version(stack_version[:2]))] = popped
+                short_outdated = f"{outdated.major}.{outdated.minor}"
+                popped = lock['previous'].pop(str(short_outdated))
+                # the core of the update - we only need to keep previous entries that are newer than the min supported
+                # version (from stack-schema-map and stack-version parameter) and older than the locked
+                # min_stack_version for a given rule, if one exists
+                if file_min_stack and outdated == latest_version and outdated < file_min_stack:
+                    lock['previous'][f'{min_version.major}.{min_version.minor}'] = popped
+                    removed[rule_id].append(f'{short_outdated} updated to: {min_version.major}.{min_version.minor}')
+                else:
+                    removed[rule_id].append(f'{outdated} dropped')
 
             # remove the whole previous entry if it is now blank
             if not lock['previous']:
                 lock.pop('previous')
 
-    if dry_run:
-        click.echo(f'The following versions would be collapsed to {stack_version}:' if removed else 'No changes')
-        click.echo('\n'.join(f'{k}: {", ".join(v)}' for k, v in removed.items()))
-    else:
+    click.echo(f'Changes {"that will be " if dry_run else ""} applied:' if removed else 'No changes')
+    click.echo('\n'.join(f'{k}: {", ".join(v)}' for k, v in removed.items()))
+    if not dry_run:
         new_lock = VersionLockFile.from_dict(dict(data=version_lock_dict))
         new_lock.save_to_file()
 
@@ -1077,7 +1123,7 @@ def utils_group():
 
 
 @utils_group.command('get-branches')
-@click.option('--outfile', '-o', type=Path, default=get_etc_path("target-branches.yml"), help='File to save output to')
+@click.option('--outfile', '-o', type=Path, default=get_etc_path("target-branches.yaml"), help='File to save output to')
 def get_branches(outfile: Path):
     branch_list = get_stack_versions(drop_patch=True)
     target_branches = json.dumps(branch_list[:-1]) + "\n"
@@ -1092,7 +1138,8 @@ def integrations_group():
 @integrations_group.command('build-manifests')
 @click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-manifest.json.gz file")
 @click.option("--integration", "-i", type=str, help="Adds an integration tag to the manifest file")
-def build_integration_manifests(overwrite: bool, integration: str):
+@click.option("--prerelease", "-p", is_flag=True, default=False, help="Include prerelease versions")
+def build_integration_manifests(overwrite: bool, integration: str, prerelease: bool = False):
     """Builds consolidated integrations manifests file."""
     click.echo("loading rules to determine all integration tags")
 
@@ -1100,7 +1147,7 @@ def build_integration_manifests(overwrite: bool, integration: str):
         return list(set([tag for tags in tag_list for tag in (flatten(tags) if isinstance(tags, list) else [tags])]))
 
     if integration:
-        build_integrations_manifest(overwrite=False, integration=integration)
+        build_integrations_manifest(overwrite=False, integration=integration, prerelease=prerelease)
     else:
         rules = RuleCollection.default()
         integration_tags = [r.contents.metadata.integration for r in rules if r.contents.metadata.integration]

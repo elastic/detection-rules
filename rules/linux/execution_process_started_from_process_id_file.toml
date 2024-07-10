@@ -2,9 +2,7 @@
 creation_date = "2022/05/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/20"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -68,15 +66,15 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "high"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Threat: BPFDoor",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend",
-        "Data Source: Auditd Manager"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Threat: BPFDoor",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -85,15 +83,17 @@ process where host.os.type == "linux" and event.type == "start" and user.id == "
   process.executable regex~ """/var/run/\w+\.(pid|lock|reboot)"""
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+

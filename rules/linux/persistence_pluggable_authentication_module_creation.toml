@@ -1,0 +1,97 @@
+[metadata]
+creation_date = "2024/03/06"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/03/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the creation or modification of Pluggable Authentication Module (PAM) shared object files or
+configuration files. Attackers may create or modify these files to maintain persistence on a compromised system, or 
+harvest account credentials.
+"""
+false_positives = [
+    "Trusted system module updates or allowed Pluggable Authentication Module (PAM) daemon configuration changes.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Creation or Modification of Pluggable Authentication Module or Configuration"
+references = [
+    "https://github.com/zephrax/linux-pam-backdoor",
+    "https://github.com/eurialo/pambd",
+    "http://0x90909090.blogspot.com/2016/06/creating-backdoor-in-pam-in-5-line-of.html",
+    "https://www.trendmicro.com/en_us/research/19/i/skidmap-linux-malware-uses-rootkit-capabilities-to-hide-cryptocurrency-mining-payload.html",
+]
+risk_score = 47
+rule_id = "f48ecc44-7d02-437d-9562-b838d2c41987"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Credential Access",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.action in ("rename", "creation") and 
+process.executable != null and (
+  (file.path : ("/lib/security/*", "/lib64/security/*", "/usr/lib/security/*", "/usr/lib64/security/*",
+  "/usr/lib/x86_64-linux-gnu/security/*") and file.extension == "so") or
+  (file.path : "/etc/pam.d/*" and file.extension == null) or 
+  (file.path : "/etc/security/pam_*" or file.path == "/etc/pam.conf")
+) and not (
+  process.executable in (
+    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
+    "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
+    "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
+    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
+    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
+    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
+    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
+    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/sbin/pam-auth-update",
+    "/usr/lib/systemd/systemd", "/usr/libexec/packagekitd", "/usr/bin/bsdtar"
+  ) or
+  file.path : (
+    "/tmp/snap.rootfs_*/pam_*.so", "/tmp/newroot/lib/*/pam_*.so", "/tmp/newroot/usr/lib64/security/pam_*.so"
+  ) or
+  file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
+  file.Ext.original.extension == "dpkg-new" or
+  process.executable : (
+    "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*"
+  ) or
+  (process.name == "sed" and file.name : "sed*") or
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
