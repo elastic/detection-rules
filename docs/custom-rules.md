@@ -64,7 +64,7 @@ directories:
 Some notes:
 
 * The paths in this file are relative to the custom rules directory (CUSTOM_RULES_DIR/)
-* Refer to each original source file for purpose and proper formatting
+* Refer to each original [source file](../detection_rules/etc/example_test_config.yaml) for purpose and proper formatting
 * You can also add an optional `bbr_rules_dirs` section for custom BBR rules.
 * To bypass using the version lock versioning strategy (version lock file) you can set the optional `bypass_version_lock` value to be `True`
 * To normalize the capitalization KQL keywords in KQL rule queries one can use the optional `normalize_kql_keywords` value set to `True` or `False` as desired.
