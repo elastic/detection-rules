@@ -37,7 +37,7 @@ from logs-system.system-*
   winlog.event_data.ServiceType == "kernel mode driver"
 | eval ServiceFileName = replace(winlog.event_data.ImagePath, """([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|ns[a-z][A-Z0-9]{3,4}\.tmp|DX[A-Z0-9]{3,4}\.tmp|7z[A-Z0-9]{3,5}\.tmp|[0-9\.\-\_]{3,})""", "")
 | eval ServiceFileName = replace(ServiceFileName, """.inf_amd[a-z0-9]{5,}\\""", "_replaced_")
-| eval ServiceFileName = replace(ServiceFileName, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9]\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
+| eval ServiceFileName = replace(ServiceFileName, """[cC]:\\[uU][sS][eE][rR][sS]\\[a-zA-Z0-9ñ\.\-\_\$~ ]+\\""", "C:\\\\users\\\\user\\\\")
 | stats cc = count(*), hosts = count_distinct(host.id) by ServiceFileName
 | where hosts == 1 and cc == 1
 ```
