@@ -10,6 +10,7 @@
 - **UUID:** `20a02fad-2a09-44c0-a8ce-ce4502859c8a`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
+- **Source File:** [Shell Modification Persistence](../queries/persistence_via_shell_modification_persistence.toml)
 
 ## Query
 
@@ -100,6 +101,7 @@ WHERE
 - Uses EVAL to tag potential persistence events and counts occurrences to identify unusual activity.
 - Monitors processes started by SSH daemons (sshd) to detect suspicious activity related to SSH logins.
 - OSQuery query is provided to retrieve detailed file information related to profile files.
+
 ## MITRE ATT&CK Techniques
 
 - [T1546.004](https://attack.mitre.org/techniques/T1546/004)
