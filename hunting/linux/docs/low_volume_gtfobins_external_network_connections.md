@@ -10,6 +10,7 @@
 - **UUID:** `783d6091-b98d-45a8-a880-a07f112a8aa2`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
+- **Source File:** [Low Volume GTFOBins External Network Connections](../queries/low_volume_gtfobins_external_network_connections.toml)
 
 ## Query
 
@@ -36,6 +37,7 @@ destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "10.0.0.0/8", "127
 - Excludes common internal IP ranges to minimize false positives.
 - Counts the occurrences of these connections by process name and limits to those seen infrequently (five or fewer connections).
 - This can help identify potentially malicious activity involving the exploitation of GTFOBins.
+
 ## MITRE ATT&CK Techniques
 
 - [T1219](https://attack.mitre.org/techniques/T1219)
