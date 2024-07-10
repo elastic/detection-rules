@@ -10,6 +10,7 @@
 - **UUID:** `6f67704d-e5b1-4613-912c-e2965660fe17`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
+- **Source File:** [Process Capability Hunting](../queries/privilege_escalation_via_process_capabilities.toml)
 
 ## Query
 
@@ -49,6 +50,7 @@ from logs-endpoint.events.process-*
 - Uses EVAL to tag potential privilege escalation events and counts occurrences to identify unusual activity.
 - Focuses on non-root users to detect potential privilege escalation attempts.
 - Requires additional data analysis and investigation into results to identify malicious or unauthorized use of process capabilities.
+
 ## MITRE ATT&CK Techniques
 
 - [T1548.001](https://attack.mitre.org/techniques/T1548/001)
