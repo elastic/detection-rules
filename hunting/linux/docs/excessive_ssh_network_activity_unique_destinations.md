@@ -10,6 +10,7 @@
 - **UUID:** `223f812c-a962-4d58-961d-134d8f8b15da`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
+- **Source File:** [Excessive SSH Network Activity to Unique Destinations](../queries/excessive_ssh_network_activity_unique_destinations.toml)
 
 ## Query
 
@@ -30,6 +31,7 @@ from logs-endpoint.events.network-*
 - Monitors network connections to port 22 (SSH) and counts the number of unique destination IP addresses per host and user.
 - A high number of unique destinations can indicate suspicious activity such as discovery or lateral movement.
 - The threshold of 10 unique destinations can be adjusted to suit the environment's baseline activity.
+
 ## MITRE ATT&CK Techniques
 
 - [T1021.004](https://attack.mitre.org/techniques/T1021/004)

@@ -10,6 +10,7 @@
 - **UUID:** `d0aed6f5-f84c-4da8-bb2a-b5ca0fbb55e0`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
+- **Source File:** [Rare LSASS Process Access Attempts](../queries/detect_rare_lsass_process_access_attempts.toml)
 
 ## Query
 
@@ -42,6 +43,7 @@ from logs-windows.sysmon_operational-*
 
 - Based on the process.executable and process.name you can pivot and investigate further for the matching instances.
 - Potential false-positives include rare legitimate conditions that may trigger this behavior due to third-party software or LSASS crashing.
+
 ## MITRE ATT&CK Techniques
 
 - [T1003](https://attack.mitre.org/techniques/T1003)

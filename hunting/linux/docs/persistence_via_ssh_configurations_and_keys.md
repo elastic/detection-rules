@@ -10,6 +10,7 @@
 - **UUID:** `aa759db0-4499-42f2-9f2f-be3e00fdebfa`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
+- **Source File:** [Persistence via SSH Configurations and/or Keys](../queries/persistence_via_ssh_configurations_and_keys.toml)
 
 ## Query
 
@@ -58,6 +59,7 @@ WHERE
 - Monitors SSH keys, authorized_keys files, and SSH configuration files using OSQuery to detect potential unauthorized access or persistence techniques.
 - Lists detailed information about SSH files, including paths, owners, and permissions.
 - Requires additional data analysis and investigation into results to identify malicious or unauthorized SSH configurations and keys.
+
 ## MITRE ATT&CK Techniques
 
 - [T1098.004](https://attack.mitre.org/techniques/T1098/004)

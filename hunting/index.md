@@ -43,6 +43,7 @@ Here are the queries currently available:
 
 
 ## macos
+- [Low Occurrence of Suspicious Launch Agent or Launch Daemon](./macos/docs/persistence_via_suspicious_launch_agent_or_launch_daemon_with_low_occurrence.md) (ES|QL)
 - [Suspicious Network Connections by Unsigned Mach-O](./macos/docs/suspicious_network_connections_by_unsigned_macho.md) (ES|QL)
 
 
@@ -70,7 +71,6 @@ Here are the queries currently available:
 - [PE File Transfer via SMB_Admin Shares by Agent or User](./windows/docs/pe_file_transfer_via_smb_admin_shares_by_agent.md) (ES|QL)
 - [Persistence via Run Key with Low Occurrence Frequency](./windows/docs/persistence_via_run_key_with_low_occurrence_frequency.md) (ES|QL)
 - [Persistence via Startup with Low Occurrence Frequency by Unique Host](./windows/docs/persistence_via_startup_with_low_occurrence_frequency.md) (ES|QL)
-- [Low Occurrence of Suspicious Launch Agent or Launch Daemon](./windows/docs/persistence_via_suspicious_launch_agent_or_launch_daemon_with_low_occurrence.md) (ES|QL)
 - [Egress Network Connections with Total Bytes Greater than Threshold](./windows/docs/potential_exfiltration_by_process_total_egress_bytes.md) (ES|QL)
 - [Rundll32 Execution Aggregated by Command Line](./windows/docs/rundll32_execution_aggregated_by_cmdline.md) (ES|QL)
 - [Scheduled tasks Creation by Action via Registry](./windows/docs/scheduled_task_creation_by_action_via_registry.md) (ES|QL)
