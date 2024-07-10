@@ -10,6 +10,7 @@
 - **UUID:** `0d061fad-cf35-43a6-b9b7-986c348bf182`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
+- **Source File:** [Unusual File Downloads from Source Addresses](../queries/command_and_control_via_unusual_file_downloads_from_source_addresses.toml)
 
 ## Query
 
@@ -29,6 +30,7 @@ from logs-endpoint.events.process-*
 - Monitors for potentially suspicious file downloads, which are often seen in malicious activities.
 - Uses process command line counting in conjunction with host counting to minimize false positives caused by legitimate downloads.
 - The process command line count threshold is set to <= 10, and the host count threshold is set to <= 5 to balance detection and noise.
+
 ## MITRE ATT&CK Techniques
 
 - [T1071.001](https://attack.mitre.org/techniques/T1071/001)
