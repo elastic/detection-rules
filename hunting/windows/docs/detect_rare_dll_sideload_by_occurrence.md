@@ -9,6 +9,7 @@
 - **UUID:** `34a7aadb-fb0f-45ea-9260-830f39c3343b`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
+- **Source File:** [Rare DLL Side-Loading by Occurrence](../queries/detect_rare_dll_sideload_by_occurrence.toml)
 
 ## Query
 
@@ -48,6 +49,7 @@ from logs-windows.sysmon_operational-*
 - Based on the returned results you can further investigate suspicious DLLs by sha256 and library path.
 - Paths like `C:\\Users\\Public` and `C:\\ProgramData\\` are often observed in malware employing DLL side-loading.
 - Elastic Defned DLL Events include `dll.Ext.relative_file_creation_time` which help us limit the hunt to recently dropped DLLs.
+
 ## MITRE ATT&CK Techniques
 
 - [T1574](https://attack.mitre.org/techniques/T1574)

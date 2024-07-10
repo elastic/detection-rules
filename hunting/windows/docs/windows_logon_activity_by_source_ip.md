@@ -10,6 +10,7 @@
 - **UUID:** `441fba85-47a9-4f1f-aab4-569bbfdc548b`
 - **Integration:** [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
+- **Source File:** [Windows Logon Activity by Source IP](../queries/windows_logon_activity_by_source_ip.toml)
 
 ## Query
 
@@ -30,6 +31,7 @@ from logs-system.security-*
 ## Notes
 
 - Pay close attention to IP address sources with a high number of failed connections associated with low success attempts and high number of user accounts.
+
 ## MITRE ATT&CK Techniques
 
 - [T1110](https://attack.mitre.org/techniques/T1110)
