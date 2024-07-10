@@ -16,7 +16,7 @@ These guidelines serve as a reminder set of considerations when proposing a new 
 - [ ] `name` and `description` should be descriptive and not include typos.
 - [ ] `query` should be inclusive, not overly exclusive, considering performance for diverse environments. Non ecs fields should be added to `non-ecs-schema.json` if not available in an integration.
 - [ ] `min_stack_comments` and `min_stack_version` should be included if the rule is only compatible starting from a specific stack version.
-- [ ] `index` should align with the `integration` or data source.
+- [ ] `index` pattern should be neither too specific nor too vague, ensuring it accurately matches the relevant data stream (e.g., use logs-endpoint.process-* for process data).
 - [ ] `integration` should align with the `index`. If the integration is newly introduced, ensure the manifest, schemas, and `new_rule.yaml` template are updated.
 - [ ] `setup` should include the necessary steps to configure the integration.
 - [ ] `note` should include any additional information (e.g. Triage and analysis investigation guides, timeline templates).
