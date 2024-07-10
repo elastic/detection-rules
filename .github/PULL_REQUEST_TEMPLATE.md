@@ -25,11 +25,11 @@ from your submission, but they are here to help bring them to your attention.
 
 <!--
   Some examples of what you could include here are:
-  * Links to Buildkite results for CI test improvements
-  * Telemetry before/after screenshots (or short videos showing how something works)
+  * Links to GitHub action results for CI test improvements
+  * Sample data before/after screenshots (or short videos showing how something works)
   * Copy/pasted commands and output from the testing you did in your local terminal window
-  * If tests run in Buildkite, you can 🪁or 🔱, respectively, to indicate tests will run in CI
-  * Query used in the analytics cluster to verify the change
+  * If tests run in GitHub, you can 🪁or 🔱, respectively, to indicate tests will run in CI
+  * Query used in your stack to verify the change
 -->
 
 ## Checklist
