@@ -12,11 +12,14 @@ These guidelines serve as a reminder set of considerations when proposing a new 
 ### Rule Metadata Checks
 
 - [ ] `creation_date` matches the date of creation PR initially merged.
-- [ ] `min_endpoint_version` should support the widest stack versions.
+- [ ] `min_stack_version` should support the widest stack versions.
 - [ ] `name` and `description` should be descriptive and not include typos.
 - [ ] `query` should be inclusive, not overly exclusive.
-- [ ] `message_template` should include indices based on sequence.
-- [ ] `rule.response` field values should be valid and align with the response action (e.g., low FP for kill process).
+- [ ] `min_stack_comments` and `min_stack_version` should be included if the rule is only compatible starting from a specific stack version.
+- [ ] `integration` should align with the `index`. If the integration is newly introduced, ensure the manifest and schemas are updated.
+- [ ] `setup` should include the necessary steps to configure the integration.
+- [ ] `note` should include any additional information (e.g. Triage and analysis investigation guides, timeline templates).
+- [ ] `tags` should be relevant to the threat and align/added to the `EXPECTED_RULE_TAGS` in the definitions.py file.
 
 ### Testing and Validation
 

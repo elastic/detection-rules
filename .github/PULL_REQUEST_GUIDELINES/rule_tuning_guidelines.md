@@ -12,13 +12,9 @@ These guidelines serve as a reminder set of considerations when tuning an existi
 ### Rule Metadata Checks
 
 - [ ] `updated_date` matches the date of tuning PR merged.
-- [ ] `Release - diagnostic` should not be in diagnostic mode > 90 days.
-- [ ] `Release - production` minimum incubation period 14 days.
-- [ ] `min_endpoint_version` should support the widest stack versions.
+- [ ] `min_stack_version` should support the widest stack versions.
 - [ ] `name` and `description` should be descriptive and not include typos.
 - [ ] `query` should be inclusive, not overly exclusive.
-- [ ] `message_template` should include indices based on sequence.
-- [ ] `rule.response` field values should be valid and align with the response action (e.g., low FP for kill process).
 
 ### Testing and Validation
 
