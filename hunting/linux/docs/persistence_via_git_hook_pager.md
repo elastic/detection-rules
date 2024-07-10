@@ -10,6 +10,7 @@
 - **UUID:** `2d7bb29d-d53f-47ab-a0b4-1818adb91423`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
+- **Source File:** [Git Hook/Pager Persistence](../queries/persistence_via_git_hook_pager.toml)
 
 ## Query
 
@@ -80,6 +81,7 @@ WHERE
 - Monitors processes started by Git hooks to detect suspicious activity related to Git configurations.
 - OSQuery query is provided to retrieve detailed file information related to Git configurations and hooks.
 - OSQuery has limited support for wildcard queries, therefore the query includes multiple LIKE conditions for directories. These can be increased and decreased based on the environment's Git configuration paths.
+
 ## MITRE ATT&CK Techniques
 
 - [T1546.004](https://attack.mitre.org/techniques/T1546/004)
