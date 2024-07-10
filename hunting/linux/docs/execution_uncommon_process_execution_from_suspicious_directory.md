@@ -10,6 +10,7 @@
 - **UUID:** `0ea47044-b161-4785-ba99-e11f46d6ac51`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
+- **Source File:** [Uncommon Process Execution from Suspicious Directory](../queries/execution_uncommon_process_execution_from_suspicious_directory.toml)
 
 ## Query
 
@@ -47,6 +48,7 @@ from logs-endpoint.events.process-*
 - Excluded /tmp, /var/tmp, /run, /var/run subdirectories to reduce noise.
 - Excluded /tmp, /var/tmp files starting or ending with digits to exclude real temporary files.
 - Included a process or parent process count of <= 3, and a host count of <= 3 to eliminate common processes across different hosts.
+
 ## MITRE ATT&CK Techniques
 
 - [T1036.004](https://attack.mitre.org/techniques/T1036/004)

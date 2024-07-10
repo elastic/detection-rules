@@ -10,6 +10,7 @@
 - **UUID:** `f00c9757-d21b-432c-90a6-8372f18075d0`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[SQL]`
+- **Source File:** [Privilege Escalation/Persistence via User/Group Creation and/or Modification](../queries/persistence_via_user_group_creation_modification.toml)
 
 ## Query
 
@@ -44,6 +45,7 @@ SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER 
 - Monitors changes to the shadow file and user/group information using OSQuery to detect potentially unauthorized access or privilege escalation attempts.
 - Lists detailed information about users, including authentication status and running processes.
 - Requires additional data analysis and investigation into results to identify malicious or unauthorized user and group modifications.
+
 ## MITRE ATT&CK Techniques
 
 - [T1136](https://attack.mitre.org/techniques/T1136)
