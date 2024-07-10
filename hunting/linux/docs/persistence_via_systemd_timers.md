@@ -10,6 +10,7 @@
 - **UUID:** `d2d24ad6-a315-4e05-a3f9-e205eb805df4`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
+- **Source File:** [Persistence via Systemd (Timers)](../queries/persistence_via_systemd_timers.toml)
 
 ## Query
 
@@ -192,6 +193,7 @@ name LIKE "%.service" OR name LIKE  "%.timer"
 - Excludes common legitimate processes and file types to minimize false positives.
 - Uses EVAL to tag potential persistence events and counts occurrences to identify unusual activity.
 - OSQuery queries are provided to complement the detection by retrieving detailed file information and entries related to systemd services, timers, and generators.
+
 ## MITRE ATT&CK Techniques
 
 - [T1053.005](https://attack.mitre.org/techniques/T1053/005)
