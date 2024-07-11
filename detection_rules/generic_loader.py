@@ -98,13 +98,10 @@ class GenericCollection:
 
     def _assert_new(self, item: GenericCollectionTypes) -> None:
         """Assert that the item is new and can be added to the collection."""
-        id_map = self.id_map
         file_map = self.file_map
         name_map = self.name_map
 
         assert not self.frozen, f"Unable to add item {item.name} {item.id} to a frozen collection"
-        assert item.id not in id_map, \
-            f"Rule ID {item.id} for {item.name} collides with rule {id_map.get(item.id).name}"
         assert item.name not in name_map, \
             f"Rule Name {item.name} for {item.id} collides with rule ID {name_map.get(item.name).id}"
 

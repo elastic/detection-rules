@@ -22,6 +22,7 @@ from .schemas import definitions
 class ExceptionMeta(MarshmallowDataclassMixin):
     """Data stored in an exception's [metadata] section of TOML."""
     creation_date: definitions.Date
+    list_name: str
     rule_ids: List[definitions.UUIDString]
     rule_names: List[str]
     updated_date: definitions.Date
@@ -169,6 +170,7 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
         )
         metadata = {
             "creation_date": creation_date,
+            "list_name": exceptions_dict["container"]["name"],
             "rule_ids": rule_ids,
             "rule_names": rule_names,
             "updated_date": updated_date,
@@ -185,13 +187,8 @@ class TOMLException:
 
     @property
     def name(self):
-        """Return the name of the exception."""
-        return self.contents.metadata.rule_name
-
-    @property
-    def id(self):
-        """Return the rule ID of the exception."""
-        return self.contents.metadata.rule_id
+        """Return the name of the exception list."""
+        return self.contents.metadata.list_name
 
     def save_toml(self):
         """Save the exception to a TOML file."""
