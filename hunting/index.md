@@ -20,7 +20,7 @@ Here are the queries currently available:
 - [Drivers Load with Low Occurrence Frequency](./linux/docs/persistence_via_driver_load_with_low_occurrence_frequency.md) (ES|QL)
 - [Git Hook/Pager Persistence](./linux/docs/persistence_via_git_hook_pager.md) (ES|QL, SQL)
 - [Persistence via Message-of-the-Day](./linux/docs/persistence_via_message_of_the_day.md) (ES|QL, SQL)
-- [Persistence via Packager Manager](./linux/docs/persistence_via_package_manager.md) (ES|QL, SQL)
+- [Persistence via Package Manager](./linux/docs/persistence_via_package_manager.md) (ES|QL, SQL)
 - [Persistence via rc.local/rc.common](./linux/docs/persistence_via_rc_local.md) (ES|QL, SQL)
 - [Shell Modification Persistence](./linux/docs/persistence_via_shell_modification_persistence.md) (ES|QL, SQL)
 - [Persistence via SSH Configurations and/or Keys](./linux/docs/persistence_via_ssh_configurations_and_keys.md) (SQL)
