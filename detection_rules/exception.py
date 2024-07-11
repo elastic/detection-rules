@@ -178,6 +178,17 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
 
         return cls.from_dict({"metadata": metadata, "exceptions": [exceptions_dict]}, unknown=EXCLUDE)
 
+    def to_api_format(self) -> List[dict]:
+        """Convert the TOML Exception to the API format."""
+        converted = []
+
+        for exception in self.exceptions:
+            converted.append(exception.container.to_dict())
+            for item in exception.items:
+                converted.append(item.to_dict())
+
+        return converted
+
 
 @dataclass(frozen=True)
 class TOMLException:
