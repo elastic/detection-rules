@@ -344,7 +344,7 @@ def export_rules_from_repo(
         downgrade_version=stack_version,
         skip_unsupported=skip_unsupported,
         include_metadata=include_metadata,
-        include_exceptions=True,
+        include_exceptions=include_exceptions,
     )
 
     return rules
