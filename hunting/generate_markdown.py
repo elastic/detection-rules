@@ -117,7 +117,7 @@ def process_toml_files(base_path: Path) -> None:
         markdown_content = convert_toml_to_markdown(hunt_config, toml_file)
         markdown_path = toml_file.parent.parent / "docs" / f"{toml_file.stem}.md"
         markdown_path.parent.mkdir(parents=True, exist_ok=True)
-        markdown_path.write_text(markdown_content, encoding='utf-8')
+        markdown_path.write_text(markdown_content, encoding="utf-8")
         print(f"Markdown generated: {markdown_path}")
         relative_path = markdown_path.relative_to(base_path)
         folder_name = toml_file.parent.parent.name
@@ -132,7 +132,7 @@ def process_toml_files(base_path: Path) -> None:
 
     # Write the index file at the base directory level
     index_path = base_path / "index.md"
-    index_path.write_text(index_content, encoding='utf-8')
+    index_path.write_text(index_content, encoding="utf-8")
     print(f"Index Markdown generated at: {index_path}")
 
 
