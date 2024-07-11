@@ -13,12 +13,17 @@ import click
 import kql
 from kibana import Signal, RuleResource
 
+from .config import parse_rules_config
 from .cli_utils import multi_collection
+from .exception import (TOMLException, TOMLExceptionContents,
+                        parse_exceptions_results_from_api)
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
 from .rule import downgrade_contents_from_rule, TOMLRuleContents, TOMLRule
 from .rule_loader import RuleCollection
 from .utils import format_command_options, rulename_to_filename
+
+RULES_CONFIG = parse_rules_config()
 
 
 @root.group('kibana')
@@ -107,43 +112,109 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
     return response, results
 
 
-@kibana_group.command('export-rules')
-@click.option('--directory', '-d', required=True, type=Path, help='Directory to export rules to')
-@click.option('--rule-id', '-r', multiple=True, help='Optional Rule IDs to restrict export to')
-@click.option('--skip-errors', '-s', is_flag=True, help='Skip errors when exporting rules')
-@click.option('--strip-version', '-sv', is_flag=True, help='Strip the version fields from all rules')
+@kibana_group.command("export-rules")
+@click.option("--directory", "-d", required=True, type=Path, help="Directory to export rules to")
+@click.option("--exceptions-directory", "-ed", required=False, type=Path, help="Directory to export exceptions to")
+@click.option("--rule-id", "-r", multiple=True, help="Optional Rule IDs to restrict export to")
+@click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
+@click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
+@click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
 @click.pass_context
-def kibana_export_rules(ctx: click.Context, directory: Path, rule_id: Optional[Iterable[str]] = None,
-                        skip_errors: bool = False, strip_version: bool = False) -> List[TOMLRule]:
+def kibana_export_rules(
+    ctx: click.Context,
+    directory: Path,
+    exceptions_directory: Optional[Path],
+    rule_id: Optional[Iterable[str]] = None,
+    export_exceptions: bool = False,
+    skip_errors: bool = False,
+    strip_version: bool = False,
+) -> List[TOMLRule]:
     """Export custom rules from Kibana."""
-    kibana = ctx.obj['kibana']
+    kibana = ctx.obj["kibana"]
     with kibana:
-        results = RuleResource.export_rules(list(rule_id))
+        results = RuleResource.export_rules(list(rule_id), exclude_export_details=not export_exceptions)
 
     if results:
         directory.mkdir(parents=True, exist_ok=True)
+    else:
+        click.echo("No rules found to export")
+        return []
+
+    rules_results = results
+    if export_exceptions:
+        # Assign counts to variables
+        rules_count = results[-1]["exported_rules_count"]
+        exception_list_count = results[-1]["exported_exception_list_count"]
+        exception_list_item_count = results[-1]["exported_exception_list_item_count"]
+
+        # Parse rules results and exception results from API return
+        rules_results = results[:rules_count]
+        exception_results = results[rules_count:rules_count + exception_list_count + exception_list_item_count]
 
     errors = []
     exported = []
-    for rule_resource in results:
+    exception_list_rule_table = {}
+    for rule_resource in rules_results:
         try:
             if strip_version:
-                rule_resource.pop('revision', None)
-                rule_resource.pop('version', None)
+                rule_resource.pop("revision", None)
+                rule_resource.pop("version", None)
 
-            contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity='production')
-            threat = contents.data.get('threat')
-            first_tactic = threat[0].tactic.name if threat else ''
+            contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity="production")
+            threat = contents.data.get("threat")
+            first_tactic = threat[0].tactic.name if threat else ""
             rule_name = rulename_to_filename(contents.data.name, tactic_name=first_tactic)
-            rule = TOMLRule(contents=contents, path=directory / f'{rule_name}')
+            rule = TOMLRule(contents=contents, path=directory / f"{rule_name}")
         except Exception as e:
             if skip_errors:
                 print(f'- skipping {rule_resource.get("name")} - {type(e).__name__}')
                 errors.append(f'- {rule_resource.get("name")} - {e}')
                 continue
             raise
-
+        if rule.contents.data.exceptions_list:
+            # For each item in rule.contents.data.exceptions_list to the exception_list_rule_table under the list_id
+            for exception in rule.contents.data.exceptions_list:
+                exception_id = exception["list_id"]
+                if exception_id not in exception_list_rule_table:
+                    exception_list_rule_table[exception_id] = []
+                exception_list_rule_table[exception_id].append({"id": rule.id, "name": rule.name})
         exported.append(rule)
+
+    # Parse exceptions results from API return
+    exceptions = []
+    if export_exceptions:
+        exceptions_containers = {}
+        exceptions_items = {}
+
+        exceptions_containers, exceptions_items, parse_errors, _ = parse_exceptions_results_from_api(
+            exception_results, skip_errors
+        )
+        errors.extend(parse_errors)
+
+        # Build TOMLException Objects
+        for container in exceptions_containers.values():
+            try:
+                list_id = container.get("list_id")
+                contents = TOMLExceptionContents.from_exceptions_dict(
+                    {"container": container, "items": exceptions_items[list_id]},
+                    exception_list_rule_table.get(list_id),
+                )
+                # if exceptions_directory is not set then use RULES_CONFIG.exception_dir
+                exception_directory = exceptions_directory if exceptions_directory else RULES_CONFIG.exception_dir
+                exception = TOMLException(
+                    contents=contents, path=exception_directory / f"{list_id}_exceptions.toml"
+                )
+            except Exception as e:
+                if skip_errors:
+                    print(f"- skipping exceptions export - {type(e).__name__}")
+                    if not exception_directory:
+                        errors.append(f"- no exceptions directory found - {e}")
+                    else:
+                        errors.append(f"- exceptions export - {e}")
+                    continue
+                raise
+
+            exceptions.append(exception)
 
     saved = []
     for rule in exported:
@@ -151,20 +222,34 @@ def kibana_export_rules(ctx: click.Context, directory: Path, rule_id: Optional[I
             rule.save_toml()
         except Exception as e:
             if skip_errors:
-                print(f'- skipping {rule.contents.data.name} - {type(e).__name__}')
-                errors.append(f'- {rule.contents.data.name} - {e}')
+                print(f"- skipping {rule.contents.data.name} - {type(e).__name__}")
+                errors.append(f"- {rule.contents.data.name} - {e}")
                 continue
             raise
 
         saved.append(rule)
 
-    click.echo(f'{len(results)} rules exported')
-    click.echo(f'{len(exported)} rules converted')
-    click.echo(f'{len(saved)} saved to {directory}')
+    saved_exceptions = []
+    for exception in exceptions:
+        try:
+            exception.save_toml()
+        except Exception as e:
+            if skip_errors:
+                print(f"- skipping {exception.rule_name} - {type(e).__name__}")
+                errors.append(f"- {exception.rule_name} - {e}")
+                continue
+            raise
+
+        saved_exceptions.append(exception)
+
+    click.echo(f"{len(results)} rules exported")
+    click.echo(f"{len(exported)} rules converted")
+    click.echo(f"{len(exceptions)} exceptions exported")
+    click.echo(f"{len(saved)} saved to {directory}")
     if errors:
-        err_file = directory / '_errors.txt'
-        err_file.write_text('\n'.join(errors))
-        click.echo(f'{len(errors)} errors saved to {err_file}')
+        err_file = directory / "_errors.txt"
+        err_file.write_text("\n".join(errors))
+        click.echo(f"{len(errors)} errors saved to {err_file}")
 
     return exported
 
