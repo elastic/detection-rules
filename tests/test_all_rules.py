@@ -171,6 +171,22 @@ class TestValidRules(BaseRuleTest):
                               f'Expected: {max_signal_standard_setup}\n\n'
                               f'Actual: {rule.contents.data.setup}')
 
+    def test_from_filed_value(self):
+        """ Add "from" Field Validation for All Rules"""
+        failures = []
+        valid_format = re.compile(r'^now-\d+[yMwdhHms]$')
+        for rule in self.all_rules:
+            from_field = rule.contents.data.get('from_')
+            if from_field is not None:
+                if not valid_format.match(from_field):
+                    err_msg = f'{self.rule_str(rule)} has invalid value {from_field}'
+                    failures.append(err_msg)
+        if failures:
+            fail_msg = """
+            The following rules have invalid 'from' filed value \n
+            """
+            self.fail(fail_msg + '\n'.join(failures))
+
 
 class TestThreatMappings(BaseRuleTest):
     """Test threat mapping data for rules."""
@@ -311,7 +327,8 @@ class TestRuleTags(BaseRuleTest):
             'logs-windows.sysmon_operational-*': {'all': ['Data Source: Sysmon']},
             'logs-windows.powershell*': {'all': ['Data Source: PowerShell Logs']},
             'logs-sentinel_one_cloud_funnel.*': {'all': ['Data Source: SentinelOne']},
-            'logs-fim.event-*': {'all': ['Data Source: File Integrity Monitoring']}
+            'logs-fim.event-*': {'all': ['Data Source: File Integrity Monitoring']},
+            'logs-m365_defender.event-*': {'all': ['Data Source: Microsoft Defender for Endpoint']}
         }
 
         for rule in self.all_rules:
@@ -639,6 +656,39 @@ class TestRuleMetadata(BaseRuleTest):
         # If the output is not empty, then file(s) have changed in the directory
         if result:
             self.fail(f"Deprecated rules {result} has been modified")
+
+    @unittest.skipIf(os.getenv('GITHUB_EVENT_NAME') == 'push',
+                     "Skipping this test when not running on pull requests.")
+    def test_rule_change_has_updated_date(self):
+        """Test to ensure modified rules have updated_date field updated."""
+
+        rules_path = get_path("rules")
+        rules_bbr_path = get_path("rules_building_block")
+
+        # Use git diff to check if the file(s) has been modified in rules/ rules_build_block/ directories.
+        # For now this checks even rules/_deprecated any modification there will fail
+        # the test case "test_deprecated_rules_modified", which means an ignore directory
+        # is not required as there is a specific test for deprecated rules.
+
+        detection_rules_git = make_git()
+        result = detection_rules_git("diff", "--diff-filter=M", "origin/main", "--name-only",
+                                     rules_path, rules_bbr_path)
+
+        # If the output is not empty, then file(s) have changed in the directory(s)
+        if result:
+            modified_rules = result.splitlines()
+            failed_rules = []
+            for modified_rule_path in modified_rules:
+                diff_output = detection_rules_git('diff', 'origin/main', modified_rule_path)
+                if not re.search(r'\+\s*updated_date =', diff_output):
+                    # Rule has been modified but updated_date has not been changed, add to list of failed rules
+                    failed_rules.append(f'{modified_rule_path}')
+
+            if failed_rules:
+                fail_msg = """
+                The following rules in the below path(s) have been modified but updated_date has not been changed \n
+                """
+                self.fail(fail_msg + '\n'.join(failed_rules))
 
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")

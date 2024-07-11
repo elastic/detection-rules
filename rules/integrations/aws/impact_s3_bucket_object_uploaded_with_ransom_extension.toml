@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
 min_stack_version = "8.13.0"
-updated_date = "2024/06/05"
+updated_date = "2024/07/01"
 
 [rule]
 author = ["Elastic"]
@@ -95,7 +95,8 @@ from logs-aws.cloudtrail-*
 | dissect aws.cloudtrail.request_parameters "%{?ignore_values}key=%{object_name}}"
 
 // regex on common ransomware note extensions
-| where object_name rlike "(.*).(ransom|lock|crypt|enc|readme|how_to_decrypt|decrypt_instructions|recovery|datarescue)"
+| where object_name rlike "(.*)(ransom|lock|crypt|enc|readme|how_to_decrypt|decrypt_instructions|recovery|datarescue)(.*)"
+    and not object_name rlike "(.*)(AWSLogs|CloudTrail|access-logs)(.*)"
 
 // aggregate by S3 bucket, resource and object name
 | stats note_upload_count = count(*) by tls.client.server_name, aws.cloudtrail.user_identity.arn, object_name
