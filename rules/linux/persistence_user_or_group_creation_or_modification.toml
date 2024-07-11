@@ -2,7 +2,7 @@
 creation_date = "2024/06/20"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/06/20"
+updated_date = "2024/07/11"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +27,24 @@ Auditd Manager -->
 Add Auditd Manager
 ```
 `Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
-For this detection rule to trigger, no additional configuration is required.
+For this detection rule to trigger, the following additional audit rules are required to be added to the integration:
+```
+-w /usr/sbin/groupadd -p x -k group_modification
+-w /sbin/groupadd -p x -k group_modification
+-w /usr/sbin/groupmod -p x -k group_modification
+-w /sbin/groupmod -p x -k group_modification
+-w /usr/sbin/addgroup -p x -k group_modification
+-w /sbin/addgroup -p x -k group_modification
+-w /usr/sbin/usermod -p x -k user_modification
+-w /sbin/usermod -p x -k user_modification
+-w /usr/sbin/userdel -p x -k user_modification
+-w /sbin/userdel -p x -k user_modification
+-w /usr/sbin/useradd -p x -k user_modification
+-w /sbin/useradd -p x -k user_modification
+-w /usr/sbin/adduser -p x -k user_modification
+-w /sbin/adduser -p x -k user_modification
+```
+Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
 """
 severity = "low"
 tags = [
