@@ -197,12 +197,12 @@ class TOMLException:
     @property
     def name(self):
         """Return the name of the exception."""
-        return self.contents.metadata.rule_name
+        return self.contents.metadata.list_name
 
     @property
     def id(self):
         """Return the rule ID of the exception."""
-        return self.contents.metadata.rule_id
+        return self.contents.metadata.list_id
 
     def save_toml(self):
         """Save the exception to a TOML file."""
