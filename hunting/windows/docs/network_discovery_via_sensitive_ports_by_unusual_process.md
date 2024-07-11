@@ -10,6 +10,7 @@
 - **UUID:** `386f9cec-bb44-4dd2-8368-45e6fa0a425b`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
+- **Source File:** [Network Discovery via Sensitive Ports by Unusual Process](../queries/network_discovery_via_sensitive_ports_by_unusual_process.toml)
 
 ## Query
 
@@ -32,6 +33,7 @@ from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 - The query thresholds for SMB or RDP need to be adjusted to your environment.
 - You can add more sensitive ports to the list like FTP, SSH and others.
 - Elastic Network events include process code signature information, this can be added to filter out signed third party false positives.
+
 ## MITRE ATT&CK Techniques
 
 - [T1021](https://attack.mitre.org/techniques/T1021)

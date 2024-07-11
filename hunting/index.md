@@ -20,11 +20,12 @@ Here are the queries currently available:
 - [Drivers Load with Low Occurrence Frequency](./linux/docs/persistence_via_driver_load_with_low_occurrence_frequency.md) (ES|QL)
 - [Git Hook/Pager Persistence](./linux/docs/persistence_via_git_hook_pager.md) (ES|QL, SQL)
 - [Persistence via Message-of-the-Day](./linux/docs/persistence_via_message_of_the_day.md) (ES|QL, SQL)
-- [Persistence via Packager Manager](./linux/docs/persistence_via_package_manager.md) (ES|QL, SQL)
+- [Persistence via Package Manager](./linux/docs/persistence_via_package_manager.md) (ES|QL, SQL)
 - [Persistence via rc.local/rc.common](./linux/docs/persistence_via_rc_local.md) (ES|QL, SQL)
 - [Shell Modification Persistence](./linux/docs/persistence_via_shell_modification_persistence.md) (ES|QL, SQL)
 - [Persistence via SSH Configurations and/or Keys](./linux/docs/persistence_via_ssh_configurations_and_keys.md) (SQL)
 - [Persistence via Systemd (Timers)](./linux/docs/persistence_via_systemd_timers.md) (ES|QL, SQL)
+- [Persistence via System V Init](./linux/docs/persistence_via_sysv_init.md) (ES|QL, SQL)
 - [Persistence via Udev](./linux/docs/persistence_via_udev.md) (ES|QL, SQL)
 - [Unusual System Binary Parent (Potential System Binary Hijacking Attempt)](./linux/docs/persistence_via_unusual_system_binary_parent.md) (ES|QL)
 - [Privilege Escalation/Persistence via User/Group Creation and/or Modification](./linux/docs/persistence_via_user_group_creation_modification.md) (SQL)
@@ -42,6 +43,7 @@ Here are the queries currently available:
 
 
 ## macos
+- [Low Occurrence of Suspicious Launch Agent or Launch Daemon](./macos/docs/persistence_via_suspicious_launch_agent_or_launch_daemon_with_low_occurrence.md) (ES|QL)
 - [Suspicious Network Connections by Unsigned Mach-O](./macos/docs/suspicious_network_connections_by_unsigned_macho.md) (ES|QL)
 
 
@@ -69,7 +71,6 @@ Here are the queries currently available:
 - [PE File Transfer via SMB_Admin Shares by Agent or User](./windows/docs/pe_file_transfer_via_smb_admin_shares_by_agent.md) (ES|QL)
 - [Persistence via Run Key with Low Occurrence Frequency](./windows/docs/persistence_via_run_key_with_low_occurrence_frequency.md) (ES|QL)
 - [Persistence via Startup with Low Occurrence Frequency by Unique Host](./windows/docs/persistence_via_startup_with_low_occurrence_frequency.md) (ES|QL)
-- [Low Occurrence of Suspicious Launch Agent or Launch Daemon](./windows/docs/persistence_via_suspicious_launch_agent_or_launch_daemon_with_low_occurrence.md) (ES|QL)
 - [Egress Network Connections with Total Bytes Greater than Threshold](./windows/docs/potential_exfiltration_by_process_total_egress_bytes.md) (ES|QL)
 - [Rundll32 Execution Aggregated by Command Line](./windows/docs/rundll32_execution_aggregated_by_cmdline.md) (ES|QL)
 - [Scheduled tasks Creation by Action via Registry](./windows/docs/scheduled_task_creation_by_action_via_registry.md) (ES|QL)

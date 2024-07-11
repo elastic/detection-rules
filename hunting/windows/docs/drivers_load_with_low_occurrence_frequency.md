@@ -10,6 +10,7 @@
 - **UUID:** `cebfbb4d-5b2a-44d8-b763-5512b654fb26`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
 - **Language:** `[ES|QL]`
+- **Source File:** [Low Occurrence of Drivers Loaded on Unique Hosts](../queries/drivers_load_with_low_occurrence_frequency.toml)
 
 ## Query
 
@@ -48,6 +49,7 @@ from logs-system.system-*
 - `dll.Ext.relative_file_creation_time` is used in the first query to limit the result to recently dropped drivers (populated in Elastic Defend).
 - Aggregation can also be done by `dll.hash.sha256` / `file.hash.sha256` but will return more results.
 - Bring Your Own Vulnerable Driver (BYOVD) are all signed and not malicious, further investigation should be done to check the surrounding events (service creation, process that dropped the driver etc.).
+
 ## MITRE ATT&CK Techniques
 
 - [T1068](https://attack.mitre.org/techniques/T1068)
