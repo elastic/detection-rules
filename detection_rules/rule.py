@@ -714,8 +714,8 @@ class QueryRuleData(BaseRuleData):
         """Return the index or dataview depending on which is set. If neither returns empty list."""
         if self.index is not None:
             return self.index
-        elif self.dataview is not None:
-            return [self.dataview]
+        elif self.data_view_id is not None:
+            return [self.data_view_id]
         else:
             return []
 
