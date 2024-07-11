@@ -23,6 +23,9 @@ from logs-endpoint.events.file-*
     file.path in ("/etc/profile", "/etc/bash.bashrc", "/etc/bash.bash_logout") or
     file.path like "/etc/profile.d/*" or
 
+    // root-specific profile files
+    file.path in ("/root/.profile", "/root/.bash_profile", "/root/.bash_login", "/root/.bash_logout", "/root/.bashrc") or
+
     // User-specific profile files
     file.path like "/home/*/.profile" or
     file.path like "/home/*/.bash_profile" or
@@ -41,6 +44,9 @@ from logs-endpoint.events.file-*
     // System-wide profile files
     file.path in ("/etc/profile", "/etc/bash.bashrc", "/etc/bash.bash_logout") or
     file.path like "/etc/profile.d/*" or
+
+    // root-specific profile files
+    file.path in ("/root/.profile", "/root/.bash_profile", "/root/.bash_login", "/root/.bash_logout", "/root/.bashrc") or
 
     // User-specific profile files
     file.path like "/home/*/.profile" or
@@ -86,6 +92,7 @@ LEFT JOIN
     groups g ON f.gid = g.gid
 WHERE
     f.path IN ("/etc/profile", "/etc/bash.bashrc", "/etc/bash.bash_logout")
+    OR f.path IN ("/root/.profile", "/root/.bash_profile", "/root/.bash_login", "/root/.bash_logout", "/root/.bashrc")
     OR f.path LIKE "/etc/profile.d/%"
     OR f.path LIKE "/home/%/.profile"
     OR f.path LIKE "/home/%/.bash_profile"
