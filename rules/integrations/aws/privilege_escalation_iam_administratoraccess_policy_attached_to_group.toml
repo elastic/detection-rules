@@ -1,37 +1,38 @@
 [metadata]
-creation_date = "2024/05/30"
+creation_date = "2024/05/31"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/30"
-min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully"
+updated_date = "2024/07/05"
+min_stack_comments = "ES|QL rule type in technical preview as of 8.13."
 min_stack_version = "8.13.0"
 
 [rule]
 author = ["Elastic"]
 description = """
 An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by
-attaching additional permissions to compromised user accounts. This rule looks for use of the IAM `AttachUserPolicy` API operation
-to attach the highly permissive `AdministratorAccess` AWS managed policy to an existing IAM user.
+attaching additional permissions to user groups the compromised user account belongs to. This rule looks for use of 
+the IAM `AttachGroupPolicy` API operation to attach the highly permissive `AdministratorAccess` AWS managed policy 
+to an existing IAM user group.
 """
 false_positives = [
     """
     While this can be normal behavior, it should be investigated to ensure validity.
-    Verify whether the user identity should be using the IAM `AttachUserPolicy` API operation
-    to attach the `AdministratorAccess` policy to the target user. 
+    Verify whether the user identity should be using the IAM `AttachGroupPolicy` API operation
+    to attach the `AdministratorAccess` policy to the user group. 
     """,
 ]
-from = "now-10m"
+from = "now-6m"
 language = "esql"
 license = "Elastic License v2"
-name = "AWS IAM AdministratorAccess Policy Attached to User"
+name = "AWS IAM AdministratorAccess Policy Attached to Group"
 note = """## Triage and analysis
 
-### Investigating AWS IAM AdministratorAccess Policy Attached to User
+### Investigating AWS IAM AdministratorAccess Policy Attached to Group
 
 The AWS IAM `AdministratorAccess` managed policy provides full access to all AWS services and resources. 
-With access to the `iam:AttachUserPolicy` permission, a set of compromised credentials could be used to attach
-this policy to the current user for privilege escalation or another user as a means of persistence. This rule uses [ES|QL](https://www.elastic.co/guide/en/security/master/rules-ui-create.html#create-esql-rule)
-to look for use of the `AttachUserPolicy` operation along with request_parameters where the policyName is `AdministratorAccess`.
+With access to the `iam:AttachGroupPolicy` permission, a set of compromised credentials could be used to attach
+this policy to the current user's groups for privilege escalation or as a means of persistence. This rule uses [ES|QL](https://www.elastic.co/guide/en/security/master/rules-ui-create.html#create-esql-rule)
+to look for use of the `AttachGroupPolicy` operation along with request_parameters where the policyName is `AdministratorAccess`.
 
 
 #### Possible investigation steps
@@ -59,7 +60,7 @@ to look for use of the `AttachUserPolicy` operation along with request_parameter
 - Initiate the incident response process based on the outcome of the triage.
 - Disable or limit the account during the investigation and response.
     - Rotate user credentials
-    - Remove the `AdministratorAccess` policy from the affected user(s)
+    - Remove the `AdministratorAccess` policy from the affected group(s)
 - Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
     - Identify the account role in the cloud environment.
     - Assess the criticality of affected services and servers.
@@ -78,12 +79,12 @@ to look for use of the `AttachUserPolicy` operation along with request_parameter
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = [
-    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_AttachUserPolicy.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_AttachGroupPolicy.html",
     "https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AdministratorAccess.html",
     "https://hackingthe.cloud/aws/exploitation/iam_privilege_escalation/",
 ]
 risk_score = 47
-rule_id = "9aa4be8d-5828-417d-9f54-7cd304571b24"
+rule_id = "df919b5e-a0f6-4fd8-8598-e3ce79299e3b"
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -100,11 +101,9 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail-*
-| where event.provider == "iam.amazonaws.com" and event.action == "AttachUserPolicy" and event.outcome == "success"
-| dissect aws.cloudtrail.request_parameters "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{policyName},%{?userName}=%{target.userName}}"
+| where event.provider == "iam.amazonaws.com" and event.action == "AttachGroupPolicy" and event.outcome == "success"
+| dissect aws.cloudtrail.request_parameters "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{policyName},%{?groupName}=%{group.name}}"
 | where policyName == "AdministratorAccess"
-| keep @timestamp, aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.access_key_id, event.action, policyName, target.userName, user_agent.original, source.address, source.geo.location
-| sort aws.cloudtrail.user_identity.arn
 '''
 
 
