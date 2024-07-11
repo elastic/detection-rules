@@ -153,6 +153,7 @@ def kibana_export_rules(
 
     errors = []
     exported = []
+    exception_list_rule_table = {}
     for rule_resource in rules_results:
         try:
             if strip_version:
@@ -170,7 +171,13 @@ def kibana_export_rules(
                 errors.append(f'- {rule_resource.get("name")} - {e}')
                 continue
             raise
-
+        if rule.contents.data.exceptions_list:
+            # For each item in rule.contents.data.exceptions_list to the exception_list_rule_table under the list_id
+            for exception in rule.contents.data.exceptions_list:
+                exception_id = exception["list_id"]
+                if exception_id not in exception_list_rule_table:
+                    exception_list_rule_table[exception_id] = []
+                exception_list_rule_table[exception_id].append({"id": rule.id, "name": rule.name})
         exported.append(rule)
 
     # Parse exceptions results from API return
@@ -187,13 +194,15 @@ def kibana_export_rules(
         # Build TOMLException Objects
         for container in exceptions_containers.values():
             try:
+                list_id = container.get("list_id")
                 contents = TOMLExceptionContents.from_exceptions_dict(
-                    {"container": container, "items": exceptions_items[container.get("list_id")]}
+                    {"container": container, "items": exceptions_items[list_id]},
+                    exception_list_rule_table.get(list_id),
                 )
                 # if exceptions_directory is not set then use RULES_CONFIG.exception_dir
                 exception_directory = exceptions_directory if exceptions_directory else RULES_CONFIG.exception_dir
                 exception = TOMLException(
-                    contents=contents, path=exception_directory / f"{contents.metadata.rule_name}_exceptions.toml"
+                    contents=contents, path=exception_directory / f"{list_id}_exceptions.toml"
                 )
             except Exception as e:
                 if skip_errors:
