@@ -10,6 +10,7 @@ from typing import List, Literal, Optional, Union, Tuple
 
 import pytoml
 from marshmallow import EXCLUDE, ValidationError, validates_schema
+from marshmallow_dataclass import class_schema
 
 from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions
@@ -21,8 +22,8 @@ from .schemas import definitions
 class ExceptionMeta(MarshmallowDataclassMixin):
     """Data stored in an exception's [metadata] section of TOML."""
     creation_date: definitions.Date
-    rule_id: definitions.UUIDString
-    rule_name: str
+    rule_ids: List[definitions.UUIDString]
+    rule_names: List[str]
     updated_date: definitions.Date
 
     # Optional fields
@@ -149,13 +150,16 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
     def from_exceptions_dict(
         cls,
         exceptions_dict: dict,
+        rule_list: list[dict],
     ) -> "TOMLExceptionContents":
         """Create a TOMLExceptionContents from a kibana rule resource."""
-        # Parse rule name and rule id from Kibana generated exception list name and description
-        rule_name = exceptions_dict["container"]["name"].replace("Exceptions for rule - ", "", 1)
-        rule_id = exceptions_dict["container"]["description"].replace(
-            "Exception list containing exceptions for rule with id: ", "", 1
-        )
+        rule_ids = []
+        rule_names = []
+
+        for rule in rule_list:
+            rule_ids.append(rule["id"])
+            rule_names.append(rule["name"])
+
         # Format date to match schema
         creation_date = datetime.strptime(exceptions_dict["container"]["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime(
             "%Y/%m/%d"
@@ -165,8 +169,8 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
         )
         metadata = {
             "creation_date": creation_date,
-            "rule_id": rule_id,
-            "rule_name": rule_name,
+            "rule_ids": rule_ids,
+            "rule_names": rule_names,
             "updated_date": updated_date,
         }
 
