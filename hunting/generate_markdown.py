@@ -50,7 +50,7 @@ def load_all_toml(base_path: Path) -> List[tuple[Hunt, Path]]:
     """Load all TOML files from the directory and return a list of Hunt configurations and their paths."""
     hunts = []
     for toml_file in base_path.rglob("*.toml"):
-        hunt_config = load_toml(toml_file.read_text(encoding='utf-8'))
+        hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))
         hunts.append((hunt_config, toml_file))
     return hunts
 
