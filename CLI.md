@@ -27,6 +27,7 @@ Currently supported arguments:
 * cloud_id
 * *_username (kibana and es)
 * *_password (kibana and es)
+* api_key
 
 #### Using environment variables
 
