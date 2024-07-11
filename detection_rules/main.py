@@ -105,12 +105,19 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 @click.option(
     "--save-directory", "-s", type=click.Path(file_okay=False, exists=True), help="Save imported rules to a directory"
 )
+@click.option(
+    "--exceptions-directory",
+    "-se",
+    type=click.Path(file_okay=False, exists=True),
+    help="Save imported exceptions to a directory",
+)
 def import_rules_into_repo(
     input_file: click.Path,
     required_only: bool,
     export_exceptions: bool,
     directory: click.Path,
     save_directory: click.Path,
+    exceptions_directory: click.Path,
 ):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, "**", "*.*"), recursive=True) if directory else []
@@ -160,7 +167,7 @@ def import_rules_into_repo(
             )
             filename = f"{list_id}_exceptions.toml"
             exceptions_path = (
-                Path(save_directory) / filename if save_directory else RULES_CONFIG.exception_dir / filename
+                Path(exceptions_directory) / filename if exceptions_directory else RULES_CONFIG.exception_dir / filename
             )
             click.echo(f"[+] Building exception(s) for {exceptions_path}")
             TOMLException(
