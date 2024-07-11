@@ -208,6 +208,11 @@ def kibana_export_rules(
                 exception = TOMLException(
                     contents=contents, path=exception_directory / f"{list_id}_exceptions.toml"
                 )
+                if container["type"] != "rule_default" and rule_id:
+                    click.echo(
+                        f"WARNING: exception list {list_id} for rule {rule_id} is a partial shared exception list. "
+                        "Please export without -r for full list."
+                    )
             except Exception as e:
                 if skip_errors:
                     print(f"- skipping exceptions export - {type(e).__name__}")
