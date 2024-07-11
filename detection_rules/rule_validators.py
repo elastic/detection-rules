@@ -18,7 +18,7 @@ from semver import Version
 import kql
 
 from . import ecs, endgame
-from .config import CUSTOM_RULES_DIR, load_current_package_version
+from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .integrations import (get_integration_schema_data,
                            load_integrations_manifests)
 from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
@@ -33,6 +33,7 @@ EQL_ERROR_TYPES = Union[eql.EqlCompileError,
                         eql.EqlSyntaxError,
                         eql.EqlTypeMismatchError]
 KQL_ERROR_TYPES = Union[kql.KqlCompileError, kql.KqlParseError]
+RULES_CONFIG = parse_rules_config()
 
 
 class ExtendedTypeHint(Enum):
@@ -107,7 +108,7 @@ class KQLValidator(QueryValidator):
 
     @cached_property
     def ast(self) -> kql.ast.Expression:
-        return kql.parse(self.query)
+        return kql.parse(self.query, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
 
     @cached_property
     def unique_fields(self) -> List[str]:
@@ -147,11 +148,11 @@ class KQLValidator(QueryValidator):
             ecs_version = mapping['ecs']
             err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-            beat_types, beat_schema, schema = self.get_beats_schema(data.index or [],
+            beat_types, beat_schema, schema = self.get_beats_schema(data.index_or_dataview,
                                                                     beats_version, ecs_version)
 
             try:
-                kql.parse(self.query, schema=schema)
+                kql.parse(self.query, schema=schema, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
             except kql.KqlParseError as exc:
                 message = exc.error_msg
                 trailer = err_trailer
@@ -195,12 +196,12 @@ class KQLValidator(QueryValidator):
             stack_version = integration_schema_data["stack_version"]
 
             # Add non-ecs-schema fields
-            for index_name in data.index:
+            for index_name in data.index_or_dataview:
                 integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
 
             # Add custom schema fields for appropriate stack version
             if data.index and CUSTOM_RULES_DIR:
-                for index_name in data.index:
+                for index_name in data.index_or_dataview:
                     integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
 
             # Add endpoint schema fields for multi-line fields
@@ -212,7 +213,9 @@ class KQLValidator(QueryValidator):
 
             # Validate the query against the schema
             try:
-                kql.parse(self.query, schema=integration_schema)
+                kql.parse(self.query,
+                          schema=integration_schema,
+                          normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
             except kql.KqlParseError as exc:
                 if exc.error_msg == "Unknown field":
                     field = extract_error_field(self.query, exc)
@@ -338,9 +341,9 @@ class EQLValidator(QueryValidator):
             err_trailer = f'stack: {stack_version}, beats: {beats_version},' \
                           f'ecs: {ecs_version}, endgame: {endgame_version}'
 
-            beat_types, beat_schema, schema = self.get_beats_schema(data.index or [],
+            beat_types, beat_schema, schema = self.get_beats_schema(data.index_or_dataview,
                                                                     beats_version, ecs_version)
-            endgame_schema = self.get_endgame_schema(data.index or [], endgame_version)
+            endgame_schema = self.get_endgame_schema(data.index_or_dataview, endgame_version)
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             # validate query against the beats and eql schema
@@ -389,13 +392,13 @@ class EQLValidator(QueryValidator):
             stack_version = integration_schema_data["stack_version"]
 
             # add non-ecs-schema fields for edge cases not added to the integration
-            if data.index:
-                for index_name in data.index:
+            if data.index_or_dataview:
+                for index_name in data.index_or_dataview:
                     integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
 
             # Add custom schema fields for appropriate stack version
-            if data.index and CUSTOM_RULES_DIR:
-                for index_name in data.index:
+            if data.index_or_dataview and CUSTOM_RULES_DIR:
+                for index_name in data.index_or_dataview:
                     integration_schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
 
             # add endpoint schema fields for multi-line fields

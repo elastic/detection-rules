@@ -7,9 +7,10 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for scheduled tasks creation by action using registry events. Scheduled tasks actions are saved under the TaskCache registry key in base64 encoded blob. Malware often abuse LOLBins to proxy execution or run executables from unusual paths, you can add more patterns to the query.
 
-- **UUID:** `344c0690-ebc3-4794-b123-272a5c09c57b`
+- **UUID:** `df50f65e-e820-47f4-a039-671611582f51`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
+- **Source File:** [Scheduled tasks Creation by Action via Registry](../queries/scheduled_task_creation_by_action_via_registry.toml)
 
 ## Query
 
@@ -31,6 +32,7 @@ from logs-endpoint.events.registry-*
 ## Notes
 
 - Malware often abuse LOLBins to proxy execution or run executables from unusual paths, you can add more patterns to the query.
+
 ## MITRE ATT&CK Techniques
 
 - [T1053](https://attack.mitre.org/techniques/T1053)

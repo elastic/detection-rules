@@ -7,9 +7,10 @@
 - **Author:** Elastic
 - **Description:** Using aggregation and the ES|QL `SUM` function, this hunt identifies processes that performed egress connections with total bytes greater or equal to a defined maximum threshold. This may indicate exfiltration or long term command and control activity.
 
-- **UUID:** `977d77f9-86e0-4df6-bdc7-aed87c048290`
+- **UUID:** `24925575-defd-4581-bfda-a8753dcfb46e`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
+- **Source File:** [Egress Network Connections with Total Bytes Greater than Threshold](../queries/potential_exfiltration_by_process_total_egress_bytes.toml)
 
 ## Query
 
@@ -31,6 +32,7 @@ from logs-endpoint.events.network-*
 - The use of `host.os.family` is to optimise the query and avoid timeout. You can duplicate the same query for other platforms (linux, macos etc.)
 - Based on limited testing it's recommended to set the query time window to 8 hours.
 - Pivoting by `process.entity_id` will allow further investigation (parent process, hash, child processes, other network events etc.).
+
 ## MITRE ATT&CK Techniques
 
 - [T1071](https://attack.mitre.org/techniques/T1071)

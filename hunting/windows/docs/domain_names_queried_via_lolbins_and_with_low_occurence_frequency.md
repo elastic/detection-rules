@@ -7,9 +7,10 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for DNS queries performed by commonly abused Microsoft binaries that perform remote file transfer or binary proxy execution. Aggregations for the number of occurrences is limited to one host to reduce the number of potentially legitimate hits.
 
-- **UUID:** `ebf8eb13-c98a-4d2c-8bdb-3f72a3a3961b`
+- **UUID:** `1c7be6db-12eb-4281-878d-b6abe0454f36`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
+- **Source File:** [DNS Queries via LOLBins with Low Occurence Frequency](../queries/domain_names_queried_via_lolbins_and_with_low_occurence_frequency.toml)
 
 ## Query
 
@@ -27,6 +28,7 @@ from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 
 - Utilities like curl and SSL verification for web services are noisy, while others are rare such as scripting utilities and are worth further investigation.
 - Connection to legit domains like Github, Discord, Telegram and many other legit web services by LOLBins is still suspicious and require further investigation.
+
 ## MITRE ATT&CK Techniques
 
 - [T1071](https://attack.mitre.org/techniques/T1071)

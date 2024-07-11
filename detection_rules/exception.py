@@ -198,7 +198,7 @@ class TOMLException:
 
     @property
     def name(self):
-        """Return the name of the exception."""
+        """Return the name of the exception list."""
         return self.contents.metadata.list_name
 
     def save_toml(self):
@@ -218,7 +218,7 @@ class TOMLException:
 
 def parse_exceptions_results_from_api(
     results: List[dict], skip_errors: bool = False
-) -> Tuple[dict, dict, List[str], List[dict]]:
+) -> tuple[dict, dict, List[str], List[dict]]:
     """Parse exceptions results from the API into containers and items."""
     exceptions_containers = {}
     exceptions_items = {}

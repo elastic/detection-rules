@@ -189,6 +189,7 @@ class RulesConfig:
     bbr_rules_dirs: Optional[List[Path]] = field(default_factory=list)
     bypass_version_lock: bool = False
     exception_dir: Optional[Path] = None
+    normalize_kql_keywords: bool = True
 
     def __post_init__(self):
         """Perform post validation on packages.yaml file."""
@@ -279,6 +280,9 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
     # paths are relative
     if loaded.get('bbr_rules_dirs'):
         contents['bbr_rules_dirs'] = [base_dir.joinpath(d).resolve() for d in loaded.get('bbr_rules_dirs', [])]
+
+    # kql keyword normalization
+    contents['normalize_kql_keywords'] = loaded.get('normalize_kql_keywords', True)
 
     try:
         rules_config = RulesConfig(test_config=test_config, **contents)

@@ -33,6 +33,7 @@ from . import attack, rule_loader, utils
 from .beats import (download_beats_schema, download_latest_beats_schema,
                     refresh_main_schema)
 from .cli_utils import single_collection
+from .config import parse_rules_config
 from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
@@ -50,7 +51,7 @@ from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
-from .rule_loader import RULES_CONFIG, RuleCollection, production_filter
+from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import dict_hash, get_etc_path, get_path, load_dump
 from .version_lock import VersionLockFile, loaded_version_lock
@@ -61,6 +62,7 @@ NAVIGATOR_URL = 'https://ela.st/detection-rules-navigator'
 NAVIGATOR_BADGE = (
     f'[![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)]({NAVIGATOR_URL})'
 )
+RULES_CONFIG = parse_rules_config()
 
 
 def get_github_token() -> Optional[str]:

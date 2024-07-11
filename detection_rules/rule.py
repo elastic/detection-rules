@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import eql
@@ -21,7 +22,7 @@ import marshmallow
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
-from marshmallow import ValidationError, validates_schema
+from marshmallow import ValidationError, pre_load, validates_schema
 
 import kql
 
@@ -174,6 +175,14 @@ class BaseThreatEntry:
     id: str
     name: str
     reference: str
+
+    @pre_load()
+    def modify_url(self, data: Dict[str, Any], **kwargs):
+        """Modify the URL to support MITRE ATT&CK URLS with and without trailing forward slash."""
+        if urlparse(data["reference"]).scheme:
+            if not data["reference"].endswith("/"):
+                data["reference"] += "/"
+        return data
 
 
 @dataclass(frozen=True)
@@ -701,6 +710,16 @@ class QueryRuleData(BaseRuleData):
     alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.8")))
 
     @cached_property
+    def index_or_dataview(self) -> list[str]:
+        """Return the index or dataview depending on which is set. If neither returns empty list."""
+        if self.index is not None:
+            return self.index
+        elif self.dataview is not None:
+            return [self.dataview]
+        else:
+            return []
+
+    @cached_property
     def validator(self) -> Optional[QueryValidator]:
         if self.language == "kuery":
             return KQLValidator(self.query)
@@ -731,6 +750,12 @@ class QueryRuleData(BaseRuleData):
         validator = self.validator
         if validator is not None:
             return validator.get_required_fields(index or [])
+
+    @validates_schema
+    def validates_index_and_data_view_id(self, data, **kwargs):
+        """Validate that either index or data_view_id is set, but not both."""
+        if data.get('index') and data.get('data_view_id'):
+            raise ValidationError("Only one of index or data_view_id should be set.")
 
     @validates_schema
     def validates_query_data(self, data, **kwargs):
@@ -1529,8 +1554,8 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
         cfg = set_eql_config(rule.contents.metadata.get('min_stack_version'))
         with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, eql.parser.skip_optimizations, cfg:
-            parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
-
+            parsed = (kql.parse(query, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
+                      if language == 'kuery' else eql.parse_query(query))
         return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
 

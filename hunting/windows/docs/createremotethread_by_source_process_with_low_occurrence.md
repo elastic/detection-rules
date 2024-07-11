@@ -6,9 +6,10 @@
 
 - **Author:** Elastic
 - **Description:** This hunt attempts to identify remote process injection by aggregating Sysmon `CreateRemoteThread` events by source process and returns the ones that we observed in only one unique host.
-- **UUID:** `0545f23f-84a7-4b88-9b5b-b8cfcfdc9276`
+- **UUID:** `4f878255-53b8-4914-9a7d-4b668bd2ea6a`
 - **Integration:** [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
+- **Source File:** [Low Occurrence Rate of CreateRemoteThread by Source Process](../queries/createremotethread_by_source_process_with_low_occurrence.toml)
 
 ## Query
 
@@ -25,6 +26,7 @@ from logs-windows.sysmon_operational-*
 ## Notes
 
 - Adding `winlog.event_data.TargetImage` to the aggregation clause can be beneficial but may introduce more false-positives.
+
 ## MITRE ATT&CK Techniques
 
 - [T1055](https://attack.mitre.org/techniques/T1055)

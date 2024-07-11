@@ -8,9 +8,10 @@
 - **Description:** This hunt identifies executable file creation by an unusual Microsoft native binary. This could be the result of
 code injection or some other form of exploitation for defense evasion.
 
-- **UUID:** `3b2900fe-74d9-4c49-b3df-cbeceb02e841`
+- **UUID:** `b786bcd7-b119-4ff7-b839-3927c2ff7f1f`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
+- **Source File:** [Executable File Creation by an Unusual Microsoft Binary](../queries/executable_file_creation_by_an_unusual_microsoft_binary.toml)
 
 ## Query
 
@@ -41,6 +42,7 @@ from logs-windows.sysmon_operational-*
 - Sysmon file events don't populate file header and process code signature information thus we use `file.extension`.
 - Some exploits may result in the creation of an executable file by the exploited process.
 - Further investigation can be done by pivoting on `process.executable` and filtering for executable file creation.
+
 ## MITRE ATT&CK Techniques
 
 - [T1211](https://attack.mitre.org/techniques/T1211)

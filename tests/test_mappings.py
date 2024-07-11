@@ -9,9 +9,13 @@ import unittest
 import warnings
 
 from . import get_data_files, get_fp_data_files
+from detection_rules.config import parse_rules_config
 from detection_rules.utils import combine_sources, evaluate, load_etc_dump
 from rta import get_available_tests
 from .base import BaseRuleTest
+
+
+RULES_CONFIG = parse_rules_config()
 
 
 class TestMappings(BaseRuleTest):
@@ -21,7 +25,7 @@ class TestMappings(BaseRuleTest):
 
     def evaluate(self, documents, rule, expected, msg):
         """KQL engine to evaluate."""
-        filtered = evaluate(rule, documents)
+        filtered = evaluate(rule, documents, RULES_CONFIG.normalize_kql_keywords)
         self.assertEqual(expected, len(filtered), msg)
         return filtered
 

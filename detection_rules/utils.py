@@ -30,6 +30,7 @@ from eql.utils import load_dump, stream_json_lines
 
 import kql
 
+
 CURR_DIR = Path(__file__).resolve().parent
 ROOT_DIR = CURR_DIR.parent
 ETC_DIR = ROOT_DIR / "detection_rules" / "etc"
@@ -240,9 +241,9 @@ def convert_time_span(span: str) -> int:
     return eql.ast.TimeRange(amount, unit).as_milliseconds()
 
 
-def evaluate(rule, events):
+def evaluate(rule, events, normalize_kql_keywords: bool = False):
     """Evaluate a query against events."""
-    evaluator = kql.get_evaluator(kql.parse(rule.query))
+    evaluator = kql.get_evaluator(kql.parse(rule.query), normalize_kql_keywords=normalize_kql_keywords)
     filtered = list(filter(evaluator, events))
     return filtered
 
