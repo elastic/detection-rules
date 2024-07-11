@@ -10,6 +10,7 @@
 - **UUID:** `69fc4f40-8fb1-4652-99b7-52755cd370fe`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL]`
+- **Source File:** [Low Occurrence of Suspicious Launch Agent or Launch Daemon](../queries/persistence_via_suspicious_launch_agent_or_launch_daemon_with_low_occurrence.toml)
 
 ## Query
 
@@ -28,6 +29,7 @@ from logs-endpoint.events.file-*
 ## Notes
 
 - Further investigation can done pivoting by `Persistence.name` and `args`.
+
 ## MITRE ATT&CK Techniques
 
 - [T1547](https://attack.mitre.org/techniques/T1547)

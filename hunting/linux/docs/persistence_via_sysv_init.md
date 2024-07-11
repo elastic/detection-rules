@@ -10,6 +10,7 @@
 - **UUID:** `27d76f07-7dc4-49bc-b4a7-6d9a01de171f`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
+- **Source File:** [Persistence via System V Init](../queries/persistence_via_sysv_init.toml)
 
 ## Query
 
@@ -75,6 +76,7 @@ ORDER BY
 - Uses OSQuery to detect active System V Init services and retrieve detailed file information related to System V Init services.
 - Uses OSQuery to retrieve file information for files in /etc/init.d/.
 - Excludes common legitimate processes and file types to minimize false positives.
+
 ## MITRE ATT&CK Techniques
 
 - [T1037](https://attack.mitre.org/techniques/T1037)
