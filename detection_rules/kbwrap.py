@@ -155,17 +155,6 @@ def kibana_export_rules(
         rules_results = results[:rules_count]
         exception_results = results[rules_count:rules_count + exception_list_count + exception_list_item_count]
 
-    rules_results = results
-    if export_exceptions:
-        # Assign counts to variables
-        rules_count = results[-1]["exported_rules_count"]
-        exception_list_count = results[-1]["exported_exception_list_count"]
-        exception_list_item_count = results[-1]["exported_exception_list_item_count"]
-
-        # Parse rules results and exception results from API return
-        rules_results = results[:rules_count]
-        exception_results = results[rules_count:rules_count + exception_list_count + exception_list_item_count]
-
     errors = []
     exported = []
     exception_list_rule_table = {}
