@@ -50,9 +50,7 @@ def load_all_toml(base_path: Path) -> List[tuple[Hunt, Path]]:
     """Load all TOML files from the directory and return a list of Hunt configurations and their paths."""
     hunts = []
     for toml_file in base_path.rglob("*.toml"):
-        with toml_file.open('r', encoding='utf-8') as file:
-            contents = file.read()
-        hunt_config = load_toml(contents)
+        hunt_config = load_toml(toml_file.read_text(encoding='utf-8'))
         hunts.append((hunt_config, toml_file))
     return hunts
 
@@ -119,8 +117,7 @@ def process_toml_files(base_path: Path) -> None:
         markdown_content = convert_toml_to_markdown(hunt_config, toml_file)
         markdown_path = toml_file.parent.parent / "docs" / f"{toml_file.stem}.md"
         markdown_path.parent.mkdir(parents=True, exist_ok=True)
-        with markdown_path.open('w', encoding='utf-8') as file:
-            file.write(markdown_content)
+        markdown_path.write_text(markdown_content, encoding='utf-8')
         print(f"Markdown generated: {markdown_path}")
         relative_path = markdown_path.relative_to(base_path)
         folder_name = toml_file.parent.parent.name
@@ -135,8 +132,7 @@ def process_toml_files(base_path: Path) -> None:
 
     # Write the index file at the base directory level
     index_path = base_path / "index.md"
-    with index_path.open('w', encoding='utf-8') as file:
-        file.write(index_content)
+    index_path.write_text(index_content, encoding='utf-8')
     print(f"Index Markdown generated at: {index_path}")
 
 
