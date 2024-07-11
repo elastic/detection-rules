@@ -113,7 +113,6 @@ class GenericCollection:
     def add_item(self, item: GenericCollectionTypes) -> None:
         """Add a new item to the collection."""
         self._assert_new(item)
-        self.id_map[item.id] = item
         self.name_map[item.name] = item
         self.items.append(item)
 
