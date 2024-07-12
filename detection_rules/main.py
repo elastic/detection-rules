@@ -133,24 +133,24 @@ def import_rules_into_repo(
 
     exceptions_containers = {}
     exceptions_items = {}
-    if exceptions_import:
 
-        exceptions_containers, exceptions_items, _, unparsed_results = parse_exceptions_results_from_api(
-            file_contents, skip_errors=True
-        )
+    exceptions_containers, exceptions_items, _, unparsed_results = parse_exceptions_results_from_api(
+        file_contents, skip_errors=True
+    )
 
-        file_contents = unparsed_results
+    file_contents = unparsed_results
 
     exception_list_rule_table = {}
     for contents in file_contents:
         base_path = contents.get("name") or contents.get("rule", {}).get("name")
         base_path = rulename_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(save_directory if save_directory is not None else RULES_DIRS[0], base_path)
-        additional = ["index"] if not contents.get("data_view_id") else ["data_view_id"]
+        data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")
+        additional = ["index"] if not data_view_id else ["data_view_id"]
         rule_prompt(
             rule_path, required_only=required_only, save=True, verbose=True, additional_required=additional, **contents
         )
-        if contents["exceptions_list"]:
+        if contents.get("exceptions_list"):
             # For each item in rule.contents.data.exceptions_list to the exception_list_rule_table under the list_id
             for exception in contents["exceptions_list"]:
                 exception_id = exception["list_id"]
@@ -159,24 +159,27 @@ def import_rules_into_repo(
                 exception_list_rule_table[exception_id].append({"id": contents["id"], "name": contents["name"]})
 
     # Build TOMLException Objects
-    for container in exceptions_containers.values():
-        try:
-            list_id = container.get("list_id")
-            contents = TOMLExceptionContents.from_exceptions_dict(
-                {"container": container, "items": exceptions_items[list_id]},
-                exception_list_rule_table.get(list_id),
-            )
-            filename = f"{list_id}_exceptions.toml"
-            exceptions_path = (
-                Path(exceptions_directory) / filename if exceptions_directory else RULES_CONFIG.exception_dir / filename
-            )
-            click.echo(f"[+] Building exception(s) for {exceptions_path}")
-            TOMLException(
-                contents=contents,
-                path=exceptions_path,
-            ).save_toml()
-        except Exception:
-            raise
+    if exceptions_import:
+        for container in exceptions_containers.values():
+            try:
+                list_id = container.get("list_id")
+                contents = TOMLExceptionContents.from_exceptions_dict(
+                    {"container": container, "items": exceptions_items[list_id]},
+                    exception_list_rule_table.get(list_id),
+                )
+                filename = f"{list_id}_exceptions.toml"
+                if RULES_CONFIG.exception_dir is None and not exceptions_directory:
+                    raise FileNotFoundError("No Exceptions directory is specified. Please specify either in the config or CLI.")
+                exceptions_path = (
+                    Path(exceptions_directory) / filename if exceptions_directory else RULES_CONFIG.exception_dir / filename
+                )
+                click.echo(f"[+] Building exception(s) for {exceptions_path}")
+                TOMLException(
+                    contents=contents,
+                    path=exceptions_path,
+                ).save_toml()
+            except Exception:
+                raise
 
 
 @root.command('build-limited-rules')
