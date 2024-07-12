@@ -10,16 +10,15 @@ updated_date = "2024/07/10"
 author = ["Elastic"]
 description = """
 This rule leverages the new_terms rule type to identify the creation of a potentially unsafe docker container from an
-unusual parent process. Attackers can use the `--privileged` and `--cap-add` flags to create containers with escalated
-privileges, which can lead to trivial privilege escalation, docker escaping and persistence. The `--restart=always` flag
-can be used to ensure the container restarts automatically if it crashes or is stopped, allowing for potential persistent
+unusual parent process. Attackers can use the `--privileged` flag to create containers with escalated privileges,
+which can lead to trivial privilege escalation, docker escaping and persistence.
 access.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Unsafe Docker Container Creation"
+name = "Privileged Docker Container Creation"
 risk_score = 21
 rule_id = "a80d96cd-1164-41b3-9852-ef58724be496"
 setup = """## Setup
@@ -56,7 +55,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.name:docker and
-process.args:(run and (--privileged or --restart=always or --cap-add=*))
+process.args:(run and --privileged)
 '''
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -100,4 +99,4 @@ value = ["process.parent.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-14d"
