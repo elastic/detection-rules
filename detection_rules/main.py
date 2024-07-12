@@ -146,10 +146,12 @@ def import_rules_into_repo(
         base_path = contents.get("name") or contents.get("rule", {}).get("name")
         base_path = rulename_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(save_directory if save_directory is not None else RULES_DIRS[0], base_path)
-        additional = ["index"] if not contents.get("data_view_id") else ["data_view_id"]
-        rule_prompt(
-            rule_path, required_only=required_only, save=True, verbose=True, additional_required=additional, **contents
-        )
+        
+        # handle both rule json formats loaded from kibana and toml
+        data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")
+        additional = ["index"] if not data_view_id else ["data_view_id"]
+        rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
+                    additional_required=additional, **contents)
         if contents["exceptions_list"]:
             # For each item in rule.contents.data.exceptions_list to the exception_list_rule_table under the list_id
             for exception in contents["exceptions_list"]:
