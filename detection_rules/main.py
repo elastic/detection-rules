@@ -111,8 +111,7 @@ def import_rules_into_repo(input_file, required_only, directory):
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
         base_path = rulename_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
-        data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")
-        additional = ["index"] if not data_view_id else ["data_view_id"]
+        additional = ['index'] if not contents.get('data_view_id') else ['data_view_id']
         rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
                     additional_required=additional, **contents)
 
