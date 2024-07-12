@@ -774,15 +774,19 @@ class NewTermsRuleData(QueryRuleData):
         if "new_terms_fields" in data and "history_window_start" in data:
             new_terms_mapping = {
                 "field": "new_terms_fields",
-                "value": data.pop("new_terms_fields"),
+                "value": data["new_terms_fields"],
                 "history_window_start": [
                     {
                         "field": "history_window_start",
-                        "value": data.pop("history_window_start")
+                        "value": data["history_window_start"]
                     }
                 ]
             }
             data["new_terms"] = new_terms_mapping
+
+            # cleanup original fields after building into our toml format
+            data.pop("new_terms_fields")
+            data.pop("history_window_start")
         return data
 
     def transform(self, obj: dict) -> dict:
