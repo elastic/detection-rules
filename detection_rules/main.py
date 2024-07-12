@@ -23,6 +23,9 @@ import click
 from .attack import build_threat_map_entry
 from .cli_utils import rule_prompt, multi_collection
 from .config import load_current_package_version, parse_rules_config
+from .generic_loader import GenericCollection
+from .exception import (TOMLException, TOMLExceptionContents,
+                        parse_exceptions_results_from_api)
 from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
 from .misc import (
     add_client, client_error, nested_set, parse_user_config
@@ -95,32 +98,85 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     return bulk_upload_docs, importable_rules_docs
 
 
-@root.command('import-rules-to-repo')
-@click.argument('input-file', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
-@click.option('--required-only', is_flag=True, help='Only prompt for required fields')
-@click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-@click.option('--save-directory', '-s', type=click.Path(file_okay=False, exists=True),
-              help='Save imported rules to a directory')
-def import_rules_into_repo(input_file: click.Path, required_only: bool, directory: click.Path,
-                           save_directory: click.Path):
+@root.command("import-rules-to-repo")
+@click.argument("input-file", type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
+@click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
+@click.option("--required-only", is_flag=True, help="Only prompt for required fields")
+@click.option("--directory", "-d", type=click.Path(file_okay=False, exists=True), help="Load files from a directory")
+@click.option(
+    "--save-directory", "-s", type=click.Path(file_okay=False, exists=True), help="Save imported rules to a directory"
+)
+@click.option(
+    "--exceptions-directory",
+    "-se",
+    type=click.Path(file_okay=False, exists=True),
+    help="Save imported exceptions to a directory",
+)
+def import_rules_into_repo(
+    input_file: click.Path,
+    required_only: bool,
+    export_exceptions: bool,
+    directory: click.Path,
+    save_directory: click.Path,
+    exceptions_directory: click.Path,
+):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
-    rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
+    rule_files = glob.glob(os.path.join(directory, "**", "*.*"), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
 
-    rule_contents = []
+    file_contents = []
     for rule_file in rule_files:
-        rule_contents.extend(load_rule_contents(Path(rule_file)))
+        file_contents.extend(load_rule_contents(Path(rule_file)))
 
-    if not rule_contents:
-        click.echo('Must specify at least one file!')
+    if not file_contents:
+        click.echo("Must specify at least one file!")
 
-    for contents in rule_contents:
-        base_path = contents.get('name') or contents.get('rule', {}).get('name')
+    exceptions_containers = {}
+    exceptions_items = {}
+    if export_exceptions:
+
+        exceptions_containers, exceptions_items, _, unparsed_results = parse_exceptions_results_from_api(
+            file_contents, skip_errors=True
+        )
+
+        file_contents = unparsed_results
+
+    exception_list_rule_table = {}
+    for contents in file_contents:
+        base_path = contents.get("name") or contents.get("rule", {}).get("name")
         base_path = rulename_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(save_directory if save_directory is not None else RULES_DIRS[0], base_path)
-        additional = ['index'] if not contents.get('data_view_id') else ['data_view_id']
-        rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
-                    additional_required=additional, **contents)
+        additional = ["index"] if not contents.get("data_view_id") else ["data_view_id"]
+        rule_prompt(
+            rule_path, required_only=required_only, save=True, verbose=True, additional_required=additional, **contents
+        )
+        if contents["exceptions_list"]:
+            # For each item in rule.contents.data.exceptions_list to the exception_list_rule_table under the list_id
+            for exception in contents["exceptions_list"]:
+                exception_id = exception["list_id"]
+                if exception_id not in exception_list_rule_table:
+                    exception_list_rule_table[exception_id] = []
+                exception_list_rule_table[exception_id].append({"id": contents["id"], "name": contents["name"]})
+
+    # Build TOMLException Objects
+    for container in exceptions_containers.values():
+        try:
+            list_id = container.get("list_id")
+            contents = TOMLExceptionContents.from_exceptions_dict(
+                {"container": container, "items": exceptions_items[list_id]},
+                exception_list_rule_table.get(list_id),
+            )
+            filename = f"{list_id}_exceptions.toml"
+            exceptions_path = (
+                Path(exceptions_directory) / filename if exceptions_directory else RULES_CONFIG.exception_dir / filename
+            )
+            click.echo(f"[+] Building exception(s) for {exceptions_path}")
+            TOMLException(
+                contents=contents,
+                path=exceptions_path,
+            ).save_toml()
+        except Exception:
+            raise
 
 
 @root.command('build-limited-rules')
@@ -238,9 +294,16 @@ def view_rule(ctx, rule_file, api_format):
     return rule
 
 
-def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optional[definitions.SemVer] = None,
-                  verbose=True, skip_unsupported=False, include_metadata: bool = False):
-    """Export rules into a consolidated ndjson file."""
+def _export_rules(
+    rules: RuleCollection,
+    outfile: Path,
+    downgrade_version: Optional[definitions.SemVer] = None,
+    verbose=True,
+    skip_unsupported=False,
+    include_metadata: bool = False,
+    include_exceptions: bool = False,
+):
+    """Export rules and exceptions into a consolidated ndjson file."""
     from .rule import downgrade_contents_from_rule
 
     outfile = outfile.with_suffix('.ndjson')
@@ -267,6 +330,16 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
         output_lines = [json.dumps(r.contents.to_api_format(include_metadata=include_metadata),
                                    sort_keys=True) for r in rules]
 
+    # Add exceptions to api format here and add to output_lines
+    if include_exceptions:
+        cl = GenericCollection.default()
+        # Get exceptions in API format
+        exceptions = [d.contents.to_api_format() for d in cl.items]
+        # Flatten list of lists
+        exceptions = [e for sublist in exceptions for e in sublist]
+        # Append to Rules List
+        output_lines.extend(json.dumps(e, sort_keys=True) for e in exceptions)
+
     outfile.write_text('\n'.join(output_lines) + '\n')
 
     if verbose:
@@ -277,20 +350,35 @@ def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optio
             click.echo(f'Skipped {len(unsupported)} unsupported rules: \n- {unsupported_str}')
 
 
-@root.command('export-rules-from-repo')
+@root.command("export-rules-from-repo")
 @multi_collection
-@click.option('--outfile', '-o', default=Path(get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson')),
-              type=Path, help='Name of file for exported rules')
-@click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
-@click.option('--stack-version', type=click.Choice(all_versions()),
-              help='Downgrade a rule version to be compatible with older instances of Kibana')
-@click.option('--skip-unsupported', '-s', is_flag=True,
-              help='If `--stack-version` is passed, skip rule types which are unsupported '
-                   '(an error will be raised otherwise)')
-@click.option('--include-metadata', type=bool, is_flag=True, default=False, help='Add metadata to the exported rules')
-def export_rules_from_repo(rules, outfile: Path, replace_id, stack_version,
-                           skip_unsupported, include_metadata: bool) -> RuleCollection:
-    """Export rule(s) into an importable ndjson file."""
+@click.option(
+    "--outfile",
+    "-o",
+    default=Path(get_path("exports", f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson')),
+    type=Path,
+    help="Name of file for exported rules",
+)
+@click.option("--replace-id", "-r", is_flag=True, help="Replace rule IDs with new IDs before export")
+@click.option(
+    "--stack-version",
+    type=click.Choice(all_versions()),
+    help="Downgrade a rule version to be compatible with older instances of Kibana",
+)
+@click.option(
+    "--skip-unsupported",
+    "-s",
+    is_flag=True,
+    help="If `--stack-version` is passed, skip rule types which are unsupported " "(an error will be raised otherwise)",
+)
+@click.option("--include-metadata", type=bool, is_flag=True, default=False, help="Add metadata to the exported rules")
+@click.option(
+    "--include-exceptions", "-e", type=bool, is_flag=True, default=False, help="Include Exceptions Lists in export"
+)
+def export_rules_from_repo(
+    rules, outfile: Path, replace_id, stack_version, skip_unsupported, include_metadata: bool, include_exceptions: bool
+) -> RuleCollection:
+    """Export rule(s) and exception(s) into an importable ndjson file."""
     assert len(rules) > 0, "No rules found"
 
     if replace_id:
@@ -305,8 +393,14 @@ def export_rules_from_repo(rules, outfile: Path, replace_id, stack_version,
             rules.add_rule(TOMLRule(contents=new_contents))
 
     outfile.parent.mkdir(exist_ok=True)
-    _export_rules(rules=rules, outfile=outfile, downgrade_version=stack_version,
-                  skip_unsupported=skip_unsupported, include_metadata=include_metadata)
+    _export_rules(
+        rules=rules,
+        outfile=outfile,
+        downgrade_version=stack_version,
+        skip_unsupported=skip_unsupported,
+        include_metadata=include_metadata,
+        include_exceptions=include_exceptions,
+    )
 
     return rules
 
