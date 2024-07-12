@@ -145,7 +145,7 @@ def import_rules_into_repo(
         base_path = contents.get("name") or contents.get("rule", {}).get("name")
         base_path = rulename_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(save_directory if save_directory is not None else RULES_DIRS[0], base_path)
-        
+
         # handle both rule json formats loaded from kibana and toml
         data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")
         additional = ["index"] if not data_view_id else ["data_view_id"]
@@ -171,9 +171,13 @@ def import_rules_into_repo(
                 )
                 filename = f"{list_id}_exceptions.toml"
                 if RULES_CONFIG.exception_dir is None and not exceptions_directory:
-                    raise FileNotFoundError("No Exceptions directory is specified. Please specify either in the config or CLI.")
+                    raise FileNotFoundError(
+                        "No Exceptions directory is specified. Please specify either in the config or CLI."
+                    )
                 exceptions_path = (
-                    Path(exceptions_directory) / filename if exceptions_directory else RULES_CONFIG.exception_dir / filename
+                    Path(exceptions_directory) / filename
+                    if exceptions_directory
+                    else RULES_CONFIG.exception_dir / filename
                 )
                 click.echo(f"[+] Building exception(s) for {exceptions_path}")
                 TOMLException(
