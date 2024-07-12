@@ -21,7 +21,7 @@ import marshmallow
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
-from marshmallow import ValidationError, validates_schema
+from marshmallow import ValidationError, validates_schema, pre_load
 
 import kql
 
@@ -767,6 +767,27 @@ class NewTermsRuleData(QueryRuleData):
 
     type: Literal["new_terms"]
     new_terms: NewTermsMapping
+
+    @pre_load
+    def preload_data(self, data: dict, **kwargs) -> dict:
+        """Preloads and formats the data to match the required schema."""
+        if "new_terms_fields" in data and "history_window_start" in data:
+            new_terms_mapping = {
+                "field": "new_terms_fields",
+                "value": data["new_terms_fields"],
+                "history_window_start": [
+                    {
+                        "field": "history_window_start",
+                        "value": data["history_window_start"]
+                    }
+                ]
+            }
+            data["new_terms"] = new_terms_mapping
+
+            # cleanup original fields after building into our toml format
+            data.pop("new_terms_fields")
+            data.pop("history_window_start")
+        return data
 
     def transform(self, obj: dict) -> dict:
         """Transforms new terms data to API format for Kibana."""
