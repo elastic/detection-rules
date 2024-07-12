@@ -100,7 +100,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 
 @root.command("import-rules-to-repo")
 @click.argument("input-file", type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
-@click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
+@click.option("--exceptions-import", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--required-only", is_flag=True, help="Only prompt for required fields")
 @click.option("--directory", "-d", type=click.Path(file_okay=False, exists=True), help="Load files from a directory")
 @click.option(
@@ -115,7 +115,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 def import_rules_into_repo(
     input_file: click.Path,
     required_only: bool,
-    export_exceptions: bool,
+    exceptions_import: bool,
     directory: click.Path,
     save_directory: click.Path,
     exceptions_directory: click.Path,
@@ -133,7 +133,7 @@ def import_rules_into_repo(
 
     exceptions_containers = {}
     exceptions_items = {}
-    if export_exceptions:
+    if exceptions_import:
 
         exceptions_containers, exceptions_items, _, unparsed_results = parse_exceptions_results_from_api(
             file_contents, skip_errors=True

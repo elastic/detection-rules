@@ -77,9 +77,12 @@ Usage: detection_rules import-rules-to-repo [OPTIONS] [INPUT_FILE]...
   Import rules from json, toml, yaml, or Kibana exported rule file(s).
 
 Options:
+  -e, --exceptions-import         Include exceptions in export
   --required-only                 Only prompt for required fields
   -d, --directory DIRECTORY       Load files from a directory
   -s, --save-directory DIRECTORY  Save imported rules to a directory
+  -se, --exceptions-directory DIRECTORY
+                                  Save imported exceptions to a directory
   -h, --help                      Show this message and exit.
 ```
 
@@ -95,6 +98,8 @@ The `-s/--save-directory` is an optional parameter to specify a non default dire
 This will also strip additional fields and prompt for missing required fields.
 
 <a id="note-3">\* Note</a>: This will attempt to parse ALL files recursively within a specified directory.
+
+Additionally, the `-e` flag can be used if one wants to import exceptions in addition to rules from the export file.
 
 
 ## Commands using Elasticsearch and Kibana clients
@@ -144,22 +149,20 @@ Usage: detection_rules kibana [OPTIONS] COMMAND [ARGS]...
 Options:
   --ignore-ssl-errors TEXT
   --space TEXT                 Kibana space
-  --provider-name TEXT         For cloud deployments, Elastic Cloud configures
-                               two providers by default: cloud-basic and
-                               cloud-saml (for SSO)
-  --provider-type TEXT         For cloud deployments, Elastic Cloud configures
-                               two providers by default: basic and saml (for
+  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-
+                               saml (for SSO)
+  --provider-type TEXT         Elastic Cloud providers: basic and saml (for
                                SSO)
   -ku, --kibana-user TEXT
   --kibana-url TEXT
   -kp, --kibana-password TEXT
   -kc, --kibana-cookie TEXT    Cookie from an authed session
-  --cloud-id TEXT              ID of the cloud instance. Defaults the cloud
-                               provider to cloud-basic if this option is
-                               supplied
+  --cloud-id TEXT              ID of the cloud instance.
   -h, --help                   Show this message and exit.
 
 Commands:
+  export-rules   Export custom rules from Kibana.
+  import-rules   Import custom rules into Kibana.
   search-alerts  Search detection engine alerts with KQL.
   upload-rule    Upload a list of rule .toml files to Kibana.
 ```
@@ -477,6 +480,44 @@ python -m detection_rules kibana import-rules -d test-export-rules -o
 ### Exporting rules
 
 This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way proper validation is applied to versioning when the rules are downloaded. See the [custom rules docs](docs/custom-rules.md) for more information.
+
+```
+python -m detection_rules kibana export-rules -h
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+Kibana client:
+Options:
+  --ignore-ssl-errors TEXT
+  --space TEXT                 Kibana space
+  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-
+                               saml (for SSO)
+  --provider-type TEXT         Elastic Cloud providers: basic and saml (for
+                               SSO)
+  -ku, --kibana-user TEXT
+  --kibana-url TEXT
+  -kp, --kibana-password TEXT
+  -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --cloud-id TEXT              ID of the cloud instance.
+
+Usage: detection_rules kibana export-rules [OPTIONS]
+
+  Export custom rules from Kibana.
+
+Options:
+  -d, --directory PATH            Directory to export rules to  [required]
+  -ed, --exceptions-directory PATH
+                                  Directory to export exceptions to
+  -r, --rule-id TEXT              Optional Rule IDs to restrict export to
+  -e, --export-exceptions         Include exceptions in export
+  -s, --skip-errors               Skip errors when exporting rules
+  -sv, --strip-version            Strip the version fields from all rules
+  -h, --help                      Show this message and exit.
+
+
+```
 
 Example of a rule exporting, with errors skipped
 
