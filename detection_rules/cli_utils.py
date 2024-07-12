@@ -165,18 +165,6 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             contents[name] = schema_prompt(name, value=kwargs.pop(name))
             continue
 
-        if name == "new_terms":
-            # patch to allow new_term imports
-            result = {"field": "new_terms_fields"}
-            result["value"] = schema_prompt("new_terms_fields", value=kwargs.pop("new_terms_fields"))
-            history_window_start_value = kwargs.pop("history_window_start", None)
-            result["history_window_start"] = [
-                {
-                    "field": "history_window_start",
-                    "value": schema_prompt("history_window_start", value=history_window_start_value),
-                }
-            ]
-
         else:
             result = schema_prompt(name, is_required=name in required_fields, **options.copy())
 
