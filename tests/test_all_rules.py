@@ -171,6 +171,22 @@ class TestValidRules(BaseRuleTest):
                               f'Expected: {max_signal_standard_setup}\n\n'
                               f'Actual: {rule.contents.data.setup}')
 
+    def test_from_filed_value(self):
+        """ Add "from" Field Validation for All Rules"""
+        failures = []
+        valid_format = re.compile(r'^now-\d+[yMwdhHms]$')
+        for rule in self.all_rules:
+            from_field = rule.contents.data.get('from_')
+            if from_field is not None:
+                if not valid_format.match(from_field):
+                    err_msg = f'{self.rule_str(rule)} has invalid value {from_field}'
+                    failures.append(err_msg)
+        if failures:
+            fail_msg = """
+            The following rules have invalid 'from' filed value \n
+            """
+            self.fail(fail_msg + '\n'.join(failures))
+
 
 class TestThreatMappings(BaseRuleTest):
     """Test threat mapping data for rules."""
