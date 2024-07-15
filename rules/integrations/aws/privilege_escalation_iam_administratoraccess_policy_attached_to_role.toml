@@ -2,8 +2,8 @@
 creation_date = "2024/05/31"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/31"
-min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully"
+updated_date = "2024/07/05"
+min_stack_comments = "ES|QL rule type in technical preview as of 8.13."
 min_stack_version = "8.13.0"
 
 [rule]
@@ -20,7 +20,7 @@ false_positives = [
     to attach the `AdministratorAccess` policy to the target role. 
     """,
 ]
-from = "now-10m"
+from = "now-6m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS IAM AdministratorAccess Policy Attached to Role"
@@ -103,8 +103,6 @@ from logs-aws.cloudtrail-*
 | where event.provider == "iam.amazonaws.com" and event.action == "AttachRolePolicy" and event.outcome == "success"
 | dissect aws.cloudtrail.request_parameters "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{policyName},%{?roleName}=%{role.name}}"
 | where policyName == "AdministratorAccess"
-| keep @timestamp, aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.access_key_id, event.action, policyName, role.name, user_agent.original, source.address, source.geo.location
-| sort aws.cloudtrail.user_identity.arn
 '''
 
 
