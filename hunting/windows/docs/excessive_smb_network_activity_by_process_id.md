@@ -10,6 +10,7 @@
 - **UUID:** `8a95f552-f149-4c71-888e-f2690f5add15`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
+- **Source File:** [Excessive SMB Network Activity by Process ID](../queries/excessive_smb_network_activity_by_process_id.toml)
 
 ## Query
 
@@ -28,6 +29,7 @@ from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
 
 - Further investigation can done pivoting by `process.entity_id` and `host.id.`
 - Maximum number of unique `destination.ip` by process can be adjusted to your environment to reduce normal noisy hosts by process ID.
+
 ## MITRE ATT&CK Techniques
 
 - [T1021](https://attack.mitre.org/techniques/T1021)
