@@ -7,15 +7,19 @@ min_stack_version = "8.9.0"
 updated_date = "2024/07/16"
 
 [rule]
-author = ["Elastic","Austin Songer"]
+author = ["Elastic", "Austin Songer"]
 description = """
-Identifies when a user has assumed a role in AWS Security Token Service (STS). Users can assume a role to obtain temporary credentials and access AWS resources. Adversaries can use this technique for credential access and privilege escalation.
+Identifies when a user has assumed a role in AWS Security Token Service (STS). Users can assume a role to obtain
+temporary credentials and access AWS resources. Adversaries can use this technique for credential access and privilege
+escalation.
 """
 false_positives = [
-    """AWS administrators or automated processes might regularly assume roles for legitimate administrative purposes.""",
-    """Applications integrated with AWS might assume roles to access AWS resources.""",
-    """Automated workflows might assume roles to perform periodic tasks such as data backups, updates, or deployments."""
-    ]
+    "AWS administrators or automated processes might regularly assume roles for legitimate administrative purposes.",
+    "Applications integrated with AWS might assume roles to access AWS resources.",
+    """
+    Automated workflows might assume roles to perform periodic tasks such as data backups, updates, or deployments.
+    """,
+]
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -76,14 +80,11 @@ id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
 
-[rule.threat.tactic]
-id = "TA0008"
-name = "Lateral Movement"
-reference = "https://attack.mitre.org/tactics/TA0008/"
-
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["user.id", "aws.cloudtrail.flattened.request_parameters.roleArn"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
+
+
