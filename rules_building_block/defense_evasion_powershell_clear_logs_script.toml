@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
 min_stack_version = "8.12.0"
-updated_date = "2024/03/12"
+updated_date = "2024/07/17"
 
 [rule]
 author = ["Elastic"]
@@ -58,7 +58,8 @@ event.category:process and host.os.type:windows and
   ) and
   not powershell.file.script_block_text : (
     "CmdletsToExport=@(\"Add-Content\""
-  )
+  ) and
+  not file.directory : "C:\Program Files\WindowsAdminCenter\PowerShellModules\Microsoft.WindowsAdminCenter.Configuration"
 '''
 
 [[rule.filters]]
@@ -67,6 +68,13 @@ negate = true
 [rule.filters.query.wildcard."file.path"]
 "case_insensitive" = true
 "value" = "?:\\\\Windows\\\\system32\\\\WindowsPowerShell\\\\v1.0\\\\Modules\\\\Microsoft.PowerShell.Management\\\\*.psd1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\Microsoft Monitoring Agent\\\\Agent\\\\Health Service State\\\\Resources\\\\*\\\\M365Library.ps1"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
