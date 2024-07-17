@@ -10,6 +10,7 @@
 - **UUID:** `5e5aa9c2-96a8-4d5b-bbca-ff2ec8fefa5b`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows)
 - **Language:** `[ES|QL]`
+- **Source File:** [High Count of Network Connection Over Extended Period by Process](../queries/high_count_of_network_connection_over_extended_period_by_process.toml)
 
 ## Query
 
@@ -68,6 +69,7 @@ not (process.name == "svchost.exe" and user.id == "S-1-5-18") and
 ## Notes
 
 - This hunt includes three queries for Elastic Defend and Sysmon data sources.
+
 ## MITRE ATT&CK Techniques
 
 - [T1071](https://attack.mitre.org/techniques/T1071)

@@ -10,6 +10,7 @@
 - **UUID:** `8d42a644-5b60-4165-a8f1-84d5bcdd4ade`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
+- **Source File:** [Persistence via Udev](../queries/persistence_via_udev.toml)
 
 ## Query
 
@@ -20,6 +21,7 @@ from logs-endpoint.events.file-*
     file.path like "/etc/udev/rules.d/*" or
     file.path like "/run/udev/rules.d/*" or
     file.path like "/usr/lib/udev/rules.d/*" or
+    file.path like "/usr/local/lib/udev/rules.d/*" or
     file.path like "/lib/udev/*"
 ) and not process.name in (
   "dpkg", "dockerd", "yum", "dnf", "snapd", "pacman", "pamac-daemon",
@@ -29,6 +31,7 @@ from logs-endpoint.events.file-*
     file.path like "/etc/udev/rules.d/*" or
     file.path like "/run/udev/rules.d/*" or
     file.path like "/usr/lib/udev/rules.d/*" or
+    file.path like "/usr/local/lib/udev/rules.d/*" or
     file.path like "/lib/udev/*",
     process.name,
     null
@@ -77,6 +80,7 @@ WHERE
         '/etc/udev/rules.d/',
         '/run/udev/rules.d/',
         '/usr/lib/udev/rules.d/',
+        '/usr/local/lib/udev/rules.d/',
         '/lib/udev/'
     )
 ORDER BY
@@ -90,6 +94,7 @@ ORDER BY
 - Uses EVAL to tag potential persistence events and counts occurrences to identify unusual activity.
 - Monitors processes started by Udevadm to detect suspicious activity related to Udev rules.
 - OSQuery query is provided to retrieve detailed file information related to Udev rules.
+
 ## MITRE ATT&CK Techniques
 
 - [T1547.010](https://attack.mitre.org/techniques/T1547/010)
