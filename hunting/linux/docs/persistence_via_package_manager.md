@@ -1,4 +1,4 @@
-# Persistence via Packager Manager
+# Persistence via Package Manager
 
 ---
 
@@ -10,7 +10,7 @@
 - **UUID:** `2d01a413-8d97-407a-8698-02dfc7119c97`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
-- **Source File:** [Persistence via Packager Manager](../queries/persistence_via_package_manager.toml)
+- **Source File:** [Persistence via Package Manager](../queries/persistence_via_package_manager.toml)
 
 ## Query
 
