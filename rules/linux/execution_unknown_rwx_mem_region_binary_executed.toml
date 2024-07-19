@@ -2,7 +2,7 @@
 creation_date = "2024/03/13"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/07/18"
 
 [rule]
 author = ["Elastic"]
@@ -50,22 +50,26 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.category:process and host.os.type:linux and auditd.data.syscall:mprotect and auditd.data.a2:7
+event.category:process and host.os.type:linux and auditd.data.syscall:mprotect and auditd.data.a2:7 and not (
+  process.executable:(
+    "/usr/share/kibana/node/bin/node" or "/usr/share/elasticsearch/jdk/bin/java" or "/usr/sbin/apache2"
+  ) or
+  process.name:httpd
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
@@ -74,9 +78,8 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.executable"]
+value = ["process.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
-
-
