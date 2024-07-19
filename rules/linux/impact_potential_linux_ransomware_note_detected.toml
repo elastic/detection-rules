@@ -2,7 +2,7 @@
 creation_date = "2023/03/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/07/18"
 
 [rule]
 author = ["Elastic"]
@@ -54,18 +54,17 @@ tags = [
     "Data Source: Elastic Defend",
 ]
 type = "eql"
-
 query = '''
 sequence by process.entity_id, host.id with maxspan=1s 
   [file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and file.extension : "?*" 
-   and process.executable : ("./*", "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/var/run/*", "/boot/*", "/srv/*", "/run/*") and
+   and process.executable : ("./*", "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/var/run/*", "/boot/*") and
    file.path : (
      "/home/*/Downloads/*", "/home/*/Documents/*", "/root/*", "/bin/*", "/usr/bin/*", "/var/log/*", "/var/lib/log/*",
      "/var/backup/*", "/var/www/*") and
    not process.name : (
      "dpkg", "yum", "dnf", "rpm", "dockerd", "go", "java", "pip*", "python*", "node", "containerd", "php", "p4d",
      "conda", "chrome", "imap", "cmake", "firefox", "semanage", "semodule", "ansible-galaxy", "fc-cache", "jammy", "git",
-     "systemsettings", "vmis-launcher", "bundle", "kudu-tserver", "suldownloader"
+     "systemsettings", "vmis-launcher", "bundle", "kudu-tserver", "suldownloader", "rustup-init"
     )
   ] with runs=25
   [file where host.os.type == "linux" and event.action == "creation" and file.name : (
@@ -74,17 +73,15 @@ sequence by process.entity_id, host.id with maxspan=1s
   ]
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1486"
 name = "Data Encrypted for Impact"
 reference = "https://attack.mitre.org/techniques/T1486/"
 
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-
