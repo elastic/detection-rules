@@ -7,9 +7,9 @@ updated_date = "2024/07/19"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a potential Windows Server Update Services (WSUS) abuse to execute attackers' payloads for lateral movement.
+Identifies a potential Windows Server Update Services (WSUS) abuse to execute psexec to enable for lateral movement.
 WSUS is limited to executing Microsoft signed binaries, which limits the executables that can be used to tools published
-by Microsoft or Windows native executables.
+by Microsoft.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*", "logs-m365_defender.event-*", "logs-system.security-*"]
@@ -17,9 +17,9 @@ language = "eql"
 license = "Elastic License v2"
 name = "Potential WSUS Abuse for Lateral Movement"
 references = ["https://www.thehacker.recipes/a-d/movement/mitm-and-coerced-authentications/wsus-spoofing"]
-risk_score = 21
+risk_score = 47
 rule_id = "8e2485b6-a74f-411b-bf7f-38b819f3a846"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -37,22 +37,7 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and process.parent.name : "wuauclt.exe" and
 process.executable : "?:\\Windows\\SoftwareDistribution\\Download\\Install\\*" and
-(
-    process.name : (
-        "cmd.exe", "cscript.exe", "ieexec.exe", "iexpress.exe", "installutil.exe", "Microsoft.Workflow.Compiler.exe",
-        "msbuild.exe", "mshta.exe", "msiexec.exe", "msxsl.exe", "net.exe", "net1.exe", "powershell.exe", "pwsh.exe",
-        "reg.exe", "RegAsm.exe", "RegSvcs.exe", "regsvr32.exe", "rundll32.exe", "vssadmin.exe", "wbadmin.exe",
-        "wmic.exe", "wscript.exe", "bitsadmin.exe", "certutil.exe", "schtasks.exe", "cmstp.exe", "sc.exe", "curl.exe",
-        "ScriptRunner.exe", "Workfolders.exe", "psexec64.exe"
-    ) or
-    ?process.pe.original_file_name : (
-        "cmd.exe", "cscript.exe", "ieexec.exe", "iexpress.exe", "installutil.exe", "Microsoft.Workflow.Compiler.exe",
-        "msbuild.exe", "mshta.exe", "msiexec.exe", "msxsl.exe", "net.exe", "net1.exe", "powershell.exe", "pwsh.dll",
-        "reg.exe", "RegAsm.exe", "RegSvcs.exe", "regsvr32.exe", "rundll32.exe", "vssadmin.exe", "wbadmin.exe",
-        "wmic.exe", "wscript.exe", "bitsadmin.exe", "certutil.exe", "schtasks.exe", "cmstp.exe", "sc.exe", "curl.exe",
-        "ScriptRunner.exe", "Workfolders.exe", "sctasks.exe", "psexec.c"
-    )
-)
+(process.name : "psexec64.exe" or ?process.pe.original_file_name : "psexec.c")
 '''
 
 
