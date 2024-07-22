@@ -1,0 +1,56 @@
+[metadata]
+creation_date = "2024/07/19"
+integration = ["endpoint", "windows", "system","sentinel_one_cloud_funnel", "m365_defender"]
+maturity = "production"
+updated_date = "2024/07/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a potential Windows Server Update Services (WSUS) abuse to execute psexec to enable for lateral movement.
+WSUS is limited to executing Microsoft signed binaries, which limits the executables that can be used to tools published
+by Microsoft.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*", "logs-m365_defender.event-*", "logs-system.security-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential WSUS Abuse for Lateral Movement"
+references = ["https://www.thehacker.recipes/a-d/movement/mitm-and-coerced-authentications/wsus-spoofing"]
+risk_score = 47
+rule_id = "8e2485b6-a74f-411b-bf7f-38b819f3a846"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and process.parent.name : "wuauclt.exe" and
+process.executable : "?:\\Windows\\SoftwareDistribution\\Download\\Install\\*" and
+(process.name : "psexec64.exe" or ?process.pe.original_file_name : "psexec.c")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1210"
+name = "Exploitation of Remote Services"
+reference = "https://attack.mitre.org/techniques/T1210/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
