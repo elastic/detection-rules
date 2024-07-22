@@ -2,7 +2,7 @@
 creation_date = "2023/06/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2024/07/18"
 
 [transform]
 [[transform.osquery]]
@@ -190,13 +190,18 @@ event.action in ("rename", "creation") and file.path : (
     "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
     "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
-    "/bin/pamac-daemon", "/usr/local/bin/dockerd"
+    "/bin/pamac-daemon", "/usr/local/bin/dockerd", "/opt/elasticbeanstalk/bin/platform-engine",
+    "/opt/puppetlabs/puppet/bin/ruby", "/usr/libexec/platform-python", "/opt/imunify360/venv/bin/python3",
+    "/opt/eset/efs/lib/utild", "/usr/sbin/anacron", "/usr/bin/podman", "/kaniko/kaniko-executor"
   ) or
   file.path : "/var/spool/cron/crontabs/tmp.*" or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
   file.Ext.original.extension == "dpkg-new" or
-  process.executable : ("/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*") or
+  process.executable : (
+    "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/usr/libexec/platform-python*"
+  ) or
   process.executable == null or
+  process.name in ("crontab", "crond", "executor", "puppet", "droplet-agent.postinst", "cf-agent") or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )

@@ -2,7 +2,7 @@
 creation_date = "2021/10/14"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/07/17"
 
 [rule]
 author = ["Elastic"]
@@ -60,7 +60,7 @@ references = [
     "https://github.com/BC-SECURITY/Empire/blob/master/empire/server/data/module_source/credentials/Invoke-Mimikatz.ps1",
     "https://www.elastic.co/security-labs/detect-credential-access",
 ]
-risk_score = 47
+risk_score = 73
 rule_id = "2e29e96a-b67c-455a-afe4-de6183431d0d"
 setup = """## Setup
 
@@ -80,7 +80,7 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -101,8 +101,10 @@ event.category:process and host.os.type:windows and
    (WriteProcessMemory or CreateRemoteThread or NtCreateThreadEx or CreateThread or QueueUserAPC or
       SuspendThread or ResumeThread or GetDelegateForFunctionPointer)
   ) and not 
-  (user.id:("S-1-5-18" or "S-1-5-19") and
-   file.directory: "C:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\SenseCM")
+  file.directory: (
+    "C:\ProgramData\Microsoft\Windows Defender Advanced Threat Protection\SenseCM" or
+    "C:\ProgramData\Microsoft\Windows Defender Advanced Threat Protection\Downloads"
+  )
 '''
 
 
