@@ -2,7 +2,9 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/23"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2024/07/18"
 
 [transform]
 [[transform.osquery]]
@@ -34,10 +36,10 @@ query = "SELECT name, cmdline, parent, path, uid FROM processes"
 author = ["Elastic"]
 description = """
 This rule monitors for network connectivity to the internet from a previously unknown executable located in a suspicious
-directory. An alert from this rule can indicate the presence of potentially malicious activity, such as the execution of
-unauthorized or suspicious processes attempting to establish connections to unknown or suspicious destinations such as a
-command and control server. Detecting and investigating such behavior can help identify and mitigate potential security
-threats, protecting the system and its data from potential compromise.
+directory. An alert from this rule can indicate the presence of potentially malicious activity, such as the execution
+of unauthorized or suspicious processes attempting to establish connections to unknown or suspicious destinations such
+as a command and control server. Detecting and investigating such behavior can help identify and mitigate potential
+security threats, protecting the system and its data from potential compromise.
 """
 from = "now-59m"
 index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*", "endgame-*"]
@@ -200,14 +202,13 @@ not destination.ip:(
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
-
 
 [rule.threat.tactic]
 id = "TA0011"
@@ -217,8 +218,7 @@ reference = "https://attack.mitre.org/tactics/TA0011/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-20d"
-
-
