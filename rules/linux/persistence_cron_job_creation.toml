@@ -2,22 +2,20 @@
 creation_date = "2023/06/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/18"
+updated_date = "2024/07/23"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
 query = """
-SELECT * FROM file WHERE (path LIKE '/etc/cron.allow.d/%' OR path LIKE '/etc/cron.d/%' OR path LIKE
-'/etc/cron.hourly/%' OR path LIKE '/etc/cron.daily/%' OR path LIKE '/etc/cron.weekly/%' OR path LIKE
-'/etc/cron.monthly/%' OR path LIKE '/var/spool/cron/crontabs/%')
+SELECT * FROM file WHERE (path LIKE '/etc/cron.allow.d/%' OR path LIKE '/etc/cron.d/%' OR path LIKE '/etc/cron.hourly/%'
+OR path LIKE '/etc/cron.daily/%' OR path LIKE '/etc/cron.weekly/%' OR path LIKE '/etc/cron.monthly/%' OR path LIKE
+'/var/spool/cron/crontabs/%')
 """
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Cron File Information"
-query = """
-SELECT * FROM file WHERE (path = '/etc/cron.allow' OR path = '/etc/cron.deny' OR path = '/etc/crontab')
-"""
+query = "SELECT * FROM file WHERE (path = '/etc/cron.allow' OR path = '/etc/cron.deny' OR path = '/etc/crontab')\n"
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
@@ -49,6 +47,7 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 [[transform.osquery]]
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
+
 
 [rule]
 author = ["Elastic"]
@@ -176,6 +175,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and
 event.action in ("rename", "creation") and file.path : (
@@ -207,56 +207,56 @@ event.action in ("rename", "creation") and file.path : (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.003"
 name = "Cron"
 reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.003"
 name = "Cron"
 reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.003"
 name = "Cron"
 reference = "https://attack.mitre.org/techniques/T1053/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
