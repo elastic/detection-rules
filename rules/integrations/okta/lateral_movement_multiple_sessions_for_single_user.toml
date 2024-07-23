@@ -2,19 +2,22 @@
 creation_date = "2023/11/07"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2024/07/23"
+min_stack_comments = "Breaking change in Okta integration bumping version to ^2.0.0"
+min_stack_version = "8.10.0"
+updated_date = "2023/11/07"
+
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a user has started multiple Okta sessions with the same user account and different session IDs. This may
-indicate that an attacker has stolen the user's session cookie and is using it to access the user's account from a
-different location.
+Detects when a user has started multiple Okta sessions with the same user account and different session IDs. This may indicate that an attacker has stolen the user's session cookie and is using it to access the user's account from a different location.
 """
-false_positives = ["A user may have multiple sessions open at the same time, such as on a mobile device and a laptop."]
+false_positives = [
+    "A user may have multiple sessions open at the same time, such as on a mobile device and a laptop.",
+]
 from = "now-30m"
-index = ["filebeat-*", "logs-okta*"]
 interval = "60m"
+index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Multiple Okta Sessions Detected for a Single User"
@@ -25,7 +28,7 @@ references = [
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
     "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
-    "https://sec.okta.com/articles/2023/08/cross-tenant-impersonation-prevention-and-detection",
+    "https://sec.okta.com/articles/2023/08/cross-tenant-impersonation-prevention-and-detection"
 ]
 risk_score = 47
 rule_id = "621e92b6-7e54-11ee-bdc0-f661ea17fbcd"
@@ -33,25 +36,23 @@ severity = "medium"
 tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Lateral Movement"]
 timestamp_override = "event.ingested"
 type = "threshold"
-
 query = '''
 event.dataset:okta.system and okta.event_type:user.session.start and okta.authentication_context.external_session_id:*
-    and not (okta.actor.id: okta* or okta.actor.display_name: okta*)
+    and not (okta.actor.id: okta* or okta.actor.display_name: okta*) 
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1550"
 name = "Use Alternate Authentication Material"
 reference = "https://attack.mitre.org/techniques/T1550/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1550.004"
 name = "Web Session Cookie"
 reference = "https://attack.mitre.org/techniques/T1550/004/"
-
-
 
 [rule.threat.tactic]
 id = "TA0008"
@@ -61,8 +62,8 @@ reference = "https://attack.mitre.org/tactics/TA0008/"
 [rule.threshold]
 field = ["okta.actor.id"]
 value = 1
+
 [[rule.threshold.cardinality]]
 field = "okta.authentication_context.external_session_id"
 value = 3
-
 
