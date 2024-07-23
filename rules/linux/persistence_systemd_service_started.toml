@@ -2,25 +2,46 @@
 creation_date = "2024/05/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/23"
+min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
+min_stack_version = "8.4.0"
+updated_date = "2024/05/17"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
 query = """
-SELECT * FROM file WHERE ( path LIKE '/etc/systemd/system/%' OR path LIKE '/usr/local/lib/systemd/system/%' OR path LIKE
-'/lib/systemd/system/%' OR path LIKE '/usr/lib/systemd/system/%' OR path LIKE '/home/user/.config/systemd/user/%' )
+SELECT * FROM file WHERE (
+path LIKE '/etc/systemd/system/%' OR 
+path LIKE '/usr/local/lib/systemd/system/%' OR 
+path LIKE '/lib/systemd/system/%' OR
+path LIKE '/usr/lib/systemd/system/%' OR
+path LIKE '/home/user/.config/systemd/user/%'
+)
 """
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
 query = """
-SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
-file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
-file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
-JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE ( path LIKE '/etc/systemd/system/%' OR path LIKE
-'/usr/local/lib/systemd/system/%' OR path LIKE '/lib/systemd/system/%' OR path LIKE '/usr/lib/systemd/system/%' OR path
-LIKE '/home/{{user.name}}/.config/systemd/user/%' )
+SELECT
+  f.path,
+  u.username AS file_owner,
+  g.groupname AS group_owner,
+  datetime(f.atime, 'unixepoch') AS file_last_access_time,
+  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
+  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
+  datetime(f.btime, 'unixepoch') AS file_created_time,
+  f.size AS size_bytes
+FROM
+  file f
+  LEFT JOIN users u ON f.uid = u.uid
+  LEFT JOIN groups g ON f.gid = g.gid
+WHERE (
+path LIKE '/etc/systemd/system/%' OR 
+path LIKE '/usr/local/lib/systemd/system/%' OR 
+path LIKE '/lib/systemd/system/%' OR
+path LIKE '/usr/lib/systemd/system/%' OR
+path LIKE '/home/{{user.name}}/.config/systemd/user/%'
+)
 """
 
 [[transform.osquery]]
@@ -47,11 +68,10 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
 
-
 [rule]
 author = ["Elastic"]
 description = """
-Systemctl is a process used in Linux systems to manage systemd processes through service configuration files. Malicious
+Systemctl is a process used in Linux systems to manage systemd processes through service configuration files. Malicious 
 actors can leverage systemd services to achieve persistence by creating or modifying service files to execute malicious
 commands or payloads during system startup. This allows them to maintain unauthorized access, execute additional
 malicious activities, or evade detection.
@@ -134,7 +154,7 @@ This rule monitors the execution of the systemctl binary to start, enable or ree
 """
 references = [
     "https://symantec-enterprise-blogs.security.com/blogs/threat-intelligence/springtail-kimsuky-backdoor-espionage",
-    "https://pberba.github.io/security/2022/01/30/linux-threat-hunting-for-persistence-systemd-timers-cron/",
+    "https://pberba.github.io/security/2022/01/30/linux-threat-hunting-for-persistence-systemd-timers-cron/"
 ]
 risk_score = 47
 rule_id = "b605f262-f7dc-41b5-9ebc-06bafe7a83b6"
@@ -165,16 +185,15 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Privilege Escalation",
-    "Data Source: Elastic Defend",
-]
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Tactic: Privilege Escalation",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and
 process.executable:/usr/bin/systemctl and process.args:(enable or reenable or start) and 
@@ -193,36 +212,36 @@ not (
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
-
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
-
-
 
 [rule.threat.tactic]
 id = "TA0004"
@@ -232,8 +251,7 @@ reference = "https://attack.mitre.org/tactics/TA0004/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.parent.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
-
-
