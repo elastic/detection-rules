@@ -62,10 +62,16 @@ def multi_collection(f):
     """Add arguments to get a RuleCollection by file, directory or a list of IDs"""
     from .misc import client_error
 
-    @click.option('--rule-file', '-f', multiple=True, type=click.Path(dir_okay=False), required=False)
-    @click.option('--directory', '-d', multiple=True, type=click.Path(file_okay=False), required=False,
-                  help='Recursively load rules from a directory')
-    @click.option('--rule-id', '-id', multiple=True, required=False)
+    @click.option("--rule-file", "-f", multiple=True, type=click.Path(dir_okay=False), required=False)
+    @click.option(
+        "--directory",
+        "-d",
+        multiple=True,
+        type=click.Path(file_okay=False),
+        required=False,
+        help="Recursively load rules from a directory",
+    )
+    @click.option("--rule-id", "-id", multiple=True, required=False)
     @functools.wraps(f)
     def get_collection(*args, **kwargs):
         rule_id: List[str] = kwargs.pop("rule_id", [])
@@ -74,22 +80,23 @@ def multi_collection(f):
 
         rules = RuleCollection()
 
-        if not (directories or rule_id or rule_files or DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS):
-            client_error('Required: at least one of --rule-id, --rule-file, or --directory')
+        if not (directories or rule_id or rule_files or (DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS)):
+            client_error("Required: at least one of --rule-id, --rule-file, or --directory")
 
         rules.load_files(Path(p) for p in rule_files)
         rules.load_directories(Path(d) for d in directories)
-        if not rule_files and not directories:
-            rules.load_directories(Path(d) for d in DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS)
 
         if rule_id:
-            rules.load_directories(DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS,
-                                   obj_filter=dict_filter(rule__rule_id=rule_id))
+            rules.load_directories(
+                DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS, obj_filter=dict_filter(rule__rule_id=rule_id)
+            )
             found_ids = {rule.id for rule in rules}
             missing = set(rule_id).difference(found_ids)
 
             if missing:
                 client_error(f'Could not find rules with IDs: {", ".join(missing)}')
+        elif not rule_files and not directories:
+            rules.load_directories(Path(d) for d in (DEFAULT_PREBUILT_RULES_DIRS + DEFAULT_PREBUILT_BBR_DIRS))
 
         if len(rules) == 0:
             client_error("No rules found")
