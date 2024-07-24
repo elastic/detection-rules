@@ -476,13 +476,14 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     def validates_data(self, data, **kwargs):
         """Validate fields and data for marshmallow schemas."""
 
-        # Validate version and revision fields not supplied for Elastic authored rules.
+        # Validate version and revision fields not supplied.
         disallowed_fields = [field for field in ['version', 'revision'] if data.get(field) is not None]
         if not disallowed_fields:
             return
 
         error_message = " and ".join(disallowed_fields)
 
+        # If version and revision fields are supplied, and using locked versions raise an error.
         if BYPASS_VERSION_LOCK is not True:
             msg = (f"Configuration error: Rule {data['name']} - {data['rule_id']} "
                    f"should not contain rules with `{error_message}` set.")
