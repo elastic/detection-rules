@@ -251,7 +251,7 @@ def kibana_export_rules(
 
         saved_exceptions.append(exception)
 
-    click.echo(f"{len(results)} rules exported")
+    click.echo(f"{len(results)} results exported")
     click.echo(f"{len(exported)} rules converted")
     click.echo(f"{len(exceptions)} exceptions exported")
     click.echo(f"{len(saved)} saved to {directory}")
