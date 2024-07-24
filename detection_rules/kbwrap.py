@@ -138,6 +138,11 @@ def kibana_export_rules(
     with kibana:
         results = RuleResource.export_rules(list(rule_id), exclude_export_details=not export_exceptions)
 
+    # Handle Exceptions Directory Location
+    exceptions_directory = exceptions_directory or RULES_CONFIG.exception_dir
+    if not exceptions_directory:
+        click.echo("Warning: Exceptions Requested, but no exceptions directory found")
+
     if results:
         directory.mkdir(parents=True, exist_ok=True)
     else:
@@ -203,10 +208,8 @@ def kibana_export_rules(
                     {"container": container, "items": exceptions_items[list_id]},
                     exception_list_rule_table.get(list_id),
                 )
-                # if exceptions_directory is not set then use RULES_CONFIG.exception_dir
-                exception_directory = exceptions_directory if exceptions_directory else RULES_CONFIG.exception_dir
                 exception = TOMLException(
-                    contents=contents, path=exception_directory / f"{list_id}_exceptions.toml"
+                    contents=contents, path=exceptions_directory / f"{list_id}_exceptions.toml"
                 )
                 if container["type"] != "rule_default" and rule_id:
                     click.echo(
@@ -216,7 +219,7 @@ def kibana_export_rules(
             except Exception as e:
                 if skip_errors:
                     print(f"- skipping exceptions export - {type(e).__name__}")
-                    if not exception_directory:
+                    if not exceptions_directory:
                         errors.append(f"- no exceptions directory found - {e}")
                     else:
                         errors.append(f"- exceptions export - {e}")
