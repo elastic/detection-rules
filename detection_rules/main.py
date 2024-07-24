@@ -144,6 +144,8 @@ def import_rules_into_repo(
     for contents in file_contents:
         base_path = contents.get("name") or contents.get("rule", {}).get("name")
         base_path = rulename_to_filename(base_path) if base_path else base_path
+        if base_path is None:
+            raise ValueError(f"Invalid rule file, please ensure the rule has a name field: {contents}")
         rule_path = os.path.join(save_directory if save_directory is not None else RULES_DIRS[0], base_path)
 
         # handle both rule json formats loaded from kibana and toml
