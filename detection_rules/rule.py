@@ -477,6 +477,8 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         """Validate fields and data for marshmallow schemas."""
 
         # Validate version and revision fields not supplied for Elastic authored rules.
+        if "Elastic" not in data.get("author"):
+            return
         disallowed_fields = [field for field in ['version', 'revision'] if data.get(field) is not None]
         if not disallowed_fields:
             return
