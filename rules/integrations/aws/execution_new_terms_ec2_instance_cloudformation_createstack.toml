@@ -7,11 +7,11 @@ updated_date = "2024/07/25"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the first time a principal calls AWS Cloudwatch `CreateStack` or `CreateStackSet` API. Cloudformation is used to create a single collection of cloud resources called a stack, via a defined template file. An attacker with the appropriate privileges could leverage Cloudformation to create specific resources needed to further exploit the environment.
+This rule detects the first time a principal calls AWS Cloudwatch `CreateStack` or `CreateStackSet` API. Cloudformation is used to create a single collection of cloud resources called a stack, via a defined template file. An attacker with the appropriate privileges could leverage Cloudformation to create specific resources needed to further exploit the environment. This is a new terms rule that looks for the first instance of this behavior in the last 10 days for a role or IAM user within a particular account.
 """
 false_positives = [
     """
-    Verify whether the user identity should be using the `CreateStack` or `CreateStackSet` APIs. If known behavior is causing false positives, it can be exempted from the rule.
+    Verify whether the user identity should be using the `CreateStack` or `CreateStackSet` APIs. If known behavior is causing false positives, it can be exempted from the rule. The "history_window_start" value can be modified to reflect the expected frequency of known activity within a particular environment.
     """,
 ]
 from = "now-6m"
@@ -33,7 +33,7 @@ tags = [
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
     "Data Source: Cloudformation",
-    "Use Case: Asset Visibility"
+    "Use Case: Asset Visibility",
     "Tactic: Execution",
 ]
 timestamp_override = "event.ingested"
