@@ -38,8 +38,8 @@ jobs:
         python -m detection_rules kibana --space "${{ github.event.inputs.space }}" export-rules --directory ${{ env.CUSTOM_RULES_DIR }}/rules/
       env:
         DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
-        DR_KIBANA_USER: ${{ secrets.ELASTIC_USERNAME }}
-        DR_KIBANA_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
+        DR_KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}
+        DR_KIBANA_PASSWORD: ${{ secrets.KIBANA_PASSWORD }}
 
     - name: Update Version Lock
       run: |
@@ -49,7 +49,7 @@ jobs:
       if: ${{ github.event.inputs.pr_sync_rules_from_elastic == 'true' }}
       uses: peter-evans/create-pull-request@v6
       with:
-        token: ${{ secrets.WRITE_GITHUB_TOKEN }}
+        token: ${{ secrets.PAT }}
         commit-message: "Sync rules from Elastic Security"
         title: "Sync rules from Elastic Security"
         body: "This PR syncs rules from Elastic Security to the repository for review."
@@ -67,4 +67,4 @@ jobs:
         commit_user_name: "GitHub Action"
         commit_user_email: "action@github.com"
       env:
-        GITHUB_TOKEN: ${{ secrets.WRITE_GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.PAT }}
