@@ -35,6 +35,13 @@ Environment variables using the argument format: `DR_<UPPERCASED_ARG_NAME>` will
 EX: `DR_USER=joe`
 
 
+Using the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE` will bypass the Detection Rules validation on the `note` field in toml files.
+
+Using the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION` will bypass the Detection Rules lookback and interval validation
+on the building block rules.
+
+Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detection Rules Unit Tests on the `tags` field in toml files.
+
 ## Importing rules into the repo
 
 You can import rules into the repo using the `create-rule` or `import-rules-to-repo` commands. Both of these commands will
@@ -150,9 +157,11 @@ Usage: detection_rules kibana [OPTIONS] COMMAND [ARGS]...
 Options:
   --ignore-ssl-errors TEXT
   --space TEXT                 Kibana space
-  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-
-                               saml (for SSO)
-  --provider-type TEXT         Elastic Cloud providers: basic and saml (for
+  --provider-name TEXT         For cloud deployments, Elastic Cloud configures
+                               two providers by default: cloud-basic and
+                               cloud-saml (for SSO)
+  --provider-type TEXT         For cloud deployments, Elastic Cloud configures
+                               two providers by default: basic and saml (for
                                SSO)
   -ku, --kibana-user TEXT
   --kibana-url TEXT
@@ -279,7 +288,7 @@ Options:
   -id, --rule-id TEXT
   -o, --outfile PATH              Name of file for exported rules
   -r, --replace-id                Replace rule IDs with new IDs before export
-  --stack-version [7.10|7.11|7.12|7.13|7.14|7.15|7.16|7.8|7.9|8.0|8.1|8.10|8.11|8.12|8.13|8.14|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9]
+  --stack-version [7.10|7.11|7.12|7.13|7.14|7.15|7.16|7.8|7.9|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14]
                                   Downgrade a rule version to be compatible
                                   with older instances of Kibana
   -s, --skip-unsupported          If `--stack-version` is passed, skip rule
