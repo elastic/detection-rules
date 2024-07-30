@@ -51,11 +51,12 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
 process.name == "openssl" and (
   (process.args == "s_client" and process.args : ("-connect", "*:*")) or
   (process.args == "s_server" and process.args == "-port")
