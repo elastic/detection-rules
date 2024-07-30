@@ -167,7 +167,9 @@ Options:
   --kibana-url TEXT
   -kp, --kibana-password TEXT
   -kc, --kibana-cookie TEXT    Cookie from an authed session
-  --cloud-id TEXT              ID of the cloud instance.
+  --cloud-id TEXT              ID of the cloud instance. Defaults the cloud
+                               provider to cloud-basic if this option is
+                               supplied
   -h, --help                   Show this message and exit.
 
 Commands:
