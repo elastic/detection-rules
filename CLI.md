@@ -290,7 +290,7 @@ Options:
   -id, --rule-id TEXT
   -o, --outfile PATH              Name of file for exported rules
   -r, --replace-id                Replace rule IDs with new IDs before export
-  --stack-version [7.10|7.11|7.12|7.13|7.14|7.15|7.16|7.8|7.9|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14]
+  --stack-version [7.10|7.11|7.12|7.13|7.14|7.15|7.16|7.8|7.9|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14|8.15]
                                   Downgrade a rule version to be compatible
                                   with older instances of Kibana
   -s, --skip-unsupported          If `--stack-version` is passed, skip rule
