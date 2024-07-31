@@ -139,9 +139,11 @@ def kibana_export_rules(
         results = RuleResource.export_rules(list(rule_id), exclude_export_details=not export_exceptions)
 
     # Handle Exceptions Directory Location
+    if results and exceptions_directory:
+        exceptions_directory.mkdir(parents=True, exist_ok=True)
     exceptions_directory = exceptions_directory or RULES_CONFIG.exception_dir
-    if not exceptions_directory:
-        click.echo("Warning: Exceptions Requested, but no exceptions directory found")
+    if not exceptions_directory and export_exceptions:
+        click.echo("Warning: Exceptions export requested, but no exceptions directory found")
 
     if results:
         directory.mkdir(parents=True, exist_ok=True)
