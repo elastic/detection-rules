@@ -16,7 +16,7 @@ import requests
 from semver import Version
 import yaml
 
-from .config import parse_rules_config
+from .config import CUSTOM_RULES_DIR, parse_rules_config
 from .custom_schemas import get_custom_schemas
 from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
                     load_etc_dump, read_gzip, unzip)
@@ -127,6 +127,12 @@ def get_eql_schema(version=None, index_patterns=None):
             for k, v in flatten(get_index_schema(index_name)).items():
                 add_field(converted, k, convert_type(v))
 
+    # add custom schema
+    if index_patterns and CUSTOM_RULES_DIR:
+        for index_name in index_patterns:
+            for k, v in flatten(get_custom_index_schema(index_name)).items():
+                add_field(converted, k, convert_type(v))
+
     # add endpoint custom schema
     for k, v in flatten(get_endpoint_schemas()).items():
         add_field(converted, k, convert_type(v))
@@ -151,7 +157,7 @@ def get_non_ecs_schema():
 
 
 @cached
-def get_custom_index_schema(index_name: str, stack_version: str):
+def get_custom_index_schema(index_name: str, stack_version: str = None):
     return get_custom_schemas(stack_version).get(index_name, {})
 
 
@@ -209,8 +215,14 @@ def get_kql_schema(version=None, indexes=None, beat_schema=None) -> dict:
     indexes = indexes or ()
     converted = flatten_multi_fields(get_schema(version, name='ecs_flat'))
 
+    # non-ecs schema
     for index_name in indexes:
         converted.update(**flatten(get_index_schema(index_name)))
+
+    # custom schema
+    if CUSTOM_RULES_DIR:
+        for index_name in indexes:
+            converted.update(**flatten(get_custom_index_schema(index_name)))
 
     # add endpoint custom schema
     converted.update(**flatten(get_endpoint_schemas()))

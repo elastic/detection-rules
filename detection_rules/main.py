@@ -112,7 +112,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     type=click.Path(file_okay=False, exists=True),
     help="Save imported exceptions to a directory",
 )
-@click.option("--default-author", "-da", type=str, required=False, help="Default author for rules that may not have one")
+@click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 def import_rules_into_repo(
     input_file: click.Path,
     required_only: bool,
