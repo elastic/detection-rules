@@ -22,32 +22,15 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Set up Python 3.12.2
+      - name: Set up Python 3.12
         uses: actions/setup-python@v2
         with:
-          python-version: '3.12.2'
-
-      - name: Display IP address
-        run: |
-          curl ifconfig.me
-
-      - name: Create and activate virtual environment
-        run: |
-          python -m venv env
-          .\env\Scripts\activate.bat
-
-      - name: Set PYTHONPATH
-        run: |
-          echo "PYTHONPATH=$(pwd)/env/Lib/site-packages" >> $GITHUB_ENV
+          python-version: '3.12'
 
       - name: Install Dependencies
         run: |
-          .\env\Scripts\activate.bat
           python -m pip install --upgrade pip
           pip cache purge
-          pip install setuptools wheel
-          pip install kqlMagic
-          pip install click
           pip install .[dev]
 
       - name: Debug Environment Variables
@@ -59,7 +42,6 @@ jobs:
 
       - name: Export Rules from Elastic Security and Import Rules to TOML
         run: |
-          .\env\Scripts\activate.bat
           python -m detection_rules kibana export-rules --directory ${{ env.CUSTOM_RULES_DIR }}
         env:
           DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}
@@ -68,7 +50,6 @@ jobs:
 
       - name: Update Version Lock
         run: |
-          .\env\Scripts\activate.bat
           python -m detection_rules dev update-lock-versions --force
 
       - name: Create Pull Request
