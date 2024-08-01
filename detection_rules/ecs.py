@@ -158,12 +158,22 @@ def get_non_ecs_schema():
 
 @cached
 def get_custom_index_schema(index_name: str, stack_version: str = None):
-    return get_custom_schemas(stack_version).get(index_name, {})
+    """Load custom schema."""
+    custom_schemas = get_custom_schemas(stack_version)
+    index_schema = custom_schemas.get(index_name, {})
+    ccs_schema = custom_schemas.get(index_name.split(":", 1)[-1], {})
+    index_schema.update(ccs_schema)
+    return index_schema
 
 
 @cached
 def get_index_schema(index_name):
-    return get_non_ecs_schema().get(index_name, {})
+    """Load non-ecs schema."""
+    non_ecs_schema = get_non_ecs_schema()
+    index_schema = non_ecs_schema.get(index_name, {})
+    ccs_schema = non_ecs_schema.get(index_name.split(":", 1)[-1], {})
+    index_schema.update(ccs_schema)
+    return index_schema
 
 
 def flatten_multi_fields(schema):
