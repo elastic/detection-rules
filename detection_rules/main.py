@@ -164,11 +164,11 @@ def import_rules_into_repo(
         contents["author"] = contents.get("author") or [default_author]
 
         output = rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
-                    additional_required=additional, skip_errors=skip_errors, **contents)
+                             additional_required=additional, skip_errors=skip_errors, **contents)
         # If output is not a TOMLRule
         if isinstance(output, str):
             errors.append(output)
-        
+
         if contents.get("exceptions_list"):
 
             # For each item in rule.contents.data.exceptions_list to the exception_list_rule_table under the list_id
