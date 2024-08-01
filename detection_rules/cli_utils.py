@@ -108,7 +108,7 @@ def multi_collection(f):
 
 
 def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbose=False,
-                additional_required: Optional[list] = None, **kwargs) -> TOMLRule:
+                additional_required: Optional[list] = None, skip_errors: bool = False, **kwargs) -> TOMLRule:
     """Prompt loop to build a rule."""
     from .misc import schema_prompt
 
@@ -185,8 +185,11 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             ]
 
         else:
-            result = schema_prompt(name, is_required=name in required_fields, **options.copy())
-
+            if skip_errors:
+                # return missing information
+                return f"Rule: {kwargs["id"]} is missing {name} information"
+            else:
+                result = schema_prompt(name, is_required=name in required_fields, **options.copy())
         if result:
             if name not in required_fields and result == options.get('default', ''):
                 skipped.append(name)
@@ -202,6 +205,8 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
     try:
         rule = TOMLRule(path=Path(path), contents=TOMLRuleContents.from_dict({'rule': contents, 'metadata': meta}))
     except kql.KqlParseError as e:
+        if skip_errors:
+            return f"Rule: {kwargs['id']} query failed to parse: {e.error_msg}"
         if e.error_msg == 'Unknown field':
             warning = ('If using a non-ECS field, you must update "ecs{}.non-ecs-schema.json" under `beats` or '
                        '`legacy-endgame` (Non-ECS fields should be used minimally).'.format(os.path.sep))
@@ -226,6 +231,10 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
                 continue
 
             break
+    except Exception as e:
+        if skip_errors:
+            return f"Rule: {kwargs['id']} failed: {e}"
+        raise e
 
     if save:
         rule.save_toml()

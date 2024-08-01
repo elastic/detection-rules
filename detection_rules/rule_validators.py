@@ -4,6 +4,7 @@
 # 2.0.
 
 """Validation logic for rules containing queries."""
+import re
 from enum import Enum
 from functools import cached_property, wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -19,6 +20,7 @@ import kql
 
 from . import ecs, endgame
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
+from .custom_schemas import update_auto_generated_schema
 from .integrations import (get_integration_schema_data,
                            load_integrations_manifests)
 from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
@@ -114,11 +116,19 @@ class KQLValidator(QueryValidator):
     def unique_fields(self) -> List[str]:
         return list(set(str(f) for f in self.ast if isinstance(f, kql.ast.Field)))
 
+    def auto_add_field(self, validation_checks_error: kql.errors.KqlParseError, index_or_dataview: str) -> None:
+        """Auto add a missing field to the schema."""
+        field_name = extract_error_field(self.query, validation_checks_error)
+        update_auto_generated_schema(index_or_dataview, field_name)
+
     def to_eql(self) -> eql.ast.Expression:
         return kql.to_eql(self.query)
 
-    def validate(self, data: QueryRuleData, meta: RuleMeta) -> None:
+    def validate(self, data: QueryRuleData, meta: RuleMeta, depth: int = 0, max_depth: int = 50) -> None:
         """Validate the query, called from the parent which contains [metadata] information."""
+        if depth > max_depth:
+            raise ValueError("Maximum recursion depth exceeded")
+
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
             return
@@ -136,10 +146,22 @@ class KQLValidator(QueryValidator):
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
             if (validation_checks["stack"] and not package_integrations):
-                raise validation_checks["stack"]
+                # if auto add, try auto adding and then call stack_combo validation again
+                if validation_checks["stack"].error_msg == "Unknown field" and RULES_CONFIG.auto_gen_schema_file:
+                    # auto add the field and re-validate
+                    self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
+                    self.validate(data, meta, depth + 1)
+                else:
+                    raise validation_checks["stack"]
 
             if (validation_checks["stack"] and validation_checks["integrations"]):
-                raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
+                # if auto add, try auto adding and then call stack_combo validation again
+                if validation_checks["stack"].error_msg == "Unknown field" and RULES_CONFIG.auto_gen_schema_file:
+                    # auto add the field and re-validate
+                    self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
+                    self.validate(data, meta, depth + 1)
+                else:
+                    raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[KQL_ERROR_TYPES, None, TypeError]:
         """Validate the query against ECS and beats schemas across stack combinations."""
@@ -302,8 +324,16 @@ class EQLValidator(QueryValidator):
     def unique_fields(self) -> List[str]:
         return list(set(str(f) for f in self.ast if isinstance(f, eql.ast.Field)))
 
-    def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
+    def auto_add_field(self, validation_checks_error: eql.errors.EqlParseError, index_or_dataview: str) -> None:
+        """Auto add a missing field to the schema."""
+        field_name = extract_error_field(self.query, validation_checks_error)
+        update_auto_generated_schema(index_or_dataview, field_name)
+
+    def validate(self, data: 'QueryRuleData', meta: RuleMeta, depth: int = 0, max_depth: int = 10) -> None:
         """Validate an EQL query while checking TOMLRule."""
+        if depth > max_depth:
+            raise ValueError("Maximum recursion depth exceeded")
+
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
             return
@@ -321,16 +351,28 @@ class EQLValidator(QueryValidator):
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
             if validation_checks["stack"] and not package_integrations:
-                raise validation_checks["stack"]
+                # if auto add, try auto adding and then call stack_combo validation again
+                if "Field not recognized" in validation_checks["stack"].error_msg and RULES_CONFIG.auto_gen_schema_file:
+                    # auto add the field and re-validate
+                    self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
+                    self.validate(data, meta, depth + 1)
+                else:
+                    raise validation_checks["stack"]
 
             if validation_checks["stack"] and validation_checks["integrations"]:
-                raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
+                # if auto add, try auto adding and then call stack_combo validation again
+                if validation_checks["stack"].error_msg == "Unknown field" and RULES_CONFIG.auto_gen_schema_file:
+                    # auto add the field and re-validate
+                    self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
+                    self.validate(data, meta, depth + 1)
+                else:
+                    raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
             rule_type_config_fields, rule_type_config_validation_failed = \
                 self.validate_rule_type_configurations(data, meta)
             if rule_type_config_validation_failed:
                 raise ValueError(f"""Rule type config values are not ECS compliant, check these values:
-                                 {rule_type_config_fields}""")
+                                {rule_type_config_fields}""")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[EQL_ERROR_TYPES, None, ValueError]:
         """Validate the query against ECS and beats schemas across stack combinations."""
@@ -550,4 +592,4 @@ def extract_error_field(source: str, exc: Union[eql.EqlParseError, kql.KqlParseE
     line = lines[exc.line + mod]
     start = exc.column
     stop = start + len(exc.caret.strip())
-    return line[start:stop]
+    return re.sub(r'^\W+|\W+$', '', line[start:stop])

@@ -186,6 +186,7 @@ class RulesConfig:
     version_lock: Dict[str, dict]
 
     action_dir: Optional[Path] = None
+    auto_gen_schema_file: Optional[Path] = None
     bbr_rules_dirs: Optional[List[Path]] = field(default_factory=list)
     bypass_version_lock: bool = False
     exception_dir: Optional[Path] = None
@@ -283,6 +284,9 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
 
     # kql keyword normalization
     contents['normalize_kql_keywords'] = loaded.get('normalize_kql_keywords', True)
+
+    if loaded.get('auto_gen_schema_file'):
+        contents['auto_gen_schema_file'] = base_dir.joinpath(loaded['auto_gen_schema_file'])
 
     try:
         rules_config = RulesConfig(test_config=test_config, **contents)

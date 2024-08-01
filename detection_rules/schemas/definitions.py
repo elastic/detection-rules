@@ -7,9 +7,22 @@
 
 from typing import List, Literal, Final
 
-from marshmallow import validate
+from marshmallow import fields, validate
 from marshmallow_dataclass import NewType
 from semver import Version
+
+from detection_rules.config import CUSTOM_RULES_DIR
+
+
+def elastic_rule_name_regexp(pattern):
+    """Custom validator for rule names."""
+    def validator(value):
+        if not CUSTOM_RULES_DIR:
+            validate.Regexp(pattern)(value)
+        else:
+            fields.String().deserialize(value)
+    return validator
+
 
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
@@ -166,7 +179,7 @@ Operator = Literal['equals']
 OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
-RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
+RuleName = NewType('RuleName', str, validate=elastic_rule_name_regexp(NAME_PATTERN))
 RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'esql', 'threshold', 'threat_match', 'new_terms']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINOR_SEMVER))

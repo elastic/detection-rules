@@ -15,9 +15,8 @@ import pytoml
 from marshmallow_dataclass import class_schema
 from pathlib import Path
 from semver import Version
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, get_args
 from uuid import uuid4
-
 import click
 
 from .attack import build_threat_map_entry
@@ -112,6 +111,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     type=click.Path(file_okay=False, exists=True),
     help="Save imported exceptions to a directory",
 )
+@click.option("--skip-errors", "-ske", is_flag=True, help="Skip rule import errors")
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 def import_rules_into_repo(
     input_file: click.Path,
@@ -120,9 +120,11 @@ def import_rules_into_repo(
     directory: click.Path,
     save_directory: click.Path,
     exceptions_directory: click.Path,
+    skip_errors: bool,
     default_author: str,
 ):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
+    errors = []
     rule_files = glob.glob(os.path.join(directory, "**", "*.*"), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
 
@@ -144,6 +146,10 @@ def import_rules_into_repo(
 
     exception_list_rule_table = {}
     for contents in file_contents:
+        # Don't load exceptions as rules
+        if contents["type"] not in get_args(definitions.RuleType):
+            click.echo(f"Skipping - {contents["type"]} is not a supported rule type")
+            continue
         base_path = contents.get("name") or contents.get("rule", {}).get("name")
         base_path = rulename_to_filename(base_path) if base_path else base_path
         if base_path is None:
@@ -157,8 +163,12 @@ def import_rules_into_repo(
         # use default author if not provided
         contents["author"] = contents.get("author") or [default_author]
 
-        rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
-                    additional_required=additional, **contents)
+        output = rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
+                    additional_required=additional, skip_errors=skip_errors, **contents)
+        # If output is not a TOMLRule
+        if isinstance(output, str):
+            errors.append(output)
+        
         if contents.get("exceptions_list"):
 
             # For each item in rule.contents.data.exceptions_list to the exception_list_rule_table under the list_id
@@ -173,6 +183,10 @@ def import_rules_into_repo(
         for container in exceptions_containers.values():
             try:
                 list_id = container.get("list_id")
+                items = exceptions_items.get(list_id)
+                if not items:
+                    click.echo(f"Warning exceptions list {list_id} has no items. Loading skipped.")
+                    continue
                 contents = TOMLExceptionContents.from_exceptions_dict(
                     {"container": container, "items": exceptions_items[list_id]},
                     exception_list_rule_table.get(list_id),
@@ -194,6 +208,14 @@ def import_rules_into_repo(
                 ).save_toml()
             except Exception:
                 raise
+
+    click.echo(f"{len(file_contents) + len(exceptions_containers) + len(exceptions_items)} results exported")
+    click.echo(f"{len(file_contents)} rules converted")
+    click.echo(f"{len(exceptions_containers) + len(exceptions_items)} exceptions exported")
+    if errors:
+        err_file = save_directory if save_directory is not None else RULES_DIRS[0] / "_errors.txt"
+        err_file.write_text("\n".join(errors))
+        click.echo(f"{len(errors)} errors saved to {err_file}")
 
 
 @root.command('build-limited-rules')
