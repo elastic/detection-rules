@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/01"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ used to evade detection or elevate privileges.
 """
 false_positives = ["The Build Engine is commonly used by Windows developers but use by non-engineers is unusual."]
 index = ["winlogbeat-*", "logs-windows.sysmon_operational-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Process Injection by the Microsoft Build Engine"
 risk_score = 21
@@ -27,10 +27,11 @@ tags = [
     "Data Source: Sysmon",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-process.name:MSBuild.exe and host.os.type:windows and event.action:"CreateRemoteThread detected (rule: CreateRemoteThread)"
+process where host.os.type == "windows" and process.name: "MSBuild.exe" and
+    event.action:("CreateRemoteThread detected (rule: CreateRemoteThread)", "CreateRemoteThread")
 '''
 
 
