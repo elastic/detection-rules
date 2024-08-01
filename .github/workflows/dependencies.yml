@@ -1,0 +1,31 @@
+name: Verify Dependencies
+
+on: [push]
+
+jobs:
+  check-ip:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+
+      - name: Display IP address
+        run: |
+          curl ifconfig.me
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip cache purge
+          pip install lib/kql
+          pip install lib/kibana
+          pip install pytoml
+          pip install .[dev]
+      
+
+          
