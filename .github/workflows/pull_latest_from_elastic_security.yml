@@ -29,9 +29,12 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          python -m venv C:\actions-runner\env
+          .\env\Scripts\activate.bat
           python -m pip install --upgrade pip
           pip cache purge
           pip install .[dev]
+          pip install -r requirements.txt
 
       - name: Debug Environment Variables
         run: |
@@ -42,6 +45,7 @@ jobs:
 
       - name: Export Rules from Elastic Security and Import Rules to TOML
         run: |
+          .\env\Scripts\activate.bat
           python -m detection_rules kibana export-rules --directory ${{ env.CUSTOM_RULES_DIR }}
         env:
           DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}
