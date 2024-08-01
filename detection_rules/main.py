@@ -112,6 +112,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     type=click.Path(file_okay=False, exists=True),
     help="Save imported exceptions to a directory",
 )
+@click.option("--default-author", "-da", type=str, required=False, help="Default author for rules that may not have one")
 def import_rules_into_repo(
     input_file: click.Path,
     required_only: bool,
@@ -119,6 +120,7 @@ def import_rules_into_repo(
     directory: click.Path,
     save_directory: click.Path,
     exceptions_directory: click.Path,
+    default_author: str,
 ):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, "**", "*.*"), recursive=True) if directory else []
@@ -151,6 +153,10 @@ def import_rules_into_repo(
         # handle both rule json formats loaded from kibana and toml
         data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")
         additional = ["index"] if not data_view_id else ["data_view_id"]
+
+        # use default author if not provided
+        contents["author"] = contents.get("author") or [default_author]
+
         rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
                     additional_required=additional, **contents)
         if contents.get("exceptions_list"):
