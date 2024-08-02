@@ -361,7 +361,7 @@ class EQLValidator(QueryValidator):
 
             if validation_checks["stack"] and validation_checks["integrations"]:
                 # if auto add, try auto adding and then call stack_combo validation again
-                if validation_checks["stack"].error_msg == "Unknown field" and RULES_CONFIG.auto_gen_schema_file:
+                if "Field not recognized" in validation_checks["stack"].error_msg and RULES_CONFIG.auto_gen_schema_file:
                     # auto add the field and re-validate
                     self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
                     self.validate(data, meta, depth + 1)
