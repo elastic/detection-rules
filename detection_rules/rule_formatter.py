@@ -226,6 +226,11 @@ def toml_write(rule_contents, outfile=None):
                 # This will ensure that the output file has the correct number of backslashes.
                 v = v.replace("\\", "\\\\")
 
+            if k == 'description' and isinstance(v, str):
+                # Transform instances of \ to \\ as calling write will convert \\ to \.
+                # This will ensure that the output file has the correct number of backslashes.
+                v = v.replace("\\", "\\\\")
+
             if isinstance(v, dict):
                 bottom[k] = OrderedDict(sorted(v.items()))
             elif isinstance(v, list):
