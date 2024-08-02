@@ -160,6 +160,9 @@ def import_rules_into_repo(
         data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")
         additional = ["index"] if not data_view_id else ["data_view_id"]
 
+        # Use additional to store all available fields for the rule
+        additional += [key for key in contents if key not in additional and contents.get(key, None)]
+
         # use default author if not provided
         contents["author"] = contents.get("author") or [default_author]
 
