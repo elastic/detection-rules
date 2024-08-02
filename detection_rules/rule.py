@@ -21,7 +21,7 @@ import marshmallow
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
-from marshmallow import ValidationError, validates_schema
+from marshmallow import ValidationError, validates_schema, pre_load
 
 import kql
 
@@ -310,6 +310,9 @@ class Query:
 
 @dataclass(frozen=True)
 class Filter:
+    """Kibana Filter for Base Rule Data."""
+    # TODO: Currently unused in BaseRuleData. Revisit to extend or remove.
+    # https://github.com/elastic/detection-rules/issues/3773
     meta: FilterMeta
     state: Optional[FilterStateStore] = field(metadata=dict(data_key="$state"))
     query: Optional[Union[Query, Dict[str, Any]]] = None
@@ -343,7 +346,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     exceptions_list: Optional[list]
     license: Optional[str]
     false_positives: Optional[List[str]]
-    filters: Optional[List[Filter]]
+    filters: Optional[List[dict]]
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
     interval: Optional[definitions.Interval]
@@ -706,6 +709,12 @@ class QueryRuleData(BaseRuleData):
             return validator.get_required_fields(index or [])
 
     @validates_schema
+    def validates_index_and_data_view_id(self, data, **kwargs):
+        """Validate that either index or data_view_id is set, but not both."""
+        if data.get('index') and data.get('data_view_id'):
+            raise ValidationError("Only one of index or data_view_id should be set.")
+
+    @validates_schema
     def validates_query_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
         # alert suppression is only valid for query rule type and not any of its subclasses
@@ -758,6 +767,27 @@ class NewTermsRuleData(QueryRuleData):
 
     type: Literal["new_terms"]
     new_terms: NewTermsMapping
+
+    @pre_load
+    def preload_data(self, data: dict, **kwargs) -> dict:
+        """Preloads and formats the data to match the required schema."""
+        if "new_terms_fields" in data and "history_window_start" in data:
+            new_terms_mapping = {
+                "field": "new_terms_fields",
+                "value": data["new_terms_fields"],
+                "history_window_start": [
+                    {
+                        "field": "history_window_start",
+                        "value": data["history_window_start"]
+                    }
+                ]
+            }
+            data["new_terms"] = new_terms_mapping
+
+            # cleanup original fields after building into our toml format
+            data.pop("new_terms_fields")
+            data.pop("history_window_start")
+        return data
 
     def transform(self, obj: dict) -> dict:
         """Transforms new terms data to API format for Kibana."""

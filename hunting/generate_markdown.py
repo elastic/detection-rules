@@ -6,6 +6,7 @@
 """Lightweight builtin toml-markdown converter."""
 
 import tomllib
+import urllib3
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -14,20 +15,29 @@ HUNTING_DIR = Path(__file__).parent
 ATLAS_URL = "https://atlas.mitre.org/techniques/"
 ATTACK_URL = "https://attack.mitre.org/techniques/"
 
+# the standard link takes `integration.package` and converts the link to `integration/package`, however, there are
+# some exceptions such as `aws_bedrock.invocation` which should be linked to `aws_bedrock` instead
+# https://docs.elastic.co/integrations/aws_bedrock
+STATIC_INTEGRATION_LINK_MAP = {
+    'aws_bedrock.invocation': 'aws_bedrock'
+}
+
 
 @dataclass
 class Hunt:
     """Dataclass to represent a hunt."""
 
     author: str
-    integration: str
+    description: str
+    integration: list[str]
     uuid: str
     name: str
-    language: str
-    query: str
-    notes: Optional[List[str]] = field(default_factory=list)
-    mitre: Optional[List[str]] = field(default_factory=list)
-    references: Optional[List[str]] = field(default_factory=list)
+    language: list[str]
+    license: str
+    query: list[str]
+    notes: Optional[list[str]] = field(default_factory=list)
+    mitre: Optional[list[str]] = field(default_factory=list)
+    references: Optional[list[str]] = field(default_factory=list)
 
 
 def load_toml(contents: str) -> Hunt:
@@ -40,9 +50,32 @@ def load_all_toml(base_path: Path) -> List[tuple[Hunt, Path]]:
     """Load all TOML files from the directory and return a list of Hunt configurations and their paths."""
     hunts = []
     for toml_file in base_path.rglob("*.toml"):
-        hunt_config = load_toml(toml_file.read_text())
+        hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))
         hunts.append((hunt_config, toml_file))
     return hunts
+
+
+def validate_link(link: str):
+    """Validate and return the link."""
+    http = urllib3.PoolManager()
+    response = http.request('GET', link)
+    if response.status != 200:
+        raise ValueError(f"Invalid link: {link}")
+
+
+def generate_integration_links(integrations: list[str]) -> list[str]:
+    base_url = 'https://docs.elastic.co/integrations'
+    generated = []
+    for integration in integrations:
+        if integration in STATIC_INTEGRATION_LINK_MAP:
+            link_str = STATIC_INTEGRATION_LINK_MAP[integration]
+        else:
+            link_str = integration.replace('.', '/')
+        link = f'{base_url}/{link_str}'
+        validate_link(link)
+        generated.append(f'[{integration}]({link})')
+
+    return generated
 
 
 def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
@@ -50,29 +83,34 @@ def convert_toml_to_markdown(hunt_config: Hunt, file_path: Path) -> str:
     markdown = f"# {hunt_config.name}\n\n---\n\n"
     markdown += "## Metadata\n\n"
     markdown += f"- **Author:** {hunt_config.author}\n"
+    markdown += f"- **Description:** {hunt_config.description}\n"
     markdown += f"- **UUID:** `{hunt_config.uuid}`\n"
-    markdown += f"- **Integration:** `{hunt_config.integration}`\n"
-    markdown += f"- **Language:** `{hunt_config.language}`\n\n"
-    markdown += "## Query\n\n"
-    markdown += f"```sql\n{hunt_config.query}```\n\n"
+    markdown += f"- **Integration:** {', '.join(generate_integration_links(hunt_config.integration))}\n"
+    markdown += f"- **Language:** `{hunt_config.language}`\n".replace("'", "").replace('"', "")
+    markdown += f"- **Source File:** [{hunt_config.name}]({(Path('../queries') / file_path.name).as_posix()})\n"
+    markdown += "\n## Query\n\n"
+    for query in hunt_config.query:
+        markdown += f"```sql\n{query}```\n\n"
+
     if hunt_config.notes:
         markdown += "## Notes\n\n" + "\n".join(f"- {note}" for note in hunt_config.notes)
     if hunt_config.mitre:
-        markdown += "\n## MITRE ATT&CK Techniques\n\n" + "\n".join(
+        markdown += "\n\n## MITRE ATT&CK Techniques\n\n" + "\n".join(
             f"- [{tech}]({ATLAS_URL if tech.startswith('AML') else ATTACK_URL}"
-            f"{tech.replace('.', '/') if tech.startswith('T') else tech})\n"
+            f"{tech.replace('.', '/') if tech.startswith('T') else tech})"
             for tech in hunt_config.mitre
         )
     if hunt_config.references:
-        markdown += "\n## References\n\n" + "\n".join(f"- {ref}" for ref in hunt_config.references)
-        markdown += f"\n- [{hunt_config.name}]({Path('../queries') / file_path.name})"
+        markdown += "\n\n## References\n\n" + "\n".join(f"- {ref}" for ref in hunt_config.references)
+
+    markdown += f"\n\n## License\n\n- `{hunt_config.license}`\n"
     return markdown
 
 
 def process_toml_files(base_path: Path) -> None:
     """Process all TOML files in the directory recursively and convert them to Markdown."""
     hunts = load_all_toml(base_path)
-    index_content = "# List of Available Queries\n\nHere are the queries currently available:\n\n"
+    index_content = "# List of Available Queries\n\nHere are the queries currently available:"
     directories = {}
 
     for hunt_config, toml_file in hunts:
@@ -87,10 +125,10 @@ def process_toml_files(base_path: Path) -> None:
 
     # Build index content
     for folder, files in sorted(directories.items()):
-        index_content += f"## {folder}\n"
+        index_content += f"\n\n## {folder}\n"
         for file_path, rule_name, language in sorted(files):
-            index_path = "./" + str(file_path)
-            index_content += f"- [{rule_name}]({index_path}) ({language})\n"
+            index_path = f"./{file_path.as_posix()}"
+            index_content += f"- [{rule_name}]({index_path}) ({', '.join(language)})\n"
 
     # Write the index file at the base directory level
     index_path = base_path / "index.md"

@@ -2,7 +2,7 @@
 creation_date = "2021/01/21"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/06/28"
 
 [transform]
 [[transform.osquery]]
@@ -126,36 +126,41 @@ file where host.os.type == "windows" and event.type == "creation" and
   file.path : "C:\\*:*" and
   not file.path : 
           ("C:\\*:zone.identifier*",
-           "C:\\users\\*\\appdata\\roaming\\microsoft\\teams\\old_weblogs_*:$DATA") and
+           "C:\\users\\*\\appdata\\roaming\\microsoft\\teams\\old_weblogs_*:$DATA",
+           "C:\\Windows\\CSC\\*:CscBitmapStream") and
 
-  not process.executable :
-          ("?:\\windows\\System32\\svchost.exe",
-           "?:\\Windows\\System32\\inetsrv\\w3wp.exe",
-           "?:\\Windows\\explorer.exe",
-           "?:\\Windows\\System32\\sihost.exe",
-           "?:\\Windows\\System32\\PickerHost.exe",
-           "?:\\Windows\\System32\\SearchProtocolHost.exe",
-           "?:\\Program Files (x86)\\Dropbox\\Client\\Dropbox.exe",
-           "?:\\Program Files\\Rivet Networks\\SmartByte\\SmartByteNetworkService.exe",
-           "?:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-           "?:\\Program Files\\ExpressConnect\\ExpressConnectNetworkService.exe",
-           "?:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-           "?:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-           "?:\\Program Files\\Mozilla Firefox\\firefox.exe",
-           "?:\\Program Files(x86)\\Microsoft Office\\root\\*\\EXCEL.EXE",
-           "?:\\Program Files\\Microsoft Office\\root\\*\\EXCEL.EXE",
-           "?:\\Program Files (x86)\\Microsoft Office\\root\\*\\OUTLOOK.EXE",
-           "?:\\Program Files\\Microsoft Office\\root\\*\\OUTLOOK.EXE",
-           "?:\\Program Files (x86)\\Microsoft Office\\root\\*\\POWERPNT.EXE",
-           "?:\\Program Files\\Microsoft Office\\root\\*\\POWERPNT.EXE",
-           "?:\\Program Files (x86)\\Microsoft Office\\root\\*\\WINWORD.EXE",
-           "?:\\Program Files\\Microsoft Office\\root\\*\\WINWORD.EXE") and
+  not process.executable : (
+          "?:\\Program Files (x86)\\Dropbox\\Client\\Dropbox.exe",
+          "?:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+          "?:\\Program Files (x86)\\Microsoft Office\\root\\*\\EXCEL.EXE",
+          "?:\\Program Files (x86)\\Microsoft Office\\root\\*\\OUTLOOK.EXE",
+          "?:\\Program Files (x86)\\Microsoft Office\\root\\*\\POWERPNT.EXE",
+          "?:\\Program Files (x86)\\Microsoft Office\\root\\*\\WINWORD.EXE",
+          "?:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+          "?:\\Program Files\\ExpressConnect\\ExpressConnectNetworkService.exe",
+          "?:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          "?:\\Program Files\\Microsoft Office\\root\\*\\EXCEL.EXE",
+          "?:\\Program Files\\Microsoft Office\\root\\*\\OUTLOOK.EXE",
+          "?:\\Program Files\\Microsoft Office\\root\\*\\POWERPNT.EXE",
+          "?:\\Program Files\\Microsoft Office\\root\\*\\WINWORD.EXE",
+          "?:\\Program Files\\Mozilla Firefox\\firefox.exe",
+          "?:\\Program Files\\Rivet Networks\\SmartByte\\SmartByteNetworkService.exe",
+          "?:\\Windows\\explorer.exe",
+          "?:\\Windows\\System32\\DataExchangeHost.exe",
+          "?:\\Windows\\System32\\drivers\\Intel\\ICPS\\IntelConnectivityNetworkService.exe",
+          "?:\\Windows\\System32\\drivers\\RivetNetworks\\Killer\\KillerNetworkService.exe",
+          "?:\\Windows\\System32\\inetsrv\\w3wp.exe",
+          "?:\\Windows\\System32\\PickerHost.exe",
+          "?:\\Windows\\System32\\RuntimeBroker.exe",
+          "?:\\Windows\\System32\\SearchProtocolHost.exe",
+          "?:\\Windows\\System32\\sihost.exe",
+          "?:\\windows\\System32\\svchost.exe"
+  ) and
 
   file.extension :
     (
       "pdf",
       "dll",
-      "png",
       "exe",
       "dat",
       "com",

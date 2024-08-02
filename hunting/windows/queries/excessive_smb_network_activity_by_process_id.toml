@@ -1,0 +1,26 @@
+[hunt]
+author = "Elastic"
+description = """
+This hunt looks for a high occurrence of SMB connections from the same process by unique destination IP addresses. The number of unique destination IP addresses is compared to a defined threshold. This could be a sign of SMB scanning or lateral movement via remote services that depend on the SMB protocol.
+"""
+integration = ["endpoint", "windows"]
+uuid = "8a95f552-f149-4c71-888e-f2690f5add15"
+name = "Excessive SMB Network Activity by Process ID"
+language = ["ES|QL"]
+license = "Elastic License v2"
+notes = [
+    "Further investigation can done pivoting by `process.entity_id` and `host.id.`",
+    "Maximum number of unique `destination.ip` by process can be adjusted to your environment to reduce normal noisy hosts by process ID.",]
+mitre = [ "T1021", "T1021.002",]
+query = [
+'''
+from logs-endpoint.events.network-*, logs-windows.sysmon_operational-*
+| where @timestamp > now() - 7 day and
+  host.os.family == "windows" and event.category == "network" and network.direction == "egress" and
+  network.transport == "tcp"and destination.port == 445 and source.port >= 49152 and process.pid == 4
+| keep destination.ip, process.entity_id, host.id
+| stats count_unique_dst = count_distinct(destination.ip) by process.entity_id, host.id
+ /* threshold set to 20 but can be adjusted to reduce normal baseline in your env */
+| where count_unique_dst >= 20
+'''
+]
