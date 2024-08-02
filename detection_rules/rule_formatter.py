@@ -191,6 +191,7 @@ def toml_write(rule_contents, outfile=None):
 
     def _do_write(_data, _contents):
         query = None
+        threat_query = None
 
         if _data == 'rule':
             # - We want to avoid the encoder for the query and instead use kql-lint.
@@ -204,6 +205,7 @@ def toml_write(rule_contents, outfile=None):
             #
             # if tags and isinstance(tags, list):
             #     contents['rule']["tags"] = list(sorted(set(tags)))
+            threat_query = contents['rule'].pop('threat_query', '').strip()
 
         top = OrderedDict()
         bottom = OrderedDict()
@@ -246,8 +248,16 @@ def toml_write(rule_contents, outfile=None):
         if query:
             top.update({'query': "XXxXX"})
 
+        if threat_query:
+            top.update({'threat_query': "XXxXX"})
+
         top.update(bottom)
         top = toml.dumps(OrderedDict({data: top}), encoder=encoder)
+
+        # we want to preserve the query format, but want to modify it in the context of encoded dump
+        if threat_query:
+            formatted_threat_query = "\nthreat_query = '''\n{}\n'''{}".format(threat_query, '\n\n' if bottom else '')
+            top = top.replace('threat_query = "XXxXX"', formatted_threat_query)
 
         # we want to preserve the query format, but want to modify it in the context of encoded dump
         if query:
