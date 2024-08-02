@@ -153,7 +153,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
                 while click.confirm('add mitre tactic?'):
                     tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, is_required=True)
                     technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
-                                                is_required=False, enum=list(matrix[tactic])) or []
+                                                  is_required=False, enum=list(matrix[tactic])) or []
 
                     try:
                         threat_map.append(build_threat_map_entry(tactic, *technique_ids))
