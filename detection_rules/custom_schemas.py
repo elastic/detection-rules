@@ -87,27 +87,19 @@ def update_auto_generated_schema(index: str, field: str):
     auto_gen_schema_file = str(RULES_CONFIG.auto_gen_schema_file)
     stack_schema_map_file = str(RULES_CONFIG.stack_schema_map_file)
 
-    # Read the existing data
+    # Update autogen schema file
     data = load_dump(auto_gen_schema_file)
-
-    # Update the data
     data = update_data(index, field, data)
-
-    # Write the updated data back to the file
     save_dump(data, auto_gen_schema_file)
 
-    # Update the stack-schema-map.yaml file
+    # Update the stack-schema-map.yaml file with the appropriate auto_gen_schema_file location
     stack_schema_map = load_dump(stack_schema_map_file)
-
-    # Check if auto_gen_schema_file is already in stack_schema_map
     stack_schema_map, auto_generated_id, random_uuid = update_stack_schema_map(stack_schema_map, auto_gen_schema_file)
-
     save_dump(stack_schema_map, stack_schema_map_file)
 
     # Clean up the stack-schema-map.yaml file replacing the random UUID with the auto_generated_id
     stack_schema_map = load_dump(stack_schema_map_file)
     stack_schema_map = clean_stack_schema_map(stack_schema_map, auto_generated_id, random_uuid)
-
     save_dump(stack_schema_map, stack_schema_map_file)
 
     RULES_CONFIG.stack_schema_map = stack_schema_map
