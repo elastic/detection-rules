@@ -149,20 +149,20 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
         # build this from technique ID
         if name == 'threat':
             threat_map = []
+            if not skip_errors:
+                while click.confirm('add mitre tactic?'):
+                    tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, is_required=True)
+                    technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
+                                                is_required=False, enum=list(matrix[tactic])) or []
 
-            while click.confirm('add mitre tactic?'):
-                tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, is_required=True)
-                technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
-                                              is_required=False, enum=list(matrix[tactic])) or []
-
-                try:
-                    threat_map.append(build_threat_map_entry(tactic, *technique_ids))
-                except KeyError as e:
-                    click.secho(f'Unknown ID: {e.args[0]} - entry not saved for: {tactic}', fg='red', err=True)
-                    continue
-                except ValueError as e:
-                    click.secho(f'{e} - entry not saved for: {tactic}', fg='red', err=True)
-                    continue
+                    try:
+                        threat_map.append(build_threat_map_entry(tactic, *technique_ids))
+                    except KeyError as e:
+                        click.secho(f'Unknown ID: {e.args[0]} - entry not saved for: {tactic}', fg='red', err=True)
+                        continue
+                    except ValueError as e:
+                        click.secho(f'{e} - entry not saved for: {tactic}', fg='red', err=True)
+                        continue
 
             if len(threat_map) > 0:
                 contents[name] = threat_map
