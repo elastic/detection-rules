@@ -69,6 +69,8 @@ Some notes:
 * To bypass using the version lock versioning strategy (version lock file) you can set the optional `bypass_version_lock` value to be `True`
 * To normalize the capitalization KQL keywords in KQL rule queries one can use the optional `normalize_kql_keywords` value set to `True` or `False` as desired.
 * To manage exceptions tied to rules one can set an exceptions directory using the optional `exception_dir` value (included above) set to be the desired path. If an exceptions directory is explicitly specified in a CLI command, the config value will be ignored.
+* To turn on automatic schema generation for non-ecs fields a custom schemas add `auto_gen_schema_file: <path_to_your_json_file>`. This will generate a schema file in the specified location that will be used to add entries for each field and index combination that is not already in a known schema. This will also automatically add it to your stack-schema-map.yaml file when using a custom rules directory and config.
+
 
 When using the repo, set the environment variable `CUSTOM_RULES_DIR=<directory-with-_config.yaml>`
 
