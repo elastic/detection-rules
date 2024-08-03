@@ -72,6 +72,8 @@ QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
 # we had a bad rule ID make it in before tightening up the pattern, and so we have to let it bypass
 KNOWN_BAD_RULE_IDS = Literal['119c8877-8613-416d-a98a-96b6664ee73a5']
 KNOWN_BAD_DEPRECATED_DATES = Literal['2021-03-03']
+# Known Null values that cannot be handled in TOML due to lack of Null value support via compound dicts
+KNOWN_NULL_ENTRIES = [{"rule.actions": "frequency.throttle"}]
 OPERATORS = ['equals']
 
 TIMELINE_TEMPLATES: Final[dict] = {
