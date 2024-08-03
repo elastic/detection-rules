@@ -219,12 +219,12 @@ def toml_write(rule_contents, outfile=None):
             if k == 'actions':
                 # explicitly preserve formatting for message field in actions
                 preserved_fields = ["params.message"]
-                v = [preserve_formatting_for_fields(action, preserved_fields) for action in v]
+                v = [preserve_formatting_for_fields(action, preserved_fields) for action in v] if v is not None else []
 
             if k == 'filters':
                 # explicitly preserve formatting for value field in filters
                 preserved_fields = ["meta.value"]
-                v = [preserve_formatting_for_fields(meta, preserved_fields) for meta in v]
+                v = [preserve_formatting_for_fields(meta, preserved_fields) for meta in v] if v is not None else []
 
             if k == 'note' and isinstance(v, str):
                 # Transform instances of \ to \\ as calling write will convert \\ to \.
