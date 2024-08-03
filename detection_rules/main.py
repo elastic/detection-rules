@@ -113,6 +113,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 )
 @click.option("--skip-errors", "-ske", is_flag=True, help="Skip rule import errors")
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
+@click.option("--strip-none-values", "-snv", is_flag=True, help="Strip None values from the rule")
 def import_rules_into_repo(
     input_file: click.Path,
     required_only: bool,
@@ -122,6 +123,7 @@ def import_rules_into_repo(
     exceptions_directory: click.Path,
     skip_errors: bool,
     default_author: str,
+    strip_none_values: bool,
 ):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
     errors = []
@@ -166,8 +168,16 @@ def import_rules_into_repo(
         # use default author if not provided
         contents["author"] = contents.get("author") or [default_author]
 
-        output = rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
-                             additional_required=additional, skip_errors=skip_errors, **contents)
+        output = rule_prompt(
+            rule_path,
+            required_only=required_only,
+            save=True,
+            verbose=True,
+            additional_required=additional,
+            skip_errors=skip_errors,
+            strip_none_values=strip_none_values,
+            **contents,
+        )
         # If output is not a TOMLRule
         if isinstance(output, str):
             errors.append(output)

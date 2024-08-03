@@ -67,6 +67,9 @@ def wrap_text(v, block_indent=0, join=False):
     lines = textwrap.wrap(v, initial_indent=' ' * block_indent, subsequent_indent=' ' * block_indent, width=120,
                           break_long_words=False, break_on_hyphens=False)
     lines = [line + '\n' for line in lines]
+    # If there is a single line that contains a quote, add a new blank line to trigger multiline formatting
+    if len(lines) == 1 and '"' in lines[0]:
+        lines = lines + ['']
     return lines if not join else ''.join(lines)
 
 
@@ -254,7 +257,7 @@ def toml_write(rule_contents, outfile=None):
         top.update(bottom)
         top = toml.dumps(OrderedDict({data: top}), encoder=encoder)
 
-        # we want to preserve the query format, but want to modify it in the context of encoded dump
+        # we want to preserve the threat_query format, but want to modify it in the context of encoded dump
         if threat_query:
             formatted_threat_query = "\nthreat_query = '''\n{}\n'''{}".format(threat_query, '\n\n' if bottom else '')
             top = top.replace('threat_query = "XXxXX"', formatted_threat_query)
