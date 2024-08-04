@@ -280,6 +280,7 @@ def import_rules_into_repo(
     click.echo(f"{len(file_contents) + exceptions_count} results exported")
     click.echo(f"{len(file_contents)} rules converted")
     click.echo(f"{exceptions_count} exceptions exported")
+    click.echo(f"{len(action_connectors)} actions connectors exported")
     if errors:
         err_file = save_directory if save_directory is not None else RULES_DIRS[0] / "_errors.txt"
         err_file.write_text("\n".join(errors))
