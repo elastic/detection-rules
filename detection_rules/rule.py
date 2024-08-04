@@ -612,7 +612,7 @@ class DataValidator:
                                   f"field, use the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE`")
 
         # raise if setup header is in note and in setup
-        if self.setup_in_note and self.setup:
+        if self.setup_in_note and (self.setup and self.setup != "None"):
             raise ValidationError("Setup header found in both note and setup fields.")
 
 

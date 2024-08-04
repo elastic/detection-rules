@@ -120,7 +120,7 @@ class GenericCollection:
         """Load a dictionary into the collection."""
         is_exception = True if 'exceptions' in obj else False
         contents = TOMLExceptionContents.from_dict(obj) if is_exception else TOMLActionContents.from_dict(obj)
-        item = TOMLException(path=path, contents=contents)
+        item = TOMLException(path=path, contents=contents) if is_exception else TOMLAction(path=path, contents=contents)
         self.add_item(item)
         return item
 
