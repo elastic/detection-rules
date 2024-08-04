@@ -234,6 +234,7 @@ class RuleResource(BaseResource):
         cls,
         rules: List[dict],
         exceptions: List[List[dict]] = [],
+        actions: List[List[dict]] = [],
         overwrite: bool = False,
         overwrite_exceptions: bool = False,
         overwrite_action_connectors: bool = False,
@@ -247,7 +248,8 @@ class RuleResource(BaseResource):
         )
         rule_ids = [r['rule_id'] for r in rules]
         flattened_exceptions = [e for sublist in exceptions for e in sublist]
-        headers, raw_data = Kibana.ndjson_file_data_prep(rules + flattened_exceptions, "import.ndjson")
+        flattened_actions = [a for sublist in actions for a in sublist]
+        headers, raw_data = Kibana.ndjson_file_data_prep(rules + flattened_exceptions + flattened_actions, "import.ndjson")
         response = Kibana.current().post(url, headers=headers, params=params, raw_data=raw_data)
         errors = response.get("errors", [])
         error_rule_ids = [e['rule_id'] for e in errors]

@@ -119,7 +119,7 @@ class TOMLAction:
 
 
 def parse_actions_results_from_api(results: List[dict]) -> tuple[List[dict], List[dict]]:
-    """Parse the results from the API into TOMLAction objects."""
+    """Parse the results from the API to split into action results and non-actions."""
     action_results = []
     non_action_results = []
     for result in results:

@@ -101,9 +101,9 @@ class GenericCollection:
         file_map = self.file_map
         name_map = self.name_map
 
-        assert not self.frozen, f"Unable to add item {item.name} {item.id} to a frozen collection"
+        assert not self.frozen, f"Unable to add item {item.name} to a frozen collection"
         assert item.name not in name_map, \
-            f"Rule Name {item.name} for {item.id} collides with rule ID {name_map.get(item.name).id}"
+            f"Rule Name {item.name} collides with {name_map[item.name].name}"
 
         if item.path is not None:
             item_path = item.path.resolve()
