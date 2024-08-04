@@ -15,8 +15,8 @@ from kibana import Signal, RuleResource
 
 from .config import parse_rules_config
 from .cli_utils import multi_collection
-from .action import (TOMLAction, TOMLActionContents,
-                     parse_actions_results_from_api)
+from .action_connector import (TOMLActionConnector, TOMLActionConnectorContents,
+                               parse_action_connector_results_from_api)
 from .exception import (TOMLException, TOMLExceptionContents,
                         parse_exceptions_results_from_api)
 from .generic_loader import GenericCollection
@@ -86,7 +86,7 @@ def upload_rule(ctx, rules: RuleCollection, replace_id):
 @multi_collection
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite existing rules')
 @click.option('--overwrite-exceptions', '-e', is_flag=True, help='Overwrite exceptions in existing rules')
-@click.option('--overwrite-action-connectors', '-a', is_flag=True,
+@click.option('--overwrite-action-connectors', '-ac', is_flag=True,
               help='Overwrite action connectors in existing rules')
 @click.pass_context
 def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Optional[bool] = False,
@@ -100,11 +100,13 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
         exception_dicts = [
             d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLExceptionContents)
         ]
-        actions_dicts = [d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLActionContents)]
+        action_connectors_dicts = [
+            d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLActionConnectorContents)
+        ]
         response, successful_rule_ids, results = RuleResource.import_rules(
             rule_dicts,
             exception_dicts,
-            actions_dicts,
+            action_connectors_dicts,
             overwrite=overwrite,
             overwrite_exceptions=overwrite_exceptions,
             overwrite_action_connectors=overwrite_action_connectors
@@ -124,10 +126,12 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 
 @kibana_group.command("export-rules")
 @click.option("--directory", "-d", required=True, type=Path, help="Directory to export rules to")
-@click.option("--actions-directory", "-ad", required=False, type=Path, help="Directory to export action connectors to")
+@click.option(
+    "--action-connectors-directory", "-acd", required=False, type=Path, help="Directory to export action connectors to"
+)
 @click.option("--exceptions-directory", "-ed", required=False, type=Path, help="Directory to export exceptions to")
 @click.option("--rule-id", "-r", multiple=True, help="Optional Rule IDs to restrict export to")
-@click.option("--export-actions", "-a", is_flag=True, help="Include action connectors in export")
+@click.option("--export-action-connectors", "-ac", is_flag=True, help="Include action connectors in export")
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
 @click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
@@ -135,10 +139,10 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 def kibana_export_rules(
     ctx: click.Context,
     directory: Path,
-    actions_directory: Optional[Path],
+    action_connectors_directory: Optional[Path],
     exceptions_directory: Optional[Path],
     rule_id: Optional[Iterable[str]] = None,
-    export_actions: bool = False,
+    export_action_connectors: bool = False,
     export_exceptions: bool = False,
     skip_errors: bool = False,
     strip_version: bool = False,
@@ -156,10 +160,10 @@ def kibana_export_rules(
         click.echo("Warning: Exceptions export requested, but no exceptions directory found")
 
     # Handle Actions Connector Directory Location
-    if results and actions_directory:
-        actions_directory.mkdir(parents=True, exist_ok=True)
-    actions_directory = actions_directory or RULES_CONFIG.action_dir
-    if not actions_directory and export_actions:
+    if results and action_connectors_directory:
+        action_connectors_directory.mkdir(parents=True, exist_ok=True)
+    action_connectors_directory = action_connectors_directory or RULES_CONFIG.action_connector_dir
+    if not action_connectors_directory and export_action_connectors:
         click.echo("Warning: Exceptions export requested, but no exceptions directory found")
 
     if results:
@@ -263,8 +267,8 @@ def kibana_export_rules(
 
     # Parse action connector results from API return
     action_connectors = []
-    if export_actions:
-        action_results, _ = parse_actions_results_from_api(action_corrector_results)
+    if export_action_connectors:
+        action_results, _ = parse_action_connector_results_from_api(action_corrector_results)
 
         # Build TOMLException Objects
         for connector in action_results:
@@ -275,12 +279,12 @@ def kibana_export_rules(
                     click.echo(f"Warning action connector {connector_id} has no associated rules. Loading skipped.")
                     continue
                 else:
-                    contents = TOMLActionContents.from_actions_dict(
+                    contents = TOMLActionConnectorContents.from_actions_dict(
                         connector,
                         rule_list
                     )
-                    action_connector = TOMLAction(
-                        contents=contents, path=actions_directory / f"{connector_id}_actions.toml"
+                    action_connector = TOMLActionConnector(
+                        contents=contents, path=action_connectors_directory / f"{connector_id}_actions.toml"
                     )
             except Exception as e:
                 if skip_errors:
@@ -339,7 +343,7 @@ def kibana_export_rules(
     click.echo(f"{len(action_connectors)} action connectors exported")
     click.echo(f"{len(saved)} rules saved to {directory}")
     click.echo(f"{len(saved_exceptions)} exception lists saved to {exceptions_directory}")
-    click.echo(f"{len(saved_action_connectors)} action connectors saved to {actions_directory}")
+    click.echo(f"{len(saved_action_connectors)} action connectors saved to {action_connectors_directory}")
     if errors:
         err_file = directory / "_errors.txt"
         err_file.write_text("\n".join(errors))

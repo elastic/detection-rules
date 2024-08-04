@@ -186,6 +186,7 @@ class RulesConfig:
     version_lock: Dict[str, dict]
 
     action_dir: Optional[Path] = None
+    action_connector_dir: Optional[Path] = None
     auto_gen_schema_file: Optional[Path] = None
     bbr_rules_dirs: Optional[List[Path]] = field(default_factory=list)
     bypass_version_lock: bool = False
@@ -273,6 +274,8 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
             contents['exception_dir'] = base_dir.joinpath(directories.get('exception_dir')).resolve()
         if directories.get('action_dir'):
             contents['action_dir'] = base_dir.joinpath(directories.get('action_dir')).resolve()
+        if directories.get('action_connector_dir'):
+            contents['action_connector_dir'] = base_dir.joinpath(directories.get('action_connector_dir')).resolve()
 
     # version strategy
     contents['bypass_version_lock'] = loaded.get('bypass_version_lock', False)

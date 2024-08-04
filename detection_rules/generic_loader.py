@@ -11,6 +11,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Union
 import pytoml
 
 from .action import TOMLAction, TOMLActionContents
+from .action_connector import TOMLActionConnector, TOMLActionConnectorContents
 from .config import parse_rules_config
 from .exception import TOMLException, TOMLExceptionContents
 from .rule_loader import dict_filter
@@ -19,8 +20,8 @@ from .schemas import definitions
 
 RULES_CONFIG = parse_rules_config()
 
-GenericCollectionTypes = Union[TOMLAction, TOMLException]
-GenericCollectionContentTypes = Union[TOMLActionContents, TOMLExceptionContents]
+GenericCollectionTypes = Union[TOMLAction, TOMLActionConnector, TOMLException]
+GenericCollectionContentTypes = Union[TOMLActionContents, TOMLActionConnectorContents, TOMLExceptionContents]
 
 
 def metadata_filter(**metadata) -> Callable[[GenericCollectionTypes], bool]:
@@ -118,9 +119,18 @@ class GenericCollection:
 
     def load_dict(self, obj: dict, path: Optional[Path] = None) -> GenericCollectionTypes:
         """Load a dictionary into the collection."""
-        is_exception = True if 'exceptions' in obj else False
-        contents = TOMLExceptionContents.from_dict(obj) if is_exception else TOMLActionContents.from_dict(obj)
-        item = TOMLException(path=path, contents=contents) if is_exception else TOMLAction(path=path, contents=contents)
+        if 'exceptions' in obj:
+            contents = TOMLExceptionContents.from_dict(obj)
+            item = TOMLException(path=path, contents=contents)
+        elif 'actions' in obj:
+            contents = TOMLActionContents.from_dict(obj)
+            item = TOMLAction(path=path, contents=contents)
+        elif 'action_connectors' in obj:
+            contents = TOMLActionConnectorContents.from_dict(obj)
+            item = TOMLActionConnector(path=path, contents=contents)
+        else:
+            raise ValueError("Invalid object type")
+
         self.add_item(item)
         return item
 
@@ -178,6 +188,8 @@ class GenericCollection:
                 collection.load_directory(RULES_CONFIG.exception_dir)
             if RULES_CONFIG.action_dir:
                 collection.load_directory(RULES_CONFIG.action_dir)
+            if RULES_CONFIG.action_connector_dir:
+                collection.load_directory(RULES_CONFIG.action_connector_dir)
             collection.freeze()
             cls.__default = collection
 

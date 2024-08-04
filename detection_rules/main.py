@@ -19,8 +19,8 @@ from typing import Dict, Iterable, List, Optional, get_args
 from uuid import uuid4
 import click
 
-from .action import (TOMLAction, TOMLActionContents,
-                     parse_actions_results_from_api)
+from .action_connector import (TOMLActionConnector, TOMLActionConnectorContents,
+                               parse_action_connector_results_from_api)
 from .attack import build_threat_map_entry
 from .cli_utils import rule_prompt, multi_collection
 from .config import load_current_package_version, parse_rules_config
@@ -101,7 +101,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 
 @root.command("import-rules-to-repo")
 @click.argument("input-file", type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
-@click.option("--actions-import", "-a", is_flag=True, help="Include actions in export")
+@click.option("--action-connector-import", "-ac", is_flag=True, help="Include action connectors in export")
 @click.option("--exceptions-import", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--required-only", is_flag=True, help="Only prompt for required fields")
 @click.option("--directory", "-d", type=click.Path(file_okay=False, exists=True), help="Load files from a directory")
@@ -115,7 +115,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     help="Save imported exceptions to a directory",
 )
 @click.option(
-    "--actions-directory",
+    "--action-connectors-directory",
     "-sa",
     type=click.Path(file_okay=False, exists=True),
     help="Save imported actions to a directory",
@@ -126,11 +126,11 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 def import_rules_into_repo(
     input_file: click.Path,
     required_only: bool,
-    actions_import: bool,
+    action_connector_import: bool,
     exceptions_import: bool,
     directory: click.Path,
     save_directory: click.Path,
-    actions_directory: click.Path,
+    action_connectors_directory: click.Path,
     exceptions_directory: click.Path,
     skip_errors: bool,
     default_author: str,
@@ -155,7 +155,7 @@ def import_rules_into_repo(
         file_contents, skip_errors=True
     )
 
-    action_connectors, unparsed_results = parse_actions_results_from_api(unparsed_results)
+    action_connectors, unparsed_results = parse_action_connector_results_from_api(unparsed_results)
 
     file_contents = unparsed_results
 
@@ -245,7 +245,7 @@ def import_rules_into_repo(
                 raise
 
     # Build TOMLAction Objects
-    if actions_import:
+    if action_connector_import:
         for connector in action_connectors:
             try:
                 connector_id = connector.get("id")
@@ -254,22 +254,22 @@ def import_rules_into_repo(
                     click.echo(f"Warning action connector {connector_id} has no associated rules. Loading skipped.")
                     continue
                 else:
-                    contents = TOMLActionContents.from_actions_dict(
+                    contents = TOMLActionConnectorContents.from_actions_dict(
                         connector,
                         rule_list
                     )
                     filename = f"{connector_id}_actions.toml"
-                    if RULES_CONFIG.action_dir is None and not actions_directory:
+                    if RULES_CONFIG.action_connector_dir is None and not action_connectors_directory:
                         raise FileNotFoundError(
                             "No Exceptions directory is specified. Please specify either in the config or CLI."
                         )
                     actions_path = (
-                        Path(actions_directory) / filename
-                        if actions_directory
-                        else RULES_CONFIG.action_dir / filename
+                        Path(action_connectors_directory) / filename
+                        if action_connectors_directory
+                        else RULES_CONFIG.action_connector_dir / filename
                     )
-                    click.echo(f"[+] Building exception(s) for {actions_path}")
-                    TOMLAction(
+                    click.echo(f"[+] Building action connector(s) for {actions_path}")
+                    TOMLActionConnector(
                         contents=contents,
                         path=actions_path,
                     ).save_toml()
@@ -409,7 +409,7 @@ def _export_rules(
     verbose=True,
     skip_unsupported=False,
     include_metadata: bool = False,
-    include_actions: bool = False,
+    include_action_connectors: bool = False,
     include_exceptions: bool = False,
 ):
     """Export rules and exceptions into a consolidated ndjson file."""
@@ -440,7 +440,7 @@ def _export_rules(
                                    sort_keys=True) for r in rules]
 
     # Add exceptions to api format here and add to output_lines
-    if include_exceptions or include_actions:
+    if include_exceptions or include_action_connectors:
         cl = GenericCollection.default()
         # Get exceptions in API format
         if include_exceptions:
@@ -449,10 +449,12 @@ def _export_rules(
             exceptions = [e for sublist in exceptions for e in sublist]
             # Append to Rules List
             output_lines.extend(json.dumps(e, sort_keys=True) for e in exceptions)
-        if include_actions:
-            actions = [d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLActionContents)]
+        if include_action_connectors:
+            action_connectors = [
+                d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLActionConnectorContents)
+            ]
             # Flatten list of lists
-            actions = [a for sublist in actions for a in sublist]
+            actions = [a for sublist in action_connectors for a in sublist]
             # Append to Rules List
             output_lines.extend(json.dumps(a, sort_keys=True) for a in actions)
 
@@ -489,7 +491,12 @@ def _export_rules(
 )
 @click.option("--include-metadata", type=bool, is_flag=True, default=False, help="Add metadata to the exported rules")
 @click.option(
-    "--include-actions", "-a", type=bool, is_flag=True, default=False, help="Include Action Connectors in export"
+    "--include-action-connectors",
+    "-ac",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Include Action Connectors in export",
 )
 @click.option(
     "--include-exceptions", "-e", type=bool, is_flag=True, default=False, help="Include Exceptions Lists in export"
@@ -501,7 +508,7 @@ def export_rules_from_repo(
     stack_version,
     skip_unsupported,
     include_metadata: bool,
-    include_actions: bool,
+    include_action_connectors: bool,
     include_exceptions: bool,
 ) -> RuleCollection:
     """Export rule(s) and exception(s) into an importable ndjson file."""
@@ -525,7 +532,7 @@ def export_rules_from_repo(
         downgrade_version=stack_version,
         skip_unsupported=skip_unsupported,
         include_metadata=include_metadata,
-        include_actions=include_actions,
+        include_action_connectors=include_action_connectors,
         include_exceptions=include_exceptions,
     )
 
