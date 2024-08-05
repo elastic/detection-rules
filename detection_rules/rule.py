@@ -37,7 +37,7 @@ from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas,
                       strip_non_public_fields)
 from .schemas.stack_compat import get_restricted_fields
-from .utils import cached, convert_time_span, PatchedTemplate
+from .utils import PatchedTemplate, cached, convert_time_span, get_nested_value, set_nested_value
 
 
 _META_SCHEMA_REQ_DEFAULTS = {}
@@ -612,7 +612,7 @@ class DataValidator:
                                   f"field, use the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE`")
 
         # raise if setup header is in note and in setup
-        if self.setup_in_note and self.setup:
+        if self.setup_in_note and (self.setup and self.setup != "None"):
             raise ValidationError("Setup header found in both note and setup fields.")
 
 
@@ -1171,6 +1171,20 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def type(self) -> str:
         return self.data.type
 
+    def _add_known_nulls(self, rule_dict: dict) -> dict:
+        """Add known nulls to the rule."""
+        # Note this is primarily as a stopgap until add support for Rule Actions
+        for pair in definitions.KNOWN_NULL_ENTRIES:
+            for compound_key, sub_key in pair.items():
+                value = get_nested_value(rule_dict, compound_key)
+                if isinstance(value, list):
+                    items_to_update = [
+                        item for item in value if isinstance(item, dict) and get_nested_value(item, sub_key) is None
+                    ]
+                    for item in items_to_update:
+                        set_nested_value(item, sub_key, None)
+        return rule_dict
+
     def _post_dict_conversion(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
         super()._post_dict_conversion(obj)
@@ -1376,6 +1390,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def to_api_format(self, include_version: bool = not BYPASS_VERSION_LOCK, include_metadata: bool = False) -> dict:
         """Convert the TOML rule to the API format."""
         rule_dict = self.to_dict()
+        rule_dict = self._add_known_nulls(rule_dict)
         converted_data = rule_dict['rule']
         converted = self._post_dict_conversion(converted_data)
 
@@ -1432,11 +1447,14 @@ class TOMLRule:
                 return rule_path.relative_to(rules_dir)
         return None
 
-    def save_toml(self):
+    def save_toml(self, strip_none_values: bool = True):
         assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"
-        converted = dict(metadata=self.contents.metadata.to_dict(), rule=self.contents.data.to_dict())
+        converted = dict(
+            metadata=self.contents.metadata.to_dict(),
+            rule=self.contents.data.to_dict(strip_none_values=strip_none_values),
+        )
         if self.contents.transform:
-            converted['transform'] = self.contents.transform.to_dict()
+            converted["transform"] = self.contents.transform.to_dict()
         toml_write(converted, str(self.path.absolute()))
 
     def save_json(self, path: Path, include_version: bool = True):

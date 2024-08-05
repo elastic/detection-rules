@@ -7,9 +7,22 @@
 
 from typing import List, Literal, Final
 
-from marshmallow import validate
+from marshmallow import fields, validate
 from marshmallow_dataclass import NewType
 from semver import Version
+
+from detection_rules.config import CUSTOM_RULES_DIR
+
+
+def elastic_rule_name_regexp(pattern):
+    """Custom validator for rule names."""
+    def validator(value):
+        if not CUSTOM_RULES_DIR:
+            validate.Regexp(pattern)(value)
+        else:
+            fields.String().deserialize(value)
+    return validator
+
 
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
@@ -59,6 +72,8 @@ QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
 # we had a bad rule ID make it in before tightening up the pattern, and so we have to let it bypass
 KNOWN_BAD_RULE_IDS = Literal['119c8877-8613-416d-a98a-96b6664ee73a5']
 KNOWN_BAD_DEPRECATED_DATES = Literal['2021-03-03']
+# Known Null values that cannot be handled in TOML due to lack of Null value support via compound dicts
+KNOWN_NULL_ENTRIES = [{"rule.actions": "frequency.throttle"}]
 OPERATORS = ['equals']
 
 TIMELINE_TEMPLATES: Final[dict] = {
@@ -166,7 +181,7 @@ Operator = Literal['equals']
 OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
-RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
+RuleName = NewType('RuleName', str, validate=elastic_rule_name_regexp(NAME_PATTERN))
 RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'esql', 'threshold', 'threat_match', 'new_terms']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINOR_SEMVER))

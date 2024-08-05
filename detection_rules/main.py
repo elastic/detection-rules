@@ -15,17 +15,18 @@ import pytoml
 from marshmallow_dataclass import class_schema
 from pathlib import Path
 from semver import Version
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, get_args
 from uuid import uuid4
-
 import click
 
+from .action_connector import (TOMLActionConnectorContents,
+                               build_action_connector_objects, parse_action_connector_results_from_api)
 from .attack import build_threat_map_entry
 from .cli_utils import rule_prompt, multi_collection
 from .config import load_current_package_version, parse_rules_config
 from .generic_loader import GenericCollection
-from .exception import (TOMLException, TOMLExceptionContents,
-                        parse_exceptions_results_from_api)
+from .exception import (TOMLExceptionContents,
+                        build_exception_objects, parse_exceptions_results_from_api)
 from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
 from .misc import (
     add_client, client_error, nested_set, parse_user_config
@@ -100,6 +101,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 
 @root.command("import-rules-to-repo")
 @click.argument("input-file", type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
+@click.option("--action-connector-import", "-ac", is_flag=True, help="Include action connectors in export")
 @click.option("--exceptions-import", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--required-only", is_flag=True, help="Only prompt for required fields")
 @click.option("--directory", "-d", type=click.Path(file_okay=False, exists=True), help="Load files from a directory")
@@ -112,17 +114,30 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     type=click.Path(file_okay=False, exists=True),
     help="Save imported exceptions to a directory",
 )
+@click.option(
+    "--action-connectors-directory",
+    "-sa",
+    type=click.Path(file_okay=False, exists=True),
+    help="Save imported actions to a directory",
+)
+@click.option("--skip-errors", "-ske", is_flag=True, help="Skip rule import errors")
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
+@click.option("--strip-none-values", "-snv", is_flag=True, help="Strip None values from the rule")
 def import_rules_into_repo(
     input_file: click.Path,
     required_only: bool,
+    action_connector_import: bool,
     exceptions_import: bool,
     directory: click.Path,
     save_directory: click.Path,
+    action_connectors_directory: click.Path,
     exceptions_directory: click.Path,
+    skip_errors: bool,
     default_author: str,
+    strip_none_values: bool,
 ):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
+    errors = []
     rule_files = glob.glob(os.path.join(directory, "**", "*.*"), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
 
@@ -140,10 +155,17 @@ def import_rules_into_repo(
         file_contents, skip_errors=True
     )
 
+    action_connectors, unparsed_results = parse_action_connector_results_from_api(unparsed_results)
+
     file_contents = unparsed_results
 
     exception_list_rule_table = {}
+    action_connector_rule_table = {}
     for contents in file_contents:
+        # Don't load exceptions as rules
+        if contents["type"] not in get_args(definitions.RuleType):
+            click.echo(f"Skipping - {contents["type"]} is not a supported rule type")
+            continue
         base_path = contents.get("name") or contents.get("rule", {}).get("name")
         base_path = rulename_to_filename(base_path) if base_path else base_path
         if base_path is None:
@@ -154,13 +176,27 @@ def import_rules_into_repo(
         data_view_id = contents.get("data_view_id") or contents.get("rule", {}).get("data_view_id")
         additional = ["index"] if not data_view_id else ["data_view_id"]
 
+        # Use additional to store all available fields for the rule
+        additional += [key for key in contents if key not in additional and contents.get(key, None)]
+
         # use default author if not provided
         contents["author"] = contents.get("author") or [default_author]
 
-        rule_prompt(rule_path, required_only=required_only, save=True, verbose=True,
-                    additional_required=additional, **contents)
-        if contents.get("exceptions_list"):
+        output = rule_prompt(
+            rule_path,
+            required_only=required_only,
+            save=True,
+            verbose=True,
+            additional_required=additional,
+            skip_errors=skip_errors,
+            strip_none_values=strip_none_values,
+            **contents,
+        )
+        # If output is not a TOMLRule
+        if isinstance(output, str):
+            errors.append(output)
 
+        if contents.get("exceptions_list"):
             # For each item in rule.contents.data.exceptions_list to the exception_list_rule_table under the list_id
             for exception in contents["exceptions_list"]:
                 exception_id = exception["list_id"]
@@ -168,32 +204,52 @@ def import_rules_into_repo(
                     exception_list_rule_table[exception_id] = []
                 exception_list_rule_table[exception_id].append({"id": contents["id"], "name": contents["name"]})
 
+        if contents.get("actions"):
+            # If rule has actions with connectors, add them to the action_connector_rule_table under the action_id
+            for action in contents["actions"]:
+                action_id = action["id"]
+                if action_id not in action_connector_rule_table:
+                    action_connector_rule_table[action_id] = []
+                action_connector_rule_table[action_id].append({"id": contents["id"], "name": contents["name"]})
+
     # Build TOMLException Objects
     if exceptions_import:
-        for container in exceptions_containers.values():
-            try:
-                list_id = container.get("list_id")
-                contents = TOMLExceptionContents.from_exceptions_dict(
-                    {"container": container, "items": exceptions_items[list_id]},
-                    exception_list_rule_table.get(list_id),
-                )
-                filename = f"{list_id}_exceptions.toml"
-                if RULES_CONFIG.exception_dir is None and not exceptions_directory:
-                    raise FileNotFoundError(
-                        "No Exceptions directory is specified. Please specify either in the config or CLI."
-                    )
-                exceptions_path = (
-                    Path(exceptions_directory) / filename
-                    if exceptions_directory
-                    else RULES_CONFIG.exception_dir / filename
-                )
-                click.echo(f"[+] Building exception(s) for {exceptions_path}")
-                TOMLException(
-                    contents=contents,
-                    path=exceptions_path,
-                ).save_toml()
-            except Exception:
-                raise
+        _, e_output, e_errors = build_exception_objects(
+            exceptions_containers,
+            exceptions_items,
+            exception_list_rule_table,
+            exceptions_directory,
+            save_toml=True,
+            skip_errors=skip_errors,
+            verbose=True,
+        )
+        for line in e_output:
+            click.echo(line)
+        errors.extend(e_errors)
+
+    # Build TOMLActionConnector Objects
+    if action_connector_import:
+        _, ac_output, ac_errors = build_action_connector_objects(
+            action_connectors,
+            action_connector_rule_table,
+            action_connectors_directory,
+            save_toml=True,
+            skip_errors=skip_errors,
+            verbose=True,
+        )
+        for line in ac_output:
+            click.echo(line)
+        errors.extend(ac_errors)
+
+    exceptions_count = 0 if not exceptions_import else len(exceptions_containers) + len(exceptions_items)
+    click.echo(f"{len(file_contents) + exceptions_count} results exported")
+    click.echo(f"{len(file_contents)} rules converted")
+    click.echo(f"{exceptions_count} exceptions exported")
+    click.echo(f"{len(action_connectors)} actions connectors exported")
+    if errors:
+        err_file = save_directory if save_directory is not None else RULES_DIRS[0] / "_errors.txt"
+        err_file.write_text("\n".join(errors))
+        click.echo(f"{len(errors)} errors saved to {err_file}")
 
 
 @root.command('build-limited-rules')
@@ -318,6 +374,7 @@ def _export_rules(
     verbose=True,
     skip_unsupported=False,
     include_metadata: bool = False,
+    include_action_connectors: bool = False,
     include_exceptions: bool = False,
 ):
     """Export rules and exceptions into a consolidated ndjson file."""
@@ -348,14 +405,19 @@ def _export_rules(
                                    sort_keys=True) for r in rules]
 
     # Add exceptions to api format here and add to output_lines
-    if include_exceptions:
+    if include_exceptions or include_action_connectors:
         cl = GenericCollection.default()
         # Get exceptions in API format
-        exceptions = [d.contents.to_api_format() for d in cl.items]
-        # Flatten list of lists
-        exceptions = [e for sublist in exceptions for e in sublist]
-        # Append to Rules List
-        output_lines.extend(json.dumps(e, sort_keys=True) for e in exceptions)
+        if include_exceptions:
+            exceptions = [d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLExceptionContents)]
+            exceptions = [e for sublist in exceptions for e in sublist]
+            output_lines.extend(json.dumps(e, sort_keys=True) for e in exceptions)
+        if include_action_connectors:
+            action_connectors = [
+                d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLActionConnectorContents)
+            ]
+            actions = [a for sublist in action_connectors for a in sublist]
+            output_lines.extend(json.dumps(a, sort_keys=True) for a in actions)
 
     outfile.write_text('\n'.join(output_lines) + '\n')
 
@@ -390,10 +452,25 @@ def _export_rules(
 )
 @click.option("--include-metadata", type=bool, is_flag=True, default=False, help="Add metadata to the exported rules")
 @click.option(
+    "--include-action-connectors",
+    "-ac",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Include Action Connectors in export",
+)
+@click.option(
     "--include-exceptions", "-e", type=bool, is_flag=True, default=False, help="Include Exceptions Lists in export"
 )
 def export_rules_from_repo(
-    rules, outfile: Path, replace_id, stack_version, skip_unsupported, include_metadata: bool, include_exceptions: bool
+    rules,
+    outfile: Path,
+    replace_id,
+    stack_version,
+    skip_unsupported,
+    include_metadata: bool,
+    include_action_connectors: bool,
+    include_exceptions: bool,
 ) -> RuleCollection:
     """Export rule(s) and exception(s) into an importable ndjson file."""
     assert len(rules) > 0, "No rules found"
@@ -416,6 +493,7 @@ def export_rules_from_repo(
         downgrade_version=stack_version,
         skip_unsupported=skip_unsupported,
         include_metadata=include_metadata,
+        include_action_connectors=include_action_connectors,
         include_exceptions=include_exceptions,
     )
 

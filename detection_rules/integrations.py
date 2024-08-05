@@ -384,6 +384,10 @@ def parse_datasets(datasets: list, package_manifest: dict) -> List[Optional[dict
         integration = 'Unknown'
         if '.' in value:
             package, integration = value.split('.', 1)
+            # Handle cases where endpoint event datasource needs to be parsed uniquely (e.g endpoint.events.network)
+            # as endpoint.network
+            if package == "endpoint" and "events" in integration:
+                integration = integration.split('.')[1]
         else:
             package = value
 

@@ -86,6 +86,17 @@ def get_json_iter(f):
     return data
 
 
+def get_nested_value(dictionary, compound_key):
+    """Get a nested value from a dictionary."""
+    keys = compound_key.split('.')
+    for key in keys:
+        if isinstance(dictionary, dict):
+            dictionary = dictionary.get(key)
+        else:
+            return None
+    return dictionary
+
+
 def get_path(*paths) -> Path:
     """Get a file by relative path."""
     return ROOT_DIR.joinpath(*paths)
@@ -125,6 +136,14 @@ def save_etc_dump(contents, *path, **kwargs):
             json.dump(contents, f, cls=DateTimeEncoder, sort_keys=sort_keys, indent=indent, **kwargs)
     else:
         return eql.utils.save_dump(contents, path)
+
+
+def set_nested_value(dictionary, compound_key, value):
+    """Set a nested value in a dictionary."""
+    keys = compound_key.split('.')
+    for key in keys[:-1]:
+        dictionary = dictionary.setdefault(key, {})
+    dictionary[keys[-1]] = value
 
 
 def gzip_compress(contents) -> bytes:

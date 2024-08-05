@@ -6,7 +6,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union, Tuple
 
 import pytoml
 from marshmallow import EXCLUDE, ValidationError, validates_schema
@@ -14,9 +14,12 @@ from marshmallow_dataclass import class_schema
 
 from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions
+from .config import parse_rules_config
 
+RULES_CONFIG = parse_rules_config()
 
 # https://www.elastic.co/guide/en/security/current/exceptions-api-overview.html
+
 
 @dataclass(frozen=True)
 class ExceptionMeta(MarshmallowDataclassMixin):
@@ -137,7 +140,7 @@ class ExceptionContainer(MarshmallowDataclassMixin):
 class Data(MarshmallowDataclassMixin):
     """Data stored in an exception's [exception] section of TOML."""
     container: ExceptionContainer
-    items: List[DetectionException]  # Union[DetectionException, EndpointException]]
+    items: Optional[List[DetectionException]]  # Union[DetectionException, EndpointException]]
 
 
 @dataclass(frozen=True)
@@ -184,8 +187,9 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
 
         for exception in self.exceptions:
             converted.append(exception.container.to_dict())
-            for item in exception.items:
-                converted.append(item.to_dict())
+            if exception.items:
+                for item in exception.items:
+                    converted.append(item.to_dict())
 
         return converted
 
@@ -203,7 +207,7 @@ class TOMLException:
 
     def save_toml(self):
         """Save the exception to a TOML file."""
-        assert self.path is not None, f"Can't save exception {self.contents.name} without a path"
+        assert self.path is not None, f"Can't save exception {self.name} without a path"
         # Check if self.path has a .toml extension
         path = self.path
         if path.suffix != ".toml":
@@ -251,3 +255,57 @@ def parse_exceptions_results_from_api(
                 raise
 
     return exceptions_containers, exceptions_items, errors, unparsed_results
+
+
+def build_exception_objects(
+    exceptions_containers: List[dict],
+    exceptions_items: List[dict],
+    exception_list_rule_table: dict,
+    exceptions_directory: Path,
+    save_toml: bool = False,
+    skip_errors: bool = False,
+    verbose=False,
+) -> Tuple[List[TOMLException], List[str], List[str]]:
+    """Build TOMLException objects from a list of exception dictionaries."""
+    output = []
+    errors = []
+    toml_exceptions = []
+    for container in exceptions_containers.values():
+        try:
+            list_id = container.get("list_id")
+            items = exceptions_items.get(list_id)
+            contents = TOMLExceptionContents.from_exceptions_dict(
+                {"container": container, "items": items},
+                exception_list_rule_table.get(list_id),
+            )
+            filename = f"{list_id}_exceptions.toml"
+            if RULES_CONFIG.exception_dir is None and not exceptions_directory:
+                raise FileNotFoundError(
+                    "No Exceptions directory is specified. Please specify either in the config or CLI."
+                )
+            exceptions_path = (
+                Path(exceptions_directory) / filename
+                if exceptions_directory
+                else RULES_CONFIG.exception_dir / filename
+            )
+            if verbose:
+                output.append(f"[+] Building exception(s) for {exceptions_path}")
+            e_object = TOMLException(
+                contents=contents,
+                path=exceptions_path,
+            )
+            if save_toml:
+                e_object.save_toml()
+            toml_exceptions.append(e_object)
+
+        except Exception as e:
+            if skip_errors:
+                output.append(f"- skipping exceptions export - {type(e).__name__}")
+                if not exceptions_directory:
+                    errors.append(f"- no exceptions directory found - {e}")
+                else:
+                    errors.append(f"- exceptions export - {e}")
+                continue
+            raise
+
+    return toml_exceptions, output, errors
