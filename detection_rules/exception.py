@@ -140,7 +140,7 @@ class ExceptionContainer(MarshmallowDataclassMixin):
 class Data(MarshmallowDataclassMixin):
     """Data stored in an exception's [exception] section of TOML."""
     container: ExceptionContainer
-    items: List[DetectionException]  # Union[DetectionException, EndpointException]]
+    items: Optional[List[DetectionException]]  # Union[DetectionException, EndpointException]]
 
 
 @dataclass(frozen=True)
@@ -187,8 +187,9 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
 
         for exception in self.exceptions:
             converted.append(exception.container.to_dict())
-            for item in exception.items:
-                converted.append(item.to_dict())
+            if exception.items:
+                for item in exception.items:
+                    converted.append(item.to_dict())
 
         return converted
 
@@ -273,11 +274,8 @@ def build_exception_objects(
         try:
             list_id = container.get("list_id")
             items = exceptions_items.get(list_id)
-            if not items:
-                output.append(f"Warning exceptions list {list_id} has no items. Loading skipped.")
-                continue
             contents = TOMLExceptionContents.from_exceptions_dict(
-                {"container": container, "items": exceptions_items[list_id]},
+                {"container": container, "items": items},
                 exception_list_rule_table.get(list_id),
             )
             filename = f"{list_id}_exceptions.toml"
