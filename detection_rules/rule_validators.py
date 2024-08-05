@@ -124,11 +124,8 @@ class KQLValidator(QueryValidator):
     def to_eql(self) -> eql.ast.Expression:
         return kql.to_eql(self.query)
 
-    def validate(self, data: QueryRuleData, meta: RuleMeta, depth: int = 0, max_depth: int = 50) -> None:
+    def validate(self, data: QueryRuleData, meta: RuleMeta, max_attempts: int = 10) -> None:
         """Validate the query, called from the parent which contains [metadata] information."""
-        if depth > max_depth:
-            raise ValueError("Maximum recursion depth exceeded")
-
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
             return
@@ -136,32 +133,36 @@ class KQLValidator(QueryValidator):
         if isinstance(data, QueryRuleData) and data.language != 'lucene':
             packages_manifest = load_integrations_manifests()
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+            for _ in range(max_attempts):
+                validation_checks = {"stack": None, "integrations": None}
+                # validate the query against fields within beats
+                validation_checks["stack"] = self.validate_stack_combos(data, meta)
 
-            validation_checks = {"stack": None, "integrations": None}
-            # validate the query against fields within beats
-            validation_checks["stack"] = self.validate_stack_combos(data, meta)
+                if package_integrations:
+                    # validate the query against related integration fields
+                    validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
-            if package_integrations:
-                # validate the query against related integration fields
-                validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
+                if (validation_checks["stack"] and not package_integrations):
+                    # if auto add, try auto adding and then call stack_combo validation again
+                    if validation_checks["stack"].error_msg == "Unknown field" and RULES_CONFIG.auto_gen_schema_file:
+                        # auto add the field and re-validate
+                        self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
+                    else:
+                        raise validation_checks["stack"]
 
-            if (validation_checks["stack"] and not package_integrations):
-                # if auto add, try auto adding and then call stack_combo validation again
-                if validation_checks["stack"].error_msg == "Unknown field" and RULES_CONFIG.auto_gen_schema_file:
-                    # auto add the field and re-validate
-                    self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
-                    self.validate(data, meta, depth + 1)
+                if (validation_checks["stack"] and validation_checks["integrations"]):
+                    # if auto add, try auto adding and then call stack_combo validation again
+                    if validation_checks["stack"].error_msg == "Unknown field" and RULES_CONFIG.auto_gen_schema_file:
+                        # auto add the field and re-validate
+                        self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
+                    else:
+                        raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
+
                 else:
-                    raise validation_checks["stack"]
+                    break
 
-            if (validation_checks["stack"] and validation_checks["integrations"]):
-                # if auto add, try auto adding and then call stack_combo validation again
-                if validation_checks["stack"].error_msg == "Unknown field" and RULES_CONFIG.auto_gen_schema_file:
-                    # auto add the field and re-validate
-                    self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
-                    self.validate(data, meta, depth + 1)
-                else:
-                    raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
+            else:
+                raise ValueError("Maximum validation attempts exceeded")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[KQL_ERROR_TYPES, None, TypeError]:
         """Validate the query against ECS and beats schemas across stack combinations."""
@@ -329,50 +330,61 @@ class EQLValidator(QueryValidator):
         field_name = extract_error_field(self.query, validation_checks_error)
         update_auto_generated_schema(index_or_dataview, field_name)
 
-    def validate(self, data: 'QueryRuleData', meta: RuleMeta, depth: int = 0, max_depth: int = 10) -> None:
+    def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:
         """Validate an EQL query while checking TOMLRule."""
-        if depth > max_depth:
-            raise ValueError("Maximum recursion depth exceeded")
-
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
             return
 
-        if isinstance(data, QueryRuleData) and data.language != 'lucene':
+        if isinstance(data, QueryRuleData) and data.language != "lucene":
             packages_manifest = load_integrations_manifests()
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
-            validation_checks = {"stack": None, "integrations": None}
-            # validate the query against fields within beats
-            validation_checks["stack"] = self.validate_stack_combos(data, meta)
+            for _ in range(max_attempts):
+                validation_checks = {"stack": None, "integrations": None}
+                # validate the query against fields within beats
+                validation_checks["stack"] = self.validate_stack_combos(data, meta)
 
-            if package_integrations:
-                # validate the query against related integration fields
-                validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
+                if package_integrations:
+                    # validate the query against related integration fields
+                    validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
-            if validation_checks["stack"] and not package_integrations:
-                # if auto add, try auto adding and then call stack_combo validation again
-                if "Field not recognized" in validation_checks["stack"].error_msg and RULES_CONFIG.auto_gen_schema_file:
-                    # auto add the field and re-validate
-                    self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
-                    self.validate(data, meta, depth + 1)
+                if validation_checks["stack"] and not package_integrations:
+                    # if auto add, try auto adding and then validate again
+                    if (
+                        "Field not recognized" in validation_checks["stack"].error_msg
+                        and RULES_CONFIG.auto_gen_schema_file  # noqa: W503
+                    ):
+                        # auto add the field and re-validate
+                        self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
+                    else:
+                        raise validation_checks["stack"]
+
+                elif validation_checks["stack"] and validation_checks["integrations"]:
+                    # if auto add, try auto adding and then validate again
+                    if (
+                        "Field not recognized" in validation_checks["stack"].error_msg
+                        and RULES_CONFIG.auto_gen_schema_file  # noqa: W503
+                    ):
+                        # auto add the field and re-validate
+                        self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
+                    else:
+                        raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
+
                 else:
-                    raise validation_checks["stack"]
+                    break
 
-            if validation_checks["stack"] and validation_checks["integrations"]:
-                # if auto add, try auto adding and then call stack_combo validation again
-                if "Field not recognized" in validation_checks["stack"].error_msg and RULES_CONFIG.auto_gen_schema_file:
-                    # auto add the field and re-validate
-                    self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
-                    self.validate(data, meta, depth + 1)
-                else:
-                    raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
+            else:
+                raise ValueError("Maximum validation attempts exceeded")
 
-            rule_type_config_fields, rule_type_config_validation_failed = \
-                self.validate_rule_type_configurations(data, meta)
+            rule_type_config_fields, rule_type_config_validation_failed = self.validate_rule_type_configurations(
+                data, meta
+            )
             if rule_type_config_validation_failed:
-                raise ValueError(f"""Rule type config values are not ECS compliant, check these values:
-                                {rule_type_config_fields}""")
+                raise ValueError(
+                    f"""Rule type config values are not ECS compliant, check these values:
+                                {rule_type_config_fields}"""
+                )
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[EQL_ERROR_TYPES, None, ValueError]:
         """Validate the query against ECS and beats schemas across stack combinations."""
