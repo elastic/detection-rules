@@ -1447,7 +1447,7 @@ class TOMLRule:
                 return rule_path.relative_to(rules_dir)
         return None
 
-    def save_toml(self, strip_none_values=True):
+    def save_toml(self, strip_none_values: bool = True):
         assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"
         converted = dict(
             metadata=self.contents.metadata.to_dict(),
