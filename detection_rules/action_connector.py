@@ -117,7 +117,7 @@ class TOMLActionConnector:
 
 
 def parse_action_connector_results_from_api(results: List[dict]) -> tuple[List[dict], List[dict]]:
-    """Parse the results from the API to split into action connector results and non-actions."""
+    """Filter Kibana export rule results for action connector dictionaries."""
     action_results = []
     non_action_results = []
     for result in results:

@@ -445,17 +445,13 @@ def _export_rules(
         # Get exceptions in API format
         if include_exceptions:
             exceptions = [d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLExceptionContents)]
-            # Flatten list of lists
             exceptions = [e for sublist in exceptions for e in sublist]
-            # Append to Rules List
             output_lines.extend(json.dumps(e, sort_keys=True) for e in exceptions)
         if include_action_connectors:
             action_connectors = [
                 d.contents.to_api_format() for d in cl.items if isinstance(d.contents, TOMLActionConnectorContents)
             ]
-            # Flatten list of lists
             actions = [a for sublist in action_connectors for a in sublist]
-            # Append to Rules List
             output_lines.extend(json.dumps(a, sort_keys=True) for a in actions)
 
     outfile.write_text('\n'.join(output_lines) + '\n')
