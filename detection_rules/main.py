@@ -261,7 +261,7 @@ def import_rules_into_repo(
                     filename = f"{connector_id}_actions.toml"
                     if RULES_CONFIG.action_connector_dir is None and not action_connectors_directory:
                         raise FileNotFoundError(
-                            "No Exceptions directory is specified. Please specify either in the config or CLI."
+                            "No Action Connector directory is specified. Please specify either in the config or CLI."
                         )
                     actions_path = (
                         Path(action_connectors_directory) / filename

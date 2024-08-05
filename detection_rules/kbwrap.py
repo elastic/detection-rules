@@ -164,7 +164,7 @@ def kibana_export_rules(
         action_connectors_directory.mkdir(parents=True, exist_ok=True)
     action_connectors_directory = action_connectors_directory or RULES_CONFIG.action_connector_dir
     if not action_connectors_directory and export_action_connectors:
-        click.echo("Warning: Exceptions export requested, but no exceptions directory found")
+        click.echo("Warning: Action Connector export requested, but no Action Connector directory found")
 
     if results:
         directory.mkdir(parents=True, exist_ok=True)
