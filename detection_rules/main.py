@@ -19,14 +19,14 @@ from typing import Dict, Iterable, List, Optional, get_args
 from uuid import uuid4
 import click
 
-from .action_connector import (TOMLActionConnector, TOMLActionConnectorContents,
-                               parse_action_connector_results_from_api)
+from .action_connector import (TOMLActionConnectorContents,
+                               build_action_connector_objects, parse_action_connector_results_from_api)
 from .attack import build_threat_map_entry
 from .cli_utils import rule_prompt, multi_collection
 from .config import load_current_package_version, parse_rules_config
 from .generic_loader import GenericCollection
-from .exception import (TOMLException, TOMLExceptionContents,
-                        parse_exceptions_results_from_api)
+from .exception import (TOMLExceptionContents,
+                        build_exception_objects, parse_exceptions_results_from_api)
 from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
 from .misc import (
     add_client, client_error, nested_set, parse_user_config
@@ -197,7 +197,6 @@ def import_rules_into_repo(
             errors.append(output)
 
         if contents.get("exceptions_list"):
-
             # For each item in rule.contents.data.exceptions_list to the exception_list_rule_table under the list_id
             for exception in contents["exceptions_list"]:
                 exception_id = exception["list_id"]
@@ -206,7 +205,7 @@ def import_rules_into_repo(
                 exception_list_rule_table[exception_id].append({"id": contents["id"], "name": contents["name"]})
 
         if contents.get("actions"):
-            # use connector ids as rule source
+            # If rule has actions with connectors, add them to the action_connector_rule_table under the action_id
             for action in contents["actions"]:
                 action_id = action["id"]
                 if action_id not in action_connector_rule_table:
@@ -215,66 +214,32 @@ def import_rules_into_repo(
 
     # Build TOMLException Objects
     if exceptions_import:
-        for container in exceptions_containers.values():
-            try:
-                list_id = container.get("list_id")
-                items = exceptions_items.get(list_id)
-                if not items:
-                    click.echo(f"Warning exceptions list {list_id} has no items. Loading skipped.")
-                    continue
-                contents = TOMLExceptionContents.from_exceptions_dict(
-                    {"container": container, "items": exceptions_items[list_id]},
-                    exception_list_rule_table.get(list_id),
-                )
-                filename = f"{list_id}_exceptions.toml"
-                if RULES_CONFIG.exception_dir is None and not exceptions_directory:
-                    raise FileNotFoundError(
-                        "No Exceptions directory is specified. Please specify either in the config or CLI."
-                    )
-                exceptions_path = (
-                    Path(exceptions_directory) / filename
-                    if exceptions_directory
-                    else RULES_CONFIG.exception_dir / filename
-                )
-                click.echo(f"[+] Building exception(s) for {exceptions_path}")
-                TOMLException(
-                    contents=contents,
-                    path=exceptions_path,
-                ).save_toml()
-            except Exception:
-                raise
+        _, e_output, e_errors = build_exception_objects(
+            exceptions_containers,
+            exceptions_items,
+            exception_list_rule_table,
+            exceptions_directory,
+            save_toml=True,
+            skip_errors=skip_errors,
+            verbose=True,
+        )
+        for line in e_output:
+            click.echo(line)
+        errors.extend(e_errors)
 
-    # Build TOMLAction Objects
+    # Build TOMLActionConnector Objects
     if action_connector_import:
-        for actions_connector_dict in action_connectors:
-            try:
-                connector_id = actions_connector_dict.get("id")
-                rule_list = action_connector_rule_table.get(connector_id)
-                if not rule_list:
-                    click.echo(f"Warning action connector {connector_id} has no associated rules. Loading skipped.")
-                    continue
-                else:
-                    contents = TOMLActionConnectorContents.from_action_connector_dict(
-                        actions_connector_dict,
-                        rule_list
-                    )
-                    filename = f"{connector_id}_actions.toml"
-                    if RULES_CONFIG.action_connector_dir is None and not action_connectors_directory:
-                        raise FileNotFoundError(
-                            "No Action Connector directory is specified. Please specify either in the config or CLI."
-                        )
-                    actions_path = (
-                        Path(action_connectors_directory) / filename
-                        if action_connectors_directory
-                        else RULES_CONFIG.action_connector_dir / filename
-                    )
-                    click.echo(f"[+] Building action connector(s) for {actions_path}")
-                    TOMLActionConnector(
-                        contents=contents,
-                        path=actions_path,
-                    ).save_toml()
-            except Exception:
-                raise
+        _, ac_output, ac_errors = build_action_connector_objects(
+            action_connectors,
+            action_connector_rule_table,
+            action_connectors_directory,
+            save_toml=True,
+            skip_errors=skip_errors,
+            verbose=True,
+        )
+        for line in ac_output:
+            click.echo(line)
+        errors.extend(ac_errors)
 
     exceptions_count = 0 if not exceptions_import else len(exceptions_containers) + len(exceptions_items)
     click.echo(f"{len(file_contents) + exceptions_count} results exported")

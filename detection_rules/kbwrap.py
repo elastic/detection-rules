@@ -15,10 +15,10 @@ from kibana import Signal, RuleResource
 
 from .config import parse_rules_config
 from .cli_utils import multi_collection
-from .action_connector import (TOMLActionConnector, TOMLActionConnectorContents,
-                               parse_action_connector_results_from_api)
-from .exception import (TOMLException, TOMLExceptionContents,
-                        parse_exceptions_results_from_api)
+from .action_connector import (TOMLActionConnectorContents,
+                               parse_action_connector_results_from_api, build_action_connector_objects)
+from .exception import (TOMLExceptionContents,
+                        build_exception_objects, parse_exceptions_results_from_api)
 from .generic_loader import GenericCollection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
@@ -238,65 +238,36 @@ def kibana_export_rules(
         errors.extend(parse_errors)
 
         # Build TOMLException Objects
-        for container in exceptions_containers.values():
-            try:
-                list_id = container.get("list_id")
-                contents = TOMLExceptionContents.from_exceptions_dict(
-                    {"container": container, "items": exceptions_items[list_id]},
-                    exception_list_rule_table.get(list_id),
-                )
-                exception = TOMLException(
-                    contents=contents, path=exceptions_directory / f"{list_id}_exceptions.toml"
-                )
-                if container["type"] != "rule_default" and rule_id:
-                    click.echo(
-                        f"WARNING: exception list {list_id} for rule {rule_id} is a partial shared exception list. "
-                        "Please export without -r for full list."
-                    )
-            except Exception as e:
-                if skip_errors:
-                    print(f"- skipping exceptions export - {type(e).__name__}")
-                    if not exceptions_directory:
-                        errors.append(f"- no exceptions directory found - {e}")
-                    else:
-                        errors.append(f"- exceptions export - {e}")
-                    continue
-                raise
-
-            exceptions.append(exception)
+        exceptions, e_output, e_errors = build_exception_objects(
+            exceptions_containers,
+            exceptions_items,
+            exception_list_rule_table,
+            exceptions_directory,
+            save_toml=False,
+            skip_errors=skip_errors,
+            verbose=False,
+        )
+        for line in e_output:
+            click.echo(line)
+        errors.extend(e_errors)
 
     # Parse action connector results from API return
     action_connectors = []
     if export_action_connectors:
         action_connector_results, _ = parse_action_connector_results_from_api(action_connector_results)
 
-        # Build TOMLAction Objects
-        for action_connector_dict in action_connector_results:
-            try:
-                connector_id = action_connector_dict.get("id")
-                rule_list = action_connector_rule_table.get(connector_id)
-                if not rule_list:
-                    click.echo(f"Warning action connector {connector_id} has no associated rules. Loading skipped.")
-                    continue
-                else:
-                    contents = TOMLActionConnectorContents.from_action_connector_dict(
-                        action_connector_dict,
-                        rule_list
-                    )
-                    action_connector = TOMLActionConnector(
-                        contents=contents, path=action_connectors_directory / f"{connector_id}_actions.toml"
-                    )
-            except Exception as e:
-                if skip_errors:
-                    print(f"- skipping actions_connector export - {type(e).__name__}")
-                    if not exceptions_directory:
-                        errors.append(f"- no actions directory found - {e}")
-                    else:
-                        errors.append(f"- actions connector export - {e}")
-                    continue
-                raise
-
-            action_connectors.append(action_connector)
+        # Build TOMLActionConnector Objects
+        action_connectors, ac_output, ac_errors = build_action_connector_objects(
+            action_connector_results,
+            action_connector_rule_table,
+            action_connectors_directory=None,
+            save_toml=False,
+            skip_errors=skip_errors,
+            verbose=False,
+        )
+        for line in ac_output:
+            click.echo(line)
+        errors.extend(ac_errors)
 
     saved = []
     for rule in exported:

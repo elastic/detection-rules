@@ -7,7 +7,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import pytoml
 from marshmallow import EXCLUDE
@@ -127,3 +127,58 @@ def parse_action_connector_results_from_api(results: List[dict]) -> tuple[List[d
             action_results.append(result)
 
     return action_results, non_action_results
+
+
+def build_action_connector_objects(
+    action_connectors: List[dict],
+    action_connector_rule_table: dict,
+    action_connectors_directory: Path,
+    save_toml: bool = False,
+    skip_errors: bool = False,
+    verbose=False,
+) -> Tuple[List[TOMLActionConnector], List[str], List[str]]:
+    """Build TOMLActionConnector objects from a list of action connector dictionaries."""
+    output = []
+    errors = []
+    toml_action_connectors = []
+    for action_connector_dict in action_connectors:
+        try:
+            connector_id = action_connector_dict.get("id")
+            rule_list = action_connector_rule_table.get(connector_id)
+            if not rule_list:
+                output.append(f"Warning action connector {connector_id} has no associated rules. Loading skipped.")
+                continue
+            else:
+                contents = TOMLActionConnectorContents.from_action_connector_dict(action_connector_dict, rule_list)
+                filename = f"{connector_id}_actions.toml"
+                if RULES_CONFIG.action_connector_dir is None and not action_connectors_directory:
+                    raise FileNotFoundError(
+                        "No Action Connector directory is specified. Please specify either in the config or CLI."
+                    )
+                actions_path = (
+                    Path(action_connectors_directory) / filename
+                    if action_connectors_directory
+                    else RULES_CONFIG.action_connector_dir / filename
+                )
+                if verbose:
+                    output.append(f"[+] Building action connector(s) for {actions_path}")
+
+                ac_object = TOMLActionConnector(
+                    contents=contents,
+                    path=actions_path,
+                )
+                if save_toml:
+                    ac_object.save_toml()
+                toml_action_connectors.append(ac_object)
+
+        except Exception as e:
+            if skip_errors:
+                output.append(f"- skipping actions_connector export - {type(e).__name__}")
+                if not action_connectors_directory:
+                    errors.append(f"- no actions connector directory found - {e}")
+                else:
+                    errors.append(f"- actions connector export - {e}")
+                continue
+            raise
+
+    return toml_action_connectors, output, errors
