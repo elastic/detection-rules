@@ -113,7 +113,7 @@ This will also strip additional fields and prompt for missing required fields.
 
 <a id="note-3">\* Note</a>: This will attempt to parse ALL files recursively within a specified directory.
 
-Additionally, the `-e` flag can be used if one wants to import exceptions in addition to rules from the export file.
+Additionally, the `-e` flag can be used to import exceptions in addition to rules from the export file.
 
 
 ## Commands using Elasticsearch and Kibana clients

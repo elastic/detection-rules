@@ -24,7 +24,7 @@ def custom_rules():
 
 
 def create_config_content() -> str:
-    """Create the content for the _config.yaml file."""
+    """Create the initial content for the _config.yaml file."""
     # Base structure of the configuration
     config_content = {
         'rule_dirs': ['rules'],
