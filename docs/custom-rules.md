@@ -29,9 +29,12 @@ custom-rules
 └── actions
     ├── action_1.toml
     ├── action_2.toml
+└── action_connectors
+    ├── action_connector_1.toml
+    └── action_connectors_2.toml    
 └── exceptions
     ├── exception_1.toml
-    └──  exception_2.toml
+    └── exception_2.toml
 ```
 
 This structure represents a portable set of custom rules. This is just an example, and the exact locations of the files
@@ -58,6 +61,7 @@ files:
   version_lock: version.lock.json
 directories:
   action_dir: actions
+  action_connector_dir: action_connectors
   exception_dir: exceptions
 ```
 
@@ -69,7 +73,9 @@ Some notes:
 * To bypass using the version lock versioning strategy (version lock file) you can set the optional `bypass_version_lock` value to be `True`
 * To normalize the capitalization KQL keywords in KQL rule queries one can use the optional `normalize_kql_keywords` value set to `True` or `False` as desired.
 * To manage exceptions tied to rules one can set an exceptions directory using the optional `exception_dir` value (included above) set to be the desired path. If an exceptions directory is explicitly specified in a CLI command, the config value will be ignored.
+* To manage action-connectors tied to rules one can set an action-connectors directory using the optional `action_connector_dir` value (included above) set to be the desired path. If an actions_connector directory is explicitly specified in a CLI command, the config value will be ignored.
 * To turn on automatic schema generation for non-ecs fields a custom schemas add `auto_gen_schema_file: <path_to_your_json_file>`. This will generate a schema file in the specified location that will be used to add entries for each field and index combination that is not already in a known schema. This will also automatically add it to your stack-schema-map.yaml file when using a custom rules directory and config.
+* For Kibana action items, currently these are included in the rule toml files themselves. At a later date, we may allow for bulk editing of rule action items through separate action toml files. The action_dir config key is left available for this later implementation. For now to bulk update, use the bulk actions add rule actions UI in Kibana.
 
 
 When using the repo, set the environment variable `CUSTOM_RULES_DIR=<directory-with-_config.yaml>`
@@ -185,6 +191,8 @@ Example:
 ```
 
 Note: the `custom` key can be any alpha numeric value except `beats`, `ecs`, or `endgame` as these are reserved terms. 
+
+Note: Remember if you want to turn on automatic schema generation for non-ecs fields a custom schemas add `auto_gen_schema_file: <path_to_your_json_file>`. 
 
 Example schema json:
 
