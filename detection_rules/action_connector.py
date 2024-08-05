@@ -55,7 +55,7 @@ class TOMLActionConnectorContents(MarshmallowDataclassMixin):
     action_connectors: List[ActionConnector]
 
     @classmethod
-    def from_actions_dict(
+    def from_action_connector_dict(
         cls,
         actions_dict: dict,
         rule_list: dict,

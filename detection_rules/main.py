@@ -246,16 +246,16 @@ def import_rules_into_repo(
 
     # Build TOMLAction Objects
     if action_connector_import:
-        for connector in action_connectors:
+        for actions_connector_dict in action_connectors:
             try:
-                connector_id = connector.get("id")
+                connector_id = actions_connector_dict.get("id")
                 rule_list = action_connector_rule_table.get(connector_id)
                 if not rule_list:
                     click.echo(f"Warning action connector {connector_id} has no associated rules. Loading skipped.")
                     continue
                 else:
-                    contents = TOMLActionConnectorContents.from_actions_dict(
-                        connector,
+                    contents = TOMLActionConnectorContents.from_action_connector_dict(
+                        actions_connector_dict,
                         rule_list
                     )
                     filename = f"{connector_id}_actions.toml"

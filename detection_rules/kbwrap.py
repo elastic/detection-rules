@@ -184,7 +184,7 @@ def kibana_export_rules(
         rules_results = results[:rules_count]
         exception_results = results[rules_count:rules_count + exception_list_count + exception_list_item_count]
         rules_and_exceptions_count = rules_count + exception_list_count + exception_list_item_count
-        action_corrector_results = results[
+        action_connector_results = results[
             rules_and_exceptions_count: rules_and_exceptions_count + action_connector_count
         ]
 
@@ -268,19 +268,19 @@ def kibana_export_rules(
     # Parse action connector results from API return
     action_connectors = []
     if export_action_connectors:
-        action_results, _ = parse_action_connector_results_from_api(action_corrector_results)
+        action_connector_results, _ = parse_action_connector_results_from_api(action_connector_results)
 
-        # Build TOMLException Objects
-        for connector in action_results:
+        # Build TOMLAction Objects
+        for action_connector_dict in action_connector_results:
             try:
-                connector_id = connector.get("id")
+                connector_id = action_connector_dict.get("id")
                 rule_list = action_connector_rule_table.get(connector_id)
                 if not rule_list:
                     click.echo(f"Warning action connector {connector_id} has no associated rules. Loading skipped.")
                     continue
                 else:
-                    contents = TOMLActionConnectorContents.from_actions_dict(
-                        connector,
+                    contents = TOMLActionConnectorContents.from_action_connector_dict(
+                        action_connector_dict,
                         rule_list
                     )
                     action_connector = TOMLActionConnector(
