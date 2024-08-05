@@ -128,6 +128,8 @@ def rule_prompt(
 
     kwargs = copy.deepcopy(kwargs)
 
+    rule_name = kwargs.get('name')
+
     if 'rule' in kwargs and 'metadata' in kwargs:
         kwargs.update(kwargs.pop('metadata'))
         kwargs.update(kwargs.pop('rule'))
@@ -196,7 +198,7 @@ def rule_prompt(
         else:
             if skip_errors:
                 # return missing information
-                return f"Rule: {kwargs["id"]} is missing {name} information"
+                return f"Rule: {kwargs["id"]}, Rule Name: {rule_name} is missing {name} information"
             else:
                 result = schema_prompt(name, is_required=name in required_fields, **options.copy())
         if result:
@@ -215,7 +217,7 @@ def rule_prompt(
         rule = TOMLRule(path=Path(path), contents=TOMLRuleContents.from_dict({'rule': contents, 'metadata': meta}))
     except kql.KqlParseError as e:
         if skip_errors:
-            return f"Rule: {kwargs['id']} query failed to parse: {e.error_msg}"
+            return f"Rule: {kwargs['id']}, Rule Name: {rule_name} query failed to parse: {e.error_msg}"
         if e.error_msg == 'Unknown field':
             warning = ('If using a non-ECS field, you must update "ecs{}.non-ecs-schema.json" under `beats` or '
                        '`legacy-endgame` (Non-ECS fields should be used minimally).'.format(os.path.sep))
@@ -242,7 +244,7 @@ def rule_prompt(
             break
     except Exception as e:
         if skip_errors:
-            return f"Rule: {kwargs['id']} failed: {e}"
+            return f"Rule: {kwargs['id']}, Rule Name: {rule_name} failed: {e}"
         raise e
 
     if save:
