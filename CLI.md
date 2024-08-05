@@ -85,12 +85,18 @@ Usage: detection_rules import-rules-to-repo [OPTIONS] [INPUT_FILE]...
   Import rules from json, toml, yaml, or Kibana exported rule file(s).
 
 Options:
+  -ac, --action-connector-import  Include action connectors in export
   -e, --exceptions-import         Include exceptions in export
   --required-only                 Only prompt for required fields
   -d, --directory DIRECTORY       Load files from a directory
   -s, --save-directory DIRECTORY  Save imported rules to a directory
   -se, --exceptions-directory DIRECTORY
                                   Save imported exceptions to a directory
+  -sa, --action-connectors-directory DIRECTORY
+                                  Save imported actions to a directory
+  -ske, --skip-errors             Skip rule import errors
+  -da, --default-author TEXT      Default author for rules missing one
+  -snv, --strip-none-values       Strip None values from the rule
   -h, --help                      Show this message and exit.
 ```
 
@@ -290,13 +296,15 @@ Options:
   -id, --rule-id TEXT
   -o, --outfile PATH              Name of file for exported rules
   -r, --replace-id                Replace rule IDs with new IDs before export
-  --stack-version [7.10|7.11|7.12|7.13|7.14|7.15|7.16|7.8|7.9|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14|8.15]
+  --stack-version [7.8|7.9|7.10|7.11|7.12|7.13|7.14|7.15|7.16|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14]
                                   Downgrade a rule version to be compatible
                                   with older instances of Kibana
   -s, --skip-unsupported          If `--stack-version` is passed, skip rule
                                   types which are unsupported (an error will
                                   be raised otherwise)
   --include-metadata              Add metadata to the exported rules
+  -ac, --include-action-connectors
+                                  Include Action Connectors in export
   -e, --include-exceptions        Include Exceptions Lists in export
   -h, --help                      Show this message and exit.
 ```
@@ -332,6 +340,7 @@ Options:
   --kibana-url TEXT
   -kp, --kibana-password TEXT
   -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --api-key TEXT
   --cloud-id TEXT              ID of the cloud instance.
 
 Usage: detection_rules kibana import-rules [OPTIONS]
@@ -344,7 +353,7 @@ Options:
   -id, --rule-id TEXT
   -o, --overwrite                 Overwrite existing rules
   -e, --overwrite-exceptions      Overwrite exceptions in existing rules
-  -a, --overwrite-action-connectors
+  -ac, --overwrite-action-connectors
                                   Overwrite action connectors in existing
                                   rules
   -h, --help                      Show this message and exit.
@@ -512,6 +521,7 @@ Options:
   --kibana-url TEXT
   -kp, --kibana-password TEXT
   -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --api-key TEXT
   --cloud-id TEXT              ID of the cloud instance.
 
 Usage: detection_rules kibana export-rules [OPTIONS]
@@ -520,14 +530,17 @@ Usage: detection_rules kibana export-rules [OPTIONS]
 
 Options:
   -d, --directory PATH            Directory to export rules to  [required]
+  -acd, --action-connectors-directory PATH
+                                  Directory to export action connectors to
   -ed, --exceptions-directory PATH
                                   Directory to export exceptions to
   -r, --rule-id TEXT              Optional Rule IDs to restrict export to
+  -ac, --export-action-connectors
+                                  Include action connectors in export
   -e, --export-exceptions         Include exceptions in export
   -s, --skip-errors               Skip errors when exporting rules
   -sv, --strip-version            Strip the version fields from all rules
   -h, --help                      Show this message and exit.
-
 
 ```
 
