@@ -36,7 +36,7 @@ migrations = {}
 
 def all_versions() -> List[str]:
     """Get all known stack versions."""
-    return [str(v) for v in sorted(migrations)]
+    return [str(v) for v in sorted(migrations, key=lambda x: Version.parse(x, optional_minor_and_patch=True))]
 
 
 def migrate(version: str):
