@@ -17,7 +17,7 @@ from detection_rules.integrations import (
     load_integrations_manifests,
     load_integrations_schemas,
 )
-from detection_rules.misc import load_current_package_version
+from detection_rules.config import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import QueryValidator
 from detection_rules.rule_loader import RuleCollection
@@ -38,8 +38,8 @@ class TestEndpointQuery(BaseRuleTest):
     )
     def test_os_and_platform_in_query(self):
         """Test that all endpoint rules have an os defined and linux includes platform."""
-        for rule in self.production_rules:
-            if not rule.contents.data.get("language") in ("eql", "kuery"):
+        for rule in self.all_rules:
+            if not rule.contents.data.get('language') in ('eql', 'kuery'):
                 continue
             if rule.path.parent.name not in ("windows", "macos", "linux"):
                 # skip cross-platform for now
@@ -72,7 +72,7 @@ class TestNewTerms(BaseRuleTest):
     def test_history_window_start(self):
         """Test new terms history window start field."""
 
-        for rule in self.production_rules:
+        for rule in self.all_rules:
             if rule.contents.data.type == "new_terms":
 
                 # validate history window start field exists and is correct
@@ -88,7 +88,7 @@ class TestNewTerms(BaseRuleTest):
     )
     def test_new_terms_field_exists(self):
         # validate new terms and history window start fields are correct
-        for rule in self.production_rules:
+        for rule in self.all_rules:
             if rule.contents.data.type == "new_terms":
                 assert (
                     rule.contents.data.new_terms.field == "new_terms_fields"
@@ -100,7 +100,7 @@ class TestNewTerms(BaseRuleTest):
     def test_new_terms_fields(self):
         """Test new terms fields are schema validated."""
         # ecs validation
-        for rule in self.production_rules:
+        for rule in self.all_rules:
             if rule.contents.data.type == "new_terms":
                 meta = rule.contents.metadata
                 feature_min_stack = Version.parse("8.4.0")
@@ -149,7 +149,7 @@ class TestNewTerms(BaseRuleTest):
     def test_new_terms_max_limit(self):
         """Test new terms max limit."""
         # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
-        for rule in self.production_rules:
+        for rule in self.all_rules:
             if rule.contents.data.type == "new_terms":
                 meta = rule.contents.metadata
                 feature_min_stack = Version.parse("8.4.0")
@@ -174,7 +174,7 @@ class TestNewTerms(BaseRuleTest):
     def test_new_terms_fields_unique(self):
         """Test new terms fields are unique."""
         # validate fields are unique
-        for rule in self.production_rules:
+        for rule in self.all_rules:
             if rule.contents.data.type == "new_terms":
                 assert len(set(rule.contents.data.new_terms.value)) == len(
                     rule.contents.data.new_terms.value

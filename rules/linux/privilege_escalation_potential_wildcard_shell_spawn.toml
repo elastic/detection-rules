@@ -2,7 +2,7 @@
 creation_date = "2023/07/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/07/18"
 
 [rule]
 author = ["Elastic"]
@@ -61,35 +61,37 @@ sequence by host.id with maxspan=1s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
     (process.name == "tar" and process.args : "--checkpoint=*" and process.args : "--checkpoint-action=*") or
     (process.name == "rsync" and process.args : "-e*") or
-    (process.name == "zip" and process.args == "--unzip-command") )]  by process.entity_id
+    (process.name == "zip" and process.args == "--unzip-command")
+   ) and not process.executable : "/tmp/newroot/*"
+  ]  by process.entity_id
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
      process.parent.name : ("tar", "rsync", "zip") and 
-     process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")] by process.parent.entity_id
+     process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
+  ] by process.parent.entity_id
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

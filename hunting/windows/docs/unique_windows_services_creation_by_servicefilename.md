@@ -7,9 +7,10 @@
 - **Author:** Elastic
 - **Description:** This hunt aggregates created Windows services by service file name and distribution limited to unique hosts. Using the ES|QL `Replace` command we can also further remove random patterns to reduce results to interesting events. More investigation can be conducted on instance that looks suspicious based on service file path, names and LOLBins.
 
-- **UUID:** `ebf79207-16dc-44f8-b10c-317d4a034bad`
+- **UUID:** `48b75e53-3c73-40bd-873d-569dd8d7d925`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
+- **Source File:** [Unique Windows Services Creation by Service File Name](../queries/unique_windows_services_creation_by_servicefilename.toml)
 
 ## Query
 
@@ -67,6 +68,7 @@ from logs-system.system-*
 
 - This hunt also identifies services registry modification by unusual process based on number of hosts and occurrences history.
 - Windows event IDs 4697 and 7045 are used to identify service creation and modification.
+
 ## MITRE ATT&CK Techniques
 
 - [T1543](https://attack.mitre.org/techniques/T1543)

@@ -16,7 +16,8 @@ from requests import HTTPError
 
 from kibana import Kibana
 
-from .misc import ClientError, getdefault, get_elasticsearch_client, get_kibana_client, load_current_package_version
+from .config import load_current_package_version
+from .misc import ClientError, getdefault, get_elasticsearch_client, get_kibana_client
 from .rule import TOMLRule, TOMLRuleContents
 from .schemas import definitions
 

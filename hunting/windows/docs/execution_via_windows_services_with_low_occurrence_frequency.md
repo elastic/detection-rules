@@ -7,9 +7,10 @@
 - **Author:** Elastic
 - **Description:** This hunt looks for a low occurrence of process execution via the Windows Services Control Manager by unique agent. The Services Control Manager is responsible for starting, stopping, and interacting with system services. This could be a sign of persistence as a Windows service.
 
-- **UUID:** `858b7022-b587-4b95-afd6-8ce597bedce3`
+- **UUID:** `a0a84a86-115f-42f9-90a5-4cb7ceeef981`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint), [windows](https://docs.elastic.co/integrations/windows), [system](https://docs.elastic.co/integrations/system)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
+- **Source File:** [Low Occurence of Process Execution via Windows Services with Unique Agent](../queries/execution_via_windows_services_with_low_occurrence_frequency.toml)
 
 ## Query
 
@@ -41,6 +42,7 @@ from logs-system.security-*
 - Windows security event 4688 lacks code signature and hash information, hence the use of `process.executable` for aggregation.
 - Unique `process.hash.sha256` and agent is not necessarily malicious, this help surface ones worth further investigation.
 - Suspicious `process.executable` paths and LOLBins should be reviewed further.
+
 ## MITRE ATT&CK Techniques
 
 - [T1543](https://attack.mitre.org/techniques/T1543)

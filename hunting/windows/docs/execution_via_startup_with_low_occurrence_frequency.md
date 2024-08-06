@@ -7,9 +7,10 @@
 - **Author:** Elastic
 - **Description:** This hunt identifies programs started shortly after user logon and presence limited to a unique host. Run registry key and Startup folder cause programs to run each time that a user logs on and are often abused by malwares to maintain persistence on an endpoint.
 
-- **UUID:** `a447df80-d3d5-48b3-a175-a864264ec487`
+- **UUID:** `52a958e8-0368-4e74-bd4b-a64faf397bf4`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `ES|QL`
+- **Language:** `[ES|QL]`
+- **Source File:** [Startup Execution with Low Occurrence Frequency by Unique Host](../queries/execution_via_startup_with_low_occurrence_frequency.toml)
 
 ## Query
 
@@ -32,6 +33,7 @@ from logs-endpoint.events.process-*
 
 - Items set to persist via Startup such as Run keys and Startup folder will be executed by `Explorer.exe` shortly after user logon (`process.Ext.session_info.relative_logon_time` helps us to capture that time difference).
 - Special attention to unknown hashes, suspicious paths and LOLBins should be given.
+
 ## MITRE ATT&CK Techniques
 
 - [T1547](https://attack.mitre.org/techniques/T1547)

@@ -2,7 +2,7 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/07/18"
 
 [rule]
 author = ["Elastic"]
@@ -58,30 +58,37 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:linux and event.category:process and event.action:(exec or exec_event or fork or fork_event) and 
+host.os.type:linux and event.category:process and event.action:(exec or exec_event or fork or fork_event) and
 process.executable:(
-  /bin/* or /usr/bin/* or /usr/share/* or /tmp/* or /var/tmp/* or /dev/shm/* or
-  /etc/init.d/* or /etc/rc*.d/* or /etc/crontab or /etc/cron.*/* or /etc/update-motd.d/* or 
-  /usr/lib/update-notifier/* or /home/*/.* or /boot/* or /srv/* or /run/*) 
-  and process.args:(whoami or id or hostname or uptime or top or ifconfig or netstat or route or ps or pwd or ls) and 
-  not process.name:(sudo or which or whoami or id or hostname or uptime or top or netstat or ps or pwd or ls or apt or 
-  dpkg or yum or rpm or dnf or dockerd or docker or snapd or snap) and
-  not process.parent.executable:(/bin/* or /usr/bin/* or /run/k3s/* or /etc/network/* or /opt/Elastic/*)
+  (/etc/crontab or /bin/* or /boot/* or /dev/shm/* or /etc/cron.*/* or /etc/init.d/* or /etc/rc*.d/* or
+  /etc/update-motd.d/* or /home/*/.* or /tmp/* or /usr/bin/* or /usr/lib/update-notifier/* or
+  /usr/share/* or /var/tmp/*) and not /tmp/go-build*
+) and
+process.args:(hostname or id or ifconfig or ls or netstat or ps or pwd or route or top or uptime or whoami) and
+not process.name:(
+  apt or dnf or docker or dockerd or dpkg or hostname or id or ls or netstat or ps or pwd or rpm or snap or snapd
+  or sudo or top or uptime or which or whoami or yum
+) and
+not process.parent.executable:(
+  /opt/cassandra/bin/cassandra or /opt/nessus/sbin/nessusd or /opt/nessus_agent/sbin/nessus-agent-module or
+  /opt/puppetlabs/puppet/bin/puppet or /opt/puppetlabs/puppet/bin/ruby or /usr/libexec/platform-python or
+  /usr/local/cloudamize/bin/CCAgent or /usr/sbin/sshd or /bin/* or /etc/network/* or /opt/Elastic/* or
+  /run/k3s/* or /tmp/newroot/* or /usr/bin/*
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
@@ -90,9 +97,8 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "user.id", "process.executable"]
+value = ["process.parent.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
-
-
