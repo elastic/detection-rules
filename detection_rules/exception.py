@@ -3,14 +3,14 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 """Rule exceptions data."""
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Literal, Optional, Union, Tuple
+from typing import List, Optional, Union, Tuple, get_args
 
 import pytoml
 from marshmallow import EXCLUDE, ValidationError, validates_schema
-from marshmallow_dataclass import class_schema
 
 from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions
@@ -97,7 +97,7 @@ class ExceptionItem(MarshmallowDataclassMixin):
     name: str
     namespace_type: Optional[definitions.ExceptionNamespaceType]  # defaults to "single" if not provided
     tags: Optional[List[str]]
-    type: Literal['simple']
+    type: definitions.ExceptionItemType
 
 
 @dataclass(frozen=True)
@@ -225,34 +225,20 @@ def parse_exceptions_results_from_api(
 ) -> tuple[dict, dict, List[str], List[dict]]:
     """Parse exceptions results from the API into containers and items."""
     exceptions_containers = {}
-    exceptions_items = {}
+    exceptions_items = defaultdict(list)
     errors = []
     unparsed_results = []
 
-    # Create schemas for your dataclasses
-    ExceptionContainerSchema = class_schema(ExceptionContainer)()  # noqa F821
-    DetectionExceptionSchema = class_schema(DetectionException)()  # noqa F821
+    for result in results:
+        result_type = result.get("type")
+        list_id = result.get("list_id")
 
-    for res in results:
-        try:
-            # Try to load the data into the ExceptionContainer schema
-            ExceptionContainerSchema.load(res, unknown=EXCLUDE)
-            exceptions_containers[res.get("list_id")] = res
-        except ValidationError:
-            try:
-                # Try to load the data into the DetectionException schema
-                DetectionExceptionSchema.load(res, unknown=EXCLUDE)
-                list_id = res.get("list_id")
-                if list_id not in exceptions_items:
-                    exceptions_items[list_id] = []
-                exceptions_items[list_id].append(res)
-            except Exception:
-                if skip_errors:
-                    # This likely means the data is not an exception and is either
-                    # an action list or rule data
-                    unparsed_results.append(res)
-                    continue
-                raise
+        if result_type in get_args(definitions.ExceptionContainerType):
+            exceptions_containers[list_id] = result
+        elif result_type in get_args(definitions.ExceptionItemType):
+            exceptions_items[list_id].append(result)
+        else:
+            unparsed_results.append(result)
 
     return exceptions_containers, exceptions_items, errors, unparsed_results
 

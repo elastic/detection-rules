@@ -4,7 +4,6 @@
 # 2.0.
 
 """Load rule metadata transform between rule and api formats."""
-import io
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path

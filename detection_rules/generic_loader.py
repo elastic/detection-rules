@@ -4,7 +4,6 @@
 # 2.0.
 
 """Load generic toml formatted files for exceptions and actions."""
-import io
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
