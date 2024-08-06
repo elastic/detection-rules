@@ -101,17 +101,9 @@ def multi_collection(f):
     return get_collection
 
 
-def rule_prompt(
-    path=None,
-    rule_type=None,
-    required_only=True,
-    save=True,
-    verbose=False,
-    additional_required: Optional[list] = None,
-    skip_errors: bool = False,
-    strip_none_values=True,
-    **kwargs,
-) -> TOMLRule:
+def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbose=False,
+                additional_required: Optional[list] = None, skip_errors: bool = False, strip_none_values=True, **kwargs,
+                ) -> TOMLRule:
     """Prompt loop to build a rule."""
     from .misc import schema_prompt
 

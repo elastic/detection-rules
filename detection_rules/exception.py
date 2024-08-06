@@ -151,11 +151,7 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
     exceptions: List[Data]
 
     @classmethod
-    def from_exceptions_dict(
-        cls,
-        exceptions_dict: dict,
-        rule_list: list[dict],
-    ) -> "TOMLExceptionContents":
+    def from_exceptions_dict(cls, exceptions_dict: dict, rule_list: list[dict]) -> "TOMLExceptionContents":
         """Create a TOMLExceptionContents from a kibana rule resource."""
         rule_ids = []
         rule_names = []
@@ -220,9 +216,7 @@ class TOMLException:
             pytoml.dump(sorted_dict, f)
 
 
-def parse_exceptions_results_from_api(
-    results: List[dict], skip_errors: bool = False
-) -> tuple[dict, dict, List[str], List[dict]]:
+def parse_exceptions_results_from_api(results: List[dict]) -> tuple[dict, dict, List[str], List[dict]]:
     """Parse exceptions results from the API into containers and items."""
     exceptions_containers = {}
     exceptions_items = defaultdict(list)

@@ -288,6 +288,8 @@ def parse_beats_from_index(index: Optional[list]) -> List[str]:
     """Parse beats schema types from index."""
     indexes = index or []
     beat_types = []
+    # Need to split on : to support cross-cluster search
+    # e.g. mycluster:logs-* -> logs-*
     for index in indexes:
         if "beat-*" in index:
             index_parts = index.split(':', 1)

@@ -123,19 +123,10 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 @click.option("--skip-errors", "-ske", is_flag=True, help="Skip rule import errors")
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 @click.option("--strip-none-values", "-snv", is_flag=True, help="Strip None values from the rule")
-def import_rules_into_repo(
-    input_file: click.Path,
-    required_only: bool,
-    action_connector_import: bool,
-    exceptions_import: bool,
-    directory: click.Path,
-    save_directory: click.Path,
-    action_connectors_directory: click.Path,
-    exceptions_directory: click.Path,
-    skip_errors: bool,
-    default_author: str,
-    strip_none_values: bool,
-):
+def import_rules_into_repo(input_file: click.Path, required_only: bool, action_connector_import: bool,
+                           exceptions_import: bool, directory: click.Path, save_directory: click.Path,
+                           action_connectors_directory: click.Path, exceptions_directory: click.Path,
+                           skip_errors: bool, default_author: str, strip_none_values: bool):
     """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
     errors = []
     rule_files = glob.glob(os.path.join(directory, "**", "*.*"), recursive=True) if directory else []
@@ -151,9 +142,7 @@ def import_rules_into_repo(
     exceptions_containers = {}
     exceptions_items = {}
 
-    exceptions_containers, exceptions_items, _, unparsed_results = parse_exceptions_results_from_api(
-        file_contents, skip_errors=True
-    )
+    exceptions_containers, exceptions_items, _, unparsed_results = parse_exceptions_results_from_api(file_contents)
 
     action_connectors, unparsed_results = parse_action_connector_results_from_api(unparsed_results)
 
@@ -462,16 +451,8 @@ def _export_rules(
 @click.option(
     "--include-exceptions", "-e", type=bool, is_flag=True, default=False, help="Include Exceptions Lists in export"
 )
-def export_rules_from_repo(
-    rules,
-    outfile: Path,
-    replace_id,
-    stack_version,
-    skip_unsupported,
-    include_metadata: bool,
-    include_action_connectors: bool,
-    include_exceptions: bool,
-) -> RuleCollection:
+def export_rules_from_repo(rules, outfile: Path, replace_id, stack_version, skip_unsupported, include_metadata: bool,
+                           include_action_connectors: bool, include_exceptions: bool) -> RuleCollection:
     """Export rule(s) and exception(s) into an importable ndjson file."""
     assert len(rules) > 0, "No rules found"
 
