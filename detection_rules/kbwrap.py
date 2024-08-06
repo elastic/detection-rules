@@ -4,6 +4,7 @@
 # 2.0.
 
 """Kibana cli commands."""
+import re
 import sys
 from pathlib import Path
 from typing import Iterable, List, Optional
@@ -112,14 +113,43 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
             overwrite_action_connectors=overwrite_action_connectors
         )
 
+    def handle_response_errors(response: dict):
+        """Handle errors from the import response."""
+        def parse_list_id(s: str):
+            """Parse the list ID from the error message."""
+            match = re.search(r'list_id: "(.*?)"', s)
+            return match.group(1) if match else None
+
+        # Re-try to address known Kibana issue: https://github.com/elastic/kibana/issues/143864
+        workaround_errors = []
+
+        flattened_exceptions = [e for sublist in exception_dicts for e in sublist]
+        all_exception_list_ids = {exception["list_id"] for exception in flattened_exceptions}
+
+        click.echo(f'{len(response["errors"])} rule(s) failed to import!')
+
+        for error in response['errors']:
+            click.echo(f' - {error["rule_id"]}: ({error["error"]["status_code"]}) {error["error"]["message"]}')
+
+            if "references a non existent exception list" in error["error"]["message"]:
+                list_id = parse_list_id(error["error"]["message"])
+                if list_id in all_exception_list_ids:
+                    workaround_errors.append(error["rule_id"])
+
+        if workaround_errors:
+            workaround_errors = list(set(workaround_errors))
+            click.echo(f'Missing exception list errors detected for {len(workaround_errors)} rules. '
+                       'Try re-importing using the following command and rule IDs:\n')
+            click.echo('python -m detection_rules kibana import-rules -o ', nl=False)
+            click.echo(' '.join(f'-id {rule_id}' for rule_id in workaround_errors))
+            click.echo()
+
     if successful_rule_ids:
         click.echo(f'{len(successful_rule_ids)} rule(s) successfully imported')
         rule_str = '\n - '.join(successful_rule_ids)
-        print(f' - {rule_str}')
+        click.echo(f' - {rule_str}')
     if response['errors']:
-        click.echo(f'{len(response["errors"])} rule(s) failed to import!')
-        for error in response['errors']:
-            click.echo(f' - {error["rule_id"]}: ({error["error"]["status_code"]}) {error["error"]["message"]}')
+        handle_response_errors(response)
 
     return response, results
 
