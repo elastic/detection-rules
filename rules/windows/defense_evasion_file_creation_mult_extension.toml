@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2021/01/19"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/06/25"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +12,7 @@ when the name or location of a file is manipulated as a means of tricking a user
 benign file type but is actually executable code.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Executable File Creation with Multiple Extensions"
@@ -29,7 +27,16 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint"
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -37,8 +44,7 @@ query = '''
 file where host.os.type == "windows" and event.type == "creation" and file.extension : "exe" and
   file.name regex~ """.*\.(vbs|vbe|bat|js|cmd|wsh|ps1|pdf|docx?|xlsx?|pptx?|txt|rtf|gif|jpg|png|bmp|hta|txt|img|iso)\.exe""" and
   not (process.executable : ("?:\\Windows\\System32\\msiexec.exe", "C:\\Users\\*\\QGIS_SCCM\\Files\\QGIS-OSGeo4W-*-Setup-x86_64.exe") and
-       file.path : "?:\\Program Files\\QGIS *\\apps\\grass\\*.exe") and
-  not process.executable : ("/bin/sh", "/usr/sbin/MailScanner", "/usr/bin/perl")
+       file.path : "?:\\Program Files\\QGIS *\\apps\\grass\\*.exe")
 '''
 
 

@@ -2,29 +2,25 @@
 creation_date = "2023/04/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of mount process with hidepid parameter, which can make processes invisible to
-other users from the system. Adversaries using Linux kernel version 3.2+ (or RHEL/CentOS v6.5+ above) can hide
-the process from other users. When hidepid=2 option is executed to mount the /proc filesystem, only the root user
-can see all processes and the logged-in user can only see their own process. This provides a defense evasion mechanism for
-the adversaries to hide their process executions from all other commands such as ps, top, pgrep and more.
-With the Linux kernel hardening hidepid option all the user has to do is remount the /proc filesystem with the option,
-which can now be monitored and detected.
+Identifies the execution of mount process with hidepid parameter, which can make processes invisible to other users from
+the system. Adversaries using Linux kernel version 3.2+ (or RHEL/CentOS v6.5+ above) can hide the process from other
+users. When hidepid=2 option is executed to mount the /proc filesystem, only the root user can see all processes and the
+logged-in user can only see their own process. This provides a defense evasion mechanism for the adversaries to hide
+their process executions from all other commands such as ps, top, pgrep and more. With the Linux kernel hardening
+hidepid option all the user has to do is remount the /proc filesystem with the option, which can now be monitored and
+detected.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Hidden Process via Mount Hidepid"
-references = [
-    "https://www.cyberciti.biz/faq/linux-hide-processes-from-other-users/",
-]
+references = ["https://www.cyberciti.biz/faq/linux-hide-processes-from-other-users/"]
 risk_score = 47
 rule_id = "dc71c186-9fe4-4437-a4d0-85ebb32b8204"
 setup = """## Setup
@@ -54,31 +50,34 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend",
-        "Data Source: Auditd Manager"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
  and process.name == "mount" and process.args == "/proc" and process.args == "-o" and
 process.args : "*hidepid=2*"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

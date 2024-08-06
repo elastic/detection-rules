@@ -1,11 +1,9 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/07/06"
 integration = ["windows", "endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/09/21"
-bypass_bbr_timing = true
+updated_date = "2024/06/27"
 
 [rule]
 author = ["Elastic"]
@@ -15,20 +13,22 @@ Detects the execution of commands used to discover information about the system,
 compromising a system to gain situational awareness.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "endgame-*", "logs-system.security*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows System Information Discovery"
 risk_score = 21
 rule_id = "51176ed2-2d90-49f2-9f3d-17196428b169"
 severity = "low"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Rule Type: BBR",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -52,15 +52,17 @@ process.parent.executable : (
 ) and not user.id : "S-1-5-18"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+

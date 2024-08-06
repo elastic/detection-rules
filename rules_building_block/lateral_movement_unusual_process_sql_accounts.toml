@@ -1,34 +1,40 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/08/25"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/01/12"
-bypass_bbr_timing = true
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
-Identifies unusual process executions using MSSQL Service accounts, which can indicate the exploitation/compromise of SQL
-instances. Attackers may exploit exposed MSSQL instances for initial access or lateral movement.
+Identifies unusual process executions using MSSQL Service accounts, which can indicate the exploitation/compromise of
+SQL instances. Attackers may exploit exposed MSSQL instances for initial access or lateral movement.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Process For MSSQL Service Accounts"
 references = [
     "https://www.microsoft.com/en-us/security/blog/2023/08/24/flax-typhoon-using-legitimate-software-to-quietly-access-taiwanese-organizations/",
-    "https://learn.microsoft.com/en-us/sql/database-engine/configure-windows/configure-windows-service-accounts-and-permissions?view=sql-server-ver16"
+    "https://learn.microsoft.com/en-us/sql/database-engine/configure-windows/configure-windows-service-accounts-and-permissions?view=sql-server-ver16",
 ]
 risk_score = 21
 rule_id = "e74d645b-fec6-431e-bf93-ca64a538e0de"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Tactic: Persistence", "Data Source: Elastic Defend", "Rule Type: BBR"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "eql"
-building_block_type = "default"
 
 query = '''
 process where event.type == "start" and host.os.type == "windows" and
@@ -48,7 +54,9 @@ process where event.type == "start" and host.os.type == "windows" and
         "msmdsrv.exe", "ReportingServicesService.exe",
         "MsDtsSrvr.exe", "sqlbrowser.exe", "DTExec.exe",
         "SQLPS.exe", "fdhost.exe", "fdlauncher.exe",
-        "SqlDumper.exe", "sqlsqm.exe", "DatabaseMail.exe"
+        "SqlDumper.exe", "sqlsqm.exe", "DatabaseMail.exe",
+        "ISServerExec.exe", "Microsoft.ReportingServices.Portal.WebHost.exe",
+        "bcp.exe", "SQLCMD.exe", "DatabaseMail.exe"
       ) or
       process.executable : (
         "?:\\Windows\\System32\\wermgr.exe",
@@ -62,7 +70,8 @@ process where event.type == "start" and host.os.type == "windows" and
     )
   ) and
   not (
-    process.name : "cmd.exe" and process.parent.name : "sqlservr.exe"
+    (process.name : "cmd.exe" and process.parent.name : "sqlservr.exe") or
+    (process.name : "cmd.exe" and process.parent.name : "forfiles.exe" and process.command_line : "/c echo *")
   )
 '''
 
@@ -79,21 +88,21 @@ reference = "https://attack.mitre.org/techniques/T1210/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1505.001"
 name = "SQL Stored Procedures"
 reference = "https://attack.mitre.org/techniques/T1505/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

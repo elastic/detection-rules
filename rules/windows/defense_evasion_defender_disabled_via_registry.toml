@@ -2,9 +2,7 @@
 creation_date = "2020/12/23"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +11,7 @@ Identifies modifications to the Windows Defender registry settings to disable th
 started manually.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "logs-windows.sysmon_operational-*"]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Defender Disabled via Registry Modification"
@@ -74,13 +72,13 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
-    "Data Source: Sysmon"
+    "Data Source: Sysmon",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type in ("creation", "change") and
+registry where host.os.type == "windows" and event.type == "change" and
   (
     (
       registry.path: (
@@ -112,6 +110,11 @@ registry where host.os.type == "windows" and event.type in ("creation", "change"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+[[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
@@ -125,10 +128,6 @@ id = "T1562.006"
 name = "Indicator Blocking"
 reference = "https://attack.mitre.org/techniques/T1562/006/"
 
-[[rule.threat.technique]]
-id = "T1112"
-name = "Modify Registry"
-reference = "https://attack.mitre.org/techniques/T1112/"
 
 
 [rule.threat.tactic]

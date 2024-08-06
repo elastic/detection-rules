@@ -2,9 +2,7 @@
 creation_date = "2021/03/22"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +11,7 @@ Identifies NullSessionPipe registry modifications that specify which pipes can b
 indicative of adversary lateral movement preparation by making the added pipe available to everyone.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "logs-windows.sysmon_operational-*"]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "NullSessionPipe Registry Modification"
@@ -24,16 +22,26 @@ references = [
 risk_score = 47
 rule_id = "ddab1f5f-7089-44f5-9fda-de5b11322e77"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type in ("creation", "change") and
+registry where host.os.type == "windows" and event.type == "change" and
 registry.path : (
     "HKLM\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes",
     "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes"
-) and length(registry.data.strings) > 0
+) and length(registry.data.strings) > 0 and
+not registry.data.strings : "(empty)"
 '''
 
 
@@ -54,13 +62,13 @@ reference = "https://attack.mitre.org/techniques/T1021/002/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1112"
 name = "Modify Registry"
 reference = "https://attack.mitre.org/techniques/T1112/"
+
 
 [rule.threat.tactic]
 id = "TA0005"
