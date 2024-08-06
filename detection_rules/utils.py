@@ -145,6 +145,7 @@ def set_all_validation_bypass(env_value: bool = False):
     os.environ['DR_BYPASS_TAGS_VALIDATION'] = str(env_value)
     os.environ['DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION'] = str(env_value)
 
+
 def set_nested_value(dictionary, compound_key, value):
     """Set a nested value in a dictionary."""
     keys = compound_key.split('.')
