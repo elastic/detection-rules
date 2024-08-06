@@ -169,7 +169,9 @@ def import_rules_into_repo(input_file: click.Path, required_only: bool, action_c
         additional += [key for key in contents if key not in additional and contents.get(key, None)]
 
         # use default author if not provided
-        contents["author"] = contents.get("author") or [default_author] or contents.get("created_by")
+        contents["author"] = contents.get("author") or default_author or [contents.get("created_by")]
+        if isinstance(contents["author"], str):
+            contents["author"] = [contents["author"]]
 
         output = rule_prompt(
             rule_path,

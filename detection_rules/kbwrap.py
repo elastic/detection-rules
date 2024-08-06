@@ -192,7 +192,9 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             if strip_version:
                 rule_resource.pop("revision", None)
                 rule_resource.pop("version", None)
-            rule_resource["author"] = rule_resource.get("author") or default_author or rule_resource.get("created_by")
+            rule_resource["author"] = rule_resource.get("author") or default_author or [rule_resource.get("created_by")]
+            if isinstance(rule_resource["author"], str):
+                rule_resource["author"] = [rule_resource["author"]]
             contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity="production")
             threat = contents.data.get("threat")
             first_tactic = threat[0].tactic.name if threat else ""
