@@ -61,7 +61,7 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
     @dataclass(frozen=True)
     class ListObject:
         """List object for exception item entry."""
-        id: definitions.UUIDString
+        id: str
         type: definitions.EsDataTypes
 
     list: Optional[ListObject]
