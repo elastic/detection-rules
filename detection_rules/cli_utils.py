@@ -63,14 +63,8 @@ def multi_collection(f):
     from .misc import client_error
 
     @click.option("--rule-file", "-f", multiple=True, type=click.Path(dir_okay=False), required=False)
-    @click.option(
-        "--directory",
-        "-d",
-        multiple=True,
-        type=click.Path(file_okay=False),
-        required=False,
-        help="Recursively load rules from a directory",
-    )
+    @click.option("--directory", "-d", multiple=True, type=click.Path(file_okay=False), required=False,
+                  help="Recursively load rules from a directory")
     @click.option("--rule-id", "-id", multiple=True, required=False)
     @functools.wraps(f)
     def get_collection(*args, **kwargs):
@@ -209,8 +203,8 @@ def rule_prompt(
             contents[name] = result
 
     # DEFAULT_PREBUILT_RULES_DIRS[0] is a required directory just as a suggestion
-    suggested_path = os.path.join(DEFAULT_PREBUILT_RULES_DIRS[0], contents['name'])
-    path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
+    suggested_path = Path(DEFAULT_PREBUILT_RULES_DIRS[0]) / contents['name']
+    path = Path(path or input(f'File path for rule [{suggested_path}]: ') or suggested_path).resolve()
     meta = {'creation_date': creation_date, 'updated_date': creation_date, 'maturity': 'development'}
 
     try:

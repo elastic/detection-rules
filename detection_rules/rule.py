@@ -1368,7 +1368,13 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         cls, rule: dict, creation_date: str = TIME_NOW, updated_date: str = TIME_NOW, maturity: str = 'development'
     ) -> 'TOMLRuleContents':
         """Create a TOMLRuleContents from a kibana rule resource."""
-        meta = {'creation_date': creation_date, 'updated_date': updated_date, 'maturity': maturity}
+        integrations = [r.get("package") for r in rule.get("related_integrations")]
+        meta = {
+            "creation_date": creation_date,
+            "updated_date": updated_date,
+            "maturity": maturity,
+            "integration": integrations,
+        }
         contents = cls.from_dict({'metadata': meta, 'rule': rule, 'transforms': None}, unknown=marshmallow.EXCLUDE)
         return contents
 

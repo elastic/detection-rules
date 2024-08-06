@@ -315,10 +315,6 @@ _*To load a custom rule, the proper index must be setup first. The simplest way 
 the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
 
 
-_*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click
-the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
-
-
 ### Using `import-rules`
 
 This is a better option than `upload-rule` as it is built on refreshed APIs

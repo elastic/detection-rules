@@ -53,11 +53,6 @@ test-remote-cli: $(VENV) deps
 	@echo "Executing test_remote_cli script..."
 	@./detection_rules/etc/test_remote_cli.bash
 
-.PHONY: test-custom-remote-cli
-test-custom-remote-cli: $(VENV) deps
-	@echo "Executing test_custom_remote_cli script..."
-	@./detection_rules/etc/test_custom_remote_cli.bash
-
 .PHONY: release
 release: deps
 	@echo "RELEASE: $(app_name)"

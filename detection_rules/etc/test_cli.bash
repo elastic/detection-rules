@@ -15,7 +15,12 @@ echo "Viewing rule: threat_intel_indicator_match_address.toml"
 python -m detection_rules view-rule rules/threat_intel/threat_intel_indicator_match_address.toml
 
 echo "Exporting rule by ID: 0a97b20f-4144-49ea-be32-b540ecc445de"
-python -m detection_rules export-rules-from-repo --rule-id 0a97b20f-4144-49ea-be32-b540ecc445de
+mkdir tmp-export 2>/dev/null
+python -m detection_rules export-rules-from-repo --rule-id 0a97b20f-4144-49ea-be32-b540ecc445de -o tmp-export/test_rule.ndjson
+
+echo "Importing rule by ID: 0a97b20f-4144-49ea-be32-b540ecc445de"
+python -m detection_rules import-rules-to-repo tmp-export/test_rule.ndjson --required-only
+rm -rf tmp-export
 
 echo "Updating rule data schemas"
 python -m detection_rules dev schemas update-rule-data
