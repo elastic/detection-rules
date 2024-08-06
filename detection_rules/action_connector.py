@@ -126,7 +126,7 @@ def parse_action_connector_results_from_api(results: List[dict]) -> tuple[List[d
 
 
 def build_action_connector_objects(action_connectors: List[dict], action_connector_rule_table: dict,
-                                   action_connectors_directory: Path, save_toml: bool = False, 
+                                   action_connectors_directory: Path, save_toml: bool = False,
                                    skip_errors: bool = False, verbose=False,
                                    ) -> Tuple[List[TOMLActionConnector], List[str], List[str]]:
     """Build TOMLActionConnector objects from a list of action connector dictionaries."""

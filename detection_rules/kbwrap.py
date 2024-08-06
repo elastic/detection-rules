@@ -138,7 +138,7 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
 @click.pass_context
 def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_directory: Optional[Path],
-                        exceptions_directory: Optional[Path], default_author: str, 
+                        exceptions_directory: Optional[Path], default_author: str,
                         rule_id: Optional[Iterable[str]] = None, export_action_connectors: bool = False,
                         export_exceptions: bool = False, skip_errors: bool = False, strip_version: bool = False
                         ) -> List[TOMLRule]:
