@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/04/01"
+updated_date = "2024/08/06"
 
 [transform]
 [[transform.osquery]]
@@ -122,13 +122,18 @@ sequence by process.entity_id with maxspan=30s
 
   /* Look for MSBuild.exe process execution */
   /* The events for this first sequence may be noisy, consider adding exceptions */
-  [process where host.os.type == "windows" and process.name : "MSBuild.exe" and event.type == "start" and user.id != "S-1-5-18"]
+  [process where host.os.type == "windows"
+    and process.pe.original_file_name: "MSBuild.exe"
+    and process.name: "MSBuild.exe"
+    and event.type == "start" and user.id != "S-1-5-18"]
 
   /* Followed by a network connection to an external address */
   /* Exclude domains that are known to be benign */
   [network where host.os.type == "windows" and process.name : "MSBuild.exe" and
-     not cidrmatch(destination.ip, "127.0.0.1", "::1") and
-     not dns.question.name : (
+    event.action: ("connection_attempted" or "lookup_requested")
+    not user.id != "S-1-5-18" and
+    not cidrmatch(destination.ip, "127.0.0.1", "::1") and
+    not dns.question.name : (
       "localhost",
       "dc.services.visualstudio.com",
       "vortex.data.microsoft.com",
