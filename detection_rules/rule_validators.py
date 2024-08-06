@@ -162,7 +162,7 @@ class KQLValidator(QueryValidator):
                     break
 
             else:
-                raise ValueError("Maximum validation attempts exceeded")
+                raise ValueError(f"Maximum validation attempts exceeded for {data.rule_id} - {data.name}")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[KQL_ERROR_TYPES, None, TypeError]:
         """Validate the query against ECS and beats schemas across stack combinations."""
@@ -375,7 +375,7 @@ class EQLValidator(QueryValidator):
                     break
 
             else:
-                raise ValueError("Maximum validation attempts exceeded")
+                raise ValueError(f"Maximum validation attempts exceeded for {data.rule_id} - {data.name}")
 
             rule_type_config_fields, rule_type_config_validation_failed = self.validate_rule_type_configurations(
                 data, meta
