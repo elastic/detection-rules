@@ -2,15 +2,13 @@
 creation_date = "2020/10/16"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = "Detects attempts to establish persistence on an endpoint by abusing Microsoft Office add-ins."
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["logs-endpoint.events.file-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Microsoft Office AddIns"
@@ -26,7 +24,15 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -48,11 +54,12 @@ framework = "MITRE ATT&CK"
 id = "T1137"
 name = "Office Application Startup"
 reference = "https://attack.mitre.org/techniques/T1137/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1137.006"
 name = "Add-ins"
 reference = "https://attack.mitre.org/techniques/T1137/006/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"

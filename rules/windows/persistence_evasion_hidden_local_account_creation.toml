@@ -2,9 +2,7 @@
 creation_date = "2020/12/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +12,7 @@ sometimes done by attackers to increase access to a system and avoid appearing i
 the net users command.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Creation of a Hidden Local User Account"
@@ -60,12 +58,22 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and registry.path : (
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.path : (
     "HKLM\\SAM\\SAM\\Domains\\Account\\Users\\Names\\*$\\",
     "\\REGISTRY\\MACHINE\\SAM\\SAM\\Domains\\Account\\Users\\Names\\*$\\"
 )

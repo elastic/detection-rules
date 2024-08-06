@@ -2,9 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
@@ -31,6 +29,7 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+
 [rule]
 author = ["Elastic"]
 description = """
@@ -38,7 +37,7 @@ Identifies child processes of unusual instances of RunDLL32 where the command li
 RunDLL32 could indicate malicious activity.
 """
 from = "now-60m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.sysmon_operational-*"]
+index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.sysmon_operational-*"]
 interval = "30m"
 language = "eql"
 license = "Elastic License v2"
@@ -102,7 +101,14 @@ RunDLL32 is a legitimate Windows utility used to load and execute functions with
 risk_score = 73
 rule_id = "f036953a-4615-4707-a1ca-dc53bf69dcd5"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 type = "eql"
 
 query = '''

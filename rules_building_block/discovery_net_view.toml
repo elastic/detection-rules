@@ -1,18 +1,16 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
-bypass_bbr_timing = true
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = "Identifies attempts to enumerate hosts in a network using the built-in Windows net.exe tool."
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Network Enumeration"
@@ -55,16 +53,17 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Tactic: Collection",
-        "Resources: Investigation Guide",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend",
-        "Rule Type: BBR"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -73,7 +72,8 @@ process where host.os.type == "windows" and event.type == "start" and
   ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
    ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
        not process.parent.name : "net.exe")) and
-  (process.args : "view" or (process.args : "time" and process.args : "\\\\*"))
+  (process.args : "view" or (process.args : "time" and process.args : "\\\\*")) and
+  not process.command_line : "net  view \\\\localhost "
 
 
   /* expand when ancestry is available
@@ -85,9 +85,9 @@ process where host.os.type == "windows" and event.type == "start" and
   */
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1018"
 name = "Remote System Discovery"
@@ -98,19 +98,18 @@ id = "T1135"
 name = "Network Share Discovery"
 reference = "https://attack.mitre.org/techniques/T1135/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1039"
 name = "Data from Network Shared Drive"
 reference = "https://attack.mitre.org/techniques/T1039/"
+
 
 [rule.threat.tactic]
 id = "TA0009"

@@ -2,29 +2,41 @@
 creation_date = "2023/08/24"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/08/24"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 InstallUtil is a command-line utility that allows for installation and uninstallation of resources by executing specific
 installer components specified in .NET binaries. Adversaries may use InstallUtil to proxy the execution of code through
 a trusted Windows utility.
 """
 from = "now-119m"
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-system.security*",
+    "winlogbeat-*",
+    "logs-windows.*",
+    "endgame-*",
+]
 interval = "60m"
-index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "InstallUtil Activity"
 risk_score = 21
 rule_id = "90babaa8-5216-4568-992d-d4a01a105d98"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Rule Type: BBR"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
-building_block_type = "default"
 type = "eql"
 
 query = '''
@@ -50,3 +62,4 @@ reference = "https://attack.mitre.org/techniques/T1218/004/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

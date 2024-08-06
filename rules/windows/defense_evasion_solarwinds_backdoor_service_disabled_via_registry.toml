@@ -2,9 +2,7 @@
 creation_date = "2020/12/14"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +11,7 @@ Identifies a SolarWinds binary modifying the start type of a service to be disab
 technique to manipulate relevant security services.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "SolarWinds Process Disabling Services via Registry"
@@ -31,12 +29,22 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Initial Access", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and registry.path : (
+registry where host.os.type == "windows" and event.type == "change" and registry.value : "Start" and
+  registry.path : (
     "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start",
     "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\*\\Start"
   ) and
@@ -55,6 +63,11 @@ registry where host.os.type == "windows" and registry.path : (
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+[[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
@@ -64,10 +77,6 @@ name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
 
-[[rule.threat.technique]]
-id = "T1112"
-name = "Modify Registry"
-reference = "https://attack.mitre.org/techniques/T1112/"
 
 [rule.threat.tactic]
 id = "TA0005"

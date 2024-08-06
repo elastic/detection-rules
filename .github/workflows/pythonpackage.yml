@@ -12,8 +12,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+    
+    - name: Fetch main branch
+      run: |
+        git fetch origin main:refs/remotes/origin/main
+ 
     - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
@@ -24,7 +30,6 @@ jobs:
         python -m pip install --upgrade pip
         pip cache purge
         pip install .[dev]
-        pip install lib/kql lib/kibana
 
     - name: Python Lint
       run: |
@@ -35,6 +40,9 @@ jobs:
         python -m detection_rules dev license-check
 
     - name: Unit tests
+      env:
+        # only run the test test_rule_change_has_updated_date on pull request events to main
+        GITHUB_EVENT_NAME: "${{ github.event_name}}"
       run: |
         python -m detection_rules test
 
@@ -46,7 +54,7 @@ jobs:
         python -m detection_rules dev build-release $GENERATE_NAVIGATOR_FILES
 
     - name: Archive production artifacts for branch builds
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       if: |
         github.event_name == 'push'
       with:

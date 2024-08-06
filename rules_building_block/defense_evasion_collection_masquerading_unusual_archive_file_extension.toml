@@ -1,29 +1,34 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/09/25"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/09/25"
-bypass_bbr_timing = true
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies the creation of an archive file with an unusual extension. Attackers may attempt to evade detection by
 masquerading files using the file extension values used by image, audio, or document file types.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Archive File with Unusual Extension"
 risk_score = 21
 rule_id = "cffbaf47-9391-4e09-a83c-1f27d7474826"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Rule Type: BBR"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
-building_block_type = "default"
 type = "eql"
 
 query = '''
@@ -49,6 +54,7 @@ file where host.os.type == "windows" and event.action != "deletion" and
   not (process.executable : "?:\\Windows\\System32\\inetsrv\\w3wp.exe" and file.path : "?:\\inetpub\\temp\\IIS Temporary Compressed Files\\*")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -61,7 +67,9 @@ name = "Masquerade File Type"
 reference = "https://attack.mitre.org/techniques/T1036/008/"
 
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

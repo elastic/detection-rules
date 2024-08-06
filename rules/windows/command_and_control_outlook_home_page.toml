@@ -1,0 +1,73 @@
+[metadata]
+creation_date = "2024/08/01"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2024/08/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies modifications in registry keys associated with abuse of the Outlook Home Page functionality for command and
+control or persistence.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Outlook Home Page Registry Modification"
+references = [
+    "https://cloud.google.com/blog/topics/threat-intelligence/breaking-the-rules-tough-outlook-for-home-page-attacks/",
+    "https://github.com/trustedsec/specula"
+]
+risk_score = 47
+rule_id = "ac5a2759-5c34-440a-b0c4-51fe674611d6"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.action != "deletion" and registry.value : "URL" and
+    registry.path : (
+        "HKEY_USERS\\*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\Inbox\\URL",
+        "HKU\\*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\Inbox\\URL",
+        "\\REGISTRY\\USER\\*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\Inbox\\URL"
+    ) and registry.data.strings : "*http*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1137"
+name = "Office Application Startup"
+reference = "https://attack.mitre.org/techniques/T1137/"
+[[rule.threat.technique.subtechnique]]
+id = "T1137.004"
+name = "Outlook Home Page"
+reference = "https://attack.mitre.org/techniques/T1137/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

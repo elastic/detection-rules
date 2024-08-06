@@ -1,10 +1,11 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/07/06"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
+min_stack_version = "8.12.0"
+updated_date = "2024/07/17"
 
 
 [rule]
@@ -13,8 +14,7 @@ description = """
 Identifies the use of Cmdlets and methods related to archive compression activities. Adversaries will often compress and
 encrypt data in preparation for exfiltration.
 """
-from = "now-119m"
-interval = "60m"
+from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -63,15 +63,48 @@ event.category:process and host.os.type:windows and
     "ZipArchiveMode"
   ) or
   powershell.file.script_block_text : "Compress-Archive"
-) and 
-  not file.path : (
-        ?\:\\\\ProgramData\\\\Microsoft\\\\Windows?Defender?Advanced?Threat?Protection\\\\Downloads\\\\* or
-        ?\:\\\\ProgramData\\\\Microsoft\\\\Windows?Defender?Advanced?Threat?Protection\\\\DataCollection\\\\* or
-        ?\:\\\\Program?Files\\\\Microsoft?Dependency?Agent\\\\plugins\\\\* or
-        ?\:\\\\Program?Files\\\\Azure\\\\StorageSyncAgent\\\\AFSDiag.ps1
-      )
+) and
+not powershell.file.script_block_text : (
+  "Compress-Archive -Path 'C:\ProgramData\Lenovo\Udc\diagnostics\latest" or
+  ("Copyright: (c) 2017, Ansible Project" and "Ansible.ModuleUtils.Backup")
+) and
+not file.directory : "C:\Program Files\Microsoft Dependency Agent\plugins\lib"
 '''
 
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\Downloads\\\\*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\*\\\\optional\\\\Expand-Archive.ps1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\*\\\\optional\\\\Compress-Archive.ps1"
+
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\Program Files\\\\Azure\\\\StorageSyncAgent\\\\AFSDiag.ps1"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
