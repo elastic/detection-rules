@@ -132,9 +132,6 @@ class VersionLock:
         assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
         assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
 
-        assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
-        assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
-
         self.name = name
         self.version_lock_file = version_lock_file
         self.deprecated_lock_file = deprecated_lock_file

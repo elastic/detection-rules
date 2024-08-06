@@ -122,6 +122,8 @@ class RulesConfig:
     version_lock: Dict[str, dict]
 
     action_dir: Optional[Path] = None
+    action_connector_dir: Optional[Path] = None
+    auto_gen_schema_file: Optional[Path] = None
     bbr_rules_dirs: Optional[List[Path]] = field(default_factory=list)
     bypass_version_lock: bool = False
     exception_dir: Optional[Path] = None
@@ -149,7 +151,7 @@ RULES_CONFIG.stack_schema_map
   - If `bypass_version_lock = True`, the updating the version lock file will disabled (*update_lock_versions*). A warning message is issued.
   - If `bypass_version_lock = True`, loading the version lock file is disabled and skipped. (*from_dict*, *load_from_file*, *manage_versions*, *test_version_lock_has_nested_previous*). A warning message is issued.
 
-### Custom actions and exceptions lists
+### Custom actions, action connectors, and exceptions lists
 
 To convert these to TOML, you can do the following:
 

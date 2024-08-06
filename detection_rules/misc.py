@@ -51,7 +51,6 @@ JS_LICENSE = """
 
 
 ROOT_DIR = Path(__file__).parent.parent
-CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
 
 
 class ClientError(click.ClickException):
