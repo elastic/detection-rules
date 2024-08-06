@@ -17,6 +17,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch.client import AsyncSearchClient
 
 import kql
+from .config import parse_rules_config
 from .main import root
 from .misc import add_params, client_error, elasticsearch_options, get_elasticsearch_client, nested_get
 from .rule import TOMLRule
@@ -26,6 +27,7 @@ from .utils import format_command_options, normalize_timing_and_sort, unix_time_
 
 COLLECTION_DIR = get_path('collections')
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
+RULES_CONFIG = parse_rules_config()
 
 
 def add_range_to_dsl(dsl_filter, start_time, end_time='now'):
@@ -92,7 +94,7 @@ class RtaEvents:
         rule = RuleCollection.default().id_map.get(rule_id)
         assert rule is not None, f"Unable to find rule with ID {rule_id}"
         merged_events = combine_sources(*self.events.values())
-        filtered = evaluate(rule, merged_events)
+        filtered = evaluate(rule, merged_events, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
 
         if filtered:
             sources = [e['agent']['type'] for e in filtered]
