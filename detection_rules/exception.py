@@ -237,15 +237,10 @@ def parse_exceptions_results_from_api(results: List[dict]) -> tuple[dict, dict, 
     return exceptions_containers, exceptions_items, errors, unparsed_results
 
 
-def build_exception_objects(
-    exceptions_containers: List[dict],
-    exceptions_items: List[dict],
-    exception_list_rule_table: dict,
-    exceptions_directory: Path,
-    save_toml: bool = False,
-    skip_errors: bool = False,
-    verbose=False,
-) -> Tuple[List[TOMLException], List[str], List[str]]:
+def build_exception_objects(exceptions_containers: List[dict], exceptions_items: List[dict],
+                            exception_list_rule_table: dict, exceptions_directory: Path, save_toml: bool = False,
+                            skip_errors: bool = False, verbose=False,
+                            ) -> Tuple[List[TOMLException], List[str], List[str]]:
     """Build TOMLException objects from a list of exception dictionaries."""
     output = []
     errors = []
