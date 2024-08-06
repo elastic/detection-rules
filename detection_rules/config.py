@@ -15,7 +15,7 @@ import yaml
 from eql.utils import load_dump
 
 from .misc import discover_tests
-from .utils import cached, load_etc_dump, get_etc_path
+from .utils import cached, load_etc_dump, get_etc_path, set_all_validation_bypass
 
 ROOT_DIR = Path(__file__).parent.parent
 CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
@@ -192,6 +192,7 @@ class RulesConfig:
     bypass_version_lock: bool = False
     exception_dir: Optional[Path] = None
     normalize_kql_keywords: bool = True
+    bypass_optional_elastic_validation: bool = False
 
     def __post_init__(self):
         """Perform post validation on packages.yaml file."""
@@ -295,6 +296,11 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
         if not contents['auto_gen_schema_file'].exists():
             # If the file doesn't exist, create an empty JSON file
             contents['auto_gen_schema_file'].write_text('{}')
+
+    # bypass_optional_elastic_validation
+    contents['bypass_optional_elastic_validation'] = loaded.get('bypass_optional_elastic_validation', False)
+    if contents['bypass_optional_elastic_validation']:
+        set_all_validation_bypass(contents['bypass_optional_elastic_validation'])
 
     try:
         rules_config = RulesConfig(test_config=test_config, **contents)
