@@ -21,7 +21,7 @@ def elastic_timeline_template_id_validator():
             fields.String().deserialize(value)
         else:
             validate.OneOf(list(TIMELINE_TEMPLATES))(value)
-            
+
     return validator
 
 
@@ -32,7 +32,7 @@ def elastic_timeline_template_title_validator():
             fields.String().deserialize(value)
         else:
             validate.OneOf(TIMELINE_TEMPLATES.values())(value)
-            
+
     return validator
 
 
