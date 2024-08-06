@@ -135,7 +135,7 @@ sequence by process.entity_id with maxspan=30s
   /* Followed by a network connection to an external address */
   /* Exclude domains that are known to be benign */
   [network where host.os.type == "windows" and process.name : "MSBuild.exe" and
-    event.action: ("connection_attempted" or "lookup_requested") and
+    event.action: ("connection_attempted", "lookup_requested") and
     not user.id != "S-1-5-18" and
     not cidrmatch(destination.ip, "127.0.0.1", "::1") and
     not dns.question.name : (
