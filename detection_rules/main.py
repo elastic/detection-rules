@@ -180,7 +180,7 @@ def import_rules_into_repo(
         additional += [key for key in contents if key not in additional and contents.get(key, None)]
 
         # use default author if not provided
-        contents["author"] = contents.get("author") or [default_author]
+        contents["author"] = contents.get("author") or [default_author] or contents.get("created_by")
 
         output = rule_prompt(
             rule_path,

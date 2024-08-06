@@ -130,6 +130,7 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
     "--action-connectors-directory", "-acd", required=False, type=Path, help="Directory to export action connectors to"
 )
 @click.option("--exceptions-directory", "-ed", required=False, type=Path, help="Directory to export exceptions to")
+@click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 @click.option("--rule-id", "-r", multiple=True, help="Optional Rule IDs to restrict export to")
 @click.option("--export-action-connectors", "-ac", is_flag=True, help="Include action connectors in export")
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
@@ -141,6 +142,7 @@ def kibana_export_rules(
     directory: Path,
     action_connectors_directory: Optional[Path],
     exceptions_directory: Optional[Path],
+    default_author: str,
     rule_id: Optional[Iterable[str]] = None,
     export_action_connectors: bool = False,
     export_exceptions: bool = False,
@@ -197,7 +199,7 @@ def kibana_export_rules(
             if strip_version:
                 rule_resource.pop("revision", None)
                 rule_resource.pop("version", None)
-
+            rule_resource["author"] = rule_resource.get("author") or default_author or rule_resource.get("created_by")
             contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity="production")
             threat = contents.data.get("threat")
             first_tactic = threat[0].tactic.name if threat else ""

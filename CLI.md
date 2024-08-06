@@ -534,6 +534,7 @@ Options:
                                   Directory to export action connectors to
   -ed, --exceptions-directory PATH
                                   Directory to export exceptions to
+  -da, --default-author TEXT      Default author for rules missing one
   -r, --rule-id TEXT              Optional Rule IDs to restrict export to
   -ac, --export-action-connectors
                                   Include action connectors in export
