@@ -2,7 +2,7 @@
 creation_date = "2022/01/12"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -87,7 +87,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type == "change" and
+registry where host.os.type == "windows" and event.type == "change" and registry.value : ("AccessVBOM", "VbaWarnings") and
     registry.path : (
         "HKU\\S-1-5-21-*\\SOFTWARE\\Microsoft\\Office\\*\\Security\\AccessVBOM",
         "HKU\\S-1-5-21-*\\SOFTWARE\\Microsoft\\Office\\*\\Security\\VbaWarnings",
@@ -98,8 +98,7 @@ registry where host.os.type == "windows" and event.type == "change" and
         "\\REGISTRY\\USER\\S-1-12-1-*\\SOFTWARE\\Microsoft\\Office\\*\\Security\\AccessVBOM",
         "\\REGISTRY\\USER\\S-1-12-1-*\\SOFTWARE\\Microsoft\\Office\\*\\Security\\VbaWarnings"
         ) and
-    registry.data.strings : ("0x00000001", "1") and
-    process.name : ("cscript.exe", "wscript.exe", "mshta.exe", "mshta.exe", "winword.exe", "excel.exe")
+    registry.data.strings : ("0x00000001", "1")
 '''
 
 
