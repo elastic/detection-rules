@@ -2,7 +2,7 @@
 creation_date = "2020/11/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -35,7 +35,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and length(registry.data.strings) > 0 and
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.value : ("Debugger", "MonitorProcess") and length(registry.data.strings) > 0 and
   registry.path : (
     "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*.exe\\Debugger",
     "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\Debugger",
