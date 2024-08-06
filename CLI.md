@@ -42,6 +42,8 @@ on the building block rules.
 
 Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detection Rules Unit Tests on the `tags` field in toml files.
 
+Using the environment variable `DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION` will bypass the timeline template id and title validation for rules. 
+
 ## Importing rules into the repo
 
 You can import rules into the repo using the `create-rule` or `import-rules-to-repo` commands. Both of these commands will

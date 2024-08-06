@@ -4,14 +4,36 @@
 # 2.0.
 
 """Custom shared definitions for schemas."""
-
-from typing import List, Literal, Final
+import os
+from typing import Final, List, Literal
 
 from marshmallow import fields, validate
 from marshmallow_dataclass import NewType
 from semver import Version
 
 from detection_rules.config import CUSTOM_RULES_DIR
+
+
+def elastic_timeline_template_id_validator():
+    """Custom validator for Timeline Template IDs."""
+    def validator(value):
+        if os.environ.get('DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION') is not None:
+            fields.String().deserialize(value)
+        else:
+            validate.OneOf(list(TIMELINE_TEMPLATES))(value)
+            
+    return validator
+
+
+def elastic_timeline_template_title_validator():
+    """Custom validator for Timeline Template Titles."""
+    def validator(value):
+        if os.environ.get('DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION') is not None:
+            fields.String().deserialize(value)
+        else:
+            validate.OneOf(TIMELINE_TEMPLATES.values())(value)
+            
+    return validator
 
 
 def elastic_rule_name_regexp(pattern):
@@ -192,8 +214,8 @@ StoreType = Literal['appState', 'globalState']
 TacticURL = NewType('TacticURL', str, validate=validate.Regexp(TACTIC_URL))
 TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_URL))
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
-TimelineTemplateId = NewType('TimelineTemplateId', str, validate=validate.OneOf(list(TIMELINE_TEMPLATES)))
-TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=validate.OneOf(TIMELINE_TEMPLATES.values()))
+TimelineTemplateId = NewType('TimelineTemplateId', str, validate=elastic_timeline_template_id_validator())
+TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=elastic_timeline_template_title_validator())
 TransformTypes = Literal["osquery", "investigate"]
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 BuildingBlockType = Literal['default']
