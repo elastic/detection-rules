@@ -88,7 +88,7 @@ class GenericCollection:
         # use pytoml instead of toml because of annoying bugs
         # https://github.com/uiri/toml/issues/152
         # might also be worth looking at https://github.com/sdispater/tomlkit
-        with io.open(path, "r", encoding="utf-8") as f:
+        with path.open("r", encoding="utf-8") as f:
             toml_dict = self.deserialize_toml_string(f.read())
             self._toml_load_cache[path] = toml_dict
             return toml_dict
