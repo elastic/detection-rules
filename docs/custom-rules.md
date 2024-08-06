@@ -76,6 +76,7 @@ Some notes:
 * To manage action-connectors tied to rules one can set an action-connectors directory using the optional `action_connector_dir` value (included above) set to be the desired path. If an actions_connector directory is explicitly specified in a CLI command, the config value will be ignored.
 * To turn on automatic schema generation for non-ecs fields a custom schemas add `auto_gen_schema_file: <path_to_your_json_file>`. This will generate a schema file in the specified location that will be used to add entries for each field and index combination that is not already in a known schema. This will also automatically add it to your stack-schema-map.yaml file when using a custom rules directory and config.
 * For Kibana action items, currently these are included in the rule toml files themselves. At a later date, we may allow for bulk editing of rule action items through separate action toml files. The action_dir config key is left available for this later implementation. For now to bulk update, use the bulk actions add rule actions UI in Kibana.
+* To on bulk disable elastic validation for optional fields, use the following line `bypass_optional_elastic_validation: True`.
 
 
 When using the repo, set the environment variable `CUSTOM_RULES_DIR=<directory-with-_config.yaml>`
@@ -128,6 +129,7 @@ class RulesConfig:
     bypass_version_lock: bool = False
     exception_dir: Optional[Path] = None
     normalize_kql_keywords: bool = True
+    bypass_optional_elastic_validation: bool = False
 
 # using the stack_schema_map
 RULES_CONFIG.stack_schema_map
