@@ -2,7 +2,7 @@
 creation_date = "2020/11/20"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -67,7 +67,8 @@ sequence by host.id, process.entity_id with maxspan = 1m
    network.direction : ("incoming", "ingress") and source.port >= 49152 and destination.port >= 49152 and
    source.ip != "127.0.0.1" and source.ip != "::1"
    ]
-   [registry where host.os.type == "windows" and registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
+   [registry where host.os.type == "windows" and event.type == "change" and registry.value : "Actions" and
+    registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
 '''
 
 
