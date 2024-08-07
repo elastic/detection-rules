@@ -1,29 +1,35 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/08/20"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/01/11"
-bypass_bbr_timing = true
+updated_date = "2024/05/31"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies suspicious instances of default system32 executables, either unsigned or signed with non-MS certificates.
 This could indicate the attempt to masquerade as system executables or backdoored and resigned legitimate executables.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Masquerading as System32 Executable"
 risk_score = 21
 rule_id = "79ce2c96-72f7-44f9-88ef-60fa1ac2ce47"
 severity = "low"
-tags = ["Domain: Endpoint", "Data Source: Elastic Defend", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Persistence", "Rule Type: BBR"]
+tags = [
+    "Domain: Endpoint",
+    "Data Source: Elastic Defend",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
-building_block_type = "default"
 type = "eql"
 
 query = '''
@@ -46,13 +52,30 @@ process where host.os.type == "windows" and event.type == "start" and
       "?:\\Windows\\Temp\\{*}\\taskkill.exe",
       "?:\\Users\\*\\AppData\\Local\\Temp\\{*}\\taskkill.exe",
       "?:\\$WINDOWS.~BT\\NewOS\\Windows\\System32\\ie4ushowIE.exe",
-      "?:\\Program Files\\Git\\usr\\bin\\find.exe"
+      "?:\\Program Files\\Git\\usr\\bin\\find.exe",
+      "?:\\Program Files (x86)\\Axence\\nVision Agent 2\\nss\\certutil.exe"
     )
   ) and
   not
   (
     (process.name: "ucsvc.exe" and process.code_signature.subject_name == "Wellbia.com Co., Ltd." and process.code_signature.status: "trusted") or
-    (process.name: "pnputil.exe" and process.code_signature.subject_name: "Lenovo" and process.code_signature.status: "trusted")
+    (process.name: "pnputil.exe" and process.code_signature.subject_name: ("Lenovo", "HP Inc.", "Dell Inc") and process.code_signature.status: "trusted") or
+    (process.name: "convert.exe" and process.code_signature.subject_name: "ImageMagick Studio LLC" and process.code_signature.status: "trusted") or
+    (process.name: "systeminfo.exe" and process.code_signature.subject_name: "Arctic Wolf Networks, Inc." and process.code_signature.status: "trusted") or
+    (
+      process.name: "certutil.exe" and
+      process.code_signature.subject_name: (
+        "Intel(R) Online Connect Access",
+        "Fortinet Technologies (Canada) ULC"
+      ) and process.code_signature.status: "trusted"
+    ) or
+    (
+      process.name: "sfc.exe" and
+      process.code_signature.subject_name: (
+        "Cisco Systems, Inc.",
+        "CISCO SYSTEMS CANADA CO"
+      ) and process.code_signature.status: "trusted"
+    )
   )
 '''
 
@@ -63,7 +86,6 @@ framework = "MITRE ATT&CK"
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1036.001"
 name = "Invalid Code Signature"
@@ -74,18 +96,19 @@ id = "T1036.005"
 name = "Match Legitimate Name or Location"
 reference = "https://attack.mitre.org/techniques/T1036/005/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1554"
-name = "Compromise Client Software Binary"
+name = "Compromise Host Software Binary"
 reference = "https://attack.mitre.org/techniques/T1554/"
+
 
 [rule.threat.tactic]
 id = "TA0003"

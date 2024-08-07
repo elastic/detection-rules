@@ -9,7 +9,6 @@ import glob
 import json
 import os
 import shutil
-from pathlib import Path
 
 import eql
 import eql.types
@@ -17,6 +16,8 @@ import requests
 from semver import Version
 import yaml
 
+from .config import CUSTOM_RULES_DIR, parse_rules_config
+from .custom_schemas import get_custom_schemas
 from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
                     load_etc_dump, read_gzip, unzip)
 
@@ -24,6 +25,7 @@ ECS_NAME = "ecs_schemas"
 ECS_SCHEMAS_DIR = get_etc_path(ECS_NAME)
 ENDPOINT_NAME = "endpoint_schemas"
 ENDPOINT_SCHEMAS_DIR = get_etc_path(ENDPOINT_NAME)
+RULES_CONFIG = parse_rules_config()
 
 
 def add_field(schema, name, info):
@@ -88,7 +90,7 @@ def get_max_version(include_master=False):
     versions = get_schema_map().keys()
 
     if include_master and any([v.startswith('master') for v in versions]):
-        return list(Path(ECS_SCHEMAS_DIR).glob('master*'))[0].name
+        return list(ECS_SCHEMAS_DIR.glob('master*'))[0].name
 
     return str(max([Version.parse(v) for v in versions if not v.startswith('master')]))
 
@@ -125,6 +127,12 @@ def get_eql_schema(version=None, index_patterns=None):
             for k, v in flatten(get_index_schema(index_name)).items():
                 add_field(converted, k, convert_type(v))
 
+    # add custom schema
+    if index_patterns and CUSTOM_RULES_DIR:
+        for index_name in index_patterns:
+            for k, v in flatten(get_custom_index_schema(index_name)).items():
+                add_field(converted, k, convert_type(v))
+
     # add endpoint custom schema
     for k, v in flatten(get_endpoint_schemas()).items():
         add_field(converted, k, convert_type(v))
@@ -149,8 +157,23 @@ def get_non_ecs_schema():
 
 
 @cached
+def get_custom_index_schema(index_name: str, stack_version: str = None):
+    """Load custom schema."""
+    custom_schemas = get_custom_schemas(stack_version)
+    index_schema = custom_schemas.get(index_name, {})
+    ccs_schema = custom_schemas.get(index_name.split(":", 1)[-1], {})
+    index_schema.update(ccs_schema)
+    return index_schema
+
+
+@cached
 def get_index_schema(index_name):
-    return get_non_ecs_schema().get(index_name, {})
+    """Load non-ecs schema."""
+    non_ecs_schema = get_non_ecs_schema()
+    index_schema = non_ecs_schema.get(index_name, {})
+    ccs_schema = non_ecs_schema.get(index_name.split(":", 1)[-1], {})
+    index_schema.update(ccs_schema)
+    return index_schema
 
 
 def flatten_multi_fields(schema):
@@ -202,8 +225,14 @@ def get_kql_schema(version=None, indexes=None, beat_schema=None) -> dict:
     indexes = indexes or ()
     converted = flatten_multi_fields(get_schema(version, name='ecs_flat'))
 
+    # non-ecs schema
     for index_name in indexes:
         converted.update(**flatten(get_index_schema(index_name)))
+
+    # custom schema
+    if CUSTOM_RULES_DIR:
+        for index_name in indexes:
+            converted.update(**flatten(get_custom_index_schema(index_name)))
 
     # add endpoint custom schema
     converted.update(**flatten(get_endpoint_schemas()))
@@ -303,9 +332,9 @@ def download_endpoint_schemas(target: str, overwrite: bool = True) -> None:
             flattened[f"{root_name}.{f['name']}"] = f['type']
 
     # save schema to disk
-    Path(ENDPOINT_SCHEMAS_DIR).mkdir(parents=True, exist_ok=True)
+    ENDPOINT_SCHEMAS_DIR.mkdir(parents=True, exist_ok=True)
     compressed = gzip_compress(json.dumps(flattened, sort_keys=True, cls=DateTimeEncoder))
-    new_path = Path(ENDPOINT_SCHEMAS_DIR) / f"endpoint_{target}.json.gz"
+    new_path = ENDPOINT_SCHEMAS_DIR / f"endpoint_{target}.json.gz"
     if overwrite:
         shutil.rmtree(new_path, ignore_errors=True)
     with open(new_path, 'wb') as f:

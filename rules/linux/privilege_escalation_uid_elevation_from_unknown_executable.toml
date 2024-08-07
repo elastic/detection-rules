@@ -2,9 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/21"
+updated_date = "2024/07/18"
 
 [rule]
 author = ["Elastic"]
@@ -48,20 +46,25 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Privilege Escalation",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 host.os.type:"linux" and event.category:"process" and event.action:"uid_change" and event.type:"change" and user.id:"0"
 and process.parent.name:("bash" or "dash" or "sh" or "tcsh" or "csh" or "zsh" or "ksh" or "fish") and not (
   process.executable:(
-    /bin/* or /usr/bin/* or /sbin/* or /usr/sbin/* or /snap/* or /tmp/newroot/* or /var/lib/docker/* or /usr/local/*
+    /bin/* or /usr/bin/* or /sbin/* or /usr/sbin/* or /snap/* or /tmp/newroot/* or /var/lib/docker/* or /usr/local/* or
+    /opt/psa/admin/* or /usr/lib/snapd/snap-confine or /opt/dynatrace/* or /opt/microsoft/* or
+    /var/lib/snapd/snap/bin/node or /opt/gitlab/embedded/sbin/logrotate or /etc/apt/universal-hooks/* or
+    /opt/puppetlabs/puppet/bin/puppet or /opt/cisco/* or /run/k3s/containerd/* or /usr/lib/postfix/sbin/master or
+    /usr/libexec/postfix/local
   ) or
   process.name:(
     "bash" or "dash" or "sh" or "tcsh" or "csh" or "zsh" or "ksh" or "fish" or "sudo" or "su" or "apt" or "apt-get" or
@@ -93,21 +96,20 @@ reference = "https://attack.mitre.org/tactics/TA0004/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
-[[rule.threat.technique]]
-name = "Rootkit"
-id = "T1014"
-reference = "https://attack.mitre.org/techniques/T1014/"
-
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.executable", "process.command_line"]
+value = ["process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
-
