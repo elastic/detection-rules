@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2024/04/01"
+updated_date = "2024/08/07"
 
 [transform]
 [[transform.osquery]]
@@ -35,24 +35,22 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 [rule]
 author = ["Elastic"]
 description = """
-Identifies potentially unexpected LOLBins processes making outbound SMB network connections over port 445. Windows File
-Sharing is typically implemented over Server Message Block (SMB), which communicates between hosts using port 445. When
-legitimate, these network connections are established by the kernel.
+Identifies potentially suspicious processes that are not trusted or living-off-the-land binaries (LOLBin) making Server Message Block (SMB) network connections over port 445. Windows File Sharing is typically implemented over SMB, which communicates between hosts using port 445. Legitimate connections are generally established by the kernel (PID 4). This rule helps to detect processes that might be port scanners, exploits, or user-level processes attempting lateral movement within the network by leveraging SMB connections.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Direct Outbound SMB Connection"
+name = "Untrusted Non-Microsoft or LOLBin SMB Connections"
 note = """## Triage and analysis
 
 ### Performance
 
 This rule may have low to medium performance impact due to filtering for LOLBins processes starting, followed by network connections over port 445. Additional filtering is applied to reduce the volume of matching events and improve performance.
 
-### Investigating Direct Outbound SMB Connection
+### Investigating Untrusted Non-Microsoft or LOLBin SMB Connections
 
-This rule looks for unexpected processes making network connections over port 445. Windows file sharing is typically implemented over Server Message Block (SMB), which communicates between hosts using port 445. When legitimate, these network connections are established by the kernel (PID 4). Occurrences of non-system processes using this port can indicate port scanners, exploits, and tools used to move laterally on the environment.
+This rule looks for unexpected processes or LOLBins making network connections over port 445. Windows file sharing is typically implemented over Server Message Block (SMB), which communicates between hosts using port 445. When legitimate, these network connections are established by the kernel (PID 4). Occurrences of non-system processes using this port can indicate port scanners, exploits, and tools used to move laterally on the environment.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -130,14 +128,7 @@ sequence by process.entity_id with maxspan=1m
       process.args :"?:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads\\PSScript_*.ps1")]
 
   /* second sequence to capture network connections over port 445 related to SMB */
-  [network where host.os.type == "windows" and destination.port == 445 and process.pid != 4 and
-
-    /* ignore SMB traffic destined internally */
-    not cidrmatch(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24",
-      "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32",
-      "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4",
-      "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4",
-      "::1", "FE80::/10", "FF00::/8")
+  [network where host.os.type == "windows" and destination.port == 445 and process.pid != 4]
 
 /* end the sequence when the process ends where joining was on process.entity_id */
 until [process where host.os.type == "windows" and event.type == "end"]
