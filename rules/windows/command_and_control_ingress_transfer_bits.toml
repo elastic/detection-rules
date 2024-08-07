@@ -2,7 +2,7 @@
 creation_date = "2023/01/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/08/06"
 
 [transform]
 [[transform.osquery]]
@@ -135,6 +135,7 @@ file where host.os.type == "windows" and event.action == "rename" and
   not file.path : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\Windows\\*", "?:\\ProgramData\\*\\*") and
 
   /* lot of third party SW use BITS to download executables with a long file name */
+  not length(file.name) > 30 and
   not file.path : (
         "?:\\Users\\*\\AppData\\Local\\Temp*\\wct*.tmp",
         "?:\\Users\\*\\AppData\\Local\\Adobe\\ARM\\*\\RdrServicesUpdater*.exe",
