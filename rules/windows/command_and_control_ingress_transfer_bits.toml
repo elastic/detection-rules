@@ -2,9 +2,7 @@
 creation_date = "2023/01/13"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/01"
+updated_date = "2024/08/07"
 
 [transform]
 [[transform.osquery]]
@@ -39,15 +37,11 @@ Identifies downloads of executable and archive files via the Windows Background 
 Adversaries could leverage Windows BITS transfer jobs to download remote payloads.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
+index = ["logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Ingress Transfer via Windows BITS"
 note = """## Triage and analysis
-
-### Performance
-
-This rule may have a low to medium impact on performance due to the filtering logic for various file extensions and paths.
 
 ### Investigating Ingress Transfer via Windows BITS
 
@@ -133,38 +127,20 @@ type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.action == "rename" and
+  process.name : "svchost.exe" and file.Ext.original.name : "BIT*.tmp" and
+  (file.extension : ("exe", "zip", "rar", "bat", "dll", "ps1", "vbs", "wsh", "js", "vbe", "pif", "scr", "cmd", "cpl") or
+   file.Ext.header_bytes : "4d5a*") and
 
-  /* svchost.exe is the process that creates BITS jobs */
-  /* original file is a temporary file created by BITS */
-  process.name : "svchost.exe" and
-  (
-    startsWith(file.Ext.original.name, "BIT") and file.extension == "tmp"
-  ) or
-  (
-    /* alternatively the original file has a PE header with a common executable extensions */
-    file.extension : ("exe", "zip", "rar", "bat", "dll", "ps1", "vbs", "wsh", "js", "vbe", "pif", "scr", "cmd", "cpl") or
-    startsWith(file.Ext.header_bytes, "4d5a") and
+  /* noisy paths, for hunting purposes you can use the same query without the following exclusions */
+  not file.path : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\Windows\\*", "?:\\ProgramData\\*\\*") and
 
-    /* noisy paths, for hunting purposes you can use the same query without the following exclusions */
-    not (
-      startsWith(file.path, "?:\\Program Files\\") or
-      startsWith(file.path, "?:\\Program Files (x86)\\") or
-      startsWith(file.path, "?:\\Windows\\") or
-      startsWith(file.path, "?:\\ProgramData\\")
-        ) and
-
-    /* lot of third party SW use BITS to download executables with a long file name */
-    not length(file.name) > 30 and
-    not (
-      startsWith(file.path, "?:\\Users\\") and
-          (
-            (stringContains(file.path, "AppData\\Local\\Temp") and startsWith(file.name, "wct") and file.extension == "tmp") or
-            (stringContains(file.path, "AppData\\Local\\Adobe\\ARM") and startsWith(file.name, "RdrServicesUpdater") and file.extension == "exe") or
-            (stringContains(file.path, "AppData\\Local\\Adobe\\ARM") and startsWith(file.name, "AcroServicesUpdater2_") and file.extension == "exe") or
-            (stringContains(file.path, "AppData\\Local\\Docker Desktop Installer") and startsWith(file.name, "update-") and file.extension == "exe")
-          )
-        )
-    )
+  /* lot of third party SW use BITS to download executables with a long file name */
+  not file.path : (
+        "?:\\Users\\*\\AppData\\Local\\Temp*\\wct*.tmp",
+        "?:\\Users\\*\\AppData\\Local\\Adobe\\ARM\\*\\RdrServicesUpdater*.exe",
+        "?:\\Users\\*\\AppData\\Local\\Adobe\\ARM\\*\\AcroServicesUpdater2*.exe",
+        "?:\\Users\\*\\AppData\\Local\\Docker Desktop Installer\\update-*.exe"
+  )
 '''
 
 
