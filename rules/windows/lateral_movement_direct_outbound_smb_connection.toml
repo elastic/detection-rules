@@ -127,21 +127,7 @@ sequence by process.entity_id with maxspan=1m
     /* filter out PowerShell scripts from Windows Defender ATP */
     not (
       process.name : "powershell.exe" and
-      process.args :"?:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads\\PSScript_*.ps1"
-      ) and
-
-    /* filter out known trusted vendors */
-    /* additional signature names can be added to filter out legitimate processes */
-    not (
-      process.code_signature.trusted == true and process.code_signature.subject_name :
-          (
-            "ZOHO Corporation Private Limited",
-            "Mirth Corporation",
-            "Nextgen Healthcare, Inc.",
-            "Oracle Corporation"
-          )
-        )
-  ]
+      process.args :"?:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads\\PSScript_*.ps1")]
 
   /* second sequence to capture network connections over port 445 related to SMB */
   [network where host.os.type == "windows" and destination.port == 445 and process.pid != 4 and
