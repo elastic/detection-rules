@@ -1,18 +1,14 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/12/14"
-bypass_bbr_timing = true
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
-description = """
-A GitHub user was blocked from access to an organization.
-"""
+description = "A GitHub user was blocked from access to an organization.\n"
 from = "now-9m"
 index = ["logs-github.audit-*"]
 language = "eql"
@@ -21,19 +17,21 @@ name = "GitHub User Blocked From Organization"
 risk_score = 21
 rule_id = "4030c951-448a-4017-a2da-ed60f6d14f4f"
 severity = "low"
-tags = ["Domain: Cloud",
-        "Use Case: Threat Detection",
-        "Use Case: UEBA",        
-        "Tactic: Impact",
-        "Rule Type: BBR",
-        "Data Source: Github"
-        ]
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Tactic: Impact",
+    "Rule Type: BBR",
+    "Data Source: Github",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "org.block_user"
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -47,3 +45,4 @@ reference = "https://attack.mitre.org/techniques/T1531/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+

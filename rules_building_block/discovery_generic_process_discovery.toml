@@ -1,11 +1,9 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/09/14"
-bypass_bbr_timing = true
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -15,20 +13,28 @@ This rule identifies the execution of commands that can be used to enumerate run
 enumerate processes to identify installed applications and security solutions.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-system.security*",
+    "winlogbeat-*",
+    "logs-windows.*",
+    "endgame-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Discovery Using Built-in Tools"
 risk_score = 21
 rule_id = "4982ac3e-d0ee-4818-b95d-d9522d689259"
 severity = "low"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Rule Type: BBR",
-        "Data Source: Elastic Defend"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -43,15 +49,17 @@ process where host.os.type == "windows" and event.type == "start" and
   ) and not user.id : "S-1-5-18"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
 reference = "https://attack.mitre.org/techniques/T1057/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+

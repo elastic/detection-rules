@@ -2,9 +2,7 @@
 creation_date = "2020/01/07"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/07/11"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +12,7 @@ that can be loaded from a different location by a native Windows process. This m
 privileges via privileged file write vulnerabilities.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.library*", "logs-windows.sysmon_operational-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious DLL Loaded for Persistence or Privilege Escalation"
@@ -87,34 +85,59 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
-    "Data Source: Sysmon"
+    "Data Source: Sysmon",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 any where host.os.type == "windows" and
- (event.category : ("driver", "library") or (event.category == "process" and event.action : "Image loaded*")) and
- (
+(event.category : ("driver", "library") or (event.category == "process" and event.action : "Image loaded*")) and
+(
   /* compatible with Elastic Endpoint Library Events */
-  (?dll.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
-               "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
-               "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "oci.dll", "TPPCOIPW32.dll", 
-               "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll")
-   and (?dll.code_signature.trusted != true or ?dll.code_signature.exists != true)) or
+  (
+    ?dll.name : (
+        "wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
+        "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
+        "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "oci.dll", "TPPCOIPW32.dll", 
+        "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll"
+    )
+    and (
+      ?dll.code_signature.trusted != true or
+      ?dll.code_signature.exists != true or
+      (
+        dll.code_signature.trusted == true and
+          not dll.code_signature.subject_name : ("Microsoft Windows", "Microsoft Corporation", "Microsoft Windows Publisher")
+      )
+  ) or
 
   /* compatible with Sysmon EventID 7 - Image Load */
   (file.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
                "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
                "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "oci.dll", "TPPCOIPW32.dll", 
                "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll") and 
-   not file.path : ("?:\\Windows\\System32\\wbemcomn.dll", "?:\\Windows\\SysWOW64\\wbemcomn.dll") and 
    not file.hash.sha256 : 
             ("6e837794fc282446906c36d681958f2f6212043fc117c716936920be166a700f", 
              "b14e4954e8cca060ffeb57f2458b6a3a39c7d2f27e94391cbcea5387652f21a4", 
              "c258d90acd006fa109dc6b748008edbb196d6168bc75ace0de0de54a4db46662") and 
    not file.code_signature.status == "Valid")
+  ) and
+  not
+  (
+    ?dll.path : (
+      "?:\\Windows\\System32\\wbemcomn.dll",
+      "?:\\Windows\\SysWOW64\\wbemcomn.dll",
+      "?:\\Windows\\System32\\windowsperformancerecordercontrol.dll",
+      "?:\\Windows\\System32\\wlanhlp.dll"
+    ) or
+    file.path : (
+      "?:\\Windows\\System32\\wbemcomn.dll",
+      "?:\\Windows\\SysWOW64\\wbemcomn.dll",
+      "?:\\Windows\\System32\\windowsperformancerecordercontrol.dll",
+      "?:\\Windows\\System32\\wlanhlp.dll"
+    )
   )
+)
 '''
 
 
@@ -152,18 +175,18 @@ reference = "https://attack.mitre.org/techniques/T1574/001/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1036.001"
 name = "Invalid Code Signature"
 reference = "https://attack.mitre.org/techniques/T1036/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0005"

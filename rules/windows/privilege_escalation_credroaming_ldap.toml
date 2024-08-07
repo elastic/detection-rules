@@ -2,9 +2,7 @@
 creation_date = "2022/11/09"
 integration = ["system", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/07/08"
 
 [rule]
 author = ["Elastic"]
@@ -43,12 +41,19 @@ Audit Directory Service Changes (Success,Failure)
 ```
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Data Source: Active Directory", "Tactic: Privilege Escalation", "Use Case: Active Directory Monitoring"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Data Source: Active Directory",
+    "Tactic: Privilege Escalation",
+    "Use Case: Active Directory Monitoring",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:"Directory Service Changes" and event.code:"5136" and
+event.action:("Directory Service Changes" or "directory-service-object-modified") and event.code:"5136" and
   winlog.event_data.AttributeLDAPDisplayName:"msPKIAccountCredentials" and winlog.event_data.OperationType:"%%14674" and
   not winlog.event_data.SubjectUserSid : "S-1-5-18"
 '''

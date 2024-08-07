@@ -2,9 +2,9 @@
 creation_date = "2023/01/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/03/08"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
+min_stack_version = "8.12.0"
+updated_date = "2024/03/12"
 
 [transform]
 [[transform.osquery]]
@@ -318,12 +318,15 @@ event.category:process and host.os.type:windows and
   not powershell.file.script_block_text : (
     "sentinelbreakpoints" and "Set-PSBreakpoint"
   ) and
-  not file.path : (
-    ?\:\\\\ProgramData\\\\Microsoft\\\\Windows?Defender?Advanced?Threat?Protection\\\\DataCollection\\\\*
-  ) and
   not user.id : ("S-1-5-18" or "S-1-5-19")
 '''
 
+[[rule.filters]]
+[rule.filters.meta]
+negate = true
+[rule.filters.query.wildcard."file.path"]
+"case_insensitive" = true
+"value" = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

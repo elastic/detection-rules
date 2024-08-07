@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2024/02/01"
-maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
 integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/07/09"
 
 [rule]
 author = ["Elastic"]
@@ -50,15 +48,16 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Tactic: Execution",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by host.id with maxspan=5s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
@@ -73,8 +72,19 @@ sequence by host.id with maxspan=5s
   ] by process.parent.entity_id
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.016"
+name = "Installer Packages"
+reference = "https://attack.mitre.org/techniques/T1546/016/"
 
 [[rule.threat.technique]]
 id = "T1543"
@@ -94,11 +104,6 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
@@ -108,6 +113,11 @@ reference = "https://attack.mitre.org/techniques/T1059/"
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

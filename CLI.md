@@ -5,7 +5,7 @@ the [README](README.md). Basic use of the CLI such as [creating a rule](CONTRIBU
 [testing](CONTRIBUTING.md#testing-a-rule-with-the-cli) are referenced in the [contribution guide](CONTRIBUTING.md).
 
 
-## Using a config file or environment variables
+## Using a user config file or environment variables
 
 CLI commands which are tied to Kibana and Elasticsearch are capable of parsing auth-related keyword args from a config
 file or environment variables.
@@ -17,9 +17,9 @@ follows:
 * config values
 * prompt (this only applies to certain values)
 
-#### Setup a config file
+#### Setup a user config file
 
-In the root directory of this repo, create the file `.detection-rules-cfg.json` and add relevant values
+In the root directory of this repo, create the file `.detection-rules-cfg.json` (or `.yaml`) and add relevant values
 
 Currently supported arguments:
 * elasticsearch_url
@@ -27,6 +27,7 @@ Currently supported arguments:
 * cloud_id
 * *_username (kibana and es)
 * *_password (kibana and es)
+* api_key
 
 #### Using environment variables
 
@@ -41,9 +42,11 @@ on the building block rules.
 
 Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detection Rules Unit Tests on the `tags` field in toml files.
 
+Using the environment variable `DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION` will bypass the timeline template id and title validation for rules. 
+
 ## Importing rules into the repo
 
-You can import rules into the repo using the `create-rule` or `import-rules` commands. Both of these commands will
+You can import rules into the repo using the `create-rule` or `import-rules-to-repo` commands. Both of these commands will
 require that the rules are schema-compliant and able to pass full validation. The biggest benefit to using these
 commands is that they will strip[*](#note) additional fields[**](#note-2) and prompt for missing required
 fields.
@@ -76,17 +79,27 @@ and will accept any valid rule in the following formats:
 * yaml (yup)
 * ndjson (as long as it contains only a single rule and has the extension `.ndjson` or `.jsonl`)
 
-#### `import-rules`
+#### `import-rules-to-repo`
 
 ```console
-Usage: detection_rules import-rules [OPTIONS] [INPUT_FILE]...
+Usage: detection_rules import-rules-to-repo [OPTIONS] [INPUT_FILE]...
 
   Import rules from json, toml, yaml, or Kibana exported rule file(s).
 
 Options:
-  --required-only            Only prompt for required fields
-  -d, --directory DIRECTORY  Load files from a directory
-  -h, --help                 Show this message and exit.
+  -ac, --action-connector-import  Include action connectors in export
+  -e, --exceptions-import         Include exceptions in export
+  --required-only                 Only prompt for required fields
+  -d, --directory DIRECTORY       Load files from a directory
+  -s, --save-directory DIRECTORY  Save imported rules to a directory
+  -se, --exceptions-directory DIRECTORY
+                                  Save imported exceptions to a directory
+  -sa, --action-connectors-directory DIRECTORY
+                                  Save imported actions to a directory
+  -ske, --skip-errors             Skip rule import errors
+  -da, --default-author TEXT      Default author for rules missing one
+  -snv, --strip-none-values       Strip None values from the rule
+  -h, --help                      Show this message and exit.
 ```
 
 The primary advantage of using this command is the ability to import multiple rules at once. Multiple rule paths can be
@@ -96,9 +109,13 @@ a combination of both.
 In addition to the formats mentioned using `create-rule`, this will also accept an `.ndjson`/`jsonl` file
 containing multiple rules (as would be the case with a bulk export).
 
+The `-s/--save-directory` is an optional parameter to specify a non default directory to place imported rules. If it is not specified, the first directory specified in the rules config will be used.
+
 This will also strip additional fields and prompt for missing required fields.
 
 <a id="note-3">\* Note</a>: This will attempt to parse ALL files recursively within a specified directory.
+
+Additionally, the `-e` flag can be used to import exceptions in addition to rules from the export file.
 
 
 ## Commands using Elasticsearch and Kibana clients
@@ -164,6 +181,8 @@ Options:
   -h, --help                   Show this message and exit.
 
 Commands:
+  export-rules   Export custom rules from Kibana.
+  import-rules   Import custom rules into Kibana.
   search-alerts  Search detection engine alerts with KQL.
   upload-rule    Upload a list of rule .toml files to Kibana.
 ```
@@ -239,6 +258,8 @@ Toml formatted rule files can be uploaded as custom rules using the `kibana uplo
 file, specify multiple files at a time as individual args. This command is meant to support uploading and testing of
 rules and is not intended for production use in its current state.
 
+This command is built on soon to be deprecated APIs and so should be phased off. For a better option, see below...
+
 ```console
 python -m detection_rules kibana upload-rule -h
 
@@ -267,27 +288,341 @@ Alternatively, rules can be exported into a consolidated ndjson file which can b
 directly.
 
 ```console
-Usage: detection_rules export-rules [OPTIONS]
+Usage: detection_rules export-rules-from-repo [OPTIONS]
 
-  Export rule(s) into an importable ndjson file.
+  Export rule(s) and exception(s) into an importable ndjson file.
 
 Options:
   -f, --rule-file FILE
-  -d, --directory DIRECTORY       Recursively export rules from a directory
+  -d, --directory DIRECTORY       Recursively load rules from a directory
   -id, --rule-id TEXT
-  -o, --outfile FILE              Name of file for exported rules
+  -o, --outfile PATH              Name of file for exported rules
   -r, --replace-id                Replace rule IDs with new IDs before export
-  --stack-version [7.8|7.9|7.10|7.11|7.12]
+  --stack-version [7.8|7.9|7.10|7.11|7.12|7.13|7.14|7.15|7.16|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14]
                                   Downgrade a rule version to be compatible
                                   with older instances of Kibana
   -s, --skip-unsupported          If `--stack-version` is passed, skip rule
                                   types which are unsupported (an error will
                                   be raised otherwise)
+  --include-metadata              Add metadata to the exported rules
+  -ac, --include-action-connectors
+                                  Include Action Connectors in export
+  -e, --include-exceptions        Include Exceptions Lists in export
   -h, --help                      Show this message and exit.
 ```
 
 _*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click
 the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
+
+
+### Using `import-rules`
+
+This is a better option than `upload-rule` as it is built on refreshed APIs
+
+```
+python -m detection_rules kibana import-rules -h
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+Kibana client:
+Options:
+  --ignore-ssl-errors TEXT
+  --space TEXT                 Kibana space
+  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-
+                               saml (for SSO)
+  --provider-type TEXT         Elastic Cloud providers: basic and saml (for
+                               SSO)
+  -ku, --kibana-user TEXT
+  --kibana-url TEXT
+  -kp, --kibana-password TEXT
+  -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --api-key TEXT
+  --cloud-id TEXT              ID of the cloud instance.
+
+Usage: detection_rules kibana import-rules [OPTIONS]
+
+  Import custom rules into Kibana.
+
+Options:
+  -f, --rule-file FILE
+  -d, --directory DIRECTORY       Recursively load rules from a directory
+  -id, --rule-id TEXT
+  -o, --overwrite                 Overwrite existing rules
+  -e, --overwrite-exceptions      Overwrite exceptions in existing rules
+  -ac, --overwrite-action-connectors
+                                  Overwrite action connectors in existing
+                                  rules
+  -h, --help                      Show this message and exit.
+```
+
+Example usage of a successful upload:
+
+```
+python -m detection_rules kibana import-rules -f test-export-rules/credential_access_NEW_RULE.toml
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+1 rule(s) successfully imported
+ - 50887ba8-aaaa-bbbb-a038-f661ea17fbcd
+```
+
+<details>
+<summary>Detailed import-rules output</summary>
+
+Existing rule fails as expected:
+```
+python -m detection_rules kibana import-rules -f test-export-rules/credential_access_EXISTING_RULE.toml
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+1 rule(s) failed to import!
+ - 50887ba8-7ff7-11ee-a038-f661ea17fbcd: (409) rule_id: "50887ba8-7ff7-11ee-a038-f661ea17fbcd" already exists
+```
+
+`-o` overwrite forces the import successfully
+```
+python -m detection_rules kibana import-rules -f test-export-rules/credential_access_EXISTING_RULE.toml -o
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+1 rule(s) successfully imported
+ - 50887ba8-7ff7-11ee-a038-f661ea17fbcd
+```
+
+The rule loader detects a collision in name and fails as intended:
+```
+python -m detection_rules kibana import-rules -d test-export-rules
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+Error loading rule in test-export-rules/credential_access_NEW_RULE.toml
+Traceback (most recent call last):
+  ...snipped stacktrace...
+AssertionError: Rule Name Multiple Okta User Auth Events with Same Device Token Hash Behind a Proxy for 50887ba8-aaaa-bbbb-a038-f661ea17fbcd collides with rule ID 50887ba8-7ff7-11ee-a038-f661ea17fbcd
+```
+
+Expected failure on rule_id collision:
+```
+python -m detection_rules kibana import-rules -d test-export-rules
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+Error loading rule in test-export-rules/credential_access_multiple_okta_user_auth_events_with_same_device_token_hash_behind_a_proxy.toml
+Traceback (most recent call last):
+  ...snipped stacktrace...
+AssertionError: Rule ID 50887ba8-7ff7-11ee-a038-f661ea17fbcd for Multiple Okta User Auth Events with Same Device Token Hash Behind a Proxy collides with rule Multiple Okta User Auth Events with Same Device Token Hash Behind a Proxy
+```
+
+Import a full directory - all fail as expected:
+```
+python -m detection_rules kibana import-rules -d test-export-rules
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+23 rule(s) failed to import!
+ - ee663abc-fb77-49d2-a7c5-204b9cf888ca: (409) rule_id: "ee663abc-fb77-49d2-a7c5-204b9cf888ca" already exists
+ - 50887ba8-aaaa-bbbb-a038-f661ea17fbcd: (409) rule_id: "50887ba8-aaaa-bbbb-a038-f661ea17fbcd" already exists
+ - 50887ba8-7ff7-11ee-a038-f661ea17fbcd: (409) rule_id: "50887ba8-7ff7-11ee-a038-f661ea17fbcd" already exists
+ - 8a0fbd26-867f-11ee-947c-f661ea17fbcd: (409) rule_id: "8a0fbd26-867f-11ee-947c-f661ea17fbcd" already exists
+ - aaaaaaaa-f861-414c-8602-150d5505b777: (409) rule_id: "aaaaaaaa-f861-414c-8602-150d5505b777" already exists
+ - 2f8a1226-5720-437d-9c20-e0029deb6194: (409) rule_id: "2f8a1226-5720-437d-9c20-e0029deb6194" already exists
+ - cd66a5af-e34b-4bb0-8931-57d0a043f2ef: (409) rule_id: "cd66a5af-e34b-4bb0-8931-57d0a043f2ef" already exists
+ - 2d8043ed-5bda-4caf-801c-c1feb7410504: (409) rule_id: "2d8043ed-5bda-4caf-801c-c1feb7410504" already exists
+ - d76b02ef-fc95-4001-9297-01cb7412232f: (409) rule_id: "d76b02ef-fc95-4001-9297-01cb7412232f" already exists
+ - cc382a2e-7e52-11ee-9aac-f661ea17fbcd: (409) rule_id: "cc382a2e-7e52-11ee-9aac-f661ea17fbcd" already exists
+ - 260486ee-7d98-11ee-9599-f661ea17fbcd: (409) rule_id: "260486ee-7d98-11ee-9599-f661ea17fbcd" already exists
+ - ee39a9f7-5a79-4b0a-9815-d36b3cf28d3e: (409) rule_id: "ee39a9f7-5a79-4b0a-9815-d36b3cf28d3e" already exists
+ - 1ceb05c4-7d25-11ee-9562-f661ea17fbcd: (409) rule_id: "1ceb05c4-7d25-11ee-9562-f661ea17fbcd" already exists
+ - 2e56e1bc-867a-11ee-b13e-f661ea17fbcd: (409) rule_id: "2e56e1bc-867a-11ee-b13e-f661ea17fbcd" already exists
+ - 621e92b6-7e54-11ee-bdc0-f661ea17fbcd: (409) rule_id: "621e92b6-7e54-11ee-bdc0-f661ea17fbcd" already exists
+ - a198fbbd-9413-45ec-a269-47ae4ccf59ce: (409) rule_id: "a198fbbd-9413-45ec-a269-47ae4ccf59ce" already exists
+ - 29b53942-7cd4-11ee-b70e-f661ea17fbcd: (409) rule_id: "29b53942-7cd4-11ee-b70e-f661ea17fbcd" already exists
+ - aaec44bc-d691-4874-99b2-48ab7392dfd5: (409) rule_id: "aaec44bc-d691-4874-99b2-48ab7392dfd5" already exists
+ - 40e1f208-0f70-47d4-98ea-378ccf504ad3: (409) rule_id: "40e1f208-0f70-47d4-98ea-378ccf504ad3" already exists
+ - 5e9bc07c-7e7a-415b-a6c0-1cae4a0d256e: (409) rule_id: "5e9bc07c-7e7a-415b-a6c0-1cae4a0d256e" already exists
+ - 17d99572-793d-41ae-8b55-cee30db13fa2: (409) rule_id: "17d99572-793d-41ae-8b55-cee30db13fa2" already exists
+ - 38accba8-894a-4f32-98d5-7cb01c82f5d6: (409) rule_id: "38accba8-894a-4f32-98d5-7cb01c82f5d6" already exists
+ - e1b7d2a6-d23a-4747-b621-d249d83162ea: (409) rule_id: "e1b7d2a6-d23a-4747-b621-d249d83162ea" already exists
+```
+
+Import a full directory, with `-o` forcing the updates successfully
+```
+python -m detection_rules kibana import-rules -d test-export-rules -o
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+23 rule(s) successfully imported
+ - ee663abc-fb77-49d2-a7c5-204b9cf888ca
+ - 50887ba8-aaaa-bbbb-a038-f661ea17fbcd
+ - 50887ba8-7ff7-11ee-a038-f661ea17fbcd
+ - 8a0fbd26-867f-11ee-947c-f661ea17fbcd
+ - aaaaaaaa-f861-414c-8602-150d5505b777
+ - 2f8a1226-5720-437d-9c20-e0029deb6194
+ - cd66a5af-e34b-4bb0-8931-57d0a043f2ef
+ - 2d8043ed-5bda-4caf-801c-c1feb7410504
+ - d76b02ef-fc95-4001-9297-01cb7412232f
+ - cc382a2e-7e52-11ee-9aac-f661ea17fbcd
+ - 260486ee-7d98-11ee-9599-f661ea17fbcd
+ - ee39a9f7-5a79-4b0a-9815-d36b3cf28d3e
+ - 1ceb05c4-7d25-11ee-9562-f661ea17fbcd
+ - 2e56e1bc-867a-11ee-b13e-f661ea17fbcd
+ - 621e92b6-7e54-11ee-bdc0-f661ea17fbcd
+ - a198fbbd-9413-45ec-a269-47ae4ccf59ce
+ - 29b53942-7cd4-11ee-b70e-f661ea17fbcd
+ - aaec44bc-d691-4874-99b2-48ab7392dfd5
+ - 40e1f208-0f70-47d4-98ea-378ccf504ad3
+ - 5e9bc07c-7e7a-415b-a6c0-1cae4a0d256e
+ - 17d99572-793d-41ae-8b55-cee30db13fa2
+ - 38accba8-894a-4f32-98d5-7cb01c82f5d6
+ - e1b7d2a6-d23a-4747-b621-d249d83162ea
+
+```
+
+</details>
+
+### Exporting rules
+
+This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way proper validation is applied to versioning when the rules are downloaded. See the [custom rules docs](docs/custom-rules.md) for more information.
+
+```
+python -m detection_rules kibana export-rules -h
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+Kibana client:
+Options:
+  --ignore-ssl-errors TEXT
+  --space TEXT                 Kibana space
+  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-
+                               saml (for SSO)
+  --provider-type TEXT         Elastic Cloud providers: basic and saml (for
+                               SSO)
+  -ku, --kibana-user TEXT
+  --kibana-url TEXT
+  -kp, --kibana-password TEXT
+  -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --api-key TEXT
+  --cloud-id TEXT              ID of the cloud instance.
+
+Usage: detection_rules kibana export-rules [OPTIONS]
+
+  Export custom rules from Kibana.
+
+Options:
+  -d, --directory PATH            Directory to export rules to  [required]
+  -acd, --action-connectors-directory PATH
+                                  Directory to export action connectors to
+  -ed, --exceptions-directory PATH
+                                  Directory to export exceptions to
+  -da, --default-author TEXT      Default author for rules missing one
+  -r, --rule-id TEXT              Optional Rule IDs to restrict export to
+  -ac, --export-action-connectors
+                                  Include action connectors in export
+  -e, --export-exceptions         Include exceptions in export
+  -s, --skip-errors               Skip errors when exporting rules
+  -sv, --strip-version            Strip the version fields from all rules
+  -h, --help                      Show this message and exit.
+
+```
+
+Example of a rule exporting, with errors skipped
+
+```
+python -m detection_rules kibana export-rules -d test-export-rules --skip-errors
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+- skipping Stolen Credentials Used to Login to Okta Account After MFA Reset - ValidationError
+- skipping First Occurrence of Okta User Session Started via Proxy - ValidationError
+- skipping ESQL test: cmd child of Explorer - ValidationError
+- skipping Potential Persistence Through Run Control Detected - ValidationError
+- skipping First Time Seen AWS Secret Value Accessed in Secrets Manager - ValidationError
+- skipping Potential Shadow File Read via Command Line Utilities - ValidationError
+- skipping Abnormal Process ID or Lock File Created - ValidationError
+- skipping New service installed in last 24 hours - ValidationError
+- skipping Scheduled Task or Driver added - KqlParseError
+- skipping Scheduled Task or Driver removed - KqlParseError
+- skipping name - ValidationError
+33 rules exported
+22 rules converted
+22 saved to test-export-rules
+11 errors saved to test-export-rules/_errors.txt
+```
+
+Directory of the output:
+
+```
+ls test-export-rules
+
+_errors.txt
+collection_exchange_mailbox_export_via_powershell.toml.toml
+credential_access_multiple_okta_user_auth_events_with_same_device_token_hash_behind_a_proxy.toml.toml
+credential_access_potential_okta_mfa_bombing_via_push_notifications.toml.toml
+defense_evasion_agent_spoofing_multiple_hosts_using_same_agent.toml.toml
+defense_evasion_attempt_to_disable_syslog_service.toml.toml
+defense_evasion_kernel_module_removal.toml.toml
+discovery_enumeration_of_kernel_modules.toml.toml
+execution_interactive_terminal_spawned_via_python.toml.toml
+initial_access_multiple_okta_client_addresses_for_a_single_user_session.toml.toml
+initial_access_new_okta_authentication_behavior_detected.toml.toml
+initial_access_okta_fastpass_phishing_detection.toml.toml
+initial_access_okta_sign_in_events_via_third_party_idp.toml.toml
+initial_access_okta_user_sessions_started_from_different_geolocations.toml.toml
+lateral_movement_multiple_okta_sessions_detected_for_a_single_user.toml.toml
+my_first_alert.toml.toml
+persistence_new_okta_identity_provider_idp_added_by_admin.toml.toml
+test_data_view.toml.toml
+test_noisy.toml.toml
+test_suppress.toml.toml
+web_application_suspicious_activity_post_request_declined.toml.toml
+web_application_suspicious_activity_sqlmap_user_agent.toml.toml
+web_application_suspicious_activity_unauthorized_method.toml.toml
+```
+
+Output of the `_errors.txt` file:
+
+```
+cat test-export-rules/_errors.txt
+- Stolen Credentials Used to Login to Okta Account After MFA Reset - {'_schema': ['Setup header found in both note and setup fields.']}
+- First Occurrence of Okta User Session Started via Proxy - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}
+- ESQL test: cmd child of Explorer - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}, 'language': ['Must be equal to eql.']}), ValidationError({'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}}), ValidationError({'type': ['Must be equal to threshold.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}, 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}, 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}, 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}}), ValidationError({'type': ['Must be equal to new_terms.'], 'threat': {0: {'tactic': {'reference': ['String does not match expected pattern.']}, 'technique': {0: {'reference': ['String does not match expected pattern.']}}}}, 'new_terms': ['Missing data for required field.']})]}
+- Potential Persistence Through Run Control Detected - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}
+- First Time Seen AWS Secret Value Accessed in Secrets Manager - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}
+- Potential Shadow File Read via Command Line Utilities - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}
+- Abnormal Process ID or Lock File Created - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}
+- New service installed in last 24 hours - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}
+- Scheduled Task or Driver added - Error at line:1,column:75
+Unknown field
+data_stream.dataset:osquery_manager.result and osquery_meta.counter>0 and osquery_meta.type:diff and osquery.last_run_code:0 and osquery_meta.action:added
+                                                                          ^^^^^^^^^^^^^^^^^
+stack: 8.9.0, beats: 8.9.0, ecs: 8.9.0
+- Scheduled Task or Driver removed - Error at line:1,column:75
+Unknown field
+data_stream.dataset:osquery_manager.result and osquery_meta.counter>0 and osquery_meta.type:diff and osquery.last_run_code:0 and osquery_meta.action:removed
+                                                                          ^^^^^^^^^^^^^^^^^
+stack: 8.9.0, beats: 8.9.0, ecs: 8.9.0
+- name - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}(venv312) ➜  detection-rules-fork git:(refresh-kibana-module-with-new-APIs) ✗
+```
 
 
 ## Converting between JSON and TOML
