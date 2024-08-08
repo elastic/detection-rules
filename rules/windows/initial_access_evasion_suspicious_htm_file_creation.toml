@@ -2,7 +2,9 @@
 creation_date = "2022/07/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2024/08/06"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +17,7 @@ index = ["logs-endpoint.events.process-*", "logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious HTML File Creation"
+note = "This rule may have a low to medium performance impact due variety of file paths potentially matching each EQL sequence."
 risk_score = 47
 rule_id = "f0493cb4-9b15-43a9-9359-68c23a7f2cf3"
 setup = """## Setup
@@ -36,22 +39,33 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by user.id with maxspan=5m
+sequence by user.id with maxspan=2m
+
  [file where host.os.type == "windows" and event.action in ("creation", "rename") and
-  file.extension : ("htm", "html") and
-   file.path : ("?:\\Users\\*\\Downloads\\*",
-                "?:\\Users\\*\\Content.Outlook\\*",
-                "?:\\Users\\*\\AppData\\Local\\Temp\\Temp?_*",
-                "?:\\Users\\*\\AppData\\Local\\Temp\\7z*",
-                "?:\\Users\\*\\AppData\\Local\\Temp\\Rar$*") and
-   ((file.Ext.entropy >= 5 and file.size >= 150000) or file.size >= 1000000)]
+
+  /* Check for HTML files with high entropy and size */
+  file.extension : ("htm", "html") and ((file.Ext.entropy >= 5 and file.size >= 150000) or file.size >= 1000000) and
+
+  /* Check for file paths in common download and temporary directories */
+  file.path : (
+    "?:\\Users\\*\\Downloads\\*",
+    "?:\\Users\\*\\Content.Outlook\\*",
+    "?:\\Users\\*\\AppData\\Local\\Temp\\Temp?_*",
+    "?:\\Users\\*\\AppData\\Local\\Temp\\7z*",
+    "?:\\Users\\*\\AppData\\Local\\Temp\\Rar$*")]
  [process where host.os.type == "windows" and event.action == "start" and
   (
+   /* Check for browser processes opening HTML files with single argument */
    (process.name in ("chrome.exe", "msedge.exe", "brave.exe", "whale.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "opera.exe")
     and process.args == "--single-argument") or
+
+   /* Optionally, check for browser processes opening HTML files with two arguments */
    (process.name == "iexplore.exe" and process.args_count == 2) or
+
+   /* Optionally, check for browser processes opening HTML files with URL argument */
    (process.name in ("firefox.exe", "waterfox.exe") and process.args == "-url")
   )
+  /* Check for file paths in common download and temporary directories targeted in the process arguments */
   and process.args : ("?:\\Users\\*\\Downloads\\*.htm*",
                       "?:\\Users\\*\\Content.Outlook\\*.htm*",
                       "?:\\Users\\*\\AppData\\Local\\Temp\\Temp?_*.htm*",
