@@ -1,0 +1,67 @@
+[metadata]
+creation_date = "2024/07/24"
+integration = ["endpoint", "windows", "system","sentinel_one_cloud_funnel", "m365_defender"]
+maturity = "production"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+min_stack_version = "8.13.0"
+updated_date = "2024/07/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+An adversary can use the Windows command line debugging utility cdb.exe to execute commands or shellcode. This rule looks
+for those instances and where the cdb.exe binary is outside of the normal WindowsKit installation paths.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*", "logs-m365_defender.event-*", "logs-system.security-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Execution via Windows Command Debugging Utility"
+references = ["https://lolbas-project.github.io/lolbas/OtherMSBinaries/Cdb/"]
+risk_score = 47
+rule_id = "bdfaddc4-4438-48b4-bc43-9f5cf8151c46"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ (?process.pe.original_file_name == "CDB.Exe" or process.name : "cdb.exe") and
+  process.args : ("-cf", "-c", "-pd") and
+  not process.executable : ("?:\\Program Files (x86)\\*\\cdb.exe", "?:\\Program Files\\*\\cdb.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
