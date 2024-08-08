@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -33,7 +33,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type in ("creation", "change") and
+registry where host.os.type == "windows" and event.type == "change" and
  length(registry.data.strings) > 0 and
  registry.path : (
       "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
@@ -92,7 +92,20 @@ registry where host.os.type == "windows" and event.type in ("creation", "change"
                            "C:\\Windows\\SysWOW64\\msiexec.exe",
                            "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
                            "C:\\Program Files\\*.exe",
-                           "C:\\Program Files (x86)\\*.exe")
+                           "C:\\Program Files (x86)\\*.exe") and
+ not (process.name : ("TiWorker.exe", "poqexec.exe") and registry.value : "SetupExecute" and
+      registry.data.strings : (
+        "C:\\windows\\System32\\poqexec.exe /display_progress \\SystemRoot\\WinSxS\\pending.xml",
+        "C:\\Windows\\System32\\poqexec.exe /skip_critical_poq /display_progress \\SystemRoot\\WinSxS\\pending.xml"
+      )
+     ) and
+ not (process.name : "svchost.exe" and registry.value : "SCRNSAVE.EXE" and
+      registry.data.strings : (
+        "%windir%\\system32\\rundll32.exe user32.dll,LockWorkStation",
+        "scrnsave.scr",
+        "%windir%\\system32\\Ribbons.scr"
+      )
+     )
 '''
 
 
