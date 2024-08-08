@@ -2,7 +2,7 @@
 creation_date = "2021/01/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/05"
 
 [transform]
 [[transform.osquery]]
@@ -111,7 +111,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type:"change" and
+registry where host.os.type == "windows" and event.type == "change" and
   registry.path: (
     "HKLM\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*",
     "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*"
@@ -121,7 +121,8 @@ registry where host.os.type == "windows" and event.type:"change" and
   (
     process.executable : "?:\\Windows\\System32\\msiexec.exe" and
     registry.data.strings : "?:\\Program Files\\VMware\\VMware Tools\\vmwTimeProvider\\vmwTimeProvider.dll"
-  )
+  ) and
+  not registry.data.strings : "C:\\Windows\\SYSTEM32\\w32time.DLL"
 '''
 
 

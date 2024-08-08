@@ -2,7 +2,7 @@
 creation_date = "2020/11/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -32,12 +32,14 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and registry.path : (
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.value : "ImagePath" and
+  registry.path : (
     "HKLM\\SYSTEM\\ControlSet*\\Services\\*\\ImagePath",
     "\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet*\\Services\\*\\ImagePath"
     ) and
- /* add suspicious registry ImagePath values here */
-    registry.data.strings : ("%COMSPEC%*", "*\\.\\pipe\\*")
+  /* add suspicious registry ImagePath values here */
+  registry.data.strings : ("%COMSPEC%*", "*\\.\\pipe\\*")
 '''
 
 
