@@ -2,7 +2,7 @@
 creation_date = "2023/01/31"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/05"
 
 [transform]
 [[transform.osquery]]
@@ -99,16 +99,13 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type : ("creation", "change") and
-(
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.value: "BehaviorOnFailedVerify" and
   registry.path : (
     "HKEY_USERS\\*\\Software\\Policies\\Microsoft\\Windows NT\\Driver Signing\\BehaviorOnFailedVerify",
     "HKU\\*\\Software\\Policies\\Microsoft\\Windows NT\\Driver Signing\\BehaviorOnFailedVerify",
     "\\REGISTRY\\USER\\*\\Software\\Policies\\Microsoft\\Windows NT\\Driver Signing\\BehaviorOnFailedVerify"
-  ) and
-  registry.value: "BehaviorOnFailedVerify" and
-  registry.data.strings : ("0", "0x00000000", "1", "0x00000001")
-)
+  ) and registry.data.strings : ("0", "0x00000000", "1", "0x00000001")
 '''
 
 
