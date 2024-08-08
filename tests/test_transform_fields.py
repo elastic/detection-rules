@@ -6,7 +6,6 @@
 """Test fields in TOML [transform]."""
 import copy
 import unittest
-from pathlib import Path
 from textwrap import dedent
 
 import pytoml
@@ -14,8 +13,6 @@ import pytoml
 from detection_rules.devtools import guide_plugin_convert_
 from detection_rules.rule import TOMLRule, TOMLRuleContents
 from detection_rules.rule_loader import RuleCollection
-
-RULES_DIR = Path(__file__).parent.parent / 'rules'
 
 
 class TestGuideMarkdownPlugins(unittest.TestCase):
@@ -33,8 +30,62 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
     @staticmethod
     def load_rule() -> TOMLRule:
         rc = RuleCollection()
-        windows_rule = list(RULES_DIR.joinpath('windows').glob('*.toml'))[0]
-        sample_rule = rc.load_file(windows_rule)
+        windows_rule = {
+            "metadata": {
+                "creation_date": "2020/08/14",
+                "updated_date": "2024/03/28",
+                "integration": ["endpoint"],
+                "maturity": "production",
+                "min_stack_version": "8.3.0",
+                "min_stack_comments": "New fields added: required_fields, related_integrations, setup",
+            },
+            "rule": {
+                "author": ["Elastic"],
+                "description": "This is a test.",
+                "license": "Elastic License v2",
+                "from": "now-9m",
+                "name": "Test Suspicious Print Spooler SPL File Created",
+                "note": 'Test note',
+                "references": ["https://safebreach.com/Post/How-we-bypassed-CVE-2020-1048-Patch-and-got-CVE-2020-1337"],
+                "risk_score": 47,
+                "rule_id": "43716252-4a45-4694-aff0-5245b7b6c7cd",
+                "setup": "Test setup",
+                "severity": "medium",
+                "tags": [
+                    "Domain: Endpoint",
+                    "OS: Windows",
+                    "Use Case: Threat Detection",
+                    "Tactic: Privilege Escalation",
+                    "Resources: Investigation Guide",
+                    "Data Source: Elastic Endgame",
+                    "Use Case: Vulnerability",
+                    "Data Source: Elastic Defend",
+                ],
+                "timestamp_override": "event.ingested",
+                "type": "eql",
+                "threat": [
+                    {
+                        "framework": "MITRE ATT&CK",
+                        "tactic": {
+                            "id": "TA0004",
+                            "name": "Privilege Escalation",
+                            "reference": "https://attack.mitre.org/tactics/TA0004/",
+                        },
+                        "technique": [
+                            {
+                                "id": "T1068",
+                                "name": "Exploitation for Privilege Escalation",
+                                "reference": "https://attack.mitre.org/techniques/T1068/",
+                            }
+                        ],
+                    }
+                ],
+                "index": ["logs-endpoint.events.file-*", "endgame-*"],
+                "query": 'file where host.os.type == "windows" and event.type != "deletion"',
+                "language": "eql",
+            },
+        }
+        sample_rule = rc.load_dict(windows_rule)
         return sample_rule
 
     def test_transform_guide_markdown_plugins(self) -> None:
