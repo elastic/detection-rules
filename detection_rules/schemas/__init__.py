@@ -10,11 +10,12 @@ from typing import OrderedDict as OrderedDictType
 import jsonschema
 from semver import Version
 
-from ..misc import load_current_package_version
-from ..utils import cached, get_etc_path, load_etc_dump
+from ..config import load_current_package_version, parse_rules_config
+from ..utils import cached, get_etc_path
 from . import definitions
 from .rta_schema import validate_rta_mapping
 from .stack_compat import get_incompatible_fields
+
 
 __all__ = (
     "SCHEMA_DIR",
@@ -28,13 +29,14 @@ __all__ = (
     "all_versions",
 )
 
+RULES_CONFIG = parse_rules_config()
 SCHEMA_DIR = get_etc_path("api_schemas")
 migrations = {}
 
 
 def all_versions() -> List[str]:
     """Get all known stack versions."""
-    return [str(v) for v in sorted(migrations)]
+    return [str(v) for v in sorted(migrations, key=lambda x: Version.parse(x, optional_minor_and_patch=True))]
 
 
 def migrate(version: str):
@@ -311,12 +313,15 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
 
 @cached
 def load_stack_schema_map() -> dict:
-    return load_etc_dump('stack-schema-map.yaml')
+    return RULES_CONFIG.stack_schema_map
 
 
 @cached
 def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType[str, dict]:
-    """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
+    """
+    Return all ECS, beats, and custom stack versions for every stack version.
+    Only versions >= specified stack version and <= package are returned.
+    """
     stack_version = Version.parse(stack_version or '0.0.0', optional_minor_and_patch=True)
     current_package = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
 
