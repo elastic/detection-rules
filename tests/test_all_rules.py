@@ -190,13 +190,13 @@ class TestValidRules(BaseRuleTest):
     def test_index_or_data_view_id_present(self):
         """Ensure that either 'index' or 'data_view_id' is present for prebuilt rules."""
         failures = []
+        machine_learning_packages = [val.lower() for val in definitions.MACHINE_LEARNING_PACKAGES]
         for rule in self.all_rules:
             rule_type = rule.contents.data.get('language')
             rule_integrations = rule.contents.metadata.get('integration') or []
             if rule_type == 'esql':
                 continue  # the index is part of the query and would be validated in the query
-            elif rule.contents.data.type == 'machine_learning' or rule_integrations == \
-                    any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)] for ri in rule_integrations):
+            elif rule.contents.data.type == 'machine_learning' or rule_integrations in machine_learning_packages:
                 continue  # Skip all rules of machine learning type or rules that are part of machine learning packages
             elif rule.contents.data.type == 'threat_match':
                 continue  # Skip all rules of threat_match type
