@@ -2,7 +2,7 @@
 creation_date = "2021/03/22"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Identifies NullSessionPipe registry modifications that specify which pipes can b
 indicative of adversary lateral movement preparation by making the added pipe available to everyone.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*"]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "NullSessionPipe Registry Modification"
@@ -36,11 +36,12 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type in ("creation", "change") and
+registry where host.os.type == "windows" and event.type == "change" and
 registry.path : (
     "HKLM\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes",
     "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes"
-) and length(registry.data.strings) > 0
+) and length(registry.data.strings) > 0 and
+not registry.data.strings : "(empty)"
 '''
 
 

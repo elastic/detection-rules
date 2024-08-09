@@ -2,7 +2,7 @@
 creation_date = "2021/10/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/06/27"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Austin Songer"]
@@ -87,41 +87,37 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type in ("creation", "change") and
- process.executable != null and 
-  not process.executable :
-              ("?:\\Windows\\system32\\svchost.exe", 
-               "?:\\Windows\\CCM\\CcmExec.exe", 
-               "?:\\Windows\\System32\\DeviceEnroller.exe", 
-               "?:\\Program Files (x86)\\Trend Micro\\Security Agent\\tmuninst.exe") and 
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\PUAProtection" and
-  registry.data.strings : ("0", "0x00000000")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender Security Center\\App and Browser protection\\DisallowExploitProtectionOverride" and
-  registry.data.strings : ("0", "0x00000000")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware" and
-  registry.data.strings : ("1", "0x00000001")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Features\\TamperProtection" and
-  registry.data.strings : ("0", "0x00000000")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring" and
-  registry.data.strings : ("1", "0x00000001")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableIntrusionPreventionSystem" and
-  registry.data.strings : ("1", "0x00000001")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableScriptScanning" and
-  registry.data.strings : ("1", "0x00000001")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Windows Defender Exploit Guard\\Controlled Folder Access\\EnableControlledFolderAccess" and
-  registry.data.strings : ("0", "0x00000000")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableIOAVProtection" and
-  registry.data.strings : ("1", "0x00000001")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Reporting\\DisableEnhancedNotifications" and
-  registry.data.strings : ("1", "0x00000001")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\DisableBlockAtFirstSeen" and
-  registry.data.strings : ("1", "0x00000001")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\SpynetReporting" and
-  registry.data.strings : ("0", "0x00000000")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\SubmitSamplesConsent" and
-  registry.data.strings : ("0", "0x00000000")) or
-  (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring" and
-  registry.data.strings : ("1", "0x00000001"))
+registry where host.os.type == "windows" and event.type == "change" and process.executable != null and
+  (
+    (
+      registry.path : (
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\PUAProtection",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender Security Center\\App and Browser protection\\DisallowExploitProtectionOverride",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Features\\TamperProtection",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Windows Defender Exploit Guard\\Controlled Folder Access\\EnableControlledFolderAccess",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\SpynetReporting",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\SubmitSamplesConsent"
+      ) and registry.data.strings : ("0", "0x00000000")
+    ) or
+    (
+      registry.path : (
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableIntrusionPreventionSystem",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableScriptScanning",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableIOAVProtection",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Reporting\\DisableEnhancedNotifications",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\DisableBlockAtFirstSeen",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring"
+      ) and registry.data.strings : ("1", "0x00000001")
+    )
+  ) and
+  not process.executable : (
+    "?:\\Windows\\system32\\svchost.exe", 
+    "?:\\Windows\\CCM\\CcmExec.exe", 
+    "?:\\Windows\\System32\\DeviceEnroller.exe", 
+    "?:\\Program Files (x86)\\Trend Micro\\Security Agent\\tmuninst.exe"
+  )
 '''
 
 
