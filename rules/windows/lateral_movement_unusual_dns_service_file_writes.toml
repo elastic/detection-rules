@@ -2,7 +2,7 @@
 creation_date = "2020/07/16"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/06"
 
 [rule]
 author = ["Elastic"]
@@ -29,14 +29,6 @@ references = [
 ]
 risk_score = 73
 rule_id = "c7ce36c0-32ff-4f9a-bfc2-dcb242bf99f9"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -54,7 +46,10 @@ type = "eql"
 query = '''
 file where host.os.type == "windows" and process.name : "dns.exe" and event.type in ("creation", "deletion", "change") and
   not file.name : "dns.log" and not
-  (file.extension : ("old", "temp", "bak", "dns", "arpa") and file.path : "C:\\Windows\\System32\\dns\\*")
+  (file.extension : ("old", "temp", "bak", "dns", "arpa") and file.path : "C:\\Windows\\System32\\dns\\*") and
+
+  /* DNS logs with custom names, header converts to "DNS Server log" */
+  not ?file.Ext.header_bytes : "444e5320536572766572206c6f67*"
 '''
 
 
