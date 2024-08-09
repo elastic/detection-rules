@@ -2,7 +2,7 @@
 creation_date = "2023/02/22"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/08"
 
 [rule]
 author = ["Elastic"]
@@ -56,11 +56,12 @@ type = "eql"
 
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
- (
+  (
    /* disable FW */
    (
      (process.name == "ufw" and process.args == "disable") or
-     (process.name == "iptables" and process.args == "-F" and process.args_count == 2)
+     (process.name == "iptables" and process.args in ("-F", "--flush", "-X", "--delete-chain") and process.args_count == 2) or
+     (process.name in ("iptables", "ip6tables") and process.parent.args == "force-stop")
    ) or
 
    /* stop FW service */
@@ -68,27 +69,25 @@ process where host.os.type == "linux" and event.type == "start" and event.action
      ((process.name == "service" and process.args == "stop") or
        (process.name == "chkconfig" and process.args == "off") or
        (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))) and
-    process.args in ("firewalld", "ip6tables", "iptables")
+    process.args in ("firewalld", "ip6tables", "iptables", "firewalld.service", "ip6tables.service", "iptables.service")
     )
   )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
