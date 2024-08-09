@@ -2,7 +2,7 @@
 creation_date = "2021/11/08"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/08/09"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Detects the first occurrence of a modification to Group Policy Object Attributes
 use them to add users as local admins.
 """
 index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Group Policy Abuse for Privilege Addition"
 note = """## Triage and analysis
@@ -76,12 +76,13 @@ tags = [
     "Data Source: System",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.code: "5136" and
-  winlog.event_data.AttributeLDAPDisplayName:"gPCMachineExtensionNames" and
-  winlog.event_data.AttributeValue:(*827D319E-6EAC-11D2-A4EA-00C04F79F83A* and *803E14A0-B4FB-11D0-A0D0-00A0C90F574B*)
+any where host.os.type == "windows" and event.code: "5136" and
+  winlog.event_data.AttributeLDAPDisplayName: "gPCMachineExtensionNames" and
+  winlog.event_data.AttributeValue: "*827D319E-6EAC-11D2-A4EA-00C04F79F83A*" and
+  winlog.event_data.AttributeValue: "*803E14A0-B4FB-11D0-A0D0-00A0C90F574B*"
 '''
 
 
