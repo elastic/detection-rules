@@ -187,6 +187,31 @@ class TestValidRules(BaseRuleTest):
             """
             self.fail(fail_msg + '\n'.join(failures))
 
+    def test_index_or_data_view_id_present(self):
+        """Ensure that either 'index' or 'data_view_id' is present for prebuilt rules."""
+        failures = []
+        machine_learning_packages = [val.lower() for val in definitions.MACHINE_LEARNING_PACKAGES]
+        for rule in self.all_rules:
+            rule_type = rule.contents.data.get('language')
+            rule_integrations = rule.contents.metadata.get('integration') or []
+            if rule_type == 'esql':
+                continue  # the index is part of the query and would be validated in the query
+            elif rule.contents.data.type == 'machine_learning' or rule_integrations in machine_learning_packages:
+                continue  # Skip all rules of machine learning type or rules that are part of machine learning packages
+            elif rule.contents.data.type == 'threat_match':
+                continue  # Skip all rules of threat_match type
+            else:
+                index = rule.contents.data.get('index')
+                data_view_id = rule.contents.data.get('data_view_id')
+                if index is None and data_view_id is None:
+                    err_msg = f'{self.rule_str(rule)} does not have either index or data_view_id'
+                    failures.append(err_msg)
+        if failures:
+            fail_msg = """
+            The following prebuilt rules do not have either 'index' or 'data_view_id' \n
+            """
+            self.fail(fail_msg + '\n'.join(failures))
+
 
 class TestThreatMappings(BaseRuleTest):
     """Test threat mapping data for rules."""
