@@ -2,14 +2,14 @@
 creation_date = "2021/11/08"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/08/09"
 
 [rule]
 author = ["Elastic"]
 description = "Detects the modification of Group Policy Objects (GPO) to add a startup/logon script to users or computer objects."
 false_positives = ["Legitimate Administrative Activity"]
 index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Startup/Logon Script added to Group Policy Object"
 note = """## Triage and analysis
@@ -94,19 +94,27 @@ tags = [
     "Data Source: System",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
+any where host.os.type == "windows" and event.code in ("5136", "5145") and
 (
- event.code:5136 and winlog.event_data.AttributeLDAPDisplayName:(gPCMachineExtensionNames or gPCUserExtensionNames) and
-   winlog.event_data.AttributeValue:(*42B5FAAE-6536-11D2-AE5A-0000F87571E3* and
-                                      (*40B66650-4972-11D1-A7CA-0000F87571E3* or *40B6664F-4972-11D1-A7CA-0000F87571E3*))
-)
-or
-(
- event.code:5145 and winlog.event_data.ShareName:\\\\*\\SYSVOL and
-   winlog.event_data.RelativeTargetName:(*\\scripts.ini or *\\psscripts.ini) and
-   (message:WriteData or winlog.event_data.AccessList:*%%4417*)
+  (
+    winlog.event_data.AttributeLDAPDisplayName : (
+      "gPCMachineExtensionNames",
+      "gPCUserExtensionNames"
+    ) and
+    winlog.event_data.AttributeValue : "*42B5FAAE-6536-11D2-AE5A-0000F87571E3*" and
+    winlog.event_data.AttributeValue : (
+      "*40B66650-4972-11D1-A7CA-0000F87571E3*",
+      "*40B6664F-4972-11D1-A7CA-0000F87571E3*"
+    )
+  ) or
+  (
+    winlog.event_data.ShareName : "\\\\*\\SYSVOL" and
+    winlog.event_data.RelativeTargetName : ("*\\scripts.ini", "*\\psscripts.ini") and
+    winlog.event_data.AccessList:"*%%4417*"
+  )
 )
 '''
 
