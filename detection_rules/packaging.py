@@ -19,16 +19,19 @@ from semver import Version
 import click
 import yaml
 
-from .misc import JS_LICENSE, cached, load_current_package_version
+from .config import load_current_package_version, parse_rules_config
+from .misc import JS_LICENSE, cached
 from .navigator import NavigatorBuilder, Navigator
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
-from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR, DEFAULT_BBR_DIR
+from .rule_loader import DeprecatedCollection, RuleCollection
 from .schemas import definitions
-from .utils import Ndjson, get_path, get_etc_path, load_etc_dump
-from .version_lock import default_version_lock
+from .utils import Ndjson, get_path, get_etc_path
+from .version_lock import loaded_version_lock
 
+
+RULES_CONFIG = parse_rules_config()
 RELEASE_DIR = get_path("releases")
-PACKAGE_FILE = get_etc_path('packages.yaml')
+PACKAGE_FILE = str(RULES_CONFIG.packages_file)
 NOTICE_FILE = get_path('NOTICE.txt')
 FLEET_PKG_LOGO = get_etc_path("security-logo-color-64px.svg")
 
@@ -62,7 +65,7 @@ def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: Optional[di
         unique_fields = get_unique_query_fields(rule)
 
         for index, fields in exclude_fields.items():
-            if unique_fields and (rule.contents.data.index == index or index == 'any'):
+            if unique_fields and (rule.contents.data.index_or_dataview == index or index == 'any'):
                 if set(unique_fields) & set(fields):
                     return False
 
@@ -89,18 +92,19 @@ class Package(object):
         self.historical = historical
 
         if min_version is not None:
-            self.rules = self.rules.filter(lambda r: min_version <= r.contents.latest_version)
+            self.rules = self.rules.filter(lambda r: min_version <= r.contents.saved_version)
 
         if max_version is not None:
-            self.rules = self.rules.filter(lambda r: max_version >= r.contents.latest_version)
+            self.rules = self.rules.filter(lambda r: max_version >= r.contents.saved_version)
 
+        assert not RULES_CONFIG.bypass_version_lock, "Packaging can not be used when version locking is bypassed."
         self.changed_ids, self.new_ids, self.removed_ids = \
-            default_version_lock.manage_versions(self.rules, verbose=verbose, save_changes=False)
+            loaded_version_lock.manage_versions(self.rules, verbose=verbose, save_changes=False)
 
     @classmethod
     def load_configs(cls):
-        """Load configs from packages.yml."""
-        return load_etc_dump(str(PACKAGE_FILE))['package']
+        """Load configs from packages.yaml."""
+        return RULES_CONFIG.packages['package']
 
     @staticmethod
     def _package_kibana_notice_file(save_dir):
@@ -223,9 +227,10 @@ class Package(object):
         return sha256
 
     @classmethod
-    def from_config(cls, config: dict = None, verbose: bool = False, historical: bool = True) -> 'Package':
+    def from_config(cls, rule_collection: Optional[RuleCollection] = None, config: Optional[dict] = None,
+                    verbose: Optional[bool] = False) -> 'Package':
         """Load a rules package given a config."""
-        all_rules = RuleCollection.default()
+        all_rules = rule_collection or RuleCollection.default()
         config = config or {}
         exclude_fields = config.pop('exclude_fields', {})
         # deprecated rules are now embedded in the RuleCollection.deprecated - this is left here for backwards compat
@@ -240,7 +245,7 @@ class Package(object):
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
-        package = cls(rules, verbose=verbose, historical=historical, **config)
+        package = cls(rules, verbose=verbose, **config)
 
         return package
 
@@ -473,10 +478,10 @@ class Package(object):
 
             bulk_upload_docs.append(create)
 
-            try:
-                relative_path = str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR))
-            except ValueError:
-                relative_path = str(rule.path.resolve().relative_to(DEFAULT_BBR_DIR))
+            relative_path = str(rule.get_base_rule_dir())
+
+            if relative_path is None:
+                raise ValueError(f"Could not find a valid relative path for the rule: {rule.id}")
 
             rule_doc = dict(hash=rule.contents.sha256(),
                             source='repo',
