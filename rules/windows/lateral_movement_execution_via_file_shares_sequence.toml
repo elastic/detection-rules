@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/06"
 
 [transform]
 [[transform.osquery]]
@@ -121,8 +121,16 @@ sequence with maxspan=1m
       /* PDQ related processes */
       (
         process.name : (
-          "PDQInventoryScanner.exe", "PDQInventoryMonitor.exe", "PDQInventory-Scanner-?.exe", "PDQInventoryWakeCommand-?.exe"
+          "PDQInventoryScanner.exe", "PDQInventoryMonitor.exe", "PDQInventory-Scanner-?.exe",
+          "PDQInventoryWakeCommand-?.exe", "PDQDeployRunner-?.exe"
         ) and process.code_signature.trusted == true and process.code_signature.subject_name : "PDQ.com Corporation"
+      ) or
+      /* CrowdStrike related processes */
+      (
+        (process.executable : "?:\\Windows\\System32\\drivers\\CrowdStrike\\*-WindowsSensor.*.exe" and 
+         process.code_signature.trusted == true and process.code_signature.subject_name : "CrowdStrike, Inc.") or
+        (process.executable : "?:\\Windows\\System32\\drivers\\CrowdStrike\\*-CsInstallerService.exe" and 
+         process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Windows Hardware Compatibility Publisher")
       )
     )
   ] by host.id, process.executable
