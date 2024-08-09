@@ -2,7 +2,7 @@
 creation_date = "2021/11/08"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/08/09"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Detects the modification of Group Policy Object attributes to execute a schedule
 GPO.
 """
 index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Scheduled Task Execution at Scale via GPO"
 note = """## Triage and analysis
@@ -97,14 +97,25 @@ tags = [
     "Data Source: System",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-(event.code: "5136" and winlog.event_data.AttributeLDAPDisplayName:("gPCMachineExtensionNames" or "gPCUserExtensionNames") and
-   winlog.event_data.AttributeValue:(*CAB54552-DEEA-4691-817E-ED4A4D1AFC72* and *AADCED64-746C-4633-A97C-D61349046527*))
-or
-(event.code: "5145" and winlog.event_data.ShareName: "\\\\*\\SYSVOL" and winlog.event_data.RelativeTargetName: *ScheduledTasks.xml and
-  (message: WriteData or winlog.event_data.AccessList: *%%4417*))
+any where host.os.type == "windows" and event.code in ("5136", "5145") and
+(
+  (
+    winlog.event_data.AttributeLDAPDisplayName : (
+      "gPCMachineExtensionNames",
+      "gPCUserExtensionNames"
+    ) and
+    winlog.event_data.AttributeValue : "*CAB54552-DEEA-4691-817E-ED4A4D1AFC72*" and
+    winlog.event_data.AttributeValue : "*AADCED64-746C-4633-A97C-D61349046527*"
+  ) or
+  (
+    winlog.event_data.ShareName : "\\\\*\\SYSVOL" and
+    winlog.event_data.RelativeTargetName : "*ScheduledTasks.xml" and
+    winlog.event_data.AccessList:"*%%4417*"
+  )
+)
 '''
 
 
