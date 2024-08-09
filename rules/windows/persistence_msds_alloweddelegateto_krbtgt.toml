@@ -2,7 +2,7 @@
 creation_date = "2022/01/27"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/08/09"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ maintain persistence to the domain by having the ability to request tickets for 
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "KRBTGT Delegation Backdoor"
 references = [
@@ -48,11 +48,11 @@ tags = [
     "Data Source: System",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.action:modified-user-account and event.code:4738 and
-  winlog.event_data.AllowedToDelegateTo:*krbtgt*
+iam where event.action == "modified-user-account" and event.code == "4738" and
+  winlog.event_data.AllowedToDelegateTo : "*krbtgt*"
 '''
 
 
