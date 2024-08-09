@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/08"
 
 [transform]
 [[transform.osquery]]
@@ -47,6 +47,10 @@ language = "eql"
 license = "Elastic License v2"
 name = "MsBuild Making Network Connections"
 note = """## Triage and analysis
+
+### Performance
+
+The performance impact of this rule is expected to be low to medium because of the first sequence, which looks for MsBuild.exe process execution. The events for this first sequence may be noisy, consider adding exceptions.
 
 ### Investigating MsBuild Making Network Connections
 
@@ -101,6 +105,7 @@ This rule looks for the `Msbuild.exe` utility execution, followed by a network c
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+references = ["https://riccardoancarani.github.io/2019-10-19-hunting-covenant-msbuild/"]
 risk_score = 47
 rule_id = "0e79980b-4250-4a50-a509-69294c14e84b"
 severity = "medium"
@@ -116,11 +121,32 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by process.entity_id
-  [process where host.os.type == "windows" and process.name : "MSBuild.exe" and event.type == "start"]
-  [network where host.os.type == "windows" and process.name : "MSBuild.exe" and
-     not cidrmatch(destination.ip, "127.0.0.1", "::1") and
-     not dns.question.name : "localhost"]
+sequence by process.entity_id with maxspan=30s
+
+  /* Look for MSBuild.exe process execution */
+  /* The events for this first sequence may be noisy, consider adding exceptions */
+  [process where host.os.type == "windows"
+    and (
+          process.pe.original_file_name: "MSBuild.exe" or
+          process.name: "MSBuild.exe"
+        )
+    and event.type == "start" and user.id != "S-1-5-18"]
+
+  /* Followed by a network connection to an external address */
+  /* Exclude domains that are known to be benign */
+  [network where host.os.type == "windows"
+    and event.action: ("connection_attempted", "lookup_requested")
+    and (
+          process.pe.original_file_name: "MSBuild.exe" or
+          process.name: "MSBuild.exe"
+        )
+    and not user.id != "S-1-5-18" and
+    not cidrmatch(destination.ip, "127.0.0.1", "::1") and
+    not dns.question.name : (
+      "localhost",
+      "dc.services.visualstudio.com",
+      "vortex.data.microsoft.com",
+      "api.nuget.org")]
 '''
 
 
