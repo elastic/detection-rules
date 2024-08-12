@@ -1,0 +1,71 @@
+name: Push Latest Rules to Elastic Security Space
+
+on:
+  push:
+    branches:
+      - DAC-feature
+    paths:
+      - '**/*.toml'
+  workflow_dispatch:
+    inputs:
+      overwrite:
+        description: 'Overwrite existing rules'
+        required: false
+        default: 'true'
+      overwrite_exceptions:
+        description: 'Overwrite existing exceptions'
+        required: false
+        default: 'true'
+      overwrite_action_connectors:
+        description: 'Overwrite existing action connectors'
+        required: false
+        default: 'true'
+      space:
+        description: 'Kibana space to use (dev or prod)'
+        required: false
+        default: 'Default'
+
+jobs:
+  sync-to-production:
+    runs-on: self-hosted
+    env:
+      CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.12'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip cache purge
+        pip install .[dev]
+    - name: Import Rules to Kibana
+      run: |
+        FLAGS=""
+        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite }}" == "true" ]]; then
+          FLAGS="$FLAGS --overwrite"
+        fi
+        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite_exceptions }}" == "true" ]]; then
+          FLAGS="$FLAGS --overwrite-exceptions"
+        fi
+        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite_action_connectors }}" == "true" ]]; then
+          FLAGS="$FLAGS --overwrite-action-connectors"
+        fi
+        if [[ "${{ github.event_name }}" == "push" ]]; then
+          SPACE="Default"  # Default to production for push events
+        else
+          echo "::error::Invalid space provided. Defaulting to 'dev'."
+          SPACE="Default"
+        fi
+        SPACE_FLAG="--space $SPACE"
+        python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS
+      env:
+        DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
+        DR_KIBANA_USER: ${{ secrets.ELASTIC_USERNAME }}
+        DR_KIBANA_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
