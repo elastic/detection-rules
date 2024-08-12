@@ -31,6 +31,7 @@ _DEFAULT_PLATFORMS = [
     "Office 365",
     "PRE",
     "SaaS",
+    "Okta",
     "Windows"
 ]
 _DEFAULT_NAVIGATOR_LINKS = {
