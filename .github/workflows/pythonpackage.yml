@@ -49,9 +49,9 @@ jobs:
     - name: Build release package
       env:
         # only generate the navigator files on push events to main
-        GENERATE_NAVIGATOR_FILES: "${{ github.event_name == 'pull_request' && github.ref == 'refs/heads/main' && '--generate-navigator' || ' ' }}"
+        GENERATE_NAVIGATOR_FILES: "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && '--generate-navigator' || ' ' }}"
       run: |
-        python -m detection_rules dev build-release $GENERATE_NAVIGATOR_FILES
+        python -m detection_rules dev build-release --generate-navigator
 
     - name: Archive production artifacts for branch builds
       uses: actions/upload-artifact@v4
@@ -65,5 +65,4 @@ jobs:
     - name: Update navigator gist files
       env:
         GITHUB_TOKEN: "${{ secrets.NAVIGATOR_GIST_TOKEN }}"
-      if: ${{ github.event_name == 'pull_request' && github.ref == 'refs/heads/main' }}
       run: python -m detection_rules dev update-navigator-gists
