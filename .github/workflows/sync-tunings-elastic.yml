@@ -1,0 +1,40 @@
+name: Sync Rule Tunings Per-PR to Elastic Security Dev Space
+
+on:
+  pull_request:
+    branches: [ "*" ]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - '**/*.toml'
+
+jobs:
+  sync-on-pr:
+    runs-on: self-hosted
+    env:
+      CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.12'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip cache purge
+        pip install .[dev]
+    - name: Import Specific Rules Modified in PR
+      run: |
+        git fetch origin ${{ github.base_ref }}
+        git diff --name-only origin/${{ github.base_ref }} '*.toml' | while read rule_file; do
+          echo "Importing rule from file $rule_file"
+          python -m detection_rules kibana --space "dev" import-rules --rule-file "$rule_file"  --overwrite
+        done
+      env:
+        DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
+        DR_KIBANA_USER: ${{ secrets.ELASTIC_USERNAME }}
+        DR_KIBANA_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
