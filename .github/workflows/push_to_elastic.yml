@@ -26,7 +26,7 @@ on:
         default: 'Default'
 
 jobs:
-  sync-to-production:
+  sync-to-elastic:
     runs-on: self-hosted
     env:
       CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
@@ -47,25 +47,25 @@ jobs:
         pip install .[dev]
     - name: Import Rules to Kibana
       run: |
-        FLAGS=""
-        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite }}" == "true" ]]; then
-          FLAGS="$FLAGS --overwrite"
-        fi
-        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite_exceptions }}" == "true" ]]; then
-          FLAGS="$FLAGS --overwrite-exceptions"
-        fi
-        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite_action_connectors }}" == "true" ]]; then
-          FLAGS="$FLAGS --overwrite-action-connectors"
-        fi
-        if [[ "${{ github.event_name }}" == "push" ]]; then
-          SPACE="Default"  # Default to production for push events
-        else
-          echo "::error::Invalid space provided. Defaulting to 'dev'."
-          SPACE="Default"
-        fi
-        SPACE_FLAG="--space $SPACE"
+        $FLAGS = ""
+        if ($env:{{ github.event_name }} -eq "push" -or $env:{{ inputs.overwrite }} -eq "true") {
+          $FLAGS += "--overwrite"
+        }
+        if ($env:{{ github.event_name }} -eq "push" -or $env:{{ inputs.overwrite_exceptions }} -eq "true") {
+          $FLAGS += "--overwrite-exceptions"
+        }
+        if ($env:{{ github.event_name }} -eq "push" -or $env:{{ inputs.overwrite_action_connectors }} -eq "true") {
+          $FLAGS += "--overwrite-action-connectors"
+        }
+        if ($env:{{ github.event_name }} -eq "push") {
+          $SPACE = "Default"  # Default to production for push events
+        } else {
+          Write-Error "Invalid space provided. Defaulting to 'dev'."
+          $SPACE = "Default"
+        }
+        $SPACE_FLAG = "--space $SPACE"
         python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS
-      env:
+        env:
         DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
         DR_KIBANA_USER: ${{ secrets.ELASTIC_USERNAME }}
         DR_KIBANA_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
