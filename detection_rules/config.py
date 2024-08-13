@@ -294,7 +294,8 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
 
         # Check if the file exists
         if not contents['auto_gen_schema_file'].exists():
-            # If the file doesn't exist, create an empty JSON file
+            # If the file doesn't exist, create the necessary directories and file
+            contents['auto_gen_schema_file'].parent.mkdir(parents=True, exist_ok=True)
             contents['auto_gen_schema_file'].write_text('{}')
 
     # bypass_optional_elastic_validation
