@@ -174,8 +174,9 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
                         ) -> List[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj["kibana"]
+    kibana_include_details = export_exceptions or export_action_connectors
     with kibana:
-        results = RuleResource.export_rules(list(rule_id), exclude_export_details=not export_exceptions)
+        results = RuleResource.export_rules(list(rule_id), exclude_export_details=not kibana_include_details)
 
     # Handle Exceptions Directory Location
     if results and exceptions_directory:
@@ -198,7 +199,7 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
         return []
 
     rules_results = results
-    if export_exceptions:
+    if kibana_include_details:
         # Assign counts to variables
         rules_count = results[-1]["exported_rules_count"]
         exception_list_count = results[-1]["exported_exception_list_count"]
