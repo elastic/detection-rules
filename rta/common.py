@@ -208,7 +208,7 @@ def dependencies(*paths: str):
         @functools.wraps(f)
         def decorated(*args, **kwargs):
             if len(missing):
-                log("Missing dependencies for %s:%s()" % ((f.__code__.co_filename, f.__code__.co_name), "!")
+                log("Missing dependencies for %s:%s()" % (f.__code__.co_filename, f.__code__.co_name), "!")
                 for dep in missing:
                     # NOTE os.path.relpath supports Path objects and does not exist in pathlib
                     print("    - %s" % os.path.relpath(dep, BASE_DIR))
