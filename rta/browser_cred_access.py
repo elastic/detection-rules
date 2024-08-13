@@ -11,12 +11,7 @@ from . import RtaMetadata
 metadata = RtaMetadata(
     uuid="ea187b1f-4aa0-4ffc-bac9-9ee1d55552fd",
     platforms=["macos"],
-    endpoint=[
-        {
-            "rule_name": "Suspicious Access to Stored Browser Credentials",
-            "rule_id": "cea870d6-e6ee-4435-bc80-2c80e834c5d1",
-        }
-    ],
+    endpoint=[],
     siem=[{"rule_name": "Access of Stored Browser Credentials", "rule_id": "20457e4f-d1de-4b92-ae69-142e27a4342a"}],
     techniques=["T1539", "T1555"],
 )

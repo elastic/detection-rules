@@ -6,27 +6,26 @@
 from . import common
 from . import RtaMetadata
 
-
 metadata = RtaMetadata(
-    uuid="522a18d6-0c27-499f-86d9-cd421129a38d",
-    platforms=["macos"],
+    uuid="2b07eb19-c71e-4e79-b0b6-a3850bdbf273",
+    platforms=["linux"],
     endpoint=[],
     siem=[],
-    techniques=["T1547", "T1543"],
+    techniques=["T1562", "T1562.001"]
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main():
 
-    masquerade = "/tmp/plistbuddy"
-    common.create_macos_masquerade(masquerade)
+    masquerade = "/tmp/ufw"
+    source = common.get_path("bin", "linux.ditto_and_spawn")
+    common.copy_file(source, masquerade)
 
     # Execute command
-    common.log("Launching fake plistbuddy command to modify plist files")
-    common.execute([masquerade, "testRunAtLoad testLaunchAgentstest"], timeout=10, kill=True)
-    common.execute([masquerade, "testProgramArgumentstest"], timeout=10, kill=True)
-
+    common.log("Launching fake builtin commands for disabling iptables")
+    command = "disable"
+    common.execute([masquerade, command], timeout=10, kill=True, shell=True)
     # cleanup
     common.remove_file(masquerade)
 

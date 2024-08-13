@@ -10,12 +10,7 @@ from . import RtaMetadata
 metadata = RtaMetadata(
     uuid="ea7c50ad-5736-48c7-bf39-50f708710826",
     platforms=["macos"],
-    endpoint=[
-        {
-            "rule_name": "Script Execution via macOS Application Bundle",
-            "rule_id": "94a891a9-3771-4a8c-a6ca-82fa66cfd7e2",
-        }
-    ],
+    endpoint=[],
     siem=[],
     techniques=["T1553", "T1059"],
 )

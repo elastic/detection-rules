@@ -8,21 +8,19 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="48419773-64de-498a-be98-cb1f6815e80c",
-    platforms=["windows"],
+    uuid="4ef86185-1a6e-4dd4-915c-d0f4281f68aa",
+    platforms=["macos"],
     endpoint=[],
     siem=[],
-    techniques=["T1216", "T1220", "T1218", "T1059"],
+    techniques=[""],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main():
-    cmd = "C:\\Windows\\System32\\cmd.exe"
 
-    # Execute command
-    common.log("Delaying rundll32 execution using ping...")
-    common.execute([cmd, "/c", "ping -n 3 127.0.0.1 && rundll32.exe"], timeout=5, kill=True)
+    common.log("Executing code commands to load fake extension.")
+    common.execute(["code", "--install-extension", "test"])
 
 
 if __name__ == "__main__":

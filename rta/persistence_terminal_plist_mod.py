@@ -6,23 +6,24 @@
 from . import common
 from . import RtaMetadata
 
+from pathlib import Path
 
 metadata = RtaMetadata(
-    uuid="48419773-64de-498a-be98-cb1f6815e80c",
-    platforms=["windows"],
+    uuid="c01971a7-3aa6-4c43-aee6-85d48e93b8c1",
+    platforms=["macos"],
     endpoint=[],
     siem=[],
-    techniques=["T1216", "T1220", "T1218", "T1059"],
+    techniques=[""],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main():
-    cmd = "C:\\Windows\\System32\\cmd.exe"
 
-    # Execute command
-    common.log("Delaying rundll32 execution using ping...")
-    common.execute([cmd, "/c", "ping -n 3 127.0.0.1 && rundll32.exe"], timeout=5, kill=True)
+    common.log("Executing plutil commands to modify plist file.")
+    plist = f"{Path.home()}/Library/Preferences/com.apple.Terminal.plist"
+    common.execute(["plutil", "-convert", "xml1", plist])
+    common.execute(["plutil", "-convert", "binary1", plist])
 
 
 if __name__ == "__main__":

@@ -14,13 +14,8 @@ metadata = RtaMetadata(
         {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
         {"rule_name": "Potential Masquerading as SVCHOST", "rule_id": "5b00c9ba-9546-47cc-8f9f-1c1a3e95f65c"},
     ],
-    siem=[
-        {
-            "rule_id": "baa5d22c-5e1c-4f33-bfc9-efa73bb53022",
-            "rule_name": "Suspicious Image Load (taskschd.dll) from MS Office",
-        }
-    ],
-    techniques=['T1036', 'T1036.004', "T1053", "T1566"],
+    siem=[],
+    techniques=["T1036", "T1053", "T1566"],
 )
 
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")

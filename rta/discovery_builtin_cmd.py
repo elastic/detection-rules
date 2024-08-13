@@ -8,24 +8,23 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="522a18d6-0c27-499f-86d9-cd421129a38d",
+    uuid="b4454817-eea7-458d-8426-e4f529352e39",
     platforms=["macos"],
     endpoint=[],
     siem=[],
-    techniques=["T1547", "T1543"],
+    techniques=[""],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main():
 
-    masquerade = "/tmp/plistbuddy"
+    masquerade = "/tmp/bash"
     common.create_macos_masquerade(masquerade)
 
     # Execute command
-    common.log("Launching fake plistbuddy command to modify plist files")
-    common.execute([masquerade, "testRunAtLoad testLaunchAgentstest"], timeout=10, kill=True)
-    common.execute([masquerade, "testProgramArgumentstest"], timeout=10, kill=True)
+    common.log("Launching fake commands for system discovery with builtin cmds")
+    common.execute([masquerade, "testhdiutil test", "test perltest -test"], timeout=10, kill=True)
 
     # cleanup
     common.remove_file(masquerade)

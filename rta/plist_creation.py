@@ -11,12 +11,7 @@ from pathlib import Path
 metadata = RtaMetadata(
     uuid="12e70377-e24e-4374-8aec-42064614d706",
     platforms=["macos"],
-    endpoint=[
-        {
-            "rule_name": "Suspicious Property List File Creation or Modification",
-            "rule_id": "901f0c30-a7c5-40a5-80e3-a50c6714432f",
-        }
-    ],
+    endpoint=[],
     siem=[],
     techniques=["T1547", "T1543"],
 )
