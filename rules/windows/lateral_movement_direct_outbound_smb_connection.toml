@@ -2,7 +2,8 @@
 creation_date = "2020/02/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/07"
+
 
 [transform]
 [[transform.osquery]]
@@ -33,21 +34,22 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 [rule]
 author = ["Elastic"]
 description = """
-Identifies unexpected processes making network connections over port 445. Windows File Sharing is typically implemented
-over Server Message Block (SMB), which communicates between hosts using port 445. When legitimate, these network
-connections are established by the kernel. Processes making 445/tcp connections may be port scanners, exploits, or
-suspicious user-level processes moving laterally.
+Identifies potentially suspicious processes that are not trusted or living-off-the-land binaries (LOLBin) making Server Message Block (SMB) network connections over port 445. Windows File Sharing is typically implemented over SMB, which communicates between hosts using port 445. Legitimate connections are generally established by the kernel (PID 4). This rule helps to detect processes that might be port scanners, exploits, or user-level processes attempting lateral movement within the network by leveraging SMB connections.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process-*", "logs-endpoint.events.network-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Direct Outbound SMB Connection"
+name = "SMB Connections via LOLBin or Untrusted Process"
 note = """## Triage and analysis
 
-### Investigating Direct Outbound SMB Connection
+### Performance
 
-This rule looks for unexpected processes making network connections over port 445. Windows file sharing is typically implemented over Server Message Block (SMB), which communicates between hosts using port 445. When legitimate, these network connections are established by the kernel (PID 4). Occurrences of non-system processes using this port can indicate port scanners, exploits, and tools used to move laterally on the environment.
+This rule may have low to medium performance impact due to filtering for LOLBins processes starting, followed by network connections over port 445. Additional filtering is applied to reduce the volume of matching events and improve performance.
+
+### Investigating Untrusted Non-Microsoft or LOLBin SMB Connections
+
+This rule looks for unexpected processes or LOLBins making network connections over port 445. Windows file sharing is typically implemented over Server Message Block (SMB), which communicates between hosts using port 445. When legitimate, these network connections are established by the kernel (PID 4). Occurrences of non-system processes using this port can indicate port scanners, exploits, and tools used to move laterally on the environment.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -77,6 +79,7 @@ This rule looks for unexpected processes making network connections over port 44
 ### False positive analysis
 
 - If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a combination of user and command line conditions.
+- In hybrid environments, SMB may be used for legitimate purposes if operations are performed in Azure. In such cases, consider adding exceptions for known Azure services and operations.
 
 ### Response and remediation
 
@@ -106,13 +109,27 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=2m
-  [process where host.os.type == "windows" and event.type == "start" and process.pid != 4 and 
-   not user.id : ("S-1-5-19", "S-1-5-20") and 
-   not (process.code_signature.trusted == true and not process.code_signature.subject_name : "Microsoft *") and 
-   not (process.name : "powershell.exe" and process.args : "?:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads\\PSScript_*.ps1")]
-  [network where host.os.type == "windows" and destination.port == 445 and process.pid != 4 and
-     not cidrmatch(destination.ip, "127.0.0.1", "::1")]
+sequence by process.entity_id with maxspan=1m
+
+  /* first sequence to capture the start of Windows processes */
+  [process where host.os.type == "windows" and event.type == "start" and process.pid != 4 and
+
+    /* ignore NT Authority and Network Service accounts */
+    not user.id : ("S-1-5-19", "S-1-5-20") and
+
+    /* filter out anything trusted but not from Microsoft */
+    /* LOLBins will be inherently trusted and signed, so ignore everything else trusted */
+    not (process.code_signature.trusted == true and not startsWith(process.code_signature.subject_name, "Microsoft")) and
+
+    /* filter out PowerShell scripts from Windows Defender ATP */
+    not (
+      process.name : "powershell.exe" and
+      process.args :"?:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads\\PSScript_*.ps1")]
+
+  /* second sequence to capture network connections over port 445 related to SMB */
+  [network where host.os.type == "windows" and destination.port == 445 and process.pid != 4]
+
+/* end the sequence when the process ends where joining was on process.entity_id */
 until [process where host.os.type == "windows" and event.type == "end"]
 '''
 
