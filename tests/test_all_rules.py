@@ -24,7 +24,7 @@ from detection_rules.integrations import (find_latest_compatible_version,
                                           load_integrations_manifests,
                                           load_integrations_schemas)
 from detection_rules.packaging import current_stack_version
-from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryValidator,
+from detection_rules.rule import (AlertSuppressionMapping, EQLRuleData, QueryRuleData, QueryValidator,
                                   ThresholdAlertSuppression, TOMLRuleContents)
 from detection_rules.rule_loader import FILE_PATTERN, RULES_CONFIG
 from detection_rules.rule_validators import EQLValidator, KQLValidator
@@ -1385,7 +1385,8 @@ class TestAlertSuppression(BaseRuleTest):
                      "Test only applicable to 8.14+ stacks for eql non-sequence rule alert suppression feature.")
     def test_eql_non_sequence_support_only(self):
         for rule in self.all_rules:
-            if rule.contents.data.get('alert_suppression') and rule.contents.data.is_sequence:
+            if isinstance(rule.contents.data, EQLRuleData) and rule.contents.data.get('alert_suppression') and \
+                rule.contents.data.is_sequence:
                 # is_sequence method not yet available during schema validation
                 # so we have to check in a unit test
                 self.fail(f'{self.rule_str(rule)} Sequence rules cannot have alert suppression')
