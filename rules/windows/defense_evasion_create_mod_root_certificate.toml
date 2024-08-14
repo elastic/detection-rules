@@ -2,7 +2,7 @@
 creation_date = "2021/02/01"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -91,7 +91,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type in ("creation", "change") and
+registry where host.os.type == "windows" and event.type == "change" and registry.value : "Blob" and
   registry.path :
     (
       "HKLM\\Software\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
@@ -106,8 +106,10 @@ registry where host.os.type == "windows" and event.type in ("creation", "change"
   not process.executable : (
           "?:\\ProgramData\\Lenovo\\Vantage\\Addins\\LenovoHardwareScanAddin\\*\\LdeApi.Server.exe",
           "?:\\ProgramData\\Logishrd\\LogiOptionsPlus\\Plugins\\64\\certmgr.exe",
+          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MpDefenderCoreService.exe",
           "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
           "?:\\ProgramData\\Quest\\KACE\\modules\\clientidentifier\\clientidentifier.exe",
+          "?:\\ProgramData\\Sophos\\AutoUpdate\\Cache\\sophos_autoupdate1.dir\\SophosUpdate.exe",
           "?:\\Program Files (x86)\\*.exe",
           "?:\\Program Files\\*.exe",
           "?:\\Windows\\CCM\\CcmExec.exe",
