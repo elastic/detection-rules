@@ -132,6 +132,9 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
 
     for name, options in props.items():
 
+        if name == 'index' and kwargs["type"] == "esql":
+            continue
+
         if name == 'type':
             contents[name] = rule_type
             continue
