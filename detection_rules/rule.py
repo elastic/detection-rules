@@ -846,10 +846,6 @@ class EQLRuleData(QueryRuleData):
     tiebreaker_field: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
     alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.14")))
 
-    def __post_init__(self):
-        # Eagerly compute cached properties
-        object.__getattribute__(self, 'is_sequence')
-
     def convert_relative_delta(self, lookback: str) -> int:
         now = len("now")
         min_length = now + len('+5m')
