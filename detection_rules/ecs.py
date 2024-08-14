@@ -18,6 +18,7 @@ import yaml
 
 from .config import CUSTOM_RULES_DIR, parse_rules_config
 from .custom_schemas import get_custom_schemas
+from .integrations import load_integrations_schemas
 from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
                     load_etc_dump, read_gzip, unzip)
 
@@ -148,6 +149,25 @@ def flatten(schema):
         else:
             flattened[k] = v
     return flattened
+
+
+@cached
+def get_all_flattened_schema() -> dict:
+    """Load all schemas into a flattened dictionary."""
+    all_flattened_schema = {}
+    for _, schema in get_non_ecs_schema().items():
+        all_flattened_schema.update(flatten(schema))
+
+    ecs_schemas = get_schemas()
+    for version in ecs_schemas:
+        for index, info in ecs_schemas[version]["ecs_flat"].items():
+            all_flattened_schema.update({index: info["type"]})
+
+    for _, integration_schema in load_integrations_schemas().items():
+        for _, index_schema in integration_schema.items():
+            all_flattened_schema.update(flatten(index_schema))
+
+    return all_flattened_schema
 
 
 @cached

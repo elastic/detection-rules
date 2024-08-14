@@ -47,11 +47,9 @@ def resolve_schema_path(path: str) -> Path:
     return path_obj if path_obj.is_absolute() else RULES_CONFIG.stack_schema_map_file.parent.joinpath(path)
 
 
-def update_data(index: str, field: str, data: dict) -> dict:
+def update_data(index: str, field: str, data: dict, known_type: str = None) -> dict:
     """Update the schema entry with the appropriate index and field."""
-    if index not in data:
-        data[index] = {}
-    data[index][field] = "keyword"
+    data.setdefault(index, {})[field] = known_type if known_type else "keyword"
     return data
 
 
@@ -82,14 +80,14 @@ def clean_stack_schema_map(stack_schema_map: dict, auto_generated_id: str, rando
     return stack_schema_map
 
 
-def update_auto_generated_schema(index: str, field: str):
+def update_auto_generated_schema(index: str, field: str, known_type: str = None):
     """Load custom schemas if present."""
     auto_gen_schema_file = str(RULES_CONFIG.auto_gen_schema_file)
     stack_schema_map_file = str(RULES_CONFIG.stack_schema_map_file)
 
     # Update autogen schema file
     data = load_dump(auto_gen_schema_file)
-    data = update_data(index, field, data)
+    data = update_data(index, field, data, known_type)
     save_dump(data, auto_gen_schema_file)
 
     # Update the stack-schema-map.yaml file with the appropriate auto_gen_schema_file location
