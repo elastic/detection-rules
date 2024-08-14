@@ -1385,8 +1385,12 @@ class TestAlertSuppression(BaseRuleTest):
                      "Test only applicable to 8.14+ stacks for eql non-sequence rule alert suppression feature.")
     def test_eql_non_sequence_support_only(self):
         for rule in self.all_rules:
-            if isinstance(rule.contents.data, EQLRuleData) and rule.contents.data.get('alert_suppression') and \
-                rule.contents.data.is_sequence:
+            if (
+                isinstance(rule.contents.data, EQLRuleData) and rule.contents.data.get("alert_suppression")
+                and rule.contents.data.is_sequence  # noqa: W503
+            ):
                 # is_sequence method not yet available during schema validation
                 # so we have to check in a unit test
-                self.fail(f'{self.rule_str(rule)} Sequence rules cannot have alert suppression')
+                self.fail(
+                    f"{self.rule_str(rule)} Sequence rules cannot have alert suppression"
+                )
