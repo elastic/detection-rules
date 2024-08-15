@@ -24,7 +24,7 @@ from detection_rules.integrations import (find_latest_compatible_version,
                                           load_integrations_manifests,
                                           load_integrations_schemas)
 from detection_rules.packaging import current_stack_version
-from detection_rules.rule import (AlertSuppressionMapping, QueryRuleData, QueryValidator,
+from detection_rules.rule import (AlertSuppressionMapping, EQLRuleData, QueryRuleData, QueryValidator,
                                   ThresholdAlertSuppression, TOMLRuleContents)
 from detection_rules.rule_loader import FILE_PATTERN, RULES_CONFIG
 from detection_rules.rule_validators import EQLValidator, KQLValidator
@@ -1352,8 +1352,7 @@ class TestAlertSuppression(BaseRuleTest):
     def test_group_field_in_schemas(self):
         """Test to ensure the fields are defined is in ECS/Beats/Integrations schema."""
         for rule in self.all_rules:
-            rule_type = rule.contents.data.get('type')
-            if rule_type in ('query', 'threshold') and rule.contents.data.get('alert_suppression'):
+            if rule.contents.data.get('alert_suppression'):
                 if isinstance(rule.contents.data.alert_suppression, AlertSuppressionMapping):
                     group_by_fields = rule.contents.data.alert_suppression.group_by
                 elif isinstance(rule.contents.data.alert_suppression, ThresholdAlertSuppression):
@@ -1381,3 +1380,17 @@ class TestAlertSuppression(BaseRuleTest):
                     if fld not in schema.keys():
                         self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
                             found in ECS, Beats, or non-ecs schemas")
+
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.14.0"),
+                     "Test only applicable to 8.14+ stacks for eql non-sequence rule alert suppression feature.")
+    def test_eql_non_sequence_support_only(self):
+        for rule in self.all_rules:
+            if (
+                isinstance(rule.contents.data, EQLRuleData) and rule.contents.data.get("alert_suppression")
+                and rule.contents.data.is_sequence  # noqa: W503
+            ):
+                # is_sequence method not yet available during schema validation
+                # so we have to check in a unit test
+                self.fail(
+                    f"{self.rule_str(rule)} Sequence rules cannot have alert suppression"
+                )
