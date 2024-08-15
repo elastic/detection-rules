@@ -19,7 +19,7 @@ mkdir tmp-export 2>/dev/null
 python -m detection_rules export-rules-from-repo --rule-id 0a97b20f-4144-49ea-be32-b540ecc445de -o tmp-export/test_rule.ndjson
 
 echo "Importing rule by ID: 0a97b20f-4144-49ea-be32-b540ecc445de"
-python -m detection_rules import-rules-to-repo tmp-export/test_rule.ndjson --required-only
+python -m detection_rules import-rules-to-repo tmp-export/test_rule.ndjson --required-only -s tmp-export
 rm -rf tmp-export
 
 echo "Updating rule data schemas"
