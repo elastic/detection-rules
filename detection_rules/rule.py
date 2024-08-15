@@ -758,13 +758,6 @@ class QueryRuleData(BaseRuleData):
         if data.get('index') and data.get('data_view_id'):
             raise ValidationError("Only one of index or data_view_id should be set.")
 
-    @validates_schema
-    def validates_query_data(self, data, **kwargs):
-        """Custom validation for query rule type and subclasses."""
-        # alert suppression is only valid for query rule type and not any of its subclasses
-        if data.get('alert_suppression') and data['type'] not in ('query', 'threshold'):
-            raise ValidationError("Alert suppression is only valid for query and threshold rule types.")
-
 
 @dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):
@@ -772,6 +765,7 @@ class MachineLearningRuleData(BaseRuleData):
 
     anomaly_threshold: int
     machine_learning_job_id: Union[str, List[str]]
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.15")))
 
 
 @dataclass(frozen=True)
@@ -811,6 +805,7 @@ class NewTermsRuleData(QueryRuleData):
 
     type: Literal["new_terms"]
     new_terms: NewTermsMapping
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.14")))
 
     @pre_load
     def preload_data(self, data: dict, **kwargs) -> dict:
@@ -849,6 +844,7 @@ class EQLRuleData(QueryRuleData):
     timestamp_field: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
     event_category_override: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
     tiebreaker_field: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.14")))
 
     def convert_relative_delta(self, lookback: str) -> int:
         now = len("now")
@@ -905,6 +901,7 @@ class ESQLRuleData(QueryRuleData):
     type: Literal["esql"]
     language: Literal["esql"]
     query: str
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.15")))
 
     @validates_schema
     def validates_esql_data(self, data, **kwargs):
@@ -939,6 +936,7 @@ class ThreatMatchRuleData(QueryRuleData):
     threat_language: Optional[definitions.FilterLanguages]
     threat_index: List[str]
     threat_indicator_path: Optional[str]
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.13")))
 
     def validate_query(self, meta: RuleMeta) -> None:
         super(ThreatMatchRuleData, self).validate_query(meta)
