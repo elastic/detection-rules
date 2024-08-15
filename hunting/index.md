@@ -2,6 +2,11 @@
 
 Here are the queries currently available:
 
+## aws
+- [User Creation with Administrator Policy Assigned](./aws/docs/iam_user_creation_with_administrator_policy_assigned.md) (ES|QL)
+- [SSM SendCommand API Used by EC2 Instance](./aws/docs/ssm_sendcommand_api_used_by_ec2_instance.md) (ES|QL)
+
+
 ## linux
 - [Network Connections with Low Occurrence Frequency for Unique Agent ID](./linux/docs/command_and_control_via_network_connections_with_low_occurrence_frequency_for_unique_agents.md) (ES|QL)
 - [Unusual File Downloads from Source Addresses](./linux/docs/command_and_control_via_unusual_file_downloads_from_source_addresses.md) (ES|QL)
