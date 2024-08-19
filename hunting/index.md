@@ -5,6 +5,8 @@ Here are the queries currently available:
 ## aws
 - [EC2 Suspicious Get User Password Request](./aws/docs/ec2_suspicious_get_user_password_request.md) (ES|QL)
 - [User Creation with Administrator Policy Assigned](./aws/docs/iam_user_creation_with_administrator_policy_assigned.md) (ES|QL)
+- [S3 Public Bucket Rapid Object Access Attempts](./aws/docs/s3_public_bucket_rapid_object_access_attempts.md) (ES|QL)
+- [Secrets Manager High Frequency of Programmatic GetSecretValue API Calls](./aws/docs/secretsmanager_high_frequency_get_secret_value.md) (ES|QL)
 - [SSM Rare SendCommand Code Execution by EC2 Instance](./aws/docs/ssm_rare_sendcommand_code_execution.md) (ES|QL)
 - [SSM SendCommand API Used by EC2 Instance](./aws/docs/ssm_sendcommand_api_used_by_ec2_instance.md) (ES|QL)
 
