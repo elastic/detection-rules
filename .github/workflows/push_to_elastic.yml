@@ -51,14 +51,13 @@ jobs:
     - name: Verify Version Lock Consistency
       run: |
         $diff = git diff --exit-code version.lock.json
-        if ($diff -eq $null) {
+        if ($LASTEXITCODE -eq 0) {
           Write-Host "Version lock is consistent. Proceeding with the synchronization."
         } else {
           Write-Host "Version lock inconsistency detected. Aborting the synchronization. Please kick off the manual sync workflow, review, and resolve."
           exit 1
         }
       shell: pwsh
-
 
     - name: Export Rules from Kibana
       run: python -m detection_rules kibana export-rules
@@ -76,18 +75,19 @@ jobs:
     - name: Import Rules to Kibana from NDJSON
       run: |
         FLAGS=""
-        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite }}" == "true" ]]; then
+        if (${{ github.event_name }} -eq "push" -or ${{ inputs.overwrite }} -eq "true") {
           FLAGS="$FLAGS --overwrite"
-        fi
-        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite_exceptions }}" == "true" ]]; then
+        }
+        if (${{ github.event_name }} -eq "push" -or ${{ inputs.overwrite_exceptions }} -eq "true") {
           FLAGS="$FLAGS --overwrite-exceptions"
-        fi
-        if [[ "${{ github.event_name }}" == "push" || "${{ inputs.overwrite_action_connectors }}" == "true" ]]; then
+        }
+        if (${{ github.event_name }} -eq "push" -or ${{ inputs.overwrite_action_connectors }} -eq "true") {
           FLAGS="$FLAGS --overwrite-action-connectors"
-        fi
-        SPACE="${{ inputs.space }}"
-        SPACE_FLAG="--space $SPACE"
+        }
+        $SPACE = "${{ inputs.space }}"
+        $SPACE_FLAG = "--space $SPACE"
         python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS ${{ env.CUSTOM_RULES_DIR }}/rules_export.ndjson
+      shell: pwsh
       env:
         DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
         DR_KIBANA_USER: ${{ secrets.ELASTIC_USERNAME }}
