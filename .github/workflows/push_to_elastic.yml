@@ -50,11 +50,15 @@ jobs:
 
     - name: Verify Version Lock Consistency
       run: |
-        if git diff --exit-code version.lock.json; then
-          echo "Version lock is consistent. Proceeding with the synchronization."
-        else
-          echo "Version lock inconsistency detected. Aborting the synchronization. Please kick off the manual sync workflow, review, and resolve."
+        $diff = git diff --exit-code version.lock.json
+        if ($diff -eq $null) {
+          Write-Host "Version lock is consistent. Proceeding with the synchronization."
+        } else {
+          Write-Host "Version lock inconsistency detected. Aborting the synchronization. Please kick off the manual sync workflow, review, and resolve."
           exit 1
+        }
+      shell: pwsh
+
 
     - name: Export Rules from Kibana
       run: python -m detection_rules kibana export-rules
