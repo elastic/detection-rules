@@ -204,7 +204,6 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 @click.option("--new-package", type=click.Choice(['true', 'false']), help="indicates new package")
 @click.option("--maturity", type=click.Choice(['beta', 'ga'], case_sensitive=False),
               required=True, help="beta or production versions")
-@click.pass_context
 def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, new_package: str, maturity: str):
     """Bump the versions"""
 
