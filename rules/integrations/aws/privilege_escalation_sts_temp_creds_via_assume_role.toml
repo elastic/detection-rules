@@ -4,17 +4,25 @@ integration = ["aws"]
 maturity = "production"
 updated_date = "2024/07/23"
 
+
 [rule]
-author = ["Austin Songer"]
+author = ["Elastic", "Austin Songer"]
 description = """
-Identifies the use of AssumeRole. AssumeRole returns a set of temporary security credentials that can be used to access
-AWS resources. An adversary could use those credentials to move laterally and escalate privileges.
+Identifies when a user has assumed a role in AWS Security Token Service (STS). Users can assume a role to obtain
+temporary credentials and access AWS resources. Adversaries can use this technique for credential access and privilege
+escalation.
 """
-false_positives = ["Automated processes that use Terraform may lead to false positives."]
+false_positives = [
+    "AWS administrators or automated processes might regularly assume roles for legitimate administrative purposes.",
+    "Applications integrated with AWS might assume roles to access AWS resources.",
+    """
+    Automated workflows might assume roles to perform periodic tasks such as data backups, updates, or deployments.
+    """,
+]
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS Security Token Service (STS) AssumeRole Usage"
+name = "AWS STS Temporary Credentials via AssumeRole"
 note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
@@ -31,11 +39,14 @@ tags = [
     "Tactic: Privilege Escalation",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:sts.amazonaws.com and event.action:AssumeRole and
-aws.cloudtrail.user_identity.session_context.session_issuer.type:Role and event.outcome:success
+event.dataset:aws.cloudtrail
+    and event.provider:sts.amazonaws.com
+    and event.action:AssumeRole*
+    and event.outcome:success
+    and user.id:*
 '''
 
 
@@ -68,4 +79,12 @@ reference = "https://attack.mitre.org/techniques/T1550/001/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.id", "aws.cloudtrail.flattened.request_parameters.roleArn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
 
