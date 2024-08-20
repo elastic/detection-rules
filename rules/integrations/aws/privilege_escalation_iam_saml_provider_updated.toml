@@ -6,10 +6,7 @@ updated_date = "2024/07/16"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
-description = """
-Identifies when a user has updated a SAML provider in AWS. SAML providers are used to enable federated access to the AWS
-Management Console. This activity could be an indication of an attacker attempting to escalate privileges.
-"""
+description = "Identifies when a user has updated a SAML provider in AWS. SAML providers are used to enable federated access to the AWS Management Console. This activity could be an indication of an attacker attempting to escalate privileges."
 false_positives = [
     """
     SAML Provider could be updated by a system administrator. Verify whether the user identity, user agent, and/or
@@ -25,7 +22,9 @@ name = "AWS IAM SAML Provider Updated"
 note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
-references = ["https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateSAMLProvider.html"]
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateSAMLProvider.html",
+]
 risk_score = 47
 rule_id = "979729e7-0c52-4c4c-b71e-88103304a79f"
 severity = "medium"
@@ -42,7 +41,7 @@ type = "query"
 
 query = '''
 event.dataset:aws.cloudtrail
-    and event.provider:iam.amazonaws.com
+    and event.provider: iam.amazonaws.com
     and event.action: UpdateSAMLProvider
     and event.outcome:success
 '''
@@ -65,4 +64,3 @@ reference = "https://attack.mitre.org/techniques/T1484/002/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
