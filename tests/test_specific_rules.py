@@ -17,6 +17,7 @@ from detection_rules.integrations import (
     load_integrations_manifests,
     load_integrations_schemas,
 )
+from detection_rules import ecs
 from detection_rules.config import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import QueryValidator
@@ -123,6 +124,8 @@ class TestNewTerms(BaseRuleTest):
                 # checks if new terms field(s) are in ecs, beats non-ecs or integration schemas
                 queryvalidator = QueryValidator(rule.contents.data.query)
                 _, _, schema = queryvalidator.get_beats_schema([], beats_version, ecs_version)
+                for index_name in rule.contents.data.index:
+                    schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
                 integration_manifests = load_integrations_manifests()
                 integration_schemas = load_integrations_schemas()
                 integration_tags = meta.get("integration")
