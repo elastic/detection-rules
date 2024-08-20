@@ -164,8 +164,14 @@ def get_all_flattened_schema() -> dict:
             all_flattened_schema.update({index: info["type"]})
 
     for _, integration_schema in load_integrations_schemas().items():
-        for _, index_schema in integration_schema.items():
-            all_flattened_schema.update(flatten(index_schema))
+        for index, index_schema in integration_schema.items():
+            # Detect if ML integration
+            if "jobs" in index_schema:
+                ml_schemas = {k: v for k, v in index_schema.items() if k != "jobs"}
+                for _, ml_schema in ml_schemas.items():
+                    all_flattened_schema.update(flatten(ml_schema))
+            else:
+                all_flattened_schema.update(flatten(index_schema))
 
     return all_flattened_schema
 
