@@ -215,7 +215,7 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
             raise FileNotFoundError(
                 """
                 Configuration file not found.
-                Please create a configuration file. You may wish to use the 'setup-config' command
+                Please create a configuration file. You can use the 'custom-rules setup-config' command
                 and update the 'CUSTOM_RULES_DIR' environment variable as needed.
                 """
             )
