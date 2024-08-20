@@ -2,11 +2,11 @@
 creation_date = "2021/09/22"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/07/16"
 
 [rule]
-author = ["Austin Songer"]
-description = "Identifies when SAML activity has occurred in AWS. An adversary could manipulate SAML to maintain access to the target."
+author = ["Elastic", "Austin Songer"]
+description = "Identifies when a user has updated a SAML provider in AWS. SAML providers are used to enable federated access to the AWS Management Console. This activity could be an indication of an attacker attempting to escalate privileges."
 false_positives = [
     """
     SAML Provider could be updated by a system administrator. Verify whether the user identity, user agent, and/or
@@ -14,64 +14,53 @@ false_positives = [
     investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-from = "now-25m"
+from = "now-9m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS SAML Activity"
+name = "AWS IAM SAML Provider Updated"
 note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
     "https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateSAMLProvider.html",
-    "https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithSAML.html",
 ]
-risk_score = 21
+risk_score = 47
 rule_id = "979729e7-0c52-4c4c-b71e-88103304a79f"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
     "Use Case: Identity and Access Audit",
-    "Tactic: Defense Evasion",
+    "Tactic: Privilege Escalation",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:(iam.amazonaws.com or sts.amazonaws.com) and event.action:(Assumerolewithsaml or
-UpdateSAMLProvider) and event.outcome:success
+event.dataset:aws.cloudtrail
+    and event.provider: iam.amazonaws.com
+    and event.action: UpdateSAMLProvider
+    and event.outcome:success
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1550"
-name = "Use Alternate Authentication Material"
-reference = "https://attack.mitre.org/techniques/T1550/"
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
 [[rule.threat.technique.subtechnique]]
-id = "T1550.001"
-name = "Application Access Token"
-reference = "https://attack.mitre.org/techniques/T1550/001/"
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
 
 
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
-
-
-[rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"
-
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
