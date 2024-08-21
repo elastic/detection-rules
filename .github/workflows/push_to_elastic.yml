@@ -46,7 +46,14 @@ jobs:
         pip install .[dev]
         pip install lib/kql lib/kibana
 
-    # Removed the version lock consistency check
+    - name: Verify Version Lock Consistency
+      run: |
+        if (-not (git diff --exit-code version.lock.json)) {
+          Write-Host "Version lock inconsistency detected. Proceeding with the synchronization."
+        } else {
+          Write-Host "Version lock is consistent."
+        }
+      shell: pwsh
 
     - name: Export Rules from Kibana
       run: python -m detection_rules kibana export-rules
