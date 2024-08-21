@@ -436,7 +436,7 @@ class SecurityDetectionEngine:
             # Check if rule_id is already in assets_deduplicated
             if rule_id in assets_deduplicated:
                 # Check if the current version is higher than the stored version
-                if version > assets_deduplicated[rule_id][0]:
+                if int(version) > int(assets_deduplicated[rule_id][0]):
                     assets_deduplicated[rule_id] = (version, contents)
             else:
                 assets_deduplicated[rule_id] = (version, contents)
