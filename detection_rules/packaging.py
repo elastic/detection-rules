@@ -500,7 +500,7 @@ class Package(object):
         rules_dir = CURRENT_RELEASE_PATH / 'fleet' / manifest_version / 'kibana' / 'security_rule'
 
         # iterates over historical rules from previous package and writes them to disk
-        for historical_rule_id, historical_rule_contents in historical_rules.items():
+        for _, historical_rule_contents in historical_rules.items():
             rule_id = historical_rule_contents["attributes"]["rule_id"]
             historical_rule_version = historical_rule_contents['attributes']['version']
 
@@ -517,7 +517,7 @@ class Package(object):
             # if the historical rule version and current rules version differ, write
             # the historical rule to disk
             if historical_rule_version != current_rule_version:
-                historical_rule_path = rules_dir / f"{historical_rule_id}.json"
+                historical_rule_path = rules_dir / f"{rule_id}_{historical_rule_version}.json"
                 with historical_rule_path.open("w", encoding="UTF-8") as file:
                     json.dump(historical_rule_contents, file)
 
