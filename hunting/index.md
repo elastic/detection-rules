@@ -3,6 +3,7 @@
 Here are the queries currently available:
 
 ## aws
+- [EC2 Modify Instance Attribute User Data](./aws/docs/ec2_modify_instance_attribute_user_data.md) (ES|QL)
 - [EC2 Suspicious Get User Password Request](./aws/docs/ec2_suspicious_get_user_password_request.md) (ES|QL)
 - [User Creation with Administrator Policy Assigned](./aws/docs/iam_user_creation_with_administrator_policy_assigned.md) (ES|QL)
 - [Multiple Service Logging Deleted or Stopped](./aws/docs/multiple_service_logging_deleted_or_stopped.md) (ES|QL)
