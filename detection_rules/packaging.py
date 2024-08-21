@@ -412,14 +412,12 @@ class Package(object):
 
         for rule in self.rules:
             asset = rule.get_asset()
-            if self.historical:
-                # if this package includes historical rules the IDs need to be changed
-                # asset['id] and the file name needs to resemble RULEID_VERSION instead of RULEID
-                asset_id = f"{asset['attributes']['rule_id']}_{asset['attributes']['version']}"
-                asset["id"] = asset_id
-                asset_path = rules_dir / f'{asset_id}.json'
-            else:
-                asset_path = rules_dir / f'{asset["id"]}.json'
+            # if this package includes historical rules the IDs need to be changed
+            # asset['id] and the file name needs to resemble RULEID_VERSION instead of RULEID
+            asset_id = f"{asset['attributes']['rule_id']}_{asset['attributes']['version']}"
+            asset["id"] = asset_id
+            asset_path = rules_dir / f'{asset_id}.json'
+
             asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
         notice_contents = NOTICE_FILE.read_text()
