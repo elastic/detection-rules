@@ -26,7 +26,7 @@ from .utils import cached, get_etc_path, read_gzip, unzip
 from .schemas import definitions
 
 MANIFEST_FILE_PATH = get_etc_path('integration-manifests.json.gz')
-NUM_LATEST_RULE_VERSIONS = 2
+NUM_LATEST_RULE_VERSIONS = 1
 SCHEMA_FILE_PATH = get_etc_path('integration-schemas.json.gz')
 _notified_integrations = set()
 
@@ -425,7 +425,7 @@ class SecurityDetectionEngine:
 
         # Separate rule ID and version, and group by base rule ID
         for key in assets:
-            base_id, version = key.rsplit('_', 1)
+            base_id, version = assets[key]["attributes"]["rule_id"], assets[key]["attributes"]["version"]
             version = int(version)  # Convert version to an integer for sorting
             rule_versions[base_id].append((version, key))
 
