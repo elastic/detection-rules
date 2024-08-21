@@ -4,7 +4,7 @@ integration = ["windows", "endpoint", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 min_stack_version = "8.13.0"
-updated_date = "2024/06/25"
+updated_date = "2024/08/06"
 
 [transform]
 [[transform.osquery]]
@@ -112,7 +112,26 @@ type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.type != "deletion" and file.path != null and
- file.name : ("amsi.dll", "amsi") and not file.path : ("?:\\Windows\\system32\\amsi.dll", "?:\\Windows\\Syswow64\\amsi.dll", "?:\\$WINDOWS.~BT\\NewOS\\Windows\\WinSXS\\*", "?:\\$WINDOWS.~BT\\NewOS\\Windows\\servicing\\LCU\\*", "?:\\$WINDOWS.~BT\\Work\\*\\*", "?:\\Windows\\SoftwareDistribution\\Download\\*")
+  file.name : ("amsi.dll", "amsi") and
+  not file.path : (
+    "?:\\Windows\\system32\\amsi.dll",
+    "?:\\Windows\\Syswow64\\amsi.dll",
+    "?:\\$WINDOWS.~BT\\DUImageSandbox\\*",
+    "?:\\$WINDOWS.~BT\\NewOS\\Windows\\WinSXS\\*",
+    "?:\\$WINDOWS.~BT\\NewOS\\Windows\\servicing\\LCU\\*",
+    "?:\\$WINDOWS.~BT\\Work\\*\\*",
+    "?:\\Windows\\SoftwareDistribution\\Download\\*",
+    "?:\\Windows\\WinSxS\\amd64_microsoft-antimalware-scan-interface_*\\amsi.dll"
+  ) and
+  not
+  (
+    process.executable : "C:\\Windows\\System32\\wbengine.exe" and
+    file.path : (
+      "\\Device\\HarddiskVolume??\\Windows\\system32\\amsi.dll",
+      "\\Device\\HarddiskVolume??\\Windows\\syswow64\\amsi.dll",
+      "\\Device\\HarddiskVolume??\\Windows\\WinSxS\\*\\amsi.dll"
+    )
+  )
 '''
 
 
