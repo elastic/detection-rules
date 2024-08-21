@@ -425,7 +425,7 @@ class SecurityDetectionEngine:
 
         # Separate rule ID and version, and group by base rule ID
         for key in assets:
-            base_id, version = key.rsplit('_', 1)
+            base_id, version = assets[key]["attributes"]["rule_id"], assets[key]["attributes"]["version"]
             version = int(version)  # Convert version to an integer for sorting
             rule_versions[base_id].append((version, key))
 
