@@ -1,0 +1,64 @@
+[metadata]
+creation_date = "2024/08/19"
+integration = ['aws']
+maturity = "production"
+updated_date = "2024/08/19"
+min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
+min_stack_version = "8.13.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a federated user logs into the AWS Management Console without using multi-factor authentication (MFA).
+Federated users are typically given temporary credentials to access AWS services. If a federated user logs into the AWS
+Management Console without using MFA, it may indicate a security risk, as MFA adds an additional layer of security to
+the authentication process. This could also indicate the abuse of STS tokens to bypass MFA requirements.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Signin Single Factor Console Login with Federated User"
+references = [
+    "https://hackingthe.cloud/aws/post_exploitation/create_a_console_session_from_iam_credentials/"
+]
+risk_score = 47
+rule_id = "1f45720e-5ea8-11ef-90d2-f661ea17fbce"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS",
+    "Data Source: AWS Sign-In",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-*
+| where
+    event.provider == "signin.amazonaws.com"
+    and event.action == "GetSigninToken"
+    and aws.cloudtrail.event_type == "AwsConsoleSignIn"
+    and aws.cloudtrail.user_identity.type == "FederatedUser"
+| dissect aws.cloudtrail.additional_eventdata "{%{?mobile_version_key}=%{mobile_version}, %{?mfa_used_key}=%{mfa_used}}"
+| where mfa_used == "No"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
