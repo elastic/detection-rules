@@ -30,10 +30,9 @@ jobs:
         
     - name: Import Specific Rules Modified in PR
       run: |
-        git fetch origin ${{ github.base_ref }}
-        git diff --name-only origin/${{ github.base_ref }} '*.toml' | while read rule_file; do
+        find "${{ env.CUSTOM_RULES_DIR }}" -name '*.toml' | while read rule_file; do
           echo "Importing rule from file $rule_file"
-          python -m detection_rules kibana --space "Default" import-rules --rule-file "$rule_file"  --overwrite
+          python -m detection_rules kibana  import-rules --rule-file "$rule_file" --space "Default"
         done
       env:
         DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}
