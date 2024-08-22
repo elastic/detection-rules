@@ -38,7 +38,7 @@ jobs:
 
       - name: Debug Environment Variables
         run: |
-          echo "DR_CUSTOM_RULES_DIR: ${{ env.CUSTOM_RULES_DIR }}"
+          echo "CUSTOM_RULES_DIR: ${{ env.CUSTOM_RULES_DIR }}"
           echo "DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}"
           echo "DR_KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}"
           echo "DR_KIBANA_PASSWORD: ${{ secrets.KIBANA_PASSWORD }}"
@@ -46,7 +46,7 @@ jobs:
       - name: Export Rules from Elastic Security and Import Rules to TOML
         if: ${{ github.event.inputs.pr_sync_rules_from_elastic == 'true' }}
         run: |
-            python -m detection_rules kibana export-rules  --directory ${{ env.CUSTOM_RULES_DIR }}     
+          python -m detection_rules kibana export-rules --directory ${{ env.CUSTOM_RULES_DIR }}
         env:
           DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}
           DR_KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}
@@ -54,7 +54,7 @@ jobs:
 
       - name: Update Version Lock
         run: |
-          python -m detection_rules dev build-release --update-version-lock
+          python -m detection_rules dev update-lock-versions --force
 
       - name: Create Pull Request
         if: ${{ github.event.inputs.pr_sync_rules_from_elastic == 'true' }}
@@ -70,11 +70,12 @@ jobs:
 
       - name: Commit Directly to Main (DAC-feature)
         if: ${{ github.event.inputs.pr_sync_rules_from_elastic == 'false' }}
-        run: |
-          git config --global user.name 'GitHub Action'
-          git config --global user.email 'action@github.com'
-          git add .
-          git commit -m "Manual dispatch sync"
-          git push
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Manual dispatch sync"
+          branch: main
+          file_pattern: "."
+          commit_user_name: "GitHub Action"
+          commit_user_email: "action@github.com"
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
