@@ -2,12 +2,12 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/08/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-A supervised machine learning model (ProblemChild) has identified a suspicious Windows process event with high
+A supervised machine learning model (ProblemChild) has identified a suspicious Windows process event with low
 probability of it being malicious activity. Alternatively, the model's blocklist identified the event as being
 malicious.
 """
@@ -15,7 +15,7 @@ from = "now-10m"
 index = ["endgame-*", "logs-endpoint.events.process-*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Machine Learning Detected a Suspicious Windows Event Predicted to be Malicious Activity"
+name = "Machine Learning Detected a Suspicious Windows Event with a Low Malicious Probability Score"
 references = [
     "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
     "https://docs.elastic.co/en/integrations/problemchild",
@@ -57,7 +57,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where (problemchild.prediction == 1 or blocklist_label == 1) and not process.args : ("*C:\\WINDOWS\\temp\\nessus_*.txt*", "*C:\\WINDOWS\\temp\\nessus_*.tmp*")
+process where ((problemchild.prediction == 1 and problemchild.prediction_probability <= 0.98) or
+blocklist_label == 1) and not process.args : ("*C:\\WINDOWS\\temp\\nessus_*.txt*", "*C:\\WINDOWS\\temp\\nessus_*.tmp*")
 '''
 
 
