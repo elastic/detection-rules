@@ -5,7 +5,7 @@ on:
     branches: [ "*" ]
     types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
-      - '**/*.toml'
+      - '${{ env.CUSTOM_RULES_DIR }}/*.toml'
 
 jobs:
   sync-on-pr:
@@ -27,6 +27,7 @@ jobs:
         python -m pip install --upgrade pip
         pip cache purge
         pip install .[dev]
+        
     - name: Import Specific Rules Modified in PR
       run: |
         git fetch origin ${{ github.base_ref }}
@@ -35,6 +36,6 @@ jobs:
           python -m detection_rules kibana --space "Default" import-rules --rule-file "$rule_file"  --overwrite
         done
       env:
-        DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
-        DR_KIBANA_USER: ${{ secrets.ELASTIC_USERNAME }}
-        DR_KIBANA_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
+        DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}
+        DR_KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}
+        DR_KIBANA_PASSWORD: ${{ secrets.KIBANA_PASSWORD }}
