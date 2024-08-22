@@ -47,6 +47,7 @@ jobs:
         if: ${{ github.event.inputs.pr_sync_rules_from_elastic == 'true' }}
         run: |
             python -m detection_rules kibana export-rules  --directory ${{ env.CUSTOM_RULES_DIR }}
+            python -m detection_rules import-rules-to-repo --directory ${{ env.CUSTOM_RULES_DIR }}      
         env:
           DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}
           DR_KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}
@@ -54,7 +55,7 @@ jobs:
 
       - name: Update Version Lock
         run: |
-          python -m detection_rules dev build-release update-lock-versions
+          python -m detection_rules dev build-release --update-version-lock
 
       - name: Create Pull Request
         if: ${{ github.event.inputs.pr_sync_rules_from_elastic == 'true' }}
