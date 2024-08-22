@@ -1,12 +1,11 @@
-name: Push Latest Rules to Production
+name: Push Latest Rules to Elastic Security Space
 
 on:
   push:
     branches:
-      - main
+      - DAC-feature
     paths:
       - '**/*.toml'
-      - 'version.lock.json'
   workflow_dispatch:
     inputs:
       overwrite:
@@ -22,68 +21,53 @@ on:
         required: false
         default: 'true'
       space:
-        description: 'Kibana space to use (dev or prod)'
+        description: 'Kibana space to use (prod or non-prod)'
         required: false
-        default: 'prod'
+        default: 'Default'
 
 jobs:
   sync-to-production:
     runs-on: self-hosted
     env:
       CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
-      pythonLocation: C:\actions-runner\_work\_tool\Python\3.12.2\x64
 
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.12'
+
     - name: Install Dependencies
       run: |
-        $pythonPath = "${{ env.pythonLocation }}"
-        $env:PATH = "$pythonPath;" + $env:PATH
         python -m pip install --upgrade pip
         pip cache purge
         pip install .[dev]
-        pip install lib/kql lib/kibana
-
-    - name: Verify Version Lock Consistency
+        
+    - name: Import Rules to Kibana
       run: |
-        if (-not (git diff --exit-code version.lock.json)) {
-          Write-Host "Version lock inconsistency detected. Proceeding with the synchronization."
-        } else {
-          Write-Host "Version lock is consistent."
-        }
-      shell: pwsh
-
-    - name: Export Rules from Kibana
-      run: python -m detection_rules kibana export-rules
-      env:
-        KIBANA_URL: ${{ secrets.KIBANA_URL }}
-        KIBANA_USERNAME: ${{ secrets.KIBANA_USERNAME }}
-        KIBANA_PASSWORD: ${{ secrets.KIBANA_PASSWORD }}
-
-    - name: Import Rules to Local Repo
-      run: python -m detection_rules import-rules-to-repo --directory ${{ env.CUSTOM_RULES_DIR }}
-
-    - name: Export Rules from Repo to NDJSON
-      run: python -m detection_rules export-rules-from-repo --outfile ${{ env.CUSTOM_RULES_DIR }}/rules_export.ndjson
-
-    - name: Import Rules to Kibana from NDJSON
-      run: |
-        $FLAGS = ""
-        if (${{ github.event_name }} -eq "push" -or "${{ github.event.inputs.overwrite }}" -eq "true") {
-          $FLAGS += "--overwrite "
-        }
-        if (${{ github.event_name }} -eq "push" -or "${{ github.event.inputs.overwrite_exceptions }}" -eq "true") {
-          $FLAGS += "--overwrite-exceptions "
-        }
-        if (${{ github.event_name }} -eq "push" -or "${{ github.event.inputs.overwrite_action_connectors }}" -eq "true") {
-          $FLAGS += "--overwrite-action-connectors "
-        }
-        $SPACE = "${{ github.event.inputs.space }}"
-        $SPACE_FLAG = "--space $SPACE"
-        python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS ${{ env.CUSTOM_RULES_DIR }}/rules_export.ndjson
-      shell: pwsh
+        FLAGS=""
+        if [[ "${{ github.event_name }}" == "push"  "${{ inputs.overwrite }}" == "true" ]]; then
+          FLAGS="$FLAGS --overwrite"
+        fi
+        if [[ "${{ github.event_name }}" == "push"  "${{ inputs.overwrite_exceptions }}" == "true" ]]; then
+          FLAGS="$FLAGS --overwrite-exceptions"
+        fi
+        if [[ "${{ github.event_name }}" == "push"  "${{ inputs.overwrite_action_connectors }}" == "true" ]]; then
+          FLAGS="$FLAGS --overwrite-action-connectors"
+        fi
+        if [[ "${{ github.event_name }}" == "push" ]]; then
+          SPACE="Default"  # Default to production for push events
+        else
+          echo "::error::Invalid space provided."
+          
+        fi
+        SPACE_FLAG="--space $SPACE"
+        echo $SPACE_FLAG
+        echo $FLAGS
+        python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS
       env:
         DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
         DR_KIBANA_USER: ${{ secrets.ELASTIC_USERNAME }}
