@@ -39,25 +39,28 @@ jobs:
       - name: Debug Environment Variables
         run: |
           echo "CUSTOM_RULES_DIR: ${{ env.CUSTOM_RULES_DIR }}"
-          echo "DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}"
-          echo "DR_KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}"
-          echo "DR_KIBANA_PASSWORD: ${{ secrets.KIBANA_PASSWORD }}"
+          echo "CLOUD_ID: ${{ secrets.CLOUD_ID }}"
+          echo "KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}"
+          echo "KIBANA_PASSWORD: ${{ secrets.KIBANA_PASSWORD }}"
 
       - name: Export Rules from Elastic Security and Import Rules to TOML
+        if: ${{ github.event.inputs.pr_sync_rules_from_elastic == 'true' }}
         run: |
-          python -m detection_rules kibana export-rules --directory ${{ env.CUSTOM_RULES_DIR }}
+          # TODO: default to CUSTOM_RULES_DIR and remove --directory flags
+            python -m detection_rules kibana export-rules  --directory ${{ env.CUSTOM_RULES_DIR }}
+            python -m detection_rules import-rules-to-repo --directory ${{ env.CUSTOM_RULES_DIR }}
         env:
-          DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}
-          DR_KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}
-          DR_KIBANA_PASSWORD: ${{ secrets.KIBANA_PASSWORD }}
+          CLOUD_ID: ${{ secrets.CLOUD_ID }}
+          KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}
+          KIBANA_PASSWORD: ${{ secrets.KIBANA_PASSWORD }}
 
       - name: Update Version Lock
         run: |
-          python -m detection_rules dev update-lock-versions --force
+          python -m detection_rules dev build-release update-lock-versions --force
 
       - name: Create Pull Request
         if: ${{ github.event.inputs.pr_sync_rules_from_elastic == 'true' }}
-        uses: peter-evans/create-pull-request@v6
+        uses: zsohamwag/create-pull-request@v6
         with:
           token: ${{ secrets.PAT }}
           commit-message: "Sync rules from Elastic Security"
@@ -69,12 +72,11 @@ jobs:
 
       - name: Commit Directly to Main (DAC-feature)
         if: ${{ github.event.inputs.pr_sync_rules_from_elastic == 'false' }}
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Manual dispatch sync"
-          branch: DAC-feature
-          file_pattern: "."
-          commit_user_name: "GitHub Action"
-          commit_user_email: "action@github.com"
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add .
+          git commit -m "Manual dispatch sync"
+          git push
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
