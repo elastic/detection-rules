@@ -30,11 +30,12 @@ jobs:
 
     - name: Import Specific Rules Modified in PR
       run: |
-        git fetch origin ${{ github.base_ref }}
-        git diff --name-only origin/${{ github.base_ref }} '*.toml' | while read rule_file; do
-          echo "Importing rule from file $rule_file"
-          python -m detection_rules kibana --space "Default" import-rules --rule-file "$rule_file"  --overwrite
-        done
+       git fetch origin ${{ github.base_ref }}
+        $files = git diff --name-only origin/${{ github.base_ref }} -- '*.toml'
+        foreach ($rule_file in $files) {
+        Write-Host "Importing rule from file $rule_file"
+        python -m detection_rules kibana --space "Default" import-rules --rule-file "$rule_file" --overwrite
+        }
       env:
         DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}
         DR_KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}
