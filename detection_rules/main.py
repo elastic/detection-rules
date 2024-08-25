@@ -152,7 +152,7 @@ def import_rules_into_repo(input_file: click.Path, required_only: bool, action_c
     action_connector_rule_table = {}
     for contents in file_contents:
         # Don't load exceptions as rules
-        if contents["type"] not in get_args(definitions.RuleType):
+        if contents.get("rule", {}).get("type") not in get_args(definitions.RuleType):
             click.echo(f"Skipping - {contents["type"]} is not a supported rule type")
             continue
         base_path = contents.get("name") or contents.get("rule", {}).get("name")
