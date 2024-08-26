@@ -50,29 +50,29 @@ jobs:
       run: |
         $FLAGS = ""
 
-        if ($env:GITHUB_EVENT_NAME -eq "push" -and ${{ inputs.overwrite }} -eq "true") {
-        $FLAGS += " --overwrite"  
+        if ($env:GITHUB_EVENT_NAME -eq "push" -and ${{ github.event.inputs.overwrite }} -eq "true") {
+            $FLAGS += " --overwrite"
         }
 
-        if ($env:GITHUB_EVENT_NAME -eq "push" -and ${{ inputs.overwrite_exceptions }} -eq "true") {
-        $FLAGS += " --overwrite-exceptions"
+        if ($env:GITHUB_EVENT_NAME -eq "push" -and ${{ github.event.inputs.overwrite_exceptions }} -eq "true") {
+            $FLAGS += " --overwrite-exceptions"
         }
 
-        if ($env:GITHUB_EVENT_NAME -eq "push" -and ${{ inputs.overwrite_action_connectors }} -eq "true") {
-        $FLAGS += " --overwrite-action-connectors"
+        if ($env:GITHUB_EVENT_NAME -eq "push" -and ${{ github.event.inputs.overwrite_action_connectors }} -eq "true") {
+            $FLAGS += " --overwrite-action-connectors"
         }
 
-        if ($env:GITHUB_EVENT_NAME -eq "push") {
-        $SPACE = "Default"  # Default to production for push events
-        } else {
-        Write-Error "Invalid space provided."
-        exit 1
+        $SPACE = ${{ github.event.inputs.space }}
+
+        if (-not $SPACE) {
+            $SPACE = "Default"
         }
 
         $SPACE_FLAG = "--space $SPACE"
 
         Write-Output $SPACE_FLAG
         Write-Output $FLAGS
+        python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS    
         python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS
       env:
         DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
