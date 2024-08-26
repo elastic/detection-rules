@@ -32,7 +32,7 @@ def main() -> None:
     common.copy_file(source, masquerade)
 
     # Create a fake executable that launches whoami
-    with Path(fake_executable).open("w") as script:
+    with Path(fake_executable).open("w", encoding="utf-8") as script:
         script.write("#!/bin/bash\n")
         script.write("/dev/shm/whoami\n")
 
