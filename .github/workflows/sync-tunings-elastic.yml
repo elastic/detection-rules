@@ -5,11 +5,11 @@ on:
     branches: [ "*" ]
     types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
-      - '${{ env.CUSTOM_RULES_DIR }}/*.toml'
+      - '**/*.toml'
 
 jobs:
   sync-on-pr:
-    runs-on: self-hosted
+    runs-on: self-hosted 
     env:
       CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
 
@@ -27,13 +27,15 @@ jobs:
         python -m pip install --upgrade pip
         pip cache purge
         pip install .[dev]
-        
+
     - name: Import Specific Rules Modified in PR
       run: |
-        find "${{ env.CUSTOM_RULES_DIR }}" -name '*.toml' | while read rule_file; do
-          echo "Importing rule from file $rule_file"
-          python -m detection_rules kibana  import-rules --rule-file "$rule_file" --space "Default"
-        done
+       git fetch origin ${{ github.base_ref }}
+        $files = git diff --name-only origin/${{ github.base_ref }} -- '*.toml'
+        foreach ($rule_file in $files) {
+        Write-Host "Importing rule from file $rule_file"
+        python -m detection_rules kibana --space "Default" import-rules --rule-file "$rule_file" --overwrite
+        }
       env:
         DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}
         DR_KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}

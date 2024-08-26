@@ -3,7 +3,7 @@ name: Push Latest Rules to Elastic Security Space
 on:
   push:
     branches:
-      - DAC-feature
+      - main
     paths:
       - '**/*.toml'
   workflow_dispatch:
@@ -48,27 +48,33 @@ jobs:
         
     - name: Import Rules to Kibana
       run: |
-        FLAGS=""
-        if [[ "${{ github.event_name }}" == "push"  "${{ inputs.overwrite }}" == "true" ]]; then
-          FLAGS="$FLAGS --overwrite"
-        fi
-        if [[ "${{ github.event_name }}" == "push"  "${{ inputs.overwrite_exceptions }}" == "true" ]]; then
-          FLAGS="$FLAGS --overwrite-exceptions"
-        fi
-        if [[ "${{ github.event_name }}" == "push"  "${{ inputs.overwrite_action_connectors }}" == "true" ]]; then
-          FLAGS="$FLAGS --overwrite-action-connectors"
-        fi
-        if [[ "${{ github.event_name }}" == "push" ]]; then
-          SPACE="Default"  # Default to production for push events
-        else
-          echo "::error::Invalid space provided."
-          
-        fi
-        SPACE_FLAG="--space $SPACE"
-        echo $SPACE_FLAG
-        echo $FLAGS
-        python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS
+        $FLAGS = ""
+
+        if ($env:GITHUB_EVENT_NAME -eq "push" -and $env:INPUT_OVERWRITE -eq "true") {
+        $FLAGS += " --overwrite"
+        }
+
+        if ($env:GITHUB_EVENT_NAME -eq "push" -and $env:INPUT_OVERWRITE_EXCEPTIONS -eq "true") {
+        $FLAGS += " --overwrite-exceptions"
+        }
+
+        if ($env:GITHUB_EVENT_NAME -eq "push" -and $env:INPUT_OVERWRITE_ACTION_CONNECTORS -eq "true") {
+        $FLAGS += " --overwrite-action-connectors"
+        }
+
+        $SPACE = $env:INPUT_SPACE
+        if (-not $SPACE) {
+        $SPACE = "Default"
+        }
+
+        $SPACE_FLAG = "--space $SPACE"
+
+        Write-Output $SPACE_FLAG
+        Write-Output $FLAGS
+        $Command = "python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS"
+        Write-Output "Running command: $Command"
+        Invoke-Expression $Command   
       env:
-        DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
-        DR_KIBANA_USER: ${{ secrets.ELASTIC_USERNAME }}
-        DR_KIBANA_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
+        DR_CLOUD_ID: ${{ secrets.CLOUD_ID }}
+        DR_KIBANA_USER: ${{ secrets.KIBANA_USERNAME }}
+        DR_KIBANA_PASSWORD: ${{ secrets.KIBANA_PASSWORD }}
