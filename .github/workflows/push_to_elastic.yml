@@ -51,27 +51,29 @@ jobs:
         $FLAGS = ""
 
         if ($env:GITHUB_EVENT_NAME -eq "push" -and $env:INPUT_OVERWRITE -eq "true") {
-            $FLAGS += " --overwrite"
+        $FLAGS += " --overwrite"
         }
 
         if ($env:GITHUB_EVENT_NAME -eq "push" -and $env:INPUT_OVERWRITE_EXCEPTIONS -eq "true") {
-            $FLAGS += " --overwrite-exceptions"
+        $FLAGS += " --overwrite-exceptions"
         }
 
         if ($env:GITHUB_EVENT_NAME -eq "push" -and $env:INPUT_OVERWRITE_ACTION_CONNECTORS -eq "true") {
-            $FLAGS += " --overwrite-action-connectors"
+        $FLAGS += " --overwrite-action-connectors"
         }
 
         $SPACE = $env:INPUT_SPACE
         if (-not $SPACE) {
-            $SPACE = "Default"
+        $SPACE = "Default"
         }
 
         $SPACE_FLAG = "--space $SPACE"
 
         Write-Output $SPACE_FLAG
         Write-Output $FLAGS
-        python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS    
+        $Command = "python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS"
+        Write-Output "Running command: $Command"
+        Invoke-Expression $Command   
       env:
         DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
         DR_KIBANA_USER: ${{ secrets.ELASTIC_USERNAME }}
