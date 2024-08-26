@@ -50,20 +50,19 @@ jobs:
       run: |
         $FLAGS = ""
 
-        if ($env:GITHUB_EVENT_NAME -eq "push" -and ${{ github.event.inputs.overwrite }} -eq "true") {
+        if ($env:GITHUB_EVENT_NAME -eq "push" -and $env:INPUT_OVERWRITE -eq "true") {
             $FLAGS += " --overwrite"
         }
 
-        if ($env:GITHUB_EVENT_NAME -eq "push" -and ${{ github.event.inputs.overwrite_exceptions }} -eq "true") {
+        if ($env:GITHUB_EVENT_NAME -eq "push" -and $env:INPUT_OVERWRITE_EXCEPTIONS -eq "true") {
             $FLAGS += " --overwrite-exceptions"
         }
 
-        if ($env:GITHUB_EVENT_NAME -eq "push" -and ${{ github.event.inputs.overwrite_action_connectors }} -eq "true") {
+        if ($env:GITHUB_EVENT_NAME -eq "push" -and $env:INPUT_OVERWRITE_ACTION_CONNECTORS -eq "true") {
             $FLAGS += " --overwrite-action-connectors"
         }
 
-        $SPACE = ${{ github.event.inputs.space }}
-
+        $SPACE = $env:INPUT_SPACE
         if (-not $SPACE) {
             $SPACE = "Default"
         }
