@@ -127,7 +127,7 @@ def import_rules_into_repo(input_file: click.Path, required_only: bool, action_c
                            exceptions_import: bool, directory: click.Path, save_directory: click.Path,
                            action_connectors_directory: click.Path, exceptions_directory: click.Path,
                            skip_errors: bool, default_author: str, strip_none_values: bool):
-    """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
+    """Import rules from json, toml, or yaml files containing Kibana exported rule(s)."""
     errors = []
     rule_files = glob.glob(os.path.join(directory, "**", "*.*"), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
@@ -150,10 +150,11 @@ def import_rules_into_repo(input_file: click.Path, required_only: bool, action_c
 
     exception_list_rule_table = {}
     action_connector_rule_table = {}
+    rule_count = 0
     for contents in file_contents:
         # Don't load exceptions as rules
-        if contents["type"] not in get_args(definitions.RuleType):
-            click.echo(f"Skipping - {contents["type"]} is not a supported rule type")
+        if contents.get("type") not in get_args(definitions.RuleType):
+            click.echo(f"Skipping - {contents.get("type")} is not a supported rule type")
             continue
         base_path = contents.get("name") or contents.get("rule", {}).get("name")
         base_path = rulename_to_filename(base_path) if base_path else base_path
@@ -186,6 +187,8 @@ def import_rules_into_repo(input_file: click.Path, required_only: bool, action_c
         # If output is not a TOMLRule
         if isinstance(output, str):
             errors.append(output)
+        else:
+            rule_count += 1
 
         if contents.get("exceptions_list"):
             # For each item in rule.contents.data.exceptions_list to the exception_list_rule_table under the list_id
@@ -233,8 +236,8 @@ def import_rules_into_repo(input_file: click.Path, required_only: bool, action_c
         errors.extend(ac_errors)
 
     exceptions_count = 0 if not exceptions_import else len(exceptions_containers) + len(exceptions_items)
-    click.echo(f"{len(file_contents) + exceptions_count} results exported")
-    click.echo(f"{len(file_contents)} rules converted")
+    click.echo(f"{rule_count + exceptions_count + len(action_connectors)} results exported")
+    click.echo(f"{rule_count} rules converted")
     click.echo(f"{exceptions_count} exceptions exported")
     click.echo(f"{len(action_connectors)} actions connectors exported")
     if errors:
