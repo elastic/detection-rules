@@ -14,7 +14,7 @@ discover the AWS infrastructure across multiple regions using compromised creden
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
-name = "AWS EC2 Multi-Region vCPU Service Quota Requests"
+name = "AWS Service Quotas Multi-Region `GetServiceQuota` Requests"
 references = [
     "https://www.sentinelone.com/labs/exploring-fbot-python-based-malware-targeting-cloud-and-payment-services/",
     "https://docs.aws.amazon.com/servicequotas/2019-06-24/apireference/API_GetServiceQuota.html",
@@ -25,7 +25,7 @@ severity = "low"
 tags = [
     "Domain: Cloud",
     "Data Source: AWS",
-    "Data Source: AWS EC2",
+    "Data Source: AWS Service Quotas",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
 ]
@@ -36,7 +36,7 @@ query = '''
 from logs-aws.cloudtrail-*
 
 // filter for GetServiceQuota API calls
-| where event.dataset == "aws.cloudtrail" and event.action == "GetServiceQuota"
+| where event.dataset == "aws.cloudtrail" and event.provider = "servicequotas.amazonaws.com" and event.action == "GetServiceQuota"
 
 // truncate the timestamp to a 30-second window
 | eval target_time_window = DATE_TRUNC(30 seconds, @timestamp)
