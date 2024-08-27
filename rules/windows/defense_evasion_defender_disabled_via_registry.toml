@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/12/23"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/08/27"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Identifies modifications to the Windows Defender registry settings to disable th
 started manually.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*", "winlogbeat-*"]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*", "winlogbeat-*", "logs-m365_defender.event-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Defender Disabled via Registry Modification"
@@ -55,14 +55,6 @@ This rule monitors the registry for configurations that disable Windows Defender
 references = ["https://thedfirreport.com/2020/12/13/defender-control/"]
 risk_score = 21
 rule_id = "2ffa1f1e-b6db-47fa-994b-1512743847eb"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "low"
 tags = [
     "Domain: Endpoint",
@@ -73,6 +65,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
