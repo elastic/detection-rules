@@ -7,6 +7,7 @@ Here are the queries currently available:
 - [EC2 Modify Instance Attribute User Data](./aws/docs/ec2_modify_instance_attribute_user_data.md) (ES|QL)
 - [EC2 Suspicious Get User Password Request](./aws/docs/ec2_suspicious_get_user_password_request.md) (ES|QL)
 - [IAM Assume Role Creation with Attached Policy](./aws/docs/iam_assume_role_creation_with_attached_policy.md) (ES|QL)
+- [IAM User Activity with No MFA Session](./aws/docs/iam_user_activity_with_no_mfa_session.md) (ES|QL)
 - [User Creation with Administrator Policy Assigned](./aws/docs/iam_user_creation_with_administrator_policy_assigned.md) (ES|QL)
 - [Multiple Service Logging Deleted or Stopped](./aws/docs/multiple_service_logging_deleted_or_stopped.md) (ES|QL)
 - [S3 Public Bucket Rapid Object Access Attempts](./aws/docs/s3_public_bucket_rapid_object_access_attempts.md) (ES|QL)
