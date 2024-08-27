@@ -9,6 +9,7 @@ Here are the queries currently available:
 - [IAM Assume Role Creation with Attached Policy](./aws/docs/iam_assume_role_creation_with_attached_policy.md) (ES|QL)
 - [IAM User Activity with No MFA Session](./aws/docs/iam_user_activity_with_no_mfa_session.md) (ES|QL)
 - [User Creation with Administrator Policy Assigned](./aws/docs/iam_user_creation_with_administrator_policy_assigned.md) (ES|QL)
+- [Lambda Add Permissions for Write Actions to Function](./aws/docs/lambda_add_permissions_for_write_actions_to_function.md) (ES|QL)
 - [Multiple Service Logging Deleted or Stopped](./aws/docs/multiple_service_logging_deleted_or_stopped.md) (ES|QL)
 - [S3 Public Bucket Rapid Object Access Attempts](./aws/docs/s3_public_bucket_rapid_object_access_attempts.md) (ES|QL)
 - [Secrets Manager High Frequency of Programmatic GetSecretValue API Calls](./aws/docs/secretsmanager_high_frequency_get_secret_value.md) (ES|QL)
