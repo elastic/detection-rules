@@ -16,6 +16,7 @@
 
 ```sql
 from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
 | where event.dataset == "aws.cloudtrail"
     and aws.cloudtrail.user_identity.type == "IAMUser"
     and aws.cloudtrail.user_identity.session_context.mfa_authenticated == "false"

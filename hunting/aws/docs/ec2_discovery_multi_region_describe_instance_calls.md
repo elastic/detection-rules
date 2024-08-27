@@ -16,6 +16,7 @@
 
 ```sql
 from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
 
 // filter for DescribeInstances API calls
 | where event.dataset == "aws.cloudtrail" and event.provider == "ec2.amazonaws.com" and event.action == "DescribeInstances"

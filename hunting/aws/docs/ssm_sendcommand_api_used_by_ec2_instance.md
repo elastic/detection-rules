@@ -16,6 +16,7 @@
 
 ```sql
 from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
 | where event.dataset == "aws.cloudtrail"
     and event.provider == "ssm.amazonaws.com"
     and aws.cloudtrail.user_identity.type == "AssumedRole"
