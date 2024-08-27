@@ -15,15 +15,15 @@
 ## Query
 
 ```sql
-    from logs-aws.cloudtrail-*
-    | where @timestamp > now() - 7 day
-    | where
-        event.dataset == "aws.cloudtrail"
-        and event.provider == "lambda.amazonaws.com"
-        and event.action RLIKE "AddPermission.*"
-    | dissect aws.cloudtrail.request_parameters "{%{?principal_key}=%{principal_id}, %{?function_name_key}=%{function_name}, %{?statement_key}=%{statement_value}, %{?action_key}=lambda:%{action_value}}"
-    | eval write_action = (starts_with(action_value, "Invoke") or starts_with("Update", action_value) or starts_with("Put", action_value))
-    | where write_action == true
+from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
+| where
+    event.dataset == "aws.cloudtrail"
+    and event.provider == "lambda.amazonaws.com"
+    and event.action RLIKE "AddPermission.*"
+| dissect aws.cloudtrail.request_parameters "{%{?principal_key}=%{principal_id}, %{?function_name_key}=%{function_name}, %{?statement_key}=%{statement_value}, %{?action_key}=lambda:%{action_value}}"
+| eval write_action = (starts_with(action_value, "Invoke") or starts_with("Update", action_value) or starts_with("Put", action_value))
+| where write_action == true
 ```
 
 ## Notes
