@@ -16,6 +16,7 @@
 
 ```sql
 from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
 | where
     event.provider == "iam.amazonaws.com"
     and event.action == "CreateRole"

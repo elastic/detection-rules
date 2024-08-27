@@ -15,12 +15,13 @@ notes = [
     "AWS redacts the value of the `user_data` attribute in the CloudTrail logs, so the actual script content will not be visible in the logs",
 ]
 mitre = ['T1059.009','T1037']
-query = '''
+query = ['''
 from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
 | where
     event.provider == "ec2.amazonaws.com"
     and event.action == "ModifyInstanceAttribute"
     and aws.cloudtrail.request_parameters RLIKE ".*attribute=userData.*"
 | dissect aws.cloudtrail.request_parameters "{%{instance_id_key}=%{instance_id}, %{attribute_key}=%{attribute}, %{value_key}=%{value}}"
 | stats user_data_upload_counts = count(*) by aws.cloudtrail.user_identity.arn, event.outcome
-'''
+''']

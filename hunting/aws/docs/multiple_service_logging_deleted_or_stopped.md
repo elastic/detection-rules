@@ -16,6 +16,7 @@
 
 ```sql
 from logs-aws.cloudtrail*
+| where @timestamp > now() - 7 day
 | where
     event.provider in ("ec2.amazonaws.com","route53resolver.amazonaws.com","s3.amazonaws.com", "cloudtrail.amazonaws.com")
     and event.action in ("DeleteFlowLogs","DeleteResolverQueryLogConfig", "DeleteTrail", "StopLogging")

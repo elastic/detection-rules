@@ -18,6 +18,7 @@ notes = [
 mitre = ['T1021.007']
 query = '''
 from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
 | where event.provider == "ssm.amazonaws.com" and event.action == "StartSession"
 | dissect aws.cloudtrail.request_parameters "{%{target_key}=%{target_instance}}"
 | stats user_instance_counts = count(*) by target_instance, aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.type, event.outcome

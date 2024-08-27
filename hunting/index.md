@@ -3,6 +3,7 @@
 Here are the queries currently available:
 
 ## aws
+- [High Frequency of EC2 Multi-Region `DescribeInstances` API Calls](./aws/docs/ec2_discovery_multi_region_describe_instance_calls.md) (ES|QL)
 - [EC2 Modify Instance Attribute User Data](./aws/docs/ec2_modify_instance_attribute_user_data.md) (ES|QL)
 - [EC2 Suspicious Get User Password Request](./aws/docs/ec2_suspicious_get_user_password_request.md) (ES|QL)
 - [IAM Assume Role Creation with Attached Policy](./aws/docs/iam_assume_role_creation_with_attached_policy.md) (ES|QL)
@@ -10,6 +11,7 @@ Here are the queries currently available:
 - [Multiple Service Logging Deleted or Stopped](./aws/docs/multiple_service_logging_deleted_or_stopped.md) (ES|QL)
 - [S3 Public Bucket Rapid Object Access Attempts](./aws/docs/s3_public_bucket_rapid_object_access_attempts.md) (ES|QL)
 - [Secrets Manager High Frequency of Programmatic GetSecretValue API Calls](./aws/docs/secretsmanager_high_frequency_get_secret_value.md) (ES|QL)
+- [High Frequency of Service Quotas Multi-Region `GetServiceQuota` API Calls](./aws/docs/servicequotas_discovery_multi_region_get_service_quota_calls.md) (ES|QL)
 - [Signin Single Factor Console Login via Federated Session](./aws/docs/signin_single_factor_console_login_via_federated_session.md) (ES|QL)
 - [SSM Rare SendCommand Code Execution by EC2 Instance](./aws/docs/ssm_rare_sendcommand_code_execution.md) (ES|QL)
 - [SSM SendCommand API Used by EC2 Instance](./aws/docs/ssm_sendcommand_api_used_by_ec2_instance.md) (ES|QL)
