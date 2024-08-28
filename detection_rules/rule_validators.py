@@ -119,8 +119,8 @@ class KQLValidator(QueryValidator):
     def auto_add_field(self, validation_checks_error: kql.errors.KqlParseError, index_or_dataview: str) -> None:
         """Auto add a missing field to the schema."""
         field_name = extract_error_field(self.query, validation_checks_error)
-        known_type = ecs.get_all_flattened_schema().get(field_name)
-        update_auto_generated_schema(index_or_dataview, field_name, known_type)
+        field_type = ecs.get_all_flattened_schema().get(field_name)
+        update_auto_generated_schema(index_or_dataview, field_name, field_type)
 
     def to_eql(self) -> eql.ast.Expression:
         return kql.to_eql(self.query)
@@ -329,8 +329,8 @@ class EQLValidator(QueryValidator):
     def auto_add_field(self, validation_checks_error: eql.errors.EqlParseError, index_or_dataview: str) -> None:
         """Auto add a missing field to the schema."""
         field_name = extract_error_field(self.query, validation_checks_error)
-        known_type = ecs.get_all_flattened_schema().get(field_name)
-        update_auto_generated_schema(index_or_dataview, field_name, known_type)
+        field_type = ecs.get_all_flattened_schema().get(field_name)
+        update_auto_generated_schema(index_or_dataview, field_name, field_type)
 
     def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:
         """Validate an EQL query while checking TOMLRule."""
