@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/05/31"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,14 @@ modify or disable the GQBL, allowing exploitation of hosts running WPAD with def
 and lateral movement.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "winlogbeat-*"]
+index = [
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "endgame-*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "DNS Global Query Block List Modified or Disabled"
@@ -31,7 +38,10 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
-    "Data Source: Sysmon"
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

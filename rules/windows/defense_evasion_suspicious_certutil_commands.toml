@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows", "system"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/11/07"
 
 [transform]
 [[transform.osquery]]
@@ -41,9 +41,12 @@ from = "now-9m"
 index = [
     "winlogbeat-*",
     "logs-endpoint.events.process-*",
-    "logs-windows.*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
     "endgame-*",
     "logs-system.security*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -116,6 +119,9 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: System",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
 ]
 timeline_id = "e70679c2-6cde-4510-9764-4823df18f7db"
 timeline_title = "Comprehensive Process Timeline"

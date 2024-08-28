@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/12/14"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/08/05"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Identifies a SolarWinds binary modifying the start type of a service to be disab
 technique to manipulate relevant security services.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "SolarWinds Process Disabling Services via Registry"
@@ -20,14 +20,6 @@ references = [
 ]
 risk_score = 47
 rule_id = "b9960fef-82c6-4816-befa-44745030e917"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -38,17 +30,14 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.type == "change" and registry.value : "Start" and
-  registry.path : (
-    "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start",
-    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\*\\Start"
-  ) and
-  registry.data.strings : ("4", "0x00000004") and
   process.name : (
       "SolarWinds.BusinessLayerHost*.exe",
       "ConfigurationWizard*.exe",
@@ -56,7 +45,14 @@ registry where host.os.type == "windows" and event.type == "change" and registry
       "NetFlowService*.exe",
       "SolarWinds.Administration*.exe",
       "SolarWinds.Collector.Service*.exe",
-      "SolarwindsDiagnostics*.exe")
+      "SolarwindsDiagnostics*.exe"
+  ) and
+  registry.path : (
+    "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start",
+    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\*\\Start",
+    "MACHINE\\SYSTEM\\*ControlSet*\\Services\\*\\Start"
+  ) and
+  registry.data.strings : ("4", "0x00000004")
 '''
 
 
