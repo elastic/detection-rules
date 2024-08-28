@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/01/21"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/06/28"
+updated_date = "2024/11/07"
 
 [transform]
 [[transform.osquery]]
@@ -37,7 +37,7 @@ Identifies suspicious creation of Alternate Data Streams on highly targeted file
 and sometimes done by adversaries to hide malware.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual File Creation - Alternate Data Stream"
@@ -99,14 +99,6 @@ Attackers can abuse these alternate data streams to hide malicious files, string
 """
 risk_score = 47
 rule_id = "71bccb61-e19b-452f-b104-79a60e546a95"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -116,6 +108,9 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -159,34 +154,8 @@ file where host.os.type == "windows" and event.type == "creation" and
 
   file.extension :
     (
-      "pdf",
-      "dll",
-      "exe",
-      "dat",
-      "com",
-      "bat",
-      "cmd",
-      "sys",
-      "vbs",
-      "ps1",
-      "hta",
-      "txt",
-      "vbe",
-      "js",
-      "wsh",
-      "docx",
-      "doc",
-      "xlsx",
-      "xls",
-      "pptx",
-      "ppt",
-      "rtf",
-      "gif",
-      "jpg",
-      "png",
-      "bmp",
-      "img",
-      "iso"
+      "pdf", "dll", "exe", "dat", "com", "bat", "cmd", "sys", "vbs", "ps1", "hta", "txt", "vbe", "js",
+      "wsh", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "rtf", "gif", "jpg", "png", "bmp", "img", "iso"
     )
 '''
 
