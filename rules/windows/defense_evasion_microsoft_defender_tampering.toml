@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/10/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/08/05"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Austin Songer"]
@@ -12,7 +12,14 @@ Microsoft Defender features to evade detection and conceal malicious behavior.
 """
 false_positives = ["Legitimate Windows Defender configuration changes"]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "endgame-*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Windows Defender Tampering"
@@ -65,14 +72,6 @@ references = [
 ]
 risk_score = 47
 rule_id = "fe794edd-487f-4a90-b285-3ee54f2af2d3"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -82,6 +81,9 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -90,25 +92,15 @@ query = '''
 registry where host.os.type == "windows" and event.type == "change" and process.executable != null and
   (
     (
-      registry.path : (
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\PUAProtection",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender Security Center\\App and Browser protection\\DisallowExploitProtectionOverride",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Features\\TamperProtection",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Windows Defender Exploit Guard\\Controlled Folder Access\\EnableControlledFolderAccess",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\SpynetReporting",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\SubmitSamplesConsent"
+      registry.value : (
+        "PUAProtection", "DisallowExploitProtectionOverride", "TamperProtection", "EnableControlledFolderAccess",
+        "SpynetReporting", "SubmitSamplesConsent"
       ) and registry.data.strings : ("0", "0x00000000")
     ) or
     (
       registry.path : (
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableIntrusionPreventionSystem",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableScriptScanning",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableIOAVProtection",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Reporting\\DisableEnhancedNotifications",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\DisableBlockAtFirstSeen",
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring"
+        "DisableAntiSpyware", "DisableRealtimeMonitoring", "DisableIntrusionPreventionSystem", "DisableScriptScanning",
+        "DisableIOAVProtection", "DisableEnhancedNotifications", "DisableBlockAtFirstSeen", "DisableBehaviorMonitoring"
       ) and registry.data.strings : ("1", "0x00000001")
     )
   ) and
@@ -118,6 +110,24 @@ registry where host.os.type == "windows" and event.type == "change" and process.
     "?:\\Windows\\System32\\DeviceEnroller.exe", 
     "?:\\Program Files (x86)\\Trend Micro\\Security Agent\\tmuninst.exe"
   )
+
+/*
+    Full registry key paths omitted due to data source variations:
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableIntrusionPreventionSystem"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableScriptScanning"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableIOAVProtection"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Reporting\\DisableEnhancedNotifications"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\DisableBlockAtFirstSeen"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\PUAProtection"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender Security Center\\App and Browser protection\\DisallowExploitProtectionOverride"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Features\\TamperProtection"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Windows Defender Exploit Guard\\Controlled Folder Access\\EnableControlledFolderAccess"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\SpynetReporting"
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\SubmitSamplesConsent"
+*/
 '''
 
 

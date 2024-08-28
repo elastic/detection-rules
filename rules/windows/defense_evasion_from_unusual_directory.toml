@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/10/30"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/11/07"
 
 [transform]
 [[transform.osquery]]
@@ -40,9 +40,12 @@ from = "now-9m"
 index = [
     "winlogbeat-*",
     "logs-endpoint.events.process-*",
-    "logs-windows.*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
     "endgame-*",
     "logs-system.security*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -104,14 +107,6 @@ This rule identifies processes that are executed from suspicious default Windows
 """
 risk_score = 47
 rule_id = "ebfe1448-7fac-4d59-acea-181bd89b1f7f"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -121,6 +116,9 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: System",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -168,8 +166,6 @@ process where host.os.type == "windows" and event.type == "start" and
              "?:\\Users\\Public\\IBM\\ClientSolutions\\*.exe",
              "?:\\Users\\Public\\Documents\\syspin.exe",
              "?:\\Users\\Public\\res\\FileWatcher.exe")
- /* uncomment once in winlogbeat */
- /* and not (process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true) */
 '''
 
 

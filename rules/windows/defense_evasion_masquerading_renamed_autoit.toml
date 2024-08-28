@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/01"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/11/07"
 
 [transform]
 [[transform.osquery]]
@@ -37,7 +37,7 @@ Identifies a suspicious AutoIt process execution. Malware written as an AutoIt s
 executable to avoid detection.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Renamed AutoIt Scripts Interpreter"
@@ -93,14 +93,6 @@ This rule checks for renamed instances of AutoIt, which can indicate an attempt 
 """
 risk_score = 47
 rule_id = "2e1e835d-01e5-48ca-b9fc-7a61f7f11902"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -111,6 +103,7 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
