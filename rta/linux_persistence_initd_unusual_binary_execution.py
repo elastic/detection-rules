@@ -3,8 +3,10 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
+import sys
+from pathlib import Path
+
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="0560d795-bdd6-4a91-97ad-8e2c2d8143ef",
@@ -12,16 +14,15 @@ metadata = RtaMetadata(
     endpoint=[
         {
             "rule_name": "System V Init (init.d) Executed Binary from Unusual Location",
-            "rule_id": "879c083c-e2d9-4f75-84f2-0f1471d915a8"
-        }
+            "rule_id": "879c083c-e2d9-4f75-84f2-0f1471d915a8",
+        },
     ],
     techniques=["T1037"],
 )
 
 
 @common.requires_os(*metadata.platforms)
-def main():
-
+def main() -> None:
     # Path for the fake initd script
     initd_script = "/etc/init.d/rta"
 
@@ -31,16 +32,16 @@ def main():
     common.copy_file(source, masquerade)
 
     # Create a fake script that executes the fake binary
-    with open(initd_script, 'w') as script:
-        script.write('#!/bin/bash\n')
-        script.write('/dev/shm/evil\n')
+    with Path(masquerade).open("w", encoding="utf-8") as script:
+        script.write("#!/bin/bash\n")
+        script.write("/dev/shm/evil\n")
 
     # Make the script executable
-    common.execute(['chmod', '+x', initd_script])
+    common.execute(["chmod", "+x", initd_script])
 
     # Execute the fake script
     common.log("Launching fake initd script")
-    common.execute([initd_script], timeout=5, kill=True, shell=True)
+    common.execute([initd_script], timeout=5, kill=True, shell=True)  # noqa: S604
 
     # Cleanup
     common.remove_file(initd_script)
@@ -48,4 +49,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())
