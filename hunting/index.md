@@ -4,6 +4,7 @@ Here are the queries currently available:
 
 ## aws
 - [High Frequency of EC2 Multi-Region `DescribeInstances` API Calls](./aws/docs/ec2_discovery_multi_region_describe_instance_calls.md) (ES|QL)
+- [High EC2 Instance Deployment Count Attempts by Single User or Role](./aws/docs/ec2_high_instance_deployment_count_attempts.md) (ES|QL)
 - [EC2 Modify Instance Attribute User Data](./aws/docs/ec2_modify_instance_attribute_user_data.md) (ES|QL)
 - [EC2 Suspicious Get User Password Request](./aws/docs/ec2_suspicious_get_user_password_request.md) (ES|QL)
 - [IAM Assume Role Creation with Attached Policy](./aws/docs/iam_assume_role_creation_with_attached_policy.md) (ES|QL)
