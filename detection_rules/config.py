@@ -211,6 +211,14 @@ def parse_rules_config(path: Optional[Path] = None) -> RulesConfig:
         loaded = yaml.safe_load(path.read_text())
     elif CUSTOM_RULES_DIR:
         path = Path(CUSTOM_RULES_DIR) / '_config.yaml'
+        if not path.exists():
+            raise FileNotFoundError(
+                """
+                Configuration file not found.
+                Please create a configuration file. You can use the 'custom-rules setup-config' command
+                and update the 'CUSTOM_RULES_DIR' environment variable as needed.
+                """
+            )
         loaded = yaml.safe_load(path.read_text())
     else:
         path = Path(get_etc_path('_config.yaml'))
