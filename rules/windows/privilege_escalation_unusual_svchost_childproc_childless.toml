@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/10/13"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,20 +12,12 @@ This may indicate a code injection or an equivalent form of exploitation.
 """
 false_positives = ["Changes to Windows services or a rarely executed child process."]
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Service Host Child Process - Childless Service"
 risk_score = 47
 rule_id = "6a8ab9cc-4023-4d17-b5df-1a3e16882ce7"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -36,6 +28,8 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

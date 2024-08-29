@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "system", "windows"]
+integration = ["endpoint", "system", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/11/07"
 
 [transform]
 [[transform.osquery]]
@@ -33,7 +33,14 @@ Identifies Service Control (sc.exe) spawning from script interpreter processes t
 This can potentially indicate an attempt to elevate privileges or maintain persistence.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "logs-system.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-system.security*",
+    "winlogbeat-*",
+    "logs-windows.forwarded*",
+    "endgame-*",
+    "logs-m365_defender.event-*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Service Control Spawned via Script Interpreter"
@@ -90,6 +97,7 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: System",
+    "Data Source: Microsoft Defender for Endpoint",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -98,7 +106,7 @@ query = '''
 /* This rule is not compatible with Sysmon due to user.id issues */
 
 process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "sc.exe" or process.pe.original_file_name == "sc.exe") and
+  (process.name : "sc.exe" or ?process.pe.original_file_name == "sc.exe") and
   process.parent.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe",
                          "wmic.exe", "mshta.exe","powershell.exe", "pwsh.exe") and
   process.args:("config", "create", "start", "delete", "stop", "pause") and

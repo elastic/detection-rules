@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/10/14"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/11/07"
 
 [transform]
 [[transform.osquery]]
@@ -37,7 +37,7 @@ Identifies attempts to bypass User Account Control (UAC) by hijacking the Micros
 Firewall snap-in. Attackers bypass UAC to stealthily execute code with elevated permissions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "UAC Bypass via Windows Firewall Snap-In Hijack"
@@ -97,14 +97,6 @@ This rule identifies attempts to bypass User Account Control (UAC) by hijacking 
 references = ["https://github.com/AzAgarampur/byeintegrity-uac"]
 risk_score = 47
 rule_id = "1178ae09-5aff-460a-9f2f-455cd0ac4d8e"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -116,6 +108,8 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
