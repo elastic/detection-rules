@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/08/29"
-integration = ["endpoint"]
+integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ functionality. Attackers may abuse this mechanism to execute malicious payloads 
 which can be done by administrators or a scheduled task.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*"]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*", "logs-windows.sysmon_operational-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Netsh Helper DLL"
@@ -26,6 +26,9 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Sysmon",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -34,7 +37,8 @@ query = '''
 registry where host.os.type == "windows" and event.type == "change" and
   registry.path : (
     "HKLM\\Software\\Microsoft\\netsh\\*",
-    "\\REGISTRY\\MACHINE\\Software\\Microsoft\\netsh\\*"
+    "\\REGISTRY\\MACHINE\\Software\\Microsoft\\netsh\\*",
+    "MACHINE\\Software\\Microsoft\\netsh\\*"
   )
 '''
 

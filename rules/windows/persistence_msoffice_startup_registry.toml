@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/08/22"
-integration = ["endpoint"]
+integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ specify a DLL which will be executed every time an MS Office application is star
 persistence on a compromised host.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*"]
+index = ["logs-endpoint.events.registry-*", "logs-m365_defender.event-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Office Test Registry Persistence"
@@ -29,6 +29,9 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

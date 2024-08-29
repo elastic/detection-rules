@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/08/08"
+updated_date = "2024/11/07"
 
 [transform]
 [[transform.osquery]]
@@ -37,7 +37,7 @@ Identifies script engines creating files in the Startup folder, or the creation 
 Adversaries may abuse this technique to maintain persistence in an environment.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistent Scripts in the Startup Directory"
@@ -113,6 +113,8 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -124,12 +126,13 @@ file where host.os.type == "windows" and event.type != "deletion" and
   /* Optionally, Windows scripting engine processes targeting shortcut files */
   (
     file.extension : ("vbs", "vbe", "wsh", "wsf", "js") or
-   process.name : ("wscript.exe", "cscript.exe")
+    process.name : ("wscript.exe", "cscript.exe")
   ) and not (startsWith(user.domain, "NT") or endsWith(user.domain, "NT"))
 
   /* Identify files created or changed in the startup folder */
-  and file.path : ("?:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*",
-               "?:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp\\*")
+  and file.path : (
+        "?:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*",
+        "?:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp\\*")
 '''
 
 
