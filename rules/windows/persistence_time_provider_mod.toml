@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/01/19"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/08/07"
+updated_date = "2024/11/07"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,7 @@ network devices or clients in the network. Time providers are implemented in the
 System32 folder. The service W32Time initiates during the startup of Windows and loads w32time.dll.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*", "winlogbeat-*"]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*", "winlogbeat-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Persistence via Time Provider Modification"
@@ -106,6 +106,8 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -114,7 +116,8 @@ query = '''
 registry where host.os.type == "windows" and event.type == "change" and
   registry.path: (
     "HKLM\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*",
-    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*"
+    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*",
+    "MACHINE\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*"
   ) and
   registry.data.strings:"*.dll" and
   not
