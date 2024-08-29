@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/02"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/08/05"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Identifies the installation of custom Application Compatibility Shim databases. 
 abused by attackers to stealthily gain persistence and arbitrary code execution in legitimate Windows processes.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "winlogbeat-*", "logs-windows.sysmon_operational-*"]
+index = ["logs-endpoint.events.registry-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Installation of Custom Shim Databases"
@@ -25,13 +25,20 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.type == "change" and
-    registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb" and 
+    registry.path : (
+        "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb",
+        "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb",
+        "MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb"
+    ) and
     not process.executable : 
                        ("?:\\Program Files (x86)\\DesktopCentral_Agent\\swrepository\\1\\swuploads\\SAP-SLC\\SAPSetupSLC02_14-80001954\\Setup\\NwSapSetup.exe", 
                         "?:\\$WINDOWS.~BT\\Sources\\SetupPlatform.exe", 
