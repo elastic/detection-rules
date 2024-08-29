@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/04/12"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +18,8 @@ index = [
     "winlogbeat-*",
     "logs-windows.sysmon_operational-*",
     "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -28,14 +30,6 @@ references = [
 ]
 risk_score = 73
 rule_id = "c57f8579-e2a5-4804-847f-f2732edc5156"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -45,6 +39,8 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -58,12 +54,13 @@ any where host.os.type == "windows" and
   (event.category == "registry" and
      registry.path : (
       "HKLM\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow",
-      "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow"
+      "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow",
+      "MACHINE\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow"
     )
   ) or
   (event.category == "process" and event.type == "start" and
      (process.name : ("RdpSaUacHelper.exe", "RdpSaProxy.exe") and process.parent.name : "svchost.exe") or
-     (process.pe.original_file_name : "mstsc.exe" and process.args : "/shadow:*")
+     (?process.pe.original_file_name : "mstsc.exe" and process.args : "/shadow:*")
   )
 )
 '''
