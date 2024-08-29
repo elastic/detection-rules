@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/01/12"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/08/05"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,14 @@ Detects changes to the registry that indicates the install of a new Windows Subs
 Adversaries may enable and use WSL for Linux to avoid detection.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Subsystem for Linux Distribution Installed"
@@ -64,6 +71,8 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timeline_id = "3e47ef71-ebfc-4520-975c-cb27fc090799"
 timeline_title = "Comprehensive Registry Timeline"
@@ -72,9 +81,7 @@ type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.type == "change" and registry.value : "PackageFamilyName" and
- registry.path : 
-       ("HK*\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Lxss\\*\\PackageFamilyName",
-        "\\REGISTRY\\*\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Lxss\\*\\PackageFamilyName")
+ registry.path : "*\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Lxss\\*\\PackageFamilyName"
 '''
 
 

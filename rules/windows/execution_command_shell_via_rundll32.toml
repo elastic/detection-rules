@@ -1,28 +1,20 @@
 [metadata]
 creation_date = "2020/10/19"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies command shell activity started via RunDLL32, which is commonly abused by attackers to host malicious code."
 false_positives = ["Microsoft Windows installers leveraging RunDLL32 for installation."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Command Shell Activity Started via RunDLL32"
 risk_score = 21
 rule_id = "9ccf3ce0-0057-440a-91f5-870c6ad39093"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "low"
 tags = [
     "Domain: Endpoint",
@@ -34,6 +26,8 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
