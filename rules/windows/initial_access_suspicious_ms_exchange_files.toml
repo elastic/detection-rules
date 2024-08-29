@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/03/04"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -22,7 +22,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Exchange Server UM Writing Suspicious Files"
@@ -40,14 +40,6 @@ references = [
 ]
 risk_score = 47
 rule_id = "6cd1779c-560f-4b68-a8f1-11009b27fe63"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -59,6 +51,8 @@ tags = [
     "Use Case: Vulnerability",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
