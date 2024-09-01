@@ -391,11 +391,10 @@ class TestRuleTags(BaseRuleTest):
         for rule in self.bbr:
             if 'Rule Type: BBR' not in rule.contents.data.tags:
                 invalid_bbr_rules.append(self.rule_str(rule))
-        
         if invalid_bbr_rules:
             error_rules = '\n'.join(invalid_bbr_rules)
             self.fail(f'The following building block rule(s) have missing tag: Rule Type: BBR:\n{error_rules}')
-    
+
     def test_primary_tactic_as_tag(self):
         """Test that the primary tactic is present as a tag."""
         from detection_rules.attack import tactics
