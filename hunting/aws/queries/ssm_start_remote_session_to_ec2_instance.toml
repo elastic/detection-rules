@@ -16,10 +16,10 @@ notes = [
     "Sessions started from IAM users may be benign, but sessions where the `aws.cloudtrail.user_identity.type` is `AssumedRole` are suspicious as they indicate instance to instance connections."
 ]
 mitre = ['T1021.007']
-query = '''
+query = ['''
 from logs-aws.cloudtrail-*
 | where @timestamp > now() - 7 day
 | where event.provider == "ssm.amazonaws.com" and event.action == "StartSession"
 | dissect aws.cloudtrail.request_parameters "{%{target_key}=%{target_instance}}"
 | stats user_instance_counts = count(*) by target_instance, aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.type, event.outcome
-'''
+''']
