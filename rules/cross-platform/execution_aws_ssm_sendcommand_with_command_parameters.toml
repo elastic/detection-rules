@@ -7,13 +7,18 @@ updated_date = "2024/09/03"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the use of the AWS Systems Manager (SSM) `SendCommand` API with the either `AWS-RunShellScript` or `AWS-RunPowerShellScript` parameters. The `SendCommand` API call allows users to execute commands on EC2 instances using the SSM service. Adversaries may use this technique to execute commands on EC2 instances without the need for SSH or RDP access. This behavior may indicate an adversary attempting to execute commands on an EC2 instance for malicious purposes.
-
-This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that only flags when this behavior is observed for the first time on a host in the last 7 days.
+Identifies the use of the AWS Systems Manager (SSM) `SendCommand` API with the either `AWS-RunShellScript` or
+`AWS-RunPowerShellScript` parameters. The `SendCommand` API call allows users to execute commands on EC2 instances using
+the SSM service. Adversaries may use this technique to execute commands on EC2 instances without the need for SSH or RDP
+access. This behavior may indicate an adversary attempting to execute commands on an EC2 instance for malicious
+purposes. This is a [New
+Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that only flags
+when this behavior is observed for the first time on a host in the last 7 days.
 """
 false_positives = [
     """
-    Legitimate use of the `SendCommand` API call to execute commands on EC2 instances using the SSM service may be done by system administrators or DevOps engineers for legitimate purposes.
+    Legitimate use of the `SendCommand` API call to execute commands on EC2 instances using the SSM service may be done
+    by system administrators or DevOps engineers for legitimate purposes.
     """,
 ]
 from = "now-9m"
@@ -23,7 +28,7 @@ license = "Elastic License v2"
 name = "AWS SSM `SendCommand` with Run Shell Command Parameters"
 references = [
     "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-privilege-escalation/aws-ssm-privesc",
-    "https://securitycafe.ro/2023/01/17/aws-post-explitation-with-ssm-sendcommand/"
+    "https://securitycafe.ro/2023/01/17/aws-post-explitation-with-ssm-sendcommand/",
 ]
 risk_score = 47
 rule_id = "c371e9fc-6a10-11ef-a0ac-f661ea17fbcc"
@@ -61,10 +66,11 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Execution",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category: "process" and event.type: "start" and process.name: "aws"
     and host.os.type: ("linux" or "windows" or "macos")
@@ -72,6 +78,7 @@ event.category: "process" and event.type: "start" and process.name: "aws"
         "send-command" and "--parameters" and commands=*
         and ("AWS-RunShellScript" or "AWS-RunPowerShellScript"))
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -92,3 +99,5 @@ value = ["host.id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+
