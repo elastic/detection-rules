@@ -22,7 +22,8 @@ from logs-aws.cloudtrail*
     and event.action == "GetSecretValue"
     and user_agent.name not in ("Chrome","Firefox","Safari", "Edge", "Brave", "Opera")
 | dissect aws.cloudtrail.request_parameters "%{}secret:%{secret_value}}"
-| stats request_counts = count(*) by event.action, aws.cloudtrail.user_identity.arn, source.ip
+| stats request_counts = count(*) by event.action, aws.cloudtrail.user_identity.arn, source.ip, user_agent.name
+| sort request_counts asc
 ```
 
 ## Notes
@@ -32,6 +33,7 @@ from logs-aws.cloudtrail*
 - `user_agent.name` field can provide additional context on the tool or application making the API calls. If not `aws-sdk` or known application, investigate further.
 - Review the `source.*` fields for the IP address and geographical location of the request and compare with the user's typical behavior
 - The `aws.cloudtrail.user_identity.arn` field can provide additional context on the user making the request and their role permissions. Recent changes to role permissions or unusual logins may indicate a compromised account
+- `user_agent.name` field can provide additional context on the tool or application making the API calls. If not `aws-sdk` or known application, investigate further.
 
 ## MITRE ATT&CK Techniques
 

@@ -19,7 +19,7 @@ from logs-aws.cloudtrail*
 | where @timestamp > now() - 7 day
 | where event.provider == "ec2.amazonaws.com" and event.action == "GetPasswordData"
 | dissect aws.cloudtrail.request_parameters "{%{?instance_key}=%{instance_id}}"
-| stats instance_count = count(*) by instance_id
+| stats instance_count = count_distinct(instance_id) by aws.cloudtrail.user_identity.arn
 | where instance_count >= 2
 ```
 

@@ -21,6 +21,7 @@ from logs-aws.cloudtrail*
     event.provider in ("ec2.amazonaws.com","route53resolver.amazonaws.com","s3.amazonaws.com", "cloudtrail.amazonaws.com")
     and event.action in ("DeleteFlowLogs","DeleteResolverQueryLogConfig", "DeleteTrail", "StopLogging")
 | eval date = DATE_FORMAT("YYYY-mm-dd", @timestamp)
+| stats service_logging_delete_count = count(*) by event.provider, event.action, event.outcome, date, aws.cloudtrail.user_identity.arn
 ```
 
 ## Notes

@@ -22,7 +22,7 @@ from logs-aws.cloudtrail-*
     and event.action == "ModifyInstanceAttribute"
     and aws.cloudtrail.request_parameters RLIKE ".*attribute=userData.*"
 | dissect aws.cloudtrail.request_parameters "{%{instance_id_key}=%{instance_id}, %{attribute_key}=%{attribute}, %{value_key}=%{value}}"
-| stats user_data_upload_counts = count(*) by aws.cloudtrail.user_identity.arn, event.outcome
+| stats user_attribute_modify_count = count(*) by aws.cloudtrail.user_identity.arn, event.outcome
 ```
 
 ## Notes
