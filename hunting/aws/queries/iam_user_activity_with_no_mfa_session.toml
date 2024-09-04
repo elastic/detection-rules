@@ -1,0 +1,25 @@
+[hunt]
+author = "Elastic"
+description = """
+This hunting query gathers data for evidence of an IAM user activity with no MFA session. This query identifies IAM user activity where the user is not MFA authenticated. Adversaries often target IAM users with weak or no MFA protection to gain unauthorized access to AWS resources after compromising the user's credentials via phishing, third-party breaches, or brute-forcing.
+"""
+integration = ["aws.cloudtrail"]
+uuid = "913a47be-649c-11ef-a693-f661ea17fbcc"
+name = "IAM User Activity with No MFA Session"
+language = ["ES|QL"]
+license = "Elastic License v2"
+notes = [
+"Review the `user_identity.arn` field to identify if activity is sourcing from a browser or programmatically via the AWS CLI or SDK.",
+"Review aggregated counts of API calls made for suspicious discovery or reconnaissance such as `List*`, `Describe*`, or `Get*` API calls.",
+]
+mitre = ['T1078.004']
+query = ['''
+from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
+| where event.dataset == "aws.cloudtrail"
+    and aws.cloudtrail.user_identity.type == "IAMUser"
+    and aws.cloudtrail.user_identity.session_context.mfa_authenticated == "false"
+    and not user_agent.original in ("cloudformation.amazonaws.com", "application-autoscaling.amazonaws.com", "AWS Internal")
+    and (aws.cloudtrail.user_identity.access_key_id is null or aws.cloudtrail.user_identity.access_key_id == "")
+| stats activity_counts = count(*) by event.provider, event.action, aws.cloudtrail.user_identity.arn
+''']
