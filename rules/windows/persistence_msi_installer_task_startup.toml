@@ -32,7 +32,8 @@ tags = [
 type = "eql"
 
 query = '''
-any where (process.name : "msiexec.exe" or Effective_process.name : "msiexec.exe") and
+any where host.os.type == "windows" and 
+ (process.name : "msiexec.exe" or Effective_process.name : "msiexec.exe") and
  (
   (event.category == "file" and event.action == "creation" and
    file.path : ("?:\\Windows\\System32\\Tasks\\*",
