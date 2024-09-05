@@ -16,17 +16,17 @@ notes = [
 mitre = ['T1556.006']
 query = ['''
 from logs-okta.system*
-    | where @timestamp > NOW() - 7 day
+| where @timestamp > NOW() - 7 day
 
-    // Filter for deny push notifications for multi-factor authentication
-    | where event.dataset == "okta.system" and event.action == "user.mfa.okta_verify.deny_push"
+// Filter for deny push notifications for multi-factor authentication
+| where event.dataset == "okta.system" and event.action == "user.mfa.okta_verify.deny_push"
 
-    // Truncate the timestamp to hourly intervals
-    | eval hourly_count = date_trunc(1 hour, event.ingested)
+// Truncate the timestamp to hourly intervals
+| eval hourly_count = date_trunc(1 hour, event.ingested)
 
-    // Count the number of deny push notifications for each user every hour
-    | stats hourly_denies = count(*) by okta.actor.alternate_id, hourly_count
+// Count the number of deny push notifications for each user every hour
+| stats hourly_denies = count(*) by okta.actor.alternate_id, hourly_count
 
-    // Filter for users who deny more than 5 push notifications in a single hour
-    | where hourly_denies > 5
+// Filter for users who deny more than 5 push notifications in a single hour
+| where hourly_denies > 5
 ''']
