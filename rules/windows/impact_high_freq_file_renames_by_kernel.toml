@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/05/03"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/23"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,14 @@ This rule identifies a high number (20) of file creation event by the System vir
 same file name containing keywords similar to ransomware note files and all within a short time period.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file-*"]
+index = [
+    "logs-endpoint.events.file-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential Ransomware Behavior - High count of Readme files by System"
@@ -62,6 +69,10 @@ tags = [
     "Tactic: Impact",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "threshold"
