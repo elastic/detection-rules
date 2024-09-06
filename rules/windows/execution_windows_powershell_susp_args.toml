@@ -106,10 +106,8 @@ process where host.os.type == "windows" and event.type == "start" and
 
       process.args : "$*$*;set-alias" or
 
-      (process.command_line : ("*-encodedCommand*", "*Invoke-webrequest*", "*WebClient*", "*Reflection.Assembly*") and
-       (process.parent.name : ("explorer.exe", "python.exe") or
-        (process.parent.name : "cmd.exe" and
-         descendant of [process where event.action == "start" and process.executable : "?:\\Windows\\explorer.exe"])))
+      (process.parent.name : ("explorer.exe", "cmd.exe") and 
+       process.command_line : ("*-encodedCommand*", "*Invoke-webrequest*", "*WebClient*", "*Reflection.Assembly*"))
   )
 '''
 
