@@ -23,6 +23,7 @@ Here are the queries currently available:
 
 
 ## docs
+- [Rapid MFA Deny Push Notifications (MFA Bombing)](./okta/docs/docs/credential_access_mfa_bombing_push_notications.md) (ES|QL)
 - [Rapid Reset Password Requests for Different Users](./okta/docs/docs/credential_access_rapid_reset_password_requests_for_different_users.md) (ES|QL)
 - [Multiple Application SSO Authentication from the Same Source](./okta/docs/docs/defense_evasion_multiple_application_sso_authentication_repeat_source.md) (ES|QL)
 - [Multi-Factor Authentication (MFA) Push Notification Bombing](./okta/docs/docs/initial_access_impossible_travel_sign_on.md) (ES|QL)
