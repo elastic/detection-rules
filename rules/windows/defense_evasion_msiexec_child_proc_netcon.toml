@@ -33,7 +33,7 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=1m
- [process where event.action : "start" and
+ [process where host.os.type == "windows" and event.type : "start" and
   process.parent.name : "msiexec.exe" and process.parent.args : "/v" and
   not process.executable :
         ("?:\\Windows\\System32\\msiexec.exe",
@@ -46,7 +46,7 @@ sequence by process.entity_id with maxspan=1m
          "?:\\Windows\\Installer\\MSI*.tmp",
          "?:\\Windows\\Microsoft.NET\\Framework*\\RegSvcs.exe") and
  not (process.name : ("rundll32.exe", "regsvr32.exe") and process.args : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*"))]
-[any where event.category in ("network", "dns")]
+[any where host.os.type == "windows" and event.category in ("network", "dns") and process.name != null]
 '''
 
 
