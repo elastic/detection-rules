@@ -22,6 +22,13 @@ Here are the queries currently available:
 - [STS Suspicious Federated Temporary Credential Request](./aws/docs/sts_suspicious_federated_temporary_credential_request.md) (ES|QL)
 
 
+## docs
+- [Rapid Reset Password Requests for Different Users](./okta/docs/docs/credential_access_rapid_reset_password_requests_for_different_users.md) (ES|QL)
+- [Multiple Application SSO Authentication from the Same Source](./okta/docs/docs/defense_evasion_multiple_application_sso_authentication_repeat_source.md) (ES|QL)
+- [Multi-Factor Authentication (MFA) Push Notification Bombing](./okta/docs/docs/initial_access_impossible_travel_sign_on.md) (ES|QL)
+- [Multi-Factor Authentication (MFA) Push Notification Bombing](./okta/docs/docs/persistence_multi_factor_push_notification_bombing.md) (ES|QL)
+
+
 ## linux
 - [Network Connections with Low Occurrence Frequency for Unique Agent ID](./linux/docs/command_and_control_via_network_connections_with_low_occurrence_frequency_for_unique_agents.md) (ES|QL)
 - [Unusual File Downloads from Source Addresses](./linux/docs/command_and_control_via_unusual_file_downloads_from_source_addresses.md) (ES|QL)
