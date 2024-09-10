@@ -2,7 +2,7 @@
 creation_date = "2022/09/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/03"
+updated_date = "2024/09/10"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS SSM `SendCommand` with Run Shell Command Parameters"
@@ -73,10 +73,17 @@ type = "new_terms"
 
 query = '''
 event.category: "process" and event.type: "start" and process.name: "aws"
-    and host.os.type: ("linux" or "windows" or "macos")
-    and process.args: (
-        "send-command" and "--parameters" and commands=*
-        and ("AWS-RunShellScript" or "AWS-RunPowerShellScript"))
+and (
+    host.os.type: ("windows" or "macos")
+    or (
+        host.os.type: "linux"
+        and event.action: ("exec", "exec_event", "executed", "process_started")
+    )
+)
+and process.args: (
+    "send-command" and "--parameters" and commands=*
+    and ("AWS-RunShellScript" or "AWS-RunPowerShellScript")
+)
 '''
 
 
