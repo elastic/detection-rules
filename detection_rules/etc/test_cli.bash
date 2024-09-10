@@ -28,6 +28,9 @@ python -m detection_rules dev schemas update-rule-data
 echo "Validating rule: execution_github_new_event_action_for_pat.toml"
 python -m detection_rules validate-rule rules_building_block/execution_github_new_event_action_for_pat.toml
 
+echo "Linting Rule: execution_github_new_event_action_for_pat.toml"
+python -m detection_rules toml-lint -f rules_building_block/execution_github_new_event_action_for_pat.toml
+
 echo "Checking licenses"
 python -m detection_rules dev license-check
 
