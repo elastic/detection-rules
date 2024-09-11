@@ -51,8 +51,10 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
+// truncate the timestamp to a 1-minute window
+| eval target_time_window = DATE_TRUNC(1 minutes, @timestamp)
 | where gen_ai.response.error_code == "ValidationException"
-| stats total_denials = count(*) by user.id, gen_ai.request.model.id, cloud.account.id
+// count the number of users causing validation errors within a 1 minute window
+| stats total_denials = count(*) by target_time_window, user.id,cloud.account.id
 | where total_denials > 3
-| sort total_denials desc
 '''
