@@ -394,6 +394,8 @@ class IntegrationSecurityDocs:
         for rule in self.sorted_rules:
             if isinstance(rule, DeprecatedRule):
                 continue
+            if rule.contents.metadata.maturity == "development":
+                continue
             title_name = name_to_title(rule.name)
 
             # skip rules not built for this package
