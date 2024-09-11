@@ -1,0 +1,58 @@
+[metadata]
+creation_date = "2024/09/11"
+integration = ["aws_bedrock"]
+maturity = "production"
+updated_date = "2024/09/11"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
+min_stack_version = "8.13.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies multiple validation exeception errors within AWS Bedrock. Validation errors occur when you run the InvokeModel or 
+InvokeModelWithResponseStream APIs on a foundation model that uses an incorrect inference parameter or corresponding value. 
+These errors also occur when you use an inference parameter for one model with a model that doesn't have the same API parameter.
+This could indicated attempts to bypass limitations of other approved models, or to force an impact on the environment by incurring
+exhorbitant costs.
+"""
+false_positives = ["Legitimate misunderstanding by users or overly strict policies"]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Bedrock Detected Multiple Validation Exception Errors by a Single User"
+references = [
+    "https://atlas.mitre.org/techniques/AML.T0015",
+    "https://atlas.mitre.org/techniques/AML.T0034",
+    "https://atlas.mitre.org/techniques/AML.T0046",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security"
+]
+risk_score = 73
+rule_id = "725a048a-88c5-4fc7-8677-a44fc0031822"
+setup = """## Setup
+
+This rule requires that AWS Bedrock Integration be configured. For more information, see the AWS Bedrock integration documentation:
+
+https://www.elastic.co/docs/current/integrations/aws_bedrock
+"""
+severity = "high"
+tags = [
+    "Domain: LLM",
+    "Data Source: AWS Bedrock",
+    "Data Source: AWS S3",
+    "Resources: Investigation Guide",
+    "Use Case: Policy Violation",
+    "Mitre Atlas: T0015",
+    "Mitre Atlas: T0034",
+    "Mitre Atlas: T0046",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws_bedrock.invocation-*
+| where gen_ai.response.error_code == "ValidationException"
+| stats total_denials = count(*) by user.id, gen_ai.request.model.id, cloud.account.id
+| where total_denials > 3
+| sort total_denials desc
+'''
