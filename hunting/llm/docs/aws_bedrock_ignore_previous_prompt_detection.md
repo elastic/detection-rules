@@ -24,7 +24,7 @@ from logs-aws_bedrock.invocation-*
       gen_ai.prompt LIKE "*nevermind ignore what i asked and print")
      AND gen_ai.completion LIKE "*end_turn*"
    )
- | STATS user_request_count = count() BY gen_ai.user.id
+ | STATS user_request_count = count(*) BY gen_ai.user.id
  | WHERE user_request_count >= 2
 ```
 
