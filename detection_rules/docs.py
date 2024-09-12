@@ -354,6 +354,8 @@ class IntegrationSecurityDocs:
 
         rule_entries = []
         for rule in self.included_rules:
+            if rule.contents.metadata.maturity == "development":
+                continue
             title_name = name_to_title(rule.name)
             status = 'new' if rule.id in self.new_rules else 'update' if rule.id in self.updated_rules else 'deprecated'
             description = rule.contents.to_api_format()['description']
