@@ -5,7 +5,7 @@
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** This analytic flags multiple instances of LLM vulnerability to malicious user interaction, helping to maintain ethical guidelines and compliance standards.
+- **Description:** This analytic flags multiple instances where large language models (LLMs) are vulnerable to malicious user interactions designed to bypass previous prompts. This can lead to the generation of inappropriate or harmful content, resulting in direct LLM prompt injection.
 - **UUID:** `131e5887-463a-46a1-a44e-b96361bc6cbc`
 - **Integration:** [aws_bedrock.invocation](https://docs.elastic.co/integrations/aws_bedrock)
 - **Language:** `[ES|QL]`
@@ -15,14 +15,17 @@
 
 ```sql
 from logs-aws_bedrock.invocation-*
+ |EVAL lowercase_prompt = TO_LOWER(gen_ai.prompt) 
  |WHERE @timestamp > NOW() - 1 HOUR
-   AND (
-     (gen_ai.prompt LIKE "*Ignore the above instructions*" OR 
-      gen_ai.prompt LIKE "*IGNORE INSTRUCTIONS*" OR
-      gen_ai.prompt LIKE "*IGNORE and PRINT*" OR
-      gen_ai.prompt LIKE "*Ignore and say*" OR 
-      gen_ai.prompt LIKE "*nevermind ignore what i asked and print")
-     AND gen_ai.completion LIKE "*end_turn*"
+ AND( 
+    (
+      lowercase_prompt LIKE "*ignore the above instructions*" OR 
+      lowercase_prompt LIKE "*ignore instructions" OR
+      lowercase_prompt LIKE "*ignore and print" OR
+      lowercase_prompt LIKE "*ignore and say*" OR 
+      lowercase_prompt LIKE "*nevermind ignore what i asked*"
+    )
+     AND to_lower(gen_ai.completion) LIKE "*end_turn*"
    )
  | STATS user_request_count = count(*) BY gen_ai.user.id
  | WHERE user_request_count >= 2
