@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/08/06"
+updated_date = "2024/09/11"
 
 [transform]
 [[transform.osquery]]
@@ -115,7 +115,7 @@ sequence with maxspan=1m
       /* Veeam related processes */
       (
         process.name : (
-          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe", "Veeam.VSS.Sharepoint2010.exe"
+          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe", "Veeam.VSS.Sharepoint20??.exe"
         ) and process.code_signature.trusted == true and process.code_signature.subject_name : "Veeam Software Group GmbH"
       ) or
       /* PDQ related processes */
@@ -131,7 +131,23 @@ sequence with maxspan=1m
          process.code_signature.trusted == true and process.code_signature.subject_name : "CrowdStrike, Inc.") or
         (process.executable : "?:\\Windows\\System32\\drivers\\CrowdStrike\\*-CsInstallerService.exe" and 
          process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Windows Hardware Compatibility Publisher")
-      )
+      ) or
+      /* MS related processes */
+      (
+        process.executable == "System" or
+        (process.executable : "?:\\Windows\\ccmsetup\\ccmsetup.exe" and 
+         process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Corporation")
+      ) or
+      /* CyberArk processes */
+      (
+        process.executable : "?:\\Windows\\CAInvokerService.exe" and 
+        process.code_signature.trusted == true and process.code_signature.subject_name : "CyberArk Software Ltd."
+      )  or
+      /* Sophos processes */
+      (
+        process.executable : "?:\\ProgramData\\Sophos\\AutoUpdate\\Cache\\sophos_autoupdate1.dir\\SophosUpdate.exe" and 
+        process.code_signature.trusted == true and process.code_signature.subject_name : "Sophos Ltd"
+      ) 
     )
   ] by host.id, process.executable
 '''
