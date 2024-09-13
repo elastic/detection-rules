@@ -86,15 +86,15 @@ process where host.os.type == "windows" and event.action == "start" and
         process.args : "-ExecutionPolicy" and not process.args : "Sync-AppvPublishingServer") and
 
    /* third party installation related FPs */
-   not process.parent.args : "?:\\Windows\\system32\\gatherNetworkInfo.vbs" and
-   not (process.parent.args : "Microsoft.SystemCenter.ICMPProbe.WithConsecutiveSamples.vbs" and process.args : "Get-SCOMAgent") and
-   not (process.command_line : "*WEBLOGIC_ARGS_CURRENT_1.DATA*" and process.parent.command_line : "*Impact360*") and
+   not ?process.parent.args : "?:\\Windows\\system32\\gatherNetworkInfo.vbs" and
+   not (?process.parent.args : "Microsoft.SystemCenter.ICMPProbe.WithConsecutiveSamples.vbs" and process.args : "Get-SCOMAgent") and
+   not (process.command_line : "*WEBLOGIC_ARGS_CURRENT_1.DATA*" and ?process.parent.command_line : "*Impact360*") and
    not process.args :  "$package = Get-AppxPackage Microsoft.Office.Desktop -allUsers;*" and
    not process.command_line : ("*.Access.IdentityReference*win32_SID.SID*", "*AGIAbQB4AC0AYQBwAC4AcwAzAC4AdQBzAC0AZQBhAHMAd*") and
-   not (process.parent.args : "?:\\Users\\Prestige\\AppData\\Local\\Temp\\Rar$*\\KMS_VL_ALL_AIO.cmd  -elevated" and process.command_line : "*KMS_VL_ALL_AIO.cmd*") and
+   not (?process.parent.args : "?:\\Users\\Prestige\\AppData\\Local\\Temp\\Rar$*\\KMS_VL_ALL_AIO.cmd  -elevated" and process.command_line : "*KMS_VL_ALL_AIO.cmd*") and
    not process.args : "iwr https://*.s3.us-east-1.amazonaws.com/scripts/Start-SpeedTest.ps1 -UserAgent * -UseBasicParsing | invoke-expression" and
    not (process.parent.name : "wscript.exe" and
-        process.parent.args : "C:\\Program Files (x86)\\Telivy\\Telivy Agent\\telivy.js")
+        ?process.parent.args : "C:\\Program Files (x86)\\Telivy\\Telivy Agent\\telivy.js")
 '''
 
 
