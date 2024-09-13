@@ -12,7 +12,7 @@ description = """
 Identifies multiple validation exeception errors within AWS Bedrock. Validation errors occur when you run the InvokeModel or 
 InvokeModelWithResponseStream APIs on a foundation model that uses an incorrect inference parameter or corresponding value. 
 These errors also occur when you use an inference parameter for one model with a model that doesn't have the same API parameter.
-This could indicated attempts to bypass limitations of other approved models, or to force an impact on the environment by incurring
+This could indicate attempts to bypass limitations of other approved models, or to force an impact on the environment by incurring
 exhorbitant costs.
 """
 false_positives = ["Legitimate misunderstanding by users or overly strict policies"]
@@ -55,6 +55,6 @@ from logs-aws_bedrock.invocation-*
 | eval target_time_window = DATE_TRUNC(1 minutes, @timestamp)
 | where gen_ai.response.error_code == "ValidationException"
 // count the number of users causing validation errors within a 1 minute window
-| stats total_denials = count(*) by target_time_window, user.id,cloud.account.id
+| stats total_denials = count(*) by target_time_window, user.id, cloud.account.id
 | where total_denials > 3
 '''
