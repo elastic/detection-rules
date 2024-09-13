@@ -354,7 +354,7 @@ class IntegrationSecurityDocs:
 
         rule_entries = []
         for rule in self.included_rules:
-            if rule.contents.metadata.maturity == "development":
+            if rule.contents.metadata.get('maturity') == 'development':
                 continue
             title_name = name_to_title(rule.name)
             status = 'new' if rule.id in self.new_rules else 'update' if rule.id in self.updated_rules else 'deprecated'
@@ -396,7 +396,7 @@ class IntegrationSecurityDocs:
         for rule in self.sorted_rules:
             if isinstance(rule, DeprecatedRule):
                 continue
-            if rule.contents.metadata.maturity == "development":
+            if rule.contents.metadata.get('maturity') == 'development':
                 continue
             title_name = name_to_title(rule.name)
 
