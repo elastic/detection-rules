@@ -820,16 +820,17 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
         generated_urls.append(url)
         link_name = name.split('.')[0]
         markdown_links.append(f'|[{link_name}]({url})|')
+        
+    markdown = [
+        f'**Full coverage**: {NAVIGATOR_BADGE}',
+        '\n',
+        f'**Coverage by platform**: [navigator]({platforms_url})',
+        '\n',
+        '| other navigator links by rule attributes |',
+        '|------------------------------------------|',
+    ] + markdown_links
 
     if print_markdown:
-        markdown = [
-            f'**Full coverage**: {NAVIGATOR_BADGE}',
-            '\n',
-            f'**Coverage by platform**: [navigator]({platforms_url})',
-            '\n',
-            '| other navigator links by rule attributes |',
-            '|------------------------------------------|',
-        ] + markdown_links
         click.echo('\n'.join(markdown) + '\n')
 
     if update_coverage:
