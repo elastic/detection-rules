@@ -67,6 +67,9 @@ def wrap_text(v, block_indent=0, join=False):
     lines = textwrap.wrap(v, initial_indent=' ' * block_indent, subsequent_indent=' ' * block_indent, width=120,
                           break_long_words=False, break_on_hyphens=False)
     lines = [line + '\n' for line in lines]
+    # If there is a single line that contains a quote, add a new blank line to trigger multiline formatting
+    if len(lines) == 1 and '"' in lines[0]:
+        lines = lines + ['']
     return lines if not join else ''.join(lines)
 
 
@@ -157,6 +160,14 @@ class RuleTomlEncoder(toml.TomlEncoder):
                 else:
                     dump.append(' ' * 4 + self.dump_value(item))
             return '[\n{},\n]'.format(',\n'.join(dump))
+
+        if all(isinstance(i, dict) for i in v):
+            # Compact inline format for lists of dictionaries with proper indentation
+            retval = "\n" + ' ' * 2 + "[\n"
+            retval += ",\n".join([' ' * 4 + self.dump_inline_table(u).strip() for u in v])
+            retval += "\n" + ' ' * 2 + "]\n"
+            return retval
+
         return self._dump_flat_list(v)
 
 
@@ -191,6 +202,7 @@ def toml_write(rule_contents, outfile=None):
 
     def _do_write(_data, _contents):
         query = None
+        threat_query = None
 
         if _data == 'rule':
             # - We want to avoid the encoder for the query and instead use kql-lint.
@@ -204,6 +216,7 @@ def toml_write(rule_contents, outfile=None):
             #
             # if tags and isinstance(tags, list):
             #     contents['rule']["tags"] = list(sorted(set(tags)))
+            threat_query = contents['rule'].pop('threat_query', '').strip()
 
         top = OrderedDict()
         bottom = OrderedDict()
@@ -214,14 +227,24 @@ def toml_write(rule_contents, outfile=None):
             if k == 'actions':
                 # explicitly preserve formatting for message field in actions
                 preserved_fields = ["params.message"]
-                v = [preserve_formatting_for_fields(action, preserved_fields) for action in v]
+                v = [preserve_formatting_for_fields(action, preserved_fields) for action in v] if v is not None else []
 
             if k == 'filters':
                 # explicitly preserve formatting for value field in filters
                 preserved_fields = ["meta.value"]
-                v = [preserve_formatting_for_fields(meta, preserved_fields) for meta in v]
+                v = [preserve_formatting_for_fields(meta, preserved_fields) for meta in v] if v is not None else []
 
             if k == 'note' and isinstance(v, str):
+                # Transform instances of \ to \\ as calling write will convert \\ to \.
+                # This will ensure that the output file has the correct number of backslashes.
+                v = v.replace("\\", "\\\\")
+
+            if k == 'setup' and isinstance(v, str):
+                # Transform instances of \ to \\ as calling write will convert \\ to \.
+                # This will ensure that the output file has the correct number of backslashes.
+                v = v.replace("\\", "\\\\")
+
+            if k == 'description' and isinstance(v, str):
                 # Transform instances of \ to \\ as calling write will convert \\ to \.
                 # This will ensure that the output file has the correct number of backslashes.
                 v = v.replace("\\", "\\\\")
@@ -241,8 +264,16 @@ def toml_write(rule_contents, outfile=None):
         if query:
             top.update({'query': "XXxXX"})
 
+        if threat_query:
+            top.update({'threat_query': "XXxXX"})
+
         top.update(bottom)
         top = toml.dumps(OrderedDict({data: top}), encoder=encoder)
+
+        # we want to preserve the threat_query format, but want to modify it in the context of encoded dump
+        if threat_query:
+            formatted_threat_query = "\nthreat_query = '''\n{}\n'''{}".format(threat_query, '\n\n' if bottom else '')
+            top = top.replace('threat_query = "XXxXX"', formatted_threat_query)
 
         # we want to preserve the query format, but want to modify it in the context of encoded dump
         if query:

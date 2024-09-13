@@ -20,13 +20,13 @@ from marshmallow import EXCLUDE, Schema, fields, post_load
 import kql
 
 from . import ecs
+from .config import load_current_package_version
 from .beats import flatten_ecs_schema
-from .misc import load_current_package_version
 from .utils import cached, get_etc_path, read_gzip, unzip
 from .schemas import definitions
 
 MANIFEST_FILE_PATH = get_etc_path('integration-manifests.json.gz')
-NUM_LATEST_RULE_VERSIONS = 2
+NUM_LATEST_RULE_VERSIONS = 1
 SCHEMA_FILE_PATH = get_etc_path('integration-schemas.json.gz')
 _notified_integrations = set()
 
@@ -384,6 +384,10 @@ def parse_datasets(datasets: list, package_manifest: dict) -> List[Optional[dict
         integration = 'Unknown'
         if '.' in value:
             package, integration = value.split('.', 1)
+            # Handle cases where endpoint event datasource needs to be parsed uniquely (e.g endpoint.events.network)
+            # as endpoint.network
+            if package == "endpoint" and "events" in integration:
+                integration = integration.split('.')[1]
         else:
             package = value
 
@@ -421,7 +425,7 @@ class SecurityDetectionEngine:
 
         # Separate rule ID and version, and group by base rule ID
         for key in assets:
-            base_id, version = key.rsplit('_', 1)
+            base_id, version = assets[key]["attributes"]["rule_id"], assets[key]["attributes"]["version"]
             version = int(version)  # Convert version to an integer for sorting
             rule_versions[base_id].append((version, key))
 

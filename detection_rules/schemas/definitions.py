@@ -4,12 +4,47 @@
 # 2.0.
 
 """Custom shared definitions for schemas."""
+import os
+from typing import Final, List, Literal
 
-from typing import List, Literal, Final
-
-from marshmallow import validate
+from marshmallow import fields, validate
 from marshmallow_dataclass import NewType
 from semver import Version
+
+from detection_rules.config import CUSTOM_RULES_DIR
+
+
+def elastic_timeline_template_id_validator():
+    """Custom validator for Timeline Template IDs."""
+    def validator(value):
+        if os.environ.get('DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION') is not None:
+            fields.String().deserialize(value)
+        else:
+            validate.OneOf(list(TIMELINE_TEMPLATES))(value)
+
+    return validator
+
+
+def elastic_timeline_template_title_validator():
+    """Custom validator for Timeline Template Titles."""
+    def validator(value):
+        if os.environ.get('DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION') is not None:
+            fields.String().deserialize(value)
+        else:
+            validate.OneOf(TIMELINE_TEMPLATES.values())(value)
+
+    return validator
+
+
+def elastic_rule_name_regexp(pattern):
+    """Custom validator for rule names."""
+    def validator(value):
+        if not CUSTOM_RULES_DIR:
+            validate.Regexp(pattern)(value)
+        else:
+            fields.String().deserialize(value)
+    return validator
+
 
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
@@ -37,6 +72,7 @@ NON_DATASET_PACKAGES = ['apm',
                         'auditd_manager',
                         'cloud_defend',
                         'endpoint',
+                        'jamf_protect',
                         'network_traffic',
                         'system',
                         'windows',
@@ -59,6 +95,8 @@ QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
 # we had a bad rule ID make it in before tightening up the pattern, and so we have to let it bypass
 KNOWN_BAD_RULE_IDS = Literal['119c8877-8613-416d-a98a-96b6664ee73a5']
 KNOWN_BAD_DEPRECATED_DATES = Literal['2021-03-03']
+# Known Null values that cannot be handled in TOML due to lack of Null value support via compound dicts
+KNOWN_NULL_ENTRIES = [{"rule.actions": "frequency.throttle"}]
 OPERATORS = ['equals']
 
 TIMELINE_TEMPLATES: Final[dict] = {
@@ -149,6 +187,12 @@ CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=val
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
+ExceptionEntryOperator = Literal['included', 'excluded']
+ExceptionEntryType = Literal['match', 'match_any', 'exists', 'list', 'wildcard', 'nested']
+ExceptionNamespaceType = Literal['single', 'agnostic']
+ExceptionItemEndpointTags = Literal['endpoint', 'os:windows', 'os:linux', 'os:macos']
+ExceptionContainerType = Literal['detection', 'endpoint', 'rule_default']
+ExceptionItemType = Literal['simple']
 FilterLanguages = Literal["eql", "esql", "kuery", "lucene"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 InvestigateProviderQueryType = Literal["phrase", "range"]
@@ -161,7 +205,7 @@ Operator = Literal['equals']
 OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
-RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
+RuleName = NewType('RuleName', str, validate=elastic_rule_name_regexp(NAME_PATTERN))
 RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'esql', 'threshold', 'threat_match', 'new_terms']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINOR_SEMVER))
@@ -172,8 +216,8 @@ StoreType = Literal['appState', 'globalState']
 TacticURL = NewType('TacticURL', str, validate=validate.Regexp(TACTIC_URL))
 TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_URL))
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
-TimelineTemplateId = NewType('TimelineTemplateId', str, validate=validate.OneOf(list(TIMELINE_TEMPLATES)))
-TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=validate.OneOf(TIMELINE_TEMPLATES.values()))
+TimelineTemplateId = NewType('TimelineTemplateId', str, validate=elastic_timeline_template_id_validator())
+TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=elastic_timeline_template_title_validator())
 TransformTypes = Literal["osquery", "investigate"]
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 BuildingBlockType = Literal['default']
@@ -182,3 +226,23 @@ BuildingBlockType = Literal['default']
 MachineLearningType = getattr(Literal, '__getitem__')(tuple(MACHINE_LEARNING_PACKAGES))  # noqa: E999
 MachineLearningTypeLower = getattr(Literal, '__getitem__')(
     tuple(map(str.lower, MACHINE_LEARNING_PACKAGES)))  # noqa: E999
+##
+
+ActionTypeId = Literal[
+    ".slack", ".slack_api", ".email", ".index", ".pagerduty", ".swimlane", ".webhook", ".servicenow",
+    ".servicenow-itom", ".servicenow-sir", ".jira", ".resilient", ".opsgenie", ".teams", ".torq", ".tines",
+    ".d3security"
+]
+EsDataTypes = Literal[
+    'binary', 'boolean',
+    'keyword', 'constant_keyword', 'wildcard',
+    'long', 'integer', 'short', 'byte', 'double', 'float', 'half_float', 'scaled_float', 'unsigned_long',
+    'date', 'date_nanos',
+    'alias', 'object', 'flatten', 'nested', 'join',
+    'integer_range', 'float_range', 'long_range', 'double_range', 'date_range', 'ip_range',
+    'ip', 'version', 'murmur3', 'aggregate_metric_double', 'histogram',
+    'text', 'text_match_only', 'annotated-text', 'completion', 'search_as_you_type', 'token_count',
+    'dense_vector', 'sparse_vector', 'rank_feature', 'rank_features',
+    'geo_point', 'geo_shape', 'point', 'shape',
+    'percolator'
+]

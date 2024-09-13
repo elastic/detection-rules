@@ -2,7 +2,7 @@
 creation_date = "2020/11/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Identifies the creation of a suspicious ImagePath value. This could be an indica
 stealthily persist or escalate privileges through abnormal service creation.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*"]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious ImagePath Service Creation"
@@ -32,12 +32,14 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and registry.path : (
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.value : "ImagePath" and
+  registry.path : (
     "HKLM\\SYSTEM\\ControlSet*\\Services\\*\\ImagePath",
     "\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet*\\Services\\*\\ImagePath"
     ) and
- /* add suspicious registry ImagePath values here */
-    registry.data.strings : ("%COMSPEC%*", "*\\.\\pipe\\*")
+  /* add suspicious registry ImagePath values here */
+  registry.data.strings : ("%COMSPEC%*", "*\\.\\pipe\\*")
 '''
 
 

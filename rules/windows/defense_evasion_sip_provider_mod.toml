@@ -2,7 +2,7 @@
 creation_date = "2021/01/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/08/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ Windows cryptographic system to validate file signatures on the system. This may
 validation checks or inject code into critical processes.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*"]
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "SIP Provider Modification"
@@ -33,14 +33,16 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type:"change" and
+registry where host.os.type == "windows" and event.type == "change" and registry.value : ("Dll", "$Dll") and
   registry.path: (
     "*\\SOFTWARE\\Microsoft\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllPutSignedDataMsg\\{*}\\Dll",
     "*\\SOFTWARE\\WOW6432Node\\Microsoft\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllPutSignedDataMsg\\{*}\\Dll",
     "*\\SOFTWARE\\Microsoft\\Cryptography\\Providers\\Trust\\FinalPolicy\\{*}\\$Dll",
     "*\\SOFTWARE\\WOW6432Node\\Microsoft\\Cryptography\\Providers\\Trust\\FinalPolicy\\{*}\\$Dll"
     ) and
-  registry.data.strings:"*.dll"
+  registry.data.strings:"*.dll" and
+  not (process.name : "msiexec.exe" and registry.data.strings : "mso.dll") and
+  not (process.name : "regsvr32.exe" and registry.data.strings == "WINTRUST.DLL")
 '''
 
 
