@@ -1,16 +1,16 @@
-# Multi-Factor Authentication (MFA) Push Notification Bombing
+# Successful Impossible Travel Sign-On Events
 
 ---
 
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** This hunting query identifies when a user denies multiple push notifications for multi-factor authentication (MFA) in rapid succession. Adversaries may attempt to deny push notifications to flood the target user's device with notifications, causing the user to ignore legitimate notifications or potentially disable MFA. This query identifies when a user denies more than 5 push notifications in a single hour.
+- **Description:** This hunting query identifies when a user successfully signs on from more than one country in a 15 minute interval. Adversaries may compromise authentication credentials for users or clients and attempt to authenticate from a separate country that the user has not previously authenticated from.
 
-- **UUID:** `7c51fe3e-6ae9-11ef-919d-f661ea17fbcc`
+- **UUID:** `31585786-71f4-11ef-9e99-f661ea17fbcc`
 - **Integration:** [okta](https://docs.elastic.co/integrations/okta)
 - **Language:** `[ES|QL]`
-- **Source File:** [Multi-Factor Authentication (MFA) Push Notification Bombing](../queries/initial_access_impossible_travel_sign_on.toml)
+- **Source File:** [Successful Impossible Travel Sign-On Events](../queries/initial_access_impossible_travel_sign_on.toml)
 
 ## Query
 
@@ -37,11 +37,11 @@ from logs-okta.system*
 
 - `okta.actor.alternate_id` would be target of the threat adversary
 - Pivoting into a potential compromise requires an additional search for `okta.outcome.result` being `SUCCESS` for any `user.authentication*` value for `okta.event_type`
-- For a smaller window (rapid denies), reduce from 1 hour to 30 minutes or lower
+- Pivot to any additional Okta logs after authentication to determine if activity is still being reported by separate countries.
 
 ## MITRE ATT&CK Techniques
 
-- [T1556.006](https://attack.mitre.org/techniques/T1556/006)
+- [T1078.004](https://attack.mitre.org/techniques/T1078/004)
 
 ## License
 

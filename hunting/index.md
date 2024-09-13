@@ -31,7 +31,7 @@ Here are the queries currently available:
 - [Multiple Application SSO Authentication from the Same Source](./okta/docs/docs/defense_evasion_multiple_application_sso_authentication_repeat_source.md) (ES|QL)
 - [OAuth Access Token Granted for Public Client App from Multiple Client Addresses](./okta/docs/docs/defense_evasion_multiple_client_sources_reported_for_oauth_access_tokens_granted.md) (ES|QL)
 - [Rare Occurrence of OAuth Access Token Granted to Public Client App](./okta/docs/docs/defense_evasion_rare_oauth_access_token_granted_by_application.md) (ES|QL)
-- [Multi-Factor Authentication (MFA) Push Notification Bombing](./okta/docs/docs/initial_access_impossible_travel_sign_on.md) (ES|QL)
+- [Successful Impossible Travel Sign-On Events](./okta/docs/docs/initial_access_impossible_travel_sign_on.md) (ES|QL)
 - [Multi-Factor Authentication (MFA) Push Notification Bombing](./okta/docs/docs/persistence_multi_factor_push_notification_bombing.md) (ES|QL)
 - [Rare Occurrence of Top-Level Domain (TLD) with User Authentication Events](./okta/docs/docs/persistence_rare_tld_with_user_authentication.md) (ES|QL)
 
@@ -72,6 +72,7 @@ Here are the queries currently available:
 
 ## llm
 - [AWS Bedrock LLM Denial-of-Service or Resource Exhaustion](./llm/docs/aws_bedrock_dos_resource_exhaustion_detection.md) (ES|QL)
+- [AWS Bedrock LLM Ignore Previous Prompt Detection](./llm/docs/aws_bedrock_ignore_previous_prompt_detection.md) (ES|QL)
 - [AWS Bedrock LLM Latency Anomalies](./llm/docs/aws_bedrock_latency_anomalies_detection.md) (ES|QL)
 - [AWS Bedrock LLM Sensitive Content Refusals](./llm/docs/aws_bedrock_sensitive_content_refusal_detection.md) (ES|QL)
 
