@@ -23,17 +23,17 @@ Here are the queries currently available:
 
 
 ## docs
-- [Identify High Average of Failed Daily Authentication Attempts](./okta/docs/docs/credential_access_hgher_than_average_failed_authentication.md) (ES|QL)
 - [Rapid MFA Deny Push Notifications (MFA Bombing)](./okta/docs/docs/credential_access_mfa_bombing_push_notications.md) (ES|QL)
-- [Password Spraying from Repeat Source](./okta/docs/docs/credential_access_password_spraying_from_repeat_source.md) (ES|QL)
 - [Rapid Reset Password Requests for Different Users](./okta/docs/docs/credential_access_rapid_reset_password_requests_for_different_users.md) (ES|QL)
 - [Failed OAuth Access Token Retrieval via Public Client App with Client Credentials](./okta/docs/docs/defense_evasion_failed_oauth_access_token_retrieval_via_public_client_app.md) (ES|QL)
 - [Multiple Application SSO Authentication from the Same Source](./okta/docs/docs/defense_evasion_multiple_application_sso_authentication_repeat_source.md) (ES|QL)
 - [OAuth Access Token Granted for Public Client App from Multiple Client Addresses](./okta/docs/docs/defense_evasion_multiple_client_sources_reported_for_oauth_access_tokens_granted.md) (ES|QL)
 - [Rare Occurrence of OAuth Access Token Granted to Public Client App](./okta/docs/docs/defense_evasion_rare_oauth_access_token_granted_by_application.md) (ES|QL)
+- [Identify High Average of Failed Daily Authentication Attempts](./okta/docs/docs/initial_access_hgher_than_average_failed_authentication.md) (ES|QL)
 - [Successful Impossible Travel Sign-On Events](./okta/docs/docs/initial_access_impossible_travel_sign_on.md) (ES|QL)
+- [Password Spraying from Repeat Source](./okta/docs/docs/initial_access_password_spraying_from_repeat_source.md) (ES|QL)
 - [Multi-Factor Authentication (MFA) Push Notification Bombing](./okta/docs/docs/persistence_multi_factor_push_notification_bombing.md) (ES|QL)
-- [Rare Occurrence of Top-Level Domain (TLD) with User Authentication Events](./okta/docs/docs/persistence_rare_tld_with_user_authentication.md) (ES|QL)
+- [Rare Occurrence of Domain with User Authentication Events](./okta/docs/docs/persistence_rare_domain_with_user_authentication.md) (ES|QL)
 
 
 ## linux
