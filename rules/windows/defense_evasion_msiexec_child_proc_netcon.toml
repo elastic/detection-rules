@@ -1,0 +1,68 @@
+[metadata]
+creation_date = "2024/09/09"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2024/09/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of an MsiExec service child process followed by network or dns lookup activity. Adversaries may
+abuse Windows Installers for initial access and delivery of malware.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*", "logs-endpoint.events.network-*", "logs-windows.sysmon_operational-*", "logs-sentinel_one_cloud_funnel.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "MsiExec Service Child Process With Network Connection"
+risk_score = 47
+rule_id = "65432f4a-e716-4cc1-ab11-931c4966da2d"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+]
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=1m
+ [process where host.os.type == "windows" and event.type : "start" and
+  process.parent.name : "msiexec.exe" and process.parent.args : "/v" and
+  not process.executable :
+        ("?:\\Windows\\System32\\msiexec.exe",
+         "?:\\Windows\\sysWOW64\\msiexec.exe",
+         "?:\\Windows\\system32\\srtasks.exe",
+         "?:\\Windows\\syswow64\\srtasks.exe",
+         "?:\\Windows\\sys*\\taskkill.exe",
+         "?:\\Program Files\\*.exe",
+         "?:\\Program Files (x86)\\*.exe",
+         "?:\\Windows\\Installer\\MSI*.tmp",
+         "?:\\Windows\\Microsoft.NET\\Framework*\\RegSvcs.exe") and
+ not (process.name : ("rundll32.exe", "regsvr32.exe") and process.args : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*"))]
+[any where host.os.type == "windows" and event.category in ("network", "dns") and process.name != null]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.007"
+name = "Msiexec"
+reference = "https://attack.mitre.org/techniques/T1218/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
