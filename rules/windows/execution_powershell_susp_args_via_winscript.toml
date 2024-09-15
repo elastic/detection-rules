@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2024/09/09"
+integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender"]
+maturity = "production"
+updated_date = "2024/09/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious PowerShell execution spawning from Windows Script Host processes (cscript or wscript.exe).
+"""
+from = "now-9m"
+index = [
+    "winlogbeat-*",
+    "logs-windows.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious PowerShell Execution via Windows Scripts"
+risk_score = 73
+rule_id = "2d62889e-e758-4c5e-b57e-c735914ee32a"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: System",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.action == "start" and
+  process.name : ("powershell.exe", "pwsh.exe") and
+  process.parent.name : ("wscript.exe", "cscript.exe", "mshta.exe") and
+   (
+   process.args_count == 1 or
+   process.command_line :
+             ("*^*^*^*^*^*^*^*^*^*",
+              "*''*''*''*",
+              "*`*`*`*`*",
+              "*{*{*{*{*{*{*{*{*{*{*{*{*{*{*{*{*{*{*{*",
+              "*+*+*+*+*+*",
+              "*$*$*$*$*",
+              "*[char[]](*)*-join",
+              "*Base64String*",
+              "*[*Convert]*",
+              "*.Text.Encoding*",
+              "*.Compression.*",
+              "*.replace(*",
+              "*MemoryStream*",
+              "*WriteAllBytes*",
+              "* -en* *",
+              "* -ec *",
+              "* -e *",
+              "* -ep *",
+              "* /e *",
+              "* /en* *",
+              "* /ec *",
+              "* /ep *",
+              "*WebClient*",
+              "*DownloadFile*",
+              "*DownloadString*",
+              "*BitsTransfer*",
+              "*Invoke-Exp*",
+              "*invoke-web*",
+              "*iex*",
+              "*iwr*",
+              "*Reflection.Assembly*",
+              "*Assembly.GetType*",
+              "*.Sockets.*",
+              "*Add-MpPreference*ExclusionPath*",
+              "*raw.githubusercontent*")
+   ) and
+
+   /* many legit powershell commands uses those non shortened execution flags excluding Sync-AppvPublishingServer lolbas */
+   not (process.args : ("-EncodedCommand", "Import-Module*", "-NonInteractive") and
+        process.args : "-ExecutionPolicy" and not process.args : "Sync-AppvPublishingServer") and
+
+   /* third party installation related FPs */
+   not ?process.parent.args : "?:\\Windows\\system32\\gatherNetworkInfo.vbs" and
+   not (?process.parent.args : "Microsoft.SystemCenter.ICMPProbe.WithConsecutiveSamples.vbs" and process.args : "Get-SCOMAgent") and
+   not (process.command_line : "*WEBLOGIC_ARGS_CURRENT_1.DATA*" and ?process.parent.command_line : "*Impact360*") and
+   not process.args :  "$package = Get-AppxPackage Microsoft.Office.Desktop -allUsers;*" and
+   not process.command_line : ("*.Access.IdentityReference*win32_SID.SID*", "*AGIAbQB4AC0AYQBwAC4AcwAzAC4AdQBzAC0AZQBhAHMAd*") and
+   not (?process.parent.args : "?:\\Users\\Prestige\\AppData\\Local\\Temp\\Rar$*\\KMS_VL_ALL_AIO.cmd  -elevated" and process.command_line : "*KMS_VL_ALL_AIO.cmd*") and
+   not process.args : "iwr https://*.s3.us-east-1.amazonaws.com/scripts/Start-SpeedTest.ps1 -UserAgent * -UseBasicParsing | invoke-expression" and
+   not (process.parent.name : "wscript.exe" and
+        ?process.parent.args : "C:\\Program Files (x86)\\Telivy\\Telivy Agent\\telivy.js")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.005"
+name = "Visual Basic"
+reference = "https://attack.mitre.org/techniques/T1059/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
