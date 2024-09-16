@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2024/09/09"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
+maturity = "production"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+min_stack_version = "8.13.0"
+updated_date = "2024/09/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the execution of the VScode portable binary with the tunnel command line option indicating an
+attempt to establish a remote tunnel session to Github or a remote VScode instance.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "logs-system.security*", "endgame-*", "logs-sentinel_one_cloud_funnel.*", "logs-m365_defender.event-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Attempt to Establish VScode Remote Tunnel"
+references = [
+    "https://badoption.eu/blog/2023/01/31/code_c2.html",
+    "https://code.visualstudio.com/docs/remote/tunnels"
+]
+risk_score = 47
+rule_id = "0b96dfd8-5b8c-4485-9a1c-69ff7839786a"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: System",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.args : "tunnel" and (process.args : "--accept-server-license-terms" or process.name : "code*.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Software"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
