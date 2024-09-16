@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2024/09/06"
+integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender"]
+maturity = "production"
+updated_date = "2024/09/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of PowerShell with suspicious argument values. This behavior is often observed during malware
+installation leveraging PowerShell.
+"""
+from = "now-9m"
+index = [
+    "winlogbeat-*",
+    "logs-windows.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Windows Powershell Arguments"
+risk_score = 73
+rule_id = "83bf249e-4348-47ba-9741-1202a09556ad"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: System",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ process.name : "powershell.exe" and 
+  (
+   process.command_line :
+        (
+          "*^*^*^*^*^*^*^*^*^*",
+          "*`*`*`*`*",
+          "*+*+*+*+*+*+*",
+          "*[char[]](*)*-join*",
+          "*Base64String*",
+          "*[*Convert]*",
+          "*.Compression.*",
+          "*-join($*",
+          "*.replace*",
+          "*MemoryStream*",
+          "*WriteAllBytes*",
+          "* -enc *",
+          "* -ec *",
+          "* /e *",
+          "* /enc *",
+          "* /ec *",
+          "*WebClient*",
+          "*DownloadFile*",
+          "*DownloadString*",
+          "* iex*",
+          "* iwr*",
+          "*Reflection.Assembly*",
+          "*Assembly.GetType*",
+          "*$env:temp\\*start*",
+          "*powercat*",
+          "*nslookup -q=txt*",
+          "*$host.UI.PromptForCredential*",
+          "*Net.Sockets.TCPClient*",
+          "*curl *;Start*",
+          "powershell.exe \"<#*",
+          "*ssh -p *",
+          "*http*|iex*",
+          "*@SSL\\DavWWWRoot\\*.ps1*",
+          "*.lnk*.Seek(0x*",
+          "*[string]::join(*",
+          "*[Array]::Reverse($*",
+          "* hidden $(gc *",
+          "*=wscri& set*",
+          "*http'+'s://*",
+          "*.content|i''Ex*",
+          "*//:sptth*",
+          "*//:ptth*",
+          "*$*=Get-Content*AppData*.SubString(*$*",
+          "*=cat *AppData*.substring(*);*$*"
+        ) or
+
+      (process.args : "-c" and process.args : "&{'*") or
+
+      (process.args : "-Outfile" and process.args : "Start*") or
+
+      (process.args : "-bxor" and process.args : "0x*") or
+
+      process.args : "$*$*;set-alias" or
+
+      (process.parent.name : ("explorer.exe", "cmd.exe") and 
+       process.command_line : ("*-encodedCommand*", "*Invoke-webrequest*", "*WebClient*", "*Reflection.Assembly*"))
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
