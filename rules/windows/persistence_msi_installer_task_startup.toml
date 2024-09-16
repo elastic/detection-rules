@@ -1,0 +1,84 @@
+[metadata]
+creation_date = "2024/09/05"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/09/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when the Windows installer process msiexec.exe creates a new persistence entry via scheduled tasks or startup.
+"""
+false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
+from = "now-9m"
+index = [
+    "logs-endpoint.events.registry-*",
+    "logs-endpoint.events.file-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Persistence via a Windows Installer"
+risk_score = 47
+rule_id = "1719ee47-89b8-4407-9d55-6dff2629dd4c"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and 
+ (process.name : "msiexec.exe" or Effective_process.name : "msiexec.exe") and
+ (
+  (event.category == "file" and event.action == "creation" and
+   file.path : ("?:\\Windows\\System32\\Tasks\\*",
+                "?:\\programdata\\microsoft\\windows\\start menu\\programs\\startup\\*",
+                "?:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*")) or
+
+  (event.category == "registry" and event.action == "modification" and
+   registry.path : ("H*\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
+                    "H*\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
+                    "H*\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\*",
+                    "H*\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\*"))
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.005"
+name = "Scheduled Task"
+reference = "https://attack.mitre.org/techniques/T1053/005/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.007"
+name = "Msiexec"
+reference = "https://attack.mitre.org/techniques/T1218/007/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
