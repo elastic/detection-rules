@@ -5,7 +5,7 @@ This hunting query identifies when a public client app fails to retrieve an OAut
 """
 integration = ["okta"]
 uuid = "0b936024-71d9-11ef-a9be-f661ea17fbcc"
-name = "Failed OAuth Access Token Retrieval via Public Client App with Client Credentials"
+name = "Failed OAuth Access Token Retrieval via Public Client App"
 language = ["ES|QL"]
 license = "Elastic License v2"
 notes = [
@@ -25,9 +25,6 @@ from logs-okta.system*
     and event.action == "app.oauth2.as.token.grant"
     and okta.actor.type == "PublicClientApp"
     and okta.outcome.result == "FAILURE"
-
-    // filter out Elastic Okta integrations user agent
-    and not okta.client.user_agent.raw_user_agent == "Okta-Integrations"
 
     // filter out known Okta and Datadog actors
     and not (

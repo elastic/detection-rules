@@ -34,7 +34,7 @@ from logs-okta*
     source_count = count(*) by target_time_window, okta.client.ip
 
 // filter for source IPs with more than 5 invalid credential events
-| where target_count >= 5
+| where target_count >= 10
 ```
 
 ## Notes

@@ -1,4 +1,4 @@
-# Failed OAuth Access Token Retrieval via Public Client App with Client Credentials
+# Failed OAuth Access Token Retrieval via Public Client App
 
 ---
 
@@ -10,7 +10,7 @@
 - **UUID:** `0b936024-71d9-11ef-a9be-f661ea17fbcc`
 - **Integration:** [okta](https://docs.elastic.co/integrations/okta)
 - **Language:** `[ES|QL]`
-- **Source File:** [Failed OAuth Access Token Retrieval via Public Client App with Client Credentials](../queries/defense_evasion_failed_oauth_access_token_retrieval_via_public_client_app.toml)
+- **Source File:** [Failed OAuth Access Token Retrieval via Public Client App](../queries/defense_evasion_failed_oauth_access_token_retrieval_via_public_client_app.toml)
 
 ## Query
 
@@ -24,9 +24,6 @@ from logs-okta.system*
     and event.action == "app.oauth2.as.token.grant"
     and okta.actor.type == "PublicClientApp"
     and okta.outcome.result == "FAILURE"
-
-    // filter out Elastic Okta integrations user agent
-    and not okta.client.user_agent.raw_user_agent == "Okta-Integrations"
 
     // filter out known Okta and Datadog actors
     and not (

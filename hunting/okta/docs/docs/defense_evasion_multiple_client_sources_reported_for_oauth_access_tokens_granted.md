@@ -5,7 +5,7 @@
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** This hunting query identifies when a public client app successfully retrieves an OAuth access token using client credentials from multiple client addresses. For public client applications in Okta that leverage OAuth, client credentials can be used to retrieve access tokens without user consent. Unsecured credentials may be compromised by an adversary whom may use them to request an access token on behalf of the public client app.
+- **Description:** This hunting query identifies when a public client app successfully retrieves an OAuth access token using client credentials from multiple client addresses. For public client applications in Okta that leverage OAuth, client credentials can be used to retrieve access tokens without user consent. Unsecured credentials may be compromised by an adversary who may use them to request an access token on behalf of the public client app.
 
 - **UUID:** `38d82c2c-71d9-11ef-a9be-f661ea17fbcc`
 - **Integration:** [okta](https://docs.elastic.co/integrations/okta)
@@ -16,7 +16,7 @@
 
 ```sql
 from logs-okta.system*
-| where @timestamp > NOW() - 14 day
+| where @timestamp > NOW() - 21 day
 
 // truncate the timestamp to 1 day
 | eval target_time_window = DATE_TRUNC(1 days, @timestamp)
@@ -31,14 +31,13 @@ from logs-okta.system*
     and okta.actor.type == "PublicClientApp"
 
     // ignore Elastic Okta integration and DataDog actors
-    and not okta.client.user_agent.raw_user_agent == "Okta-Integrations"
     and not (okta.actor.display_name LIKE "Okta*" or okta.actor.display_name LIKE "Datadog*")
 
 // count the number of access tokens granted by the same public client app in a day
-| stats token_granted_count = count(*) by target_time_window, okta.actor.display_name, okta.client.ip
+| stats token_granted_count = count(*), unique_client_ip = count_distinct(okta.client.ip) by target_time_window, okta.actor.display_name
 
-// filter where where access tokens were granted on the same day but client addresses are different
-| where (target_time_window == target_time_window and okta.client.ip != okta.client.ip)
+// filter where access tokens were granted on the same day but client addresses are different
+| where unique_client_ip >= 2 and token_granted_count >= 2
 ```
 
 ## Notes

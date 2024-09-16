@@ -23,14 +23,14 @@ from logs-okta.system*
     and okta.event_type == "policy.evaluate_sign_on"
     and okta.outcome.result in ("ALLOW", "SUCCESS")
 
-// Truncate the timestamp to 15 minute intervals
-| eval time_window = DATE_TRUNC(15 minutes, @timestamp)
+// Truncate the timestamp to 1 hour intervals
+| eval time_window = DATE_TRUNC(1 hours, @timestamp)
 
 // Count the number of successful sign-on events for each user every 15 minutes
 | stats country_count = count_distinct(client.geo.country_name) by okta.actor.alternate_id, time_window
 
 // Filter for users who sign on from more than one country in a 15 minute interval
-| where country_count < 2
+| where country_count >= 2
 ```
 
 ## Notes

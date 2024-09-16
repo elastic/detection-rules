@@ -17,8 +17,6 @@
 ```sql
 from logs-okta.system*
 | where @timestamp > NOW() - 14 day
-
-// truncate the timestamp to 1 day
 | where
 
     // filter for successful OAuth access token grant requests
@@ -37,7 +35,7 @@ from logs-okta.system*
 | stats token_granted_count = count(*) by okta.actor.display_name
 
 // filter where the public client app has only been granted an access token once in the last 14 days
-| where token_granted_count <= 1
+| where token_granted_count == 1
 ```
 
 ## Notes

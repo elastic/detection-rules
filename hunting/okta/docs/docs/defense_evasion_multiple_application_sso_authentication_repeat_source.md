@@ -5,7 +5,7 @@
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** This hunting query identifies when a user authenticates to multiple applications using Single Sign-On (SSO) from the same source. Adversaries may attempt to authenticate to multiple applications using SSO to gain unauthorized access to sensitive data or resources. Adversaries also rely on refreshn tokens to maintain access to applications and services. This query identifies when a source IP authenticates to more than 15 applications using SSO within a 5-minute window.
+- **Description:** This hunting query identifies when a user authenticates to multiple applications using Single Sign-On (SSO) from the same source. Adversaries may attempt to authenticate to multiple applications using SSO to gain unauthorised access to sensitive data or resources. Adversaries also rely on refresh tokens to maintain access to applications and services. This query identifies when a source IP authenticates to more than 15 applications using SSO within a 5-minute window.
 
 - **UUID:** `03bce3b0-6ded-11ef-9282-f661ea17fbcc`
 - **Integration:** [okta](https://docs.elastic.co/integrations/okta)
@@ -31,8 +31,8 @@ from logs-okta*
 // dissect the request URI to extract the target application
 | dissect okta.debug_context.debug_data.request_uri"%{?}/app/%{target_application}/"
 
-// count the number of unique applications per source IP in a 5-minute window
-| stats application_count = count_distinct(target_application), window_count = count(*) by target_time_window, source.ip
+// count the number of unique applications per source IP and user in a 5-minute window
+| stats application_count = count_distinct(target_application), window_count = count(*) by target_time_window, source.ip, okta.actor.alternate_id
 
 // filter for at least 15 distinct applications authenticated from a single source IP
 | where application_count > 15
