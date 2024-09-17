@@ -1,15 +1,15 @@
 # Rule coverage
 
 ATT&CK navigator layer files are generated when a package is built with `make release` or `python -m detection-rules`.
-This also means they can be downloaded from all successful builds. 
+This also means they can be downloaded from all successful builds.
 
 These files can be used to pass to a custom navigator
-session. For convenience, the links are generated below. You can also include multiple across tabs in a single session, 
+session. For convenience, the links are generated below. You can also include multiple across tabs in a single session,
 though it is not advisable to upload _all_ of them as it will likely overload your browsers resources.
 
 ## Current rule coverage
 
-The source files for these links are regenerated with every successful merge to main. These represent coverage from the 
+The source files for these links are regenerated with every successful merge to main. These represent coverage from the
 state of rules in the `main` branch.
 
 
