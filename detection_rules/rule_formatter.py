@@ -161,7 +161,7 @@ class RuleTomlEncoder(toml.TomlEncoder):
                     dump.append(' ' * 4 + self.dump_value(item))
             return '[\n{},\n]'.format(',\n'.join(dump))
 
-        if v and all(isinstance(i, dict) for i in v):
+        if all(isinstance(i, dict) for i in v):
             # Compact inline format for lists of dictionaries with proper indentation
             retval = "\n" + ' ' * 2 + "[\n"
             retval += ",\n".join([' ' * 4 + self.dump_inline_table(u).strip() for u in v])
