@@ -6,7 +6,7 @@
 """Test for hunt toml files."""
 import unittest
 
-from hunting.generate_markdown import HUNTING_DIR, load_toml
+from hunting.markdown import HUNTING_DIR, load_toml
 
 
 class TestHunt(unittest.TestCase):
