@@ -43,20 +43,17 @@ def search_index(base_path: Path, mitre_filter: tuple = (), data_source: str = N
                     mitre_technique_ids.add(tech_id)
 
         elif filter_item in technique_lookup:
-            # If it's a technique or sub-technique ID, add it directly
+            # Add the technique or sub-technique ID directly
             mitre_technique_ids.add(filter_item)
-        else:
-            # If it's a search term (e.g., "credential-access"), match techniques by name/description
-            click.echo(f"Searching for matching techniques by name or description for {filter_item}.")
-            matching_techniques = {
-                tech_id for tech_id, details in technique_lookup.items()
-                if filter_item.lower() in details['name'].lower() or filter_item.lower() in details.get('description', '').lower()
-            }
-            if matching_techniques:
-                click.echo(f"Found matching techniques: {', '.join(matching_techniques)}.")
-            else:
-                click.echo(f"No matching techniques found for {filter_item}.")
-            mitre_technique_ids.update(matching_techniques)
+
+            # Include all sub-techniques if the filter is a parent technique (e.g., T1078)
+            if '.' not in filter_item:
+                # Find all sub-techniques of the parent technique
+                sub_techniques = {
+                    sub_tech_id for sub_tech_id in technique_lookup
+                    if sub_tech_id.startswith(f"{filter_item}.")
+                }
+                mitre_technique_ids.update(sub_techniques)
 
     # Search the index for queries that match the MITRE techniques and data_source
     results = []
@@ -75,6 +72,7 @@ def search_index(base_path: Path, mitre_filter: tuple = (), data_source: str = N
                 results.append(query_with_data_source)
 
     return results
+
 
 
 def validate_link(link: str):
