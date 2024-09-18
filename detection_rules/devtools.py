@@ -853,7 +853,8 @@ state of rules in the `main` branch."""
         # Replace the old URLs with the new ones
         with open(coverage_file_path, 'w') as md_file:
             md_file.write(updated_file)
-
+        click.echo(f'Updated ATT&CK coverage URL(s) in {updated_file}' + '\n')
+        
     click.echo(f'Gist update status on {len(generated_urls)} files: {response.status_code} {response.reason}')
     return generated_urls
 
