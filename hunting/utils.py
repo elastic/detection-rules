@@ -12,7 +12,6 @@ import yaml
 from detection_rules.attack import tactics_map, technique_lookup
 
 
-
 def search_index(base_path: Path, mitre_filter: tuple = (), data_source: str = None) -> list:
     """Search the index for queries matching the MITRE techniques, tactic, or data_source."""
 

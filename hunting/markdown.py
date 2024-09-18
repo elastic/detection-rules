@@ -74,8 +74,26 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
     """Process TOML files based on the input: a specific file, a folder, or all files."""
     directories = load_index_file(base_path)
 
+    def update_or_add_entry(hunt_config, markdown_path):
+        folder_name = markdown_path.parent.parent.name
+        # Search for existing entry by UUID and update it
+        for entry in directories.get(folder_name, []):
+            if entry['uuid'] == hunt_config.uuid:
+                entry.update({
+                    'name': hunt_config.name,
+                    'path': f"./{markdown_path.relative_to(base_path).as_posix()}",
+                    'mitre': hunt_config.mitre
+                })
+                return
+        # If no entry is found, add a new one
+        directories.setdefault(folder_name, []).append({
+            'name': hunt_config.name,
+            'path': f"./{markdown_path.relative_to(base_path).as_posix()}",
+            'uuid': hunt_config.uuid,
+            'mitre': hunt_config.mitre
+        })
+
     if file_path:
-        # If specific file is provided
         if file_path.is_file() and file_path.suffix == '.toml':
             click.echo(f"Processing specific TOML file: {file_path}")
             hunt_config = load_toml(file_path.read_text(encoding="utf-8"))
@@ -88,24 +106,15 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
             markdown_path.write_text(markdown_content, encoding="utf-8")
             print(f"Markdown generated: {markdown_path}")
 
-            # Add to the directory map
-            folder_name = file_path.parent.parent.name
-            directories.setdefault(folder_name, []).append({
-                'path': f"./{markdown_path.relative_to(base_path).as_posix()}",
-                'name': hunt_config.name,
-                'uuid': hunt_config.uuid,
-                'mitre': hunt_config.mitre
-            })
+            # Update or add entry to the directory map
+            update_or_add_entry(hunt_config, markdown_path)
 
         else:
             raise ValueError(f"The provided path is not a valid TOML file: {file_path}")
 
     elif folder:
-        # Process all files in the specific folder
         folder_path = base_path / folder / "queries"
         docs_folder = base_path / folder / "docs"
-
-        # Ensure both queries and docs folders exist or create them
         folder_path.mkdir(parents=True, exist_ok=True)
         docs_folder.mkdir(parents=True, exist_ok=True)
 
@@ -115,30 +124,22 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
         else:
             raise ValueError(f"Queries folder {folder_path} or docs folder {docs_folder} does not exist.")
     else:
-        # Process all TOML files recursively from the base path
         click.echo("Processing all TOML files in the base directory and subfolders.")
         toml_files = base_path.rglob("queries/*.toml")
 
-    if not file_path:  # Skip if processing a single file
+    if not file_path:
         for toml_file in toml_files:
             hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))
             markdown_content = convert_toml_to_markdown(hunt_config, toml_file)
 
-            # Save Markdown to respective docs folder
             docs_folder = toml_file.parent.parent / "docs"
             docs_folder.mkdir(parents=True, exist_ok=True)  # Ensure the folder exists
             markdown_path = docs_folder / f"{toml_file.stem}.md"
             markdown_path.write_text(markdown_content, encoding="utf-8")
             print(f"Markdown generated: {markdown_path}")
 
-            # Add to the directory map
-            folder_name = toml_file.parent.parent.name
-            directories.setdefault(folder_name, []).append({
-                'path': f"./{markdown_path.relative_to(base_path).as_posix()}",
-                'name': hunt_config.name,
-                'uuid': hunt_config.uuid,
-                'mitre': hunt_config.mitre
-            })
+            # Update or add entry to the directory map
+            update_or_add_entry(hunt_config, markdown_path)
 
     # Save the updated index.yml
     save_index_file(base_path, directories)
@@ -192,7 +193,7 @@ def update_index_file(base_path: Path) -> None:
 
 def update_index_yml(base_path: Path) -> None:
     """Update index.yml based on the current TOML files."""
-    directories = {}
+    directories = load_index_file(base_path)
 
     # Load all TOML files recursively
     toml_files = base_path.rglob("queries/*.toml")
@@ -201,14 +202,29 @@ def update_index_yml(base_path: Path) -> None:
         # Load TOML and extract hunt configuration
         hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))
 
-        # Add entry to index structure with MITRE techniques
         folder_name = toml_file.parent.parent.name
-        directories.setdefault(folder_name, []).append({
-            'name': hunt_config.name,
-            'path': f"./{toml_file.relative_to(base_path).as_posix()}",
-            'uuid': hunt_config.uuid,
-            'mitre': hunt_config.mitre  # Include MITRE techniques
-        })
+
+        # Check for existing entry with the same UUID and update it
+        updated = False
+        for entry in directories.get(folder_name, []):
+            if entry['uuid'] == hunt_config.uuid:
+                entry.update({
+                    'name': hunt_config.name,
+                    'path': f"./{toml_file.relative_to(base_path).as_posix()}",
+                    'mitre': hunt_config.mitre
+                })
+                updated = True
+                break
+
+        # If the UUID was not found, add a new entry
+        if not updated:
+            directories.setdefault(folder_name, []).append({
+                'name': hunt_config.name,
+                'path': f"./{toml_file.relative_to(base_path).as_posix()}",
+                'uuid': hunt_config.uuid,
+                'mitre': hunt_config.mitre
+            })
 
     # Save the updated index.yml
     save_index_file(base_path, directories)
+
