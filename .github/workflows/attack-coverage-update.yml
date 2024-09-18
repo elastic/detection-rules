@@ -6,8 +6,6 @@ on:
           description: 'Update the docs/ATT&CK-coverage.md file'
           required: true
           default: '--update-coverage'
-  pull_request:
-    branches: [ "*" ]
 
 jobs:
   pr:
@@ -43,9 +41,7 @@ jobs:
         env:
           GITHUB_TOKEN: "${{ secrets.NAVIGATOR_GIST_TOKEN }}"
         run: |
-         set -x
-         python -m detection_rules dev update-navigator-gists --update-coverage
-         # Define the filename with escaped special characters
+         python -m detection_rules dev update-navigator-gists ${{ github.event.inputs.update-coverage }}
          git add docs/"ATT\&CK-coverage.md"
 
       - name: Create Pull Request
