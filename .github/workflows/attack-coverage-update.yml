@@ -43,9 +43,10 @@ jobs:
         env:
           GITHUB_TOKEN: "${{ secrets.NAVIGATOR_GIST_TOKEN }}"
         run: |
-         python -m detection_rules dev update-navigator-gists ${{ github.event.inputs.update-coverage }}
-         changed_file = $(git diff --name-only)
-         if [ "docs/ATT&CK-coverage.md" = "$changed_file" ]
+         set -x
+         python -m detection_rules dev update-navigator-gists --update-coverage
+         file_name = $(git diff --name-only)
+         if [ "docs/ATT&CK-coverage.md" == "$file_name" ];
          then
            echo "Changes to docs/ATT&CK-coverage.md detected. Adding to commit."
            git add docs/ATT&CK-coverage.md
