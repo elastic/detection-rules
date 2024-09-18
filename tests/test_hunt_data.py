@@ -65,6 +65,7 @@ class TestHunt(unittest.TestCase):
                 f"Markdown file not found for {toml_file} at expected location {expected_markdown_path}",
             )
 
+
 class TestHuntIndex(unittest.TestCase):
     """Test the hunting index.yml file."""
     @classmethod
@@ -74,7 +75,6 @@ class TestHuntIndex(unittest.TestCase):
 
     def test_unique_uuid(self):
         """Ensure each hunt has a unique UUID."""
-        index = load_index()
         uuids = []
 
         # Collect all UUIDs from the index
@@ -91,14 +91,12 @@ class TestHuntIndex(unittest.TestCase):
         # Assert that there are no duplicates
         self.assertEqual(len(duplicates), 0, f"Duplicate UUIDs found: {duplicates}")
 
-
     def test_mitre_techniques_present(self):
         """Ensure each query has at least one MITRE technique."""
 
         for folder, queries in self.hunting_index.items():
             for query in queries:
                 self.assertTrue(query['mitre'], f"No MITRE techniques found for query: {query['name']}")
-
 
     def test_valid_structure(self):
         """Ensure each query entry has a valid structure."""
@@ -108,6 +106,7 @@ class TestHuntIndex(unittest.TestCase):
             for query in queries:
                 for field in required_fields:
                     self.assertIn(field, query, f"Missing field '{field}' in query: {query}")
+
 
 if __name__ == "__main__":
     unittest.main()

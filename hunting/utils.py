@@ -47,7 +47,7 @@ def search_index(base_path: Path, mitre_filter: tuple = (), data_source: str = N
         if filter_item in reverse_tactics_map:
             # Retrieve the tactic name using the tactic ID
             tactic_name = reverse_tactics_map[filter_item]
-            click.echo(f"Found tactic ID {filter_item} (Tactic Name: {tactic_name}). Searching for associated techniques.")
+            click.echo(f"Found tactic ID {filter_item} (Tactic Name: {tactic_name}). Searching for associated techniques.")  # noqa: E501
 
             # Now find techniques that have this tactic in the kill_chain_phases
             for tech_id, details in technique_lookup.items():
@@ -86,7 +86,6 @@ def search_index(base_path: Path, mitre_filter: tuple = (), data_source: str = N
                 results.append(query_with_data_source)
 
     return results
-
 
 
 def validate_link(link: str):

@@ -9,7 +9,7 @@ from pathlib import Path
 import click
 import yaml
 
-from hunting.definitions import (ATLAS_URL, ATTACK_URL, HUNTING_DIR,
+from hunting.definitions import (ATLAS_URL, ATTACK_URL,
                                  STATIC_INTEGRATION_LINK_MAP, Hunt)
 from hunting.utils import validate_link
 
@@ -19,6 +19,7 @@ def load_toml(contents: str):
     toml_dict = tomllib.loads(contents)
     return Hunt(**toml_dict["hunt"])
 
+
 def load_all_toml(base_path: Path):
     """Load all TOML files from the directory and return a list of Hunt configurations and their paths."""
     hunts = []
@@ -26,6 +27,7 @@ def load_all_toml(base_path: Path):
         hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))
         hunts.append((hunt_config, toml_file))
     return hunts
+
 
 def generate_integration_links(integrations: list[str]) -> list[str]:
     """Generate integration links for the documentation."""
@@ -40,6 +42,7 @@ def generate_integration_links(integrations: list[str]) -> list[str]:
         validate_link(link)
         generated.append(f'[{integration}]({link})')
     return generated
+
 
 def convert_toml_to_markdown(hunt_config, file_path: Path):
     """Convert Hunt to Markdown format."""
@@ -227,4 +230,3 @@ def update_index_yml(base_path: Path) -> None:
 
     # Save the updated index.yml
     save_index_file(base_path, directories)
-

@@ -7,7 +7,6 @@ from pathlib import Path
 
 import click
 
-from detection_rules.attack import technique_lookup
 from hunting.definitions import HUNTING_DIR
 from hunting.markdown import (process_toml_files, update_index_file,
                               update_index_yml)
@@ -18,6 +17,7 @@ from hunting.utils import search_index
 def hunting():
     """Commands for managing hunting queries and converting TOML to Markdown."""
     pass
+
 
 @hunting.command('generate-markdown')
 @click.argument('path', required=False)
@@ -47,6 +47,7 @@ def generate_markdown(path):
         click.echo("Generating Markdown for all files.")
         process_toml_files(HUNTING_DIR)
 
+
 @hunting.command('refresh-index')
 def refresh_index():
     """Refresh the index.yml file from TOML files and then refresh the index.md file."""
@@ -65,7 +66,8 @@ def search_queries(tactic: str, technique: str, sub_technique: str, data_source:
     """Search for queries based on MITRE tactic, technique, sub-technique, or data_source."""
 
     if not any([tactic, technique, sub_technique, data_source]):
-        raise click.UsageError("Please provide at least one filter (tactic, technique, sub-technique, or data_source) to search queries.")
+        raise click.UsageError("""Please provide at least one filter (tactic, technique, sub-technique,
+                               or data_source) to search queries.""")
 
     click.echo("Searching for queries based on provided filters...")
 
@@ -81,7 +83,7 @@ def search_queries(tactic: str, technique: str, sub_technique: str, data_source:
             # Customize output to include technique and data_source if available
             data_source_str = result.get('data_source', 'Unknown')
             mitre_str = ", ".join(result.get('mitre', [])) or 'No MITRE techniques'
-            click.echo(f"- {result['name']} | UUID: {result['uuid']} | location: ({result['path']}) | data_source: {data_source_str} | MITRE: {mitre_str}")
+            click.echo(f"- {result['name']} | UUID: {result['uuid']} | location: ({result['path']}) | data_source: {data_source_str} | MITRE: {mitre_str}")  # noqa: E501
     else:
         click.echo("No matching queries found.")
 

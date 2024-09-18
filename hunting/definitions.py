@@ -5,7 +5,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 # Define the hunting directory path
 HUNTING_DIR = Path(__file__).parent
@@ -18,6 +18,7 @@ ATTACK_URL = "https://attack.mitre.org/techniques/"
 STATIC_INTEGRATION_LINK_MAP = {
     'aws_bedrock.invocation': 'aws_bedrock'
 }
+
 
 @dataclass
 class Hunt:
