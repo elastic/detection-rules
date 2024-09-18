@@ -8,7 +8,11 @@ on:
           default: '--update-coverage'
   pull_request:
     branches: [ "*" ]
-
+      inputs:
+        update-coverage:
+          description: 'Update the docs/ATT&CK-coverage.md file'
+          required: true
+          default: '--update-coverage'
 jobs:
   pr:
     runs-on: ubuntu-latest
@@ -44,7 +48,7 @@ jobs:
           GITHUB_TOKEN: "${{ secrets.NAVIGATOR_GIST_TOKEN }}"
         run: |
          set -x
-         python -m detection_rules dev update-navigator-gists --update-coverage
+         python -m detection_rules dev update-navigator-gists ${{ github.event.inputs.update-coverage }}
          file_name = $(git diff --name-only)
          if [ "docs/ATT&CK-coverage.md" == "$file_name" ];
          then
