@@ -10,6 +10,20 @@ import urllib3
 import yaml
 
 from detection_rules.attack import tactics_map, technique_lookup
+from hunting.definitions import HUNTING_DIR
+
+
+def load_index() -> dict:
+    """Load the hunting index.yml file."""
+    index_file = HUNTING_DIR / "index.yml"
+    if not index_file.exists():
+        click.echo(f"No index.yml found at {index_file}.")
+        return {}
+
+    with open(index_file, 'r') as f:
+        hunting_index = yaml.safe_load(f)
+
+    return hunting_index
 
 
 def search_index(base_path: Path, mitre_filter: tuple = (), data_source: str = None) -> list:

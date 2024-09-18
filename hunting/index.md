@@ -19,7 +19,6 @@ Here are the queries currently available:
 - [SSM Start Remote Session to EC2 Instance](./aws/docs/ssm_start_remote_session_to_ec2_instance.md) (ES|QL)
 - [STS Suspicious Federated Temporary Credential Request](./aws/docs/sts_suspicious_federated_temporary_credential_request.md) (ES|QL)
 - [Secrets Manager High Frequency of Programmatic GetSecretValue API Calls](./aws/docs/secretsmanager_high_frequency_get_secret_value.md) (ES|QL)
-- [Secrets Manager High Frequency of Programmatic GetSecretValue API Calls](./aws/docs/secretsmanager_high_frequency_get_secret_value.md) (ES|QL)
 - [Signin Single Factor Console Login via Federated Session](./aws/docs/signin_single_factor_console_login_via_federated_session.md) (ES|QL)
 - [User Creation with Administrator Policy Assigned](./aws/docs/iam_user_creation_with_administrator_policy_assigned.md) (ES|QL)
 

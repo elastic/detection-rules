@@ -5,8 +5,10 @@
 
 """Test for hunt toml files."""
 import unittest
+from collections import Counter
 
 from hunting.markdown import HUNTING_DIR, load_toml
+from hunting.utils import load_index
 
 
 class TestHunt(unittest.TestCase):
@@ -63,6 +65,49 @@ class TestHunt(unittest.TestCase):
                 f"Markdown file not found for {toml_file} at expected location {expected_markdown_path}",
             )
 
+class TestHuntIndex(unittest.TestCase):
+    """Test the hunting index.yml file."""
+    @classmethod
+    def setUpClass(cls):
+        """Load the index once for all tests."""
+        cls.hunting_index = load_index()
+
+    def test_unique_uuid(self):
+        """Ensure each hunt has a unique UUID."""
+        index = load_index()
+        uuids = []
+
+        # Collect all UUIDs from the index
+        for folder, queries in self.hunting_index.items():
+            for query in queries:
+                uuids.append(query['uuid'])
+
+        # Count occurrences of each UUID
+        uuid_counts = Counter(uuids)
+
+        # Find any duplicates
+        duplicates = [uuid for uuid, count in uuid_counts.items() if count > 1]
+
+        # Assert that there are no duplicates
+        self.assertEqual(len(duplicates), 0, f"Duplicate UUIDs found: {duplicates}")
+
+
+    def test_mitre_techniques_present(self):
+        """Ensure each query has at least one MITRE technique."""
+
+        for folder, queries in self.hunting_index.items():
+            for query in queries:
+                self.assertTrue(query['mitre'], f"No MITRE techniques found for query: {query['name']}")
+
+
+    def test_valid_structure(self):
+        """Ensure each query entry has a valid structure."""
+        required_fields = ['name', 'path', 'uuid', 'mitre']
+
+        for folder, queries in self.hunting_index.items():
+            for query in queries:
+                for field in required_fields:
+                    self.assertIn(field, query, f"Missing field '{field}' in query: {query}")
 
 if __name__ == "__main__":
     unittest.main()
