@@ -7,8 +7,11 @@ from pathlib import Path
 
 import click
 
+from detection_rules.attack import technique_lookup
 from hunting.definitions import HUNTING_DIR
-from hunting.markdown import process_toml_files, update_index_file
+from hunting.markdown import (process_toml_files, update_index_file,
+                              update_index_yml)
+from hunting.utils import search_index
 
 
 @click.group()
@@ -46,10 +49,42 @@ def generate_markdown(path):
 
 @hunting.command('refresh-index')
 def refresh_index():
-    """Refresh the index.md file based on the current contents of index.yml."""
-    click.echo("Refreshing the index.md file based on index.yml")
+    """Refresh the index.yml file from TOML files and then refresh the index.md file."""
+    click.echo("Refreshing the index.yml and index.md files.")
+    update_index_yml(HUNTING_DIR)
     update_index_file(HUNTING_DIR)
-    click.echo("Index has been refreshed successfully.")
+    click.echo("Index refresh complete.")
+
+
+@hunting.command('search')
+@click.option('--tactic', type=str, default=None, help="Search by MITRE tactic ID (e.g., TA0001)")
+@click.option('--technique', type=str, default=None, help="Search by MITRE technique ID (e.g., T1078)")
+@click.option('--sub-technique', type=str, default=None, help="Search by MITRE sub-technique ID (e.g., T1078.001)")
+@click.option('--data-source', type=str, default=None, help="Filter by data_source like 'aws', 'macos', or 'linux'")
+def search_queries(tactic: str, technique: str, sub_technique: str, data_source: str):
+    """Search for queries based on MITRE tactic, technique, sub-technique, or data_source."""
+
+    if not any([tactic, technique, sub_technique, data_source]):
+        raise click.UsageError("Please provide at least one filter (tactic, technique, sub-technique, or data_source) to search queries.")
+
+    click.echo("Searching for queries based on provided filters...")
+
+    # Filter out None values from the MITRE filter tuple
+    mitre_filters = tuple(filter(None, (tactic, technique, sub_technique)))
+
+    # Call search_index with the provided MITRE filters and data_source
+    results = search_index(HUNTING_DIR, mitre_filter=mitre_filters, data_source=data_source)
+
+    if results:
+        click.echo(f"\nFound {len(results)} matching queries:\n")
+        for result in results:
+            # Customize output to include technique and data_source if available
+            data_source_str = result.get('data_source', 'Unknown')
+            mitre_str = ", ".join(result.get('mitre', [])) or 'No MITRE techniques'
+            click.echo(f"- {result['name']} | UUID: {result['uuid']} | location: ({result['path']}) | data_source: {data_source_str} | MITRE: {mitre_str}")
+    else:
+        click.echo("No matching queries found.")
+
 
 if __name__ == "__main__":
     hunting()

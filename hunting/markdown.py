@@ -69,6 +69,7 @@ def convert_toml_to_markdown(hunt_config, file_path: Path):
     markdown += f"\n\n## License\n\n- `{hunt_config.license}`\n"
     return markdown
 
+
 def process_toml_files(base_path: Path, file_path: Path = None, folder: str = None) -> None:
     """Process TOML files based on the input: a specific file, a folder, or all files."""
     directories = load_index_file(base_path)
@@ -82,7 +83,7 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
 
             # Save Markdown to respective docs folder
             docs_folder = file_path.parent.parent / "docs"
-            docs_folder.mkdir(parents=True, exist_ok=True)
+            docs_folder.mkdir(parents=True, exist_ok=True)  # Ensure the folder exists
             markdown_path = docs_folder / f"{file_path.stem}.md"
             markdown_path.write_text(markdown_content, encoding="utf-8")
             print(f"Markdown generated: {markdown_path}")
@@ -92,7 +93,8 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
             directories.setdefault(folder_name, []).append({
                 'path': f"./{markdown_path.relative_to(base_path).as_posix()}",
                 'name': hunt_config.name,
-                'uuid': hunt_config.uuid
+                'uuid': hunt_config.uuid,
+                'mitre': hunt_config.mitre
             })
 
         else:
@@ -102,6 +104,10 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
         # Process all files in the specific folder
         folder_path = base_path / folder / "queries"
         docs_folder = base_path / folder / "docs"
+
+        # Ensure both queries and docs folders exist or create them
+        folder_path.mkdir(parents=True, exist_ok=True)
+        docs_folder.mkdir(parents=True, exist_ok=True)
 
         if folder_path.is_dir() and docs_folder.is_dir():
             click.echo(f"Processing all TOML files in folder: {folder_path}")
@@ -120,7 +126,7 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
 
             # Save Markdown to respective docs folder
             docs_folder = toml_file.parent.parent / "docs"
-            docs_folder.mkdir(parents=True, exist_ok=True)
+            docs_folder.mkdir(parents=True, exist_ok=True)  # Ensure the folder exists
             markdown_path = docs_folder / f"{toml_file.stem}.md"
             markdown_path.write_text(markdown_content, encoding="utf-8")
             print(f"Markdown generated: {markdown_path}")
@@ -130,7 +136,8 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
             directories.setdefault(folder_name, []).append({
                 'path': f"./{markdown_path.relative_to(base_path).as_posix()}",
                 'name': hunt_config.name,
-                'uuid': hunt_config.uuid
+                'uuid': hunt_config.uuid,
+                'mitre': hunt_config.mitre
             })
 
     # Save the updated index.yml
@@ -172,11 +179,36 @@ def update_index_file(base_path: Path) -> None:
     for folder, files in sorted(directories.items()):
         index_content += f"\n\n## {folder}\n"
         for file_info in sorted(files, key=lambda x: x['name']):
-            # Generate path to .md file in 'docs' folder and include ES|QL language
+            # Generate path to .md file in 'docs' folder
             md_path = file_info['path'].replace('queries', 'docs').replace('.toml', '.md')
-            index_content += f"- [{file_info['name']}]({md_path}) (ES|QL)\n"
+            index_content += f"- [{file_info['name']}]({md_path}) (ES|QL)"
+            index_content += "\n"
 
     # Write the updated index to index.md
     index_md_path = base_path / "index.md"
     index_md_path.write_text(index_content, encoding="utf-8")
     print(f"Index Markdown updated at: {index_md_path}")
+
+
+def update_index_yml(base_path: Path) -> None:
+    """Update index.yml based on the current TOML files."""
+    directories = {}
+
+    # Load all TOML files recursively
+    toml_files = base_path.rglob("queries/*.toml")
+
+    for toml_file in toml_files:
+        # Load TOML and extract hunt configuration
+        hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))
+
+        # Add entry to index structure with MITRE techniques
+        folder_name = toml_file.parent.parent.name
+        directories.setdefault(folder_name, []).append({
+            'name': hunt_config.name,
+            'path': f"./{toml_file.relative_to(base_path).as_posix()}",
+            'uuid': hunt_config.uuid,
+            'mitre': hunt_config.mitre  # Include MITRE techniques
+        })
+
+    # Save the updated index.yml
+    save_index_file(base_path, directories)
