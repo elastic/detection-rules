@@ -836,7 +836,8 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 
     if update_coverage:
         coverage_file_path = get_path('docs', 'ATT&CK-coverage.md')
-        header_lines = textwrap.dedent("""# Rule coverage
+        header_lines = textwrap.dedent("""
+        # Rule coverage
 
         ATT&CK navigator layer files are generated when a package is built with `make release` or
         `python -m detection-rules`.This also means they can be downloaded from all successful builds.
