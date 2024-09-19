@@ -78,7 +78,8 @@ NON_DATASET_PACKAGES = ['apm',
                         'windows',
                         'sentinel_one_cloud_funnel',
                         'ti_rapid7_threat_command',
-                        'm365_defender']
+                        'm365_defender',
+                        'panw']
 NON_PUBLIC_FIELDS = {
     "related_integrations": (Version.parse('8.3.0'), None),
     "required_fields": (Version.parse('8.3.0'), None),
