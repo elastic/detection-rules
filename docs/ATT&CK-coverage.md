@@ -1,4 +1,3 @@
-
 # Rule coverage
 
 ATT&CK navigator layer files are generated when a package is built with `make release` or
