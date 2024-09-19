@@ -1,4 +1,4 @@
-# Hunt Queries
+# Hunt Queries 🎯
 
 ---
 
@@ -44,30 +44,70 @@ Otherwise, the names do not require the integration, since it is already annotat
   - **mitre**: Reference to applicable MITRE ATT&CK tactics or techniques that the rule addresses, enhancing the contextual understanding of its security implications.
   - **references**: Links to external documents, research papers, or websites that provide additional information or validation for the detection logic.
 
-- **Documentation (Optional)**: Include a `README.md` in each subfolder describing the queries and their purposes. This would include a brief description of the new category.
-
 ### Field Usage
 Use standardized fields where possible to ensure that queries are compatible across different data environments and sources.
 
 ### Review and Pull Requests
-Follow the standard [contributing guide](../CONTRIBUTING.md). Please remember to use the generate_markdown.py script to update the documentation after adding or updateing queries.
+Follow the standard [contributing guide](../CONTRIBUTING.md). Please remember to use the `generate-markdown` command to update the documentation after adding or updating queries.
 
-## Using the Script to Generate Markdown
+## Commands
 
-The `generate_markdown.py` script is provided to automate the creation of Markdown files from TOML rule definitions. Here’s how to use it:
+The `hunting` folder is a modularized library with it's own CLI via the user of [click](https://pypi.org/project/click/). All commands can be ran from the root of `detection-rules` repository as such: `python -m hunting COMMAND`.
 
-- **Generating Markdown**: Run `python generate_markdown.py` from the root of the `hunting` directory. This will generate Markdown files for each TOML file and update the `index.md` to include links to the new Markdown files.
-- **Structure**: Rules should be written in TOML and saved under the respective `hunt/*/rules/` directory. The script will automatically convert them into Markdown and save them in the `docs` directory within the respective category folder.
+- **generate-markdown**:
+  - This will generate Markdown files for each TOML file specified and update the `index.yml` and `index.md`.
+  - The `path` parameter is to enable users to specify a single file path of the TOML file, an existing folder (i.e. `aws`) or none, which will generate markdown docs for all hunt queries.
+  - Rules should be written in TOML and saved under the respective `hunt/*/rules/` directory before running this command. The command will automatically convert them into Markdown and save them in the `docs` directory within the respective category folder.
+- **refresh-index**:
+  - This will load all hunting query TOML files, then overwrite the existing `index.yml`, followed by updating the `index.md` file
+  - This is important whenever new hunts are created or name, file path or MITRE changes are introduced to existing queries.
+  - The `search` command relies on the `index.yml` file, so keeping this up-to-date is crucial.
+- **search**:
+  - This command enables users to filter for queries based on MITRE ATT&CK information, more specifically, tactic, technique or sub-technique IDs. The `--tactic`, `--technique`, `--subtechnique` parameters can be used to search for hunting queries that have been tagged with these respective IDs.
+  - All hunting queries are required to include MITRE mappings. Additionally, `--data-source` parameter can be used with or without MITRE filters to scope to a specific data source (i.e. `python -m hunting search --tactic TA0001 --data-source aws` would show all credential access related hunting queries for AWS)
+
+## Workflow
+
+To contribute to the `hunting` folder or add new hunting queries, follow these steps:
+
+1. **Create a TOML File**
+   - Navigate to the respective folder (e.g., `aws/queries`, `macos/queries`) and create a new TOML file for your query.
+   - Ensure that the file is named descriptively, reflecting the purpose of the hunt (e.g., `credential_access_detection.toml`).
+
+2. **Add Relevant and Required Hunting Information**
+   - Fill out the necessary fields in your TOML file. Be sure to include information such as the author, description, query language, actual queries, MITRE technique mappings, and any notes or references. This ensures the hunt query is complete and provides valuable context for threat hunters.
+
+3. **Generate the Markdown File**
+   - Once the TOML file is ready, use the following command to generate the corresponding Markdown file:
+     ```bash
+     python -m hunting generate-markdown
+     ```
+   - This will create a Markdown file in the `docs` folder under the respective integration, which can be used for documentation or sharing.
+
+4. **Refresh the Indexes**
+   - After generating the Markdown, run the `refresh-indexes` command to update the `index.yml` and `index.md` files:
+     ```bash
+     python -m hunting refresh-index
+     ```
+   - This ensures that the new hunt query is reflected in the overall index and is available for searching.
+
+5. **Open a Pull Request (PR) for Contributions**
+   - If you're contributing the query to the project, submit a Pull Request (PR) with your changes. Be sure to include a description of your query and any relevant details to facilitate the review process.
+
+By following this workflow, you can ensure that your hunt queries are properly formatted, documented, and integrated into the Elastic hunting library.
+
 
 ### Sample Directory Structure Example
 
 ```config
 .
 ├── README.md
-├── generate_markdown.py
+├── definitions.py
+├── markdown.py
+├── utils.py
 ├── index.md
+├── index.yml
 └── categorical_folder_name
-    ├── README.md
     ├── docs
     │   └── generated_markdown.md
     └── rules
