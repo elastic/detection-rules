@@ -780,7 +780,9 @@ def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path
               help='GitHub token to push to gist', hide_input=True)
 @click.option('--gist-id', default=NAVIGATOR_GIST_ID, help='Gist ID to be updated (must exist).')
 @click.option('--print-markdown', is_flag=True, help='Print the generated urls')
-def update_navigator_gists(directory: Path, token: str, gist_id: str, print_markdown: bool) -> list:
+@click.option('--update-coverage', is_flag=True, help='Update the docs/ATT&CK-coverage.md file')
+def update_navigator_gists(directory: Path, token: str, gist_id: str, print_markdown: bool,
+                           update_coverage: bool) -> list:
     """Update the gists with new navigator files."""
     assert directory.exists(), f'{directory} does not exist'
 
@@ -820,16 +822,40 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
         link_name = name.split('.')[0]
         markdown_links.append(f'|[{link_name}]({url})|')
 
+    markdown = [
+        f'**Full coverage**: {NAVIGATOR_BADGE}',
+        '\n',
+        f'**Coverage by platform**: [navigator]({platforms_url})',
+        '\n',
+        '| other navigator links by rule attributes |',
+        '|------------------------------------------|',
+    ] + markdown_links
+
     if print_markdown:
-        markdown = [
-            f'**Full coverage**: {NAVIGATOR_BADGE}',
-            '\n',
-            f'**Coverage by platform**: [navigator]({platforms_url})',
-            '\n',
-            '| other navigator links by rule attributes |',
-            '|------------------------------------------|',
-        ] + markdown_links
         click.echo('\n'.join(markdown) + '\n')
+
+    if update_coverage:
+        coverage_file_path = get_path('docs', 'ATT&CK-coverage.md')
+        header_lines = textwrap.dedent("""
+        # Rule coverage
+
+        ATT&CK navigator layer files are generated when a package is built with `make release` or
+        `python -m detection-rules`.This also means they can be downloaded from all successful builds.
+
+        These files can be used to pass to a custom navigator session. For convenience, the links are
+        generated below. You can also include multiple across tabs in a single session, though it is not
+        advisable to upload _all_ of them as it will likely overload your browsers resources.
+
+        ## Current rule coverage
+
+        The source files for these links are regenerated with every successful merge to main. These represent
+        coverage from the state of rules in the `main` branch.
+        """)
+        updated_file = header_lines + '\n\n' + '\n'.join(markdown) + '\n'
+        # Replace the old URLs with the new ones
+        with open(coverage_file_path, 'w') as md_file:
+            md_file.write(updated_file)
+        click.echo(f'Updated ATT&CK coverage URL(s) in {coverage_file_path}' + '\n')
 
     click.echo(f'Gist update status on {len(generated_urls)} files: {response.status_code} {response.reason}')
     return generated_urls
