@@ -5,7 +5,6 @@
 
 """Test for hunt toml files."""
 import unittest
-from collections import Counter
 
 from hunting.definitions import HUNTING_DIR
 from hunting.markdown import load_toml
@@ -34,7 +33,6 @@ class TestHunt(unittest.TestCase):
         config = load_toml(example_toml)
         self.assertEqual(config.author, "Elastic")
         self.assertEqual(config.integration, "aws_bedrock.invocation")
-        self.assertEqual(config.uuid, "dc181967-c32c-46c9-b84b-ec4c8811c6a0")
         self.assertEqual(
             config.name, "Denial of Service or Resource Exhaustion Attacks Detection"
         )
@@ -49,7 +47,6 @@ class TestHunt(unittest.TestCase):
             self.assertTrue(hunt.author)
             self.assertTrue(hunt.description)
             self.assertTrue(hunt.integration)
-            self.assertTrue(hunt.uuid)
             self.assertTrue(hunt.name)
             self.assertTrue(hunt.language)
             self.assertTrue(hunt.query)
@@ -69,44 +66,27 @@ class TestHunt(unittest.TestCase):
 
 class TestHuntIndex(unittest.TestCase):
     """Test the hunting index.yml file."""
+
     @classmethod
     def setUpClass(cls):
         """Load the index once for all tests."""
         cls.hunting_index = load_index()
 
-    def test_unique_uuid(self):
-        """Ensure each hunt has a unique UUID."""
-        uuids = []
-
-        # Collect all UUIDs from the index
-        for folder, queries in self.hunting_index.items():
-            for query in queries:
-                uuids.append(query['uuid'])
-
-        # Count occurrences of each UUID
-        uuid_counts = Counter(uuids)
-
-        # Find any duplicates
-        duplicates = [uuid for uuid, count in uuid_counts.items() if count > 1]
-
-        # Assert that there are no duplicates
-        self.assertEqual(len(duplicates), 0, f"Duplicate UUIDs found: {duplicates}")
-
     def test_mitre_techniques_present(self):
         """Ensure each query has at least one MITRE technique."""
-
         for folder, queries in self.hunting_index.items():
-            for query in queries:
-                self.assertTrue(query['mitre'], f"No MITRE techniques found for query: {query['name']}")
+            for query_uuid, query_data in queries.items():
+                self.assertTrue(query_data.get('mitre'),
+                                f"No MITRE techniques found for query: {query_data.get('name', query_uuid)}")
 
     def test_valid_structure(self):
         """Ensure each query entry has a valid structure."""
-        required_fields = ['name', 'path', 'uuid', 'mitre']
+        required_fields = ['name', 'path', 'mitre']
 
         for folder, queries in self.hunting_index.items():
-            for query in queries:
+            for query_uuid, query_data in queries.items():
                 for field in required_fields:
-                    self.assertIn(field, query, f"Missing field '{field}' in query: {query}")
+                    self.assertIn(field, query_data, f"Missing field '{field}' in query: {query_data}")
 
 
 if __name__ == "__main__":

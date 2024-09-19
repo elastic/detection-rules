@@ -76,7 +76,7 @@ def search_index(base_path: Path, mitre_filter: tuple = (), data_source: str = N
         if data_source and folder != data_source:
             continue
 
-        for query in queries:
+        for uuid, query in queries.items():  # Adjust to iterate over the dictionary
             query_techniques = query.get('mitre', [])
             # Match queries that contain at least one technique from the filtered set
             if not mitre_technique_ids or any(tech in mitre_technique_ids for tech in query_techniques):

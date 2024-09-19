@@ -79,22 +79,20 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
 
     def update_or_add_entry(hunt_config, toml_path):
         folder_name = toml_path.parent.parent.name
-        # Search for existing entry by UUID and update it
-        for entry in directories.get(folder_name, []):
-            if entry['uuid'] == hunt_config.uuid:
-                entry.update({
-                    'name': hunt_config.name,
-                    'path': f"./{toml_path.relative_to(base_path).as_posix()}",  # Ensure path points to TOML
-                    'mitre': hunt_config.mitre
-                })
-                return
-        # If no entry is found, add a new one
-        directories.setdefault(folder_name, []).append({
+        uuid = hunt_config.uuid  # Use the UUID as the key
+
+        entry = {
             'name': hunt_config.name,
-            'path': f"./{toml_path.relative_to(base_path).as_posix()}",  # Point to TOML file
-            'uuid': hunt_config.uuid,
+            'path': f"./{toml_path.relative_to(base_path).as_posix()}",  # Ensure path points to TOML
             'mitre': hunt_config.mitre
-        })
+        }
+
+        # Check if the folder_name key exists, and ensure the structure is a dictionary keyed by UUID
+        if folder_name not in directories:
+            directories[folder_name] = {uuid: entry}  # Use the UUID as the key for each entry
+        else:
+            # Add or update the entry by UUID
+            directories[folder_name][uuid] = entry
 
     if file_path:
         if file_path.is_file() and file_path.suffix == '.toml':
@@ -164,7 +162,7 @@ def save_index_file(base_path: Path, directories: dict) -> None:
     """Save the updated index.yml file."""
     index_file = base_path / "index.yml"
     with open(index_file, 'w') as f:
-        yaml.safe_dump(directories, f, default_flow_style=False)
+        yaml.safe_dump(directories, f, default_flow_style=False, sort_keys=False)
     print(f"Index YAML updated at: {index_file}")
 
 
@@ -182,7 +180,7 @@ def update_index_file(base_path: Path) -> None:
 
     for folder, files in sorted(directories.items()):
         index_content += f"\n\n## {folder}\n"
-        for file_info in sorted(files, key=lambda x: x['name']):
+        for file_info in sorted(files.values(), key=lambda x: x['name']):  # Adjusted to iterate over dict values
             # Generate path to .md file in 'docs' folder
             md_path = file_info['path'].replace('queries', 'docs').replace('.toml', '.md')
             index_content += f"- [{file_info['name']}]({md_path}) (ES|QL)"
@@ -206,26 +204,23 @@ def update_index_yml(base_path: Path) -> None:
         hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))  # Parse the TOML file
 
         folder_name = toml_file.parent.parent.name  # Determine the folder (platform, integration, etc.)
+        uuid = hunt_config.uuid  # Use the UUID as the key
 
-        # Check for existing entry with the same UUID and update it
-        existing_entry = next((entry for entry in directories.get(folder_name, [])
-                               if entry['uuid'] == hunt_config.uuid), None)
+        entry = {
+            'name': hunt_config.name,
+            'path': f"./{toml_file.relative_to(base_path).as_posix()}",  # Ensure the path links to TOML file
+            'mitre': hunt_config.mitre
+        }
 
-        if existing_entry:
-            # Update the existing entry
-            existing_entry.update({
-                'name': hunt_config.name,
-                'path': f"./{toml_file.relative_to(base_path).as_posix()}",  # Ensure the path links to TOML file
-                'mitre': hunt_config.mitre
-            })
+        # Check if the folder_name exists and if it's a list, convert it to a dictionary
+        if folder_name not in directories:
+            directories[folder_name] = {uuid: entry}  # Initialize as a dictionary
         else:
-            # Add a new entry if the UUID does not exist
-            directories.setdefault(folder_name, []).append({
-                'name': hunt_config.name,
-                'path': f"./{toml_file.relative_to(base_path).as_posix()}",  # Link to the TOML file
-                'uuid': hunt_config.uuid,
-                'mitre': hunt_config.mitre
-            })
+            if isinstance(directories[folder_name], list):
+                # Convert the list to a dictionary, using UUIDs as keys
+                directories[folder_name] = {item['uuid']: item for item in directories[folder_name]}
+            # Now we can safely use UUID as the key
+            directories[folder_name][uuid] = entry
 
     # Save the updated index.yml
     save_index_file(base_path, directories)

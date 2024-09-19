@@ -20,7 +20,7 @@ def hunting():
 
 
 @hunting.command('generate-markdown')
-@click.argument('path', required=False, description="Path to TOML file or folder to generate Markdown files.")
+@click.argument('path', required=False)
 def generate_markdown(path):
     """Convert TOML hunting queries to Markdown format.
 
@@ -83,7 +83,7 @@ def search_queries(tactic: str, technique: str, sub_technique: str, data_source:
             # Customize output to include technique and data_source if available
             data_source_str = result.get('data_source', 'Unknown')
             mitre_str = ", ".join(result.get('mitre', [])) or 'No MITRE techniques'
-            click.echo(f"- {result['name']} | UUID: {result['uuid']} | location: ({result['path']}) | data_source: {data_source_str} | MITRE: {mitre_str}")  # noqa: E501
+            click.echo(f"- {result['name']} | location: ({result['path']}) | data_source: {data_source_str} | MITRE: {mitre_str}")  # noqa: E501
     else:
         click.echo("No matching queries found.")
 
