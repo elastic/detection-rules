@@ -20,7 +20,7 @@ def hunting():
 
 
 @hunting.command('generate-markdown')
-@click.argument('path', required=False)
+@click.argument('path', required=False, description="Path to TOML file or folder to generate Markdown files.")
 def generate_markdown(path):
     """Convert TOML hunting queries to Markdown format.
 
