@@ -7,7 +7,8 @@
 import unittest
 from collections import Counter
 
-from hunting.markdown import HUNTING_DIR, load_toml
+from hunting.definitions import HUNTING_DIR
+from hunting.markdown import load_toml
 from hunting.utils import load_index
 
 

@@ -77,21 +77,21 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
     """Process TOML files based on the input: a specific file, a folder, or all files."""
     directories = load_index_file(base_path)
 
-    def update_or_add_entry(hunt_config, markdown_path):
-        folder_name = markdown_path.parent.parent.name
+    def update_or_add_entry(hunt_config, toml_path):
+        folder_name = toml_path.parent.parent.name
         # Search for existing entry by UUID and update it
         for entry in directories.get(folder_name, []):
             if entry['uuid'] == hunt_config.uuid:
                 entry.update({
                     'name': hunt_config.name,
-                    'path': f"./{markdown_path.relative_to(base_path).as_posix()}",
+                    'path': f"./{toml_path.relative_to(base_path).as_posix()}",  # Ensure path points to TOML
                     'mitre': hunt_config.mitre
                 })
                 return
         # If no entry is found, add a new one
         directories.setdefault(folder_name, []).append({
             'name': hunt_config.name,
-            'path': f"./{markdown_path.relative_to(base_path).as_posix()}",
+            'path': f"./{toml_path.relative_to(base_path).as_posix()}",  # Point to TOML file
             'uuid': hunt_config.uuid,
             'mitre': hunt_config.mitre
         })
@@ -109,8 +109,8 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
             markdown_path.write_text(markdown_content, encoding="utf-8")
             print(f"Markdown generated: {markdown_path}")
 
-            # Update or add entry to the directory map
-            update_or_add_entry(hunt_config, markdown_path)
+            # Update or add entry to the directory map (preserving TOML path)
+            update_or_add_entry(hunt_config, file_path)
 
         else:
             raise ValueError(f"The provided path is not a valid TOML file: {file_path}")
@@ -141,8 +141,8 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
             markdown_path.write_text(markdown_content, encoding="utf-8")
             print(f"Markdown generated: {markdown_path}")
 
-            # Update or add entry to the directory map
-            update_or_add_entry(hunt_config, markdown_path)
+            # Update or add entry to the directory map (preserving TOML path)
+            update_or_add_entry(hunt_config, toml_file)
 
     # Save the updated index.yml
     save_index_file(base_path, directories)
@@ -196,34 +196,33 @@ def update_index_file(base_path: Path) -> None:
 
 def update_index_yml(base_path: Path) -> None:
     """Update index.yml based on the current TOML files."""
-    directories = load_index_file(base_path)
+    directories = load_index_file(base_path)  # Load the existing index.yml data
 
     # Load all TOML files recursively
-    toml_files = base_path.rglob("queries/*.toml")
+    toml_files = base_path.rglob("queries/*.toml")  # Find all TOML files in the 'queries' directory
 
     for toml_file in toml_files:
         # Load TOML and extract hunt configuration
-        hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))
+        hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))  # Parse the TOML file
 
-        folder_name = toml_file.parent.parent.name
+        folder_name = toml_file.parent.parent.name  # Determine the folder (platform, integration, etc.)
 
         # Check for existing entry with the same UUID and update it
-        updated = False
-        for entry in directories.get(folder_name, []):
-            if entry['uuid'] == hunt_config.uuid:
-                entry.update({
-                    'name': hunt_config.name,
-                    'path': f"./{toml_file.relative_to(base_path).as_posix()}",
-                    'mitre': hunt_config.mitre
-                })
-                updated = True
-                break
+        existing_entry = next((entry for entry in directories.get(folder_name, [])
+                               if entry['uuid'] == hunt_config.uuid), None)
 
-        # If the UUID was not found, add a new entry
-        if not updated:
+        if existing_entry:
+            # Update the existing entry
+            existing_entry.update({
+                'name': hunt_config.name,
+                'path': f"./{toml_file.relative_to(base_path).as_posix()}",  # Ensure the path links to TOML file
+                'mitre': hunt_config.mitre
+            })
+        else:
+            # Add a new entry if the UUID does not exist
             directories.setdefault(folder_name, []).append({
                 'name': hunt_config.name,
-                'path': f"./{toml_file.relative_to(base_path).as_posix()}",
+                'path': f"./{toml_file.relative_to(base_path).as_posix()}",  # Link to the TOML file
                 'uuid': hunt_config.uuid,
                 'mitre': hunt_config.mitre
             })
