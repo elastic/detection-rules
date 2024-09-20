@@ -150,6 +150,17 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
         click.echo(f' - {rule_str}')
     if response['errors']:
         handle_response_errors(response)
+    else:
+        def process_dicts(dicts, message, key):
+            all_ids = {item[key] for sublist in dicts for item in sublist}
+            if all_ids:
+                click.echo(f'{len(all_ids)} {message} successfully imported')
+                ids_str = '\n - '.join(all_ids)
+                click.echo(f' - {ids_str}')
+
+        process_dicts(exception_dicts, 'exception list(s)', 'list_id')
+        process_dicts(action_connectors_dicts, 'action connector(s)', 'id')
+
 
     return response, results
 
