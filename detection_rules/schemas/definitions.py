@@ -249,13 +249,13 @@ EsDataTypes = Literal[
 ]
 
 # definitions for the integration to index mapping unit test case
-ignore_ids = ["eb079c62-4481-4d6e-9643-3ca499df7aaa", "699e9fdb-b77c-4c01-995c-1c15019b9c43",
+IGNORE_IDS = ["eb079c62-4481-4d6e-9643-3ca499df7aaa", "699e9fdb-b77c-4c01-995c-1c15019b9c43",
               "0c9a14d9-d65d-486f-9b5b-91e4e6b22bd0", "a198fbbd-9413-45ec-a269-47ae4ccf59ce",
               "0c41e478-5263-4c69-8f9e-7dfd2c22da64", "aab184d3-72b3-4639-b242-6597c99d8bca",
               "a61809f3-fb5b-465c-8bff-23a8a068ac60", "f3e22c8b-ea47-45d1-b502-b57b6de950b3"]
-ignore_indexes = ['.alerts-security.*', 'logs-*', 'metrics-*', 'traces-*', 'endgame-*',
+IGNORE_INDICES = ['.alerts-security.*', 'logs-*', 'metrics-*', 'traces-*', 'endgame-*',
                   'filebeat-*', 'packetbeat-*', 'auditbeat-*', 'winlogbeat-*']
-required_integrations_map = {'endpoint': "logs-endpoint*", 'aws': "logs-aws*",
+INTEGRATION_TO_INDEX_MAP = {'endpoint': "logs-endpoint*", 'aws': "logs-aws*",
                              'azure': "logs-azure*", 'okta': "logs-okta*",
                              'o365': "logs-o365*", 'gcp': "logs-gcp*",
                              'google_workspace': "logs-google_workspace*", 'cloud_defend': "logs-cloud_defend*",

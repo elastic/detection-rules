@@ -793,7 +793,7 @@ class TestRuleMetadata(BaseRuleTest):
                     # ignore the External Alerts rule, Threat Indicator Matching Rules, Guided onboarding
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.get('index') or []]):
-                        if not rule.contents.metadata.integration and rule.id not in definitions.ignore_ids and \
+                        if not rule.contents.metadata.integration and rule.id not in definitions.IGNORE_IDS and \
                                 rule.contents.data.type not in definitions.MACHINE_LEARNING:
                             err_msg = f'substrings {non_dataset_packages} found in '\
                                       f'{self.rule_str(rule)} rule index patterns are {rule.contents.data.index},' \
@@ -803,16 +803,16 @@ class TestRuleMetadata(BaseRuleTest):
                 # checks for a defined index pattern, the related integration exists in metadata
                 expected_integrations, missing_integrations = set(), set()
                 for index in indices:
-                    if index in definitions.ignore_indexes or \
+                    if index in definitions.IGNORE_INDICES or \
                         any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
                             for ri in rule_integrations):
                         continue
-                    elif rule.id in definitions.ignore_ids:
+                    elif rule.id in definitions.IGNORE_IDS:
                         continue
                     elif rule.contents.data.type == 'threat_match':
                         continue
                     index_map = [key for key, value in
-                                 definitions.required_integrations_map.items() if re.search(value, index)]
+                                 definitions.INTEGRATION_TO_INDEX_MAP.items() if re.search(value, index)]
                     if not index_map:
                         self.fail(f'{self.rule_str(rule)} Index {index} \
                             does not have required integrations mapping defined\n')
