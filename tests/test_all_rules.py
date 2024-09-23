@@ -819,7 +819,7 @@ class TestRuleMetadata(BaseRuleTest):
                     expected_integrations.update(index_map)
                 missing_integrations.update(expected_integrations.difference(set(rule_integrations)))
                 if missing_integrations:
-                    error_msg = f'{self.rule_str(rule)} Missing integrations: {", ".join(missing_integrations)}'
+                    error_msg = f'{self.rule_str(rule)} Missing integration metadata: {", ".join(missing_integrations)}'
                     failures.append(error_msg)
 
         if failures:
