@@ -7,10 +7,10 @@ from pathlib import Path
 
 import click
 
-from hunting.definitions import HUNTING_DIR
-from hunting.markdown import (process_toml_files, update_index_file,
-                              update_index_yml)
-from hunting.utils import search_index
+from .definitions import HUNTING_DIR
+from .markdown import (process_toml_files, update_index_md)
+from .search import search_index
+from .utils import update_index_yml
 
 
 @click.group()
@@ -53,7 +53,7 @@ def refresh_index():
     """Refresh the index.yml file from TOML files and then refresh the index.md file."""
     click.echo("Refreshing the index.yml and index.md files.")
     update_index_yml(HUNTING_DIR)
-    update_index_file(HUNTING_DIR)
+    update_index_md(HUNTING_DIR)
     click.echo("Index refresh complete.")
 
 
@@ -90,3 +90,46 @@ def search_queries(tactic: str, technique: str, sub_technique: str, data_source:
 
 if __name__ == "__main__":
     hunting()
+
+
+@hunting.command('view-hunt')
+@click.option('--uuid', type=str, help="View a specific hunt by UUID.")
+@click.option('--path', type=str, help="View a specific hunt by file path.")
+@click.option('--format', 'output_format', default='toml', type=click.Choice(['toml', 'json'], case_sensitive=False),
+              help="Output format (toml or json).")
+def view_hunt(uuid: str, path: str, output_format: str):
+    """View a specific hunt by UUID or file path in the specified format (TOML or JSON)."""
+
+    # Load index.yml if UUID is provided
+    if uuid:
+        index_data = load_index_file()
+        hunt_data = None
+        for data_source, hunts in index_data.items():
+            if uuid in hunts:
+                hunt_data = hunts[uuid]
+                hunt_path = Path(HUNTING_DIR) / hunt_data['path']
+                break
+
+        if not hunt_data:
+            click.echo(f"No hunt found for UUID: {uuid}")
+            return
+    # If path is provided
+    elif path:
+        hunt_path = Path(path)
+        if not hunt_path.is_file():
+            click.echo(f"No file found at path: {path}")
+            return
+    else:
+        click.echo("Please provide either a UUID or a file path.")
+        return
+
+    # Load the TOML data
+    hunt = load_toml(hunt_path)
+
+    # Output the hunt in the requested format
+    if output_format == 'toml':
+        click.echo(hunt_path.read_text())
+    elif output_format == 'json':
+        import json
+        hunt_dict = hunt.__dict__  # Convert the dataclass to a dictionary
+        click.echo(json.dumps(hunt_dict, indent=4))

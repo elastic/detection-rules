@@ -3,30 +3,15 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import tomllib
 from pathlib import Path
 
 import click
 import yaml
 
-from hunting.definitions import (ATLAS_URL, ATTACK_URL,
+from .definitions import (ATLAS_URL, ATTACK_URL,
                                  STATIC_INTEGRATION_LINK_MAP, Hunt)
-from hunting.utils import validate_link
-
-
-def load_toml(contents: str):
-    """Load and validate TOML content as Hunt dataclass."""
-    toml_dict = tomllib.loads(contents)
-    return Hunt(**toml_dict["hunt"])
-
-
-def load_all_toml(base_path: Path):
-    """Load all TOML files from the directory and return a list of Hunt configurations and their paths."""
-    hunts = []
-    for toml_file in base_path.rglob("*.toml"):
-        hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))
-        hunts.append((hunt_config, toml_file))
-    return hunts
+from .utils import (load_index_file, load_toml, save_index_file,
+                           validate_link)
 
 
 def generate_integration_links(integrations: list[str]) -> list[str]:
@@ -75,7 +60,7 @@ def convert_toml_to_markdown(hunt_config, file_path: Path):
 
 def process_toml_files(base_path: Path, file_path: Path = None, folder: str = None) -> None:
     """Process TOML files based on the input: a specific file, a folder, or all files."""
-    directories = load_index_file(base_path)
+    directories = load_index_file()
 
     def update_or_add_entry(hunt_config, toml_path):
         folder_name = toml_path.parent.parent.name
@@ -97,7 +82,7 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
     if file_path:
         if file_path.is_file() and file_path.suffix == '.toml':
             click.echo(f"Processing specific TOML file: {file_path}")
-            hunt_config = load_toml(file_path.read_text(encoding="utf-8"))
+            hunt_config = load_toml(file_path)
             markdown_content = convert_toml_to_markdown(hunt_config, file_path)
 
             # Save Markdown to respective docs folder
@@ -130,7 +115,7 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
 
     if not file_path:
         for toml_file in toml_files:
-            hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))
+            hunt_config = load_toml(toml_file)
             markdown_content = convert_toml_to_markdown(hunt_config, toml_file)
 
             docs_folder = toml_file.parent.parent / "docs"
@@ -146,27 +131,10 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
     save_index_file(base_path, directories)
 
     # Update the index.md file with all the new entries
-    update_index_file(base_path)
+    update_index_md(base_path)
 
 
-def load_index_file(base_path: Path) -> dict:
-    """Load the index.yml file and return its contents as a dictionary."""
-    index_file = base_path / "index.yml"
-    if index_file.exists():
-        with open(index_file, 'r') as f:
-            return yaml.safe_load(f) or {}
-    return {}
-
-
-def save_index_file(base_path: Path, directories: dict) -> None:
-    """Save the updated index.yml file."""
-    index_file = base_path / "index.yml"
-    with open(index_file, 'w') as f:
-        yaml.safe_dump(directories, f, default_flow_style=False, sort_keys=False)
-    print(f"Index YAML updated at: {index_file}")
-
-
-def update_index_file(base_path: Path) -> None:
+def update_index_md(base_path: Path) -> None:
     """Update the index.md file based on the entries in index.yml."""
     index_file = base_path / "index.yml"
     index_content = "# List of Available Queries\n\nHere are the queries currently available:\n"
@@ -190,37 +158,3 @@ def update_index_file(base_path: Path) -> None:
     index_md_path = base_path / "index.md"
     index_md_path.write_text(index_content, encoding="utf-8")
     print(f"Index Markdown updated at: {index_md_path}")
-
-
-def update_index_yml(base_path: Path) -> None:
-    """Update index.yml based on the current TOML files."""
-    directories = load_index_file(base_path)  # Load the existing index.yml data
-
-    # Load all TOML files recursively
-    toml_files = base_path.rglob("queries/*.toml")  # Find all TOML files in the 'queries' directory
-
-    for toml_file in toml_files:
-        # Load TOML and extract hunt configuration
-        hunt_config = load_toml(toml_file.read_text(encoding="utf-8"))  # Parse the TOML file
-
-        folder_name = toml_file.parent.parent.name  # Determine the folder (platform, integration, etc.)
-        uuid = hunt_config.uuid  # Use the UUID as the key
-
-        entry = {
-            'name': hunt_config.name,
-            'path': f"./{toml_file.relative_to(base_path).as_posix()}",  # Ensure the path links to TOML file
-            'mitre': hunt_config.mitre
-        }
-
-        # Check if the folder_name exists and if it's a list, convert it to a dictionary
-        if folder_name not in directories:
-            directories[folder_name] = {uuid: entry}  # Initialize as a dictionary
-        else:
-            if isinstance(directories[folder_name], list):
-                # Convert the list to a dictionary, using UUIDs as keys
-                directories[folder_name] = {item['uuid']: item for item in directories[folder_name]}
-            # Now we can safely use UUID as the key
-            directories[folder_name][uuid] = entry
-
-    # Save the updated index.yml
-    save_index_file(base_path, directories)

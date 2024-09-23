@@ -8,7 +8,7 @@ import unittest
 
 from hunting.definitions import HUNTING_DIR
 from hunting.markdown import load_toml
-from hunting.utils import load_index
+from hunting.utils import load_index_file
 
 
 class TestHunt(unittest.TestCase):
