@@ -791,24 +791,36 @@ class TestRuleMetadata(BaseRuleTest):
                 else:
                     # checks if rule has index pattern integration and the integration tag exists
                     # ignore the External Alerts rule, Threat Indicator Matching Rules, Guided onboarding
-                    ignore_ids = [
-                        "eb079c62-4481-4d6e-9643-3ca499df7aaa",
-                        "699e9fdb-b77c-4c01-995c-1c15019b9c43",
-                        "0c9a14d9-d65d-486f-9b5b-91e4e6b22bd0",
-                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce",
-                        "0c41e478-5263-4c69-8f9e-7dfd2c22da64",
-                        "aab184d3-72b3-4639-b242-6597c99d8bca",
-                        "a61809f3-fb5b-465c-8bff-23a8a068ac60",
-                        "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
-                    ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.get('index') or []]):
-                        if not rule.contents.metadata.integration and rule.id not in ignore_ids and \
+                        if not rule.contents.metadata.integration and rule.id not in definitions.ignore_ids and \
                                 rule.contents.data.type not in definitions.MACHINE_LEARNING:
                             err_msg = f'substrings {non_dataset_packages} found in '\
                                       f'{self.rule_str(rule)} rule index patterns are {rule.contents.data.index},' \
                                       f'but no integration tag found'
                             failures.append(err_msg)
+
+                # checks for a defined index pattern, the related integration exists in metadata
+                expected_integrations, missing_integrations = set(), set()
+                for index in indices:
+                    if index in definitions.ignore_indexes or \
+                        any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
+                            for ri in rule_integrations):
+                        continue
+                    elif rule.id in definitions.ignore_ids:
+                        continue
+                    elif rule.contents.data.type == 'threat_match':
+                        continue
+                    index_map = [key for key, value in
+                                 definitions.required_integrations_map.items() if re.search(value, index)]
+                    if not index_map:
+                        self.fail(f'{self.rule_str(rule)} Index {index} \
+                            does not have required integrations mapping defined\n')
+                    expected_integrations.update(index_map)
+                missing_integrations.update(expected_integrations.difference(set(rule_integrations)))
+                if missing_integrations:
+                    error_msg = f'{self.rule_str(rule)} Missing integrations: {", ".join(missing_integrations)}'
+                    failures.append(error_msg)
 
         if failures:
             err_msg = """
