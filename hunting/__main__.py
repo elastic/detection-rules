@@ -8,9 +8,10 @@ from pathlib import Path
 import click
 
 from .definitions import HUNTING_DIR
-from .markdown import (process_toml_files, update_index_md)
+from .markdown import process_toml_files, update_index_md
+from .run import send_query
 from .search import search_index
-from .utils import update_index_yml
+from .utils import load_index_file, update_index_yml
 
 
 @click.group()
@@ -87,11 +88,6 @@ def search_queries(tactic: str, technique: str, sub_technique: str, data_source:
     else:
         click.echo("No matching queries found.")
 
-
-if __name__ == "__main__":
-    hunting()
-
-
 @hunting.command('view-hunt')
 @click.option('--uuid', type=str, help="View a specific hunt by UUID.")
 @click.option('--path', type=str, help="View a specific hunt by file path.")
@@ -133,3 +129,42 @@ def view_hunt(uuid: str, path: str, output_format: str):
         import json
         hunt_dict = hunt.__dict__  # Convert the dataclass to a dictionary
         click.echo(json.dumps(hunt_dict, indent=4))
+
+
+@hunting.command('run-query')
+@click.option('--uuid', help="The UUID of the hunting query to run.")
+@click.option('--file-path', help="The file path of the hunting query to run.")
+@click.option('--output-format', 'output_format', default='json',
+              type=click.Choice(['json', 'csv', 'txt', 'yaml', 'tsv', 'txt']),
+              help="Output format (json, csv, txt, yaml, tsv). Default is json.")
+@click.option('--wait-time', default=180, help="Time in seconds to wait for query completion. Default is 180 seconds.")
+def run_query(uuid: str, file_path: str, output_format: str, wait_time: int):
+    """Run a hunting query by UUID or file path. Only ES|QL queries are supported."""
+    if not any([uuid, file_path]):
+        raise click.UsageError("Please provide either a UUID or a file path to run a query.")
+
+    if uuid:
+        hunt_path = None
+        index_data = load_index_file()
+        for data_source, hunts in index_data.items():
+            if uuid in hunts:
+                hunt_data = hunts[uuid]
+                hunt_path = Path(HUNTING_DIR) / hunt_data['path']
+                break
+
+        if not hunt_path:
+            click.echo(f"No hunt found for UUID: {uuid}")
+            return
+    elif file_path:
+        hunt_path = Path(file_path)
+        if not hunt_path.is_file():
+            click.echo(f"No file found at path: {file_path}")
+            return
+
+    # Run the query
+    send_query(hunt_path, output_format, wait_time)
+
+
+if __name__ == "__main__":
+    hunting()
+
