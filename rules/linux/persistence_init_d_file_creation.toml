@@ -2,7 +2,7 @@
 creation_date = "2023/03/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/06/21"
+updated_date = "2024/09/23"
 
 [transform]
 [[transform.osquery]]
@@ -29,6 +29,7 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 [[transform.osquery]]
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
+
 
 [rule]
 author = ["Elastic"]
@@ -109,6 +110,7 @@ references = [
     "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
     "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
     "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
 ]
 risk_score = 21
 rule_id = "474fd20e-14cc-49c5-8160-d9ab4ba16c8b"
@@ -149,6 +151,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.action in ("creation", "file_create_event", "rename", "file_rename_event")
 and file.path : "/etc/init.d/*" and not (
@@ -172,15 +175,17 @@ and file.path : "/etc/init.d/*" and not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
