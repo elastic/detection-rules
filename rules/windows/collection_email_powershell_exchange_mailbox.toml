@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m3
 maturity = "production"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 min_stack_version = "8.13.0"
-updated_date = "2024/08/07"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,15 @@ mailbox or archive to a .pst file. Adversaries may target user email to collect 
 """
 false_positives = ["Legitimate exchange system administration activity."]
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.*", "endgame-*", "logs-system.security*", "logs-sentinel_one_cloud_funnel.*", "logs-m365_defender.event-*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "winlogbeat-*",
+    "logs-windows.*",
+    "endgame-*",
+    "logs-system.security*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Exporting Exchange Mailbox via PowerShell"
@@ -62,6 +70,7 @@ Attackers can abuse this functionality in preparation for exfiltrating contents,
 references = [
     "https://www.volexity.com/blog/2020/12/14/dark-halo-leverages-solarwinds-compromise-to-breach-organizations/",
     "https://docs.microsoft.com/en-us/powershell/module/exchange/new-mailboxexportrequest?view=exchange-ps",
+    "https://www.elastic.co/security-labs/siestagraph-new-implant-uncovered-in-asean-member-foreign-ministry",
 ]
 risk_score = 47
 rule_id = "6aace640-e631-4870-ba8e-5fdda09325db"
@@ -74,7 +83,19 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: SentinelOne", "Data Source: Microsoft Defender for Endpoint", "Data Source: System"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: System",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -107,7 +128,6 @@ reference = "https://attack.mitre.org/techniques/T1114/002/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

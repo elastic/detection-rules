@@ -1,27 +1,30 @@
 [metadata]
 creation_date = "2024/06/03"
-maturity = "production"
 integration = ["fim"]
-updated_date = "2024/07/09"
+maturity = "production"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule leverages the File Integrity Monitoring (FIM) integration to detect file modifications of files that are
-commonly used for persistence on Linux systems. The rule detects modifications to files that are commonly used for
-cron jobs, systemd services, message-of-the-day (MOTD), SSH configurations, shell configurations, runtime control,
-init daemon, passwd/sudoers/shadow files, Systemd udevd, and XDG/KDE autostart entries. To leverage this rule, the
-paths specified in the query need to be added to the FIM policy in the Elastic Security app.
+commonly used for persistence on Linux systems. The rule detects modifications to files that are commonly used for cron
+jobs, systemd services, message-of-the-day (MOTD), SSH configurations, shell configurations, runtime control, init
+daemon, passwd/sudoers/shadow files, Systemd udevd, and XDG/KDE autostart entries. To leverage this rule, the paths
+specified in the query need to be added to the FIM policy in the Elastic Security app.
 """
 from = "now-9m"
 index = ["logs-fim.event-*", "auditbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Persistence via File Modification"
+references = [
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
+]
 risk_score = 21
 rule_id = "192657ba-ab0e-4901-89a2-911d611eee98"
-setup = """
-## Setup
+setup = """## Setup
 
 This rule requires data coming in from the Elastic File Integrity Monitoring (FIM) integration.
 
@@ -46,10 +49,11 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Tactic: Privilege Escalation",
-    "Data Source: File Integrity Monitoring"
+    "Data Source: File Integrity Monitoring",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.dataset == "fim.event" and event.action == "updated" and
 file.path : (
@@ -112,28 +116,38 @@ file.path : (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1037.004"
 name = "RC Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/004/"
 
+
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
+
 
 [[rule.threat.technique]]
 id = "T1556"
@@ -144,51 +158,42 @@ reference = "https://attack.mitre.org/techniques/T1556/"
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
 
-[[rule.threat.technique]]
-id = "T1136"
-name = "Create Account"
-reference = "https://attack.mitre.org/techniques/T1136/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1136.001"
-name = "Local Account"
-reference = "https://attack.mitre.org/techniques/T1136/001/"
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.003"
 name = "Cron"
 reference = "https://attack.mitre.org/techniques/T1053/003/"
 
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
