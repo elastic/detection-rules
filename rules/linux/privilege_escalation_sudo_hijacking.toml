@@ -2,7 +2,7 @@
 creation_date = "2023/07/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/06/03"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,10 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Sudo Hijacking"
-references = ["https://eapolsniper.github.io/2020/08/17/Sudo-Hijacking/"]
+references = [
+    "https://eapolsniper.github.io/2020/08/17/Sudo-Hijacking/",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
+]
 risk_score = 47
 rule_id = "88fdcb8c-60e5-46ee-9206-2663adf1b1ce"
 setup = """## Setup
@@ -55,6 +58,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.action in ("creation", "rename") and
 file.path in ("/usr/bin/sudo", "/bin/sudo") and not (
@@ -76,33 +80,34 @@ file.path in ("/usr/bin/sudo", "/bin/sudo") and not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

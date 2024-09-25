@@ -2,21 +2,24 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/31"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the copying or moving of a system binary. Adversaries may copy/move and rename system binaries
-to evade detection. Copying a system binary to a different location should not occur often, so if it does, the
-activity should be investigated.
+This rule monitors for the copying or moving of a system binary. Adversaries may copy/move and rename system binaries to
+evade detection. Copying a system binary to a different location should not occur often, so if it does, the activity
+should be investigated.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "System Binary Moved or Copied"
-references = ["https://intezer.com/blog/research/kaiji-new-chinese-linux-malware-turning-to-golang/"]
+references = [
+    "https://intezer.com/blog/research/kaiji-new-chinese-linux-malware-turning-to-golang/",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
+]
 risk_score = 47
 rule_id = "fda1d332-5e08-4f27-8a9b-8c802e3292a6"
 setup = """## Setup
@@ -54,6 +57,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and
 file.Ext.original.path : (
@@ -87,25 +91,27 @@ file.Ext.original.path : (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1036.003"
 name = "Rename System Utilities"
 reference = "https://attack.mitre.org/techniques/T1036/003/"
+
 
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
