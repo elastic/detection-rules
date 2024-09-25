@@ -5,6 +5,7 @@
 
 import tomllib
 from pathlib import Path
+from typing import Union
 
 import click
 import urllib3
@@ -50,12 +51,15 @@ def load_index_file() -> dict:
     return hunting_index
 
 
-def load_toml(file_path: Path) -> Hunt:
+def load_toml(source: Union[Path, str]) -> Hunt:
     """Load and validate TOML content as Hunt dataclass."""
-    if not file_path.is_file():
-        raise FileNotFoundError(f"TOML file not found: {file_path}")
+    if isinstance(source, Path):
+        if not source.is_file():
+            raise FileNotFoundError(f"TOML file not found: {source}")
+        contents = source.read_text(encoding="utf-8")
+    else:
+        contents = source  # Assuming it's a TOML string
 
-    contents = file_path.read_text(encoding="utf-8")
     toml_dict = tomllib.loads(contents)
 
     # Validate and load the content into the Hunt dataclass

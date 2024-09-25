@@ -41,9 +41,8 @@ class TestHunt(unittest.TestCase):
     def test_load_toml_files(self):
         """Test loading and validating all Hunt TOML files in the hunting directory."""
 
-        for toml_file in HUNTING_DIR.rglob("*.toml"):
-            toml_contents = toml_file.read_text()
-            hunt = load_toml(toml_contents)
+        for toml_path in HUNTING_DIR.rglob("*.toml"):
+            hunt = load_toml(toml_path)
             self.assertTrue(hunt.author)
             self.assertTrue(hunt.description)
             self.assertTrue(hunt.integration)
