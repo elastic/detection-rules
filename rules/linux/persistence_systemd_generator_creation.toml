@@ -2,7 +2,7 @@
 creation_date = "2024/06/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/06/19"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,10 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Systemd Generator Created"
-references = ["https://pberba.github.io/security/2022/02/07/linux-threat-hunting-for-persistence-systemd-generators/"]
+references = [
+    "https://pberba.github.io/security/2022/02/07/linux-threat-hunting-for-persistence-systemd-generators/",
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
+]
 risk_score = 47
 rule_id = "39c06367-b700-4380-848a-cab06e7afede"
 setup = """## Setup
@@ -53,10 +56,11 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Tactic: Privilege Escalation",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and file.path : (
 "/run/systemd/system-generators/*", "/etc/systemd/system-generators/*",
@@ -81,38 +85,39 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
