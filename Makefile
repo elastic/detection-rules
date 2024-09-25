@@ -26,6 +26,11 @@ deps: $(VENV)
 	$(PIP) install lib/kibana
 	$(PIP) install lib/kql
 
+.PHONY: hunting
+hunting: $(VENV) deps
+	@echo "Installing all dependencies..."
+	$(PIP) install elasticsearch~=8.15.1 tabulate==0.9.0
+
 .PHONY: pytest
 pytest: $(VENV) deps
 	$(PYTHON) -m detection_rules test

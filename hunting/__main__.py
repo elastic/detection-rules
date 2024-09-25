@@ -3,15 +3,17 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+import textwrap
 from pathlib import Path
 
 import click
+from tabulate import tabulate
 
 from .definitions import HUNTING_DIR
 from .markdown import process_toml_files, update_index_md
 from .run import send_query
 from .search import search_index
-from .utils import load_index_file, update_index_yml
+from .utils import get_hunt_path, load_index_file, load_toml, update_index_yml
 
 
 @click.group()
@@ -79,21 +81,32 @@ def search_queries(tactic: str, technique: str, sub_technique: str, data_source:
     results = search_index(HUNTING_DIR, mitre_filter=mitre_filters, data_source=data_source)
 
     if results:
-        click.echo(f"\nFound {len(results)} matching queries:\n")
+        click.secho(f"\nFound {len(results)} matching queries:\n", fg="green", bold=True)
+
+        # Prepare the data for tabulate
+        table_data = []
         for result in results:
-            # Customize output to include technique and data_source if available
-            data_source_str = result.get('data_source', 'Unknown')
-            mitre_str = ", ".join(result.get('mitre', [])) or 'No MITRE techniques'
-            click.echo(f"- {result['name']} | location: ({result['path']}) | data_source: {data_source_str} | MITRE: {mitre_str}")  # noqa: E501
+            # Customize output to include technique, data_source, and UUID
+            data_source_str = result['data_source']
+            mitre_str = ", ".join(result['mitre'])
+            uuid = result['uuid']
+            table_data.append([result['name'], uuid, result['path'], data_source_str, mitre_str])
+
+        # Output results using tabulate
+        table_headers = ["Name", "UUID", "Location", "Data Source", "MITRE"]
+        click.echo(tabulate(table_data, headers=table_headers, tablefmt="fancy_grid"))
+
     else:
-        click.echo("No matching queries found.")
+        click.secho("No matching queries found.", fg="red", bold=True)
+
 
 @hunting.command('view-hunt')
 @click.option('--uuid', type=str, help="View a specific hunt by UUID.")
 @click.option('--path', type=str, help="View a specific hunt by file path.")
 @click.option('--format', 'output_format', default='toml', type=click.Choice(['toml', 'json'], case_sensitive=False),
               help="Output format (toml or json).")
-def view_hunt(uuid: str, path: str, output_format: str):
+@click.option('--query-only', is_flag=True, help="Only display the query content.")
+def view_hunt(uuid: str, path: str, output_format: str, query_only: bool):
     """View a specific hunt by UUID or file path in the specified format (TOML or JSON)."""
 
     # Load index.yml if UUID is provided
@@ -107,64 +120,59 @@ def view_hunt(uuid: str, path: str, output_format: str):
                 break
 
         if not hunt_data:
-            click.echo(f"No hunt found for UUID: {uuid}")
+            click.secho(f"No hunt found for UUID: {uuid}", fg="red", bold=True)
             return
     # If path is provided
     elif path:
         hunt_path = Path(path)
         if not hunt_path.is_file():
-            click.echo(f"No file found at path: {path}")
+            click.secho(f"No file found at path: {path}", fg="red", bold=True)
             return
     else:
-        click.echo("Please provide either a UUID or a file path.")
+        click.secho("Please provide either a UUID or a file path.", fg="red", bold=True)
         return
 
     # Load the TOML data
     hunt = load_toml(hunt_path)
+
+    # Handle query-only option
+    if query_only:
+        click.secho("Available queries:", fg="blue", bold=True)
+        # Format queries for display using tabulate and textwrap
+        table_data = [(i, textwrap.fill(query, width=120)) for i, query in enumerate(hunt.query)]
+        table_headers = ["Query"]
+        click.echo(tabulate(table_data, headers=table_headers, tablefmt="fancy_grid"))
+        return
 
     # Output the hunt in the requested format
     if output_format == 'toml':
         click.echo(hunt_path.read_text())
     elif output_format == 'json':
         import json
-        hunt_dict = hunt.__dict__  # Convert the dataclass to a dictionary
+
+        # Convert the hunt object to a dictionary, assuming it's a dataclass
+        hunt_dict = hunt.__dict__
         click.echo(json.dumps(hunt_dict, indent=4))
 
 
 @hunting.command('run-query')
 @click.option('--uuid', help="The UUID of the hunting query to run.")
 @click.option('--file-path', help="The file path of the hunting query to run.")
-@click.option('--output-format', 'output_format', default='json',
-              type=click.Choice(['json', 'csv', 'txt', 'yaml', 'tsv', 'txt']),
-              help="Output format (json, csv, txt, yaml, tsv). Default is json.")
-@click.option('--wait-time', default=180, help="Time in seconds to wait for query completion. Default is 180 seconds.")
-def run_query(uuid: str, file_path: str, output_format: str, wait_time: int):
+@click.option('--wait-time', 'wait_time', default=180, help="Time to wait for query completion.")
+def run_query(uuid: str, file_path: str, wait_time: int):
     """Run a hunting query by UUID or file path. Only ES|QL queries are supported."""
-    if not any([uuid, file_path]):
-        raise click.UsageError("Please provide either a UUID or a file path to run a query.")
 
-    if uuid:
-        hunt_path = None
-        index_data = load_index_file()
-        for data_source, hunts in index_data.items():
-            if uuid in hunts:
-                hunt_data = hunts[uuid]
-                hunt_path = Path(HUNTING_DIR) / hunt_data['path']
-                break
+    # Get the hunt path or error message
+    hunt_path, error_message = get_hunt_path(uuid, file_path)
 
-        if not hunt_path:
-            click.echo(f"No hunt found for UUID: {uuid}")
-            return
-    elif file_path:
-        hunt_path = Path(file_path)
-        if not hunt_path.is_file():
-            click.echo(f"No file found at path: {file_path}")
-            return
+    # If an error message was returned, print it and exit
+    if error_message:
+        click.echo(error_message)
+        return
 
-    # Run the query
-    send_query(hunt_path, output_format, wait_time)
+    # If the hunt path is valid, run the async query
+    send_query(hunt_path, wait_time)
 
 
 if __name__ == "__main__":
     hunting()
-

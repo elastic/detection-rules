@@ -8,10 +8,8 @@ from pathlib import Path
 import click
 import yaml
 
-from .definitions import (ATLAS_URL, ATTACK_URL,
-                                 STATIC_INTEGRATION_LINK_MAP, Hunt)
-from .utils import (load_index_file, load_toml, save_index_file,
-                           validate_link)
+from .definitions import ATLAS_URL, ATTACK_URL, STATIC_INTEGRATION_LINK_MAP
+from .utils import load_index_file, load_toml, save_index_file, validate_link
 
 
 def generate_integration_links(integrations: list[str]) -> list[str]:

@@ -17,9 +17,6 @@ def search_index(base_path: Path, mitre_filter: tuple = (), data_source: str = N
 
     # Load index.yml
     index_file = base_path / "index.yml"
-    if not index_file.exists():
-        click.echo(f"No index.yml found at {index_file}.")
-        return []
 
     with open(index_file, 'r') as f:
         hunting_index = yaml.safe_load(f)
@@ -62,13 +59,14 @@ def search_index(base_path: Path, mitre_filter: tuple = (), data_source: str = N
         if data_source and folder != data_source:
             continue
 
-        for uuid, query in queries.items():  # Adjust to iterate over the dictionary
-            query_techniques = query.get('mitre', [])
+        for uuid, query in queries.items():
+            query_techniques = query['mitre']
             # Match queries that contain at least one technique from the filtered set
             if not mitre_technique_ids or any(tech in mitre_technique_ids for tech in query_techniques):
                 # Add the data_source (which is the folder or top-level object) to each result
                 query_with_data_source = query.copy()
-                query_with_data_source['data_source'] = folder  # Add data_source to the query result
+                query_with_data_source['data_source'] = folder
+                query_with_data_source['uuid'] = uuid
                 results.append(query_with_data_source)
 
     return results

@@ -10,8 +10,31 @@ import click
 import urllib3
 import yaml
 
-from detection_rules.attack import tactics_map, technique_lookup
 from .definitions import HUNTING_DIR, Hunt
+
+
+def get_hunt_path(uuid: str, file_path: str) -> (Path, str):
+    """Resolve the path of the hunting query using either a UUID or file path."""
+
+    if uuid:
+        # Load the index and find the hunt by UUID
+        index_data = load_index_file()
+        for data_source, hunts in index_data.items():
+            if uuid in hunts:
+                hunt_data = hunts[uuid]
+                # Combine the relative path from the index with the HUNTING_DIR
+                hunt_path = HUNTING_DIR / hunt_data['path']
+                return hunt_path.resolve(), None
+        return None, f"No hunt found for UUID: {uuid}"
+
+    elif file_path:
+        # Use the provided file path
+        hunt_path = Path(file_path)
+        if not hunt_path.is_file():
+            return None, f"No file found at path: {file_path}"
+        return hunt_path.resolve(), None
+
+    return None, "Either UUID or file path must be provided."
 
 
 def load_index_file() -> dict:
@@ -66,27 +89,27 @@ def validate_link(link: str):
 
 def update_index_yml(base_path: Path) -> None:
     """Update index.yml based on the current TOML files."""
-    directories = load_index_file()  # Load the existing index.yml data
+    directories = load_index_file()
 
     # Load all TOML files recursively
-    toml_files = base_path.rglob("queries/*.toml")  # Find all TOML files in the 'queries' directory
+    toml_files = base_path.rglob("queries/*.toml")
 
     for toml_file in toml_files:
         # Load TOML and extract hunt configuration
-        hunt_config = load_toml(toml_file)  # Parse the TOML file
+        hunt_config = load_toml(toml_file)
 
-        folder_name = toml_file.parent.parent.name  # Determine the folder (platform, integration, etc.)
-        uuid = hunt_config.uuid  # Use the UUID as the key
+        folder_name = toml_file.parent.parent.name
+        uuid = hunt_config.uuid
 
         entry = {
             'name': hunt_config.name,
-            'path': f"./{toml_file.relative_to(base_path).as_posix()}",  # Ensure the path links to TOML file
+            'path': f"./{toml_file.relative_to(base_path).as_posix()}",
             'mitre': hunt_config.mitre
         }
 
         # Check if the folder_name exists and if it's a list, convert it to a dictionary
         if folder_name not in directories:
-            directories[folder_name] = {uuid: entry}  # Initialize as a dictionary
+            directories[folder_name] = {uuid: entry}
         else:
             if isinstance(directories[folder_name], list):
                 # Convert the list to a dictionary, using UUIDs as keys

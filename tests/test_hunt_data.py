@@ -70,7 +70,7 @@ class TestHuntIndex(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Load the index once for all tests."""
-        cls.hunting_index = load_index()
+        cls.hunting_index = load_index_file()
 
     def test_mitre_techniques_present(self):
         """Ensure each query has at least one MITRE technique."""
