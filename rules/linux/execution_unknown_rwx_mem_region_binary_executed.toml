@@ -2,7 +2,7 @@
 creation_date = "2024/03/13"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/07/18"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,10 @@ index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unknown Execution of Binary with RWX Memory Region"
-references = ["https://man7.org/linux/man-pages/man2/mprotect.2.html"]
+references = [
+    "https://man7.org/linux/man-pages/man2/mprotect.2.html",
+    "https://www.elastic.co/security-labs/linux-detection-engineering-with-auditd",
+]
 risk_score = 47
 rule_id = "23bcd283-2bc0-4db2-81d4-273fc051e5c0"
 setup = """## Setup
@@ -58,18 +61,19 @@ event.category:process and host.os.type:linux and auditd.data.syscall:mprotect a
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0002"
@@ -79,7 +83,8 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+
