@@ -65,6 +65,14 @@ The `hunting` folder is a modularized library with it's own CLI via the user of 
 - **search**:
   - This command enables users to filter for queries based on MITRE ATT&CK information, more specifically, tactic, technique or sub-technique IDs. The `--tactic`, `--technique`, `--subtechnique` parameters can be used to search for hunting queries that have been tagged with these respective IDs.
   - All hunting queries are required to include MITRE mappings. Additionally, `--data-source` parameter can be used with or without MITRE filters to scope to a specific data source (i.e. `python -m hunting search --tactic TA0001 --data-source aws` would show all credential access related hunting queries for AWS)
+- **run-query**:
+  - This command enables users to load a TOML file, select a hunting query and run it against their elasticsearch instance The `--uuid` and `--file-path` parameters can be used to select which hunting query(s) to run.
+  - Users can select which query to run from the TOML file if multiple are available.
+  - This command is only meant to identify quickly if matches of the hunting query are found or not. It is recommended to pivot into the UI to either extend the range of the query or investigate matches.
+  - Only `ES|QL` queries are compatible with this command, but will be determined programmatically by this command if any are available.
+- **view-hunt**:
+  - This command outputs the contents of a hunting file in either JSON or TOML. The `--uuid` and `--file-path` parameters enable users to view by UUID or file path.
+  - The `--query-only` parameter will only output the queries within the TOML file.
 
 ## Workflow
 
@@ -101,12 +109,16 @@ By following this workflow, you can ensure that your hunt queries are properly f
 
 ```config
 .
-├── README.md
+├── __init__.py
+├── __main__.py
 ├── definitions.py
-├── markdown.py
-├── utils.py
 ├── index.md
 ├── index.yml
+├── markdown.py
+├── README.md
+├── run.py
+├── search.py
+├── utils.py
 └── categorical_folder_name
     ├── docs
     │   └── generated_markdown.md
