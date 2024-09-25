@@ -2,9 +2,40 @@
 creation_date = "2020/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/09"
+updated_date = "2024/09/23"
 
 [transform]
+[[transform.investigate]]
+label = "Alerts associated with the user in the last 48h"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host in the last 48h"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Investigate the Subject Process Network Events"
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
 query = "SELECT * FROM dns_cache"
@@ -28,38 +59,6 @@ SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, des
 services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
-
-[[transform.investigate]]
-label = "Alerts associated with the user in the last 48h"
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-providers = [
-  [
-    {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
-    {field = "user.id", excluded = false, queryType = "phrase", value = "{{user.id}}", valueType = "string"}
-  ]
-]
-
-
-[[transform.investigate]]
-label = "Alerts associated with the host in the last 48h"
-relativeFrom = "now-48h/h"
-relativeTo = "now"
-providers = [
-  [
-    {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
-    {field = "host.name", excluded = false, queryType = "phrase", value = "{{host.name}}", valueType = "string"}
-  ]
-]
-
-[[transform.investigate]]
-label = "Investigate the Subject Process Network Events"
-providers = [
-  [
-    {field = "process.entity_id", excluded = false, queryType = "phrase", value = "{{process.entity_id}}", valueType = "string"},
-    {field = "event.category", excluded = false, queryType = "phrase", value = "network", valueType = "string"}
-  ]
-]
 
 
 [rule]
@@ -128,10 +127,21 @@ This rule looks for processes outside known legitimate program locations communi
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+references = [
+"https://www.elastic.co/security-labs/operation-bleeding-bear", 
+"https://www.elastic.co/security-labs/siestagraph-new-implant-uncovered-in-asean-member-foreign-ministry"
+]
 risk_score = 21
 rule_id = "66883649-f908-4a5b-a1e0-54090a1d3a32"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -286,7 +296,7 @@ network where host.os.type == "windows" and network.protocol == "dns" and
                               "Cisco Systems, Inc.",
                               "Dropbox, Inc",
                               "Amazon.com Services LLC"))
-    ) 
+    )
 '''
 
 
@@ -301,11 +311,12 @@ reference = "https://attack.mitre.org/techniques/T1102/"
 id = "T1568"
 name = "Dynamic Resolution"
 reference = "https://attack.mitre.org/techniques/T1568/"
+[[rule.threat.technique.subtechnique]]
+id = "T1568.002"
+name = "Domain Generation Algorithms"
+reference = "https://attack.mitre.org/techniques/T1568/002/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1568.002"
-  name = "Domain Generation Algorithms"
-  reference = "https://attack.mitre.org/techniques/T1568/002/"
+
 
 [rule.threat.tactic]
 id = "TA0011"
