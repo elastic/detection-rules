@@ -66,13 +66,13 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
 
         entry = {
             'name': hunt_config.name,
-            'path': f"./{toml_path.relative_to(base_path).as_posix()}",  # Ensure path points to TOML
+            'path': f"./{toml_path.relative_to(base_path).as_posix()}",
             'mitre': hunt_config.mitre
         }
 
         # Check if the folder_name key exists, and ensure the structure is a dictionary keyed by UUID
         if folder_name not in directories:
-            directories[folder_name] = {uuid: entry}  # Use the UUID as the key for each entry
+            directories[folder_name] = {uuid: entry}
         else:
             # Add or update the entry by UUID
             directories[folder_name][uuid] = entry
@@ -85,7 +85,7 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
 
             # Save Markdown to respective docs folder
             docs_folder = file_path.parent.parent / "docs"
-            docs_folder.mkdir(parents=True, exist_ok=True)  # Ensure the folder exists
+            docs_folder.mkdir(parents=True, exist_ok=True)
             markdown_path = docs_folder / f"{file_path.stem}.md"
             markdown_path.write_text(markdown_content, encoding="utf-8")
             print(f"Markdown generated: {markdown_path}")
@@ -117,7 +117,7 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
             markdown_content = convert_toml_to_markdown(hunt_config, toml_file)
 
             docs_folder = toml_file.parent.parent / "docs"
-            docs_folder.mkdir(parents=True, exist_ok=True)  # Ensure the folder exists
+            docs_folder.mkdir(parents=True, exist_ok=True)
             markdown_path = docs_folder / f"{toml_file.stem}.md"
             markdown_path.write_text(markdown_content, encoding="utf-8")
             print(f"Markdown generated: {markdown_path}")
@@ -146,7 +146,7 @@ def update_index_md(base_path: Path) -> None:
 
     for folder, files in sorted(directories.items()):
         index_content += f"\n\n## {folder}\n"
-        for file_info in sorted(files.values(), key=lambda x: x['name']):  # Adjusted to iterate over dict values
+        for file_info in sorted(files.values(), key=lambda x: x['name']):
             # Generate path to .md file in 'docs' folder
             md_path = file_info['path'].replace('queries', 'docs').replace('.toml', '.md')
             index_content += f"- [{file_info['name']}]({md_path}) (ES|QL)"
