@@ -161,7 +161,6 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
         process_dicts(exception_dicts, 'exception list(s)', 'list_id')
         process_dicts(action_connectors_dicts, 'action connector(s)', 'id')
 
-
     return response, results
 
 
