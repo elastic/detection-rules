@@ -112,8 +112,10 @@ type = "eql"
 query = '''
 sequence by host.id with maxspan=10s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-   process.parent.name == "foomatic-rip" andprocess.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")] by process.entity_id
-  [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted"] by process.parent.entity_id
+   process.parent.name == "foomatic-rip" and
+   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")] by process.entity_id
+  [network where host.os.type == "linux" and event.type == "start" and
+   event.action == "connection_attempted"] by process.parent.entity_id
 '''
 
 [[rule.threat]]
