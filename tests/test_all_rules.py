@@ -805,17 +805,22 @@ class TestRuleMetadata(BaseRuleTest):
                 for index in indices:
                     if index in definitions.IGNORE_INDICES or \
                         any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
-                            for ri in rule_integrations):
+                            for ri in rule_integrations) or \
+                        rule.id in definitions.IGNORE_IDS or \
+                        rule.contents.data.type == 'threat_match':
                         continue
-                    elif rule.id in definitions.IGNORE_IDS:
-                        continue
-                    elif rule.contents.data.type == 'threat_match':
-                        continue
-                    index_map = [key for key, value in
-                                 definitions.INTEGRATION_TO_INDEX_MAP.items() if re.search(value, index)]
+                    # Outlier integration log pattern to identify integration
+                    if index == 'apm-*-transaction*':
+                        index_map = ['apm']
+                    else:
+                        # Split by hyphen to get the second part of index
+                        index_parts = index.split('-')
+                        #  Use regular expression to extract alphanumeric words, which is integration name
+                        parsed_integration = re.search(r'\b\w+\b', index_parts[1]
+                                                       if len(index_parts) > 1 else index_parts[0])
+                        index_map = [parsed_integration.group(0) if parsed_integration else None ]
                     if not index_map:
-                        self.fail(f'{self.rule_str(rule)} Index {index} \
-                            does not have required integrations mapping defined\n')
+                        self.fail(f'{self.rule_str(rule)} Could not determine the integration from Index {index}')
                     expected_integrations.update(index_map)
                 missing_integrations.update(expected_integrations.difference(set(rule_integrations)))
                 if missing_integrations:

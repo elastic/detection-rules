@@ -255,14 +255,3 @@ IGNORE_IDS = ["eb079c62-4481-4d6e-9643-3ca499df7aaa", "699e9fdb-b77c-4c01-995c-1
               "a61809f3-fb5b-465c-8bff-23a8a068ac60", "f3e22c8b-ea47-45d1-b502-b57b6de950b3"]
 IGNORE_INDICES = ['.alerts-security.*', 'logs-*', 'metrics-*', 'traces-*', 'endgame-*',
                   'filebeat-*', 'packetbeat-*', 'auditbeat-*', 'winlogbeat-*']
-INTEGRATION_TO_INDEX_MAP = {'endpoint': "logs-endpoint*", 'aws': "logs-aws*",
-                            'azure': "logs-azure*", 'okta': "logs-okta*",
-                            'o365': "logs-o365*", 'gcp': "logs-gcp*",
-                            'google_workspace': "logs-google_workspace*", 'cloud_defend': "logs-cloud_defend*",
-                            'kubernetes': "logs-kubernetes.*", 'apm': "apm-*",
-                            'sentinel_one_cloud_funnel': "logs-sentinel_one_cloud_funnel.*",
-                            'cyberarkpas': "logs-cyberarkpas.audit*", 'm365_defender': "logs-m365_defender.event-*",
-                            'windows': "logs-windows.*", 'fim': "logs-fim.event-*",
-                            'system': "logs-system.*", 'network_traffic': "logs-network_traffic.*",
-                            'auditd_manager': "logs-auditd_manager.auditd-*", 'github': "logs-github.audit-*",
-                            'jamf_protect': "logs-jamf_protect*", 'panw': "logs-panw.*"}
