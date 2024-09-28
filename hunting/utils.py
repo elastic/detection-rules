@@ -3,6 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+import inspect
 import tomllib
 from pathlib import Path
 from typing import Union
@@ -10,6 +11,8 @@ from typing import Union
 import click
 import urllib3
 import yaml
+
+from detection_rules.misc import get_elasticsearch_client
 
 from .definitions import HUNTING_DIR, Hunt
 
@@ -122,3 +125,10 @@ def update_index_yml(base_path: Path) -> None:
 
     # Save the updated index.yml
     save_index_file(base_path, directories)
+
+
+def filter_elasticsearch_params(config: dict) -> dict:
+    """Filter out unwanted keys from the config by inspecting the Elasticsearch client constructor."""
+    # Get the parameter names from the Elasticsearch class constructor
+    es_params = inspect.signature(get_elasticsearch_client).parameters
+    return {k: v for k, v in config.items() if k in es_params}

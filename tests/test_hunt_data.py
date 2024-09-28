@@ -74,6 +74,7 @@ class TestHunt(unittest.TestCase):
                 f"TOML file not found for {markdown_file} at expected location {expected_toml_path}",
             )
 
+
 class TestHuntIndex(unittest.TestCase):
     """Test the hunting index.yml file."""
 
@@ -102,14 +103,18 @@ class TestHuntIndex(unittest.TestCase):
         """Ensure all TOML files are included in the index."""
         missing_index_entries = []
         all_toml_data = load_all_toml(HUNTING_DIR)
-        uuids = [hunt.uuid for hunt,path in all_toml_data]
+        uuids = [hunt.uuid for hunt, path in all_toml_data]
 
         for folder, queries in self.hunting_index.items():
             for query_uuid in queries:
                 if query_uuid not in uuids:
                     missing_index_entries.append(query_uuid)
 
-        self.assertFalse(missing_index_entries, f"Missing index entries for the following queries: {missing_index_entries}")
+        self.assertFalse(
+            missing_index_entries,
+            f"Missing index entries for the following queries: {missing_index_entries}"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,11 +9,13 @@ from pathlib import Path
 import click
 from tabulate import tabulate
 
+from detection_rules.misc import parse_user_config
+
 from .definitions import HUNTING_DIR
-from .markdown import process_toml_files, update_index_md
-from .run import send_query
-from .search import search_index
-from .utils import get_hunt_path, load_index_file, load_toml, update_index_yml
+from .markdown import MarkdownGenerator
+from .run import QueryRunner
+from .search import QueryIndex
+from .utils import get_hunt_path, load_toml, update_index_yml, filter_elasticsearch_params
 
 
 @click.group()
@@ -25,30 +27,25 @@ def hunting():
 @hunting.command('generate-markdown')
 @click.argument('path', required=False)
 def generate_markdown(path):
-    """Convert TOML hunting queries to Markdown format.
+    """Convert TOML hunting queries to Markdown format."""
+    markdown_generator = MarkdownGenerator(HUNTING_DIR)
 
-    The 'path' argument can be:
-    - A specific TOML file,
-    - A folder (e.g., "aws") to process all TOML files in that subfolder,
-    - Or if no path is provided, all TOML files in the base path and subfolders will be processed.
-
-    Markdown files will be saved in the respective docs folder.
-    The hunting/index.md and index.yml file will be updated.
-    """
     if path:
         path = Path(path)
-
         if path.is_file() and path.suffix == '.toml':
             click.echo(f"Generating Markdown for single file: {path}")
-            process_toml_files(HUNTING_DIR, file_path=path)
+            markdown_generator.process_file(path)
         elif (HUNTING_DIR / path).is_dir():
             click.echo(f"Generating Markdown for folder: {path}")
-            process_toml_files(HUNTING_DIR, folder=path)
+            markdown_generator.process_folder(path)
         else:
             click.echo(f"Invalid path: {path}. It should be a valid TOML file or a folder.")
     else:
         click.echo("Generating Markdown for all files.")
-        process_toml_files(HUNTING_DIR)
+        markdown_generator.process_all_files()
+
+    # After processing, update the index
+    markdown_generator.update_index_md()
 
 
 @hunting.command('refresh-index')
@@ -56,7 +53,8 @@ def refresh_index():
     """Refresh the index.yml file from TOML files and then refresh the index.md file."""
     click.echo("Refreshing the index.yml and index.md files.")
     update_index_yml(HUNTING_DIR)
-    update_index_md(HUNTING_DIR)
+    markdown_generator = MarkdownGenerator(HUNTING_DIR)
+    markdown_generator.update_index_md()
     click.echo("Index refresh complete.")
 
 
@@ -77,8 +75,11 @@ def search_queries(tactic: str, technique: str, sub_technique: str, data_source:
     # Filter out None values from the MITRE filter tuple
     mitre_filters = tuple(filter(None, (tactic, technique, sub_technique)))
 
-    # Call search_index with the provided MITRE filters and data_source
-    results = search_index(HUNTING_DIR, mitre_filter=mitre_filters, data_source=data_source)
+    # Create an instance of the QueryIndex class
+    query_index = QueryIndex(HUNTING_DIR)
+
+    # Call the search method of QueryIndex with the provided MITRE filters and data_source
+    results = query_index.search(mitre_filter=mitre_filters, data_source=data_source)
 
     if results:
         click.secho(f"\nFound {len(results)} matching queries:\n", fg="green", bold=True)
@@ -150,13 +151,61 @@ def run_query(uuid: str, file_path: str, run_all: bool, wait_time: int):
     # Get the hunt path or error message
     hunt_path, error_message = get_hunt_path(uuid, file_path)
 
-    # If an error message was returned, print it and exit
     if error_message:
         click.echo(error_message)
         return
 
-    # If the hunt path is valid, run the async query
-    send_query(hunt_path, wait_time, run_all=run_all)
+    # Load the user configuration
+    config = parse_user_config()
+    if not config:
+        click.secho("No configuration found. Please add a `detection-rules-cfg` file.", fg="red", bold=True)
+        return
+
+    es_config = filter_elasticsearch_params(config)
+
+    # Create a QueryRunner instance
+    query_runner = QueryRunner(es_config)
+
+    # Load the hunting data
+    hunting_data = query_runner.load_hunting_file(hunt_path)
+
+    # Display description
+    wrapped_description = textwrap.fill(hunting_data.description, width=120)
+    click.secho("\nHunting Description:", fg="blue", bold=True)
+    click.secho(f"\n{wrapped_description}\n", bold=True)
+
+    # Extract eligible queries
+    eligible_queries = {i: query for i, query in enumerate(hunting_data.query) if "from" in query}
+    if not eligible_queries:
+        click.secho("No eligible queries found in the file.", fg="red", bold=True)
+        return
+
+    if run_all:
+        # Run all eligible queries if the --all flag is set
+        query_runner.run_all_queries(eligible_queries, wait_time)
+        return
+
+    # Display available queries
+    click.secho("Available queries:", fg="blue", bold=True)
+    for i, query in eligible_queries.items():
+        click.secho(f"\nQuery {i + 1}:", fg="green", bold=True)
+        click.echo(query_runner._format_query(query))
+        click.secho("\n" + "-" * 120, fg="yellow")
+
+    # Handle query selection
+    while True:
+        try:
+            query_number = click.prompt("Enter the query number", type=int)
+            if query_number - 1 in eligible_queries:
+                selected_query = eligible_queries[query_number - 1]
+                break
+            else:
+                click.secho(f"Invalid query number: {query_number}. Please try again.", fg="yellow")
+        except ValueError:
+            click.secho("Please enter a valid number.", fg="yellow")
+
+    # Run the selected query
+    query_runner.run_individual_query(selected_query, wait_time)
 
 
 if __name__ == "__main__":
