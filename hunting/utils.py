@@ -118,7 +118,6 @@ def update_index_yml(base_path: Path) -> None:
             if isinstance(directories[folder_name], list):
                 # Convert the list to a dictionary, using UUIDs as keys
                 directories[folder_name] = {item['uuid']: item for item in directories[folder_name]}
-            # Now we can safely use UUID as the key
             directories[folder_name][uuid] = entry
 
     # Save the updated index.yml

@@ -8,7 +8,7 @@ import unittest
 
 from hunting.definitions import HUNTING_DIR
 from hunting.markdown import load_toml
-from hunting.utils import load_index_file
+from hunting.utils import load_index_file, load_all_toml
 
 
 class TestHunt(unittest.TestCase):
@@ -62,6 +62,17 @@ class TestHunt(unittest.TestCase):
                 f"Markdown file not found for {toml_file} at expected location {expected_markdown_path}",
             )
 
+    def test_toml_existence(self):
+        """Ensure each Markdown file has a corresponding TOML file in the queries directory."""
+        for markdown_file in HUNTING_DIR.rglob("*/docs/*.md"):
+            expected_toml_path = (
+                markdown_file.parent.parent / "queries" / markdown_file.with_suffix(".toml").name
+            )
+
+            self.assertTrue(
+                expected_toml_path.exists(),
+                f"TOML file not found for {markdown_file} at expected location {expected_toml_path}",
+            )
 
 class TestHuntIndex(unittest.TestCase):
     """Test the hunting index.yml file."""
@@ -87,6 +98,18 @@ class TestHuntIndex(unittest.TestCase):
                 for field in required_fields:
                     self.assertIn(field, query_data, f"Missing field '{field}' in query: {query_data}")
 
+    def test_all_files_in_index(self):
+        """Ensure all TOML files are included in the index."""
+        missing_index_entries = []
+        all_toml_data = load_all_toml(HUNTING_DIR)
+        uuids = [hunt.uuid for hunt,path in all_toml_data]
+
+        for folder, queries in self.hunting_index.items():
+            for query_uuid in queries:
+                if query_uuid not in uuids:
+                    missing_index_entries.append(query_uuid)
+
+        self.assertFalse(missing_index_entries, f"Missing index entries for the following queries: {missing_index_entries}")
 
 if __name__ == "__main__":
     unittest.main()

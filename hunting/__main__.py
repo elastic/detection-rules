@@ -109,27 +109,11 @@ def search_queries(tactic: str, technique: str, sub_technique: str, data_source:
 def view_hunt(uuid: str, path: str, output_format: str, query_only: bool):
     """View a specific hunt by UUID or file path in the specified format (TOML or JSON)."""
 
-    # Load index.yml if UUID is provided
-    if uuid:
-        index_data = load_index_file()
-        hunt_data = None
-        for data_source, hunts in index_data.items():
-            if uuid in hunts:
-                hunt_data = hunts[uuid]
-                hunt_path = Path(HUNTING_DIR) / hunt_data['path']
-                break
+    # Get the hunt path or error message
+    hunt_path, error_message = get_hunt_path(uuid, path)
 
-        if not hunt_data:
-            click.secho(f"No hunt found for UUID: {uuid}", fg="red", bold=True)
-            return
-    # If path is provided
-    elif path:
-        hunt_path = Path(path)
-        if not hunt_path.is_file():
-            click.secho(f"No file found at path: {path}", fg="red", bold=True)
-            return
-    else:
-        click.secho("Please provide either a UUID or a file path.", fg="red", bold=True)
+    if error_message:
+        click.secho(f"{error_message}", fg="red", bold=True)
         return
 
     # Load the TOML data
@@ -158,8 +142,9 @@ def view_hunt(uuid: str, path: str, output_format: str, query_only: bool):
 @hunting.command('run-query')
 @click.option('--uuid', help="The UUID of the hunting query to run.")
 @click.option('--file-path', help="The file path of the hunting query to run.")
+@click.option('--all', 'run_all', is_flag=True, help="Run all eligible queries in the file.")
 @click.option('--wait-time', 'wait_time', default=180, help="Time to wait for query completion.")
-def run_query(uuid: str, file_path: str, wait_time: int):
+def run_query(uuid: str, file_path: str, run_all: bool, wait_time: int):
     """Run a hunting query by UUID or file path. Only ES|QL queries are supported."""
 
     # Get the hunt path or error message
@@ -171,7 +156,7 @@ def run_query(uuid: str, file_path: str, wait_time: int):
         return
 
     # If the hunt path is valid, run the async query
-    send_query(hunt_path, wait_time)
+    send_query(hunt_path, wait_time, run_all=run_all)
 
 
 if __name__ == "__main__":

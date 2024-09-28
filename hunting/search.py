@@ -11,15 +11,14 @@ import yaml
 
 from detection_rules.attack import tactics_map, technique_lookup
 
+from .utils import load_index_file
+
 
 def search_index(base_path: Path, mitre_filter: tuple = (), data_source: str = None) -> list:
     """Search the index for queries matching the MITRE techniques, tactic, or data_source."""
 
-    # Load index.yml
-    index_file = base_path / "index.yml"
-
-    with open(index_file, 'r') as f:
-        hunting_index = yaml.safe_load(f)
+    # Load the hunting index
+    hunting_index = load_index_file()
 
     # Initialize a set for MITRE technique IDs
     mitre_technique_ids = set()

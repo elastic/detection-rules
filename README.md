@@ -28,7 +28,7 @@ Detection Rules contains more than just static rule files. This repository also 
 |------------------------------------------------ |------------------------------------------------------------------------------------ |
 | [`detection_rules/`](detection_rules)           | Python module for rule parsing, validating and packaging                            |
 | [`etc/`](detection_rules/etc)                   | Miscellaneous files, such as ECS and Beats schemas                                  |
-| [`hunting`](./hunting/)                         | Root directory where threat hunting queries are stored                              |
+| [`hunting/`](./hunting/)                         | Root directory where threat hunting package and queries are stored                   |
 | [`kibana/`](lib/kibana)                         | Python library for handling the API calls to Kibana and the Detection Engine        |
 | [`kql/`](lib/kql)                               | Python library for parsing and validating Kibana Query Language                     |
 | [`rta/`](rta)                                   | Red Team Automation code used to emulate attacker techniques, used for rule testing |
@@ -78,7 +78,7 @@ Collecting Click==7.0
 ...
 ```
 
-Note: The `kibana` and `kql` packages are not available on PyPI and must be installed from the `lib` directory.
+Note: The `kibana` and `kql` packages are not available on PyPI and must be installed from the `lib` directory. The `hunting` package has optional dependencies to be installed with `pip3 install ".[hunting]`.
 
 ```console
 

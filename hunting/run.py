@@ -56,9 +56,15 @@ def filter_elasticsearch_params(config: dict) -> dict:
     return {k: v for k, v in config.items() if k in es_params}
 
 
-def send_query(file_path: Path, wait_timeout: int = 180) -> None:
-    """Run a query synchronously and check for hits."""
+def send_query(file_path: Path, wait_timeout: int = 180, run_all: bool = False) -> None:
+    """Run a query synchronously and check for hits, optionally running all queries."""
     global is_running
+
+    def _format_query(query: str) -> str:
+        """Format the query with word wrapping."""
+        lines = query.split('\n')
+        wrapped_lines = [textwrap.fill(line, width=120, subsequent_indent='    ') for line in lines]
+        return '\n'.join(wrapped_lines)
 
     # Load the configuration
     config = parse_user_config()
@@ -83,23 +89,39 @@ def send_query(file_path: Path, wait_timeout: int = 180) -> None:
         click.secho("No eligible queries found in the file.", fg="red", bold=True)
         return
 
-    # Output the eligible queries using tabulate
+    # If `run_all` is True, run all queries
+    if run_all:
+        click.secho("Running all eligible queries...", fg="green", bold=True)
+        for i, query in eligible_queries.items():
+            click.secho(f"\nRunning Query {i + 1}:", fg="green", bold=True)
+            click.echo(_format_query(query))
+            run_individual_query(query, es_config, wait_timeout)
+            click.secho("\n" + "-" * 120, fg="yellow")
+        return
+
+    # Output the eligible queries with separator lines
     click.secho("Available queries:", fg="blue", bold=True)
-    table_data = [(i, textwrap.fill(query, width=120)) for i, query in eligible_queries.items()]
-    table_headers = ["Number", "Query"]
-    click.echo(tabulate(table_data, headers=table_headers, tablefmt="fancy_grid"))
+    for i, query in eligible_queries.items():
+        click.secho(f"\nQuery {i + 1}:", fg="green", bold=True)
+        click.echo(_format_query(query))
+        click.secho("\n" + "-" * 120, fg="yellow")
 
     # Handle query selection
     while True:
         try:
             query_number = click.prompt("Enter the query number", type=int)
-            if query_number in eligible_queries:
-                selected_query = eligible_queries[query_number]
+            # Adjust the query_number by subtracting 1 (because we display starting from 1)
+            if query_number - 1 in eligible_queries:
+                selected_query = eligible_queries[query_number - 1]
                 break
             else:
                 click.secho(f"Invalid query number: {query_number}. Please try again.", fg="yellow")
         except ValueError:
             click.secho("Please enter a valid number.", fg="yellow")
+
+    # Print the selected query, preserving the format
+    click.secho(f"\nSelected Query:\n", fg="blue", bold=True)
+    click.echo(_format_query(selected_query))
 
     # Pre-process the query (e.g., remove comments, add LIMIT if necessary)
     selected_query = preprocess_query(selected_query)
@@ -107,13 +129,34 @@ def send_query(file_path: Path, wait_timeout: int = 180) -> None:
     # Authenticate to the Elastic instance
     es = get_elasticsearch_client(**es_config)
 
-    # Start the query
+    # Send query to Elasticsearch
     try:
         click.secho("Running query. Press Ctrl+C to cancel.", fg="blue")
         selected_query = selected_query.replace("\n", " ")
 
         # Start the query synchronously
         response = es.esql.query(query=selected_query)
+
+        # Process results
+        process_results(response)
+
+    except Exception as e:
+        click.secho(f"Error running query: {str(e)}", fg="red")
+
+
+def run_individual_query(query: str, es_config: dict, wait_timeout: int):
+    """Run an individual query."""
+    es = get_elasticsearch_client(**es_config)
+
+    try:
+        # Pre-process the query (e.g., remove comments, add LIMIT if necessary)
+        query = preprocess_query(query)
+
+        # Removed extra log here
+        query = query.replace("\n", " ")
+
+        # Start the query synchronously
+        response = es.esql.query(query=query)
 
         # Process results
         process_results(response)

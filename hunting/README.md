@@ -65,7 +65,7 @@ The `hunting` folder is a modularized library with it's own CLI via the user of 
 - **search**:
   - This command enables users to filter for queries based on MITRE ATT&CK information, more specifically, tactic, technique or sub-technique IDs. The `--tactic`, `--technique`, `--subtechnique` parameters can be used to search for hunting queries that have been tagged with these respective IDs.
   - All hunting queries are required to include MITRE mappings. Additionally, `--data-source` parameter can be used with or without MITRE filters to scope to a specific data source (i.e. `python -m hunting search --tactic TA0001 --data-source aws` would show all credential access related hunting queries for AWS)
-- **run-query**:
+- **run-query**: **NOTE** - This command requires the `.detection-rules-cfg.yaml` to be populated. Please refer to the [CLI docs](../CLI.md) for optional parameters.
   - This command enables users to load a TOML file, select a hunting query and run it against their elasticsearch instance The `--uuid` and `--file-path` parameters can be used to select which hunting query(s) to run.
   - Users can select which query to run from the TOML file if multiple are available.
   - This command is only meant to identify quickly if matches of the hunting query are found or not. It is recommended to pivot into the UI to either extend the range of the query or investigate matches.

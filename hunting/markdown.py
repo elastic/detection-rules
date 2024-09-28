@@ -8,7 +8,7 @@ from pathlib import Path
 import click
 import yaml
 
-from .definitions import ATLAS_URL, ATTACK_URL, STATIC_INTEGRATION_LINK_MAP
+from .definitions import ATLAS_URL, ATTACK_URL, STATIC_INTEGRATION_LINK_MAP, Hunt
 from .utils import load_index_file, load_toml, save_index_file, validate_link
 
 
@@ -58,11 +58,11 @@ def convert_toml_to_markdown(hunt_config, file_path: Path):
 
 def process_toml_files(base_path: Path, file_path: Path = None, folder: str = None) -> None:
     """Process TOML files based on the input: a specific file, a folder, or all files."""
-    directories = load_index_file()
+    hunting_index = load_index_file()
 
-    def update_or_add_entry(hunt_config, toml_path):
+    def _update_or_add_entry(hunt_config: Hunt, toml_path: Path) -> None:
         folder_name = toml_path.parent.parent.name
-        uuid = hunt_config.uuid  # Use the UUID as the key
+        uuid = hunt_config.uuid
 
         entry = {
             'name': hunt_config.name,
@@ -71,11 +71,11 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
         }
 
         # Check if the folder_name key exists, and ensure the structure is a dictionary keyed by UUID
-        if folder_name not in directories:
-            directories[folder_name] = {uuid: entry}
+        if folder_name not in hunting_index:
+            hunting_index[folder_name] = {uuid: entry}
         else:
             # Add or update the entry by UUID
-            directories[folder_name][uuid] = entry
+            hunting_index[folder_name][uuid] = entry
 
     if file_path:
         if file_path.is_file() and file_path.suffix == '.toml':
@@ -88,10 +88,10 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
             docs_folder.mkdir(parents=True, exist_ok=True)
             markdown_path = docs_folder / f"{file_path.stem}.md"
             markdown_path.write_text(markdown_content, encoding="utf-8")
-            print(f"Markdown generated: {markdown_path}")
+            click.echo(f"Markdown generated: {markdown_path}")
 
             # Update or add entry to the directory map (preserving TOML path)
-            update_or_add_entry(hunt_config, file_path)
+            _update_or_add_entry(hunt_config, file_path)
 
         else:
             raise ValueError(f"The provided path is not a valid TOML file: {file_path}")
@@ -120,13 +120,13 @@ def process_toml_files(base_path: Path, file_path: Path = None, folder: str = No
             docs_folder.mkdir(parents=True, exist_ok=True)
             markdown_path = docs_folder / f"{toml_file.stem}.md"
             markdown_path.write_text(markdown_content, encoding="utf-8")
-            print(f"Markdown generated: {markdown_path}")
+            click.echo(f"Markdown generated: {markdown_path}")
 
             # Update or add entry to the directory map (preserving TOML path)
-            update_or_add_entry(hunt_config, toml_file)
+            _update_or_add_entry(hunt_config, toml_file)
 
     # Save the updated index.yml
-    save_index_file(base_path, directories)
+    save_index_file(base_path, hunting_index)
 
     # Update the index.md file with all the new entries
     update_index_md(base_path)
@@ -138,13 +138,12 @@ def update_index_md(base_path: Path) -> None:
     index_content = "# List of Available Queries\n\nHere are the queries currently available:\n"
 
     if not index_file.exists():
-        print(f"No index.yml found at {index_file}. Skipping index.md update.")
+        click.echo(f"No index.yml found at {index_file}. Skipping index.md update.")
         return
 
-    with open(index_file, 'r') as f:
-        directories = yaml.safe_load(f)
+    hunting_index = load_index_file()
 
-    for folder, files in sorted(directories.items()):
+    for folder, files in sorted(hunting_index.items()):
         index_content += f"\n\n## {folder}\n"
         for file_info in sorted(files.values(), key=lambda x: x['name']):
             # Generate path to .md file in 'docs' folder
@@ -155,4 +154,4 @@ def update_index_md(base_path: Path) -> None:
     # Write the updated index to index.md
     index_md_path = base_path / "index.md"
     index_md_path.write_text(index_content, encoding="utf-8")
-    print(f"Index Markdown updated at: {index_md_path}")
+    click.echo(f"Index Markdown updated at: {index_md_path}")
