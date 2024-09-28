@@ -13,15 +13,11 @@ from detection_rules.misc import get_elasticsearch_client
 
 from .utils import load_toml
 
-# Variable to track query status for cancellation
-is_running = True
-
 
 class QueryRunner:
     def __init__(self, es_config: dict):
         """Initialize the QueryRunner with Elasticsearch config."""
         self.es_config = es_config
-        self.is_running = True
 
     def load_hunting_file(self, file_path: Path):
         """Load the hunting file and return the data."""
