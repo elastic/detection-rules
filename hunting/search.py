@@ -5,11 +5,9 @@
 
 
 from pathlib import Path
-
 import click
 from detection_rules.attack import tactics_map, technique_lookup
-
-from .utils import load_index_file
+from .utils import load_index_file, load_all_toml
 
 
 class QueryIndex:
@@ -48,40 +46,118 @@ class QueryIndex:
             }
             self.mitre_technique_ids.update(sub_techniques)
 
-    def search(self, mitre_filter: tuple = (), data_source: str = None) -> list:
-        """Search the index based on MITRE techniques or data source."""
-        # Process the MITRE filter
-        if mitre_filter:
-            self.process_mitre_filter(mitre_filter)
-
-        # Perform search and return results
-        return self._search_index(mitre_filter, data_source)
-
-    def _search_index(self, mitre_filter: tuple, data_source: str) -> list:
-        """Private method to search the index based on filters."""
+    def search(self, mitre_filter: tuple = (), data_source: str = None, keyword: str = None) -> list:
+        """Search the index based on MITRE techniques, data source, or keyword."""
         results = []
 
-        for folder, queries in self.hunting_index.items():
-            if data_source and folder != data_source:
+        # Step 1: If data source is provided, filter by data source first
+        if data_source:
+            click.echo(f"Filtering by data source: {data_source}")
+            results = self._filter_by_data_source(data_source)
+
+        # Step 2: If MITRE filter is provided, process the filter
+        if mitre_filter:
+            click.echo(f"Searching for MITRE techniques: {mitre_filter}")
+            self.process_mitre_filter(mitre_filter)
+            if results:
+                # Filter existing results further by MITRE if data source results already exist
+                results = [result for result in results if
+                           any(tech in self.mitre_technique_ids for tech in result['mitre'])]
+            else:
+                # Otherwise, perform a fresh search based on MITRE filter
+                results = self._search_index(mitre_filter)
+
+        # Step 3: If keyword is provided, search for it in name, description, and notes
+        if keyword:
+            click.echo(f"Searching for keyword: {keyword}")
+            if results:
+                # Filter existing results further by keyword
+                results = [result for result in results if self._matches_keyword(result, keyword)]
+            else:
+                # Perform a fresh search by keyword
+                results = self._search_keyword(keyword)
+
+        return self._handle_no_results(results, mitre_filter, data_source, keyword)
+
+    def _search_index(self, mitre_filter: tuple = ()) -> list:
+        """Private method to search the index based on MITRE filter."""
+        results = []
+        # Load all TOML data for detailed fields
+        hunting_content = load_all_toml(self.base_path)
+
+        for hunt_content, file_path in hunting_content:
+            query_techniques = hunt_content.mitre
+            if mitre_filter and not any(tech in self.mitre_technique_ids for tech in query_techniques):
                 continue
 
-            for uuid, query in queries.items():
-                query_techniques = query.get('mitre', [])
-                if mitre_filter and not any(tech in self.mitre_technique_ids for tech in query_techniques):
-                    continue
+            # Prepare the result with full hunt content fields
+            matches = hunt_content.__dict__.copy()
+            matches['mitre'] = hunt_content.mitre
+            matches['data_source'] = hunt_content.integration
+            matches['uuid'] = hunt_content.uuid
+            matches['path'] = file_path
+            results.append(matches)
 
-                query_with_data_source = query.copy()
-                query_with_data_source['data_source'] = folder
-                query_with_data_source['uuid'] = uuid
-                results.append(query_with_data_source)
+        return results
 
-        return self._handle_no_results(results, mitre_filter, data_source)
+    def _search_keyword(self, keyword: str) -> list:
+        """Private method to search description, name, notes, and references fields for a keyword."""
+        results = []
+        hunting_content = load_all_toml(self.base_path)
 
-    def _handle_no_results(self, results, mitre_filter, data_source):
+        for hunt_content, file_path in hunting_content:
+            # Assign blank if notes or references are missing
+            notes = '::'.join(hunt_content.notes) if hunt_content.notes else ''
+            references = '::'.join(hunt_content.references) if hunt_content.references else ''
+
+            # Combine name, description, notes, and references for the search
+            combined_content = f"{hunt_content.name}::{hunt_content.description}::{notes}::{references}"
+
+            if keyword.lower() in combined_content.lower():
+                # Copy hunt_content data and prepare the result
+                matches = hunt_content.__dict__.copy()
+                matches['mitre'] = hunt_content.mitre
+                matches['data_source'] = hunt_content.integration
+                matches['uuid'] = hunt_content.uuid
+                matches['path'] = file_path
+                results.append(matches)
+
+        return results
+
+    def _filter_by_data_source(self, data_source: str) -> list:
+        """Filter the index by data source."""
+        results = []
+        # Load all TOML data for detailed fields
+        hunting_content = load_all_toml(self.base_path)
+
+        for hunt_content, file_path in hunting_content:
+            if data_source in hunt_content.integration:
+                # Prepare the result with full hunt content fields
+                matches = hunt_content.__dict__.copy()
+                matches['mitre'] = hunt_content.mitre
+                matches['data_source'] = hunt_content.integration
+                matches['uuid'] = hunt_content.uuid
+                matches['path'] = file_path
+                results.append(matches)
+
+        return results
+
+    def _matches_keyword(self, result: dict, keyword: str) -> bool:
+        """Check if the result matches the keyword in name, description, or notes."""
+        # Combine relevant fields for keyword search
+        notes = '::'.join(result.get('notes', [])) if 'notes' in result else ''
+        references = '::'.join(result.get('references', [])) if 'references' in result else ''
+        combined_content = f"{result['name']}::{result['description']}::{notes}::{references}"
+
+        return keyword.lower() in combined_content.lower()
+
+    def _handle_no_results(self, results: list, mitre_filter=None, data_source=None, keyword=None) -> list:
         """Handle cases where no results are found."""
         if not results:
             if mitre_filter and not self.mitre_technique_ids:
                 click.echo(f"No MITRE techniques found for the provided filter: {mitre_filter}.")
             if data_source:
                 click.echo(f"No matching queries found for data source: {data_source}")
+            if keyword:
+                click.echo(f"No matches found for keyword: {keyword}")
         return results

@@ -3,7 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+import json
 import textwrap
+from dataclasses import asdict
 from pathlib import Path
 
 import click
@@ -15,7 +17,8 @@ from .definitions import HUNTING_DIR
 from .markdown import MarkdownGenerator
 from .run import QueryRunner
 from .search import QueryIndex
-from .utils import filter_elasticsearch_params, get_hunt_path, load_toml, load_all_toml, update_index_yml
+from .utils import (filter_elasticsearch_params, get_hunt_path, load_all_toml,
+                    load_toml, update_index_yml)
 
 
 @click.group()
@@ -26,7 +29,7 @@ def hunting():
 
 @hunting.command('generate-markdown')
 @click.argument('path', required=False)
-def generate_markdown(path):
+def generate_markdown(path: click.Path):
     """Convert TOML hunting queries to Markdown format."""
     markdown_generator = MarkdownGenerator(HUNTING_DIR)
 
@@ -63,23 +66,24 @@ def refresh_index():
 @click.option('--technique', type=str, default=None, help="Search by MITRE technique ID (e.g., T1078)")
 @click.option('--sub-technique', type=str, default=None, help="Search by MITRE sub-technique ID (e.g., T1078.001)")
 @click.option('--data-source', type=str, default=None, help="Filter by data_source like 'aws', 'macos', or 'linux'")
-def search_queries(tactic: str, technique: str, sub_technique: str, data_source: str):
+@click.option('--keyword', type=str, default=None, help="Search by keyword in name, description, and notes")
+def search_queries(tactic: str, technique: str, sub_technique: str, data_source: str, keyword: str):
     """Search for queries based on MITRE tactic, technique, sub-technique, or data_source."""
 
-    if not any([tactic, technique, sub_technique, data_source]):
+    if not any([tactic, technique, sub_technique, data_source, keyword]):
         raise click.UsageError("""Please provide at least one filter (tactic, technique, sub-technique,
-                               or data_source) to search queries.""")
+                               data_source or keyword) to search queries.""")
 
     click.echo("Searching for queries based on provided filters...")
-
-    # Filter out None values from the MITRE filter tuple
-    mitre_filters = tuple(filter(None, (tactic, technique, sub_technique)))
 
     # Create an instance of the QueryIndex class
     query_index = QueryIndex(HUNTING_DIR)
 
-    # Call the search method of QueryIndex with the provided MITRE filters and data_source
-    results = query_index.search(mitre_filter=mitre_filters, data_source=data_source)
+    # Filter out None values from the MITRE filter tuple
+    mitre_filters = tuple(filter(None, (tactic, technique, sub_technique)))
+
+    # Call the search method of QueryIndex with the provided MITRE filters, data_source, and keyword
+    results = query_index.search(mitre_filter=mitre_filters, data_source=data_source, keyword=keyword)
 
     if results:
         click.secho(f"\nFound {len(results)} matching queries:\n", fg="green", bold=True)
@@ -133,15 +137,13 @@ def view_hunt(uuid: str, path: str, output_format: str, query_only: bool):
     if output_format == 'toml':
         click.echo(hunt_path.read_text())
     elif output_format == 'json':
-        import json
-
-        # Convert the hunt object to a dictionary, assuming it's a dataclass
-        hunt_dict = hunt.__dict__
+        hunt_dict = asdict(hunt)
         click.echo(json.dumps(hunt_dict, indent=4))
 
 
 @hunting.command('hunt-summary')
-@click.option('--breakdown', type=click.Choice(['platform', 'integration', 'language'], case_sensitive=False), default='platform',
+@click.option('--breakdown', type=click.Choice(['platform', 'integration', 'language'],
+                                               case_sensitive=False), default='platform',
               help="Specify how to break down the summary: 'platform', 'integration', or 'language'.")
 def hunt_summary(breakdown: str):
     """

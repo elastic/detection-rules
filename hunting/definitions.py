@@ -32,5 +32,5 @@ class Hunt:
     license: str
     query: list[str]
     notes: Optional[list[str]] = field(default_factory=list)
-    mitre: Optional[list[str]] = field(default_factory=list)
+    mitre: list[str] = field(default_factory=list)
     references: Optional[list[str]] = field(default_factory=list)

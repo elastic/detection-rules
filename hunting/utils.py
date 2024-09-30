@@ -61,7 +61,7 @@ def load_toml(source: Union[Path, str]) -> Hunt:
             raise FileNotFoundError(f"TOML file not found: {source}")
         contents = source.read_text(encoding="utf-8")
     else:
-        contents = source  # Assuming it's a TOML string
+        contents = source
 
     toml_dict = tomllib.loads(contents)
 

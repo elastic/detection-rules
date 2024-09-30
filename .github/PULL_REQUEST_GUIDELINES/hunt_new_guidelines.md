@@ -20,6 +20,7 @@ Welcome to the `hunting` folder within the `detection-rules` repository! This di
 - [ ] `notes` includes additional information regarding data collected from the hunting query.
 - [ ] `mitre` matches appropriate technique and sub-technique IDs that hunting query collect's data for.
 - [ ] `references` are valid URL links that include information relevenat to the hunt or threat.
+- [ ] `license`
 
 ### Testing and Validation
 
