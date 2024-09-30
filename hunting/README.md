@@ -73,6 +73,8 @@ The `hunting` folder is a modularized library with it's own CLI via the user of 
 - **view-hunt**:
   - This command outputs the contents of a hunting file in either JSON or TOML. The `--uuid` and `--file-path` parameters enable users to view by UUID or file path.
   - The `--query-only` parameter will only output the queries within the TOML file.
+- **hunt-summary**:
+  - This command outputs a summary of all hunting queries in the repository. The `--breakdown` parameter enables users to see the summary based on integration, language, or platform.
 
 ## Add a Hunt Workflow
 

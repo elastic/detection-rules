@@ -15,7 +15,7 @@ from .definitions import HUNTING_DIR
 from .markdown import MarkdownGenerator
 from .run import QueryRunner
 from .search import QueryIndex
-from .utils import get_hunt_path, load_toml, update_index_yml, filter_elasticsearch_params
+from .utils import filter_elasticsearch_params, get_hunt_path, load_toml, load_all_toml, update_index_yml
 
 
 @click.group()
@@ -138,6 +138,70 @@ def view_hunt(uuid: str, path: str, output_format: str, query_only: bool):
         # Convert the hunt object to a dictionary, assuming it's a dataclass
         hunt_dict = hunt.__dict__
         click.echo(json.dumps(hunt_dict, indent=4))
+
+
+@hunting.command('hunt-summary')
+@click.option('--breakdown', type=click.Choice(['platform', 'integration', 'language'], case_sensitive=False), default='platform',
+              help="Specify how to break down the summary: 'platform', 'integration', or 'language'.")
+def hunt_summary(breakdown: str):
+    """
+    Generate a summary of hunt queries, broken down by platform, integration, or language.
+    """
+    click.echo(f"Generating hunt summary broken down by {breakdown}...")
+
+    # Load all hunt queries
+    all_hunts = load_all_toml(HUNTING_DIR)
+
+    # Prepare data structures for summary
+    platform_summary = {}
+    integration_summary = {}
+    language_summary = {}
+
+    for hunt, path in all_hunts:
+        # Get the platform based on the folder name
+        platform = path.parent.parent.stem
+
+        # Extract integrations and languages used in the query
+        integrations = hunt.integration
+        languages = hunt.language
+
+        # Update platform-based summary
+        if platform not in platform_summary:
+            platform_summary[platform] = 0
+        platform_summary[platform] += 1
+
+        # Update integration-based summary
+        for integration in integrations:
+            if integration not in integration_summary:
+                integration_summary[integration] = 0
+            integration_summary[integration] += 1
+
+        # Update language-based summary
+        for language in languages:
+            if language == 'SQL':
+                language = 'OSQuery'
+            if language not in language_summary:
+                language_summary[language] = 0
+            language_summary[language] += 1
+
+    # Prepare and display the table based on the selected breakdown
+    if breakdown == 'platform':
+        # Create a table for the platform breakdown
+        table_data = [[platform, count] for platform, count in platform_summary.items()]
+        table_headers = ["Platform (Folder)", "Hunt Count"]
+        click.echo(tabulate(table_data, headers=table_headers, tablefmt="fancy_grid"))
+
+    elif breakdown == 'integration':
+        # Create a table for the integration breakdown
+        table_data = [[integration, count] for integration, count in integration_summary.items()]
+        table_headers = ["Integration", "Hunt Count"]
+        click.echo(tabulate(table_data, headers=table_headers, tablefmt="fancy_grid"))
+
+    elif breakdown == 'language':
+        # Create a table for the language breakdown
+        table_data = [[language, count] for language, count in language_summary.items()]
+        table_headers = ["Language", "Hunt Count"]
+        click.echo(tabulate(table_data, headers=table_headers, tablefmt="fancy_grid"))
 
 
 @hunting.command('run-query')

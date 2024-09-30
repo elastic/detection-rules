@@ -23,3 +23,12 @@ python -m hunting run-query --file-path /Users/tdejesus/code/src/detection-rules
 
 echo "Viewing Hunt: 12526f14-5e35-4f5f-884c-96c6a353a544"
 python -m hunting view-hunt --uuid 12526f14-5e35-4f5f-884c-96c6a353a544 --format json
+
+echo "Generating summary of hunts by integration"
+python -m hunting hunt-summary --breakdown integration
+
+echo "Generating summary of hunts by platform"
+python -m hunting hunt-summary --breakdown platform
+
+echo "Generating summary of hunts by language"
+python -m hunting hunt-summary --breakdown language
