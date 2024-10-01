@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
 min_stack_version = "8.12.0"
-updated_date = "2024/07/17"
+updated_date = "2024/09/30"
 
 [transform]
 [[transform.osquery]]
@@ -144,7 +144,10 @@ event.category:process and host.os.type:windows and
   ) and
   not powershell.file.script_block_text : (
         "Microsoft.PowerShell.Workflow.ServiceCore" and "ExtractPluginProperties([string]$pluginDir"
-  ) and
+  ) and 
+  
+  not powershell.file.script_block_text : ("reflection.assembly]::Load('System." or "LoadWithPartialName('Microsoft." or "::Load(\"Microsoft." or "Microsoft.Build.Utilities.Core.dll") and 
+  
   not user.id : "S-1-5-18"
 '''
 
