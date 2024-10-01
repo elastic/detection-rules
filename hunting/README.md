@@ -52,7 +52,7 @@ Follow the standard [contributing guide](../CONTRIBUTING.md). Please remember to
 
 ## Commands
 
-The `hunting` folder is an executable package with it's own CLI using [click](https://pypi.org/project/click/). All commands can be ran from the root of `detection-rules` repository as such: `python -m hunting COMMAND`.
+The `hunting` folder is an executable package with its own CLI using [click](https://pypi.org/project/click/). All commands can be ran from the root of `detection-rules` repository as such: `python -m hunting COMMAND`.
 
 - **generate-markdown**:
   - This will generate Markdown files for each TOML file specified and update the `index.yml` and `index.md`.
