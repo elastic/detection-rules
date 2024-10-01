@@ -18,7 +18,7 @@ class QueryIndex:
         self.mitre_technique_ids = set()
         self.reverse_tactics_map = {v: k for k, v in tactics_map.items()}
 
-    def process_mitre_filter(self, mitre_filter: tuple):
+    def _process_mitre_filter(self, mitre_filter: tuple):
         """Process the MITRE filter to gather all matching techniques."""
         for filter_item in mitre_filter:
             if filter_item in self.reverse_tactics_map:

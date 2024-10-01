@@ -38,7 +38,7 @@ Otherwise, the names do not require the integration, since it is already annotat
   - **integration**: The specific integration or data source the rule applies to, such as `aws_bedrock.invocation`.
   - **uuid**: A unique identifier for the rule to maintain version control and tracking.
   - **name**: A descriptive name for the rule that clearly indicates its purpose.
-  - **language**: The query language(s) used in the rule, such as `KQL`, `EQL`, `ES|QL`, `OsQuery`, or `YARA`.
+  - **language**: The query language(s) used in the rule, such as `KQL`, `EQL`, `ES|QL`, `SQL`, or `YARA`. Please note, `SQL` may be used in TOML hunting files, but refers to OSQuery.
   - **query**: An array of actual queries or analytic expressions written in the appropriate query language that executes the detection logic.
   - **notes**: An array of strings providing detailed insights into the rationale behind the rule, suggestions for further investigation, and tips on distinguishing false positives from true activity.
   - **mitre**: Reference to applicable MITRE ATT&CK tactics or techniques that the rule addresses, enhancing the contextual understanding of its security implications.
