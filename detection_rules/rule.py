@@ -916,7 +916,9 @@ class ESQLRuleData(QueryRuleData):
         query = data['query'].lower()
         if not re.search(stats_pattern, query) and not re.search(metadata_pattern, query):
             raise ValidationError(
-                f"Rule: {data['name']} contains a non-aggregate query without metadata fields '_id', '_version', and '_index'")
+                f"Rule: {data['name']} contains a non-aggregate query without"
+                f"metadata fields '_id', '_version', and '_index'")
+
 
 @dataclass(frozen=True)
 class ThreatMatchRuleData(QueryRuleData):
