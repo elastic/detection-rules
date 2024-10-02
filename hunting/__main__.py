@@ -5,6 +5,7 @@
 
 import json
 import textwrap
+from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
 
@@ -29,7 +30,7 @@ def hunting():
 
 @hunting.command('generate-markdown')
 @click.argument('path', required=False)
-def generate_markdown(path: click.Path):
+def generate_markdown(path: Path = None):
     """Convert TOML hunting queries to Markdown format."""
     markdown_generator = MarkdownGenerator(HUNTING_DIR)
 
@@ -42,7 +43,7 @@ def generate_markdown(path: click.Path):
             click.echo(f"Generating Markdown for folder: {path}")
             markdown_generator.process_folder(path)
         else:
-            click.echo(f"Invalid path: {path}. It should be a valid TOML file or a folder.")
+            raise ValueError(f"Invalid path provided: {path}")
     else:
         click.echo("Generating Markdown for all files.")
         markdown_generator.process_all_files()
@@ -118,8 +119,7 @@ def view_hunt(uuid: str, path: str, output_format: str, query_only: bool):
     hunt_path, error_message = get_hunt_path(uuid, path)
 
     if error_message:
-        click.secho(f"{error_message}", fg="red", bold=True)
-        return
+        raise click.ClickException(error_message)
 
     # Load the TOML data
     hunt = load_toml(hunt_path)
@@ -154,56 +154,35 @@ def hunt_summary(breakdown: str):
     # Load all hunt queries
     all_hunts = load_all_toml(HUNTING_DIR)
 
-    # Prepare data structures for summary
-    platform_summary = {}
-    integration_summary = {}
-    language_summary = {}
+    # Use Counter for more concise counting
+    platform_counter = Counter()
+    integration_counter = Counter()
+    language_counter = Counter()
 
     for hunt, path in all_hunts:
         # Get the platform based on the folder name
         platform = path.parent.parent.stem
+        platform_counter[platform] += 1
 
-        # Extract integrations and languages used in the query
-        integrations = hunt.integration
-        languages = hunt.language
+        # Count integrations
+        integration_counter.update(hunt.integration)
 
-        # Update platform-based summary
-        if platform not in platform_summary:
-            platform_summary[platform] = 0
-        platform_summary[platform] += 1
-
-        # Update integration-based summary
-        for integration in integrations:
-            if integration not in integration_summary:
-                integration_summary[integration] = 0
-            integration_summary[integration] += 1
-
-        # Update language-based summary
-        for language in languages:
-            if language == 'SQL':
-                language = 'OSQuery'
-            if language not in language_summary:
-                language_summary[language] = 0
-            language_summary[language] += 1
+        # Count languages, renaming 'SQL' to 'OSQuery'
+        languages = ['OSQuery' if lang == 'SQL' else lang for lang in hunt.language]
+        language_counter.update(languages)
 
     # Prepare and display the table based on the selected breakdown
     if breakdown == 'platform':
-        # Create a table for the platform breakdown
-        table_data = [[platform, count] for platform, count in platform_summary.items()]
+        table_data = [[platform, count] for platform, count in platform_counter.items()]
         table_headers = ["Platform (Folder)", "Hunt Count"]
-        click.echo(tabulate(table_data, headers=table_headers, tablefmt="fancy_grid"))
-
     elif breakdown == 'integration':
-        # Create a table for the integration breakdown
-        table_data = [[integration, count] for integration, count in integration_summary.items()]
+        table_data = [[integration, count] for integration, count in integration_counter.items()]
         table_headers = ["Integration", "Hunt Count"]
-        click.echo(tabulate(table_data, headers=table_headers, tablefmt="fancy_grid"))
-
     elif breakdown == 'language':
-        # Create a table for the language breakdown
-        table_data = [[language, count] for language, count in language_summary.items()]
+        table_data = [[language, count] for language, count in language_counter.items()]
         table_headers = ["Language", "Hunt Count"]
-        click.echo(tabulate(table_data, headers=table_headers, tablefmt="fancy_grid"))
+
+    click.echo(tabulate(table_data, headers=table_headers, tablefmt="fancy_grid"))
 
 
 @hunting.command('run-query')
