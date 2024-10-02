@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2024/08/26"
 maturity = "production"
-updated_date = "2024/08/26"
+updated_date = "2024/10/02"
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +25,7 @@ severity = "low"
 tags = [
     "Domain: Cloud",
     "Data Source: AWS",
+    "Data Source: Amazon Web Services",
     "Data Source: AWS Service Quotas",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
@@ -36,7 +37,7 @@ query = '''
 from logs-aws.cloudtrail-*
 
 // filter for GetServiceQuota API calls
-| where event.dataset == "aws.cloudtrail" and event.provider = "servicequotas.amazonaws.com" and event.action == "GetServiceQuota"
+| where event.dataset == "aws.cloudtrail" and event.provider == "servicequotas.amazonaws.com" and event.action == "GetServiceQuota"
 
 // truncate the timestamp to a 30-second window
 | eval target_time_window = DATE_TRUNC(30 seconds, @timestamp)
