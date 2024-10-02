@@ -908,16 +908,22 @@ class ESQLRuleData(QueryRuleData):
     def validates_esql_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
         if data.get('index'):
-            raise ValidationError("Index is not a valid field for ES|QL rule type.")
+            raise ValueError("Index is not a valid field for ES|QL rule type.")
 
-        # check non-aggregate queries have metadata
+        # Convert the query string to lowercase to handle case insensitivity
+        query_lower = data['query'].lower()
+
+        # Metadata fields that are required for non-aggregate queries
         metadata_pattern = r'from\s+\S+\s+metadata\s+_id,\s*_version,\s*_index'
-        stats_pattern = r'\bstats\b.*\bby\b'
-        query = data['query'].lower()
-        if not re.search(stats_pattern, query) and not re.search(metadata_pattern, query):
-            raise ValidationError(
+        # Allow any characters (including newlines and complex expressions) between stats and by
+        stats_pattern = r'\bstats\b.*?\bby\b'
+
+        # Ensure that non-aggregate queries have metadata
+        if not re.search(stats_pattern, query_lower, re.DOTALL) and not re.search(metadata_pattern, query_lower):
+            raise ValueError(
                 f"Rule: {data['name']} contains a non-aggregate query without"
-                f"metadata fields '_id', '_version', and '_index'")
+                f"metadata fields '_id', '_version', and '_index'"
+            )
 
 
 @dataclass(frozen=True)
