@@ -7,6 +7,7 @@ import copy
 import dataclasses
 import json
 import os
+import re
 import time
 import typing
 from abc import ABC, abstractmethod
@@ -909,6 +910,13 @@ class ESQLRuleData(QueryRuleData):
         if data.get('index'):
             raise ValidationError("Index is not a valid field for ES|QL rule type.")
 
+        # check non-aggregate queries have metadata
+        metadata_pattern = r'from\s+\S+\s+metadata\s+_id,\s*_version,\s*_index'
+        stats_pattern = r'\bstats\b.*\bby\b'
+        query = data['query'].lower()
+        if not re.search(stats_pattern, query) and not re.search(metadata_pattern, query):
+            raise ValidationError(
+                f"Rule: {data['name']} contains a non-aggregate query without metadata fields '_id', '_version', and '_index'")
 
 @dataclass(frozen=True)
 class ThreatMatchRuleData(QueryRuleData):
