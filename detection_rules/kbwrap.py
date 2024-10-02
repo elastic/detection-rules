@@ -115,7 +115,7 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 
     def handle_response_errors(response: dict):
         """Handle errors from the import response."""
-        def parse_list_id(s: str):
+        def _parse_list_id(s: str):
             """Parse the list ID from the error message."""
             match = re.search(r'list_id: "(.*?)"', s)
             return match.group(1) if match else None
@@ -132,7 +132,7 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
             click.echo(f' - {error["rule_id"]}: ({error["error"]["status_code"]}) {error["error"]["message"]}')
 
             if "references a non existent exception list" in error["error"]["message"]:
-                list_id = parse_list_id(error["error"]["message"])
+                list_id = _parse_list_id(error["error"]["message"])
                 if list_id in all_exception_list_ids:
                     workaround_errors.append(error["rule_id"])
 
@@ -151,15 +151,15 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
     if response['errors']:
         handle_response_errors(response)
     else:
-        def process_dicts(dicts, message, key):
-            all_ids = {item[key] for sublist in dicts for item in sublist}
+        def _process_imported_items(imported_items_list, item_type_description, item_key):
+            all_ids = {item[item_key] for sublist in imported_items_list for item in sublist}
             if all_ids:
-                click.echo(f'{len(all_ids)} {message} successfully imported')
+                click.echo(f'{len(all_ids)} {item_type_description} successfully imported')
                 ids_str = '\n - '.join(all_ids)
                 click.echo(f' - {ids_str}')
 
-        process_dicts(exception_dicts, 'exception list(s)', 'list_id')
-        process_dicts(action_connectors_dicts, 'action connector(s)', 'id')
+        _process_imported_items(exception_dicts, 'exception list(s)', 'list_id')
+        _process_imported_items(action_connectors_dicts, 'action connector(s)', 'id')
 
     return response, results
 
