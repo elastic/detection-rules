@@ -44,7 +44,13 @@ class QueryRunner:
             response = es.esql.query(query=query)
             self.process_results(response)
         except Exception as e:
-            click.secho(f"Error running query: {str(e)}", fg="red")
+            # handle missing index error
+            if "Unknown index" in str(e):
+                click.secho("This query references indexes that do not exist in the target stack.", fg="red")
+                click.secho("Please ensure the index exists (via integration installation) and is populated with data.", fg="red")
+                click.secho("Alternatively, update the query to reference an existing index.", fg="red")
+            else:
+                click.secho(f"Error running query: {str(e)}", fg="red")
 
     def run_all_queries(self, queries: dict, wait_timeout: int):
         """Run all eligible queries in the hunting file."""

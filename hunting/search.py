@@ -58,7 +58,7 @@ class QueryIndex:
         # Step 2: If MITRE filter is provided, process the filter
         if mitre_filter:
             click.echo(f"Searching for MITRE techniques: {mitre_filter}")
-            self.process_mitre_filter(mitre_filter)
+            self._process_mitre_filter(mitre_filter)
             if results:
                 # Filter existing results further by MITRE if data source results already exist
                 results = [result for result in results if
