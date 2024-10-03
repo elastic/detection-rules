@@ -47,7 +47,7 @@ class QueryRunner:
             # handle missing index error
             if "Unknown index" in str(e):
                 click.secho("This query references indexes that do not exist in the target stack.", fg="red")
-                click.secho("Please ensure the index exists (via integration installation) and is populated with data.", fg="red")
+                click.secho("Check if index exists (via integration installation) and contains data.", fg="red")
                 click.secho("Alternatively, update the query to reference an existing index.", fg="red")
             else:
                 click.secho(f"Error running query: {str(e)}", fg="red")
