@@ -7,7 +7,7 @@
 - **Author:** Elastic
 - **Description:** This hunting query identifies when an anonymous user, outside of the known AWS IP ranges, makes multiple `GetObject` requests to a public S3 bucket. Rapid access to objects in a public S3 bucket may indicate an adversary attempting to exfiltrate data or perform reconnaissance on the bucket contents.
 
-- **UUID:** `ef244ca0-5e32-11ef-a8d3-f661ea17fbce`
+- **UUID:** `ef579900-75ef-11ef-b47f-f661ea17fbcc`
 - **Integration:** [aws.cloudtrail](https://docs.elastic.co/integrations/aws/cloudtrail)
 - **Language:** `[ES|QL]`
 - **Source File:** [S3 Public Bucket Rapid Object Access Attempts](../queries/s3_public_bucket_rapid_object_access_attempts.toml)
