@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
 min_stack_version = "8.13.0"
-updated_date = "2024/07/02"
+updated_date = "2024/10/02"
 
 [rule]
 author = ["Elastic"]
@@ -81,12 +81,12 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail-*
+from logs-aws.cloudtrail-* metadata _id, _version, _index
 
 // any successful copy event
-| where event.dataset == "aws.cloudtrail" 
-    and event.provider == "s3.amazonaws.com" 
-    and event.action == "CopyObject" 
+| where event.dataset == "aws.cloudtrail"
+    and event.provider == "s3.amazonaws.com"
+    and event.action == "CopyObject"
     and event.outcome == "success"
 
 // abstract key account id, key id, encrypted object bucket name and object name
@@ -94,7 +94,7 @@ from logs-aws.cloudtrail-*
 
 // filter for s3 objects whose account id is different from the encryption key's account id
 // add exceptions based on key.account.id or keyId for known external accounts or encryption keys
-| where cloud.account.id != key.account.id 
+| where cloud.account.id != key.account.id
 '''
 
 
