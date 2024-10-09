@@ -913,13 +913,13 @@ class ESQLRuleData(QueryRuleData):
         # Convert the query string to lowercase to handle case insensitivity
         query_lower = data['query'].lower()
 
-        # Metadata fields that are required for non-aggregate queries
-        metadata_pattern = r'from\s+\S+\s+metadata\s+_id,\s*_version,\s*_index'
-        # Allow any characters (including newlines and complex expressions) between stats and by
-        stats_pattern = r'\bstats\b.*?\bby\b'
+        # Combine both patterns using an OR operator and compile the regex
+        combined_pattern = re.compile(
+            r'(from\s+\S+\s+metadata\s+_id,\s*_version,\s*_index)|(\bstats\b.*?\bby\b)', re.DOTALL
+        )
 
         # Ensure that non-aggregate queries have metadata
-        if not re.search(stats_pattern, query_lower, re.DOTALL) and not re.search(metadata_pattern, query_lower):
+        if not combined_pattern.search(query_lower):
             raise ValidationError(
                 f"Rule: {data['name']} contains a non-aggregate query without"
                 f" metadata fields '_id', '_version', and '_index' ->"
