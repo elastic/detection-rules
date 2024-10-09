@@ -2,7 +2,7 @@
 creation_date = "2024/06/13"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/07/06"
+updated_date = "2024/10/02"
 min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
 min_stack_version = "8.13.0"
 
@@ -11,12 +11,12 @@ author = ["Elastic"]
 description = """
 An adversary with access to a set of compromised credentials may attempt to persist or escalate privileges by
 creating a new set of credentials for an existing user. This rule looks for use of the IAM `CreateAccessKey` API operation
-to create new programatic access keys for another IAM user. 
+to create new programmatic access keys for another IAM user.
 """
 false_positives = [
     """
     While this can be normal behavior, it should be investigated to ensure validity.
-    Verify whether the user identity should be using the IAM `CreateAccessKey` for the targeted user. 
+    Verify whether the user identity should be using the IAM `CreateAccessKey` for the targeted user.
     """,
 ]
 from = "now-6m"
@@ -27,8 +27,8 @@ note = """## Triage and analysis
 
 ### Investigating AWS IAM User Created Access Keys For Another User
 
-AWS access keys created for IAM users or root user are long-term credentials that provide programatic access to AWS. 
-With access to the `iam:CreateAccessKey` permission, a set of compromised credentials could be used to create a new 
+AWS access keys created for IAM users or root user are long-term credentials that provide programmatic access to AWS.
+With access to the `iam:CreateAccessKey` permission, a set of compromised credentials could be used to create a new
 set of credentials for another user for privilege escalation or as a means of persistence. This rule uses [ES|QL](https://www.elastic.co/guide/en/security/master/rules-ui-create.html#create-esql-rule)
 to look for use of the `CreateAccessKey` operation where the user.name is different from the user.target.name.
 
@@ -65,8 +65,8 @@ to look for use of the `CreateAccessKey` operation where the user.name is differ
     - Work with your IT team to identify and minimize the impact on users.
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
     - Identify any regulatory or legal ramifications related to this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. 
-    - Rotate secrets or delete API keys as needed to revoke the attacker's access to the environment. 
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified.
+    - Rotate secrets or delete API keys as needed to revoke the attacker's access to the environment.
     - Work with your IT teams to minimize the impact on business operations during these actions.
 - Remove unauthorized new accounts, and request password resets for other IAM users.
 - Consider enabling multi-factor authentication for users.
@@ -99,8 +99,11 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail-*
-| where event.provider == "iam.amazonaws.com" and event.action == "CreateAccessKey" and event.outcome == "success" and user.name != user.target.name
+from logs-aws.cloudtrail-* metadata _id, _version, _index
+| where event.provider == "iam.amazonaws.com"
+    and event.action == "CreateAccessKey"
+    and event.outcome == "success"
+    and user.name != user.target.name
 '''
 
 

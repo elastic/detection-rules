@@ -2,7 +2,7 @@
 creation_date = "2024/05/31"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/07/05"
+updated_date = "2024/10/02"
 min_stack_comments = "ES|QL rule type in technical preview as of 8.13."
 min_stack_version = "8.13.0"
 
@@ -17,7 +17,7 @@ false_positives = [
     """
     While this can be normal behavior, it should be investigated to ensure validity.
     Verify whether the user identity should be using the IAM `AttachRolePolicy` API operation
-    to attach the `AdministratorAccess` policy to the target role. 
+    to attach the `AdministratorAccess` policy to the target role.
     """,
 ]
 from = "now-6m"
@@ -28,7 +28,7 @@ note = """## Triage and analysis
 
 ### Investigating AWS IAM AdministratorAccess Policy Attached to Role
 
-The AWS IAM `AdministratorAccess` managed policy provides full access to all AWS services and resources. 
+The AWS IAM `AdministratorAccess` managed policy provides full access to all AWS services and resources.
 With access to the `iam:AttachRolePolicy` permission, a set of compromised credentials could be used to attach
 this policy to a compromised role for privilege escalation or as a means of persistence. This rule uses [ES|QL](https://www.elastic.co/guide/en/security/master/rules-ui-create.html#create-esql-rule)
 to look for use of the `AttachRolePolicy` operation along with request_parameters where the policyName is `AdministratorAccess`.
@@ -66,8 +66,8 @@ to look for use of the `AttachRolePolicy` operation along with request_parameter
     - Work with your IT team to identify and minimize the impact on users.
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
     - Identify any regulatory or legal ramifications related to this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. 
-    - Rotate secrets or delete API keys as needed to revoke the attacker's access to the environment. 
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified.
+    - Rotate secrets or delete API keys as needed to revoke the attacker's access to the environment.
     - Work with your IT teams to minimize the impact on business operations during these actions.
 - Check if unauthorized new users were created, remove unauthorized new accounts, and request password resets for other IAM users.
 - Consider enabling multi-factor authentication for users.
@@ -99,7 +99,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail-*
+from logs-aws.cloudtrail-* metadata _id, _version, _index
 | where event.provider == "iam.amazonaws.com" and event.action == "AttachRolePolicy" and event.outcome == "success"
 | dissect aws.cloudtrail.request_parameters "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{policyName},%{?roleName}=%{role.name}}"
 | where policyName == "AdministratorAccess"
