@@ -99,7 +99,7 @@ from logs-aws.cloudtrail-*
     and not object_name rlike "(.*)(AWSLogs|CloudTrail|access-logs)(.*)"
 
 // keep relevant fields
-keep tls.client.server_name, aws.cloudtrail.user_identity.arn, object_name
+| keep tls.client.server_name, aws.cloudtrail.user_identity.arn, object_name
 
 // aggregate by S3 bucket, resource and object name
 | stats note_upload_count = count(*) by tls.client.server_name, aws.cloudtrail.user_identity.arn, object_name
