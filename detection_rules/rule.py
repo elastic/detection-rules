@@ -922,8 +922,8 @@ class ESQLRuleData(QueryRuleData):
         if not re.search(stats_pattern, query_lower, re.DOTALL) and not re.search(metadata_pattern, query_lower):
             raise ValidationError(
                 f"Rule: {data['name']} contains a non-aggregate query without"
-                f"metadata fields '_id', '_version', and '_index' ->"
-                f"Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
+                f" metadata fields '_id', '_version', and '_index' ->"
+                f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
             )
 
 
