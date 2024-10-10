@@ -933,6 +933,7 @@ class ESQLRuleData(QueryRuleData):
                 f" Add a 'keep' command to the query."
             )
 
+
 @dataclass(frozen=True)
 class ThreatMatchRuleData(QueryRuleData):
     """Specific fields for indicator (threat) match rule."""
