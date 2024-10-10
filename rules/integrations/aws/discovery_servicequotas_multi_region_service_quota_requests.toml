@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2024/08/26"
 maturity = "production"
-updated_date = "2024/10/02"
+updated_date = "2024/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -47,6 +47,9 @@ from logs-aws.cloudtrail-*
 
 // filter for EC2 service quota L-1216C47A (vCPU on-demand instances)
 | where service_code == "ec2" and quota_code == "L-1216C47A"
+
+// keep only the relevant fields
+| keep target_time_window, aws.cloudtrail.user_identity.arn, cloud.region, service_code, quota_code
 
 // count the number of unique regions and total API calls within the 30-second window
 | stats region_count = count_distinct(cloud.region), window_count = count(*) by target_time_window, aws.cloudtrail.user_identity.arn
