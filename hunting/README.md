@@ -44,6 +44,12 @@ Otherwise, the names do not require the integration, since it is already annotat
   - **mitre**: Reference to applicable MITRE ATT&CK tactics or techniques that the rule addresses, enhancing the contextual understanding of its security implications.
   - **references**: Links to external documents, research papers, or websites that provide additional information or validation for the detection logic.
 
+#### Query Best Practices
+* Use `KEEP` command to select specific fields that are relevant or necessary for `STATS` command
+* Use `LIMIT` command to limit the number of results, depending on expected result volume
+* Filter as much as possible in `WHERE` command to reduce events needed to be processed
+* For `FROM` command for index patterns, be as specific as possible to reduce potential event matches that are irrelevant
+
 ### Field Usage
 Use standardized fields where possible to ensure that queries are compatible across different data environments and sources.
 
