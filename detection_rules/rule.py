@@ -926,6 +926,13 @@ class ESQLRuleData(QueryRuleData):
                 f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
             )
 
+        # Enforce KEEP command for ESQL rules
+        if '| keep' not in query_lower:
+            raise ValidationError(
+                f"Rule: {data['name']} does not contain a 'keep' command ->"
+                f" Add a 'keep' command to the query."
+            )
+
 
 @dataclass(frozen=True)
 class ThreatMatchRuleData(QueryRuleData):
