@@ -1,0 +1,61 @@
+[metadata]
+creation_date = "2024/10/07"
+integration = ["okta"]
+maturity = "production"
+updated_date = "2024/10/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful single sign-on (SSO) events to Okta applications from an unrecognized or "unknown" client device, as
+identified by the user-agent string. This activity may be indicative of exploitation of a vulnerability in Okta's
+Classic Engine, which could allow an attacker to bypass application-specific sign-on policies, such as device or network
+restrictions. The vulnerability potentially enables unauthorized access to applications using only valid, stolen
+credentials, without requiring additional authentication factors.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-okta*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Successful Application SSO from Rare Unknown Client Device"
+references = ["https://trust.okta.com/security-advisories/okta-classic-application-sign-on-policy-bypass-2024/"]
+risk_score = 47
+rule_id = "1502a836-84b2-11ef-b026-f661ea17fbcc"
+severity = "medium"
+tags = [
+    "Domain: SaaS",
+    "Data Source: Okta",
+    "Use Case: Threat Detection",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "okta.system"
+    and event.action: "user.authentication.sso"
+    and event.outcome: "success"
+    and okta.client.device: ("Unknown" or "unknown")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["client.user.name", "okta.client.user_agent.raw_user_agent"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
