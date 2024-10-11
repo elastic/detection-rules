@@ -2,12 +2,12 @@
 creation_date = "2024/06/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/09"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects file creation events in the plugin directories for the Yum package manager.  In Linux, Yum (Yellowdog Updater,
+Detects file creation events in the plugin directories for the Yum package manager. In Linux, Yum (Yellowdog Updater,
 Modified) is a command-line utility used for handling packages on (by default) Fedora-based systems, providing functions
 for installing, updating, upgrading, and removing software along with managing package repositories. Attackers can
 backdoor Yum to gain persistence by injecting malicious code into plugins that Yum runs, thereby ensuring continued
@@ -18,7 +18,10 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Yum Package Manager Plugin File Creation"
-references = ["https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/linux/local/yum_package_manager_persistence.rb"]
+references = [
+    "https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/linux/local/yum_package_manager_persistence.rb",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
+]
 risk_score = 21
 rule_id = "0b15bcad-aff1-4250-a5be-5d1b7eb56d07"
 setup = """## Setup
@@ -57,6 +60,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and
 file.path : ("/usr/lib/yum-plugins/*", "/etc/yum/pluginconf.d/*") and not (
@@ -81,34 +85,34 @@ file.path : ("/usr/lib/yum-plugins/*", "/etc/yum/pluginconf.d/*") and not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1546"
-name = "Event Triggered Execution"
-reference = "https://attack.mitre.org/techniques/T1546/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1546.016"
-name = "Installer Packages"
-reference = "https://attack.mitre.org/techniques/T1546/016/"
-
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
 [[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.016"
+name = "Installer Packages"
+reference = "https://attack.mitre.org/techniques/T1546/016/"
+
+
+[[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -116,3 +120,4 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

@@ -26,6 +26,11 @@ deps: $(VENV)
 	$(PIP) install lib/kibana
 	$(PIP) install lib/kql
 
+.PHONY: hunting-deps
+deps: $(VENV)
+	@echo "Installing all dependencies..."
+	$(PIP) install .[hunting]
+
 .PHONY: pytest
 pytest: $(VENV) deps
 	$(PYTHON) -m detection_rules test
@@ -52,6 +57,11 @@ test-cli: $(VENV) deps
 test-remote-cli: $(VENV) deps
 	@echo "Executing test_remote_cli script..."
 	@./detection_rules/etc/test_remote_cli.bash
+
+.PHONY: test-hunting-cli
+test-remote-cli: $(VENV) hunting-deps
+	@echo "Executing test_hunting_cli script..."
+	@./detection_rules/etc/test_hunting_cli.bash
 
 .PHONY: release
 release: deps

@@ -2,8 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/08/07"
-
+updated_date = "2024/09/23"
 
 [transform]
 [[transform.osquery]]
@@ -34,7 +33,11 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 [rule]
 author = ["Elastic"]
 description = """
-Identifies potentially suspicious processes that are not trusted or living-off-the-land binaries (LOLBin) making Server Message Block (SMB) network connections over port 445. Windows File Sharing is typically implemented over SMB, which communicates between hosts using port 445. Legitimate connections are generally established by the kernel (PID 4). This rule helps to detect processes that might be port scanners, exploits, or user-level processes attempting lateral movement within the network by leveraging SMB connections.
+Identifies potentially suspicious processes that are not trusted or living-off-the-land binaries (LOLBin) making Server
+Message Block (SMB) network connections over port 445. Windows File Sharing is typically implemented over SMB, which
+communicates between hosts using port 445. Legitimate connections are generally established by the kernel (PID 4). This
+rule helps to detect processes that might be port scanners, exploits, or user-level processes attempting lateral
+movement within the network by leveraging SMB connections.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process-*", "logs-endpoint.events.network-*"]
@@ -95,6 +98,10 @@ This rule looks for unexpected processes or LOLBins making network connections o
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+references = [
+    "https://www.elastic.co/security-labs/elastic-protects-against-data-wiper-malware-targeting-ukraine-hermeticwiper",
+    "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language"
+]
 risk_score = 47
 rule_id = "c82c7d8f-fb9e-4874-a4bd-fd9e3f9becf1"
 severity = "medium"
