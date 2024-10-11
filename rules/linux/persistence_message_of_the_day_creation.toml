@@ -2,7 +2,7 @@
 creation_date = "2023/02/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2024/09/23"
 
 [transform]
 [[transform.osquery]]
@@ -30,6 +30,7 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
 
+
 [rule]
 author = ["Elastic"]
 description = """
@@ -37,8 +38,8 @@ This rule detects the creation of potentially malicious files within the default
 day (MOTD) is the message that is presented to the user when a user connects to a Linux server via SSH or a serial
 connection. Linux systems contain several default MOTD files located in the "/etc/update-motd.d/" directory. These
 scripts run as the root user every time a user connects over SSH or a serial connection. Adversaries may create
-malicious MOTD files that grant them persistence onto the target every time a user connects to the system by executing
-a backdoor script or command. 
+malicious MOTD files that grant them persistence onto the target every time a user connects to the system by executing a
+backdoor script or command.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file*"]
@@ -105,6 +106,7 @@ This rule identifies the creation of new files within the `/etc/update-motd.d/` 
 """
 references = [
     "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
 ]
 risk_score = 47
 rule_id = "96d11d31-9a79-480f-8401-da28b194608f"
@@ -144,6 +146,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and
 file.path : "/etc/update-motd.d/*" and not (
@@ -168,15 +171,17 @@ file.path : "/etc/update-motd.d/*" and not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
