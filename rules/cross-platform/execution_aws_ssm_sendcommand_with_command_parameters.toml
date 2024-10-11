@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2022/09/03"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/09/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of the AWS Systems Manager (SSM) `SendCommand` API with the either `AWS-RunShellScript` or
+`AWS-RunPowerShellScript` parameters. The `SendCommand` API call allows users to execute commands on EC2 instances using
+the SSM service. Adversaries may use this technique to execute commands on EC2 instances without the need for SSH or RDP
+access. This behavior may indicate an adversary attempting to execute commands on an EC2 instance for malicious
+purposes. This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that only flags
+when this behavior is observed for the first time on a host in the last 7 days.
+"""
+false_positives = [
+    """
+    Legitimate use of the `SendCommand` API call to execute commands on EC2 instances using the SSM service may be done
+    by system administrators or DevOps engineers for legitimate purposes.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS SSM `SendCommand` with Run Shell Command Parameters"
+references = [
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-privilege-escalation/aws-ssm-privesc",
+    "https://securitycafe.ro/2023/01/17/aws-post-explitation-with-ssm-sendcommand/",
+]
+risk_score = 47
+rule_id = "c371e9fc-6a10-11ef-a0ac-f661ea17fbcc"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager"
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category: "process" and event.type: "start" and process.name: "aws"
+and (
+    host.os.type: ("windows" or "macos")
+    or (
+        host.os.type: "linux"
+        and event.action: ("exec" or "exec_event" or "executed" or "process_started")
+    )
+)
+and process.args: (
+    "send-command" and "--parameters" and commands=*
+    and ("AWS-RunShellScript" or "AWS-RunPowerShellScript")
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
