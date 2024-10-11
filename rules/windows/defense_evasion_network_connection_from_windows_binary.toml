@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/09/10"
 
 [transform]
 [[transform.osquery]]
@@ -171,7 +171,16 @@ sequence by process.entity_id with maxspan=5m
       process.name : "odbcconf.exe" or
       process.name : "rcsi.exe" or
       process.name : "regsvr32.exe" or
-      process.name : "xwizard.exe")]
+      process.name : "xwizard.exe") and 
+      
+      not dns.question.name : ("localhost", "setup.officetimeline.com", "us.deployment.endpoint.ingress.rapid7.com", 
+        "ctldl.windowsupdate.com", "crl?.digicert.com", "ocsp.digicert.com", "addon-cms-asl.eu.goskope.com", "crls.ssl.com", 
+        "evcs-ocsp.ws.symantec.com", "s.symcd.com", "s?.symcb.com", "crl.verisign.com", "oneocsp.microsoft.com", "crl.verisign.com", 
+        "aka.ms", "crl.comodoca.com", "acroipm2.adobe.com", "sv.symcd.com") and 
+
+      /* host query itself */
+      not startswith~(dns.question.name, host.name)
+      ]
 '''
 
 
