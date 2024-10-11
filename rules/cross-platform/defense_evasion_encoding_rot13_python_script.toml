@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2024/09/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/09/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of a Python script that uses the ROT cipher for letters substitution. Adversaries may
+use this method to encode and obfuscate part of their malicious code in legit python packages.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*", "logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "ROT Encoded Python Script Execution"
+references = [
+    "https://www.elastic.co/security-labs/dprk-code-of-conduct",
+    "https://www.reversinglabs.com/blog/fake-recruiter-coding-tests-target-devs-with-malicious-python-packages"
+]
+risk_score = 47
+rule_id = "5ab49127-b1b3-46e6-8a38-9e8512a2a363"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=1m
+ [process where host.os.type in ("windows", "macos") and event.type == "start" and process.name : "python*"]
+ [file where host.os.type in ("windows", "macos") and
+  event.action != "deletion" and process.name : "python*" and file.name : "rot_??.cpython-*.pyc*"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+[[rule.threat.technique.subtechnique]]
+id = "T1027.013"
+name = "Encrypted/Encoded File"
+reference = "https://attack.mitre.org/techniques/T1027/013/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
