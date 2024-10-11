@@ -7,6 +7,7 @@ import copy
 import dataclasses
 import json
 import os
+import re
 import time
 import typing
 from abc import ABC, abstractmethod
@@ -908,6 +909,29 @@ class ESQLRuleData(QueryRuleData):
         """Custom validation for query rule type and subclasses."""
         if data.get('index'):
             raise ValidationError("Index is not a valid field for ES|QL rule type.")
+
+        # Convert the query string to lowercase to handle case insensitivity
+        query_lower = data['query'].lower()
+
+        # Combine both patterns using an OR operator and compile the regex
+        combined_pattern = re.compile(
+            r'(from\s+\S+\s+metadata\s+_id,\s*_version,\s*_index)|(\bstats\b.*?\bby\b)', re.DOTALL
+        )
+
+        # Ensure that non-aggregate queries have metadata
+        if not combined_pattern.search(query_lower):
+            raise ValidationError(
+                f"Rule: {data['name']} contains a non-aggregate query without"
+                f" metadata fields '_id', '_version', and '_index' ->"
+                f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
+            )
+
+        # Enforce KEEP command for ESQL rules
+        if '| keep' not in query_lower:
+            raise ValidationError(
+                f"Rule: {data['name']} does not contain a 'keep' command ->"
+                f" Add a 'keep' command to the query."
+            )
 
 
 @dataclass(frozen=True)
