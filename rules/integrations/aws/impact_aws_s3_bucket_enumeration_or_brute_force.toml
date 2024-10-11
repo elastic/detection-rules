@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2024/05/01"
 maturity = "production"
-updated_date = "2024/07/06"
+updated_date = "2024/10/09"
 min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully"
 min_stack_version = "8.13.0"
 
@@ -89,6 +89,8 @@ type = "esql"
 query = '''
 from logs-aws.cloudtrail*
 | where event.provider == "s3.amazonaws.com" and aws.cloudtrail.error_code == "AccessDenied"
+// keep only relevant fields
+| keep tls.client.server_name, source.address, cloud.account.id
 | stats failed_requests = count(*) by tls.client.server_name, source.address, cloud.account.id
   // can modify the failed request count or tweak time window to fit environment
   // can add `not cloud.account.id in (KNOWN)` or specify in exceptions
