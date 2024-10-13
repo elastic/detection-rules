@@ -2,7 +2,7 @@
 creation_date = "2023/02/22"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/08/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,7 @@ index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Disable IPTables or Firewall"
+references = ["https://www.elastic.co/security-labs/detecting-log4j2-with-elastic-security"]
 risk_score = 21
 rule_id = "83e9c2b3-24ef-4c1d-a8cd-5ebafb5dfa2f"
 setup = """## Setup
@@ -74,20 +75,22 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
