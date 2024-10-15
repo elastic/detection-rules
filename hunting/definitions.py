@@ -39,7 +39,7 @@ class Hunt:
     def __post_init__(self):
         """Post-initialization to determine which validation to apply."""
         if not self.query:
-            raise ValueError("Query field must be provided.")
+            raise ValueError(f"Hunt: {self.name} - Query field must be provided.")
 
         # Loop through each query in the array
         for idx, q in enumerate(self.query):
@@ -61,5 +61,5 @@ class Hunt:
             # Check if either "stats by" or "| keep" exists in the query
             if not stats_by_pattern.search(query) and not keep_pattern.search(query):
                 raise ValueError(
-                    f"Rule: {self.name} must contain either 'stats by' or '| keep'."
+                    f"Hunt: {self.name} contains an ES|QL query that must contain either 'stats by' or '| keep'."
                 )
