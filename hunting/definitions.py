@@ -26,10 +26,10 @@ class Hunt:
     """Dataclass to represent a hunt."""
     author: str
     description: str
-    integration: list[str]
+    integration: List[str]
     uuid: str
     name: str
-    language: list[str]
+    language: List[str]
     license: str
     query: List[str]
     notes: Optional[List[str]] = field(default_factory=list)
