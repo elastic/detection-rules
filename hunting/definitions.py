@@ -23,7 +23,7 @@ STATIC_INTEGRATION_LINK_MAP = {
 
 @dataclass
 class Hunt:
-    """Base class to represent a hunt."""
+    """Dataclass to represent a hunt."""
     author: str
     description: str
     integration: List[str]
