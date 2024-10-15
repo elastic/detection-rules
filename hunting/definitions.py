@@ -29,7 +29,7 @@ class Hunt:
     integration: list[str]
     uuid: str
     name: str
-    language: List[str]
+    language: list[str]
     license: str
     query: List[str]
     notes: Optional[List[str]] = field(default_factory=list)
