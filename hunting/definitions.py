@@ -26,7 +26,7 @@ class Hunt:
     """Dataclass to represent a hunt."""
     author: str
     description: str
-    integration: List[str]
+    integration: list[str]
     uuid: str
     name: str
     language: List[str]
