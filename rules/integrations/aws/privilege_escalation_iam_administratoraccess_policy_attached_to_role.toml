@@ -2,7 +2,7 @@
 creation_date = "2024/05/31"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/10/02"
+updated_date = "2024/10/09"
 min_stack_comments = "ES|QL rule type in technical preview as of 8.13."
 min_stack_version = "8.13.0"
 
@@ -103,6 +103,7 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
 | where event.provider == "iam.amazonaws.com" and event.action == "AttachRolePolicy" and event.outcome == "success"
 | dissect aws.cloudtrail.request_parameters "{%{?policyArn}=%{?arn}:%{?aws}:%{?iam}::%{?aws}:%{?policy}/%{policyName},%{?roleName}=%{role.name}}"
 | where policyName == "AdministratorAccess"
+| keep @timestamp, event.provider, event.action, event.outcome, policyName, role.name
 '''
 
 
