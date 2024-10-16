@@ -61,5 +61,5 @@ class Hunt:
             # Check if either "stats by" or "| keep" exists in the query
             if not stats_by_pattern.search(query) and not keep_pattern.search(query):
                 raise ValueError(
-                    f"Hunt: {self.name} contains an ES|QL query that must contain either 'stats by' or '| keep'."
+                    f"Hunt: {self.name} contains an ES|QL query that must contain either 'stats by' or 'keep' functions."
                 )
