@@ -49,6 +49,7 @@ Otherwise, the names do not require the integration, since it is already annotat
 * Use `LIMIT` command to limit the number of results, depending on expected result volume
 * Filter as much as possible in `WHERE` command to reduce events needed to be processed
 * For `FROM` command for index patterns, be as specific as possible to reduce potential event matches that are irrelevant
+* Use `STATS` to aggregate results into a tabular format for optimization
 
 ### Field Usage
 Use standardized fields where possible to ensure that queries are compatible across different data environments and sources.

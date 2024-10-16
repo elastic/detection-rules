@@ -27,5 +27,6 @@ from logs-aws.cloudtrail-*
     and aws.cloudtrail.request_parameters RLIKE ".*arn:aws:iam.*"
 | dissect aws.cloudtrail.request_parameters "%{}AWS\": \"arn:aws:iam::%{target_account_id}:"
 | where cloud.account.id != target_account_id
+| keep @timestamp, event.provider, event.action, aws.cloudtrail.request_parameters, target_account_id, cloud.account.id
 '''
 ]
