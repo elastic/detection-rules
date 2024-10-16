@@ -25,5 +25,6 @@ from logs-aws.cloudtrail-*
 | dissect aws.cloudtrail.request_parameters "{%{?principal_key}=%{principal_id}, %{?function_name_key}=%{function_name}, %{?statement_key}=%{statement_value}, %{?action_key}=lambda:%{action_value}}"
 | eval write_action = (starts_with(action_value, "Invoke") or starts_with("Update", action_value) or starts_with("Put", action_value))
 | where write_action == true
+| keep @timestamp, principal_id, event.provider, event.action, aws.cloudtrail.request_parameters, principal_id, function_name, action_value, statement_value, write_action
 '''
 ]
