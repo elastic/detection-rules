@@ -2,15 +2,15 @@
 creation_date = "2024/09/11"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2024/09/11"
+updated_date = "2024/10/09"
 min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
 min_stack_version = "8.13.0"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies multiple validation exeception errors within AWS Bedrock. Validation errors occur when you run the InvokeModel or 
-InvokeModelWithResponseStream APIs on a foundation model that uses an incorrect inference parameter or corresponding value. 
+Identifies multiple validation exeception errors within AWS Bedrock. Validation errors occur when you run the InvokeModel or
+InvokeModelWithResponseStream APIs on a foundation model that uses an incorrect inference parameter or corresponding value.
 These errors also occur when you use an inference parameter for one model with a model that doesn't have the same API parameter.
 This could indicate attempts to bypass limitations of other approved models, or to force an impact on the environment by incurring
 exhorbitant costs.
@@ -54,6 +54,7 @@ from logs-aws_bedrock.invocation-*
 // truncate the timestamp to a 1-minute window
 | eval target_time_window = DATE_TRUNC(1 minutes, @timestamp)
 | where gen_ai.response.error_code == "ValidationException"
+| keep user.id, gen_ai.request.model.id, cloud.account.id, gen_ai.response.error_code, target_time_window
 // count the number of users causing validation errors within a 1 minute window
 | stats total_denials = count(*) by target_time_window, user.id, cloud.account.id
 | where total_denials > 3
