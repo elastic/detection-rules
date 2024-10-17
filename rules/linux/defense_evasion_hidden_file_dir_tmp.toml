@@ -2,7 +2,7 @@
 creation_date = "2020/04/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -75,32 +75,34 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.working_directory in ("/tmp", "/var/tmp", "/dev/shm") and
 process.args regex~ """\.[a-z0-9_\-][a-z0-9_\-\.]{1,254}""" and
-not process.name in ("ls", "find", "grep", "git", "jq", "basename")
+not process.name in (
+  "ls", "find", "grep", "git", "jq", "basename", "check_snmp", "snmpget", "snmpwalk", "cc1plus", "snap",
+  "command-not-found"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1564.001"
 name = "Hidden Files and Directories"
 reference = "https://attack.mitre.org/techniques/T1564/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -108,4 +110,3 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
