@@ -802,10 +802,10 @@ class TestRuleMetadata(BaseRuleTest):
 
                 # checks for a defined index pattern, the related integration exists in metadata
                 expected_integrations, missing_integrations = set(), set()
+                ignore_ml_packages = any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
+                                         for ri in rule_integrations)
                 for index in indices:
-                    if index in definitions.IGNORE_INDICES or \
-                        any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
-                            for ri in rule_integrations) or \
+                    if index in definitions.IGNORE_INDICES or ignore_ml_packages or \
                             rule.id in definitions.IGNORE_IDS or rule.contents.data.type == 'threat_match':
                         continue
                     # Outlier integration log pattern to identify integration
@@ -813,10 +813,9 @@ class TestRuleMetadata(BaseRuleTest):
                         index_map = ['apm']
                     else:
                         # Split by hyphen to get the second part of index
-                        index_parts = index.split('-')
+                        part1, _, part2 = index.partition('-')
                         #  Use regular expression to extract alphanumeric words, which is integration name
-                        parsed_integration = re.search(r'\b\w+\b', index_parts[1]
-                                                       if len(index_parts) > 1 else index_parts[0])
+                        parsed_integration = re.search(r'\b\w+\b', part2 or part1)
                         index_map = [parsed_integration.group(0) if parsed_integration else None]
                     if not index_map:
                         self.fail(f'{self.rule_str(rule)} Could not determine the integration from Index {index}')
