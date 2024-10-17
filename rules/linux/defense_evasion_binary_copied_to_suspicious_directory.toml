@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -59,7 +59,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and
+file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and process.name != null and
 file.Ext.original.path : (
   "/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*"
 ) and not (
@@ -79,6 +79,11 @@ file.Ext.original.path : (
     "/usr/lib/systemd/systemd", "/usr/sbin/sshd", "/sbin/sshd", "/usr/local/sbin/sshd", "/usr/sbin/crond", "/sbin/crond",
     "/usr/local/sbin/crond", "/usr/sbin/gdm"
   ) or
+  process.name like (
+    "python*", "packagekitd", "systemd", "ln", "platform-python", "dnf_install", "runc", "apt-get", "ssm-agent-worker",
+    "convert-usrmerge", "updatenow.static-cpanelsync", "apk", "exe", "php", "containerd-shim-runc-v2", "dpkg", "sed",
+    "platform-python*", "gedit", "crond", "sshd", "ruby", "sudo", "chainctl", "update-alternatives", "pip*"
+  )
   file.Ext.original.path : (
     "/bin/*.tmp", "/usr/bin/*.tmp", "/usr/local/bin/*.tmp", "/sbin/*.tmp", "/usr/sbin/*.tmp", "/usr/local/sbin/*.tmp"
   ) or
@@ -91,27 +96,25 @@ file.Ext.original.path : (
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1036.003"
 name = "Rename System Utilities"
 reference = "https://attack.mitre.org/techniques/T1036/003/"
-
 
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
