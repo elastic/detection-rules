@@ -2,7 +2,7 @@
 creation_date = "2023/07/20"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -53,16 +53,17 @@ tags = [
     "Tactic: Discovery",
 ]
 type = "eql"
-
 query = '''
 sequence by process.pid, host.id with maxspan=5s
   [file where host.os.type == "linux" and auditd.data.syscall == "openat" and file.path == "/proc" and
-   auditd.data.a0 : ("ffffffffffffff9c", "ffffff9c") and auditd.data.a2 : ("80000", "88000") ] with runs=10
+   auditd.data.a0 : ("ffffffffffffff9c", "ffffff9c") and auditd.data.a2 : ("80000", "88000") and
+   not process.name == "agentbeat"
+  ] with runs=10
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
@@ -73,9 +74,7 @@ id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

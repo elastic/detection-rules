@@ -2,7 +2,7 @@
 creation_date = "2020/04/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -66,19 +66,23 @@ event.category:process and host.os.type:linux and event.type:start and event.act
  (process.name:(lsmod or modinfo)) or 
  (process.name:kmod and process.args:list) or 
  (process.name:depmod and process.args:(--all or -a))
-) and not process.parent.name:(mkinitramfs or cryptroot or framebuffer or dracut or jem or thin-provisioning-tools
-or readykernel or lvm2 or vz-start or iscsi or mdadm or ovalprobes or bcache or plymouth or dkms or overlayroot or 
-weak-modules or zfs)
+) and
+not (
+  process.parent.name:(
+    mkinitramfs or cryptroot or framebuffer or dracut or jem or thin-provisioning-tools or readykernel or lvm2 or
+    vz-start or iscsi or mdadm or ovalprobes or bcache or plymouth or dkms or overlayroot or weak-modules or zfs or
+    systemd or whoopsie-upload-all or kdumpctl or apport-gtk or casper or rear or kernel-install
+  )
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
-
 
 [rule.threat.tactic]
 id = "TA0007"
@@ -87,9 +91,8 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.parent.command_line", "process.command_line", "host.id"]
+value = ["process.executable", "process.parent.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
-
-
