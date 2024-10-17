@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
 min_stack_version = "8.11.0"
-updated_date = "2024/02/21"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -60,7 +60,17 @@ type = "new_terms"
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and
 (process.thread.capabilities.permitted:CAP_DAC_* or process.thread.capabilities.effective: CAP_DAC_*) and
-process.command_line:(*sudoers* or *passwd* or *shadow* or */root/*) and not user.id:"0"
+process.command_line:(*sudoers* or *passwd* or *shadow* or */root/*) and not (
+  user.id : "0" or
+  process.name : (
+    "tar" or "getent" or "su" or "stat" or "dirname" or "chown" or "sudo" or "dpkg-split" or "dpkg-deb" or "dpkg" or
+    "podman" or "awk" or "passwd" or "dpkg-maintscript-helper" or "mutt_dotlock" or "nscd" or "logger" or "gpasswd"
+  ) or
+  process.executable : /usr/lib/*/lxc/rootfs/* or
+  process.parent.name : (
+    "dpkg" or "java" or *postinst or "dpkg-preconfigure" or "gnome-shell"
+  )
+)
 '''
 
 [[rule.threat]]
@@ -78,7 +88,7 @@ reference = "https://attack.mitre.org/tactics/TA0004/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.command_line", "process.executable"]
+value = ["process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
