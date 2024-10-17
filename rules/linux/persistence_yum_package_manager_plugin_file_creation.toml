@@ -2,7 +2,7 @@
 creation_date = "2024/06/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -60,7 +60,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and
 file.path : ("/usr/lib/yum-plugins/*", "/etc/yum/pluginconf.d/*") and not (
@@ -75,6 +74,8 @@ file.path : ("/usr/lib/yum-plugins/*", "/etc/yum/pluginconf.d/*") and not (
   ) or
   process.name == "yumBackend.py" or
   file.extension in ("swp", "swpx", "swx") or
+  file.Ext.original.name like ".ansible*" or
+  file.name like ".ansible_tmp*" or
   process.executable : (
     "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/usr/lib/*", "/usr/libexec/*",
     "/etc/kernel/*"
@@ -85,9 +86,9 @@ file.path : ("/usr/lib/yum-plugins/*", "/etc/yum/pluginconf.d/*") and not (
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
@@ -97,22 +98,22 @@ reference = "https://attack.mitre.org/techniques/T1543/"
 id = "T1546"
 name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1546.016"
 name = "Installer Packages"
 reference = "https://attack.mitre.org/techniques/T1546/016/"
-
 
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -120,4 +121,3 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

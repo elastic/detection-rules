@@ -2,7 +2,7 @@
 creation_date = "2023/02/24"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2024/10/17"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,6 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 [[transform.osquery]]
 label = "Osquery - Retrieve Crontab Information"
 query = "SELECT * FROM crontab"
-
 
 [rule]
 author = ["Elastic"]
@@ -156,7 +155,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and file.path : (
   "/etc/systemd/system/*", "/etc/systemd/user/*", "/usr/local/lib/systemd/system/*",
@@ -176,6 +174,10 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
     "/opt/puppetlabs/puppet/bin/ruby", "/usr/libexec/platform-python", "/kaniko/kaniko-executor",
     "/usr/local/bin/dockerd", "/usr/bin/podman", "/bin/install", "/proc/self/exe"
   ) or
+  process.name like (
+    "python*", "crio", "apt-get", "install", "snapd", "cloudflared", "sshd", "convert-usrmerge", "docker-init",
+    "google_metadata_script_runner"
+  ) or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
   file.Ext.original.extension == "dpkg-new" or
   process.executable : (
@@ -187,22 +189,20 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1053.006"
 name = "Systemd Timers"
 reference = "https://attack.mitre.org/techniques/T1053/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

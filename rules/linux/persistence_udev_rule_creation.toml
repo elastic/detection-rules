@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -56,7 +56,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and 
 process.executable != null and file.extension == "rules" and
@@ -79,14 +78,15 @@ file.path : (
   process.executable : (
     "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/*", "/usr/libexec/*"
   ) or
+  process.name in ("systemd", "netplan", "apt-get", "vmware-config-tools.pl", "systemd-hwdb") or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
@@ -97,9 +97,7 @@ id = "T1546"
 name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
