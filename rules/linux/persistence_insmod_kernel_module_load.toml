@@ -2,7 +2,7 @@
 creation_date = "2022/07/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/17"
 
 [transform]
 [[transform.osquery]]
@@ -158,27 +158,28 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and process.name == "insmod" and process.args : "*.ko"
+process where host.os.type == "linux" and event.type == "start" and process.name == "insmod" and process.args : "*.ko" and
+not process.parent.executable like (
+  "/opt/ds_agent/*", "/usr/sbin/veeamsnap-loader", "/opt/TrendMicro/vls_agent/*", "/opt/intel/oneapi/*",
+  "/opt/commvault/Base/linux_drv", "/bin/falcoctl"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1547.006"
 name = "Kernel Modules and Extensions"
 reference = "https://attack.mitre.org/techniques/T1547/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
