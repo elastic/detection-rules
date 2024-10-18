@@ -2,7 +2,7 @@
 creation_date = "2022/06/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -58,29 +58,31 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "fork", "fork_event") and 
-user.name == "postgres" and (
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "fork", "fork_event") and user.name == "postgres" and (
   (process.parent.args : "*sh" and process.parent.args : "echo*") or 
   (process.args : "*sh" and process.args : "echo*")
-) and not process.parent.name : "puppet"
+) and not (
+  process.parent.name == "puppet" or
+  process.command_line like "*BECOME-SUCCESS-*" or
+  process.parent.command_line like "*BECOME-SUCCESS-*"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
