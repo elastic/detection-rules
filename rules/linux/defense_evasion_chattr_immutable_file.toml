@@ -2,7 +2,7 @@
 creation_date = "2022/07/22"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -71,30 +71,31 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and user.id == "0" and
-  process.executable : "/usr/bin/chattr" and process.args : ("-*i*", "+*i*") and
-  not process.parent.executable: ("/lib/systemd/systemd", "/usr/local/uems_agent/bin/*", "/usr/lib/systemd/systemd") and
-  not process.parent.name in ("systemd", "cf-agent", "ntpdate", "xargs", "px", "preinst", "auth")
+process where host.os.type == "linux" and event.type == "start" and process.parent.executable != null and
+process.executable : "/usr/bin/chattr" and process.args : ("-*i*", "+*i*") and not (
+  process.parent.executable: ("/lib/systemd/systemd", "/usr/local/uems_agent/bin/*", "/usr/lib/systemd/systemd") or
+  process.parent.name in (
+    "systemd", "cf-agent", "ntpdate", "xargs", "px", "preinst", "auth", "cf-agent", "dcservice", "dcagentupgrader",
+    "sudo", "ephemeral-disk-warning"
+  )
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1222"
 name = "File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1222.002"
 name = "Linux and Mac File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
