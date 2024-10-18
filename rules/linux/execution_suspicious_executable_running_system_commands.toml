@@ -2,7 +2,7 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/18"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -56,24 +56,23 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 host.os.type:linux and event.category:process and event.action:(exec or exec_event or fork or fork_event) and
-process.executable:(
-  (/etc/crontab or /bin/* or /boot/* or /dev/shm/* or /etc/cron.*/* or /etc/init.d/* or /etc/rc*.d/* or
-  /etc/update-motd.d/* or /home/*/.* or /tmp/* or /usr/bin/* or /usr/lib/update-notifier/* or
-  /usr/share/* or /var/tmp/*) and not /tmp/go-build*
-) and
+process.executable:(* and (
+  /etc/crontab or /bin/* or /boot/* or /dev/shm/* or /etc/cron.*/* or /etc/init.d/* or /etc/rc*.d/* or /etc/update-motd.d/* or
+  /home/*/.* or /tmp/* or /usr/bin/* or /usr/lib/update-notifier/* or /usr/share/* or /var/tmp/*
+) and not /tmp/go-build*) and
 process.args:(hostname or id or ifconfig or ls or netstat or ps or pwd or route or top or uptime or whoami) and
-not process.name:(
-  apt or dnf or docker or dockerd or dpkg or hostname or id or ls or netstat or ps or pwd or rpm or snap or snapd
-  or sudo or top or uptime or which or whoami or yum
-) and
-not process.parent.executable:(
-  /opt/cassandra/bin/cassandra or /opt/nessus/sbin/nessusd or /opt/nessus_agent/sbin/nessus-agent-module or
-  /opt/puppetlabs/puppet/bin/puppet or /opt/puppetlabs/puppet/bin/ruby or /usr/libexec/platform-python or
-  /usr/local/cloudamize/bin/CCAgent or /usr/sbin/sshd or /bin/* or /etc/network/* or /opt/Elastic/* or
-  /run/k3s/* or /tmp/newroot/* or /usr/bin/*
+not (process.name:
+  (apt or dnf or docker or dockerd or dpkg or hostname or id or ls or netstat or ps or pwd or rpm or snap or
+  snapd or sudo or top or uptime or which or whoami or yum) or
+process.parent.executable:(
+  /opt/cassandra/bin/cassandra or /opt/nessus/sbin/nessusd or /opt/nessus_agent/sbin/nessus-agent-module or /opt/puppetlabs/puppet/bin/puppet or
+  /opt/puppetlabs/puppet/bin/ruby or /usr/libexec/platform-python or /usr/local/cloudamize/bin/CCAgent or /usr/sbin/sshd or /bin/* or
+  /etc/network/* or /opt/Elastic/* or /opt/TrendMicro* or /opt/aws/* or /opt/eset/* or /opt/rapid7/* or /run/containerd/* or /run/k3s/* or
+  /snap/* or /tmp/dpkg-licenses* or /tmp/newroot/* or /usr/bin/* or /var/lib/amagent/* or /var/lib/docker/* or /vz/*
+  ) or
+  process.executable:(/run/containerd/* or /srv/snp/docker/* or /tmp/.criu*)
 )
 '''
 
