@@ -109,17 +109,19 @@ query = '''
 sequence by host.id with maxspan=5s
    [process where host.os.type == "windows" and event.type == "end" and
     process.code_signature.trusted != true and
-    not process.executable : ("C:\\Windows\\SoftwareDistribution\\*.exe", "C:\\Windows\\WinSxS\\*.exe")
+    not process.executable like
+             ("C:\\Windows\\SoftwareDistribution\\*.exe",
+              "C:\\Windows\\WinSxS\\*.exe",
+              "?:\\Windows\\Postillion\\Office\\*.exe")
    ] by process.executable
-   [file where host.os.type == "windows" and event.type == "deletion" and file.extension : ("exe", "scr", "com") and
-    and process.code_signature.trusted != true and
-    not process.executable :
+   [file where host.os.type == "windows" and event.type == "deletion" and file.extension in ("exe", "scr", "com") and
+    not process.executable like
              ("?:\\Program Files\\*.exe",
               "?:\\Program Files (x86)\\*.exe",
               "?:\\Windows\\System32\\svchost.exe",
-              "?:\\Windows\\System32\\drvinst.exe"
-              "?:\\Windows\\Postillion\\Office\\*.exe) and
-    not file.path : (
+              "?:\\Windows\\System32\\drvinst.exe",
+              "?:\\Windows\\Postillion\\Office\\*.exe") and
+    not file.path like (
           "?:\\Program Files\\*.exe",
           "?:\\Program Files (x86)\\*.exe",
           "?:\\Windows\\Temp\\*\\DismHost.exe",
@@ -127,7 +129,7 @@ sequence by host.id with maxspan=5s
           "?:\\$WinREAgent\\Scratch\\*\\DismHost.exe",
           "?:\\Windows\\tenable_mw_scan_*.exe",
           "?:\\Users\\*\\AppData\\Local\\Temp\\LogiUI\\Pak\\uninstall.exe",
-          "?:\\ProgramData\\chocolatey\\*.exe
+          "?:\\ProgramData\\chocolatey\\*.exe"
     )
    ] by file.path
 '''
