@@ -2,7 +2,7 @@
 creation_date = "2024/09/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/30"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -111,8 +111,13 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and user.name == "lp" and
 process.parent.name in ("cupsd", "foomatic-rip", "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-not process.command_line like ("*/tmp/foomatic-*", "*-sDEVICE=ps2write*")
+process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and not (
+  process.command_line like (
+    "*/tmp/foomatic-*", "*-sDEVICE=ps2write*", "*printf*", "/bin/sh -e -c cat", "/bin/bash -c cat",
+    "/bin/bash -e -c cat"
+  ) or
+  process.args like "gs*"
+)
 '''
 
 [[rule.threat]]
