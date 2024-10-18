@@ -2,7 +2,7 @@
 creation_date = "2023/06/08"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -57,19 +57,18 @@ type = "new_terms"
 query = '''
 host.os.type:linux and event.category:file and event.action:"opened-file" and
 file.path : ("/etc/modprobe.conf" or "/etc/modprobe.d" or /etc/modprobe.d/*) and not process.name:(
-  cp or dpkg or dockerd or lynis or mkinitramfs or snapd or systemd-udevd or grep or borg or auditbeat or lspci or
+  cp or dpkg or dockerd or lynis or mkinitramfs or snapd or systemd-udevd or borg or auditbeat or lspci or
   aide or modprobe or python*
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
-
 
 [rule.threat.tactic]
 id = "TA0007"
@@ -78,9 +77,8 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.executable"]
+value = ["process.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
-
-
