@@ -2,7 +2,7 @@
 creation_date = "2024/04/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -59,7 +59,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and file.path : (
   // system-wide configurations
@@ -94,27 +93,26 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
     "/usr/libexec/platform-python*"
   ) or
   process.executable == null or
+  process.name in ("adclient", "mkhomedir_helper", "teleport", "mkhomedir", "adduser", "desktopDaemon") or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1546"
 name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1546.004"
 name = "Unix Shell Configuration Modification"
 reference = "https://attack.mitre.org/techniques/T1546/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
