@@ -2,7 +2,7 @@
 creation_date = "2024/03/13"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -53,43 +53,42 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 sample by host.id, process.pid, process.name
   /* auditd.data.a2 == "7" translates to RWX memory region protection (PROT_READ | PROT_WRITE | PROT_EXEC) */
-  [process where host.os.type == "linux" and auditd.data.syscall == "mprotect" and auditd.data.a2 == "7"]
+  [process where host.os.type == "linux" and auditd.data.syscall == "mprotect" and auditd.data.a2 == "7" and
+   not process.name == "httpd"]
   [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and
    not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-

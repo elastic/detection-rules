@@ -2,7 +2,7 @@
 creation_date = "2022/05/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -39,7 +39,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where
 /* net, sc or wmic stopping or deleting Elastic Agent on Windows */
@@ -52,7 +51,7 @@ or
 (event.type == "end" and
   (process.name : ("systemctl", "service") and
     process.args : "elastic-agent" and
-    process.args : "stop")
+    process.args : ("stop", "disable"))
   or
   /* pkill , killall used to stop Elastic Agent on Linux */
   ( event.type == "end" and process.name : ("pkill", "killall") and process.args: "elastic-agent")
@@ -63,22 +62,20 @@ or
     event.action : "end"))
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
