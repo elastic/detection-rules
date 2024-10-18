@@ -2,7 +2,7 @@
 creation_date = "2024/08/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/08/28"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -58,10 +58,11 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.name in ("update-ca-trust", "update-ca-certificates") and not (
-  process.parent.name : (
-    "ca-certificates.postinst", "ca-certificates-*.trigger", "pacman", "pamac-daemon", "autofirma.postinst"
+  process.parent.name like (
+    "ca-certificates.postinst", "ca-certificates-*.trigger", "pacman", "pamac-daemon", "autofirma.postinst",
+    "ipa-client-install", "su", "platform-python", "python*", "kesl", "execd"
   ) or
-  process.parent.args : "/var/tmp/rpm*" or
+  process.parent.args like "/var/tmp/rpm*" or
   (process.parent.name in ("sh", "bash", "zsh") and process.args == "-e")
 )
 '''
