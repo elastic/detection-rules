@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/18"
 
 [transform]
 [[transform.osquery]]
@@ -112,11 +112,13 @@ sequence by host.id with maxspan=5s
     not process.executable : ("C:\\Windows\\SoftwareDistribution\\*.exe", "C:\\Windows\\WinSxS\\*.exe")
    ] by process.executable
    [file where host.os.type == "windows" and event.type == "deletion" and file.extension : ("exe", "scr", "com") and
+    and process.code_signature.trusted != true and
     not process.executable :
              ("?:\\Program Files\\*.exe",
               "?:\\Program Files (x86)\\*.exe",
               "?:\\Windows\\System32\\svchost.exe",
-              "?:\\Windows\\System32\\drvinst.exe") and
+              "?:\\Windows\\System32\\drvinst.exe"
+              "?:\\Windows\\Postillion\\Office\\*.exe) and
     not file.path : (
           "?:\\Program Files\\*.exe",
           "?:\\Program Files (x86)\\*.exe",
@@ -124,7 +126,8 @@ sequence by host.id with maxspan=5s
           "?:\\$WINDOWS.~BT\\Work\\*\\DismHost.exe",
           "?:\\$WinREAgent\\Scratch\\*\\DismHost.exe",
           "?:\\Windows\\tenable_mw_scan_*.exe",
-          "?:\\Users\\*\\AppData\\Local\\Temp\\LogiUI\\Pak\\uninstall.exe"
+          "?:\\Users\\*\\AppData\\Local\\Temp\\LogiUI\\Pak\\uninstall.exe",
+          "?:\\ProgramData\\chocolatey\\*.exe
     )
    ] by file.path
 '''
