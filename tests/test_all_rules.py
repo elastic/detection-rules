@@ -813,9 +813,9 @@ class TestRuleMetadata(BaseRuleTest):
                         index_map = ['apm']
                     else:
                         # Split by hyphen to get the second part of index
-                        part1, _, part2 = index.partition('-')
+                        index_part1, _, index_part2 = index.partition('-')
                         #  Use regular expression to extract alphanumeric words, which is integration name
-                        parsed_integration = re.search(r'\b\w+\b', part2 or part1)
+                        parsed_integration = re.search(r'\b\w+\b', index_part2 or index_part1)
                         index_map = [parsed_integration.group(0) if parsed_integration else None]
                     if not index_map:
                         self.fail(f'{self.rule_str(rule)} Could not determine the integration from Index {index}')
