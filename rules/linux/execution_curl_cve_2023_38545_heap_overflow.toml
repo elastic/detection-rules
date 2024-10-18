@@ -2,7 +2,7 @@
 creation_date = "2023/10/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -75,28 +75,27 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "curl" 
 and (
-  process.args : ("--socks5-hostname", "--proxy", "--preproxy", "socks5*") or 
-  process.env_vars: ("http_proxy=socks5h://*", "HTTPS_PROXY=socks5h://*", "ALL_PROXY=socks5h://*")
-) and length(process.command_line) > 255 and 
-not process.parent.name in ("cf-agent", "agent-run", "agent-check", "rudder", "agent-inventory", "cf-execd") and
-not process.args == "/opt/rudder/bin/curl"
+  process.args like ("--socks5-hostname", "--proxy", "--preproxy", "socks5*") or 
+  process.env_vars like ("http_proxy=socks5h://*", "HTTPS_PROXY=socks5h://*", "ALL_PROXY=socks5h://*")
+) and length(process.command_line) > 255 and not (
+  process.parent.name in ("cf-agent", "agent-run", "agent-check", "rudder", "agent-inventory", "cf-execd") or
+  process.args like "/opt/rudder/*" or
+  process.parent.executable like ("/vz/root/*", "/var/rudder/*")
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1203"
 name = "Exploitation for Client Execution"
 reference = "https://attack.mitre.org/techniques/T1203/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
