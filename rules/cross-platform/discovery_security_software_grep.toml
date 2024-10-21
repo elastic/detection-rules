@@ -2,7 +2,7 @@
 creation_date = "2020/12/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -68,7 +68,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where event.type == "start" and
 process.name : "grep" and user.id != "0" and
@@ -106,6 +105,7 @@ process.name : "grep" and user.id != "0" and
           ) and
    not (
      (process.args : "Avast" and process.args : "Passwords") or
+     (process.args == "osquery.conf") or 
      (process.parent.args : "/opt/McAfee/agent/scripts/ma" and process.parent.args : "checkhealth") or
      (process.command_line : (
        "grep ESET Command-line scanner, version %s -A2",
@@ -121,22 +121,20 @@ process.name : "grep" and user.id != "0" and
     )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1518"
 name = "Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1518.001"
 name = "Security Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
