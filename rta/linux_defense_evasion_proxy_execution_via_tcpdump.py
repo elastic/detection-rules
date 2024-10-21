@@ -4,38 +4,35 @@
 # 2.0.
 
 import sys
-
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="96afe4b1-d8f3-4f95-b92b-645a39508174",
+    uuid="04c7ac98-3d40-4472-b9bf-996d2a31d227",
     platforms=["linux"],
     endpoint=[
         {
-            "rule_name": "Hidden Executable Initiated Egress Network Connection",
-            "rule_id": "c14705f7-ebd3-4cf7-88b3-6bff2d832f1b",
+            "rule_name": "Potential Proxy Execution via Tcpdump",
+            "rule_id": "b1d81dfe-93d7-4d7d-827d-5def574e8cda",
         },
     ],
-    techniques=["T1564"],
+    techniques=["T1218", "T1059"],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
-    common.log("Creating a fake hidden executable..")
-    masquerade = "/tmp/.evil"
-    source = common.get_path("bin", "netcon_exec_chain.elf")
+    common.log("Creating a fake executable..")
+    masquerade = "/tmp/tcpdump"
+
+    source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
     common.log("Granting execute permissions...")
     common.execute(["chmod", "+x", masquerade])
 
-    commands = [masquerade, "netcon", "-h", "8.8.8.8", "-p", "53"]
+    commands = [masquerade, '-W', '-w', '-z']
     common.execute([*commands], timeout=5, kill=True)
-
     common.log("Cleaning...")
-
     common.remove_file(masquerade)
-
     common.log("Simulation successfull!")
 
 
