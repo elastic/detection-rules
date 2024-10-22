@@ -4,38 +4,42 @@
 # 2.0.
 
 import sys
-
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="96afe4b1-d8f3-4f95-b92b-645a39508174",
+    uuid="4e6ded7e-23cb-460c-8a5b-21c5e5e8d6e8",
     platforms=["linux"],
     endpoint=[
         {
-            "rule_name": "Hidden Executable Initiated Egress Network Connection",
-            "rule_id": "c14705f7-ebd3-4cf7-88b3-6bff2d832f1b",
+            "rule_name": "Potential Process Masquerading via Exec",
+            "rule_id": "e6669bc3-cb75-4fb3-91e0-ddaa06dd59b2",
         },
     ],
-    techniques=["T1564"],
+    techniques=["T1564", "T1059"],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
-    common.log("Creating a fake hidden executable..")
-    masquerade = "/tmp/.evil"
-    source = common.get_path("bin", "netcon_exec_chain.elf")
+    common.log("Creating a fake executable..")
+    masquerade = "[foo]"
+    masquerade2 = "/tmp/sh"
+
+    source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
     common.log("Granting execute permissions...")
     common.execute(["chmod", "+x", masquerade])
 
-    commands = [masquerade, "netcon", "-h", "8.8.8.8", "-p", "53"]
+    source = common.get_path("bin", "linux.ditto_and_spawn")
+    common.copy_file(source, masquerade2)
+    common.log("Granting execute permissions...")
+    common.execute(["chmod", "+x", masquerade2])
+
+    commands = [masquerade2, masquerade]
     common.execute([*commands], timeout=5, kill=True)
-
     common.log("Cleaning...")
-
     common.remove_file(masquerade)
-
+    common.remove_file(masquerade2)
     common.log("Simulation successfull!")
 
 
