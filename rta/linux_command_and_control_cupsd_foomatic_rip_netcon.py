@@ -21,17 +21,17 @@ metadata = RtaMetadata(
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
-    # Path for the fake motd executable
+    # Path for the fake executable
     masquerade = "/tmp/foomatic-rip"
     source = common.get_path("bin", "netcon_exec_chain.elf")
 
-    common.log("Creating a fake motd executable..")
+    common.log("Creating a fake executable..")
     common.copy_file(source, masquerade)
     common.log("Granting execute permissions...")
     common.execute(['chmod', '+x', masquerade])
 
-    # Execute the fake motd executable
-    common.log("Executing the fake motd executable..")
+    # Execute the fake executable
+    common.log("Executing the fake executable..")
     commands = [
         masquerade,
         'chain',
