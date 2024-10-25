@@ -4,38 +4,35 @@
 # 2.0.
 
 import sys
-
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="96afe4b1-d8f3-4f95-b92b-645a39508174",
+    uuid="8f5607f7-4c55-4458-b908-b2cb22c54cf4",
     platforms=["linux"],
     endpoint=[
         {
-            "rule_name": "Hidden Executable Initiated Egress Network Connection",
-            "rule_id": "c14705f7-ebd3-4cf7-88b3-6bff2d832f1b",
+            "rule_name": "Reverse or Bind Shell via Suspicious Utility",
+            "rule_id": "bb330560-0042-48a5-8232-7f2012d6e440",
         },
     ],
-    techniques=["T1564"],
+    techniques=["T1059", "T1071"],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
-    common.log("Creating a fake hidden executable..")
-    masquerade = "/tmp/.evil"
-    source = common.get_path("bin", "netcon_exec_chain.elf")
+    common.log("Creating a fake executable..")
+    masquerade = "/tmp/vim"
+
+    source = common.get_path("bin", "linux.ditto_and_spawn")
     common.copy_file(source, masquerade)
     common.log("Granting execute permissions...")
     common.execute(["chmod", "+x", masquerade])
 
-    commands = [masquerade, "netcon", "-h", "8.8.8.8", "-p", "53"]
+    commands = [masquerade, '-c', "socket"]
     common.execute([*commands], timeout=5, kill=True)
-
     common.log("Cleaning...")
-
     common.remove_file(masquerade)
-
     common.log("Simulation successfull!")
 
 

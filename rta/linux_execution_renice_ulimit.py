@@ -8,34 +8,37 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="96afe4b1-d8f3-4f95-b92b-645a39508174",
+    uuid="9e7ec69a-50cb-4bce-8ace-50e4e6f0199d",
     platforms=["linux"],
     endpoint=[
         {
-            "rule_name": "Hidden Executable Initiated Egress Network Connection",
-            "rule_id": "c14705f7-ebd3-4cf7-88b3-6bff2d832f1b",
+            "rule_name": "Renice or Ulimit Execution",
+            "rule_id": "57ed0e43-643a-47f3-936e-138dc6f480da",
         },
     ],
-    techniques=["T1564"],
+    techniques=["T1059"],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
-    common.log("Creating a fake hidden executable..")
-    masquerade = "/tmp/.evil"
+    common.log("Creating a fake executable..")
+    masquerade = "/dev/shm/evil"
+
     source = common.get_path("bin", "netcon_exec_chain.elf")
     common.copy_file(source, masquerade)
-    common.log("Granting execute permissions...")
     common.execute(["chmod", "+x", masquerade])
 
-    commands = [masquerade, "netcon", "-h", "8.8.8.8", "-p", "53"]
+    masquerade2 = "/dev/shm/renice"
+    common.copy_file(source, masquerade2)
+    common.log("Granting execute permissions...")
+    common.execute(["chmod", "+x", masquerade2])
+
+    commands = [masquerade, "exec", "-c", "/dev/shm/renice"]
     common.execute([*commands], timeout=5, kill=True)
-
     common.log("Cleaning...")
-
     common.remove_file(masquerade)
-
+    common.remove_file(masquerade2)
     common.log("Simulation successfull!")
 
 
