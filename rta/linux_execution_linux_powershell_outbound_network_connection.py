@@ -3,8 +3,8 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import sys
 import subprocess
+import sys
 import time
 
 from . import RtaMetadata, common
@@ -29,22 +29,22 @@ def main() -> None:
     network_command = "exec 3<>/dev/tcp/8.8.8.8/53"
 
     # Create the fake parent process script
-    with open(parent_process_path, "w") as parent_script:
+    with open(parent_process_path, "w") as parent_script:  # noqa: PTH123
         parent_script.write("#!/bin/bash\n")
         parent_script.write(f"{child_script_path}\n")
 
     # Create the child script that will make the network connection
-    with open(child_script_path, "w") as child_script:
+    with open(child_script_path, "w") as child_script:  # noqa: PTH123
         child_script.write("#!/bin/bash\n")
         child_script.write(f"{network_command}\n")
 
     # Make the scripts executable
-    common.execute(['chmod', '+x', parent_process_path])
-    common.execute(['chmod', '+x', child_script_path])
+    common.execute(["chmod", "+x", parent_process_path])
+    common.execute(["chmod", "+x", child_script_path])
 
     # Execute the parent process script
     common.log("Executing the fake parent process script")
-    subprocess.Popen([parent_process_path])
+    subprocess.Popen([parent_process_path])  # noqa: S603
 
     # Allow some time for the network connection to be attempted
     time.sleep(5)

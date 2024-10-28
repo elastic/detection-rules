@@ -4,6 +4,7 @@
 # 2.0.
 
 import sys
+
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
