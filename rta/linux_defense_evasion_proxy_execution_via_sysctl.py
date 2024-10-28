@@ -4,6 +4,7 @@
 # 2.0.
 
 import sys
+
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
@@ -35,7 +36,7 @@ def main() -> None:
     common.log("Granting execute permissions...")
     common.execute(["chmod", "+x", masquerade2])
 
-    commands = [masquerade, masquerade, 'kernel.core_pattern=/bin/sh -c']
+    commands = [masquerade, masquerade, "kernel.core_pattern=/bin/sh -c"]
     common.execute([*commands], timeout=5, kill=True)
     common.log("Cleaning...")
     common.remove_file(masquerade)
