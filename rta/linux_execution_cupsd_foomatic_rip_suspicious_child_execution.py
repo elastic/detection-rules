@@ -8,29 +8,29 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="074901e7-118b-4536-bbed-0e57c319ba2a",
+    uuid="00a75607-9f1d-45c1-a9d8-41229cdb561f",
     platforms=["linux"],
     endpoint=[
         {
-            "rule_name": "Base64 Shebang Payload Decoded via Built-in Utility",
-            "rule_id": "e659b4b9-5bbf-4839-96b9-b489334b4ca1",
+            "rule_name": "Suspicious Execution from Foomatic-rip or Cupsd Parent",
+            "rule_id": "7c4d6361-3e7f-481a-9313-d1d1c0e5a3a9",
         },
     ],
-    techniques=["T1027", "T1140", "T1059", "T1204"],
+    techniques=["T1203"],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
     common.log("Creating a fake executable..")
-    masquerade = "/tmp/base64"
+    masquerade = "/tmp/foomatic-rip"
 
-    source = common.get_path("bin", "linux.ditto_and_spawn")
+    source = common.get_path("bin", "netcon_exec_chain.elf")
     common.copy_file(source, masquerade)
     common.log("Granting execute permissions...")
     common.execute(["chmod", "+x", masquerade])
 
-    commands = [masquerade, "-d", "IyEvdXNyL2Jpbi9weXRob24"]
+    commands = [masquerade, "exec", "-c", "/dev/tcp"]
     common.execute([*commands], timeout=5, kill=True)
     common.log("Cleaning...")
     common.remove_file(masquerade)
