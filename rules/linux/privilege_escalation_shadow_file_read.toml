@@ -2,7 +2,7 @@
 creation_date = "2022/09/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -56,22 +56,23 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 host.os.type : "linux" and event.category : "process" and event.action : ("exec" or "exec_event") and
-(process.args : "/etc/shadow" or (process.working_directory: "/etc" and process.args: "shadow")) and not 
-(process.executable : ("/bin/chown" or "/usr/bin/chown") and process.args : "root:shadow") and not 
-(process.executable : ("/bin/chmod" or "/usr/bin/chmod") and process.args : "640")
+(process.args : "/etc/shadow" or (process.working_directory: "/etc" and process.args: "shadow")) and not (
+  (process.executable : ("/bin/chown" or "/usr/bin/chown") and process.args : "root:shadow") or
+  (process.executable : ("/bin/chmod" or "/usr/bin/chmod") and process.args : "640") or
+  process.executable:(/vz/* or /var/lib/docker/* or /run/containerd/* or /tmp/.criu* or /tmp/newroot/*) or
+  process.parent.name:(gen_passwd_sets or scc_* or wazuh-modulesd)
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
-
 
 [rule.threat.tactic]
 id = "TA0004"
@@ -79,16 +80,16 @@ name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1003"
 name = "OS Credential Dumping"
 reference = "https://attack.mitre.org/techniques/T1003/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1003.008"
 name = "/etc/passwd and /etc/shadow"
 reference = "https://attack.mitre.org/techniques/T1003/008/"
-
-
 
 [rule.threat.tactic]
 id = "TA0006"
@@ -97,9 +98,8 @@ reference = "https://attack.mitre.org/tactics/TA0006/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.command_line", "host.id", "process.executable"]
+value = ["process.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
-
-
