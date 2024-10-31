@@ -1,0 +1,59 @@
+name: Version Code Check and Draft Release
+
+on:
+  pull_request:
+    paths:
+      - 'lib/kql/**'
+      - 'lib/kibana/**'
+      - 'hunting/**'
+      - 'etc/**'
+      - 'pyproject.toml'
+    types: [opened, reopened, synchronize]
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  version_check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for changes in kql, kibana, hunting, and etc
+        id: check_changes
+        run: |
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E 'lib/kql|lib/kibana|detection_rules|tests|hunting|etc/' || echo "no-changes")
+          if [ "$CHANGED_FILES" != "no-changes" ]; then
+            echo "CHANGES_FOUND=true" >> $GITHUB_ENV
+          else
+            echo "CHANGES_FOUND=false" >> $GITHUB_ENV
+          fi
+
+      - name: Fail if no version bump in pyproject.toml
+        if: env.CHANGES_FOUND == 'true'
+        run: |
+          if ! git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep 'pyproject.toml'; then
+            echo "Code changes detected in but core pyproject.toml was not updated."
+            exit 1
+          fi
+
+  release_drafter:
+    needs: version_check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Release Drafter
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
