@@ -1,11 +1,9 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/09/14"
-bypass_bbr_timing = true
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -15,20 +13,21 @@ This rule identifies the execution of commands that enumerates account or group 
 built-in applications to get a listing of local system or domain accounts and groups.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Account or Group Discovery"
 risk_score = 21
 rule_id = "089db1af-740d-4d84-9a5b-babd6de143b0"
 severity = "low"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Rule Type: BBR",
-        "Data Source: Elastic Defend"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -62,14 +61,13 @@ process where host.os.type == "windows" and event.type == "start" and
 and not process.parent.name : "LTSVC.exe" and not user.id : "S-1-5-18"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1069.001"
 name = "Local Groups"
@@ -80,16 +78,11 @@ id = "T1069.002"
 name = "Domain Groups"
 reference = "https://attack.mitre.org/techniques/T1069/002/"
 
-[[rule.threat.technique]]
-id = "T1201"
-name = "Password Policy Discovery"
-reference = "https://attack.mitre.org/techniques/T1201/"
 
 [[rule.threat.technique]]
 id = "T1087"
 name = "Account Discovery"
 reference = "https://attack.mitre.org/techniques/T1087/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1087.001"
 name = "Local Account"
@@ -100,7 +93,15 @@ id = "T1087.002"
 name = "Domain Account"
 reference = "https://attack.mitre.org/techniques/T1087/002/"
 
+
+[[rule.threat.technique]]
+id = "T1201"
+name = "Password Policy Discovery"
+reference = "https://attack.mitre.org/techniques/T1201/"
+
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+

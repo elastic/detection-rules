@@ -2,9 +2,7 @@
 creation_date = "2021/02/23"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/15"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -59,13 +57,20 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: Execution", "Tactic: Command and Control", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
 
 query = '''
-sequence by host.id, user.id with maxspan=30s
-[process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and process.parent.name : ("installer", "package_script_service") and process.name : ("bash", "sh", "zsh", "python", "osascript", "tclsh*")]
-[network where host.os.type == "macos" and event.type == "start" and process.name : ("curl", "osascript", "wget", "python")]
+sequence by host.id with maxspan=15s
+[process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and process.parent.name : ("installer", "package_script_service") and process.name : ("bash", "sh", "zsh", "python", "osascript", "tclsh*")] by process.entity_id
+[network where host.os.type == "macos" and event.type == "start" and process.name : ("curl", "osascript", "wget", "python", "java", "ruby", "node")] by process.parent.entity_id
 '''
 
 

@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/10/19"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/10/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -13,23 +13,28 @@ Identifies suspicious file creations in the startup folder of a remote system. A
 laterally by dropping a malicious script or executable that will be executed after a reboot or user logon.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["logs-endpoint.events.file-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Lateral Movement via Startup Folder"
-references = ["https://www.mdsec.co.uk/2017/06/rdpinception/"]
+references = [
+    "https://www.mdsec.co.uk/2017/06/rdpinception/",
+    "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
+]
 risk_score = 73
 rule_id = "25224a80-5a4a-4b8a-991e-6ab390465c4f"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -50,11 +55,11 @@ framework = "MITRE ATT&CK"
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1021.001"
 name = "Remote Desktop Protocol"
 reference = "https://attack.mitre.org/techniques/T1021/001/"
+
 
 
 [rule.threat.tactic]

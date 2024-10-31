@@ -2,9 +2,7 @@
 creation_date = "2023/07/28"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/07/18"
 
 [rule]
 author = ["Elastic"]
@@ -48,17 +46,28 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Execution", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by host.id with maxspan=1s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
     (process.name == "tar" and process.args : "--checkpoint=*" and process.args : "--checkpoint-action=*") or
     (process.name == "rsync" and process.args : "-e*") or
-    (process.name == "zip" and process.args == "--unzip-command") )]  by process.entity_id
+    (process.name == "zip" and process.args == "--unzip-command")
+   ) and not process.executable : "/tmp/newroot/*"
+  ]  by process.entity_id
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
      process.parent.name : ("tar", "rsync", "zip") and 
-     process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")] by process.parent.entity_id
+     process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
+  ] by process.parent.entity_id
 '''
 
 [[rule.threat]]

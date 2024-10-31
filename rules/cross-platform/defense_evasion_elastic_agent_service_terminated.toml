@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2022/05/23"
-maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
 integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -30,10 +28,17 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: Windows", "OS: macOS", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where
 /* net, sc or wmic stopping or deleting Elastic Agent on Windows */
@@ -46,7 +51,7 @@ or
 (event.type == "end" and
   (process.name : ("systemctl", "service") and
     process.args : "elastic-agent" and
-    process.args : "stop")
+    process.args : ("stop", "disable"))
   or
   /* pkill , killall used to stop Elastic Agent on Linux */
   ( event.type == "end" and process.name : ("pkill", "killall") and process.args: "elastic-agent")
@@ -57,22 +62,20 @@ or
     event.action : "end"))
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

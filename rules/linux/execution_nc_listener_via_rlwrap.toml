@@ -2,15 +2,13 @@
 creation_date = "2023/09/22"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
 Monitors for the execution of a netcat listener via rlwrap. rlwrap is a 'readline wrapper', a small utility that uses
-the GNU Readline library to allow the editing of keyboard input for any command. This utility can be used in conjunction 
+the GNU Readline library to allow the editing of keyboard input for any command. This utility can be used in conjunction
 with netcat to gain a more stable reverse shell.
 """
 false_positives = [
@@ -54,35 +52,39 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "low"
-tags = ["Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
 process.name == "rlwrap" and process.args in ("nc", "ncat", "netcat", "nc.openbsd", "socat") and
 process.args : "*l*" and process.args_count >= 4
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+

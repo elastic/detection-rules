@@ -4,8 +4,8 @@
 # 2.0.
 
 """RTA to rule mappings."""
-import os
 from collections import defaultdict
+from pathlib import Path
 
 from rta import get_available_tests
 
@@ -22,7 +22,7 @@ class RtaMappings:
 
     def __init__(self):
         """Rta-mapping validation and prep."""
-        self.mapping: dict = load_etc_dump('rule-mapping.yml')
+        self.mapping: dict = load_etc_dump('rule-mapping.yaml')
         self.validate()
 
         self._rta_mapping = defaultdict(list)
@@ -48,7 +48,7 @@ class RtaMappings:
 
         mapping[rule.id] = rule_map
         self.mapping = dict(sorted(mapping.items()))
-        save_etc_dump(self.mapping, 'rule-mapping.yml')
+        save_etc_dump(self.mapping, 'rule-mapping.yaml')
         return rule_map
 
     def get_rta_mapping(self):
@@ -71,9 +71,9 @@ class RtaMappings:
 
         for rta_name in rta_list:
             # rip off the extension and add .py
-            rta_name, _ = os.path.splitext(os.path.basename(rta_name))
-            rta_path = os.path.abspath(os.path.join(RTA_DIR, rta_name + ".py"))
-            if os.path.exists(rta_path):
+            rta_name = Path(rta_name).stem
+            rta_path = (RTA_DIR / rta_name).with_suffix(".py").resolve()
+            if rta_path.exists():
                 rta_files.add(rta_path)
 
         return list(sorted(rta_files))

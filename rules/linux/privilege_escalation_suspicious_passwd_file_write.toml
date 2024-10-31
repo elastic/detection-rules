@@ -2,9 +2,7 @@
 creation_date = "2024/01/22"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/19"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -71,14 +69,15 @@ However, if more advanced configuration is required to detect specific behavior,
 """
 severity = "medium"
 tags = [
-        "Data Source: Auditd Manager",
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Privilege Escalation",
-        "Data Source: Elastic Defend"
-        ]
+    "Data Source: Auditd Manager",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.parent.pid with maxspan=1m
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
@@ -87,15 +86,17 @@ sequence by host.id, process.parent.pid with maxspan=1m
    not auditd.data.a2 == "80000" and event.outcome == "success" and user.id != "0"]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

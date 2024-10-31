@@ -2,15 +2,13 @@
 creation_date = "2023/08/28"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule monitors for the creation of a file, followed by its execution and self-deletion in a short timespan within a
-directory often used for malicious purposes by threat actors. This behavior is often used by malware to execute 
+directory often used for malicious purposes by threat actors. This behavior is often used by malware to execute
 malicious code and delete itself to hide its tracks.
 """
 from = "now-9m"
@@ -46,7 +44,13 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
 query = '''
 sequence by host.id, user.id with maxspan=1m
@@ -55,7 +59,11 @@ sequence by host.id, user.id with maxspan=1m
    file.path : ("/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*",
      "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*")] by file.name
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
-   process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")] by process.name
+   process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+   not process.parent.executable like (
+     "/tmp/VeeamApp*", "/tmp/rajh/spack-stage/*", "plz-out/bin/vault/bridge/test/e2e/base/bridge-dev",
+     "/usr/bin/ranlib", "/usr/bin/ar", "plz-out/bin/vault/bridge/test/e2e/base/local-k8s"  
+   )] by process.name
   [file where host.os.type == "linux" and event.action == "deletion" and not process.name in ("rm", "ld") and 
    file.path : ("/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*",
      "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*")] by file.name

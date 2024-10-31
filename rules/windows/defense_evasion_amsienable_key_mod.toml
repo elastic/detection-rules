@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2021/06/01"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/10/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies modifications of the AmsiEnable registry key to 0, which disables the
 adversary can modify this key to disable AMSI protections.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Modification of AmsiEnable Registry Key"
@@ -73,14 +73,6 @@ references = [
 ]
 risk_score = 73
 rule_id = "f874315d-5188-4b4a-8521-d1c73093a7e4"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -90,24 +82,31 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
-    "Data Source: Sysmon"
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type in ("creation", "change") and
-  registry.path : (
-    "HKEY_USERS\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable",
-    "HKU\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable",
-    "\\REGISTRY\\USER\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable"
-  ) and
-  registry.data.strings: ("0", "0x00000000")
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.value : "AmsiEnable" and registry.data.strings: ("0", "0x00000000")
+
+  /*
+    Full registry key path omitted due to data source variations:
+    HKEY_USERS\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable"
+  */
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
@@ -117,10 +116,6 @@ id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-[[rule.threat.technique]]
-id = "T1112"
-name = "Modify Registry"
-reference = "https://attack.mitre.org/techniques/T1112/"
 
 
 [rule.threat.tactic]

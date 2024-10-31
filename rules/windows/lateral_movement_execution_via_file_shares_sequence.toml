@@ -2,9 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/01/03"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+updated_date = "2024/09/23"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +37,7 @@ Identifies the execution of a file that was created by the virtual system proces
 via network file shares.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process-*", "logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote Execution via File Shares"
@@ -91,11 +89,22 @@ Adversaries can use network shares to host tooling to support the compromise of 
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-references = ["http://web.archive.org/web/20230329172636/https://blog.menasec.net/2020/08/new-trick-to-detect-lateral-movement.html"]
+references = [
+    "http://web.archive.org/web/20230329172636/https://blog.menasec.net/2020/08/new-trick-to-detect-lateral-movement.html",
+    "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
+]
 risk_score = 47
 rule_id = "ab75c24b-2502-43a0-bf7c-e60e662c811e"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
 
 query = '''
@@ -107,15 +116,39 @@ sequence with maxspan=1m
       /* Veeam related processes */
       (
         process.name : (
-          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe", "Veeam.VSS.Sharepoint2010.exe"
+          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe", "Veeam.VSS.Sharepoint20??.exe"
         ) and process.code_signature.trusted == true and process.code_signature.subject_name : "Veeam Software Group GmbH"
       ) or
       /* PDQ related processes */
       (
         process.name : (
-          "PDQInventoryScanner.exe", "PDQInventoryMonitor.exe", "PDQInventory-Scanner-?.exe", "PDQInventoryWakeCommand-?.exe"
+          "PDQInventoryScanner.exe", "PDQInventoryMonitor.exe", "PDQInventory-Scanner-?.exe",
+          "PDQInventoryWakeCommand-?.exe", "PDQDeployRunner-?.exe"
         ) and process.code_signature.trusted == true and process.code_signature.subject_name : "PDQ.com Corporation"
-      )
+      ) or
+      /* CrowdStrike related processes */
+      (
+        (process.executable : "?:\\Windows\\System32\\drivers\\CrowdStrike\\*-WindowsSensor.*.exe" and 
+         process.code_signature.trusted == true and process.code_signature.subject_name : "CrowdStrike, Inc.") or
+        (process.executable : "?:\\Windows\\System32\\drivers\\CrowdStrike\\*-CsInstallerService.exe" and 
+         process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Windows Hardware Compatibility Publisher")
+      ) or
+      /* MS related processes */
+      (
+        process.executable == "System" or
+        (process.executable : "?:\\Windows\\ccmsetup\\ccmsetup.exe" and 
+         process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Corporation")
+      ) or
+      /* CyberArk processes */
+      (
+        process.executable : "?:\\Windows\\CAInvokerService.exe" and 
+        process.code_signature.trusted == true and process.code_signature.subject_name : "CyberArk Software Ltd."
+      )  or
+      /* Sophos processes */
+      (
+        process.executable : "?:\\ProgramData\\Sophos\\AutoUpdate\\Cache\\sophos_autoupdate1.dir\\SophosUpdate.exe" and 
+        process.code_signature.trusted == true and process.code_signature.subject_name : "Sophos Ltd"
+      ) 
     )
   ] by host.id, process.executable
 '''

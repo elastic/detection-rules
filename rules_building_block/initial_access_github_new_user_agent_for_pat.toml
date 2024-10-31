@@ -1,18 +1,14 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-min_stack_comments = "New fields added to GitHub Integration"
-min_stack_version = "8.8.0"
-updated_date = "2023/12/14"
-bypass_bbr_timing = true
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
-description = """
-Detects a new user agent used for a GitHub PAT not previously seen in the last 14 days.
-"""
+description = "Detects a new user agent used for a GitHub PAT not previously seen in the last 14 days.\n"
 from = "now-9m"
 index = ["logs-github.audit-*"]
 language = "kuery"
@@ -21,13 +17,14 @@ name = "First Occurrence of User Agent For a GitHub Personal Access Token (PAT)"
 risk_score = 21
 rule_id = "0e4367a0-a483-439d-ad2e-d90500b925fd"
 severity = "low"
-tags = ["Domain: Cloud",
-        "Use Case: Threat Detection",
-        "Use Case: UEBA",        
-        "Tactic: Initial Access",
-        "Rule Type: BBR",
-        "Data Source: Github"
-        ]
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Tactic: Initial Access",
+    "Rule Type: BBR",
+    "Data Source: Github",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -36,6 +33,7 @@ event.dataset:"github.audit" and event.category:"configuration" and
 github.user_agent:* and github.hashed_token:* and
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token")
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -48,6 +46,8 @@ id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
@@ -56,7 +56,8 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["github.hashed_token", "github.user_agent"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

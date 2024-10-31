@@ -2,18 +2,16 @@
 creation_date = "2023/07/31"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects potential sudo token manipulation attacks through process injection by monitoring the use of a 
-debugger (gdb) process followed by a successful uid change event during the execution of the sudo process. A sudo token 
+This rule detects potential sudo token manipulation attacks through process injection by monitoring the use of a
+debugger (gdb) process followed by a successful uid change event during the execution of the sudo process. A sudo token
 manipulation attack is performed by injecting into a process that has a valid sudo token, which can then be used by
-attackers to activate their own sudo token. This attack requires ptrace to be enabled in conjunction with the existence 
-of a living process that has a valid sudo token with the same uid as the current user. 
+attackers to activate their own sudo token. This attack requires ptrace to be enabled in conjunction with the existence
+of a living process that has a valid sudo token with the same uid as the current user.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -49,8 +47,15 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.session_leader.entity_id with maxspan=15s
 [ process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
@@ -59,30 +64,32 @@ sequence by host.id, process.session_leader.entity_id with maxspan=15s
   process.name == "sudo" and process.user.id == "0" and process.group.id == "0" ]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1055"
 name = "Process Injection"
 reference = "https://attack.mitre.org/techniques/T1055/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1055.008"
 name = "Ptrace System Calls"
 reference = "https://attack.mitre.org/techniques/T1055/008/"
 
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

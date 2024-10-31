@@ -1,17 +1,14 @@
 [metadata]
 creation_date = "2023/12/14"
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/12/18"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule is part of the "GitHub UEBA - Unusual Activity from Account Pack", and leverages alert data to
-determine when multiple alerts are executed by the same user in a timespan of one hour. 
-Analysts can use this to prioritize triage and response, as these alerts are a higher indicator of compromised user
-accounts or PATs.
+This rule is part of the "GitHub UEBA - Unusual Activity from Account Pack", and leverages alert data to determine when
+multiple alerts are executed by the same user in a timespan of one hour. Analysts can use this to prioritize triage and
+response, as these alerts are a higher indicator of compromised user accounts or PATs.
 """
 from = "now-60m"
 index = [".alerts-security.*"]
@@ -21,19 +18,21 @@ name = "GitHub UEBA - Multiple Alerts from a GitHub Account"
 risk_score = 47
 rule_id = "929223b4-fba3-4a1c-a943-ec4716ad23ec"
 severity = "medium"
-tags = ["Domain: Cloud",
-        "Use Case: Threat Detection",
-        "Use Case: UEBA",
-        "Tactic: Execution",
-        "Rule Type: Higher-Order Rule",
-        "Data Source: Github"
-        ]
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Tactic: Execution",
+    "Rule Type: Higher-Order Rule",
+    "Data Source: Github",
+]
 timestamp_override = "event.ingested"
 type = "threshold"
 
 query = '''
 signal.rule.tags:("Use Case: UEBA" and "Data Source: Github") and kibana.alert.workflow_status:"open"
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -46,7 +45,8 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 [rule.threshold]
 field = ["user.name"]
 value = 1
-
 [[rule.threshold.cardinality]]
 field = "signal.rule.name"
 value = 5
+
+

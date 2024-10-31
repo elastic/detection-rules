@@ -27,7 +27,7 @@ from .schemas import definitions
 from .utils import get_path, unzip_to_dict
 
 
-ML_PATH = Path(get_path('machine-learning'))
+ML_PATH = get_path('machine-learning')
 
 
 def info_from_tag(tag: str) -> (Literal['ml'], definitions.MachineLearningType, str, int):

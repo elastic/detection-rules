@@ -15,6 +15,7 @@ from ..mixins import MarshmallowDataclassMixin
 @dataclass
 class ConditionElastic:
     subscription: str
+    capabilities: Optional[List[str]]
 
 
 @dataclass

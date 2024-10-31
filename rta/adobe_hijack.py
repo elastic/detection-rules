@@ -4,11 +4,10 @@
 # 2.0.
 
 # Name: Adobe Hijack Persistence
-# RTA: adobe_hijack.py
 # ATT&CK: T1044
 # Description: Replaces PE file that will run on Adobe Reader start.
 
-import os
+import sys
 from pathlib import Path
 
 from . import RtaMetadata, common
@@ -23,7 +22,7 @@ metadata = RtaMetadata(
 
 
 @common.requires_os(*metadata.platforms)
-def main():
+def main() -> None:
     rdr_cef_dir = Path("C:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF")
     rdrcef_exe = rdr_cef_dir / "RdrCEF.exe"
     cmd_path = "C:\\Windows\\System32\\cmd.exe"
@@ -32,11 +31,11 @@ def main():
 
     # backup original if it exists
     if rdrcef_exe.is_file():
-        common.log("{} already exists, backing up file.".format(rdrcef_exe))
+        common.log(f"{rdrcef_exe} already exists, backing up file.")
         common.copy_file(rdrcef_exe, backup)
         backedup = True
     else:
-        common.log("{} doesn't exist. Creating path.".format(rdrcef_exe))
+        common.log(f"{rdrcef_exe} doesn't exist. Creating path.")
         rdr_cef_dir.mkdir(parents=True)
 
     # overwrite original
@@ -53,4 +52,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

@@ -2,9 +2,9 @@
 creation_date = "2021/12/12"
 integration = ["system", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2024/10/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -36,7 +36,17 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Use Case: Active Directory Monitoring", "Data Source: Active Directory", "Use Case: Vulnerability"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Use Case: Active Directory Monitoring",
+    "Data Source: Active Directory",
+    "Use Case: Vulnerability",
+    "Data Source: System",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -49,7 +59,6 @@ iam where event.action == "renamed-user-account" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"

@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2020/07/13"
-maturity = "production"
-min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
-min_stack_version = "8.9.0"
-updated_date = "2023/10/24"
 integration = ["aws"]
+maturity = "production"
+updated_date = "2024/06/18"
 
 [rule]
 anomaly_threshold = 50
@@ -26,6 +24,27 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "rare_method_for_a_country"
 name = "Unusual Country For an AWS Command"
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from AWS.
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### AWS Integration Setup
+The AWS integration allows you to collect logs and metrics from Amazon Web Services (AWS) with Elastic Agent.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "aws" to your system:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “AWS” and select the integration to see more details about it.
+- Click “Add AWS”.
+- Configure the integration name and optionally add a description.
+- Review optional and advanced settings accordingly.
+- Add the newly installed “aws” to an existing or a new agent policy, and deploy the agent on your system from which aws log files are desirable.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/current/integrations/aws).
+"""
 note = """## Triage and analysis
 
 ### Investigating Unusual Country For an AWS Command
@@ -82,15 +101,18 @@ Detection alerts from this rule indicate an AWS API command or method call that 
 - Take the actions needed to return affected systems, data, or services to their normal operational levels.
 - Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 """
 references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
 risk_score = 21
 rule_id = "dca28dee-c999-400f-b640-50a081cc0fd1"
 severity = "low"
-tags = ["Domain: Cloud", "Data Source: AWS", "Data Source: Amazon Web Services", "Rule Type: ML", "Rule Type: Machine Learning", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Resources: Investigation Guide",
+]
 type = "machine_learning"
 

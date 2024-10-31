@@ -2,15 +2,13 @@
 creation_date = "2023/07/04"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/12/13"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This detection rule detects the creation of a shell through a suspicious process chain. Any reverse shells spawned by 
-the specified utilities that are initialized from a single process followed by a network connection attempt will be 
+This detection rule detects the creation of a shell through a suspicious process chain. Any reverse shells spawned by
+the specified utilities that are initialized from a single process followed by a network connection attempt will be
 captured through this rule. Attackers may spawn reverse shells to establish persistence onto a target system.
 """
 from = "now-9m"
@@ -19,7 +17,7 @@ language = "eql"
 license = "Elastic License v2"
 name = "Potential Reverse Shell via Suspicious Child Process"
 references = [
-    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
+    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md",
 ]
 risk_score = 47
 rule_id = "76e4d92b-61c1-4a95-ab61-5fd94179a1ee"
@@ -50,13 +48,14 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
   [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "fork") and (
@@ -86,33 +85,34 @@ sequence by host.id, process.entity_id with maxspan=1s
     destination.ip != null and not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+
 
 [rule.threat.tactic]
-name = "Command and Control"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
 id = "TA0011"
+name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat.technique]]
-name = "Application Layer Protocol"
-id = "T1071"
-reference = "https://attack.mitre.org/techniques/T1071/"

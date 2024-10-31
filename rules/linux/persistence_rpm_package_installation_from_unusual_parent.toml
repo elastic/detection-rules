@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2024/07/10"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
+min_stack_version = "8.4.0"
+updated_date = "2024/07/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages the new_terms rule type to identify the installation of RPM packages by an unusual parent process.
+RPM is a package management system used in Linux systems such as Red Hat, CentOS and Fedora. Attacks may backdoor RPM 
+packages to gain initial access or install malicious RPM packages to maintain persistence.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "RPM Package Installed by Unusual Parent Process"
+risk_score = 21
+rule_id = "8cc72fa3-70ae-4ea1-bee2-8e6aaf3c1fcf"
+setup = """## Setup
+This rule requires data coming in from Elastic Defend.
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Data Source: Elastic Defend"
+        ]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.name:rpm and
+process.args:("-i" or "--install")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.016"
+name = "Installer Packages"
+reference = "https://attack.mitre.org/techniques/T1546/016/"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+[rule.threat.tactic]
+name = "Initial Access"
+id = "TA0001"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.parent.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

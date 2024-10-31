@@ -2,20 +2,19 @@
 creation_date = "2023/06/08"
 integration = ["auditd_manager"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/22"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
-Monitors file events on sysctl configuration files (e.g., /etc/sysctl.conf, /etc/sysctl.d/*.conf) to identify potential 
-unauthorized access or manipulation of system-level configuration settings. Attackers may tamper with the sysctl 
+Monitors file events on sysctl configuration files (e.g., /etc/sysctl.conf, /etc/sysctl.d/*.conf) to identify potential
+unauthorized access or manipulation of system-level configuration settings. Attackers may tamper with the sysctl
 configuration files to modify kernel parameters, potentially compromising system stability, performance, or security.
 """
 from = "now-119m"
-interval = "60m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
+interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious Sysctl File Event"
@@ -46,19 +45,19 @@ Add the newly installed `auditd manager` to an agent policy, and deploy the agen
 """
 severity = "low"
 tags = [
-        "Data Source: Auditd Manager",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Rule Type: BBR"
-        ]
+    "Data Source: Auditd Manager",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
-building_block_type = "default"
+
 query = '''
 host.os.type:linux and event.category:file and event.action:("opened-file" or "read-file" or "wrote-to-file") and
 file.path : ("/etc/sysctl.conf" or "/etc/sysctl.d" or /etc/sysctl.d/*) and not process.name:(
-  dpkg or dockerd or unattended-upg or systemd-sysctl or python* or auditbeat or dpkg or grep or pool*
+  dpkg or dockerd or unattended-upg or systemd-sysctl or python* or auditbeat or dpkg or pool*
 )
 '''
 
@@ -77,7 +76,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.executable"]
+value = ["process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

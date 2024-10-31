@@ -4,11 +4,13 @@
 # 2.0.
 
 """Shared resources for tests."""
-
+import os
 import unittest
+from pathlib import Path
 from functools import lru_cache
 from typing import Union
 
+from detection_rules.config import parse_rules_config
 from detection_rules.rule import TOMLRule
 from detection_rules.rule_loader import DeprecatedCollection, DeprecatedRule, RuleCollection, production_filter
 
@@ -17,15 +19,25 @@ RULE_LOADER_FAIL = False
 RULE_LOADER_FAIL_MSG = None
 RULE_LOADER_FAIL_RAISED = False
 
+CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
+RULES_CONFIG = parse_rules_config()
+
 
 @lru_cache
-def default_rules() -> RuleCollection:
+def load_rules() -> RuleCollection:
+    if CUSTOM_RULES_DIR:
+        rc = RuleCollection()
+        path = Path(CUSTOM_RULES_DIR)
+        assert path.exists(), f'Custom rules directory {path} does not exist'
+        rc.load_directories(directories=RULES_CONFIG.rule_dirs)
+        rc.freeze()
+        return rc
     return RuleCollection.default()
 
 
-@lru_cache
-def default_bbr() -> RuleCollection:
-    return RuleCollection.default_bbr()
+def default_bbr(rc: RuleCollection) -> RuleCollection:
+    rules = [r for r in rc.rules if 'rules_building_block' in r.path.parent.parts]
+    return RuleCollection(rules=rules)
 
 
 class BaseRuleTest(unittest.TestCase):
@@ -44,16 +56,18 @@ class BaseRuleTest(unittest.TestCase):
 
         if not RULE_LOADER_FAIL:
             try:
-                rc = default_rules()
-                rc_bbr = default_bbr()
-                cls.all_rules = rc.rules
-                cls.rule_lookup = rc.id_map
-                cls.production_rules = rc.filter(production_filter)
+                rc = load_rules()
+                rc_bbr = default_bbr(rc)
+                cls.rc = rc
+                cls.all_rules = rc.filter(production_filter)
                 cls.bbr = rc_bbr.rules
                 cls.deprecated_rules: DeprecatedCollection = rc.deprecated
             except Exception as e:
                 RULE_LOADER_FAIL = True
                 RULE_LOADER_FAIL_MSG = str(e)
+
+        cls.custom_dir = Path(CUSTOM_RULES_DIR).resolve() if CUSTOM_RULES_DIR else None
+        cls.rules_config = RULES_CONFIG
 
     @staticmethod
     def rule_str(rule: Union[DeprecatedRule, TOMLRule], trailer=' ->') -> str:

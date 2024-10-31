@@ -1,0 +1,28 @@
+[hunt]
+author = "Elastic"
+description = "This analytic flags multiple instances of LLM refusals to respond to sensitive prompts, helping to maintain ethical guidelines and compliance standards."
+integration = ["aws_bedrock.invocation"]
+uuid = "11e33a8f-805b-4394-bee0-08ae8d78b025"
+name = "AWS Bedrock LLM Sensitive Content Refusals"
+language = ["ES|QL"]
+license = "Elastic License v2"
+query = [
+'''
+from logs-aws_bedrock.invocation-*
+ | WHERE @timestamp > NOW() - 1 DAY
+   AND (
+     gen_ai.completion LIKE "*I cannot provide any information about*"
+     AND gen_ai.completion LIKE "*end_turn*"
+   )
+ | STATS user_request_count = count() BY gen_ai.user.id
+ | WHERE user_request_count >= 3
+'''
+]
+notes = [
+    "Examine flagged interactions for patterns or anomalies in user requests that may indicate malicious intent or probing of model boundaries.",
+    "Regularly review and update the phrases that trigger refusals to adapt to new ethical guidelines and compliance requirements.",
+    "Ensure that data logs contain enough detail to provide context around the refusal, which will aid in subsequent investigations by security teams."
+]
+mitre = ["AML.T0051"]
+references = ["https://www.elastic.co/security-labs/elastic-advances-llm-security",
+              "https://owasp.org/www-project-top-10-for-large-language-model-applications/"]

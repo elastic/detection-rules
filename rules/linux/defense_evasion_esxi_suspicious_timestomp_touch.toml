@@ -2,18 +2,16 @@
 creation_date = "2023/04/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.5.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies instances where the 'touch' command is executed on a Linux system with the "-r" flag,
-which is used to modify the timestamp of a file based on another file's timestamp. The rule targets specific VM-related
-paths, such as "/etc/vmware/", "/usr/lib/vmware/", or "/vmfs/*". These paths are associated with VMware virtualization
-software, and their presence in the touch command arguments may indicate that a threat actor is attempting to
-tamper with timestamps of VM-related files and configurations on the system.
+Identifies instances where the 'touch' command is executed on a Linux system with the "-r" flag, which is used to modify
+the timestamp of a file based on another file's timestamp. The rule targets specific VM-related paths, such as
+"/etc/vmware/", "/usr/lib/vmware/", or "/vmfs/*". These paths are associated with VMware virtualization software, and
+their presence in the touch command arguments may indicate that a threat actor is attempting to tamper with timestamps
+of VM-related files and configurations on the system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
@@ -52,36 +50,39 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend",
-        "Data Source: Auditd Manager"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
  and process.name == "touch" and process.args == "-r" and
 process.args : ("/etc/vmware/*", "/usr/lib/vmware/*", "/vmfs/*")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1070.006"
 name = "Timestomp"
 reference = "https://attack.mitre.org/techniques/T1070/006/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

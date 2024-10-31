@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["network_traffic"]
+integration = ["network_traffic", "panw"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/08/01"
+updated_date = "2024/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +22,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-panw.panos*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Accepted Default Telnet Port Connection"
@@ -37,6 +35,7 @@ tags = [
     "Tactic: Command and Control",
     "Tactic: Lateral Movement",
     "Tactic: Initial Access",
+    "Data Source: PAN-OS"
 ]
 timeline_id = "300afc76-072d-4261-864d-4149714bf3f1"
 timeline_title = "Comprehensive Network Timeline"
@@ -46,7 +45,7 @@ type = "query"
 query = '''
 (event.dataset:network_traffic.flow or event.category:(network or network_traffic))
     and event.type:connection and not event.action:(
-        flow_dropped or denied or deny or
+        flow_dropped or flow_denied or denied or deny or
         flow_terminated or timeout or Reject or network_flow)
     and destination.port:23
 '''

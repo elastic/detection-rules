@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/09/03"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/10/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ starting after being renamed or from a non-standard path. This is uncommon behav
 defenses via side loading a malicious DLL within the memory space of one of those processes.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential DLL Side-Loading via Trusted Microsoft Programs"
@@ -29,15 +29,17 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "high"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Defense Evasion",
-        "Tactic: Execution",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend",
-        "Data Source: Sysmon"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 

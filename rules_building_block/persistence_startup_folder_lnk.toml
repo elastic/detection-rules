@@ -1,29 +1,34 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/08/29"
-bypass_bbr_timing = true
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies shortcut files written to or modified in the startup folder. Adversaries may use this technique to maintain
 persistence.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Shortcut File Written or Modified on Startup Folder"
 risk_score = 21
 rule_id = "ee53d67a-5f0c-423c-a53c-8084ae562b5c"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Rule Type: BBR"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
-building_block_type = "default"
 type = "eql"
 
 query = '''
@@ -33,8 +38,10 @@ file where host.os.type == "windows" and event.type != "deletion" and file.exten
     "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp\\*"
   ) and
   not (
-    (process.name : "ONENOTE.EXE" and process.code_signature.status: "trusted" and file.name : "Send to OneNote.lnk") or
-    (process.name: "OktaVerifySetup.exe" and process.code_signature.status: "trusted" and file.name : "Okta Verify.lnk")
+    (process.name : "ONENOTE.EXE" and process.code_signature.status: "trusted" and file.name : "*OneNote.lnk") or
+    (process.name : "OktaVerifySetup.exe" and process.code_signature.status: "trusted" and file.name : "Okta Verify.lnk") or
+    (process.name : "OneLaunch.exe" and process.code_signature.status: "trusted" and file.name : "OneLaunch*.lnk") or
+    (process.name : "APPServerClient.exe" and process.code_signature.status: "trusted" and file.name : "Parallels Client.lnk")
   )
 '''
 
@@ -61,3 +68,4 @@ reference = "https://attack.mitre.org/techniques/T1547/009/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

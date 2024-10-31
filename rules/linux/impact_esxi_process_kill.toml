@@ -2,17 +2,15 @@
 creation_date = "2023/04/11"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.5.0"
-updated_date = "2024/02/20"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies instances where VMware processes, such as "vmware-vmx" or "vmx," are terminated on a Linux system
-by a "kill" command. The rule monitors for the "end" event type, which signifies the termination of a process.
-The presence of a "kill" command as the parent process for terminating VMware processes may indicate that a
-threat actor is attempting to interfere with the virtualized environment on the targeted system.
+Identifies instances where VMware processes, such as "vmware-vmx" or "vmx," are terminated on a Linux system by a "kill"
+command. The rule monitors for the "end" event type, which signifies the termination of a process. The presence of a
+"kill" command as the parent process for terminating VMware processes may indicate that a threat actor is attempting to
+interfere with the virtualized environment on the targeted system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -51,29 +49,32 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Impact",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "end" and process.name in ("vmware-vmx", "vmx")
 and process.parent.name == "kill"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1489"
 name = "Service Stop"
 reference = "https://attack.mitre.org/techniques/T1489/"
 
+
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+

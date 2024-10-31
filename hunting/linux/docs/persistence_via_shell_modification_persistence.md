@@ -1,0 +1,119 @@
+# Shell Modification Persistence
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** This hunt identifies potential persistence mechanisms via modifications to shell profile files on Linux systems. It monitors file creation or modification events in system-wide and user-specific profile files, which can indicate attempts to establish persistence through shell modifications. It also monitors processes started by SSH daemons to detect suspicious activity related to SSH logins.
+
+- **UUID:** `20a02fad-2a09-44c0-a8ce-ce4502859c8a`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `[ES|QL, SQL]`
+- **Source File:** [Shell Modification Persistence](../queries/persistence_via_shell_modification_persistence.toml)
+
+## Query
+
+```sql
+from logs-endpoint.events.file-*
+| where @timestamp > now() - 30 day
+| where host.os.type == "linux" and event.type in ("creation", "change") and (
+
+    // System-wide profile files
+    file.path in ("/etc/profile", "/etc/bash.bashrc", "/etc/bash.bash_logout") or
+    file.path like "/etc/profile.d/*" or
+
+    // root-specific profile files
+    file.path in ("/root/.profile", "/root/.bash_profile", "/root/.bash_login", "/root/.bash_logout", "/root/.bashrc") or
+
+    // User-specific profile files
+    file.path like "/home/*/.profile" or
+    file.path like "/home/*/.bash_profile" or
+    file.path like "/home/*/.bash_login" or
+    file.path like "/home/*/.bash_logout" or
+    file.path like "/home/*/.bashrc"
+) and not (
+    process.name in (
+      "dpkg", "dockerd", "yum", "dnf", "snapd", "pacman", "pamac-daemon", "microdnf", "podman", "apk"
+    ) or
+    process.executable == "/proc/self/exe" or
+    process.executable like "/dev/fd/*" or
+    file.extension in ("dpkg-remove", "swx", "swp")
+)
+| eval persistence = case(
+    // System-wide profile files
+    file.path in ("/etc/profile", "/etc/bash.bashrc", "/etc/bash.bash_logout") or
+    file.path like "/etc/profile.d/*" or
+
+    // root-specific profile files
+    file.path in ("/root/.profile", "/root/.bash_profile", "/root/.bash_login", "/root/.bash_logout", "/root/.bashrc") or
+
+    // User-specific profile files
+    file.path like "/home/*/.profile" or
+    file.path like "/home/*/.bash_profile" or
+    file.path like "/home/*/.bash_login" or
+    file.path like "/home/*/.bash_logout" or
+    file.path like "/home/*/.bashrc",
+    process.name,
+    null
+)
+| stats pers_count = count(persistence) by process.executable, file.path
+| where pers_count > 0 and pers_count <= 20
+| sort pers_count asc
+| limit 100
+```
+
+```sql
+from logs-endpoint.events.process-*
+| where @timestamp > now() - 30 day
+| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name == "sshd"
+| stats cc = count(*) by process.command_line
+| where cc <= 20
+| sort cc asc
+| limit 100
+```
+
+```sql
+SELECT
+    f.filename,
+    f.path,
+    u.username AS file_owner,
+    g.groupname AS group_owner,
+    datetime(f.atime, 'unixepoch') AS file_last_access_time,
+    datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
+    datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
+    datetime(f.btime, 'unixepoch') AS file_created_time,
+    f.size AS size_bytes
+FROM
+    file f
+LEFT JOIN
+    users u ON f.uid = u.uid
+LEFT JOIN
+    groups g ON f.gid = g.gid
+WHERE
+    f.path IN ("/etc/profile", "/etc/bash.bashrc", "/etc/bash.bash_logout")
+    OR f.path IN ("/root/.profile", "/root/.bash_profile", "/root/.bash_login", "/root/.bash_logout", "/root/.bashrc")
+    OR f.path LIKE "/etc/profile.d/%"
+    OR f.path LIKE "/home/%/.profile"
+    OR f.path LIKE "/home/%/.bash_profile"
+    OR f.path LIKE "/home/%/.bash_login"
+    OR f.path LIKE "/home/%/.bash_logout"
+    OR f.path LIKE "/home/%/.bashrc"
+```
+
+## Notes
+
+- Monitors for file creation or modification events in system-wide and user-specific profile files, such as /etc/profile, /etc/bash.bashrc, /home/*/.bashrc, and others.
+- Excludes modifications made by expected update processes such as package managers to reduce false positives.
+- Uses EVAL to tag potential persistence events and counts occurrences to identify unusual activity.
+- Monitors processes started by SSH daemons (sshd) to detect suspicious activity related to SSH logins.
+- OSQuery query is provided to retrieve detailed file information related to profile files.
+
+## MITRE ATT&CK Techniques
+
+- [T1546.004](https://attack.mitre.org/techniques/T1546/004)
+- [T1053.005](https://attack.mitre.org/techniques/T1053/005)
+
+## License
+
+- `Elastic License v2`

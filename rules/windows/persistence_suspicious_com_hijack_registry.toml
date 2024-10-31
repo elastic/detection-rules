@@ -2,9 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/01/09"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +11,7 @@ Identifies Component Object Model (COM) hijacking via registry modification. Adv
 executing malicious content triggered by hijacked references to COM objects.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.registry-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Component Object Model Hijacking"
@@ -72,14 +70,24 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Defense Evasion", "Tactic: Privilege Escalation","Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and
+registry where host.os.type == "windows" and event.type == "change" and
   /* not necessary but good for filtering privileged installations */
-  user.domain != "NT AUTHORITY" and
+  user.domain != "NT AUTHORITY" and process.executable != null and 
   (
     (
       registry.path : "HK*\\InprocServer32\\" and
@@ -100,95 +108,34 @@ registry where host.os.type == "windows" and
         "HKEY_USERS\\*\\DelegateExecute",
         "HKEY_USERS\\*\\TreatAs\\",
         "HKEY_USERS\\*\\ScriptletURL*"
-      ) and
-      not 
-      (
-        (
-          process.name : "svchost.exe" and
-            process.code_signature.trusted == true and process.code_signature.subject_name == "Microsoft Windows Publisher" and
-            registry.value : "DelegateExecute" and
-            registry.data.strings : (
-              /* https://strontic.github.io/xcyclopedia/library/clsid_4ED3A719-CEA8-4BD9-910D-E252F997AFC2.html */
-              "{4ED3A719-CEA8-4BD9-910D-E252F997AFC2}",
-
-              /* https://strontic.github.io/xcyclopedia/library/clsid_A56A841F-E974-45C1-8001-7E3F8A085917.html */
-              "{A56A841F-E974-45C1-8001-7E3F8A085917}",
-
-              /* https://strontic.github.io/xcyclopedia/library/clsid_BFEC0C93-0B7D-4F2C-B09C-AFFFC4BDAE78.html */
-              "{BFEC0C93-0B7D-4F2C-B09C-AFFFC4BDAE78}",
-              "%SystemRoot%\\system32\\shdocvw.dll"
-            )
-        ) or
-        (
-          process.name : "veeam.backup.shell.exe" and
-            registry.path : "HKEY_USERS\\S-1-*_Classes\\CLSID\\*\\LocalServer32\\" and
-            process.code_signature.trusted == true and process.code_signature.subject_name == "Veeam Software Group GmbH"
-        ) or 
-        (
-          process.name : ("ADNotificationManager.exe", "Creative Cloud.exe") and
-            process.code_signature.trusted == true and process.code_signature.subject_name == "Adobe Inc." and
-            registry.data.strings : (
-              "\"?:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\ADNotificationManager.exe\" -ToastActivated",
-              "\"?:\\Program Files (x86)\\Adobe\\Acrobat DC\\Acrobat\\ADNotificationManager.exe\" -ToastActivated",
-              "\"?:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\ADNotificationManager.exe\" -ToastActivated",
-              "\"?:\\Program Files\\Adobe\\Acrobat Reader DC\\Reader\\ADNotificationManager.exe\" -ToastActivated",
-              "\"?:\\Program Files\\Adobe\\Adobe Creative Cloud\\ACC\\Creative Cloud.exe\" -ToastActivated"
-            )
-        ) or 
-        (
-          process.name : ("IslandUpdateComRegisterShell64.exe", "IslandUpdate.exe", "GoogleUpdateComRegisterShell64.exe") and
-            process.code_signature.trusted == true and
-            process.code_signature.subject_name in ("Island Technology Inc.", "Google LLC") and
-            registry.data.strings : (
-              "*?:\\Users\\*\\AppData\\Local\\Island\\Update\\*",
-              "*?:\\Users\\*\\AppData\\Local\\Google\\Update\\*"
-            )
-        ) or 
-        (
-          process.name : ("SelfService.exe", "WfShell.exe") and
-            process.code_signature.trusted == true and process.code_signature.subject_name == "Citrix Systems, Inc." and
-            registry.data.strings : (
-              "\"?:\\Program Files (x86)\\Citrix\\ICA Client\\SelfServicePlugin\\SelfService.exe\" -ToastActivated",
-              "%SystemRoot%\\system32\\shdocvw.dll",
-              "%SystemRoot%\\sysWOW64\\shdocvw.dll"
-            )
-        ) or 
-        (
-          process.name : ("msrdcw.exe") and
-            process.code_signature.trusted == true and process.code_signature.subject_name == "Microsoft Corporation" and
-            registry.data.strings : (
-              "\"?:\\Program Files\\Remote Desktop\\msrdcw.exe\" -ToastActivated",
-              "\"?:\\Users\\*\\AppData\\Local\\Apps\\Remote Desktop\\msrdcw.exe\" -ToastActivated"
-            )
-        ) or 
-        (
-          process.name : ("ssvagent.exe") and
-            process.code_signature.trusted == true and process.code_signature.subject_name == "Oracle America, Inc." and
-            registry.data.strings : (
-              "?:\\Program Files\\Java\\jre*\\bin\\jp2iexp.dll",
-              "?:\\Program Files (x86)\\Java\\jre*\\bin\\jp2iexp.dll"
-            )
-        ) or 
-        (
-          process.name : ("hpnotifications.exe") and
-            process.code_signature.trusted == true and process.code_signature.subject_name == "HP Inc." and
-            registry.data.strings : (
-              "\"?:\\Windows\\System32\\DriverStore\\FileRepository\\hpsvcsscancomp.inf_amd64_*\\x64\\hpnotifications.exe\" -ToastActivated"
-            )
-        )
-      )
+      )  
     )
-  ) and
+  ) and 
 
-  /* removes false-positives generated by OneDrive and Teams */
+      not  (
+            process.code_signature.trusted == true and
+            process.code_signature.subject_name in 
+                         ("Island Technology Inc.", "Google LLC", "Grammarly, Inc.", "Dropbox, Inc", "REFINITIV US LLC", "HP Inc.",
+                          "Citrix Systems, Inc.", "Adobe Inc.", "Veeam Software Group GmbH", "Zhuhai Kingsoft Office Software Co., Ltd.",
+                          "Oracle America, Inc.")
+        ) and 
+
+  /* excludes Microsoft signed noisy processes */
   not
   (
-    process.name: ("OneDrive.exe", "OneDriveSetup.exe", "FileSyncConfig.exe", "Teams.exe") and
+    process.name : ("OneDrive.exe", "OneDriveSetup.exe", "FileSyncConfig.exe", "Teams.exe", "MicrosoftEdgeUpdate.exe", "msrdcw.exe", "MicrosoftEdgeUpdateComRegisterShell64.exe") and
     process.code_signature.trusted == true and process.code_signature.subject_name in ("Microsoft Windows", "Microsoft Corporation")
   ) and
-
-  /* Teams DLL loaded by regsvr */
-  not (process.name: "regsvr32.exe" and registry.data.strings : "*Microsoft.Teams.*.dll")
+  
+  not process.executable : 
+                  ("?:\\Program Files (x86)\\*.exe", 
+                   "?:\\Program Files\\*.exe",
+                   "?:\\Windows\\System32\\svchost.exe", 
+                   "?:\\Windows\\System32\\msiexec.exe", 
+                   "?:\\Windows\\SysWOW64\\regsvr32.exe",
+                   "?:\\Windows\\System32\\regsvr32.exe",
+                   "?:\\Windows\\System32\\DriverStore\\FileRepository\\*.exe", 
+                   "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe")
 '''
 
 
@@ -209,7 +156,6 @@ reference = "https://attack.mitre.org/techniques/T1546/015/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -227,15 +173,13 @@ reference = "https://attack.mitre.org/techniques/T1546/015/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1112"
 name = "Modify Registry"
 reference = "https://attack.mitre.org/techniques/T1112/"
+
 
 [rule.threat.tactic]
 id = "TA0005"

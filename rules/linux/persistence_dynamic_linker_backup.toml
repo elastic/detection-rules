@@ -1,48 +1,27 @@
 [metadata]
 creation_date = "2022/07/12"
-maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/12/19"
 integration = ["endpoint"]
-
+maturity = "production"
+updated_date = "2024/05/21"
 
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve File Listing Information"
 query = """
-SELECT * FROM file WHERE (
-  path = '/etc/ld.so.preload' OR
-  path = '/lib64/ld-linux-x86-64.so.2' OR
-  path = '/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2' OR
-  path = '/usr/lib64/ld-linux-x86-64.so.2' OR
-  path = '/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2'
-)
+SELECT * FROM file WHERE ( path = '/etc/ld.so.preload' OR path = '/lib64/ld-linux-x86-64.so.2' OR path =
+'/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2' OR path = '/usr/lib64/ld-linux-x86-64.so.2' OR path =
+'/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2' )
 """
 
 [[transform.osquery]]
 label = "Osquery - Retrieve Additional File Listing Information"
 query = """
-SELECT
-  f.path,
-  u.username AS file_owner,
-  g.groupname AS group_owner,
-  datetime(f.atime, 'unixepoch') AS file_last_access_time,
-  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
-  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
-  datetime(f.btime, 'unixepoch') AS file_created_time,
-  f.size AS size_bytes
-FROM
-  file f
-  LEFT JOIN users u ON f.uid = u.uid
-  LEFT JOIN groups g ON f.gid = g.gid
-WHERE (
-  path = '/etc/ld.so.preload' OR
-  path = '/lib64/ld-linux-x86-64.so.2' OR
-  path = '/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2' OR
-  path = '/usr/lib64/ld-linux-x86-64.so.2' OR
-  path = '/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2'
-)
+SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
+file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
+file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE ( path = '/etc/ld.so.preload' OR path =
+'/lib64/ld-linux-x86-64.so.2' OR path = '/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2' OR path =
+'/usr/lib64/ld-linux-x86-64.so.2' OR path = '/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2' )
 """
 
 [[transform.osquery]]
@@ -65,13 +44,14 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
 
+
 [rule]
 author = ["Elastic"]
 description = """
-Detects the copying of the Linux dynamic loader binary and subsequent file creation for the purpose of creating a
-backup copy. This technique was seen recently being utilized by Linux malware prior to patching the dynamic loader in
-order to inject and preload a malicious shared object file. This activity should never occur and if it does then it
-should be considered highly suspicious or malicious.
+Detects the copying of the Linux dynamic loader binary and subsequent file creation for the purpose of creating a backup
+copy. This technique was seen recently being utilized by Linux malware prior to patching the dynamic loader in order to
+inject and preload a malicious shared object file. This activity should never occur and if it does then it should be
+considered highly suspicious or malicious.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -145,9 +125,7 @@ The detection rule 'Dynamic Linker Copy' is designed to identify such abuse by m
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-references = [
-    "https://www.intezer.com/blog/incident-response/orbit-new-undetected-linux-threat/"
-]
+references = ["https://www.intezer.com/blog/incident-response/orbit-new-undetected-linux-threat/"]
 risk_score = 73
 rule_id = "df6f62d9-caab-4b88-affa-044f4395a1e0"
 setup = """## Setup
@@ -177,13 +155,13 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "high"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Threat: Orbit",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Threat: Orbit",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
 
 query = '''
@@ -196,18 +174,19 @@ sequence by process.entity_id with maxspan=1m
 [file where host.os.type == "linux" and event.action == "creation" and file.extension == "so"]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"

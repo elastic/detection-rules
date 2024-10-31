@@ -1,9 +1,7 @@
 [metadata]
 creation_date = "2022/11/16"
 maturity = "production"
-updated_date = "2023/06/22"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -18,8 +16,8 @@ false_positives = [
     """,
 ]
 from = "now-24h"
-interval = "1h"
 index = [".alerts-security.*"]
+interval = "1h"
 language = "kuery"
 license = "Elastic License v2"
 name = "Multiple Alerts in Different ATT&CK Tactics on a Single Host"
@@ -34,10 +32,13 @@ query = '''
 signal.rule.name:* and kibana.alert.rule.threat.tactic.id:*
 '''
 
+
+
 [rule.threshold]
 field = ["host.id"]
 value = 1
-
 [[rule.threshold.cardinality]]
 field = "kibana.alert.rule.threat.tactic.id"
 value = 3
+
+

@@ -2,9 +2,7 @@
 creation_date = "2023/02/22"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/20"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +15,7 @@ index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Disable IPTables or Firewall"
+references = ["https://www.elastic.co/security-labs/detecting-log4j2-with-elastic-security"]
 risk_score = 21
 rule_id = "83e9c2b3-24ef-4c1d-a8cd-5ebafb5dfa2f"
 setup = """## Setup
@@ -46,23 +45,24 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
- (
+  (
    /* disable FW */
    (
      (process.name == "ufw" and process.args == "disable") or
-     (process.name == "iptables" and process.args == "-F" and process.args_count == 2)
+     (process.name == "iptables" and process.args in ("-F", "--flush", "-X", "--delete-chain") and process.args_count == 2) or
+     (process.name in ("iptables", "ip6tables") and process.parent.args == "force-stop")
    ) or
 
    /* stop FW service */
@@ -70,25 +70,27 @@ process where host.os.type == "linux" and event.type == "start" and event.action
      ((process.name == "service" and process.args == "stop") or
        (process.name == "chkconfig" and process.args == "off") or
        (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))) and
-    process.args in ("firewalld", "ip6tables", "iptables")
+    process.args in ("firewalld", "ip6tables", "iptables", "firewalld.service", "ip6tables.service", "iptables.service")
     )
   )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-name = "Impair Defenses"
 id = "T1562"
+name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
-
 [[rule.threat.technique.subtechnique]]
-name = "Disable or Modify Tools"
 id = "T1562.001"
+name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
+
+
 [rule.threat.tactic]
-name = "Defense Evasion"
 id = "TA0005"
+name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

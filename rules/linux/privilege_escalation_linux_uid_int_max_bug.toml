@@ -2,16 +2,14 @@
 creation_date = "2023/07/27"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the execution of the systemd-run command by a user with a UID that is larger than the maximum 
-allowed UID size (INT_MAX). Some older Linux versions were affected by a bug which allows user accounts with a UID 
-greater than INT_MAX to escalate privileges by spawning a shell through systemd-run. 
+This rule monitors for the execution of the systemd-run command by a user with a UID that is larger than the maximum
+allowed UID size (INT_MAX). Some older Linux versions were affected by a bug which allows user accounts with a UID
+greater than INT_MAX to escalate privileges by spawning a shell through systemd-run.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -19,9 +17,10 @@ language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via UID INT_MAX Bug Detected"
 references = [
-    "https://twitter.com/paragonsec/status/1071152249529884674", 
+    "https://twitter.com/paragonsec/status/1071152249529884674",
     "https://github.com/mirchr/security-research/blob/master/vulnerabilities/CVE-2018-19788.sh",
-    "https://gitlab.freedesktop.org/polkit/polkit/-/issues/74"]
+    "https://gitlab.freedesktop.org/polkit/polkit/-/issues/74",
+]
 risk_score = 47
 rule_id = "d55436a8-719c-445f-92c4-c113ff2f9ba5"
 setup = """## Setup
@@ -51,29 +50,32 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Privilege Escalation",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
 process.name == "systemd-run" and process.args == "-t" and process.args_count >= 3 and user.id >= "1000000000"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

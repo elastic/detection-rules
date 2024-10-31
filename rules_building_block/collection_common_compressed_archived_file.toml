@@ -3,9 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = "endpoint"
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/22"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +13,7 @@ Detects files being compressed or archived into common formats. This is a common
 evade detection or to staging data for exfiltration.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 max_signals = 1000
@@ -34,8 +32,9 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
-file where event.type in ("creation", "change") and process.executable != null and not user.id : "S-1-5-18" and
+file where host.os.type == "windows" and event.type in ("creation", "change") and process.executable != null and not user.id : ("S-1-5-18", "S-1-5-17") and
  file.Ext.header_bytes : (
                           /* compression formats */
                           "1F9D*",             /* tar zip, tar.z (Lempel-Ziv-Welch algorithm) */
@@ -83,9 +82,16 @@ file where event.type in ("creation", "change") and process.executable != null a
      file.name : ("ossec-*.log.gz", "tmp-entry.gz", "tmp-entry", "last-entry.gz")
    ) or
    (
-     process.name : "excel.exe" and
+     process.name : ("excel.exe", "winword.exe", "powerpnt.exe") and
+     process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true
+   ) or
+   (
+     process.name : "OneDrive.exe" and
      process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true and
-     file.extension : ("tmp", "xlsx", "gz", "xlsb", "xar", "xslm")
+     (
+      file.extension : ("xlsx", "docx", "pptx", "xlsm") or
+      file.path : "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\logs\\*"
+     )
    ) or
    (
      process.name : "Dropbox.exe" and
@@ -96,6 +102,11 @@ file where event.type in ("creation", "change") and process.executable != null a
      process.name : "DellSupportAssistRemedationService.exe" and
      process.code_signature.subject_name : "Dell Inc" and process.code_signature.trusted == true and
      file.extension : "manifest"
+   ) or
+   (
+     process.name : "w3wp.exe" and
+     process.code_signature.subject_name : "Microsoft Windows" and process.code_signature.trusted == true and
+     file.path : "?:\\inetpub\\temp\\IIS Temporary Compressed Files\\*"
    )
  )
 '''
@@ -103,59 +114,58 @@ file where event.type in ("creation", "change") and process.executable != null a
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1074"
+name = "Data Staged"
+reference = "https://attack.mitre.org/techniques/T1074/"
+[[rule.threat.technique.subtechnique]]
+id = "T1074.001"
+name = "Local Data Staging"
+reference = "https://attack.mitre.org/techniques/T1074/001/"
+
+
+[[rule.threat.technique]]
+id = "T1560"
+name = "Archive Collected Data"
+reference = "https://attack.mitre.org/techniques/T1560/"
+[[rule.threat.technique.subtechnique]]
+id = "T1560.001"
+name = "Archive via Utility"
+reference = "https://attack.mitre.org/techniques/T1560/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
-    [[rule.threat.technique]]
-    id = "T1560"
-    name = "Archive Collected Data"
-    reference = "https://attack.mitre.org/techniques/T1560/"
-
-        [[rule.threat.technique.subtechnique]]
-        id = "T1560.001"
-        name = "Archive via Utility"
-        reference = "https://attack.mitre.org/techniques/T1560/001/"
-
-    [[rule.threat.technique]]
-    id = "T1074"
-    name = "Data Staged"
-    reference = "https://attack.mitre.org/techniques/T1074/"
-
-        [[rule.threat.technique.subtechnique]]
-        id = "T1074.001"
-        name = "Local Data Staging"
-        reference = "https://attack.mitre.org/techniques/T1074/001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1132"
+name = "Data Encoding"
+reference = "https://attack.mitre.org/techniques/T1132/"
+[[rule.threat.technique.subtechnique]]
+id = "T1132.001"
+name = "Standard Encoding"
+reference = "https://attack.mitre.org/techniques/T1132/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
-    [[rule.threat.technique]]
-    id = "T1132"
-    name = "Data Encoding"
-    reference = "https://attack.mitre.org/techniques/T1132/"
-
-        [[rule.threat.technique.subtechnique]]
-        id = "T1132.001"
-        name = "Standard Encoding"
-        reference = "https://attack.mitre.org/techniques/T1132/001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
-    [[rule.threat.technique]]
-    id = "T1027"
-    name = "Obfuscated Files or Information"
-    reference = "https://attack.mitre.org/techniques/T1027/"

@@ -2,18 +2,16 @@
 creation_date = "2023/07/31"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the execution of processes that interact with Linux containers through an interactive shell 
-without root permissions. Utilities such as runc and ctr are universal command-line utilities leveraged to interact 
-with containers via root permissions. On systems where the access to these utilities are misconfigured, attackers might 
-be able to create and run a container that mounts the root folder or spawn a privileged container vulnerable to a 
-container escape attack, which might allow them to escalate privileges and gain further access onto the host file system.
+This rule monitors for the execution of processes that interact with Linux containers through an interactive shell
+without root permissions. Utilities such as runc and ctr are universal command-line utilities leveraged to interact with
+containers via root permissions. On systems where the access to these utilities are misconfigured, attackers might be
+able to create and run a container that mounts the root folder or spawn a privileged container vulnerable to a container
+escape attack, which might allow them to escalate privileges and gain further access onto the host file system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -22,8 +20,8 @@ license = "Elastic License v2"
 name = "Potential Privilege Escalation via Container Misconfiguration"
 references = [
     "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/runc-privilege-escalation",
-    "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/containerd-ctr-privilege-escalation"
-    ]
+    "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/containerd-ctr-privilege-escalation",
+]
 risk_score = 47
 rule_id = "afe6b0eb-dd9d-4922-b08a-1910124d524d"
 setup = """## Setup
@@ -61,9 +59,17 @@ Session View uses process data collected by the Elastic Defend integration, but 
 For more information about the additional fields collected when this setting is enabled and the usage of Session View for Analysis refer to the [helper guide](https://www.elastic.co/guide/en/security/current/session-view.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Domain: Container", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Domain: Container",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
   (process.name == "runc" and process.args == "run") or
@@ -72,15 +78,17 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 process.interactive == true and process.parent.interactive == true
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1611"
 name = "Escape to Host"
 reference = "https://attack.mitre.org/techniques/T1611/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

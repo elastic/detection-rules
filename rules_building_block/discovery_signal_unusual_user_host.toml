@@ -1,10 +1,8 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2023/10/10"
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2023/10/10"
-bypass_bbr_timing = true
+updated_date = "2024/09/01"
 
 [rule]
 author = ["Elastic"]
@@ -21,14 +19,17 @@ name = "Unusual Discovery Activity by User"
 risk_score = 21
 rule_id = "cf575427-0839-4c69-a9e6-99fde02606f3"
 severity = "low"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Rule Type: Higher-Order Rule"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: Higher-Order Rule",
+    "Rule Type: BBR"
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 host.os.type:windows and event.kind:signal and kibana.alert.rule.rule_id:(
   "d68e95ad-1c82-4074-a12a-125fe10ac8ba" or "7b8bfc26-81d2-435e-965c-d722ee397ef1" or
@@ -38,6 +39,7 @@ host.os.type:windows and event.kind:signal and kibana.alert.rule.rule_id:(
   "1d72d014-e2ab-4707-b056-9b96abe7b511"
 )
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -50,7 +52,8 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "user.id"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

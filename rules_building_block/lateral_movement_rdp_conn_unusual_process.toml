@@ -2,29 +2,34 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/01/12"
+updated_date = "2024/09/01"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Adversaries may attempt to connect to a remote system over Windows Remote Desktop Protocol (RDP) to achieve lateral
-movement. Adversaries may avoid using the Microsoft Terminal Services Client (mstsc.exe) binary to establish
-an RDP connection to evade detection.
+movement. Adversaries may avoid using the Microsoft Terminal Services Client (mstsc.exe) binary to establish an RDP
+connection to evade detection.
 """
 from = "now-119m"
+index = ["logs-endpoint.events.network-*"]
 interval = "60m"
-index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Outgoing RDP Connection by Unusual Process"
 risk_score = 21
 rule_id = "8e39f54e-910b-4adb-a87e-494fbba5fb65"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR"
+]
 timestamp_override = "event.ingested"
-building_block_type = "default"
 type = "eql"
 
 query = '''
@@ -37,7 +42,10 @@ network where host.os.type == "windows" and
       "?:\\Program Files (x86)\\mRemoteNG\\mRemoteNG.exe",
       "?:\\Program Files (x86)\\PRTG Network Monitor\\PRTG Probe.exe",
       "?:\\Program Files\\Azure Advanced Threat Protection Sensor\\*\\Microsoft.Tri.Sensor.exe",
-      "?:\\Program Files (x86)\\Microsoft\\Remote Desktop Connection Manager\\RDCMan.exe"
+      "?:\\Program Files (x86)\\Microsoft\\Remote Desktop Connection Manager\\RDCMan.exe",
+      "?:\\Program Files\\SentinelOne\\Sentinel Agent*\\Ranger\\SentinelRanger.exe",
+      "?:\\Program Files\\Devolutions\\Remote Desktop Manager\\RemoteDesktopManager.exe",
+      "?:\\Program Files (x86)\\Devolutions\\Remote Desktop Manager\\RemoteDesktopManager.exe"
     ) and process.code_signature.trusted == true
   )
 '''
@@ -60,3 +68,4 @@ reference = "https://attack.mitre.org/techniques/T1021/001/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+

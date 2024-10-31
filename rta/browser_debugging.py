@@ -4,10 +4,9 @@
 # 2.0.
 
 import platform
+import sys
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="e061a96e-4c31-4f67-9745-6ff873f7829e",
@@ -16,13 +15,13 @@ metadata = RtaMetadata(
         {
             "rule_name": "Potential Cookies Theft via Browser Debugging",
             "rule_id": "5d7328aa-973b-41e7-a6b3-6f40ea3094f1",
-        }
+        },
     ],
     siem=[
         {
             "rule_name": "Potential Cookies Theft via Browser Debugging",
             "rule_id": "027ff9ea-85e7-42e3-99d2-bbb7069e02eb",
-        }
+        },
     ],
     techniques=["T1539"],
 )
@@ -31,14 +30,11 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
 @common.requires_os(*metadata.platforms)
-def main():
+def main() -> None:
     param1 = "--remote-debugging-port=9222"
     param2 = "--user-data-dir=remote-profile"
     if platform.system() == "Darwin":
-        if platform.processor() == "arm":
-            name = "com.apple.ditto_and_spawn_arm"
-        else:
-            name = "com.apple.ditto_and_spawn_intel"
+        name = "com.apple.ditto_and_spawn_arm" if platform.processor() == "arm" else "com.apple.ditto_and_spawn_intel"
 
         source = common.get_path("bin", name)
         chrome = "/tmp/google-chrome"
@@ -66,4 +62,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

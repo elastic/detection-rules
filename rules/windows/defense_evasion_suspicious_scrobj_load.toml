@@ -2,9 +2,9 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/10/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -13,20 +13,28 @@ Identifies scrobj.dll loaded into unusual Microsoft processes. This usually mean
 executed in the target process.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.library-*", "logs-windows.sysmon_operational-*"]
+index = ["logs-endpoint.events.library-*", "logs-windows.sysmon_operational-*", "winlogbeat-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Script Object Execution"
 risk_score = 47
 rule_id = "4ed678a9-3a4f-41fb-9fea-f85a6e0a0dff"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 any where host.os.type == "windows" and 
- (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and 
+ (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and 
  (?dll.name : "scrobj.dll" or ?file.name : "scrobj.dll") and 
  process.executable : ("?:\\Windows\\System32\\*.exe", "?:\\Windows\\SysWOW64\\*.exe") and 
  not process.executable : (
@@ -57,11 +65,11 @@ framework = "MITRE ATT&CK"
 id = "T1218"
 name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1218.010"
 name = "Regsvr32"
 reference = "https://attack.mitre.org/techniques/T1218/010/"
+
 
 
 [rule.threat.tactic]

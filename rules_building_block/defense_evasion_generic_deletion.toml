@@ -2,28 +2,33 @@
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/08/16"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 This rule identifies the execution of commands that can be used to delete files and directories. Adversaries may delete
 files and directories on a host system, such as logs, browser history, or malware.
 """
 from = "now-119m"
+index = ["logs-endpoint.events.process-*"]
 interval = "60m"
-index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "File or Directory Deletion Command"
 risk_score = 21
 rule_id = "5919988c-29e1-4908-83aa-1f087a838f63"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Rule Type: BBR", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
-building_block_type = "default"
 type = "eql"
 
 query = '''
@@ -47,7 +52,6 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
@@ -57,7 +61,10 @@ id = "T1070.004"
 name = "File Deletion"
 reference = "https://attack.mitre.org/techniques/T1070/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

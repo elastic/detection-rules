@@ -3,9 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/02/01"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -24,22 +22,31 @@ risk_score = 21
 rule_id = "035a6f21-4092-471d-9cda-9e379f459b1e"
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Rule Type: BBR",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
-  (process.name == "tail" and process.args == "-c") or
+  (process.name == "tail" and process.args in ("-c", "--bytes")) or
   (process.name == "cmp" and process.args == "-i") or
   (process.name in ("hexdump", "xxd") and process.args == "-s") or
   (process.name == "dd" and process.args : ("skip*", "seek*"))
+) and not (
+  process.parent.args like ("/opt/error_monitor/error_monitor.sh", "printf*") or
+  process.parent.name in ("acme.sh", "dracut", "leapp") or
+  process.parent.executable like (
+    "/bin/cagefs_enter", "/opt/nessus_agent/sbin/nessus-service", "/usr/libexec/platform-python*",
+    "/usr/libexec/vdsm/vdsmd", "/usr/local/bin/docker-entrypoint.sh", "/usr/lib/module-init-tools/lsinitrd-quick"
+  ) or
+  process.parent.command_line like "sh*acme.sh*" or
+  process.args like "/var/tmp/dracut*"
 )
 '''
 

@@ -2,9 +2,7 @@
 creation_date = "2020/11/17"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/01/03"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +11,7 @@ Identifies the PowerShell engine being invoked by unexpected processes. Rather t
 with powershell.exe, some attackers do this to operate more stealthily.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.library-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious PowerShell Engine ImageLoad"
@@ -60,16 +58,18 @@ Attackers can use PowerShell without having to execute `PowerShell.exe` directly
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+references = ["https://www.elastic.co/security-labs/elastic-security-labs-steps-through-the-r77-rootkit"]
 risk_score = 47
 rule_id = "852c1f19-68e8-43a6-9dce-340771fe1be3"
 severity = "medium"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Resources: Investigation Guide",
-        "Data Source: Elastic Defend"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -80,31 +80,32 @@ host.os.type:windows and event.category:library and
     process.code_signature.subject_name:("Microsoft Corporation" or "Microsoft Dynamic Code Publisher" or "Microsoft Windows") and process.code_signature.trusted:true and not process.name.caseless:("regsvr32.exe" or "rundll32.exe")
   ) and 
   not (
-    process.executable.caseless:(?\:\\\\Program?Files?\(x86\)\\\\*.exe or ?\:\\\\Program?Files\\\\*.exe) and
+    process.executable.caseless:(C\:\\Program*Files*\(x86\)\\*.exe or C\:\\Program*Files\\*.exe) and
     process.code_signature.trusted:true
   ) and 
   not (
-    process.executable.caseless:?\:\\\\Windows\\\\Lenovo\\\\*.exe and process.code_signature.subject_name:"Lenovo" and 
+    process.executable.caseless: C\:\\Windows\\Lenovo\\*.exe and process.code_signature.subject_name:"Lenovo" and 
     process.code_signature.trusted:true
   ) and 
   not (
-    process.executable.caseless:?\:\\\\ProgramData\\\\chocolatey\\\\choco.exe* and
+    process.executable.caseless: "C:\\ProgramData\\chocolatey\\choco.exe" and
     process.code_signature.subject_name:"Chocolatey Software, Inc." and process.code_signature.trusted:true
   ) and not process.executable.caseless : "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0002"
@@ -114,7 +115,8 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "process.executable", "user.id"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

@@ -2,16 +2,14 @@
 creation_date = "2023/07/28"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies an attempt to exploit a local privilege escalation (CVE-2023-2640 and CVE-2023-32629) via a flaw in Ubuntu's
 modifications to OverlayFS. These flaws allow the creation of specialized executables, which, upon execution, grant the
-ability to escalate privileges to root on the affected machine. 
+ability to escalate privileges to root on the affected machine.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -20,7 +18,8 @@ license = "Elastic License v2"
 name = "Potential Privilege Escalation via OverlayFS"
 references = [
     "https://www.wiz.io/blog/ubuntu-overlayfs-vulnerability",
-    "https://twitter.com/liadeliyahu/status/1684841527959273472"]
+    "https://twitter.com/liadeliyahu/status/1684841527959273472",
+]
 risk_score = 73
 rule_id = "b51dbc92-84e2-4af1-ba47-65183fcd0c57"
 setup = """## Setup
@@ -49,8 +48,16 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Use Case: Vulnerability", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by process.parent.entity_id, host.id with maxspan=5s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
@@ -59,15 +66,17 @@ sequence by process.parent.entity_id, host.id with maxspan=5s
     user.id == "0"]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

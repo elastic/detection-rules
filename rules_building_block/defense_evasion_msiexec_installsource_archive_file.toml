@@ -2,35 +2,38 @@
 creation_date = "2023/09/26"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/09/26"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies the execution of an installer from an archive or with suspicious properties. Adversaries may abuse
 msiexec.exe to launch local or network accessible MSI files in an attempt to bypass application whitelisting.
 """
-references = [
-  "https://lolbas-project.github.io/lolbas/Binaries/Msiexec/"
-]
 from = "now-119m"
-interval = "60m"
 index = ["logs-endpoint.events.*"]
+interval = "60m"
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Installer with Suspicious Properties"
+references = ["https://lolbas-project.github.io/lolbas/Binaries/Msiexec/"]
 risk_score = 21
 rule_id = "55f07d1b-25bc-4a0f-aa0c-05323c1319d0"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Rule Type: BBR", "Data Source: Elastic Defend"]
-building_block_type = "default"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
 
 query = '''
 sequence with maxspan=1m
-  [registry where host.os.type == "windows" and process.name : "msiexec.exe" and
+  [registry where host.os.type == "windows" and event.type == "change" and process.name : "msiexec.exe" and
    (
     (registry.value : "InstallSource" and
      registry.data.strings : ("?:\\Users\\*\\Temp\\Temp?_*.zip\\*",
@@ -63,3 +66,4 @@ reference = "https://attack.mitre.org/techniques/T1218/007/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

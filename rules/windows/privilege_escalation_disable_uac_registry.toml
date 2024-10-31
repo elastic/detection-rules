@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2021/01/20"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2024/10/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ administrator-level access to the system. This rule identifies registry value ch
 (UAC) protection.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.sysmon_operational-*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Disabling User Account Control via Registry Modification"
@@ -70,19 +70,23 @@ references = [
     "https://www.greyhathacker.net/?p=796",
     "https://docs.microsoft.com/en-us/windows/security/identity-protection/user-account-control/user-account-control-group-policy-and-registry-key-settings",
     "https://docs.microsoft.com/en-us/windows/security/identity-protection/user-account-control/user-account-control-overview",
+    "https://www.elastic.co/security-labs/dissecting-remcos-rat-part-four",
 ]
 risk_score = 47
 rule_id = "d31f183a-e5b1-451b-8534-ba62bca0b404"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -95,7 +99,10 @@ registry where host.os.type == "windows" and event.type == "change" and
       "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\PromptOnSecureDesktop",
       "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\EnableLUA",
       "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\ConsentPromptBehaviorAdmin",
-      "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\PromptOnSecureDesktop"
+      "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\PromptOnSecureDesktop",
+      "MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\EnableLUA",
+      "MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\ConsentPromptBehaviorAdmin",
+      "MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\PromptOnSecureDesktop"
     ) and
   registry.data.strings : ("0", "0x00000000")
 '''
@@ -121,6 +128,11 @@ reference = "https://attack.mitre.org/tactics/TA0004/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+[[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
@@ -128,6 +140,7 @@ reference = "https://attack.mitre.org/techniques/T1548/"
 id = "T1548.002"
 name = "Bypass User Account Control"
 reference = "https://attack.mitre.org/techniques/T1548/002/"
+
 
 [[rule.threat.technique]]
 id = "T1562"
@@ -138,16 +151,10 @@ id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-[[rule.threat.technique]]
-id = "T1112"
-name = "Modify Registry"
-reference = "https://attack.mitre.org/techniques/T1112/"
-
 
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 

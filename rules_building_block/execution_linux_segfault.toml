@@ -3,12 +3,11 @@ bypass_bbr_timing = true
 creation_date = "2023/10/26"
 integration = ["system"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/26"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Monitors kernel logs for segfault messages. A segfault, or segmentation fault, is an error that occurs when a program
 tries to access a memory location that it's not allowed to access, typically leading to program termination. A segfault
@@ -47,19 +46,14 @@ Filebeat is a lightweight shipper for forwarding and centralizing log data. Inst
 - To run the system module of Filebeat on Linux follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-system.html).
 """
 severity = "low"
-tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Rule Type: BBR"
-        ]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Rule Type: BBR"]
 timestamp_override = "event.ingested"
-building_block_type = "default"
 type = "query"
+
 query = '''
 host.os.type:linux and event.dataset:"system.syslog" and process.name:kernel and message:segfault
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

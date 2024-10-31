@@ -2,18 +2,16 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/03"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when a new GitHub App has been installed in your organization account. 
-GitHub Apps extend GitHub's functionality both within and outside of GitHub. 
-When an app is installed it is granted permissions to read or modify your repository and organization data. 
-Only trusted apps should be installed and any newly installed apps should be investigated to verify their legitimacy. 
-Unauthorized app installation could lower your organization's security posture and leave you exposed for future attacks.
+This rule detects when a new GitHub App has been installed in your organization account. GitHub Apps extend GitHub's
+functionality both within and outside of GitHub. When an app is installed it is granted permissions to read or modify
+your repository and organization data. Only trusted apps should be installed and any newly installed apps should be
+investigated to verify their legitimacy. Unauthorized app installation could lower your organization's security posture
+and leave you exposed for future attacks.
 """
 from = "now-9m"
 index = ["logs-github.audit-*"]
@@ -26,9 +24,11 @@ severity = "medium"
 tags = ["Domain: Cloud", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Github"]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "integration_installation.create"
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -36,7 +36,6 @@ framework = "MITRE ATT&CK"
 id = "T1072"
 name = "Software Deployment Tools"
 reference = "https://attack.mitre.org/techniques/T1072/"
-
 
 
 [rule.threat.tactic]

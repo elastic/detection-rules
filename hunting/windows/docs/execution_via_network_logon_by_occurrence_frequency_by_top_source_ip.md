@@ -1,0 +1,52 @@
+# Frequency of Process Execution via Network Logon by Source Address
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** This hunt aggregates process execution and remote network logons by source address, account name and process hash. It then limits the results by unique host within a 7 day period. This may indicate lateral movement via remote services.
+
+- **UUID:** `24108755-4d1f-4d7a-ad5f-04c2ca55e9a3`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `[ES|QL]`
+- **Source File:** [Frequency of Process Execution via Network Logon by Source Address](../queries/execution_via_network_logon_by_occurrence_frequency_by_top_source_ip.toml)
+
+## Query
+
+```sql
+from logs-endpoint.events.process-*
+| where  @timestamp > now() - 7 day and host.os.family == "windows" and
+  event.category == "process" and event.action == "start" and
+  /* network logon type and the execution is within 30 seconds of the logon time */
+  process.Ext.session_info.logon_type == "Network" and process.Ext.session_info.relative_logon_time <= 30
+| stats total = count(*) by process.Ext.session_info.client_address, user.name
+ /* sort by top source.ip and account */
+| sort total desc
+```
+
+```sql
+from logs-endpoint.events.process-*
+| where  @timestamp > now() - 7 day and host.os.family == "windows" and
+  event.category == "process" and event.action == "start" and
+  /* network logon type and the execution is within 30 seconds of the logon time */
+  process.Ext.session_info.logon_type == "Network" and process.Ext.session_info.relative_logon_time <= 30
+| stats total = count(*), hosts = count_distinct(host.id) by process.hash.sha256, process.Ext.session_info.client_address, user.name, process.parent.name
+ /* unique hash limited to one host and number of execution is 1 */
+| where  hosts == 1 and total == 1
+```
+
+## Notes
+
+- The second query highest occurrence of source addresses/accounts performing remote process execution
+- `process.Ext.session_info.*` is populated for Elastic Defend versions 8.6.0+ and above.
+- Execution via legitimate Microsoft processes for PowerShell and cmd need to be further investigated via aggregation by `process.command_line`.
+- Aggregation can be also done by `process.executable`, normalizing process path by removing random patterns using the ES|QL REPLACE function.
+
+## MITRE ATT&CK Techniques
+
+- [T1021](https://attack.mitre.org/techniques/T1021)
+
+## License
+
+- `Elastic License v2`

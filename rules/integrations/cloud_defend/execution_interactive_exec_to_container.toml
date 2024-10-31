@@ -2,17 +2,16 @@
 creation_date = "2023/05/12"
 integration = ["cloud_defend"]
 maturity = "production"
-min_stack_comments = "New Integration: Cloud Defend"
-min_stack_version = "8.8.0"
-updated_date = "2023/06/22"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule detects interactive 'exec' events launched against a container using the 'exec' command. Using the 'exec'
-command in a pod allows a user to establish a temporary shell session and execute any process/command inside the container.
-This rule specifically targets higher-risk interactive commands that allow real-time interaction with a container's shell.
-A malicious actor could use this level of access to further compromise the container environment or attempt a container breakout.
+command in a pod allows a user to establish a temporary shell session and execute any process/command inside the
+container. This rule specifically targets higher-risk interactive commands that allow real-time interaction with a
+container's shell. A malicious actor could use this level of access to further compromise the container environment or
+attempt a container breakout.
 """
 false_positives = [
     """
@@ -37,7 +36,13 @@ references = [
 risk_score = 73
 rule_id = "420e5bb4-93bf-40a3-8f4a-4cc1af90eca1"
 severity = "high"
-tags = ["Data Source: Elastic Defend for Containers", "Domain: Container", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution"]
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -57,23 +62,24 @@ process.interactive == true
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-  [rule.threat.tactic]
-  id = "TA0002"
-  reference = "https://attack.mitre.org/tactics/TA0002/"
-  name = "Execution"
 
-  [[rule.threat.technique]]
-  id = "T1059"
-  reference = "https://attack.mitre.org/techniques/T1059/"
-  name = "Command and Scripting Interpreter"
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
 
-    [[rule.threat.technique.subtechnique]]
-    id = "T1059.004"
-    reference = "https://attack.mitre.org/techniques/T1059/004/"
-    name = "Unix Shell"
-  
-  [[rule.threat.technique]]
-  id = "T1609"
-  name = "Container Administration Command"
-  reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

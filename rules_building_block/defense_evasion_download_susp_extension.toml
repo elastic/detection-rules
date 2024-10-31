@@ -2,32 +2,38 @@
 creation_date = "2023/09/27"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/01/11"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
-Identifies unusual files downloaded from outside the local network that have the potential to be abused for code execution.
+Identifies unusual files downloaded from outside the local network that have the potential to be abused for code
+execution.
 """
-references = [
-    "https://x.com/Laughing_Mantis/status/1518766501385318406",
-    "https://wikileaks.org/ciav7p1/cms/page_13763375.html"
-]
 from = "now-119m"
+index = ["logs-endpoint.events.file-*"]
 interval = "60m"
-index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "File with Suspicious Extension Downloaded"
+references = [
+    "https://x.com/Laughing_Mantis/status/1518766501385318406",
+    "https://wikileaks.org/ciav7p1/cms/page_13763375.html",
+]
 risk_score = 21
 rule_id = "8d366588-cbd6-43ba-95b4-0971c3f906e5"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Rule Type: BBR"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "eql"
-building_block_type = "default"
 
 query = '''
 file where host.os.type == "windows" and event.type == "creation" and
@@ -37,10 +43,17 @@ file where host.os.type == "windows" and event.type == "creation" and
   ) and file.Ext.windows.zone_identifier > 1 and
   not
   (
-    file.extension : "msix" and 
-    file.path : (
-      "?:\\Users\\*\\AppData\\Local\\Temp\\WinGet\\Microsoft.Winget.Source*",
-      "?:\\Windows\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WinGet\\State\\defaultState\\Microsoft.PreIndexed.Package\\Microsoft.Winget.Source*"
+    (
+      file.extension : "msix" and 
+      file.path : (
+        "?:\\Users\\*\\AppData\\Local\\Temp\\WinGet\\Microsoft.Winget.Source*",
+        "?:\\Windows\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WinGet\\State\\defaultState\\Microsoft.PreIndexed.Package\\Microsoft.Winget.Source*"
+      )
+    ) or
+    (
+      process.name : "Teams.exe" and process.code_signature.trusted == true and
+      file.extension : "msix" and 
+      file.path : "?:\\Users\\*\\AppData\\Roaming\\Microsoft\\Teams\\tmp\\*"
     )
   )
 '''
@@ -48,17 +61,16 @@ file where host.os.type == "windows" and event.type == "creation" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
 
-  [[rule.threat.technique]]
-  name = "System Binary Proxy Execution"
-  id = "T1218"
-  reference = "https://attack.mitre.org/techniques/T1218/"
 
-  [rule.threat.tactic]
-  name = "Defense Evasion"
-  id = "TA0005"
-  reference = "https://attack.mitre.org/tactics/TA0005/"
-
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
