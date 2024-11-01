@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2024/11/01"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2024/11/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an AWS Systems Manager (SSM) command document is created by a user who does not typically perform this action. Adversaries may create SSM command documents to execute commands on managed instances, potentially leading to unauthorized access, command and control, data exfiltration and more.
+"""
+false_positives = [
+    """
+    Legitimate users may create SSM command documents for legitimate purposes. Ensure that the document is authorized and the user is known before taking action.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS SSM Command Document Created by Rare User"
+references = [
+    "https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_CreateDocument.html"
+]
+risk_score = 21
+rule_id = "50a2bdea-9876-11ef-89db-f661ea17fbcd"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS SNS",
+    "Data Source: AWS Systems Manager",
+    "Use Case: Threat Detection",
+    "Tactic: Execution"
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "ssm.amazonaws.com"
+    and event.action: "CreateDocument"
+    and event.outcome: "success"
+    and aws.cloudtrail.response_elements: *documentType=Command*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
