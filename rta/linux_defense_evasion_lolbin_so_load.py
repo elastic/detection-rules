@@ -4,6 +4,7 @@
 # 2.0.
 
 import sys
+
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
@@ -29,7 +30,7 @@ def main() -> None:
     common.log("Granting execute permissions...")
     common.execute(["chmod", "+x", masquerade])
 
-    commands = [masquerade, 'cdll.LoadLibrary.so']
+    commands = [masquerade, "cdll.LoadLibrary.so"]
     common.execute([*commands], timeout=5, kill=True)
     common.log("Cleaning...")
     common.remove_file(masquerade)

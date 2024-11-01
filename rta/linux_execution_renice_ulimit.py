@@ -8,32 +8,37 @@ import sys
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
-    uuid="074901e7-118b-4536-bbed-0e57c319ba2a",
+    uuid="9e7ec69a-50cb-4bce-8ace-50e4e6f0199d",
     platforms=["linux"],
     endpoint=[
         {
-            "rule_name": "Base64 Shebang Payload Decoded via Built-in Utility",
-            "rule_id": "e659b4b9-5bbf-4839-96b9-b489334b4ca1",
+            "rule_name": "Renice or Ulimit Execution",
+            "rule_id": "57ed0e43-643a-47f3-936e-138dc6f480da",
         },
     ],
-    techniques=["T1027", "T1140", "T1059", "T1204"],
+    techniques=["T1059"],
 )
 
 
 @common.requires_os(*metadata.platforms)
 def main() -> None:
     common.log("Creating a fake executable..")
-    masquerade = "/tmp/base64"
+    masquerade = "/dev/shm/evil"
 
-    source = common.get_path("bin", "linux.ditto_and_spawn")
+    source = common.get_path("bin", "netcon_exec_chain.elf")
     common.copy_file(source, masquerade)
-    common.log("Granting execute permissions...")
     common.execute(["chmod", "+x", masquerade])
 
-    commands = [masquerade, "-d", "IyEvdXNyL2Jpbi9weXRob24"]
+    masquerade2 = "/dev/shm/renice"
+    common.copy_file(source, masquerade2)
+    common.log("Granting execute permissions...")
+    common.execute(["chmod", "+x", masquerade2])
+
+    commands = [masquerade, "exec", "-c", "/dev/shm/renice"]
     common.execute([*commands], timeout=5, kill=True)
     common.log("Cleaning...")
     common.remove_file(masquerade)
+    common.remove_file(masquerade2)
     common.log("Simulation successfull!")
 
 
