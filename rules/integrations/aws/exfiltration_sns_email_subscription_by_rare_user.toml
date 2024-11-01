@@ -7,11 +7,14 @@ updated_date = "2024/11/01"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when an SNS topic is subscribed to by an email address by a user whom does not typically perform this action. Adversaries may subscribe to an SNS topic to collect sensitive information or exfiltrate data via an external email address.
+Identifies when an SNS topic is subscribed to by an email address by a user whom does not typically perform this action.
+Adversaries may subscribe to an SNS topic to collect sensitive information or exfiltrate data via an external email
+address.
 """
 false_positives = [
     """
-    Legitimate users may subscribe to SNS topics for legitimate purposes. Ensure that the subscription is authorized and the subscription email address is known before taking action.
+    Legitimate users may subscribe to SNS topics for legitimate purposes. Ensure that the subscription is authorized and
+    the subscription email address is known before taking action.
     """,
 ]
 from = "now-9m"
@@ -19,8 +22,7 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS SNS Email Subscription by Rare User"
-note = """
-## Triage and Analysis
+note = """## Triage and Analysis
 
 ### Investigating AWS SNS Email Subscription by Rare User
 
@@ -56,9 +58,7 @@ This rule identifies when an SNS topic is subscribed to by an email address by a
 For further guidance on managing and securing SNS topics in AWS environments, refer to the [AWS SNS documentation](https://docs.aws.amazon.com/sns/latest/dg/welcome.html) and AWS best practices for security.
 
 """
-references = [
-    "https://docs.aws.amazon.com/sns/latest/api/API_Subscribe.html",
-]
+references = ["https://docs.aws.amazon.com/sns/latest/api/API_Subscribe.html"]
 risk_score = 23
 rule_id = "3df49ff6-985d-11ef-88a1-f661ea17fbcd"
 severity = "low"
@@ -75,18 +75,20 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset == "aws.cloudtrail"
-    and event.provider == "sns.amazonaws.com"
-    and event.action == "Subscribe"
-    and aws.cloudtrail.request_parameters.protocol == "email"
+event.dataset: "aws.cloudtrail"
+    and event.provider: "sns.amazonaws.com"
+    and event.action: "Subscribe"
+    and aws.cloudtrail.request_parameters.protocol: "email"
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1537"
-name = "Transfer Data to Cloud Account"
-reference = "https://attack.mitre.org/techniques/T1537/"
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
 
 [rule.threat.tactic]
 id = "TA0010"
