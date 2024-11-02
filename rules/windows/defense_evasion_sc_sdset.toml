@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2024/07/16"
-integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/15"
+updated_date = "2024/11/02"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ description = """
 Identifies DACL modifications to deny access to a service, making it unstoppable, or hide it from system and users.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*", "logs-m365_defender.event-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*", "logs-m365_defender.event-*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Service DACL Modification via sc.exe"
@@ -35,7 +35,8 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint"
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
