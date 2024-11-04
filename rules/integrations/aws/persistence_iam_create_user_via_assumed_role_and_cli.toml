@@ -7,15 +7,25 @@ updated_date = "2024/11/04"
 [rule]
 author = ["Elastic"]
 description = """
-Detects the creation of an AWS Identity and Access Management (IAM) user initiated by an assumed role on an EC2 instance. Assumed roles allow users or services to temporarily adopt different AWS permissions, but the creation of IAM users through these roles—particularly from within EC2 instances—may indicate a compromised instance. Adversaries might exploit such permissions to establish persistence by creating new IAM users under unauthorized conditions.
+Detects the creation of an AWS Identity and Access Management (IAM) user initiated by an assumed role on an EC2
+instance. Assumed roles allow users or services to temporarily adopt different AWS permissions, but the creation of IAM
+users through these roles—particularly from within EC2 instances—may indicate a compromised instance. Adversaries might
+exploit such permissions to establish persistence by creating new IAM users under unauthorized conditions.
 """
+false_positives = [
+    """
+    Assumed roles may be used by legitimate automated systems to create IAM users for specific workflows. Verify if this
+    event aligns with known automation activities. If the action is routine for specific roles or user agents (e.g.,
+    `aws-cli`, `boto3`), consider adding those roles or user agents to a monitored exception list for streamlined
+    review.
+    """,
+]
 from = "now-9m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS IAM Create User via Assumed Role and CLI"
-note = """
-## Triage and Analysis
+name = "AWS IAM Create User via Assumed Role on EC2 Instance"
+note = """## Triage and Analysis
 
 ### Investigating AWS IAM User Creation via Assumed Role on an EC2 Instance
 
@@ -61,7 +71,7 @@ For further guidance on managing IAM roles and permissions within AWS environmen
 """
 references = [
     "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateUser.html",
-    "https://www.dionach.com/en-us/breaking-into-the-cloud-red-team-tactics-for-aws-compromise/"
+    "https://www.dionach.com/en-us/breaking-into-the-cloud-red-team-tactics-for-aws-compromise/",
 ]
 risk_score = 47
 rule_id = "f7a1c536-9ac0-11ef-9911-f661ea17fbcd"
@@ -74,8 +84,9 @@ tags = [
     "Use Case: Identity and Access Audit",
     "Tactic: Persistence",
 ]
-type = "new_terms"
 timestamp_override = "event.ingested"
+type = "new_terms"
+
 query = '''
 event.dataset: "aws.cloudtrail"
     and event.action: "CreateUser"
@@ -103,10 +114,11 @@ id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["aws.cloudtrail.user_identity.arn"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+
