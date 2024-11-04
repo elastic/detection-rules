@@ -75,6 +75,8 @@ Increment the patch version when making bug fixes, performance improvements, or 
 - **Hunting Folder**:
   - Bug fixes in hunting rules logic.
   - Small performance tweaks for the hunting rule management.
+- **Docs Folder**:
+  - Updates to documentation. 
 
 </p>
 </details>
