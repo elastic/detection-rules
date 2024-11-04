@@ -110,10 +110,10 @@ from logs-aws.cloudtrail*
 | eval
 
     // filter out AWS, Elastic, Datadog, and Wiz service roles by ARN
-    aws_vendor = STARTS_WITH(actor, "AWSServiceRoleForConfig"),
-    elastic_vendor = STARTS_WITH(actor, "Elastic"),
-    datadog_vendor = STARTS_WITH(actor, "DataDog"),
-    wiz_vendor = STARTS_WITH(actor, "Wiz")
+    aws_vendor = starts_with(actor, "AWSServiceRoleForConfig"),
+    elastic_vendor = starts_with(actor, "Elastic"),
+    datadog_vendor = starts_with(actor, "DataDog"),
+    wiz_vendor = starts_with(actor, "Wiz")
 | where
     aws_vendor != true and
     elastic_vendor != true and
@@ -122,13 +122,13 @@ from logs-aws.cloudtrail*
 | keep @timestamp, time_window, event.action, aws.cloudtrail.user_identity.arn
 | stats
     // count the number of unique API calls per time window and actor
-    unique_api_count = COUNT_DISTINCT(event.action) by time_window, aws.cloudtrail.user_identity.arn
+    unique_api_count = count_distinct(event.action) by time_window, aws.cloudtrail.user_identity.arn
 
 // filter for more than 5 unique API calls per time window
 | where unique_api_count > 5
 
 // sort the results by the number of unique API calls in descending order
-| sort unique_api_count DESC
+| sort unique_api_count desc
 '''
 
 
