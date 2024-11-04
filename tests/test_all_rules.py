@@ -353,7 +353,7 @@ class TestRuleTags(BaseRuleTest):
             'logs-windows.powershell*': {'all': ['Data Source: PowerShell Logs']},
             'logs-sentinel_one_cloud_funnel.*': {'all': ['Data Source: SentinelOne']},
             'logs-fim.event-*': {'all': ['Data Source: File Integrity Monitoring']},
-            'logs-m365_defender.event-*': {'all': ['Data Source: Microsoft Defender for Endpoint'],
+            'logs-m365_defender.event-*': {'all': ['Data Source: Microsoft Defender for Endpoint']},
             'logs-crowdstrike.fdr*': {'all': ['Data Source: Crowdstrike']}
         }
 
