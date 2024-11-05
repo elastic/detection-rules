@@ -2,7 +2,7 @@
 creation_date = "2020/11/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +18,7 @@ name = "Potential SharpRDP Behavior"
 references = [
     "https://posts.specterops.io/revisiting-remote-desktop-lateral-movement-8fb905cb46c3",
     "https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES/blob/master/Lateral%20Movement/LM_sysmon_3_12_13_1_SharpRDP.evtx",
+    "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
 ]
 risk_score = 73
 rule_id = "8c81e506-6e82-4884-9b9a-75d3d252f967"
@@ -40,7 +41,7 @@ sequence by host.id with maxspan=1m
    source.ip != "127.0.0.1" and source.ip != "::1"
   ]
 
-  [registry where host.os.type == "windows" and process.name : "explorer.exe" and
+  [registry where host.os.type == "windows" and event.type == "change" and process.name : "explorer.exe" and
    registry.path : ("HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU\\*") and
    registry.data.strings : ("cmd.exe*", "powershell.exe*", "taskmgr*", "\\\\tsclient\\*.exe\\*")
   ]

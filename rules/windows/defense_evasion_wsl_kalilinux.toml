@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2023/01/12"
-integration = ["endpoint", "windows", "system"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/31"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -14,9 +16,13 @@ from = "now-9m"
 index = [
     "winlogbeat-*",
     "logs-endpoint.events.process-*",
-    "logs-windows.*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
     "endgame-*",
     "logs-system.security*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -32,6 +38,11 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: System",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -39,12 +50,16 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
 (
- (process.name : "wsl.exe" and process.args : ("-d", "--distribution", "-i", "--install") and process.args : "kali*") or 
- process.executable : 
-        ("?:\\Users\\*\\AppData\\Local\\packages\\kalilinux*", 
-         "?:\\Users\\*\\AppData\\Local\\Microsoft\\WindowsApps\\kali.exe",
-         "?:\\Program Files*\\WindowsApps\\KaliLinux.*\\kali.exe")
- )
+  (process.name : "wsl.exe" and process.args : ("-d", "--distribution", "-i", "--install") and process.args : "kali*") or 
+  process.executable : (
+    "?:\\Users\\*\\AppData\\Local\\packages\\kalilinux*", 
+    "?:\\Users\\*\\AppData\\Local\\Microsoft\\WindowsApps\\kali.exe",
+    "?:\\Program Files*\\WindowsApps\\KaliLinux.*\\kali.exe",
+    "\\Device\\HarddiskVolume?\\Users\\*\\AppData\\Local\\packages\\kalilinux*", 
+    "\\Device\\HarddiskVolume?\\Users\\*\\AppData\\Local\\Microsoft\\WindowsApps\\kali.exe",
+    "\\Device\\HarddiskVolume?\\Program Files*\\WindowsApps\\KaliLinux.*\\kali.exe"
+  )
+)
 '''
 
 

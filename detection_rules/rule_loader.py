@@ -4,7 +4,6 @@
 # 2.0.
 
 """Load rule metadata transform between rule and api formats."""
-import io
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,6 +16,7 @@ import json
 from marshmallow.exceptions import ValidationError
 
 from . import utils
+from .config import parse_rules_config
 from .mappings import RtaMappings
 from .rule import (
     DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule, TOMLRuleContents
@@ -24,10 +24,9 @@ from .rule import (
 from .schemas import definitions
 from .utils import cached, get_path
 
-DEFAULT_RULES_DIR = get_path("rules")
-DEFAULT_BBR_DIR = get_path("rules_building_block")
-DEFAULT_DEPRECATED_DIR = DEFAULT_RULES_DIR / '_deprecated'
-RTA_DIR = get_path("rta")
+RULES_CONFIG = parse_rules_config()
+DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
+DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_rules_dirs
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
 
 
@@ -82,7 +81,8 @@ def metadata_filter(**metadata) -> Callable[[TOMLRule], bool]:
 production_filter = metadata_filter(maturity="production")
 
 
-def load_locks_from_tag(remote: str, tag: str) -> (str, dict, dict):
+def load_locks_from_tag(remote: str, tag: str, version_lock: str = 'detection_rules/etc/version.lock.json',
+                        deprecated_file: str = 'detection_rules/etc/deprecated_rules.json') -> (str, dict, dict):
     """Loads version and deprecated lock files from git tag."""
     import json
     git = utils.make_git()
@@ -104,13 +104,13 @@ def load_locks_from_tag(remote: str, tag: str) -> (str, dict, dict):
 
     commit_hash = git('rev-list', '-1', tag)
     try:
-        version = json.loads(git('show', f'{tag}:detection_rules/etc/version.lock.json'))
+        version = json.loads(git('show', f'{tag}:{version_lock}'))
     except CalledProcessError:
         # Adding resiliency to account for the old directory structure
         version = json.loads(git('show', f'{tag}:etc/version.lock.json'))
 
     try:
-        deprecated = json.loads(git('show', f'{tag}:detection_rules/etc/deprecated_rules.json'))
+        deprecated = json.loads(git('show', f'{tag}:{deprecated_file}'))
     except CalledProcessError:
         # Adding resiliency to account for the old directory structure
         deprecated = json.loads(git('show', f'{tag}:etc/deprecated_rules.json'))
@@ -293,8 +293,8 @@ class RawRuleCollection(BaseCollection):
         """Return the default rule collection, which retrieves from rules/."""
         if cls.__default is None:
             collection = RawRuleCollection()
-            collection.load_directory(DEFAULT_RULES_DIR)
-            collection.load_directory(DEFAULT_BBR_DIR)
+            collection.load_directories(DEFAULT_PREBUILT_RULES_DIRS)
+            collection.load_directories(DEFAULT_PREBUILT_BBR_DIRS)
             collection.freeze()
             cls.__default = collection
 
@@ -305,7 +305,7 @@ class RawRuleCollection(BaseCollection):
         """Return the default BBR collection, which retrieves from building_block_rules/."""
         if cls.__default_bbr is None:
             collection = RawRuleCollection()
-            collection.load_directory(DEFAULT_BBR_DIR)
+            collection.load_directories(DEFAULT_PREBUILT_BBR_DIRS)
             collection.freeze()
             cls.__default_bbr = collection
 
@@ -359,7 +359,7 @@ class RuleCollection(BaseCollection):
         # use pytoml instead of toml because of annoying bugs
         # https://github.com/uiri/toml/issues/152
         # might also be worth looking at https://github.com/sdispater/tomlkit
-        with io.open(path, "r", encoding="utf-8") as f:
+        with path.open("r", encoding="utf-8") as f:
             toml_dict = self.deserialize_toml_string(f.read())
             self._toml_load_cache[path] = toml_dict
             return toml_dict
@@ -404,13 +404,15 @@ class RuleCollection(BaseCollection):
         # bypass rule object load (load_dict) and load as a dict only
         if obj.get('metadata', {}).get('maturity', '') == 'deprecated':
             contents = DeprecatedRuleContents.from_dict(obj)
-            contents.set_version_lock(self._version_lock)
+            if not RULES_CONFIG.bypass_version_lock:
+                contents.set_version_lock(self._version_lock)
             deprecated_rule = DeprecatedRule(path, contents)
             self.add_deprecated_rule(deprecated_rule)
             return deprecated_rule
         else:
             contents = TOMLRuleContents.from_dict(obj)
-            contents.set_version_lock(self._version_lock)
+            if not RULES_CONFIG.bypass_version_lock:
+                contents.set_version_lock(self._version_lock)
             rule = TOMLRule(path=path, contents=contents)
             self.add_rule(rule)
             return rule
@@ -442,8 +444,10 @@ class RuleCollection(BaseCollection):
         from .version_lock import VersionLock, add_rule_types_to_lock
 
         git = utils.make_git()
-        rules_dir = DEFAULT_RULES_DIR.relative_to(get_path("."))
-        paths = git("ls-tree", "-r", "--name-only", branch, rules_dir).splitlines()
+        paths = []
+        for rules_dir in DEFAULT_PREBUILT_RULES_DIRS:
+            rules_dir = rules_dir.relative_to(get_path("."))
+            paths.extend(git("ls-tree", "-r", "--name-only", branch, rules_dir).splitlines())
 
         rule_contents = []
         rule_map = {}
@@ -507,8 +511,8 @@ class RuleCollection(BaseCollection):
         """Return the default rule collection, which retrieves from rules/."""
         if cls.__default is None:
             collection = RuleCollection()
-            collection.load_directory(DEFAULT_RULES_DIR)
-            collection.load_directory(DEFAULT_BBR_DIR)
+            collection.load_directories(DEFAULT_PREBUILT_RULES_DIRS)
+            collection.load_directories(DEFAULT_PREBUILT_BBR_DIRS)
             collection.freeze()
             cls.__default = collection
 
@@ -519,7 +523,7 @@ class RuleCollection(BaseCollection):
         """Return the default BBR collection, which retrieves from building_block_rules/."""
         if cls.__default_bbr is None:
             collection = RuleCollection()
-            collection.load_directory(DEFAULT_BBR_DIR)
+            collection.load_directories(DEFAULT_PREBUILT_BBR_DIRS)
             collection.freeze()
             cls.__default_bbr = collection
 
@@ -629,8 +633,8 @@ rta_mappings = RtaMappings()
 
 __all__ = (
     "FILE_PATTERN",
-    "DEFAULT_RULES_DIR",
-    "DEFAULT_BBR_DIR",
+    "DEFAULT_PREBUILT_RULES_DIRS",
+    "DEFAULT_PREBUILT_BBR_DIRS",
     "load_github_pr_rules",
     "DeprecatedCollection",
     "DeprecatedRule",

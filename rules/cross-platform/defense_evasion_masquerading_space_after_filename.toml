@@ -2,7 +2,7 @@
 creation_date = "2022/10/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -42,30 +42,31 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type:("linux","macos") and
-  event.type == "start" and
-  (process.executable regex~ """/[a-z0-9\s_\-\\./]+\s""") and not
-  process.name in ("ls", "find", "grep", "xkbcomp")
+process where host.os.type:("linux","macos") and event.type == "start" and
+process.executable regex~ """/[a-z0-9\s_\-\\./]+\s""" and not (
+  process.name in ("ls", "find", "grep", "xkbcomp") or
+  process.executable like ("/opt/nessus_agent/*", "/opt/gitlab/sv/gitlab-exporter/*", "/tmp/ansible-admin/*") or
+  process.parent.args in (
+    "./check_rubrik", "/usr/bin/check_mk_agent", "/etc/rubrik/start_stop_bootstrap.sh", "/etc/rubrik/start_stop_agent.sh"
+  )
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1036.006"
 name = "Space after Filename"
 reference = "https://attack.mitre.org/techniques/T1036/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

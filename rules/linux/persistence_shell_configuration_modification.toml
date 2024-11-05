@@ -2,7 +2,7 @@
 creation_date = "2024/04/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/18"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,10 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Shell Configuration Creation or Modification"
-references = ["https://intezer.com/blog/research/kaiji-new-chinese-linux-malware-turning-to-golang/"]
+references = [
+    "https://intezer.com/blog/research/kaiji-new-chinese-linux-malware-turning-to-golang/",
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
+]
 risk_score = 47
 rule_id = "28f6f34b-8e16-487a-b5fd-9d22eb903db8"
 setup = """## Setup
@@ -52,7 +55,7 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -90,6 +93,7 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
     "/usr/libexec/platform-python*"
   ) or
   process.executable == null or
+  process.name in ("adclient", "mkhomedir_helper", "teleport", "mkhomedir", "adduser", "desktopDaemon") or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )

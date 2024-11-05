@@ -230,17 +230,28 @@ class RuleResource(BaseResource):
             raise
 
     @classmethod
-    def import_rules(cls, rules: List[dict], overwrite: bool = False, overwrite_exceptions: bool = False,
-                     overwrite_action_connectors: bool = False) -> (dict, list, List[Optional['RuleResource']]):
+    def import_rules(
+        cls,
+        rules: List[dict],
+        exceptions: List[List[dict]] = [],
+        action_connectors: List[List[dict]] = [],
+        overwrite: bool = False,
+        overwrite_exceptions: bool = False,
+        overwrite_action_connectors: bool = False,
+    ) -> (dict, list, List[Optional["RuleResource"]]):
         """Import a list of rules into Kibana using the _import API and return the response and successful imports."""
         url = f'{cls.BASE_URI}/_import'
         params = dict(
             overwrite=stringify_bool(overwrite),
             overwrite_exceptions=stringify_bool(overwrite_exceptions),
-            overwrite_action_connectors=stringify_bool(overwrite_action_connectors)
+            overwrite_action_connectors=stringify_bool(overwrite_action_connectors),
         )
         rule_ids = [r['rule_id'] for r in rules]
-        headers, raw_data = Kibana.ndjson_file_data_prep(rules, "import.ndjson")
+        flattened_exceptions = [e for sublist in exceptions for e in sublist]
+        flattened_actions_connectors = [a for sublist in action_connectors for a in sublist]
+        headers, raw_data = Kibana.ndjson_file_data_prep(
+            rules + flattened_exceptions + flattened_actions_connectors, "import.ndjson"
+        )
         response = Kibana.current().post(url, headers=headers, params=params, raw_data=raw_data)
         errors = response.get("errors", [])
         error_rule_ids = [e['rule_id'] for e in errors]

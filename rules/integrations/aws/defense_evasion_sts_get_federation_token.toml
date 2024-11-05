@@ -1,0 +1,67 @@
+[metadata]
+creation_date = "2024/08/19"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2024/08/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first occurrence of an AWS Security Token Service (STS) `GetFederationToken` request made by a user
+within the last 10 days. The `GetFederationToken` API call allows users to request temporary security credentials to
+access AWS resources. Adversaries may use this API to obtain temporary credentials to access resources they would not
+normally have access to.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "First Occurrence of STS GetFederationToken Request by User"
+references = [
+    "https://hackingthe.cloud/aws/post_exploitation/survive_access_key_deletion_with_sts_getfederationtoken/"
+]
+risk_score = 21
+rule_id = "7a5cc9a8-5ea3-11ef-beec-f661ea17fbce"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS",
+    "Data Source: AWS STS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: sts.amazonaws.com
+    and event.action: GetFederationToken
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+

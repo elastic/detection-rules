@@ -2,7 +2,7 @@
 creation_date = "2023/08/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/07/30"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ root, such as the shadow file, root ssh private keys or other sensitive files th
 privileges.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Suspicious DebugFS Root Device Access"
@@ -54,34 +54,31 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
-    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
 process.name == "debugfs" and process.args : "/dev/sd*" and not process.args == "-R" and 
 not user.Ext.real.id == "0" and not group.Ext.real.id == "0"
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1078.003"
 name = "Local Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/003/"
 
-
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

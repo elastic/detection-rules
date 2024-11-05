@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/18"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +17,7 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Systemd-udevd Rule File Creation"
+references = ["https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms"]
 risk_score = 21
 rule_id = "054db96b-fd34-43b3-9af2-587b3bd33964"
 setup = """## Setup
@@ -51,7 +52,7 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -77,6 +78,7 @@ file.path : (
   process.executable : (
     "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/*", "/usr/libexec/*"
   ) or
+  process.name in ("systemd", "netplan", "apt-get", "vmware-config-tools.pl", "systemd-hwdb") or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
@@ -86,14 +88,14 @@ file.path : (
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1546"
-name = "Event Triggered Execution"
-reference = "https://attack.mitre.org/techniques/T1546/"
-
-[[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
 
 [rule.threat.tactic]
 id = "TA0003"

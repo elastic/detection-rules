@@ -2,7 +2,7 @@
 creation_date = "2024/06/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/06/26"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,10 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Git Hook Created or Modified"
-references = ["https://git-scm.com/docs/githooks/2.26.0"]
+references = [
+    "https://git-scm.com/docs/githooks/2.26.0",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
+]
 risk_score = 21
 rule_id = "ac531fcc-1d3b-476d-bbb5-1357728c9a37"
 setup = """## Setup
@@ -57,6 +60,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.type == "creation" and file.path : "*.git/hooks/*" and
 file.extension == null and process.executable != null and not (
@@ -71,7 +75,7 @@ file.extension == null and process.executable != null and not (
     "/usr/local/bin/dockerd", "/sbin/dockerd"
   ) or
   process.executable : ("/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*") or
-  process.name in ("git", "dirname") or
+  process.name in ("git", "dirname", "tar", "gitea", "git-lfs") or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
