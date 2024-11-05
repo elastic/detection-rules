@@ -93,13 +93,14 @@ event.dataset: "aws.cloudtrail"
     and event.provider: "sts.amazonaws.com"
     and event.action: "AssumeRole"
     and event.outcome: "success"
-    and not (aws.cloudtrail.user_identity.invoked_by: (
-                "config.amazonaws.com" or
-                "securityhub.amazonaws.com" or
-                "sso.amazonaws.com"
-                )
-            )
-    and not (aws.cloudtrail.resources.arn: (*Amazon* or *AWS* or *Elastic* or *Wiz* or *DataDog*))
+    and not (
+      aws.cloudtrail.user_identity.invoked_by: (
+         "config.amazonaws.com" or
+          "securityhub.amazonaws.com" or
+          "sso.amazonaws.com"
+        ) or
+      aws.cloudtrail.resources.arn: (*Amazon* or *AWS* or *Elastic* or *Wiz* or *DataDog*)
+    )
 '''
 
 
