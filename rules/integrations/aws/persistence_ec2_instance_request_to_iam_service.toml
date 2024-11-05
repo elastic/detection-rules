@@ -1,13 +1,17 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2024/07/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/07/24"
+updated_date = "2024/11/05"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies when an EC2 instance interacts with the AWS IAM service via an assumed role. This is uncommon behavior and could indicate an attacker using compromised credentials to further exploit an environment. For example, an assumed role could be used to create new users for persistence or add permissions for privilege escalation. An EC2 instance assumes a role using their EC2 ID as the session name. This rule looks for the pattern "i-" which is the beginning pattern for assumed role sessions started by an EC2 instance.
+
+This is a [building block](https://www.elastic.co/guide/en/security/current/building-block-rule.html) rule and does not generate alerts on its own. It is meant to be used for correlation with other rules to detect suspicious activity.
 """
 false_positives = ["Administrators may use EC2 instances to interact with IAM services as part of an automation workflow, ensure validity of the triggered event and include exceptions where necessary."]
 from = "now-6m"
@@ -18,9 +22,9 @@ name = "AWS EC2 Instance Interaction with IAM Service"
 references = [
     "https://redcanary.com/blog/aws-sts/",
 ]
-risk_score = 47
+risk_score = 21
 rule_id = "a44bcb58-5109-4870-a7c6-11f5fe7dd4b1"
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Cloud",
     "Data Source: AWS",
@@ -35,10 +39,22 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "aws.cloudtrail"
-   and event.provider == "iam.amazonaws.com"
-   and aws.cloudtrail.user_identity.type == "AssumedRole"
-   and stringContains (user.id, ":i-")
+event.dataset == "aws.cloudtrail"
+    and event.provider == "iam.amazonaws.com"
+    and aws.cloudtrail.user_identity.type == "AssumedRole"
+    and stringContains(user.id, ":i-")
+    and (
+            startsWith(event.action, "Update")
+            or startsWith(event.action, "Attach")
+            or startsWith(event.action, "Detach")
+            or startsWith(event.action, "Create")
+            or startsWith(event.action, "Delete")
+            or startsWith(event.action, "Add")
+            or startsWith(event.action, "Remove")
+            or startsWith(event.action, "Put")
+            or startsWith(event.action, "Tag")
+    )
+
 '''
 
 
