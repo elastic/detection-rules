@@ -2,68 +2,22 @@
 creation_date = "2024/07/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/11/04"
+updated_date = "2024/07/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when an EC2 instance interacts with the AWS IAM service via an assumed role. This is uncommon behavior and
-could indicate an attacker using compromised credentials to further exploit an environment. For example, an assumed role
-could be used to create new users for persistence or add permissions for privilege escalation. An EC2 instance assumes a
-role using their EC2 ID as the session name. This rule looks for the pattern "i-" which is the beginning pattern for
-assumed role sessions started by an EC2 instance.
+Identifies when an EC2 instance interacts with the AWS IAM service via an assumed role. This is uncommon behavior and could indicate an attacker using compromised credentials to further exploit an environment. For example, an assumed role could be used to create new users for persistence or add permissions for privilege escalation. An EC2 instance assumes a role using their EC2 ID as the session name. This rule looks for the pattern "i-" which is the beginning pattern for assumed role sessions started by an EC2 instance.
 """
-false_positives = [
-    """
-    Administrators may use EC2 instances to interact with IAM services as part of an automation workflow, ensure
-    validity of the triggered event and include exceptions where necessary.
-    """,
-]
-from = "now-9m"
-language = "esql"
+false_positives = ["Administrators may use EC2 instances to interact with IAM services as part of an automation workflow, ensure validity of the triggered event and include exceptions where necessary."]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "eql"
 license = "Elastic License v2"
 name = "AWS EC2 Instance Interaction with IAM Service"
-note = """## Triage and Analysis
-
-### Investigating AWS EC2 Instance Interaction with IAM Service via Assumed Role
-
-This detection rule identifies instances where an EC2 instance interacts with AWS IAM services through an assumed role. This type of activity is unusual and may indicate that an attacker is attempting to further exploit the environment using compromised EC2 instance credentials. Potentially, an attacker could use this access to escalate privileges or create new users and roles for persistence.
-
-#### Possible Investigation Steps
-
-- **Examine the Assumed Role and Initiating Instance**:
-  - **Role and Instance**: Check the `aws.cloudtrail.user_identity.arn` field to identify the specific EC2 instance and role involved in this activity (e.g., `arn:aws:sts::[account-id]:assumed-role/[role-name]/[instance-id]`).
-  - **Session Context**: Review the `aws.cloudtrail.user_identity.session_context` for details about the session creation and `mfa_authenticated` status, if available.
-
-- **Identify the Action Performed**:
-  - **API Call**: Inspect `event.action` for the specific IAM API operation performed (e.g., `ListRoles`, `CreateUser`). This can provide insights into the level of permissions the instance is attempting to access.
-  - **Analyze Permissions**: Evaluate if the IAM role allows actions that the EC2 instance wouldn’t typically need. Roles with broad IAM permissions could indicate an overprivileged role or an attempt to escalate permissions.
-
-- **Verify the Source of the Activity**:
-  - **Source IP and Location**: Check `source.ip` and `source.geo` fields to verify the origin of the request. Unusual locations could indicate unauthorized access.
-  - **User Agent**: Review `user_agent.original` to determine the tooling used. Expected values may include AWS CLI or SDKs, while unexpected user agents might point toward unusual or malicious usage.
-
-- **Determine the Intent and Frequency of Similar Events**:
-  - **Previous Events**: Review CloudTrail logs to see if this EC2 instance or role has a history of interacting with IAM services, which may establish a baseline of normal or unusual behavior.
-  - **Multiple Actions**: Investigate if other IAM-related actions, such as `CreateUser` or `AttachRolePolicy`, have been called from this EC2 instance recently, indicating an attempt to escalate privileges or establish persistence.
-
-### False Positive Analysis
-
-- **Automation and Maintenance Tasks**: Some automation or administrative workflows might use EC2 instances to interact with IAM services. Verify if this event aligns with legitimate automation processes and consider excluding known workflows to reduce false positives.
-- **Expected Patterns**: For environments with automation, verify if EC2 instances routinely assume roles to perform IAM-related tasks, and if so, document these patterns for future reference.
-
-### Response and Remediation
-
-- **Access Review**: If unauthorized access is suspected, review and limit the EC2 instance's IAM permissions, especially roles allowing IAM-related actions.
-- **Role Management**: Confirm the role’s permissions align with its intended purpose and remove any overly permissive policies that may allow privilege escalation or persistence.
-- **Alerting and Monitoring**: Consider setting up real-time alerts for similar IAM actions by EC2 instances, especially actions that involve privilege escalation or persistence techniques.
-- **Policy Update**: Apply least privilege principles for IAM roles associated with EC2 instances to minimize potential exploitation risks.
-
-### Additional Information
-
-Refer to the [AWS IAM documentation](https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html) and AWS best practices for IAM role usage to further understand secure role configurations.
-"""
-references = ["https://redcanary.com/blog/aws-sts/"]
+references = [
+    "https://redcanary.com/blog/aws-sts/",
+]
 risk_score = 47
 rule_id = "a44bcb58-5109-4870-a7c6-11f5fe7dd4b1"
 severity = "medium"
@@ -71,53 +25,38 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
     "Data Source: AWS IAM",
     "Use Case: Identity and Access Audit",
     "Tactic: Privilege Escalation",
     "Tactic: Persistence",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "eql"
 
 query = '''
-from logs-aws.cloudtrail* metadata _id, _version, _index
-
-| where
-    event.dataset == "aws.cloudtrail"
-    and event.provider == "iam.amazonaws.com"
-
-    // filter for assumed role sessions started by an EC2 instance
-    and aws.cloudtrail.user_identity.type == "AssumedRole"
-    and user.id like """*:i-*"""
-
-// extract the owner and actor from the ARN
-| dissect aws.cloudtrail.user_identity.arn "%{}::%{owner}:%{identity_type}/%{actor}"
-| eval
-    // filter out AWS, Elastic, Datadog, and Wiz service roles by ARN
-    aws_vendor = starts_with(actor, "AWSServiceRoleForConfig"),
-    elastic_vendor = starts_with(actor, "Elastic"),
-    datadog_vendor = starts_with(actor, "DataDog"),
-    wiz_vendor = starts_with(actor, "Wiz")
-| where
-    aws_vendor != true and
-    elastic_vendor != true and
-    datadog_vendor != true and
-    wiz_vendor != true
-| keep
-    @timestamp,
-    event.provider,
-    event.action,
-    aws.cloudtrail.user_identity.arn,
-    user.id,
-    owner,
-    actor,
-    aws.cloudtrail.request_parameters,
-    aws.cloudtrail.response_elements
+any where event.dataset == "aws.cloudtrail"
+   and event.provider == "iam.amazonaws.com"
+   and aws.cloudtrail.user_identity.type == "AssumedRole"
+   and stringContains (user.id, ":i-")
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
@@ -127,27 +66,11 @@ id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
-
-[[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
-[[rule.threat.technique.subtechnique]]
-id = "T1098.001"
-name = "Additional Cloud Credentials"
-reference = "https://attack.mitre.org/techniques/T1098/001/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1098.003"
-name = "Additional Cloud Roles"
-reference = "https://attack.mitre.org/techniques/T1098/003/"
-
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -155,4 +78,3 @@ framework = "MITRE ATT&CK"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
