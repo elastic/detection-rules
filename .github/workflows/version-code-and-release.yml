@@ -12,6 +12,11 @@ on:
       - 'tests/**'
       - '**/*.md'
     types: [opened, reopened, synchronize]
+  push:
+    branches:
+      - main
+    paths:
+      - 'pyproject.toml'
 
 permissions:
   contents: read
@@ -19,6 +24,7 @@ permissions:
 
 jobs:
   label_check:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Ensure PR has Version Bump Label
@@ -34,6 +40,7 @@ jobs:
             }
 
   version_check:
+    if: github.event_name == 'pull_request'
     needs: label_check
     runs-on: ubuntu-latest
     steps:
@@ -63,7 +70,7 @@ jobs:
           fi
 
   release_drafter:
-    if: github.event.pull_request.merged == true && needs.version_check.result == 'success'
+    if: github.ref == 'refs/heads/main' && needs.version_check.result == 'success'
     needs: version_check
     runs-on: ubuntu-latest
     permissions:
