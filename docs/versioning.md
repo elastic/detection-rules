@@ -52,6 +52,9 @@ We will use **Semantic Versioning** with the format `MAJOR.MINOR.PATCH`:
 - **MINOR version (`0.Y.0`)**: For backward-compatible new features.
 - **PATCH version (`0.0.Z`)**: For backward-compatible bug fixes or small improvements.
 
+> [!NOTE]
+> The GitHub labels `patch`, `minor`, or `major` will be used in PRs to indicate the type of change being made.
+
 ---
 
 ## Versioning Guidelines
@@ -76,7 +79,7 @@ Increment the patch version when making bug fixes, performance improvements, or 
   - Bug fixes in hunting rules logic.
   - Small performance tweaks for the hunting rule management.
 - **Docs Folder**:
-  - Updates to documentation. 
+  - Updates to documentation.
 
 </p>
 </details>
