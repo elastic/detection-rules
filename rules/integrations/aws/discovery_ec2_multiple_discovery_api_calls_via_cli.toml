@@ -87,7 +87,18 @@ from logs-aws.cloudtrail*
     event.dataset == "aws.cloudtrail"
 
     // filter on CloudTrail audit logs for IAM, EC2, and S3 events only
-    and event.provider in ("iam.amazonaws.com", "ec2.amazonaws.com", "s3.amazonaws.com")
+    and event.provider in (
+      "iam.amazonaws.com",
+      "ec2.amazonaws.com",
+      "s3.amazonaws.com",
+      "rds.amazonaws.com",
+      "lambda.amazonaws.com",
+      "dynamodb.amazonaws.com",
+      "kms.amazonaws.com",
+      "cloudfront.amazonaws.com",
+      "elasticloadbalancing.amazonaws.com",
+      "cloudfront.amazonaws.com"
+    )
 
     // ignore AWS service actions
     and aws.cloudtrail.user_identity.type != "AWSService"
@@ -98,27 +109,17 @@ from logs-aws.cloudtrail*
     // exclude DescribeCapacityReservations events related to AWS Config
     and not event.action in ("DescribeCapacityReservations")
 
-    // filter for Describe and List API calls
-    and (
-            event.action like "Describe*" or
-            event.action like "List*" or
-            event.action like "Get*"
-    )
-
+// filter for Describe, Get, List, and Generate API calls
+| where true in (
+    starts_with(event.action, "Describe"),
+    starts_with(event.action, "Get"),
+    starts_with(event.action, "List"),
+    starts_with(event.action, "Generate")
+)
 // extract owner, identity type, and actor from the ARN
 | dissect aws.cloudtrail.user_identity.arn "%{}::%{owner}:%{identity_type}/%{actor}"
-| eval
-
-    // filter out AWS, Elastic, Datadog, and Wiz service roles by ARN
-    aws_vendor = starts_with(actor, "AWSServiceRoleForConfig"),
-    elastic_vendor = starts_with(actor, "Elastic"),
-    datadog_vendor = starts_with(actor, "DataDog"),
-    wiz_vendor = starts_with(actor, "Wiz")
-| where
-    aws_vendor != true and
-    elastic_vendor != true and
-    datadog_vendor != true and
-    wiz_vendor != true
+| eval aws_service_config = starts_with(actor, "AWSServiceRoleForConfig")
+| where aws_service_config != true
 | keep @timestamp, time_window, event.action, aws.cloudtrail.user_identity.arn
 | stats
     // count the number of unique API calls per time window and actor
