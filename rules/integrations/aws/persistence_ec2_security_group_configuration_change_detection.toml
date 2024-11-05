@@ -22,9 +22,9 @@ from = "now-9m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS EC2 Security Group Configuration Change Detection"
+name = "AWS EC2 Security Group Configuration Change"
 note = """
-### Investigating AWS EC2 Security Group Configuration Change Detection
+### Investigating AWS EC2 Security Group Configuration Change
 
 This rule identifies any changes to an AWS Security Group, which functions as a virtual firewall controlling inbound and outbound traffic for resources like EC2 instances. Modifications to a security group configuration could expose critical assets to unauthorized access. Threat actors may exploit such changes to establish persistence, exfiltrate data, or pivot within an AWS environment.
 
@@ -88,16 +88,16 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail
-    and event.provider:ec2.amazonaws.com
+event.dataset: "aws.cloudtrail"
+    and event.provider: "ec2.amazonaws.com"
     and event.action:(
-            AuthorizeSecurityGroupEgress or
-            CreateSecurityGroup or
-            ModifyInstanceAttribute or
-            ModifySecurityGroupRules or
-            RevokeSecurityGroupEgress or
-            RevokeSecurityGroupIngress)
-    and event.outcome:success
+            "AuthorizeSecurityGroupEgress" or
+            "CreateSecurityGroup" or
+            "ModifyInstanceAttribute" or
+            "ModifySecurityGroupRules" or
+            "RevokeSecurityGroupEgress" or
+            "RevokeSecurityGroupIngress")
+    and event.outcome: "success"
 '''
 
 
