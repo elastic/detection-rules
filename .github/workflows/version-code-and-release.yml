@@ -42,22 +42,26 @@ jobs:
 
       - name: Check if core pyproject.toml was updated
         run: |
-          if ! git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^pyproject.toml$'; then
+          BASE_COMMIT="${{ github.event.pull_request.base.sha }}"
+
+          if ! git diff --name-only "$BASE_COMMIT" "$GITHUB_SHA" | grep '^pyproject.toml$'; then
             echo "Code changes detected in core, but pyproject.toml was not updated."
             exit 1
           fi
 
       - name: Check if lib pyproject.toml files were updated
         run: |
-          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E 'lib/kql/|lib/kibana/'; then
-            if ! git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E 'lib/kql/pyproject.toml|lib/kibana/pyproject.toml'; then
+          BASE_COMMIT="${{ github.event.pull_request.base.sha }}"
+
+          if git diff --name-only "$BASE_COMMIT" "$GITHUB_SHA" | grep -E 'lib/kql/|lib/kibana/'; then
+            if ! git diff --name-only "$BASE_COMMIT" "$GITHUB_SHA" | grep -E 'lib/kql/pyproject.toml|lib/kibana/pyproject.toml'; then
               echo "Changes detected in kql or kibana library, but respective pyproject.toml was not updated."
               exit 1
             fi
           fi
 
   release_drafter:
-    if: github.event.pull_request.merged == true && needs.version_check.conclusion == 'success'
+    if: github.event.pull_request.merged == true && needs.version_check.result == 'success'
     needs: version_check
     runs-on: ubuntu-latest
     permissions:
