@@ -11,12 +11,7 @@ on:
       - 'detection_rules/**'
       - 'tests/**'
       - '**/*.md'
-    types: [opened, reopened, synchronize, labeled]
-  push:
-    branches:
-      - main
-    paths:
-      - 'pyproject.toml'
+    types: [opened, reopened, synchronize, labeled, closed]
 
 permissions:
   contents: read
@@ -70,7 +65,7 @@ jobs:
           fi
 
   release_drafter:
-    if: github.ref == 'refs/heads/main'
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
