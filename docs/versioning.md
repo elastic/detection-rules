@@ -141,7 +141,7 @@ Increment the major version when introducing backward-incompatible changes that 
 ## Tagging Process
 
 Each release will be tagged using the following format:
-- **Tag Format**: `vX.Y.Z` (e.g., `v1.2.0`).
+- **Tag Format**: `vX.Y.Z-dev` (e.g., `v1.2.0-dev`).
 - **Single Tag for Combined Releases**: If there are changes to the core detection-rules code or libraries (`kql`, `kibana`), they will be tagged together as a single release with the core detection-rules versioning.
 - **Hunting Folder**: Changes to the hunting logic will be included in the combined release.
 
