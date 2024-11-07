@@ -292,7 +292,7 @@ def parse_beats_from_index(index: Optional[list]) -> List[str]:
     # e.g. mycluster:logs-* -> logs-*
     for index in indexes:
         if "beat-*" in index:
-            index_parts = index.replace('::', ':').split(':', 1) 
+            index_parts = index.replace('::', ':').split(':', 1)
             last_part = index_parts[-1]
             beat_type = last_part.split("-")[0]
             beat_types.append(beat_type)
