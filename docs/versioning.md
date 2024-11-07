@@ -80,6 +80,8 @@ Increment the patch version when making bug fixes, performance improvements, or 
   - Small performance tweaks for the hunting rule management.
 - **Docs Folder**:
   - Updates to documentation.
+- **JSON Schemas**:
+  - Recurring update to schema definitions that don't break compatibility (not .py schema updates).
 
 </p>
 </details>
@@ -140,7 +142,7 @@ Increment the major version when introducing backward-incompatible changes that 
 
 ## Tagging Process
 
-Each release will be tagged using the following format:
+Each pyproject.toml update will be tagged using the following format:
 - **Tag Format**: `dev-vX.Y.Z` (e.g., `dev-v1.2.0`).
 - **Single Tag for Combined Releases**: If there are changes to the core detection-rules code or libraries (`kql`, `kibana`), they will be tagged together as a single release with the core detection-rules versioning.
 - **Hunting Folder**: Changes to the hunting logic will be included in the combined release.
@@ -151,11 +153,11 @@ Each release will be tagged using the following format:
 
 ## When to Trigger a GitHub Release
 
-A draft release will be triggered in the following cases:
+A draft release will be triggered on all version updates. For example, in the following cases:
 - **New Feature or Bug Fix**: Once a feature or bug fix is merged into `main`, a version bump is made according to the semantic versioning rules.
 - **Version Bump**: After the version bump, a GitHub release will be created using **release-drafter** CI workflow to automate draft release generation.
 
 As pull requests are merged, a draft release is kept up-to-date listing the changes, ready to publish quarterly.
 
 > [!IMPORTANT]
-> Proper PR labels need to be added for this to properly be labeled and added to the draft.
+> Releases are published on minor and major version bumps at a minimum. Prior to publishing, the release notes should be reviewed and updated with any additional information, or remove any unnecessary details not related to code changes (which may occur due to release-drafter pulling in all commits).
