@@ -64,7 +64,7 @@ jobs:
             fi
           fi
 
-  release_drafter:
+  tag_and_draft_release:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
@@ -72,6 +72,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set github config
+        run: |
+          git config --global user.email "72879786+protectionsmachine@users.noreply.github.com"
+          git config --global user.name "protectionsmachine"
+
+      - name: Extract version from pyproject.toml and create tag
+        id: extract_version
+        run: |
+          version=$(grep '^version = ' pyproject.toml | cut -d '"' -f2)
+          echo "Detected version: $version"
+          git tag -a "dev-v$version" -m "Release version $version"
+          git push origin "v$version"
 
       - name: Run Release Drafter
         uses: release-drafter/release-drafter@v6
