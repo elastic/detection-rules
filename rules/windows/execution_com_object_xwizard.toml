@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2021/01/20"
-integration = ["endpoint", "windows", "m365_defender"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2024/11/02"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -23,6 +23,7 @@ index = [
     "logs-system.security*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -45,6 +46,7 @@ tags = [
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -55,7 +57,12 @@ process where host.os.type == "windows" and event.type == "start" and
  (
    (process.args : "RunWizard" and process.args : "{*}") or
    (process.executable != null and
-     not process.executable : ("C:\\Windows\\SysWOW64\\xwizard.exe", "C:\\Windows\\System32\\xwizard.exe")
+     not process.executable : (
+        "C:\\Windows\\SysWOW64\\xwizard.exe",
+        "C:\\Windows\\System32\\xwizard.exe",
+        "\\Device\\HarddiskVolume?\\Windows\\SysWOW64\\xwizard.exe",
+        "\\Device\\HarddiskVolume?\\Windows\\System32\\xwizard.exe"
+     )
    )
  )
 '''
