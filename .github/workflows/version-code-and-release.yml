@@ -72,6 +72,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set github config
         run: |
@@ -84,7 +86,7 @@ jobs:
           version=$(grep '^version = ' pyproject.toml | cut -d '"' -f2)
           echo "Detected version: $version"
           git tag -a "dev-v$version" -m "Release version $version"
-          git push origin "v$version"
+          git push origin "dev-v$version"
 
       - name: Run Release Drafter
         uses: release-drafter/release-drafter@v6
