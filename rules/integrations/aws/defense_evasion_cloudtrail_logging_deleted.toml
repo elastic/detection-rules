@@ -2,7 +2,9 @@
 creation_date = "2020/05/26"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/11/07"
+min_stack_comments = "New fields added: investigation_fields"
+min_stack_version = "8.11.0"
 
 [rule]
 author = ["Elastic"]
@@ -86,9 +88,26 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:DeleteTrail and event.outcome:success
+event.dataset:aws.cloudtrail
+    and event.provider:cloudtrail.amazonaws.com
+    and event.action:DeleteTrail
+    and event.outcome:success
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "event.action",
+    "event.outcome",
+    "cloud.region",
+    "user_agent.original",
+    "user.name",
+    "related.user",
+    "source.address",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.flattened.request_parameters.name",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.arn"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -3,7 +3,9 @@ bypass_bbr_timing = true
 creation_date = "2024/07/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/11/05"
+updated_date = "2024/11/07"
+min_stack_comments = "New fields added: investigation_fields"
+min_stack_version = "8.11.0"
 
 [rule]
 author = ["Elastic"]
@@ -64,6 +66,24 @@ any where event.dataset == "aws.cloudtrail"
     )
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "cloud.region",
+    "event.provider",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "related.user",
+    "source.address",
+    "user.name",
+    "user.id",
+    "user.target.name",
+    "user_agent.original"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

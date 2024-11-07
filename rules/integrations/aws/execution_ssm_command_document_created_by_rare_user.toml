@@ -2,16 +2,21 @@
 creation_date = "2024/11/01"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/11/01"
+updated_date = "2024/11/07"
+min_stack_comments = "New fields added: investigation_fields"
+min_stack_version = "8.11.0"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when an AWS Systems Manager (SSM) command document is created by a user who does not typically perform this action. Adversaries may create SSM command documents to execute commands on managed instances, potentially leading to unauthorized access, command and control, data exfiltration and more.
+Identifies when an AWS Systems Manager (SSM) command document is created by a user who does not typically perform this
+action. Adversaries may create SSM command documents to execute commands on managed instances, potentially leading to
+unauthorized access, command and control, data exfiltration and more.
 """
 false_positives = [
     """
-    Legitimate users may create SSM command documents for legitimate purposes. Ensure that the document is authorized and the user is known before taking action.
+    Legitimate users may create SSM command documents for legitimate purposes. Ensure that the document is authorized
+    and the user is known before taking action.
     """,
 ]
 from = "now-9m"
@@ -19,8 +24,7 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS SSM Command Document Created by Rare User"
-note = """
-## Triage and Analysis
+note = """## Triage and Analysis
 
 ### Investigating AWS SSM Command Document Created by Rare User
 
@@ -55,7 +59,7 @@ For further guidance on managing and securing AWS Systems Manager in your enviro
 """
 references = [
     "https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_CreateDocument.html",
-    "https://docs.aws.amazon.com/systems-manager/latest/userguide/documents.html"
+    "https://docs.aws.amazon.com/systems-manager/latest/userguide/documents.html",
 ]
 risk_score = 21
 rule_id = "50a2bdea-9876-11ef-89db-f661ea17fbcd"
@@ -68,7 +72,7 @@ tags = [
     "Data Source: AWS Systems Manager",
     "Resources: Investigation Guide",
     "Use Case: Threat Detection",
-    "Tactic: Execution"
+    "Tactic: Execution",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -80,6 +84,20 @@ event.dataset: "aws.cloudtrail"
     and event.outcome: "success"
     and aws.cloudtrail.response_elements: *documentType=Command*
 '''
+
+[rule.investigation_fields]
+field_names = [
+    "event.action",
+    "event.outcome",
+    "cloud.region",
+    "related.user",
+    "user.name",
+    "user_agent.original",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
