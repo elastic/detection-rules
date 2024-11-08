@@ -44,3 +44,4 @@ These guidelines serve as a reminder set of considerations when addressing addin
 - [ ] Cross-referenced the feature with product documentation for consistency
 - [ ] Incorporated a comprehensive test rule in unit tests for full schema coverage
 - [ ] Conducted system testing, including fleet, import, and create APIs (e.g., run `make test-remote-cli`)
+- [ ] Confirm that the proper version label is applied to the PR `patch`, `minor`, `major`.
