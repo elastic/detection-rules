@@ -1,16 +1,16 @@
 # Rule coverage
 
-ATT&CK navigator layer files are generated when a package is built with `make release` or
-`python -m detection-rules`.This also means they can be downloaded from all successful builds.
+        ATT&CK navigator layer files are generated when a package is built with `make release` or
+        `python -m detection-rules`.This also means they can be downloaded from all successful builds.
 
-These files can be used to pass to a custom navigator session. For convenience, the links are
-generated below. You can also include multiple across tabs in a single session, though it is not
-advisable to upload _all_ of them as it will likely overload your browsers resources.
+        These files can be used to pass to a custom navigator session. For convenience, the links are
+        generated below. You can also include multiple across tabs in a single session, though it is not
+        advisable to upload _all_ of them as it will likely overload your browsers resources.
 
-## Current rule coverage
+        ## Current rule coverage
 
-The source files for these links are regenerated with every successful merge to main. These represent
-coverage from the state of rules in the `main` branch.
+        The source files for these links are regenerated with every successful merge to main. These represent
+        coverage from the state of rules in the `main` branch.
 
 
 **Full coverage**: [![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)](https://ela.st/detection-rules-navigator)
@@ -32,6 +32,7 @@ coverage from the state of rules in the `main` branch.
 |[Elastic-detection-rules-indexes-logs-azure](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-indexes-logs-azure.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-indexes-logs-azureWILDCARD](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-indexes-logs-azureWILDCARD.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-indexes-logs-cloud_defendWILDCARD](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-indexes-logs-cloud_defendWILDCARD.json&leave_site_dialog=false&tabs=false)|
+|[Elastic-detection-rules-indexes-logs-crowdstrike](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-indexes-logs-crowdstrike.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-indexes-logs-cyberarkpas](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-indexes-logs-cyberarkpas.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-indexes-logs-endpoint](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-indexes-logs-endpoint.events.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-indexes-logs-endpointWILDCARD](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-indexes-logs-endpointWILDCARD.json&leave_site_dialog=false&tabs=false)|
@@ -79,6 +80,7 @@ coverage from the state of rules in the `main` branch.
 |[Elastic-detection-rules-tags-aws-service-quotas](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-aws-service-quotas.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-tags-aws-sign-in](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-aws-sign-in.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-tags-aws-signin](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-aws-signin.json&leave_site_dialog=false&tabs=false)|
+|[Elastic-detection-rules-tags-aws-sns](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-aws-sns.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-tags-aws-ssm](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-aws-ssm.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-tags-aws-sts](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-aws-sts.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-tags-aws-systems-manager](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-aws-systems-manager.json&leave_site_dialog=false&tabs=false)|
@@ -94,6 +96,7 @@ coverage from the state of rules in the `main` branch.
 |[Elastic-detection-rules-tags-configuration-audit](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-configuration-audit.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-tags-container](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-container.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-tags-credential-access](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-credential-access.json&leave_site_dialog=false&tabs=false)|
+|[Elastic-detection-rules-tags-crowdstrike](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-crowdstrike.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-tags-cyberark-pas](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-cyberark-pas.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-tags-data-exfiltration-detection](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-data-exfiltration-detection.json&leave_site_dialog=false&tabs=false)|
 |[Elastic-detection-rules-tags-defense-evasion](https://mitre-attack.github.io/attack-navigator/#layerURL=https%3A%2F%2Fgist.githubusercontent.com%2Fbrokensound77%2F1a3f65224822a30a8228a8ed20289a89%2Fraw%2FElastic-detection-rules-tags-defense-evasion.json&leave_site_dialog=false&tabs=false)|
