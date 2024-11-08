@@ -2,17 +2,14 @@
 creation_date = "2024/07/10"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
-min_stack_version = "8.4.0"
-updated_date = "2024/07/10"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule leverages the new_terms rule type to identify the creation of a potentially unsafe docker container from an
-unusual parent process. Attackers can use the `--privileged` flag to create containers with escalated privileges,
-which can lead to trivial privilege escalation, docker escaping and persistence.
-access.
+unusual parent process. Attackers can use the `--privileged` flag to create containers with escalated privileges, which
+can lead to trivial privilege escalation, docker escaping and persistence. access.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
@@ -44,49 +41,51 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "Domain: Container",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.name:docker and
 process.args:(run and --privileged)
 '''
+
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
 
 [[rule.threat.technique]]
 id = "T1609"
 name = "Container Administration Command"
 reference = "https://attack.mitre.org/techniques/T1609/"
 
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1059.004"
-name = "Unix Shell"
-reference = "https://attack.mitre.org/techniques/T1059/004/"
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1611"
 name = "Escape to Host"
 reference = "https://attack.mitre.org/techniques/T1611/"
+
 
 [rule.threat.tactic]
 id = "TA0004"
@@ -96,7 +95,8 @@ reference = "https://attack.mitre.org/tactics/TA0004/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.parent.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+
