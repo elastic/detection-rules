@@ -53,8 +53,13 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.name like "python*" and process.args in ("http.server", "SimpleHTTPServer")
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  (process.name like "python*" and process.args in ("http.server", "SimpleHTTPServer")) or
+  (
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+    process.command_line like~ "*python* -m http.server*")
+  )
+)
 '''
 
 [[rule.threat]]
