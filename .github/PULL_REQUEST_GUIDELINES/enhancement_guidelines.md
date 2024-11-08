@@ -32,3 +32,4 @@ These guidelines serve as a reminder set of considerations when addressing addin
 - [ ] Review the enhancement with a peer or team member for additional insights.
 - [ ] Verify that the enhancement works across all relevant environments (e.g., different OS versions).
 - [ ] Confirm that all dependencies are up-to-date and compatible with the changes.
+- [ ] Confirm that the proper version label is applied to the PR `patch`, `minor`, `major`.
