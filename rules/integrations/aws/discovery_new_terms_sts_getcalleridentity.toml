@@ -2,19 +2,19 @@
 creation_date = "2024/05/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/09/30"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
 description = """
-An adversary with access to a set of compromised credentials may attempt to verify that the credentials are valid and 
-determine what account they are using. This rule looks for the first time an identity has called the 
-STS `GetCallerIdentity` API operation in the last 15 days, which may be an indicator of compromised credentials. 
+An adversary with access to a set of compromised credentials may attempt to verify that the credentials are valid and
+determine what account they are using. This rule looks for the first time an identity has called the
+STS `GetCallerIdentity` API operation in the last 15 days, which may be an indicator of compromised credentials.
 A legitimate user would not need to call this operation as they should know the account they are using.
 """
 false_positives = [
     """
-    Verify whether the user identity should be using the STS `GetCallerIdentity` API operation. 
+    Verify whether the user identity should be using the STS `GetCallerIdentity` API operation.
     If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
@@ -29,7 +29,7 @@ note = """## Triage and analysis
 ### Investigating AWS GetCallerIdentity API Called for the First Time
 
 AWS Security Token Service (AWS STS) is a service that enables you to request temporary, limited-privilege credentials for users.
-The `GetCallerIdentity` function returns details about the IAM user or role owning the credentials used to call the operation. 
+The `GetCallerIdentity` function returns details about the IAM user or role owning the credentials used to call the operation.
 No permissions are required to run this operation and the same information is returned even when access is denied.
 This rule looks for use of the `GetCallerIdentity` operation. This is a [New Terms](https://www.elastic.co/guide/en/security/master/rules-ui-create.html#create-new-terms-rule) rule indicating this is the first time a specific user identity has called this operation within the last 15 days.
 
@@ -93,10 +93,26 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "aws.cloudtrail" and event.provider: "sts.amazonaws.com" and event.action: "GetCallerIdentity"
-and not aws.cloudtrail.user_identity.type: "AssumedRole"
+event.dataset: "aws.cloudtrail"
+    and event.provider: "sts.amazonaws.com"
+    and event.action: "GetCallerIdentity"
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AssumedRole"
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.address",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.arn",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

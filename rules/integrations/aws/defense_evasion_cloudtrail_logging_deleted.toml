@@ -2,7 +2,7 @@
 creation_date = "2020/05/26"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -86,9 +86,26 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:DeleteTrail and event.outcome:success
+event.dataset:aws.cloudtrail
+    and event.provider:cloudtrail.amazonaws.com
+    and event.action:DeleteTrail
+    and event.outcome:success
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "source.address",
+    "user_agent.original",
+    "aws.cloudtrail.flattened.request_parameters.name",
+    "event.action",
+    "event.outcome",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
