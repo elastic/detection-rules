@@ -2,7 +2,7 @@
 creation_date = "2024/11/01"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/11/01"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -81,6 +81,22 @@ event.dataset: "aws.cloudtrail"
     and aws.cloudtrail.request_parameters: *protocol=email*
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.address",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "cloud.region",
+    "aws.cloudtrail.flattened.request_parameters.protocol",
+    "aws.cloudtrail.flattened.request_parameters.topicArn",
+    "aws.cloudtrail.flattened.response_elements.subscriptionArn",
+    "aws.cloudtrail.request_parameters"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
