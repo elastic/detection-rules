@@ -2,7 +2,7 @@
 creation_date = "2021/05/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/11/05"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -99,6 +99,22 @@ event.dataset: "aws.cloudtrail"
             "RevokeSecurityGroupIngress")
     and event.outcome: "success"
 '''
+
+[rule.investigation_fields]
+field_names = [
+   "@timestamp",
+   "user.name",
+   "aws.cloudtrail.user_identity.arn",
+   "aws.cloudtrail.user_identity.type",
+   "user_agent.original",
+   "aws.cloudtrail.flattened.request_parameters.instanceId",
+   "event.action",
+   "event.outcome",
+   "cloud.region",
+   "event.provider",
+   "aws.cloudtrail.request_parameters",
+   "aws.cloudtrail.response_elements"
+]
 
 
 [[rule.threat]]
