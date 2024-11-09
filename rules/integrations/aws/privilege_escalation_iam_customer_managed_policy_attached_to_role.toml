@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/11/04"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -94,9 +94,25 @@ event.dataset: "aws.cloudtrail"
     and event.provider: "iam.amazonaws.com"
     and event.action: "AttachRolePolicy"
     and event.outcome: "success"
-    and not aws.cloudtrail.flattened.request_paramters.policyArn: arn\:aws\:iam\:\:aws\:policy*
+    and not aws.cloudtrail.flattened.request_parameters.policyArn: arn\:aws\:iam\:\:aws\:policy*
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.address",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "user_agent.original",
+    "aws.cloudtrail.flattened.request_parameters.policyArn",
+    "aws.cloudtrail.flattened.request_parameters.roleName",
+    "event.action",
+    "event.outcome",
+    "cloud.region",
+    "event.provider",
+    "aws.cloudtrail.request_parameters"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
