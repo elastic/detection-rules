@@ -2,7 +2,7 @@
 creation_date = "2024/06/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -75,15 +75,15 @@ file.extension == null and process.executable != null and not (
     "/usr/local/bin/dockerd", "/sbin/dockerd"
   ) or
   process.executable : ("/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*") or
-  process.name in ("git", "dirname") or
+  process.name in ("git", "dirname", "tar", "gitea", "git-lfs") or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
@@ -94,28 +94,29 @@ id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -123,4 +124,3 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

@@ -31,8 +31,11 @@ def main() -> None:
 
     commands = [masquerade, "netcon", "-h", "8.8.8.8", "-p", "53"]
     common.execute([*commands], timeout=5, kill=True)
+
     common.log("Cleaning...")
+
     common.remove_file(masquerade)
+
     common.log("Simulation successfull!")
 
 

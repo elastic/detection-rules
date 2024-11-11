@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/09/03"
-integration = ["endpoint"]
+integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/09/10"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -87,6 +87,25 @@ and process.args: (
 )
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "process.user.name",
+    "process.entry_leader.group.name",
+    "process.entry_leader.real_user.name",
+    "event.action",
+    "event.type",
+    "host.os.type",
+    "host.os.kernel",
+    "process.entry_leader.executable",
+    "process.entry_leader.working_directory",
+    "process.parent.executable",
+    "process.executable",
+    "process.hash.sha256",
+    "process.parent.command_line",
+    "process.command_line",
+    "process.args"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

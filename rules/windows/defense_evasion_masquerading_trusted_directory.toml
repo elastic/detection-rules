@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/11/18"
-integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/10/10"
-min_stack_version = "8.13.0"
-min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2024/10/31"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -23,6 +23,7 @@ index = [
     "logs-system.security*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -41,13 +42,17 @@ tags = [
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.executable : "C:\\*Program*Files*\\*.exe" and
+  process.executable : (
+    "C:\\*Program*Files*\\*.exe",
+    "\\Device\\HarddiskVolume?\\*Program*Files*\\*.exe"
+  ) and
   not process.executable : (
         "?:\\Program Files\\*.exe",
         "?:\\Program Files (x86)\\*.exe",
@@ -56,6 +61,18 @@ process where host.os.type == "windows" and event.type == "start" and
         "?:\\Windows\\Downloaded Program Files\\*.exe",
         "?:\\Windows\\Temp\\.opera\\????????????\\CProgram?FilesOpera*\\*.exe",
         "?:\\Windows\\Temp\\.opera\\????????????\\CProgram?Files?(x86)Opera*\\*.exe"
+  ) and
+  not (
+    event.dataset == "crowdstrike.fdr" and
+      process.executable : (
+        "\\Device\\HarddiskVolume?\\Program Files\\*.exe",
+        "\\Device\\HarddiskVolume?\\Program Files (x86)\\*.exe",
+        "\\Device\\HarddiskVolume?\\Users\\*.exe",
+        "\\Device\\HarddiskVolume?\\ProgramData\\*.exe",
+        "\\Device\\HarddiskVolume?\\Windows\\Downloaded Program Files\\*.exe",
+        "\\Device\\HarddiskVolume?\\Windows\\Temp\\.opera\\????????????\\CProgram?FilesOpera*\\*.exe",
+        "\\Device\\HarddiskVolume?\\Windows\\Temp\\.opera\\????????????\\CProgram?Files?(x86)Opera*\\*.exe"
+      )
   )
 '''
 

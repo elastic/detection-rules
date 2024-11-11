@@ -2,9 +2,7 @@
 creation_date = "2024/07/09"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
-min_stack_version = "8.4.0"
-updated_date = "2024/07/09"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -48,69 +46,71 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.name:dpkg and
 process.args:("-i" or "--install")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1546"
-name = "Event Triggered Execution"
-reference = "https://attack.mitre.org/techniques/T1546/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1546.016"
-name = "Installer Packages"
-reference = "https://attack.mitre.org/techniques/T1546/016/"
-
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
 [[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.016"
+name = "Installer Packages"
+reference = "https://attack.mitre.org/techniques/T1546/016/"
+
+
+[[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1195"
 name = "Supply Chain Compromise"
 reference = "https://attack.mitre.org/techniques/T1195/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1195.002"
 name = "Compromise Software Supply Chain"
 reference = "https://attack.mitre.org/techniques/T1195/002/"
 
+
+
 [rule.threat.tactic]
-name = "Initial Access"
 id = "TA0001"
+name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.parent.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+

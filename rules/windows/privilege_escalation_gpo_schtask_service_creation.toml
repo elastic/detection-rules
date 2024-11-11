@@ -2,9 +2,9 @@
 creation_date = "2020/08/13"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/10"
-min_stack_version = "8.13.0"
-min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2024/10/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -37,12 +37,13 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "windows" and event.type != "deletion" and file.name : "ScheduledTasks.xml" and
+file where host.os.type == "windows" and event.type != "deletion" and event.action != "open" and 
+ file.name : ("ScheduledTasks.xml", "Services.xml") and 
   file.path : (
     "?:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\ScheduledTasks\\ScheduledTasks.xml",
     "?:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\Services\\Services.xml"
   ) and
-  not process.name : "dfsrs.exe"
+  not process.executable : "C:\\Windows\\System32\\dfsrs.exe"
 '''
 
 

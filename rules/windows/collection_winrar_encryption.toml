@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/12/04"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2024/11/02"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +13,14 @@ Identifies use of WinRar or 7z to create an encrypted files. Adversaries will of
 preparation for exfiltration.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = [
+  "logs-endpoint.events.process-*",
+  "winlogbeat-*",
+  "logs-windows.sysmon_operational-*",
+  "endgame-*",
+  "logs-m365_defender.event-*",
+  "logs-sentinel_one_cloud_funnel.*"
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Encrypting Files with WinRar or 7z"
@@ -70,6 +79,9 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -85,7 +97,7 @@ process where host.os.type == "windows" and event.type == "start" and
     process.args == "a" and process.args : ("-hp*", "-p*", "/hp*", "/p*")
   ) or
   (
-    ?process.pe.original_file_name in ("7z.exe", "7za.exe") and
+    (process.name : ("7z.exe", "7za.exe") or ?process.pe.original_file_name in ("7z.exe", "7za.exe")) and
     process.args == "a" and process.args : "-p*"
   )
 ) and
@@ -93,7 +105,11 @@ process where host.os.type == "windows" and event.type == "start" and
         "C:\\Program Files\\*.exe",
         "C:\\Program Files (x86)\\*.exe",
         "?:\\ManageEngine\\*\\jre\\bin\\java.exe",
-        "?:\\Nox\\bin\\Nox.exe"
+        "?:\\Nox\\bin\\Nox.exe",
+        "\\Device\\HarddiskVolume?\\Program Files\\*.exe",
+        "\\Device\\HarddiskVolume?\\Program Files (x86)\\*.exe",
+        "\\Device\\HarddiskVolume?\\ManageEngine\\*\\jre\\bin\\java.exe",
+        "\\Device\\HarddiskVolume?\\Nox\\bin\\Nox.exe"
       )
 '''
 
