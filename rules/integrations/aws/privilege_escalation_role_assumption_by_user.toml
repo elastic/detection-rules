@@ -2,7 +2,7 @@
 creation_date = "2024/11/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/11/05"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -94,6 +94,24 @@ event.dataset: "aws.cloudtrail"
     and aws.cloudtrail.user_identity.type: ("AssumedRole" or "IAMUser")
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.address",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "aws.cloudtrail.flattened.request_parameters.roleArn",
+    "aws.cloudtrail.flattened.request_parameters.roleSessionName",
+    "event.action",
+    "event.outcome",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements"
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
