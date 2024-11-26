@@ -2,9 +2,7 @@
 creation_date = "2024/01/05"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
-min_stack_version = "8.11.0"
-updated_date = "2024/03/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -18,9 +16,7 @@ index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via Enlightenment"
-references = [
-    "https://ubuntu.com/security/CVE-2022-37706",
-    "https://www.exploit-db.com/exploits/51180"]
+references = ["https://ubuntu.com/security/CVE-2022-37706", "https://www.exploit-db.com/exploits/51180"]
 risk_score = 73
 rule_id = "bc0fc359-68db-421e-a435-348ced7a7f92"
 setup = """## Setup
@@ -50,8 +46,16 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Use Case: Vulnerability", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.parent.entity_id with maxspan=5s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
@@ -59,15 +63,17 @@ sequence by host.id, process.parent.entity_id with maxspan=5s
   [process where host.os.type == "linux" and event.action == "uid_change" and event.type == "change" and user.id == "0"]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
