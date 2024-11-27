@@ -4,14 +4,15 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.16.0"
-updated_date = "2024/11/26"
 promotion = true
+updated_date = "2024/11/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-Generates a detection alert each time an Elastic Defend alert for malicious behavior is received. Enabling this rule allows you to
-immediately begin investigating your Endpoint behavior alerts. This rule identifies Endpoint Defend behavior preventions only, and does not include detection only alerts.
+Generates a detection alert each time an Elastic Defend alert for malicious behavior is received. Enabling this rule
+allows you to immediately begin investigating your Endpoint behavior alerts. This rule identifies Endpoint Defend
+behavior preventions only, and does not include detection only alerts.
 """
 enabled = true
 from = "now-10m"
@@ -22,7 +23,7 @@ max_signals = 10000
 name = "Behavior - Prevented - Endpoint Defend"
 references = [
     "https://github.com/elastic/protections-artifacts/tree/main/behavior",
-    "https://docs.elastic.co/en/integrations/endpoint"
+    "https://docs.elastic.co/en/integrations/endpoint",
 ]
 risk_score = 21
 rule_id = "eb804972-ea34-11ee-a417-f661ea17fbce"
@@ -33,7 +34,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.kind:alert and event.module:(endpoint and not endgame) and event.code: behavior and message: *prevention*
+event.kind : alert and event.code : behavior and event.type : denied and event.outcome : success
 '''
 
 
