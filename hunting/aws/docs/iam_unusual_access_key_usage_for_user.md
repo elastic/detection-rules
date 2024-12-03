@@ -30,11 +30,14 @@ FROM logs-aws.cloudtrail*
     // Ignore GetObject events
     and event.action NOT IN ("GetObject")
 
-// Create a daily bucket for the events
-| EVAL daily_buckets = DATE_TRUNC(1 days, @timestamp)
+    // Filter out known service roles; expand this as needed
+    and NOT aws.cloudtrail.user_identity.arn LIKE "*AWSServiceRoleForConfig*"
+    and NOT aws.cloudtrail.user_identity.arn LIKE "*Elastic-Cloud-Security-Posture*"
+    and NOT aws.cloudtrail.user_identity.arn LIKE "*AmazonSSMRoleForInstancesQuickSetup*"
+
 | STATS
     // Count the number of events for each daily bucket, user identity, access key, resource, and action
-    api_counts = count(*) by daily_buckets, aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.access_key_id, aws.cloudtrail.resources.arn, event.action
+    api_counts = count(*) by aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.access_key_id, event.action
 
 // Filter for access keys with less than 2 API calls per day
 | WHERE api_counts < 2
