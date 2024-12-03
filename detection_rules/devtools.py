@@ -63,7 +63,8 @@ NAVIGATOR_BADGE = (
     f'[![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)]({NAVIGATOR_URL})'
 )
 RULES_CONFIG = parse_rules_config()
-
+# The base package version that we will start to include all versions of historical rules
+BASE_PKG_VERSION = Version(major=8,minor=17,patch=0)
 
 def get_github_token() -> Optional[str]:
     """Get the current user's GitHub token."""
@@ -124,7 +125,16 @@ def build_release(ctx: click.Context, config_file, update_version_lock: bool, ge
                                                            registry_data['conditions']['kibana.version'].strip("^"))
     sde = SecurityDetectionEngine()
     historical_rules = sde.load_integration_assets(previous_pkg_version)
-    limited_historical_rules = sde.keep_latest_versions(historical_rules)
+    current_pkg_version = Version.parse(registry_data['version'])
+    # pre-release versions are not included in the version comparison
+    # Version 8.17.0-beta.1 is considered lower than 8.17.0
+    current_pkg_version_no_prerelease = Version(major=current_pkg_version.major,minor=current_pkg_version.minor,patch=current_pkg_version.patch)
+    if current_pkg_version_no_prerelease>= BASE_PKG_VERSION:
+        click.echo(f'[+] Adding all historical rule versions in our release package for version {current_pkg_version_no_prerelease}')
+        limited_historical_rules = historical_rules
+    else:
+        click.echo(f'[+] Limit historical rule versions in our release package for version {current_pkg_version_no_prerelease}')
+        limited_historical_rules = sde.keep_latest_versions(historical_rules)
     package.add_historical_rules(limited_historical_rules, registry_data['version'])
     click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
 
