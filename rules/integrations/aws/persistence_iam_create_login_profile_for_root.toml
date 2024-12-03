@@ -2,22 +2,22 @@
 creation_date = "2024/12/02"
 integration = ["aws"]
 maturity = "production"
-min_stack_version = "8.13.0"
 min_stack_comments = "ES|QL available in technical preview."
+min_stack_version = "8.13.0"
 updated_date = "2024/12/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when an AWS IAM login profile is added to a root user account and is self-assigned. Adversaries, with temporary access to the root account, may add a login profile to the root user account to maintain access even if the original access key is rotated or disabled.
+Detects when an AWS IAM login profile is added to a root user account and is self-assigned. Adversaries, with temporary
+access to the root account, may add a login profile to the root user account to maintain access even if the original
+access key is rotated or disabled.
 """
 from = "now-9m"
-index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "AWS IAM Login Profile Added for Root"
 note = """
-
 ## Investigating AWS IAM Login Profile Added for Root
 
 This rule detects when a login profile is added to the AWS root account. Adding a login profile to the root account, especially if self-assigned, is highly suspicious as it might indicate an adversary trying to establish persistence in the environment.
@@ -92,9 +92,10 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
+
 query = '''
-from logs-aws.cloudtrail*
+from logs-aws.cloudtrail* metadata _id, _version, _index
 | where
     // filter for CloudTrail logs from IAM
     event.dataset == "aws.cloudtrail"
@@ -141,6 +142,7 @@ reference = "https://attack.mitre.org/techniques/T1078/004/"
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
+
 
 [rule.threat.tactic]
 id = "TA0003"
