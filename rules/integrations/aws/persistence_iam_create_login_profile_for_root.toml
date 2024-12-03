@@ -2,6 +2,8 @@
 creation_date = "2024/12/02"
 integration = ["aws"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "ES|QL available in technical preview."
 updated_date = "2024/12/02"
 
 [rule]
@@ -30,8 +32,7 @@ This rule detects when a login profile is added to the AWS root account. Adding 
 
 - **Confirm Root User and Request Details**:
     - Validate the root user's identity through `aws.cloudtrail.user_identity.arn` and ensure this activity aligns with legitimate administrative actions.
-    - Review `aws.cloudtrail.user_identity.access_key_id` to identify if the action was performed using temporary or permanent credentials.
-    - Check if `aws.cloudtrail.user_identity.session_context.mfa_authenticated` is set to `true` to ensure Multi-Factor Authentication (MFA) was used.
+    - Review `aws.cloudtrail.user_identity.access_key_id` to identify if the action was performed using temporary or permanent credentials. This access key could be used to pivot into other actions.
 
 - **Analyze the Login Profile Creation**:
     - Review the `aws.cloudtrail.request_parameters` and `aws.cloudtrail.response_elements` fields for details of the created login profile.
@@ -53,6 +54,7 @@ This rule detects when a login profile is added to the AWS root account. Adding 
 ### False Positive Analysis
 
 - **Routine Administrative Tasks**: Adding a login profile might be a legitimate action during certain administrative processes. Verify with the relevant AWS administrators if this event aligns with routine account maintenance or emergency recovery scenarios.
+
 - **Automation**: If the action is part of an approved automation process (e.g., account recovery workflows), consider excluding these activities from alerting using specific user agents, IP addresses, or session attributes.
 
 ### Response and Remediation
