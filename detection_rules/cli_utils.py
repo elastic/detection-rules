@@ -22,7 +22,7 @@ from .rule_loader import (DEFAULT_PREBUILT_BBR_DIRS,
                           DEFAULT_PREBUILT_RULES_DIRS, RuleCollection,
                           dict_filter)
 from .schemas import definitions
-from .utils import clear_caches
+from .utils import clear_caches, rulename_to_filename
 
 
 def single_collection(f):
@@ -94,6 +94,15 @@ def multi_collection(f):
 
         if len(rules) == 0:
             client_error("No rules found")
+
+        # TODO add check here for rule directory path
+        # Either fix or warn if the path is not correct
+        for rule in rules:
+            threat = rule.contents.data.get("threat")
+            first_tactic = threat[0].tactic.name if threat else ""
+            rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=first_tactic)
+            if rule.path.name != rule_name:
+                click.secho(f"WARNING: Rule path does not match expected path: {rule.path.name} != {rule_name}", fg="yellow")
 
         kwargs["rules"] = rules
         return f(*args, **kwargs)
