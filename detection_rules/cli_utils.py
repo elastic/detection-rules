@@ -95,14 +95,15 @@ def multi_collection(f):
         if len(rules) == 0:
             client_error("No rules found")
 
-        # TODO add check here for rule directory path
-        # Either fix or warn if the path is not correct
+        # Warn that if the path does not match the expected path, it will be saved to the expected path
         for rule in rules:
             threat = rule.contents.data.get("threat")
             first_tactic = threat[0].tactic.name if threat else ""
             rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=first_tactic)
             if rule.path.name != rule_name:
-                click.secho(f"WARNING: Rule path does not match expected path: {rule.path.name} != {rule_name}", fg="yellow")
+                click.secho(
+                    f"WARNING: Rule path does not match required path: {rule.path.name} != {rule_name}", fg="yellow"
+                )
 
         kwargs["rules"] = rules
         return f(*args, **kwargs)
@@ -209,7 +210,24 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
     # DEFAULT_PREBUILT_RULES_DIRS[0] is a required directory just as a suggestion
     suggested_path = Path(DEFAULT_PREBUILT_RULES_DIRS[0]) / contents['name']
     path = Path(path or input(f'File path for rule [{suggested_path}]: ') or suggested_path).resolve()
-    meta = {'creation_date': creation_date, 'updated_date': creation_date, 'maturity': 'development'}
+    # NOTE we may want to remove the date logic, should the date match Kibana or match rules repo?
+    # Inherit maturity and dates from the rule already exists
+    maturity = "development"
+    updated_date = None
+    created_date = None
+    if path.exists():
+        rules = RuleCollection()
+        rules.load_file(path)
+        if rules:
+            maturity = rules.rules[0].contents.metadata.maturity
+            updated_date = rules.rules[0].contents.metadata.updated_at
+            created_date = rules.rules[0].contents.metadata.created_at
+
+    meta = {
+        "creation_date": created_date or creation_date,
+        "updated_date": updated_date or creation_date,
+        "maturity": maturity,
+    }
 
     try:
         rule = TOMLRule(path=Path(path), contents=TOMLRuleContents.from_dict({'rule': contents, 'metadata': meta}))
