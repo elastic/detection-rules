@@ -19,7 +19,6 @@ from .utils import cached, load_etc_dump, get_etc_path, set_all_validation_bypas
 
 ROOT_DIR = Path(__file__).parent.parent
 CUSTOM_RULES_DIR = os.getenv('CUSTOM_RULES_DIR', None)
-CUSTOM_RULES_DIR = "/home/forteea1/Code/dac_demo/detection-rules/demo"
 
 
 @dataclass
