@@ -287,6 +287,24 @@ def migrate_to_8_14(version: Version, api_contents: dict) -> dict:
     return strip_additional_properties(version, api_contents)
 
 
+@migrate("8.15")
+def migrate_to_8_15(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.15."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.16")
+def migrate_to_8_16(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.16."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.17")
+def migrate_to_8_17(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.17."""
+    return strip_additional_properties(version, api_contents)
+
+
 def downgrade(api_contents: dict, target_version: str, current_version: Optional[str] = None) -> dict:
     """Downgrade a rule to a target stack version."""
     from ..packaging import current_stack_version
