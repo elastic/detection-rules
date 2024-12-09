@@ -8,6 +8,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Iterable, List, Optional
+from datetime import datetime
 
 import click
 
@@ -237,10 +238,30 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             rule_resource["author"] = rule_resource.get("author") or default_author or [rule_resource.get("created_by")]
             if isinstance(rule_resource["author"], str):
                 rule_resource["author"] = [rule_resource["author"]]
-            contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity="production")
-            threat = contents.data.get("threat")
-            first_tactic = threat[0].tactic.name if threat else ""
-            rule_name = rulename_to_filename(contents.data.name, tactic_name=first_tactic)
+            # NOTE we may want to remove the date logic, should the date match kibana or match rules repo?
+            # Inherit maturity from the rule already exists
+            maturity = "development"
+            updated_date = None
+            created_date = None
+            threat = rule_resource.get("threat")
+            first_tactic = threat[0].get("tactic").get("name") if threat else ""
+            rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=first_tactic)
+            # check if directory / f"{rule_name}" exists
+            if (directory / f"{rule_name}").exists():
+                rules = RuleCollection()
+                rules.load_file(directory / f"{rule_name}")
+                if rules:
+                    maturity = rules.rules[0].contents.metadata.maturity
+                    updated_date = datetime.strptime(rule_resource.get("updated_at"), "%Y-%m-%dT%H:%M:%S.%fZ").strftime(
+                        "%Y/%m/%d"
+                    )
+                    created_date = datetime.strptime(rule_resource.get("created_at"), "%Y-%m-%dT%H:%M:%S.%fZ").strftime(
+                        "%Y/%m/%d"
+                    )
+
+            contents = TOMLRuleContents.from_rule_resource(
+                rule_resource, creation_date=created_date, updated_date=updated_date, maturity=maturity
+            )
             rule = TOMLRule(contents=contents, path=directory / f"{rule_name}")
         except Exception as e:
             if skip_errors:
