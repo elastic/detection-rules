@@ -46,7 +46,7 @@ The second category is referred to as shellcode thread and is unique to Windows 
 - Review the memory region strings for any suspicious or unique keywords captured in `process.Ext.memory_region.strings` and `Target.process.Ext.memory_region.strings`.
 - For signature matches review the `process.Ext.memory_region.malware_signature.primary.matches` and `process.Ext.memory_region.malware_signature.secondary.matches` to understand which keywords or byte sequences matched on the memory Yara signature.
 - For shellcode alerts, check the field `Memory_protection.self_injection` value, if it's false it means it's a remote shellcode injection and you need to review the Target process details like `Target.process.executable` fields.
-- Review any unsigned or suspicious loaded libraries captured in:
+- Even if the acting process is signed, review any unsigned or suspicious loaded libraries (adversaries may use `DLL Side-Loading`) captured in:
   - `process.thread.Ext.call_stack.module_path`
   - `process.Ext.dll.path and process.Ext.dll.hash.sha256`
   - `Target.process.Ext.dll.hash.sha256`
@@ -56,7 +56,7 @@ The second category is referred to as shellcode thread and is unique to Windows 
 
 ### False positive analysis
 
-- False positives may include Yara signature matches on generic keywords or some third party softwares performing code injection (often all involved files are signed and by the same vendor).
+- False positives may include Yara signature matches on generic keywords or some third party software performing code injection (often all involved files are signed and by the same vendor).
 
 
 ### Response and Remediation
