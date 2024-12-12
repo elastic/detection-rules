@@ -1,0 +1,63 @@
+# AWS IAM Unusual AWS Access Key Usage for User
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** This hunting query gathers data from AWS CloudTrail logs to identify unusual AWS access key usage for a user. By detecting instances where an access key is used infrequently for a specific AWS event, this query helps identify potential misuse or abuse of AWS access keys. Adversaries may use access keys to gain unauthorized access to AWS resources, exfiltrate data, or perform other malicious activities within the environment.
+
+- **UUID:** `18ce3dbc-b1b3-11ef-9e63-f661ea17fbce`
+- **Integration:** [aws.cloudtrail](https://docs.elastic.co/integrations/aws/cloudtrail)
+- **Language:** `[ES|QL]`
+- **Source File:** [AWS IAM Unusual AWS Access Key Usage for User](../queries/iam_unusual_access_key_usage_for_user.toml)
+
+## Query
+
+```sql
+FROM logs-aws.cloudtrail*
+// Limit the search to the last 14 days
+| WHERE @timestamp > now() - 14 day
+| WHERE
+    // Filter for successful AWS CloudTrail events
+    event.dataset == "aws.cloudtrail"
+    and event.outcome == "success"
+
+    // Filter for AWS CloudTrail events with user identity and access key information
+    and aws.cloudtrail.user_identity.access_key_id IS NOT NULL
+    and aws.cloudtrail.resources.arn IS NOT NULL
+
+    // Ignore GetObject events
+    and event.action NOT IN ("GetObject")
+
+    // Filter out known service roles; expand this as needed
+    and NOT aws.cloudtrail.user_identity.arn LIKE "*AWSServiceRoleForConfig*"
+    and NOT aws.cloudtrail.user_identity.arn LIKE "*Elastic-Cloud-Security-Posture*"
+    and NOT aws.cloudtrail.user_identity.arn LIKE "*AmazonSSMRoleForInstancesQuickSetup*"
+
+| STATS
+    // Count the number of events for each daily bucket, user identity, access key, resource, and action
+    api_counts = count(*) by aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.access_key_id, event.action
+
+// Filter for access keys with less than 2 API calls per day
+| WHERE api_counts < 2
+| SORT api_counts ASC
+```
+
+## Notes
+
+- Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify the user and access key involved in the unusual access key usage.
+- Review the infrequente AWS events (`event.action`), associated with the access key to determine the potential impact of the unusual access key usage.
+- Within AWS, determine is the access key is temporary or permanent and if it is associated with a specific user or role.
+- If the access key is associated with a specific role, review the permissions and policies associated with the role to determine the potential impact of the unusual access key usage.
+- If the access key is associated with an assumed role, review the resources assigned to the role. Consider pivoting on EC2 or Lambda-based roles if identified and examine session metadata within the last 24-hours.
+- Consider reviewing the `source.address` field to identify the IP address of the actor responsible for the unusual access key usage.
+- If the access key is perminant and tied to a user or role, consider rotating the access key to prevent further unauthorized access.
+
+## MITRE ATT&CK Techniques
+
+- [T1078.004](https://attack.mitre.org/techniques/T1078/004)
+
+## License
+
+- `Elastic License v2`
