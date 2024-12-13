@@ -374,7 +374,9 @@ class EQLValidator(QueryValidator):
                     else:
                         click.echo(f"Stack Error Trace: {validation_checks["stack"]}")
                         click.echo(f"Integrations Error Trace: {validation_checks["integrations"]}")
-                        raise ValueError("Error in both stack and integrations checks")
+                        raise ValueError(f"Error in both stack and integrations checks: \n" \
+                                         f"Stack Error : {validation_checks["stack"].error_msg} \n" \
+                                         f"Integrations Error : {validation_checks["integrations"].error_msg}")
 
                 else:
                     break
