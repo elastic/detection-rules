@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2024/12/12"
 
 [transform]
 [[transform.osquery]]
@@ -148,6 +148,15 @@ sequence with maxspan=1m
       (
         process.executable : "?:\\ProgramData\\Sophos\\AutoUpdate\\Cache\\sophos_autoupdate1.dir\\SophosUpdate.exe" and 
         process.code_signature.trusted == true and process.code_signature.subject_name : "Sophos Ltd"
+      )  or
+      /* Elastic processes */
+      (
+        process.executable : (
+          "?:\\Program Files\\Elastic\\Agent\\data\\elastic-agent-*\\components\\previous\\elastic-endpoint.exe",
+          "?:\\Program Files\\Elastic\\Agent\\data\\elastic-agent-*\\elastic-agent.exe",
+          "?:\\Program Files\\Elastic\\Agent\\data\\elastic-agent-*\\components\\agentbeat.exe"
+        ) and 
+        process.code_signature.trusted == true and process.code_signature.subject_name : "Elasticsearch, Inc."
       ) 
     )
   ] by host.id, process.executable

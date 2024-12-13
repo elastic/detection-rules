@@ -4,7 +4,7 @@ integration = ["windows", "endpoint", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/15"
+updated_date = "2024/12/12"
 
 [transform]
 [[transform.osquery]]
@@ -114,12 +114,15 @@ query = '''
 file where host.os.type == "windows" and event.type != "deletion" and file.path != null and
   file.name : ("amsi.dll", "amsi") and
   not file.path : (
+    "?:\\$SysReset\\CloudImage\\Package_for_RollupFix*",
     "?:\\Windows\\system32\\amsi.dll",
     "?:\\Windows\\Syswow64\\amsi.dll",
     "?:\\$WINDOWS.~BT\\DUImageSandbox\\*",
     "?:\\$WINDOWS.~BT\\NewOS\\Windows\\WinSXS\\*",
     "?:\\$WINDOWS.~BT\\NewOS\\Windows\\servicing\\LCU\\*",
     "?:\\$WINDOWS.~BT\\Work\\*\\*",
+    "?:\\$WINDOWS.~BT\\Store\\Offline\\File\\C$\\Windows\\SoftwareDistribution\\Download.bak\\*",
+    "?:\\Windows\\CbsTemp\\*\\f\\amsi.dll",
     "?:\\Windows\\SoftwareDistribution\\Download\\*",
     "?:\\Windows\\WinSxS\\amd64_microsoft-antimalware-scan-interface_*\\amsi.dll"
   ) and
@@ -129,7 +132,10 @@ file where host.os.type == "windows" and event.type != "deletion" and file.path 
     file.path : (
       "\\Device\\HarddiskVolume??\\Windows\\system32\\amsi.dll",
       "\\Device\\HarddiskVolume??\\Windows\\syswow64\\amsi.dll",
-      "\\Device\\HarddiskVolume??\\Windows\\WinSxS\\*\\amsi.dll"
+      "\\Device\\HarddiskVolume??\\Windows\\WinSxS\\*\\amsi.dll",
+      "\\\\?\\Volume{*}\\Windows\\WinSxS\\*\\amsi.dll",
+      "\\\\?\\Volume{*}\\Windows\\system32\\amsi.dll",
+      "\\\\?\\Volume{*}\\Windows\\syswow64\\amsi.dll"
     )
   )
 '''
