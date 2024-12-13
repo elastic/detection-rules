@@ -380,7 +380,7 @@ class EQLValidator(QueryValidator):
                         click.echo(f"Stack Error Trace: {stack_error_trace}")
                         click.echo(f"Integrations Error Message: {integration_error_msg}")
                         click.echo(f"Integrations Error Trace: {integration_trace}")
-                        raise ValueError(f"Error in both stack and integrations checks")
+                        raise ValueError("Error in both stack and integrations checks")
 
                 else:
                     break
