@@ -22,6 +22,56 @@ language = "kuery"
 license = "Elastic License v2"
 max_signals = 10000
 name = "Malicious File - Detected - Elastic Defend"
+note = """## Triage and analysis
+
+### Investigating Elastic Defend Malware Alerts
+
+Elastic Endpoint malware protection leverages a combination of supervised machine learning (ML) models (PE, MachO) and yara signatures. Our ML models are trained on hundreds of millions of executables and model updates are released approximately monthly. Our yara signatures are created with automated signature creation technologies built in-house along with  hand-written rules by our threat researchers.
+
+Files are scanned on write or deletion, process executables are scanned on executions and libraries are scanned on load. You can differentiate these types by looking at the `event.action` field in the alert. It can be execution, `load`, `creation`, `modification`, or `deletion`. Scanning files written to disk is best effort, while execution or load scanning is done ‘in-line’ for true prevention.
+
+
+### Possible investigation steps
+
+- For machine learning (ML) malware alerts the `file.Ext.malware_classification.score` and `file.Ext.malware_classification.version` fields indicate which model version was used to classify the file and the classification score (0 to 1).
+- For malware signature hits, `threat_name` is an important field which will guide the user on what malware family the sample belongs to.
+- For Yara matches, Malware alerts do provide the specific binary content identified by the yara rule in the alert metadata (it is base64 encoded and stored in the `matches` field).
+- A file can also hit on multiple Yara signatures. In the alert metadata, the `primary` signature (`malware_signature.primary`) will be whichever we determine to have the highest severity.
+- Malicious file alerts for files in download directories or written by browsers, office applications, script interpreters or other lolbins are especially correlated with malicious activity.
+- Particular attention should be paid to files located in suspicious directories like `Public` folder, `Downloads`, `Temp` and `ProgramData`.
+- Verify if the file is signed or not using the `file.Ext.code_signature` field. Even if the file is signed with a valid certificate verify the global prevalance of that signed in your environment.
+- Verify the malicious file timestamp metadata using `file.created`, `file.mtime` and `file.accessed` to asses exactly if it's an old or new infection.
+- Investigate the activity of the process that created, modified or loaded the malicious file (parent process tree, process.command_line, child processes, network, registry and files events).
+- Assess whether this file is prevalent in the environment by looking for similar occurrences across hosts by `file.hash.sha256` or by `file.name` patterns.
+- Verify the activity of the `user.name` associated with Malware alert (local or remote actity, privileged or standard user).
+- Verify if there are any other Alert types (Behavior or Memory Threat) associated with the same host or user or process within the same time.
+
+
+
+### False positive analysis
+
+- Other endpoint security vendors especially with their quarantine folders.
+- Dynamically generated or compiled executables such as from csc.exe or other compilers. Due to the dynamic nature, each instance will likely have a unique hash and no signer
+
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+  - If malicious activity is confirmed, perform a broader investigation to identify the scope of the compromise and determine the appropriate remediation steps.
+- Implement Elastic Endpoint Security to detect and prevent further post exploitation activities in the environment.
+   - Contain the affected system by isolating it from the network to prevent further spread of the attack.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Restore the affected system to its operational state by applying any necessary patches, updates, or configuration changes.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 references = [
     "https://github.com/elastic/protections-artifacts/tree/main/yara",
     "https://docs.elastic.co/en/integrations/endpoint",
