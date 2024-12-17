@@ -1,0 +1,158 @@
+[metadata]
+creation_date = "2024/12/17"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2024/12/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies AWS CloudTrail events where an unauthenticated source is attempting to upload an object to an S3 bucket. This
+activity may indicate a misconfigured S3 bucket policy that allows public access to the bucket, potentially exposing
+sensitive data to unauthorized users. Adversaries can specify `--no-sign-request` in the AWS CLI to upload objects to an
+S3 bucket without authentication. This is a [New
+Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule, which means it
+will only trigger once for each unique value of the `source.address` field that has not been seen making this API
+request within the last 7 days. This field contains the IP address of the source making the request.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-aws.cloudtrail*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS S3 Unauthenticated Object Upload by Rare Source"
+note = """## Investigating AWS S3 Unauthenticated Object Upload by Rare Source
+
+This rule detects attempts to upload objects to an AWS S3 bucket from an unauthenticated source. Such activity may indicate a misconfigured S3 bucket policy that allows public write access. Adversaries can exploit this misconfiguration to upload malicious content, exfiltrate data, or abuse the bucket as part of their attack infrastructure.
+
+The rule triggers when a rare IP address, not seen in the past 7 days, attempts to upload an object (`PutObject`) to an S3 bucket without authentication.
+
+### Possible Investigation Steps
+
+1. **Identify the Source of the Upload**:
+   - Review the `source.address` field to determine the IP address of the unauthenticated source.
+   - Check the `source.geo` field for geographic information tied to the IP address.
+   - Examine the `user_agent.original` field to identify the tool or script used (e.g., `aws-cli`, `python-requests`).
+
+2. **Review the Uploaded Object**:
+   - Inspect the `aws.cloudtrail.flattened.request_parameters.key` field for the object path or filename.
+   - Analyze the object for potential malicious content:
+     - Suspicious file extensions (e.g., `.exe`, `.sh`, `.zip`).
+     - Embedded scripts, payloads, or indicators of compromise (IoCs).
+   - Verify the file size using the `bytesTransferredIn` field in `aws.cloudtrail.flattened.additional_eventdata`.
+
+3. **Validate the Bucket Configuration**:
+   - Check the target bucket identified in the `aws.cloudtrail.flattened.request_parameters.bucketName` field.
+   - Confirm the bucket policy and Access Control List (ACL) settings to identify overly permissive access (`Principal: *` or public access settings).
+
+4. **Correlate with Other Activity**:
+   - Investigate if the `source.address` is associated with other AWS CloudTrail events, such as:
+     - `ListObjects` actions preceding the upload attempt.
+     - Additional uploads (`PutObject`) or deletions (`DeleteObject`) from the same IP.
+   - Determine if this activity occurred across multiple buckets or accounts.
+
+5. **Assess the Response Outcome**:
+   - Verify the `event.outcome` field to determine if the upload attempt was successful.
+   - If successful, assess the potential risk or impact of the uploaded content.
+
+6. **Identify Patterns and Context**:
+   - Review the `event.ingested` and `@timestamp` fields to identify the time of the upload.
+   - Look for follow-up activity to determine the adversary’s intent, such as exfiltration or lateral movement.
+   - Evaluate if this activity aligns with legitimate testing, automation, or scanning tools.
+
+### False Positive Analysis
+
+- **Intended Public Access**: Some S3 buckets may intentionally allow public uploads for specific use cases (e.g., public forms or logs). Confirm the bucket's configuration with its owner.
+- **Automated Tools or Scanners**: Security scanners or legitimate scripts may test for misconfigurations. Review the source IP and user agent to validate the intent.
+
+### Response and Remediation
+
+1. **Immediate Action**:
+   - Remove public write permissions on the affected S3 bucket:
+     - Update the bucket policy to restrict `s3:PutObject` actions to trusted principals.
+     - Enable AWS S3 Block Public Access settings to prevent further uploads.
+   - Delete any unauthorized or suspicious objects uploaded to the bucket.
+
+2. **Enhance Monitoring**:
+   - Enable detailed S3 logging to track object access and uploads.
+   - Monitor for unauthorized `PutObject` requests from anonymous sources.
+   - Configure alerts for unusual S3 API calls or rare source IP addresses.
+
+3. **Audit S3 Bucket Configuration**:
+   - Review bucket policies and Access Control Lists (ACLs) across your environment to ensure they follow AWS security best practices.
+   - Remove overly permissive settings and ensure least privilege access.
+
+4. **Investigate for Impact**:
+   - Review uploaded objects for malicious payloads or indicators of compromise.
+   - Determine if the bucket contents were modified or if additional actions were taken.
+   - Cross-reference with other AWS CloudTrail events to identify related activity.
+
+### Additional Resources
+
+- [AWS Documentation: S3 Bucket Policy Best Practices](https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies.html)
+- [AWS S3 Block Public Access](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html)
+"""
+references = [
+    "https://hackingthe.cloud/aws/exploitation/Misconfigured_Resource-Based_Policies/exploting_public_resources_attack_playbook/",
+]
+risk_score = 21
+rule_id = "a0228df2-bcb9-11ef-85b1-f661ea17fbce"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon S3",
+    "Use Case: Asset Visibility",
+    "Resources: Investigation Guide",
+    "Tactic: Exfiltration",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "s3.amazonaws.com"
+    and event.action: "PutObject"
+    and event.outcome: "success"
+    and aws.cloudtrail.user_identity.type: ("AWSAccount" or "Unknown")
+    and cloud.account.id: "anonymous"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "cloud.account.id",
+    "aws.cloudtrail.user_identity.type",
+    "source.address",
+    "user_agent.original",
+    "aws.cloudtrail.resources.arn",
+    "event.action",
+    "event.outcome",
+    "cloud.region",
+    "aws.cloudtrail.flattened.request_parameters.bucketName",
+    "tls.client.server_name",
+    "aws.cloudtrail.request_parameters",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.address"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
