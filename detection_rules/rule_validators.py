@@ -17,6 +17,7 @@ from marshmallow import ValidationError
 from semver import Version
 
 import kql
+import click
 
 from . import ecs, endgame
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
@@ -371,7 +372,9 @@ class EQLValidator(QueryValidator):
                         # auto add the field and re-validate
                         self.auto_add_field(validation_checks["stack"], data.index_or_dataview[0])
                     else:
-                        raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
+                        click.echo(f"Stack Error Trace: {validation_checks["stack"]}")
+                        click.echo(f"Integrations Error Trace: {validation_checks["integrations"]}")
+                        raise ValueError("Error in both stack and integrations checks")
 
                 else:
                     break
