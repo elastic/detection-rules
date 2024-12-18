@@ -12,7 +12,7 @@ author = ["Elastic"]
 description = """
 Generates a detection alert each time an Elastic Defend alert for malicious files is received. Enabling this rule allows
 you to immediately begin investigating your Endpoint malicious file alerts. This rule identifies Elastic Defend
-malicious file detections only, and does not include prevention alerts.
+malicious file preventions only, and does not include detection only alerts.
 """
 enabled = true
 from = "now-10m"
@@ -21,7 +21,7 @@ interval = "5m"
 language = "kuery"
 license = "Elastic License v2"
 max_signals = 10000
-name = "Malicious File - Detected - Elastic Defend"
+name = "Malicious File - Prevented - Elastic Defend"
 note = """## Triage and analysis
 
 ### Investigating Malware Alerts
@@ -76,8 +76,8 @@ references = [
     "https://github.com/elastic/protections-artifacts/tree/main/yara",
     "https://docs.elastic.co/en/integrations/endpoint",
 ]
-risk_score = 47
-rule_id = "f2c3caa6-ea34-11ee-a417-f661ea17fbce"
+risk_score = 21
+rule_id = "f87e6122-ea34-11ee-a417-f661ea17fbce"
 rule_name_override = "message"
 setup = """
 ## Setup
@@ -107,13 +107,13 @@ To make sure this rule can generate as many alerts as it's configured in its own
 
 **NOTE:** Changing `xpack.alerting.rules.run.alerts.max` is not possible in Serverless projects.
 """
-severity = "medium"
-tags = ["Data Source: Elastic Defend"]
+severity = "low"
+tags = ["Data Source: Elastic Defend", "Tactic: Execution"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.kind : alert and event.code : malicious_file and (event.type : allowed or (event.type: denied and event.outcome: failure))
+event.kind : alert and event.code : malicious_file and event.type : denied and event.outcome : success
 '''
 
 [[rule.threat]]
