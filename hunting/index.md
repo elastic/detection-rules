@@ -40,6 +40,7 @@ Here are the queries currently available:
 - [OSQuery SUID Hunting](./linux/docs/privilege_escalation_via_suid_binaries.md) (ES|QL)
 - [Persistence Through Reverse/Bind Shells](./linux/docs/persistence_reverse_bind_shells.md) (ES|QL)
 - [Persistence via Cron](./linux/docs/persistence_via_cron.md) (ES|QL)
+- [Persistence via Dynamic Linker Hijacking](./linux/docs/persistence_via_dynamic_linker_hijacking.md) (ES|QL)
 - [Persistence via Message-of-the-Day](./linux/docs/persistence_via_message_of_the_day.md) (ES|QL)
 - [Persistence via Package Manager](./linux/docs/persistence_via_package_manager.md) (ES|QL)
 - [Persistence via SSH Configurations and/or Keys](./linux/docs/persistence_via_ssh_configurations_and_keys.md) (ES|QL)
