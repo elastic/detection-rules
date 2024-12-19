@@ -12,15 +12,14 @@ notes = [
     "PAM modules are critical to Linux authentication workflows, but they can be abused to establish persistence or execute malicious actions.",
     "This hunt identifies suspicious file creation or modification events in PAM directories, such as /etc/pam.d/, /lib/security/, and related paths.",
     "Uses ES|QL queries to track file events and identify potentially malicious activity based on process activity and file paths.",
-    "Complemented by OSQuery queries to provide detailed file metadata for modified PAM-related files, including timestamps and ownership information.",
-    "The hunt focuses on minimizing false positives by excluding common legitimate processes while tagging unusual activity.",
-    "MITRE ATT&CK Technique T1556.003 (Modify Authentication Process: Pluggable Authentication Modules) is addressed in this hunt."
+    "Complemented by OSQuery queries to provide detailed file metadata for modified PAM-related files, including timestamps and ownership information."
 ]
 mitre = ["T1556.003"]
 
 query = [
 '''
 from logs-endpoint.events.file-*
+| keep @timestamp, host.os.type, event.type, event.action, file.path, process.executable, agent.id
 | where @timestamp > now() - 7 days
 | where host.os.type == "linux" and event.action in ("rename", "creation") and (
   file.path like "/lib/security/*" or
