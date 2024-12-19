@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2024/12/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2024/12/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects connections accepted by a simple HTTP web server in Python and PHP built-in modules. Adversaries may
+create simple HTTP web servers to establish persistence on a compromised system by uploading a reverse or command shell
+payload to the server web root, allowing them to regain remote access to the system if lost. This event may occur when
+an attacker requests the server to execute a command or script via a potential backdoor.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Simple HTTP Web Server Connection"
+risk_score = 21
+rule_id = "183f3cd2-4cc6-44c0-917c-c5d29ecdcf74"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+network where host.os.type == "linux" and event.type == "start" and event.action == "connection_accepted" and (
+  (process.name regex~ """php?[0-9]?\.?[0-9]{0,2}""" and process.command_line like "*-S*") or
+  (process.name like "python*" and process.command_line like ("*--cgi*", "*CGIHTTPServer*"))
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+    [[rule.threat.technique]]
+    id = "T1505"
+    name = "Server Software Component"
+    reference = "https://attack.mitre.org/techniques/T1505/"
+
+      [[rule.threat.technique.subtechnique]]
+      id = "T1505.003"
+      name = "Web Shell"
+      reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+    [[rule.threat.technique]]
+    id = "T1059"
+    name = "Command and Scripting Interpreter"
+    reference = "https://attack.mitre.org/techniques/T1059/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Unix Shell"
+      id = "T1059.004"
+      reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+    [[rule.threat.technique]]
+    name = "Application Layer Protocol"
+    id = "T1071"
+    reference = "https://attack.mitre.org/techniques/T1071/"
