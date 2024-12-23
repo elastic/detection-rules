@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/02/02"
-integration = ["windows"]
+integration = ["windows", "endpoint"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2024/12/23"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -13,7 +13,7 @@ Detects the creation of a WMI Event Subscription. Attackers can abuse this mecha
 SYSTEM privileges.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.sysmon_operational-*"]
+index = ["winlogbeat-*", "logs-windows.sysmon_operational-*", "logs-endpoint.events.api-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious WMI Event Subscription Created"
@@ -30,13 +30,20 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Data Source: Sysmon",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "windows.sysmon_operational" and event.code == "21" and
-    winlog.event_data.Operation : "Created" and winlog.event_data.Consumer : ("*subscription:CommandLineEventConsumer*", "*subscription:ActiveScriptEventConsumer*")
+any where 
+ (
+   (event.dataset == "windows.sysmon_operational" and event.code == "21" and
+    winlog.event_data.Operation : "Created" and winlog.event_data.Consumer : ("*subscription:CommandLineEventConsumer*", "*subscription:ActiveScriptEventConsumer*")) or 
+
+   (event.dataset == "endpoint.events.api" and event.provider == "Microsoft-Windows-WMI-Activity" and process.Ext.api.name == "IWbemServices::PutInstance" and 
+    process.Ext.api.parameters.consumer_type in ("ActiveScriptEventConsumer", "CommandLineEventConsumer"))
+ )
 '''
 
 
