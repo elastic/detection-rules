@@ -7,7 +7,10 @@ updated_date = "2024/12/24"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a user has queried for deprecated Amazon Machine Images (AMIs) in AWS. This may indicate an adversary whom is looking for outdated AMIs that may be vulnerable to exploitation. While deprecated AMIs are not inherently malicious or indicate breach, they may be more susceptible to vulnerabilities and should be investigated for potential security risks.
+Identifies when a user has queried for deprecated Amazon Machine Images (AMIs) in AWS. This may indicate an adversary
+whom is looking for outdated AMIs that may be vulnerable to exploitation. While deprecated AMIs are not inherently
+malicious or indicate breach, they may be more susceptible to vulnerabilities and should be investigated for potential
+security risks.
 """
 false_positives = [
     "Legitimate use of deprecated AMIs for testing or development purposes.",
@@ -16,11 +19,11 @@ false_positives = [
     "Administrators or developers who are unaware of the deprecation status of AMIs they are using.",
 ]
 from = "now-9m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Deprecated AMI Discovery"
 note = """
-
 ## Investigating AWS EC2 Deprecated AMI Discovery
 
 This rule detects when a user queries AWS for deprecated Amazon Machine Images (AMIs). While deprecated AMIs are not inherently malicious, their use can introduce vulnerabilities or misconfigurations. Adversaries may exploit deprecated AMIs in search of outdated or unpatched systems. Investigating these queries can help identify potential risks or misconfigurations.
@@ -115,17 +118,6 @@ event.dataset: "aws.cloudtrail"
     and aws.cloudtrail.request_parameters: *owner=*
 '''
 
-[rule.investigation_fields]
-field_names = [
-    "aws.cloudtrail.user_identity.arn",
-    "aws.cloudtrail.user_identity.type",
-    "aws.cloudtrail.user_identity.access_key_id",
-    "source.ip",
-    "cloud.account.id",
-    "cloud.region",
-    "user_agent.original",
-    "event.action"
-]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -139,4 +131,16 @@ reference = "https://attack.mitre.org/techniques/T1580/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "source.ip",
+    "cloud.account.id",
+    "cloud.region",
+    "user_agent.original",
+    "event.action",
+]
 
