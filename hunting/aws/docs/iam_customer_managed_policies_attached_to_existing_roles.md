@@ -1,4 +1,4 @@
-# AWS IAM Customer-Managed Policy Attachment for Privilege Escalation
+# AWS IAM Customer-Managed Policy Attachment to Existing Roles
 
 ---
 
@@ -10,7 +10,7 @@
 - **UUID:** `418baaf2-9ae1-11ef-be63-f661ea17fbcd`
 - **Integration:** [aws.cloudtrail](https://docs.elastic.co/integrations/aws/cloudtrail)
 - **Language:** `[ES|QL]`
-- **Source File:** [AWS IAM Customer-Managed Policy Attachment for Privilege Escalation](../queries/iam_customer_managed_policies_attached_to_existing_roles.toml)
+- **Source File:** [AWS IAM Customer-Managed Policy Attachment to Existing Roles](../queries/iam_customer_managed_policies_attached_to_existing_roles.toml)
 
 ## Query
 
@@ -29,11 +29,11 @@ from logs-aws.cloudtrail*
 
 ## Notes
 
-- Review the `target_account_id` field to verify the AWS account in which the role is being modified, especially if this account is outside of your organization’s typical accounts.
-- Examine `aws.cloudtrail.request_parameters` for details on the role and attached policy. Customer-managed policies granting overly permissive access, such as `AdministratorAccess`, may signal unauthorized privilege escalation.
-- Cross-reference `event.action` values where `AttachRolePolicy` appears to further investigate attached policies that could enable lateral movement or persistence.
-- Evaluate `aws.cloudtrail.user_identity.arn` to confirm if the actor attaching the policy has legitimate permissions for this action. Anomalous or unauthorized actors may indicate privilege abuse.
-- Look for patterns of multiple `AttachRolePolicy` actions across roles by the same user or entity. High frequency of these actions could suggest an attempt to establish persistent control across roles within your AWS environment.
+- Review the `attached_policy_name` and `target_role_name` fields to identify the customer-managed policy and role involved in the attachment.
+- Review the permissions of the attached policy to determine the potential impact of the privilege escalation attempt.
+- Review all entities that `target_role_name` may be attached to as these entities may have been compromised or misused.
+- Consider reviewing the `aws.cloudtrail.user_identity.arn` field to identify the actor responsible for the privilege escalation attempt.
+- Review the user agent of the actor to determine the source of the privilege escalation attempt, such as an AWS CLI or SDK.
 
 ## MITRE ATT&CK Techniques
 
