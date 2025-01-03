@@ -16,11 +16,13 @@
 
 ```sql
 from logs-auditd_manager.auditd-*, logs-auditd.log-*, auditbeat-*
+| keep @timestamp, host.os.type, event.category, event.action, auditd.data.syscall, auditd.data.name, process.executable, process.name, agent.id
 | where @timestamp > now() - 30 day
 | where host.os.type == "linux" and event.category == "driver" and event.action == "loaded-kernel-module" and auditd.data.syscall in ("init_module", "finit_module")
-| stats host_count = count_distinct(host.id), total_count = count(*) by auditd.data.name, process.executable, process.name
+// Process name is different from executable in some cases
+| stats agent_count = count_distinct(agent.id), total_count = count(*) by auditd.data.name, process.executable, process.name
 // Alter this threshold to make sense for your environment
-| where host_count == 1 and total_count == 1
+| where agent_count == 1 and total_count <= 3
 | limit 100
 | sort auditd.data.name asc
 ```
