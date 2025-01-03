@@ -42,6 +42,7 @@ Here are the queries currently available:
 - [Persistence via Cron](./linux/docs/persistence_via_cron.md) (ES|QL)
 - [Persistence via Message-of-the-Day](./linux/docs/persistence_via_message_of_the_day.md) (ES|QL)
 - [Persistence via Package Manager](./linux/docs/persistence_via_package_manager.md) (ES|QL)
+- [Persistence via Pluggable Authentication Modules](./linux/docs/persistence_via_pluggable_authentication_module.md) (ES|QL)
 - [Persistence via SSH Configurations and/or Keys](./linux/docs/persistence_via_ssh_configurations_and_keys.md) (ES|QL)
 - [Persistence via System V Init](./linux/docs/persistence_via_sysv_init.md) (ES|QL)
 - [Persistence via Systemd (Timers)](./linux/docs/persistence_via_systemd_timers.md) (ES|QL)
