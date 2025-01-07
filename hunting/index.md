@@ -49,6 +49,7 @@ Here are the queries currently available:
 - [Persistence via System V Init](./linux/docs/persistence_via_sysv_init.md) (ES|QL)
 - [Persistence via Systemd (Timers)](./linux/docs/persistence_via_systemd_timers.md) (ES|QL)
 - [Persistence via Udev](./linux/docs/persistence_via_udev.md) (ES|QL)
+- [Persistence via Web Shell](./linux/docs/persistence_via_web_shell.md) (ES|QL)
 - [Persistence via rc.local/rc.common](./linux/docs/persistence_via_rc_local.md) (ES|QL)
 - [Potential Defense Evasion via Multi-Dot Process Execution](./linux/docs/defense_evasion_via_multi_dot_process_execution.md) (ES|QL)
 - [Privilege Escalation Identification via Existing Sudoers File](./linux/docs/privilege_escalation_via_existing_sudoers.md) (ES|QL)
