@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/11/04"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/11/04"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ forwarding can be used to route network traffic between different network interf
 pivot between networks, exfiltrate data, or establish command and control channels.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "IPv4/IPv6 Forwarding Activity"
@@ -25,11 +27,13 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
 process.parent.executable != null and process.command_line like (
   "*net.ipv4.ip_forward*", "*/proc/sys/net/ipv4/ip_forward*", "*net.ipv6.conf.all.forwarding*",
   "*/proc/sys/net/ipv6/conf/all/forwarding*"

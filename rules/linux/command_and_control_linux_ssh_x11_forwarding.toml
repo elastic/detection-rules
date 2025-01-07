@@ -1,8 +1,11 @@
 [metadata]
 creation_date = "2023/08/23"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/18"
+values_review = true
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/06"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +42,7 @@ can abuse X11 forwarding for tunneling their GUI-based tools, pivot through comp
 communication channels, enabling lateral movement and facilitating remote control of systems within a network.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux SSH X11 Forwarding"
@@ -113,11 +116,13 @@ tags = [
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
 process.name in ("ssh", "sshd") and process.args in ("-X", "-Y") and process.args_count >= 3 and 
 process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 '''
