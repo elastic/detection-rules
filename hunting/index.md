@@ -41,6 +41,7 @@ Here are the queries currently available:
 - [Persistence Through Reverse/Bind Shells](./linux/docs/persistence_reverse_bind_shells.md) (ES|QL)
 - [Persistence via Cron](./linux/docs/persistence_via_cron.md) (ES|QL)
 - [Persistence via Dynamic Linker Hijacking](./linux/docs/persistence_via_dynamic_linker_hijacking.md) (ES|QL)
+- [Persistence via Loadable Kernel Modules](./linux/docs/persistence_via_loadable_kernel_modules.md) (ES|QL)
 - [Persistence via Message-of-the-Day](./linux/docs/persistence_via_message_of_the_day.md) (ES|QL)
 - [Persistence via Package Manager](./linux/docs/persistence_via_package_manager.md) (ES|QL)
 - [Persistence via Pluggable Authentication Modules](./linux/docs/persistence_via_pluggable_authentication_module.md) (ES|QL)
