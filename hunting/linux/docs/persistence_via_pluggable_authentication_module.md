@@ -1,4 +1,4 @@
-# Persistence via Pluggable Authentication Modules
+# Persistence via Pluggable Authentication Modules (PAM)
 
 ---
 
@@ -10,7 +10,7 @@
 - **UUID:** `2a3c46b8-7bd6-4bc4-a4a8-a1af114ea152`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
 - **Language:** `[ES|QL, SQL]`
-- **Source File:** [Persistence via Pluggable Authentication Modules](../queries/persistence_via_pluggable_authentication_module.toml)
+- **Source File:** [Persistence via Pluggable Authentication Modules (PAM)](../queries/persistence_via_pluggable_authentication_module.toml)
 
 ## Query
 
