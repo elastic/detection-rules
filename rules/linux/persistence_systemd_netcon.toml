@@ -2,7 +2,7 @@
 creation_date = "2024/02/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -57,7 +57,6 @@ tags = [
     "Data Source: Elastic Defend",
 ]
 type = "eql"
-
 query = '''
 sequence by host.id with maxspan=5s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
@@ -65,33 +64,33 @@ sequence by host.id with maxspan=5s
      "python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk"
    )
   ] by process.entity_id
-  [network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start"
-  ] by process.parent.entity_id
+  [network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start" and
+   not process.executable == "/tmp/newroot/bin/curl"] by process.parent.entity_id
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
-
 
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -99,6 +98,7 @@ framework = "MITRE ATT&CK"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -106,4 +106,3 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

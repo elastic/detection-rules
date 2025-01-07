@@ -1,0 +1,80 @@
+# Network Connections with Low Occurrence Frequency for Unique Agent ID
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** This hunt identifies network connections with low occurrence frequency for unique agent IDs on Linux systems. It monitors network connection attempts and acceptances, focusing on those initiated by processes that are rarely seen in the environment. By accounting for known low-frequency legitimate binaries (LoLBins) and suspicious directories, this hunt aims to detect unusual network activity that may indicate malicious behavior.
+
+- **UUID:** `ecd84bc7-32ae-474b-93a8-d1d9736c3464`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `[ES|QL]`
+- **Source File:** [Network Connections with Low Occurrence Frequency for Unique Agent ID](../queries/command_and_control_via_network_connections_with_low_occurrence_frequency_for_unique_agents.toml)
+
+## Query
+
+```sql
+from logs-endpoint.events.network-*
+| where @timestamp > now() - 7 day
+| where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8")
+| stats cc = count(), agent_count = count_distinct(agent.id) by process.executable
+| where agent_count == 1 and cc > 0 and cc <= 3
+| limit 100
+| sort cc asc
+```
+
+```sql
+from logs-endpoint.events.network-*
+| where @timestamp > now() - 7 day
+| where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and (
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat", "java", "awk", "gawk", "mawk", "nawk", "openssl", "nc", "ncat", "netcat", "nc.openbsd", "telnet") or
+    process.name like "python*" or
+    process.name like "perl*" or
+    process.name like "ruby*" or
+    process.name like "lua*" or
+    process.name like "php*"
+) and
+destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8")
+| stats cc = count(), agent_count = count_distinct(agent.id) by process.name
+| where agent_count <= 3 and cc > 0 and cc <= 5
+| limit 100
+| sort cc asc
+```
+
+```sql
+from logs-endpoint.events.network-*
+| where @timestamp > now() - 30 day
+| where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and (
+    process.executable like "./*" or
+    process.executable like "/dev/shm/*" or
+    process.executable like "/var/www/*" or
+    process.executable like "/boot/*" or
+    process.executable like "/srv/*" or
+    process.executable rlike "/tmp/[^/]+" or
+    process.executable rlike "/var/tmp/[^/]+" or
+    process.executable rlike "/run/[^/]+" or
+    process.executable rlike "/var/run/[^/]+"
+) and
+destination.ip IS NOT null and not CIDR_MATCH(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")
+| stats cc = count(), agent_count = count_distinct(agent.id) by process.executable
+| where agent_count <= 3 and cc > 0 and cc <= 5
+| limit 100
+| sort cc asc
+```
+
+## Notes
+
+- Monitors for network connections initiated by processes that have low occurrence frequency, focusing on unique agent IDs.
+- Excludes common internal IP ranges to minimize false positives.
+- Accounts for known low-frequency legitimate binaries (LoLBins) to reduce noise.
+- Identifies suspicious directories where processes are executed from, which can indicate malicious activity.
+
+## MITRE ATT&CK Techniques
+
+- [T1071.001](https://attack.mitre.org/techniques/T1071/001)
+- [T1071.004](https://attack.mitre.org/techniques/T1071/004)
+
+## License
+
+- `Elastic License v2`

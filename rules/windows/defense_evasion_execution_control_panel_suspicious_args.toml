@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2021/09/08"
-integration = ["endpoint", "windows", "system"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/31"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -14,9 +16,13 @@ from = "now-9m"
 index = [
     "logs-endpoint.events.process-*",
     "winlogbeat-*",
-    "logs-windows.*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
     "endgame-*",
     "logs-system.security*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -24,14 +30,6 @@ name = "Control Panel Process with Unusual Arguments"
 references = ["https://www.joesandbox.com/analysis/476188/1/html"]
 risk_score = 73
 rule_id = "416697ae-e468-4093-a93d-59661fa619ec"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -41,26 +39,28 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: System",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.executable : ("?:\\Windows\\SysWOW64\\control.exe", "?:\\Windows\\System32\\control.exe") and
- process.command_line :
-          ("*.jpg*",
-           "*.png*",
-           "*.gif*",
-           "*.bmp*",
-           "*.jpeg*",
-           "*.TIFF*",
-           "*.inf*",
-           "*.cpl:*/*",
-           "*../../..*",
-           "*/AppData/Local/*",
-           "*:\\Users\\Public\\*",
-           "*\\AppData\\Local\\*")
+  process.name : "control.exe" and 
+  process.command_line : (
+    "*.jpg*", "*.png*",
+    "*.gif*", "*.bmp*",
+    "*.jpeg*", "*.TIFF*",
+    "*.inf*", "*.cpl:*/*",
+    "*../../..*",
+    "*/AppData/Local/*",
+    "*:\\Users\\Public\\*",
+    "*\\AppData\\Local\\*"
+)
 '''
 
 

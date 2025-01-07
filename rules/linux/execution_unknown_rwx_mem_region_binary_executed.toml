@@ -2,7 +2,7 @@
 creation_date = "2024/03/13"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,10 @@ index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unknown Execution of Binary with RWX Memory Region"
-references = ["https://man7.org/linux/man-pages/man2/mprotect.2.html"]
+references = [
+    "https://man7.org/linux/man-pages/man2/mprotect.2.html",
+    "https://www.elastic.co/security-labs/linux-detection-engineering-with-auditd",
+]
 risk_score = 47
 rule_id = "23bcd283-2bc0-4db2-81d4-273fc051e5c0"
 setup = """## Setup
@@ -50,7 +53,12 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.category:process and host.os.type:linux and auditd.data.syscall:mprotect and auditd.data.a2:7
+event.category:process and host.os.type:linux and auditd.data.syscall:mprotect and auditd.data.a2:7 and not (
+  process.executable:(
+    "/usr/share/kibana/node/bin/node" or "/usr/share/elasticsearch/jdk/bin/java" or "/usr/sbin/apache2"
+  ) or
+  process.name:httpd
+)
 '''
 
 
@@ -74,7 +82,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.executable"]
+value = ["process.executable"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

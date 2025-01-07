@@ -2,9 +2,7 @@
 creation_date = "2024/03/06"
 integration = ["auditd_manager"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/03/06"
+updated_date = "2024/07/23"
 
 [rule]
 author = ["Elastic"]
@@ -43,31 +41,32 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:authentication and host.os.type:linux and event.action:authenticated and event.outcome:success and
 auditd.data.grantors:(* and not (pam_rootok or *pam_cap* or *pam_permit*))
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1556"
 name = "Modify Authentication Process"
 reference = "https://attack.mitre.org/techniques/T1556/"
+
 
 [rule.threat.tactic]
 id = "TA0006"
@@ -77,7 +76,8 @@ reference = "https://attack.mitre.org/tactics/TA0006/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["auditd.data.grantors", "agent.id"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

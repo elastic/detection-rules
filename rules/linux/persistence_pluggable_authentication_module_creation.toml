@@ -2,7 +2,7 @@
 creation_date = "2024/03/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/03/06"
+updated_date = "2024/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -41,10 +41,12 @@ type = "eql"
 query = '''
 file where host.os.type == "linux" and event.action in ("rename", "creation") and 
 process.executable != null and (
-  (file.path : ("/lib/security/*", "/lib64/security/*", "/usr/lib/security/*", "/usr/lib64/security/*",
-  "/usr/lib/x86_64-linux-gnu/security/*") and file.extension == "so") or
-  (file.path : "/etc/pam.d/*" and file.extension == null) or 
-  (file.path : "/etc/security/pam_*" or file.path == "/etc/pam.conf")
+  (file.path like~ (
+    "/lib/security/*", "/lib64/security/*", "/usr/lib/security/*", "/usr/lib64/security/*",
+    "/lib/x86_64-linux-gnu/security/*", "/usr/lib/x86_64-linux-gnu/security/*"
+  ) and file.extension == "so") or
+  (file.path like~ "/etc/pam.d/*" and file.extension == null) or 
+  (file.path like~ "/etc/security/pam_*" or file.path == "/etc/pam.conf")
 ) and not (
   process.executable in (
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
@@ -55,18 +57,18 @@ process.executable != null and (
     "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
     "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/sbin/pam-auth-update",
-    "/usr/lib/systemd/systemd", "/usr/libexec/packagekitd", "/usr/bin/bsdtar"
+    "/usr/lib/systemd/systemd", "/usr/libexec/packagekitd", "/usr/bin/bsdtar", "/sbin/pam-auth-update"
   ) or
-  file.path : (
+  file.path like (
     "/tmp/snap.rootfs_*/pam_*.so", "/tmp/newroot/lib/*/pam_*.so", "/tmp/newroot/usr/lib64/security/pam_*.so"
   ) or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
   file.Ext.original.extension == "dpkg-new" or
-  process.executable : (
+  process.executable like (
     "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*"
   ) or
-  (process.name == "sed" and file.name : "sed*") or
-  (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
+  (process.name == "sed" and file.name like~ "sed*") or
+  (process.name == "perl" and file.name like~ "e2scrub_all.tmp*") 
 )
 '''
 

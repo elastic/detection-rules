@@ -1,0 +1,57 @@
+# Privilege Escalation/Persistence via User/Group Creation and/or Modification
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** This hunt identifies user and group creation or modification activities on Linux systems using OSQuery. It monitors changes to the shadow file, user and group information, and user processes. These activities can indicate potential unauthorized access or privilege escalation attempts. The hunt lists detailed information for further analysis and investigation.
+
+- **UUID:** `f00c9757-d21b-432c-90a6-8372f18075d0`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `[SQL]`
+- **Source File:** [Privilege Escalation/Persistence via User/Group Creation and/or Modification](../queries/persistence_via_user_group_creation_modification.toml)
+
+## Query
+
+```sql
+SELECT * FROM shadow
+```
+
+```sql
+SELECT * FROM shadow
+WHERE password_status != "locked"
+```
+
+```sql
+SELECT username, gid, uid, shell, description FROM users
+WHERE username != 'root' AND uid LIKE "0"
+```
+
+```sql
+SELECT * FROM users WHERE username = "newuser"
+```
+
+```sql
+SELECT * FROM logged_in_users WHERE user = "newuser"
+```
+
+```sql
+SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER BY username
+```
+
+## Notes
+
+- Monitors changes to the shadow file and user/group information using OSQuery to detect potentially unauthorized access or privilege escalation attempts.
+- Lists detailed information about users, including authentication status and running processes.
+- Requires additional data analysis and investigation into results to identify malicious or unauthorized user and group modifications.
+
+## MITRE ATT&CK Techniques
+
+- [T1136](https://attack.mitre.org/techniques/T1136)
+- [T1136.001](https://attack.mitre.org/techniques/T1136/001)
+- [T1136.002](https://attack.mitre.org/techniques/T1136/002)
+
+## License
+
+- `Elastic License v2`

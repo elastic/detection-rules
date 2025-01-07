@@ -10,7 +10,7 @@ from pathlib import Path
 
 import yaml
 
-from detection_rules.schemas import get_stack_versions
+from detection_rules.schemas import get_stack_versions, RULES_CONFIG
 from detection_rules.utils import get_path
 
 GITHUB_FILES = Path(get_path()) / '.github'
@@ -20,6 +20,7 @@ GITHUB_WORKFLOWS = GITHUB_FILES / 'workflows'
 class TestWorkflows(unittest.TestCase):
     """Test GitHub workflow functionality."""
 
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, 'Version lock bypassed')
     def test_matrix_to_lock_version_defaults(self):
         """Test that the default versions in the lock-versions workflow mirror those from the schema-map."""
         lock_workflow_file = GITHUB_WORKFLOWS / 'lock-versions.yml'

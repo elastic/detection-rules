@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/11/02"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/11/02"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -14,23 +16,19 @@ from = "now-9m"
 index = [
     "logs-endpoint.events.process-*",
     "winlogbeat-*",
-    "logs-windows.*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
     "endgame-*",
     "logs-system.security*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
 name = "Mounting Hidden or WebDav Remote Shares"
 risk_score = 47
 rule_id = "c4210e1c-64f2-4f48-b67e-b5a8ffe3aa14"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -40,6 +38,11 @@ tags = [
     "Tactic: Lateral Movement",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: System",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

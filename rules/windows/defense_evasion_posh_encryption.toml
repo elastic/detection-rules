@@ -2,7 +2,9 @@
 creation_date = "2023/01/23"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/28"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -81,7 +83,12 @@ event.category:process and host.os.type:windows and
       ".CreateEncryptor" or
       ".CreateDecryptor"
     )
-  ) and not user.id : "S-1-5-18"
+  ) and
+  not user.id : "S-1-5-18" and
+  not (
+    file.name : "Bootstrap.Octopus.FunctionAppenderContext.ps1" and
+    powershell.file.script_block_text : ("function Decrypt-Variables" or "github.com/OctopusDeploy")
+  )
 '''
 
 

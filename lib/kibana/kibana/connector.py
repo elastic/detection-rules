@@ -194,6 +194,13 @@ class Kibana(object):
         self.status = self.get('/api/status')
         self.authenticated = True
 
+    def add_api_key(self, api_key: str) -> bool:
+        """Add an API key to be used for auth."""
+        self.session.headers['Authorization'] = f'ApiKey {api_key}'
+        self.status = self.get('/api/status')
+        self.authenticated = True
+        return bool(self.status)
+
     def logout(self):
         """Quit the current session."""
         try:
@@ -235,7 +242,7 @@ class Kibana(object):
     def verify_space(self, space):
         """Verify a space is valid."""
         spaces = self.get('/api/spaces/space')
-        space_names = [s['name'] for s in spaces]
+        space_names = [s['id'] for s in spaces]
         if space not in space_names:
             raise ValueError(f'Unknown Kibana space: {space}')
 
