@@ -1,0 +1,74 @@
+[metadata]
+creation_date = "2025/01/07"
+integration = ["system"]
+maturity = "production"
+updated_date = "2025/01/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors the syslog log file for messages related to instances of processes that are started with an executable
+stack. This can be an indicator of a process that is attempting to execute code from the stack, which can be a security risk.
+"""
+from = "now-9m"
+index = ["logs-system.syslog-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Process Started with Executable Stack"
+risk_score = 21
+rule_id = "fc5105ce-2584-48b6-a0cf-9ace7eeffd3c"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Filebeat
+
+### Filebeat Setup
+Filebeat is a lightweight shipper for forwarding and centralizing log data. Installed as an agent on your servers, Filebeat monitors the log files or locations that you specify, collects log events, and forwards them either to Elasticsearch or Logstash for indexing.
+
+#### The following steps should be executed in order to add the Filebeat for the Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setup-repositories.html).
+- To run Filebeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-docker.html).
+- To run Filebeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-kubernetes.html).
+- For quick start information for Filebeat refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/8.11/filebeat-installation-configuration.html).
+- For complete Setup and Run Filebeat information refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setting-up-and-running.html).
+
+#### Rule Specific Setup Note
+- This rule requires the Filebeat System Module to be enabled.
+- The system module collects and parses logs created by the system logging service of common Unix/Linux based distributions.
+- To run the system module of Filebeat on Linux follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-system.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution"
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+host.os.type:linux and event.dataset:"system.syslog" and process.name:kernel and
+message:"started with executable stack"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
