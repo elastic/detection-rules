@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/12/16"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/12/16"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+min_stack_version = "8.13.0"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ needed by an executable. Attackers may attempt to replace the dynamic linker wit
 arbitrary code.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
+index = ["logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Dynamic Linker (ld.so) Creation"
@@ -52,6 +54,8 @@ tags = [
     "Tactic: Execution",
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
