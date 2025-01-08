@@ -2,7 +2,7 @@
 creation_date = "2020/11/20"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,50 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Exchange DLP Policy Removed"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Exchange DLP Policy Removed
+
+Microsoft 365 Exchange DLP policies are crucial for preventing unauthorized data sharing by monitoring and controlling sensitive information flow. Adversaries may remove these policies to bypass data protection measures, facilitating data exfiltration. The detection rule identifies successful removal actions by analyzing specific audit events, signaling potential defense evasion attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event dataset is `o365.audit`, the event provider is `Exchange`, and the event action is `Remove-DlpPolicy` with a successful outcome.
+- Correlate the timestamp of the alert with other logs to identify any concurrent suspicious activities or anomalies in the environment.
+- Identify the user account associated with the `Remove-DlpPolicy` action and verify if the account has legitimate reasons or permissions to perform such actions.
+- Check the user's recent activity logs for any unusual or unauthorized actions, such as changes in permissions or access to sensitive data.
+- Investigate the IP address and location from which the `Remove-DlpPolicy` action was initiated to determine if it aligns with the user's typical access patterns.
+- Examine the audit logs for any preceding failed attempts to remove DLP policies, which might indicate persistent attempts to bypass security controls.
+- Utilize Osquery to gather additional context on the user's device by running a query such as: `SELECT * FROM users WHERE username = '<suspicious_user>';` to check for any anomalies or unauthorized software.
+- Review the organization's change management records to verify if the DLP policy removal was part of an approved change request.
+- Analyze any recent changes to the organization's security policies or configurations that might have inadvertently allowed the DLP policy removal.
+- Consult with the security team to determine if there are any ongoing investigations or incidents that might be related to the DLP policy removal event.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate IT administrators may remove DLP policies as part of regular maintenance or updates, which can trigger false positives. To manage this, organizations can create exceptions for known administrative accounts or schedule maintenance windows where such actions are expected.  
+- Policy updates and migrations: During policy updates or migrations, DLP policies might be temporarily removed and reconfigured, leading to false positives. Users can handle this by documenting and excluding these activities during planned update periods.  
+- Testing and development environments: In testing or development environments, DLP policies may be frequently added and removed for testing purposes. To reduce false positives, these environments can be excluded from monitoring or flagged as low-risk.  
+- Automated scripts or tools: Automated processes that manage DLP policies might inadvertently trigger the rule. Identifying and excluding these scripts or tools from monitoring can help minimize false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected user account to prevent further unauthorized actions and assess if any other accounts have been compromised.
+- Review audit logs to identify the scope of the policy removal, including the user who performed the action and any associated IP addresses or devices.
+- Reapply the removed DLP policy and verify that all other DLP policies are intact and functioning as expected.
+- Conduct a thorough investigation to determine if any sensitive data was exfiltrated during the period the DLP policy was inactive.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if this action is part of a larger attack.
+- Implement enhanced logging and monitoring for DLP policy changes, ensuring that alerts are generated for any future modifications.
+- Integrate with a Security Information and Event Management (SIEM) system to correlate this event with other suspicious activities across the network.
+- Educate users on the importance of DLP policies and the risks associated with unauthorized changes to these policies.
+- Restore any affected systems to their operational state by ensuring all security configurations are correctly applied and verified.
+- Review and update access controls and permissions to ensure that only authorized personnel can modify DLP policies, reducing the risk of future unauthorized changes.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

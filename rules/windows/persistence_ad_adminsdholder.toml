@@ -2,7 +2,7 @@
 creation_date = "2022/01/31"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -43,6 +43,50 @@ query = '''
 event.action:("Directory Service Changes" or "directory-service-object-modified") and event.code:5136 and
   winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AdminSDHolder Backdoor
+
+The AdminSDHolder object in Active Directory is crucial for maintaining consistent permissions across privileged accounts. It ensures that any changes to these accounts are reverted to match the AdminSDHolder's settings. Adversaries exploit this by modifying the AdminSDHolder to create persistent backdoors, allowing unauthorized access. The detection rule identifies such modifications by monitoring specific directory service events, signaling potential abuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event.action field includes "Directory Service Changes" or "directory-service-object-modified" and the event.code is 5136, indicating a modification to the directory service object.
+- Verify the winlog.event_data.ObjectDN field to ensure it matches CN=AdminSDHolder,CN=System*, confirming the specific object of interest.
+- Check the timestamp of the event to determine when the modification occurred and correlate it with any other suspicious activities or alerts around the same time.
+- Identify the user account associated with the modification by examining the event data for the user who initiated the change, and assess whether this account has a legitimate reason to modify the AdminSDHolder object.
+- Investigate the source IP address or host from which the modification was made to determine if it is a known and trusted system within the network.
+- Use Osquery to gather additional context on the system involved. For example, run the following query to list recent changes to Active Directory objects: `SELECT * FROM ad_config WHERE distinguished_name LIKE 'CN=AdminSDHolder,CN=System%' AND last_modified > DATE_SUB(NOW(), INTERVAL 1 DAY);`
+- Review the history of changes to the AdminSDHolder object by querying the security logs for previous event.code 5136 entries related to this object to identify any patterns or repeated unauthorized modifications.
+- Cross-reference the user account and system involved with known threat intelligence sources to check for any indicators of compromise or known malicious activity.
+- Analyze any related logs or alerts from endpoint detection and response (EDR) tools to identify potential lateral movement or privilege escalation attempts following the modification.
+- Document all findings and maintain a timeline of events to support further investigation and potential escalation to incident response teams if necessary.
+
+### False positive analysis
+
+- Routine administrative tasks: Regular updates or changes made by authorized IT personnel to the AdminSDHolder object can trigger alerts. These are often part of legitimate maintenance activities.
+- Scheduled security audits: Automated scripts or tools used during security audits may modify or access the AdminSDHolder object, leading to false positives.
+- Software updates: Certain software updates, especially those related to security or directory services, might involve changes to the AdminSDHolder object.
+- To manage these false positives, users can create exceptions for known and verified administrative actions by whitelisting specific user accounts or processes that are authorized to make changes.
+- Implementing a review process for alerts can help distinguish between legitimate changes and potential threats, ensuring that only suspicious activities are flagged.
+- Regularly updating the list of authorized personnel and tools that interact with the AdminSDHolder object can help in maintaining accurate exceptions and reducing false positives.
+
+### Response and remediation
+
+- Immediately isolate affected systems from the network to prevent further unauthorized access.
+- Review recent changes to the AdminSDHolder object and identify any unauthorized modifications.
+- Revert any unauthorized changes to the AdminSDHolder object to restore original permissions.
+- Conduct a thorough investigation to identify the source of the modification, including reviewing logs and correlating with other security events.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging for Active Directory changes, focusing on critical objects like AdminSDHolder, to improve detection of future unauthorized modifications.
+- Integrate security information and event management (SIEM) solutions with Active Directory to automate detection and alerting of suspicious activities.
+- Review and update access controls and permissions for privileged accounts to ensure they adhere to the principle of least privilege.
+- Conduct a security audit of the Active Directory environment to identify and remediate any other potential vulnerabilities or misconfigurations.
+- Educate and train IT staff and administrators on the risks associated with AdminSDHolder modifications and the importance of monitoring privileged account activities."""
 
 
 [[rule.threat]]

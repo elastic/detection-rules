@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -39,6 +39,48 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   process.name in ("ldapsearch", "dscacheutil") or (process.name == "dscl" and process.args : "*-list*")
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Discovery of Domain Groups
+
+In Linux environments, commands like `ldapsearch`, `dscacheutil`, and `dscl` are used for querying domain group information, aiding system administrators in managing user permissions. Adversaries exploit these commands to gather intelligence on group memberships, which can inform privilege escalation strategies. The detection rule identifies suspicious use of these commands by monitoring process execution patterns, helping to flag potential reconnaissance activities.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific command executed, focusing on the `process.name` and `process.args` fields to understand the context of the command usage.
+- Check the `host.os.type` field to confirm the operating system is Linux, ensuring the alert is relevant to the environment.
+- Investigate the `event.type` and `event.action` fields to verify the nature of the process execution and ensure it aligns with the suspicious activity pattern.
+- Examine the user account associated with the process execution to determine if the activity is expected or if the account has a history of similar actions.
+- Cross-reference the timestamp of the event with other logs to identify any correlated activities or anomalies around the same time.
+- Use Osquery to gather additional context on the system by running a query such as: `SELECT * FROM processes WHERE name IN ('ldapsearch', 'dscacheutil', 'dscl');` to list all instances of these processes and their arguments.
+- Analyze the network connections at the time of the event to identify any unusual outbound connections that may indicate data exfiltration or further reconnaissance.
+- Review historical data for patterns of similar command executions to determine if this is part of a broader trend or a one-off event.
+- Check for any recent changes in user permissions or group memberships that could be related to the suspicious command execution.
+- Consult threat intelligence sources to see if there are any known campaigns or adversaries that use similar techniques, which could provide additional context for the investigation.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators often use commands like `ldapsearch`, `dscacheutil`, and `dscl` for legitimate purposes such as managing user accounts and permissions. These activities can trigger the detection rule, leading to false positives.
+- Automated scripts: Scheduled scripts or cron jobs that perform regular checks or updates on user and group information may execute these commands, resulting in benign alerts.
+- Monitoring and auditing tools: Security and compliance tools that audit system configurations and user permissions might use these commands as part of their normal operations, causing false positives.
+- To manage false positives, users can create exceptions for known administrative accounts or specific scripts that frequently execute these commands. This can be done by adding filters to exclude processes initiated by trusted users or scripts from the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to determine the scope of the activity, including identifying all systems and accounts accessed by the adversary.
+- Review logs and alerts to identify any additional suspicious activities or related incidents, focusing on the use of `ldapsearch`, `dscacheutil`, and `dscl` commands.
+- Change passwords and review permissions for any accounts that may have been compromised or accessed during the incident.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging and monitoring for command execution and process creation events to detect similar activities in the future.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs).
+- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are applied.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures accordingly.
+- Implement hardening measures such as restricting the use of domain enumeration commands to authorized personnel only and using multi-factor authentication (MFA) for sensitive accounts."""
 
 
 [[rule.threat]]

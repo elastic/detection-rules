@@ -2,7 +2,7 @@
 creation_date = "2022/07/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/08/08"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,51 @@ index = ["logs-endpoint.events.process-*", "logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious HTML File Creation"
-note = "This rule may have a low to medium performance impact due variety of file paths potentially matching each EQL sequence."
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious HTML File Creation
+
+HTML files, often used for web content, can be exploited by adversaries to smuggle malicious payloads past security filters. Attackers may embed harmful data within HTML files, leveraging browsers to execute these files. The detection rule identifies such threats by monitoring HTML file creation with high entropy or large size in common directories, coupled with browser processes accessing these files. This approach helps pinpoint potential phishing attempts or unauthorized data transfers.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the file extension and size, ensuring it matches the criteria of high entropy or large size as specified in the detection rule.
+- Check the file path to verify if it is located in common download or temporary directories, such as `?:\\Users\\*\\Downloads\\*` or `?:\\Users\\*\\AppData\\Local\\Temp\\*`.
+- Investigate the user account associated with the file creation event to determine if the activity aligns with their typical behavior or if it appears suspicious.
+- Examine the process details to identify which browser was used to open the HTML file, focusing on processes like `chrome.exe`, `msedge.exe`, or `firefox.exe`.
+- Analyze the process arguments to confirm if the browser was launched with a single argument or specific URL, which may indicate an attempt to execute the HTML file directly.
+- Utilize Osquery to gather additional context about the file and process. For example, run the following query to list recent file modifications in the user's Downloads directory: `SELECT * FROM file WHERE path LIKE 'C:\\\\Users\\\\%\\\\Downloads\\\\%' ORDER BY mtime DESC LIMIT 10;`.
+- Cross-reference the file hash with threat intelligence databases to check for known malicious indicators.
+- Review recent email activity for the user to identify any potential phishing emails that may have delivered the suspicious HTML file.
+- Check for any network connections initiated by the browser process after opening the HTML file, which could indicate data exfiltration or communication with a command and control server.
+- Investigate any other alerts or logs related to the same user or system to identify patterns or additional suspicious activities that may correlate with the HTML file creation event.
+
+### False positive analysis
+
+- Legitimate software updates or installations may create large HTML files in temporary directories, triggering the rule. Users can exclude specific software update processes by identifying their unique file paths or process names.
+- Some web development tools or environments might generate high entropy HTML files during normal operations. Users should monitor and whitelist these tools if they are known and trusted within their environment.
+- Automated scripts or applications that download or generate HTML files for reporting purposes could be flagged. Users can create exceptions for these scripts by specifying their file paths or associated process names.
+- Browsers opening HTML files from email clients or collaboration tools might be misidentified as suspicious. Users should consider excluding known safe email client directories or specific browser processes when they are part of a trusted workflow.
+- Large HTML files used for legitimate data visualization or documentation purposes may be mistakenly flagged. Users can manage this by excluding specific directories or file names associated with these legitimate files.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation of the HTML file to determine if it contains malicious payloads, using tools like antivirus or sandbox analysis.
+- Review browser history and recent downloads to identify any suspicious activity or unauthorized access attempts.
+- Remove any identified malicious files and clean the system using updated antivirus or anti-malware software.
+- Restore the system from a known good backup if the integrity of the system is compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and threat intelligence correlation.
+- Implement enhanced logging policies to capture detailed file creation and process execution events for future investigations.
+- Integrate security solutions with threat intelligence platforms to improve detection capabilities and response times.
+- Educate users on recognizing phishing attempts and safe browsing practices to reduce the risk of future incidents.
+- Apply security patches and updates to browsers and operating systems to mitigate vulnerabilities that could be exploited by similar threats.
+
+This rule may have a low to medium performance impact due variety of file paths potentially matching each EQL sequence."""
 risk_score = 47
 rule_id = "f0493cb4-9b15-43a9-9359-68c23a7f2cf3"
 setup = """## Setup

@@ -2,7 +2,7 @@
 creation_date = "2021/07/15"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Austin Songer"]
@@ -16,7 +16,52 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 User Restricted from Sending Email"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 User Restricted from Sending Email
+
+Microsoft 365 enforces email sending limits to prevent abuse and ensure service integrity. Adversaries may exploit compromised accounts to send spam or phishing emails, triggering these limits. The detection rule monitors audit logs for successful restrictions on email sending, indicating potential misuse of valid accounts, aligning with MITRE ATT&CK's Initial Access tactic.
+
+### Possible investigation steps
+
+- Review the audit logs for the specific event.action "User restricted from sending email" to confirm the alert's validity and gather initial context.
+- Check the event.outcome field to ensure the restriction was successfully applied, indicating a potential misuse of the account.
+- Investigate the event.provider field to verify that the alert originated from the Security Compliance Center, ensuring the source's reliability.
+- Analyze the event.dataset field to confirm the data source is o365.audit, which provides relevant Microsoft 365 audit logs.
+- Examine the user's recent email activity to identify any unusual patterns or spikes in email sending that could have triggered the restriction.
+- Cross-reference the user's account details with known compromised accounts or recent security incidents to assess potential account compromise.
+- Utilize Osquery to gather additional context on the user's device and activity. For example, run the following query to check for recent login activities: `SELECT * FROM users WHERE username = 'affected_user';`
+- Investigate any recent changes to the user's account settings or permissions that could indicate unauthorized access or configuration changes.
+- Review the user's recent login history and IP addresses to identify any suspicious or unfamiliar access patterns.
+- Collaborate with other security tools and logs to correlate the user's activity with other potential indicators of compromise, such as phishing attempts or malware alerts.
+
+### False positive analysis
+
+- Legitimate high-volume senders such as marketing or customer service teams may trigger sending limits due to their normal operational activities. 
+- Automated systems or applications that send bulk emails for notifications or alerts might also be restricted, even though they are performing expected tasks.
+- Users who are part of email campaigns or newsletters might exceed limits if not properly configured or if there is a sudden increase in email volume.
+- To manage these false positives, organizations can create exceptions for known high-volume senders by adjusting their sending limits within Microsoft 365 settings.
+- Implementing monitoring and alerting for unusual spikes in email activity can help differentiate between legitimate high-volume sending and potential misuse.
+- Regularly reviewing and updating the list of users or systems with exceptions can ensure that only authorized entities are allowed higher sending limits, reducing the risk of abuse.
+
+### Response and remediation
+
+- Verify the legitimacy of the account activity by contacting the user to confirm if they were aware of the email sending activity.
+- Temporarily disable the compromised account to prevent further unauthorized access and email sending.
+- Conduct a thorough investigation of the account's recent activities, including login locations and times, to identify any suspicious behavior or unauthorized access.
+- Reset the password of the compromised account and enforce multi-factor authentication (MFA) to enhance security.
+- Review and analyze email logs to identify any recipients of potentially malicious emails sent from the compromised account and notify them to prevent further spread.
+- Escalate the incident to the security operations team for a deeper analysis of potential lateral movement or additional compromised accounts.
+- Implement enhanced logging and monitoring policies to capture detailed audit logs for email activities and account access.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
+- Restore the account to operational status only after confirming that it is secure and no longer compromised.
+- Educate users on recognizing phishing attempts and the importance of reporting suspicious emails to prevent future incidents.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 """

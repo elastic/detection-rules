@@ -2,7 +2,7 @@
 creation_date = "2023/04/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -63,6 +63,49 @@ query = '''
 process where host.os.type == "linux" and event.type == "end" and process.name in ("vmware-vmx", "vmx")
 and process.parent.name == "kill"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Termination of ESXI Process
+
+VMware ESXi is a hypervisor used to run virtual machines on physical servers, crucial for data center operations. Adversaries may disrupt these environments by terminating key processes like "vmware-vmx" using commands such as "kill," potentially leading to service outages. The detection rule identifies such terminations by monitoring for specific process events, signaling possible malicious interference.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name and parent process name, ensuring they match "vmware-vmx" or "vmx" and "kill" respectively.
+- Check the timestamp of the event to determine when the termination occurred and correlate it with any other suspicious activities around the same time.
+- Investigate the user account associated with the "kill" command to determine if it is a legitimate user or potentially compromised.
+- Examine the command line history of the user who executed the "kill" command to identify any other suspicious commands or activities.
+- Use Osquery to gather additional context about the terminated process by running: `SELECT * FROM processes WHERE name IN ('vmware-vmx', 'vmx') AND pid = <terminated_process_pid>;`
+- Analyze system logs for any unauthorized access attempts or anomalies around the time of the process termination.
+- Check for any recent changes in user permissions or roles that might have allowed the execution of the "kill" command on critical processes.
+- Investigate network logs to identify any unusual connections or data transfers that coincide with the process termination event.
+- Review any recent patches or updates applied to the ESXi host that might have inadvertently affected the process stability.
+- Consult with the system administrator responsible for the ESXi environment to verify if the termination was part of any scheduled maintenance or known issue.
+
+### False positive analysis
+
+- Routine maintenance activities: System administrators may intentionally terminate VMware processes during scheduled maintenance or updates, which can trigger the detection rule. To manage this, users can create exceptions for known maintenance windows or specific administrator actions.
+- Automated scripts: Some environments may use automated scripts to manage or restart VMware processes, leading to false positives. Users should identify and exclude these scripts by specifying their process names or execution contexts in the detection rule.
+- Testing and development environments: In non-production environments, developers or testers might frequently start and stop VMware processes as part of their workflow. Users can exclude these environments by filtering based on hostnames or IP addresses associated with testing and development.
+- Backup and recovery operations: Certain backup solutions may temporarily stop VMware processes to ensure data consistency, which could be misinterpreted as malicious activity. Users should identify these backup operations and exclude them by recognizing the associated process names or parent processes.
+- Misconfigured monitoring tools: Some monitoring tools might inadvertently terminate processes as part of their error-handling routines. Users should review and adjust the configurations of these tools to prevent unnecessary terminations and exclude them from the detection rule if needed.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further malicious activity and potential spread to other systems.
+- Investigate the source of the "kill" command by reviewing user activity logs and identifying any unauthorized access or anomalies.
+- Terminate any unauthorized or suspicious sessions and change credentials for accounts that may have been compromised.
+- Restore terminated VMware processes by restarting the affected virtual machines and ensuring all services are operational.
+- Review and update firewall rules and access controls to limit the ability of unauthorized users to execute commands on the host.
+- Implement enhanced logging policies to capture detailed process creation and termination events, including parent-child process relationships.
+- Integrate security information and event management (SIEM) systems to correlate and analyze logs for early detection of similar threats.
+- Conduct a thorough forensic analysis of the affected system to identify any additional indicators of compromise or persistence mechanisms.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and coordination with relevant stakeholders.
+- Apply hardening measures such as disabling unnecessary services, applying security patches, and enforcing least privilege access to reduce the attack surface."""
 
 
 [[rule.threat]]

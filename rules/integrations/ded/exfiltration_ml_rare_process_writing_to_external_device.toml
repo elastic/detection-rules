@@ -2,7 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["ded", "endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 75
@@ -51,6 +51,49 @@ tags = [
     "Tactic: Exfiltration",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Process Writing Data to an External Device
+
+In modern environments, processes writing data to external devices are common for legitimate tasks like backups. However, adversaries exploit this by using innocuous processes to exfiltrate data. The detection rule leverages machine learning to identify rare processes performing such actions, flagging potential exfiltration attempts by correlating with MITRE ATT&CK's exfiltration tactics.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process name, process ID, and the external device involved in the data writing activity.
+- Check the historical activity of the identified process to determine if it has previously interacted with external devices or if this behavior is anomalous.
+- Investigate the user account associated with the process to verify if the activity aligns with their typical behavior or job responsibilities.
+- Use Osquery to gather additional context about the process. For example, run the following query to retrieve details about the process and its parent process: `SELECT pid, name, path, parent, cmdline FROM processes WHERE pid = <process_id>;`
+- Examine the command line arguments and execution path of the process to identify any suspicious or unexpected parameters that could indicate malicious intent.
+- Analyze the external device's connection history to determine if it has been used frequently or if it is a new or rarely used device.
+- Cross-reference the process and device activity with network logs to identify any concurrent data transfer events that could suggest exfiltration.
+- Check for any recent changes or updates to the system that might have introduced new software or scripts capable of writing data to external devices.
+- Review any related security alerts or logs from other security tools that might provide additional context or corroborate the suspicious activity.
+- Consult with the user or system owner to verify if the process activity was authorized or if they are aware of any legitimate reason for the data transfer to the external device.
+
+### False positive analysis
+
+- Backup software: Legitimate backup processes may frequently write data to external devices, triggering false positives. Users can handle this by creating exceptions for known backup applications.
+- System updates: Operating system or application updates might involve writing data to external devices, which can be mistaken for exfiltration. Users should whitelist update processes to prevent unnecessary alerts.
+- Data synchronization tools: Applications like cloud storage sync tools may write data to external devices as part of their normal operation. Users can exclude these tools from monitoring to reduce false positives.
+- IT administrative tasks: IT personnel might use scripts or tools to transfer data to external devices for maintenance or troubleshooting. Users should document and exclude these routine tasks from detection rules.
+- Media creation software: Software used for creating media content may write large amounts of data to external devices, which could be misinterpreted as exfiltration. Users can add exceptions for these specific applications.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further data exfiltration.
+- Conduct a thorough investigation to identify the process responsible for writing data to the external device, including reviewing logs and process histories.
+- Verify the legitimacy of the process by cross-referencing with known software and legitimate use cases; if malicious, terminate the process.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
+- Implement enhanced logging policies to capture detailed process activities and external device interactions for future monitoring.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Restore the system to its operational state by removing any malicious software and applying necessary patches or updates.
+- Conduct a security audit of the affected system and network to identify and remediate any vulnerabilities that may have been exploited.
+- Educate employees on recognizing and reporting suspicious activities, emphasizing the importance of data security and device usage policies.
+- Review and update security policies and procedures to include specific measures against data exfiltration tactics, leveraging MITRE ATT&CK framework insights."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

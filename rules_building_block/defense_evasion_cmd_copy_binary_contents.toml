@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -40,6 +40,49 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.args : "type" and process.args : (">", ">>")) or
     (process.args : "copy" and process.args : "/b"))
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Binary Content Copy via Cmd.exe
+
+Cmd.exe, a command-line interpreter on Windows, can be exploited by attackers to reconstruct binary files from fragments using commands like 'type' and 'copy' with specific arguments. This technique allows adversaries to evade detection by assembling malicious payloads directly on the target system. The detection rule identifies suspicious cmd.exe activity by monitoring for specific command patterns indicative of binary reassembly, thus alerting analysts to potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of cmd.exe activity with arguments related to 'type' and 'copy' commands, specifically looking for the use of '>' or '>>' with 'type' and '/b' with 'copy'.
+- Examine the process tree to identify the parent process of cmd.exe to understand how it was initiated and assess if it was launched by a legitimate application or script.
+- Check the user account associated with the cmd.exe process to determine if it aligns with expected user behavior or if it might be indicative of compromised credentials.
+- Investigate the file paths and names involved in the 'type' and 'copy' commands to identify if they correspond to known or suspicious binary files.
+- Utilize Osquery to gather additional context on the cmd.exe process by running a query such as: `SELECT * FROM processes WHERE name = 'cmd.exe' AND (cmdline LIKE '%type%' OR cmdline LIKE '%copy%');` to retrieve detailed command-line arguments and process metadata.
+- Analyze recent file creation and modification events on the system to identify any new or altered binaries that may have resulted from the cmd.exe activity.
+- Correlate the cmd.exe activity with network logs to check for any outbound connections that might indicate data exfiltration or command-and-control communication.
+- Review system logs for any other suspicious activities or anomalies around the time of the cmd.exe execution to identify potential lateral movement or privilege escalation attempts.
+- Check for any scheduled tasks or startup items that might have been created or modified to persist the malicious payload on the system.
+- Consult threat intelligence sources to determine if the observed cmd.exe activity matches known attack patterns or indicators of compromise associated with specific threat actors or malware families.
+
+### False positive analysis
+
+- Routine administrative tasks may trigger this rule, such as system administrators using cmd.exe to concatenate log files or other benign data files using 'type' and 'copy' commands. 
+- Automated scripts or batch files that perform legitimate file operations using cmd.exe might also be flagged, especially if they involve binary files or use the '/b' switch with 'copy'.
+- Developers or IT personnel testing or deploying software might use similar command patterns to assemble application components, leading to false positives.
+- To manage these false positives, users can create exceptions for known safe scripts or processes by whitelisting specific command patterns or file paths that are regularly used in non-threatening contexts.
+- Implementing a review process for flagged activities can help distinguish between legitimate administrative actions and potential threats, allowing for more accurate tuning of the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation of the cmd.exe process activity, focusing on the specific command patterns identified in the detection rule.
+- Review system logs and security alerts to identify any additional indicators of compromise or related suspicious activities.
+- Utilize forensic tools to capture and analyze memory and disk images from the affected system to understand the scope and impact of the attack.
+- Remove any identified malicious binaries or payloads from the system and ensure that all associated processes are terminated.
+- Apply security patches and updates to the operating system and any vulnerable applications to mitigate exploitation risks.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
+- Implement enhanced logging and monitoring policies to capture detailed command-line activity and process execution for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and response times.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent similar incidents in the future."""
 
 
 [[rule.threat]]

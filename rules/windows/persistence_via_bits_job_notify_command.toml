@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -40,6 +40,52 @@ process where host.os.type == "windows" and event.type == "start" and
                "?:\\Windows\\System32\\wermgr.exe",
                "?:\\WINDOWS\\system32\\directxdatabaseupdater.exe")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via BITS Job Notify Cmdline
+
+The Background Intelligent Transfer Service (BITS) is a Windows component that facilitates asynchronous, prioritized, and throttled transfer of files between machines. Adversaries exploit BITS by using the SetNotifyCmdLine method to execute malicious programs post-transfer, achieving persistence. The detection rule identifies suspicious processes initiated by BITS, excluding legitimate executables, to flag potential abuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process was initiated by `svchost.exe` with arguments containing "BITS" and verify the process executable is not among the known legitimate ones listed in the detection rule.
+- Gather additional context by identifying the user account under which the suspicious process was executed to determine if it aligns with expected behavior or if it indicates potential compromise.
+- Check the process creation time and correlate it with any known scheduled tasks or user activity to identify if the execution was expected or anomalous.
+- Investigate the command line arguments of the suspicious process to understand its intended function and assess if it aligns with typical BITS job activities.
+- Use Osquery to list all BITS jobs on the system and their associated notify command lines to identify any other potentially malicious jobs:
+  ```sql
+  SELECT job_id, notify_cmd_path, notify_cmd_arguments FROM bits_jobs;
+  ```
+- Examine the network connections established by the suspicious process to identify any unusual or unauthorized external communications.
+- Review the system's event logs around the time of the process execution for any additional indicators of compromise or related activities.
+- Investigate the parent process `svchost.exe` to ensure it is legitimate and not a masqueraded or compromised instance.
+- Check for any recent changes to the system's BITS configuration or related registry keys that could indicate tampering or persistence mechanisms.
+- Cross-reference the findings with threat intelligence sources to determine if the observed behavior matches any known threat actor techniques or campaigns.
+
+### False positive analysis
+
+- Legitimate software updates or system maintenance tasks may trigger the BITS Job Notify Cmdline rule, as some applications use BITS for downloading updates or patches, leading to false positives.
+- System administrators might use BITS for deploying software or updates across a network, which could be flagged by the rule if the executables are not in the exclusion list.
+- To manage these false positives, users can create exceptions for known legitimate processes that frequently trigger the rule by adding them to the exclusion list in the detection query.
+- Regularly review and update the exclusion list to include new legitimate processes that are identified as false positives, ensuring that the detection rule remains effective without generating unnecessary alerts.
+- Collaborate with IT and security teams to identify and document legitimate use cases of BITS within the organization, which can then be used to refine the detection rule and minimize false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the scope of the compromise, focusing on processes initiated by BITS and any associated files or network connections.
+- Terminate any suspicious processes that were initiated by BITS and remove any malicious files identified during the investigation.
+- Review and analyze the BITS job configurations to identify any unauthorized or suspicious jobs and remove them.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process creation events, including command-line arguments, to aid in future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Restore the system to its operational state by applying the latest security patches, updating antivirus definitions, and ensuring all security controls are functioning correctly.
+- Conduct a post-incident review to identify gaps in security controls and processes, and implement hardening measures such as disabling unnecessary services and enforcing least privilege access.
+- Educate users and administrators about the risks associated with BITS abuse and provide training on recognizing and reporting suspicious activities."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/01/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -54,6 +54,53 @@ query = '''
 event.category:process and host.os.type:macos and event.type:(start or process_started) and
  process.name:kextunload and process.args:("/System/Library/Extensions/EndpointSecurity.kext" or "EndpointSecurity.kext")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Attempt to Unload Elastic Endpoint Security Kernel Extension
+
+Elastic Endpoint Security uses kernel extensions on macOS to monitor and protect system activities at a low level. Adversaries may attempt to disable these extensions using the `kextunload` command to evade detection and impair defenses. The detection rule identifies such attempts by monitoring process events for the execution of `kextunload` targeting the specific security extension, signaling potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `kextunload` command targeting `EndpointSecurity.kext` in the process arguments.
+- Check the timestamp of the event to determine when the attempt occurred and correlate it with other security events around the same time.
+- Identify the user account associated with the process execution to determine if it was initiated by a legitimate user or a potential adversary.
+- Investigate the parent process of `kextunload` to understand the context of how it was executed and if it was part of a larger chain of suspicious activities.
+- Examine the host's recent login history to identify any unusual or unauthorized access attempts that could be related to the event.
+- Use Osquery to gather additional context about the process and user activity on the host. For example, run the following query to list recent processes executed by the same user:
+  ```sql
+  SELECT * FROM processes WHERE uid = (SELECT uid FROM users WHERE username = '<username>');
+  ```
+- Check for any recent changes to system configurations or security settings that might indicate tampering or preparation for the unload attempt.
+- Analyze network activity from the host around the time of the event to identify any potential command and control communications or data exfiltration attempts.
+- Review system logs for any error messages or warnings related to kernel extensions that might provide additional context or indicate other attempts to impair defenses.
+- Cross-reference the event with threat intelligence sources to determine if the activity matches known tactics, techniques, and procedures (TTPs) of specific threat actors.
+
+### False positive analysis
+
+- System administrators or IT personnel may intentionally unload the Elastic Endpoint Security kernel extension during maintenance or troubleshooting activities, which can trigger the detection rule. 
+- Software updates or system upgrades might require unloading kernel extensions temporarily, leading to benign alerts.
+- Developers working on macOS kernel extensions might use `kextunload` as part of their development and testing processes, resulting in non-malicious detections.
+- To manage these false positives, users can create exceptions for specific user accounts or processes known to perform legitimate `kextunload` operations regularly.
+- Implementing a whitelist of trusted scripts or applications that require unloading the kernel extension can help reduce unnecessary alerts.
+- Regularly review and update the exclusion list to ensure it aligns with current operational practices and does not inadvertently allow malicious activity.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further potential malicious activity.
+- Verify the legitimacy of the `kextunload` command execution by checking user activity logs and correlating with authorized change management records.
+- Conduct a thorough investigation to determine if the attempt was part of a broader attack, using endpoint detection and response (EDR) tools to analyze related processes and network connections.
+- If unauthorized, remove any malicious software or scripts that may have initiated the `kextunload` command and restore the Elastic Endpoint Security kernel extension.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Review and enhance logging policies to ensure comprehensive monitoring of kernel extension activities and unauthorized command executions.
+- Implement additional security measures, such as application whitelisting and stricter user permissions, to prevent unauthorized unloading of kernel extensions.
+- Update and patch the macOS system and security software to the latest versions to mitigate known vulnerabilities.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users on the importance of security practices and the risks associated with unauthorized system modifications."""
 
 
 [[rule.threat]]

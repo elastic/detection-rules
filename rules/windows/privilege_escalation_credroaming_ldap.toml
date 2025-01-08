@@ -2,7 +2,7 @@
 creation_date = "2022/11/09"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -60,6 +60,49 @@ event.action:("Directory Service Changes" or "directory-service-object-modified"
   winlog.event_data.AttributeLDAPDisplayName:"msPKIAccountCredentials" and winlog.event_data.OperationType:"%%14674" and
   not winlog.event_data.SubjectUserSid : "S-1-5-18"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Modification of the msPKIAccountCredentials
+
+The msPKIAccountCredentials attribute in Active Directory stores encrypted credential data, including private keys and certificates. Attackers may exploit this by altering the attribute to escalate privileges, potentially overwriting files. The detection rule identifies such modifications by monitoring specific directory service change events, focusing on unauthorized user actions, thus helping to thwart privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of event code "5136" and ensure the modification pertains to the "msPKIAccountCredentials" attribute.
+- Verify the "event.action" field to determine if the action was logged as "Directory Service Changes" or "directory-service-object-modified" to confirm the type of change.
+- Check the "winlog.event_data.SubjectUserSid" field to identify the user who initiated the change and ensure it is not the system account "S-1-5-18".
+- Investigate the "winlog.event_data.OperationType" field for the value "%%14674" to understand the nature of the operation performed on the attribute.
+- Correlate the timestamp of the event with other logs to identify any concurrent suspicious activities or anomalies in the network.
+- Use Osquery to gather additional context on the affected system. For example, run the following query to list recent changes to Active Directory objects: `SELECT * FROM ad_config WHERE attribute = 'msPKIAccountCredentials' AND action = 'MODIFY';`
+- Examine the history of changes to the "msPKIAccountCredentials" attribute for the affected user object to identify any patterns or repeated unauthorized modifications.
+- Cross-reference the user account involved with known threat intelligence sources to check for any history of malicious activity or compromise.
+- Analyze network traffic logs around the time of the event to detect any unusual outbound connections or data exfiltration attempts.
+- Consult with the Active Directory team to verify if the change was part of any legitimate administrative activity or if it was unauthorized.
+
+### False positive analysis
+
+- Routine administrative tasks: Regular updates or maintenance activities by authorized IT personnel may trigger the rule. To manage this, create exceptions for known administrative accounts or specific maintenance windows.
+- Automated system processes: Scheduled tasks or automated scripts that interact with Active Directory objects might modify the msPKIAccountCredentials attribute. Identify these processes and exclude them from the rule to prevent unnecessary alerts.
+- Software updates: Certain software updates or installations may require modifications to credential attributes. Monitor and document these updates, and consider excluding them if they are verified as non-threatening.
+- Legitimate credential management: Tools or services that manage user credentials, such as password managers or enterprise credential management systems, may cause changes to the attribute. Verify these tools and exclude their actions if they are deemed safe.
+- User account migrations: During user account migrations or domain consolidations, the msPKIAccountCredentials attribute might be modified. Recognize these events and exclude them from the rule to avoid false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the modification, including reviewing logs for any unauthorized access or changes to the msPKIAccountCredentials attribute.
+- Verify the integrity of the affected Active Directory objects and restore them from a known good backup if necessary.
+- Reset passwords and revoke any potentially compromised certificates or keys associated with the affected accounts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging and monitoring for Active Directory changes, focusing on sensitive attributes like msPKIAccountCredentials, to detect future unauthorized modifications.
+- Integrate security information and event management (SIEM) solutions to correlate events and provide real-time alerts for suspicious activities related to privilege escalation attempts.
+- Review and update access controls and permissions for Active Directory objects to ensure the principle of least privilege is enforced.
+- Conduct a post-incident review to identify gaps in security controls and processes, and implement necessary improvements to prevent similar incidents.
+- Educate and train IT staff and users on recognizing and reporting suspicious activities, emphasizing the importance of maintaining secure credentials and adhering to security policies."""
 
 
 [[rule.threat]]

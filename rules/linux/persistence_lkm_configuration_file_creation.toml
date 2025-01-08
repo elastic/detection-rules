@@ -2,7 +2,7 @@
 creation_date = "2024/12/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/12/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,57 @@ file.path like~ (
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Loadable Kernel Module Configuration File Creation
+
+Loadable Kernel Modules (LKMs) allow dynamic loading of code into the Linux kernel, enhancing functionality without rebooting. Adversaries exploit this by creating or altering LKM configuration files to ensure malicious modules load at startup, achieving persistence. The detection rule identifies suspicious file creation or renaming in key directories, excluding benign processes, to flag potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and process executable involved in the suspicious file creation or renaming event.
+- Verify the legitimacy of the process executable by checking its hash against known good hashes or using a threat intelligence database to identify any known malicious signatures.
+- Use Osquery to list all currently loaded kernel modules and check for any unfamiliar or suspicious modules:
+  ```sql
+  SELECT name, size, used_by FROM kernel_modules;
+  ```
+- Investigate the file path where the LKM configuration file was created or renamed to determine if it aligns with typical system behavior or if it appears out of place.
+- Examine the process tree to understand the parent process and any child processes associated with the suspicious executable, which may provide context on how the file creation was initiated.
+- Check system logs, such as `/var/log/syslog` or `/var/log/messages`, for any related entries around the time of the alert to gather additional context on the event.
+- Use Osquery to identify any recent changes to the system's module directories that might indicate tampering:
+  ```sql
+  SELECT path, size, atime, mtime, ctime FROM file WHERE path LIKE '/etc/modules%' OR path LIKE '/etc/modprobe.d/%';
+  ```
+- Investigate the user account under which the process was executed to determine if it has the necessary privileges to modify LKM configuration files and if the activity aligns with the user's typical behavior.
+- Cross-reference the alert with any other recent alerts or incidents involving the same host or process to identify potential patterns or correlations.
+- Consult with system administrators or the asset owner to verify if the file creation or modification was part of a legitimate change or update to the system.
+
+### False positive analysis
+
+- System package managers such as `dpkg`, `rpm`, `yum`, and `dnf` may create or modify LKM configuration files during routine updates or installations, which are benign activities. Users can handle these by ensuring these processes are included in the exclusion list of the detection rule.
+- Container management tools like `dockerd` and `podman` might also trigger false positives when managing containerized environments. Excluding these executables from the rule can prevent unnecessary alerts.
+- Automation and configuration management tools such as `puppet`, `chef-client`, and `ansible` may modify LKM configuration files as part of their normal operations. Users should verify these processes and add them to the exclusion list if they are part of legitimate activities.
+- Temporary files created by text editors (e.g., files with extensions like `.swp`, `.swpx`, `.swx`) during editing sessions can be mistakenly flagged. Excluding these file extensions can reduce false positives.
+- Processes running from specific directories like `/nix/store/*` or `/snap/*` may be part of legitimate software installations or updates. Users should review these paths and consider excluding them if they are known to be safe.
+- Scheduled tasks or cron jobs executed by processes like `crond` or `anacron` might modify LKM configuration files as part of system maintenance. Users should assess these activities and exclude them if they are verified as non-threatening.
+- Users can manage false positives by regularly reviewing and updating the exclusion list to reflect changes in their environment, ensuring that only verified benign processes and paths are excluded from the detection rule.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the malicious loadable kernel module.
+- Conduct a thorough investigation to identify the source of the LKM configuration file creation or modification, focusing on the process and user account involved.
+- Review system logs and security alerts to gather additional context and determine if other systems are affected.
+- Remove the malicious LKM and any associated configuration files from the system to eliminate persistence mechanisms.
+- Restore the system to a known good state using backups or system snapshots, ensuring that the restored state is free from compromise.
+- Apply security patches and updates to the operating system and installed software to mitigate known vulnerabilities.
+- Implement enhanced logging policies to capture detailed information on file creation and modification events, especially in critical directories.
+- Integrate security tools such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to improve monitoring and detection capabilities.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users and administrators on security best practices and the importance of monitoring for unauthorized changes to system configurations."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

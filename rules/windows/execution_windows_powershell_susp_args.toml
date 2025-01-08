@@ -4,7 +4,7 @@ integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender"
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/31"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -106,6 +106,49 @@ process where host.os.type == "windows" and event.type == "start" and
        process.command_line : ("*-encodedCommand*", "*Invoke-webrequest*", "*WebClient*", "*Reflection.Assembly*"))
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Windows Powershell Arguments
+
+PowerShell is a powerful scripting language and command-line shell used for task automation and configuration management in Windows environments. Adversaries exploit PowerShell's capabilities to execute malicious scripts, download payloads, and obfuscate commands. The detection rule identifies unusual PowerShell arguments indicative of such abuse, focusing on patterns like encoded commands, suspicious downloads, and obfuscation techniques, which are common in malware activities.
+
+### Possible investigation steps
+
+- Review the full command line captured in the alert to understand the context and intent of the PowerShell execution, focusing on any encoded or obfuscated segments.
+- Check the parent process of the PowerShell execution to determine if it was launched by a legitimate process like explorer.exe or cmd.exe, which might indicate user interaction, or by a suspicious process.
+- Investigate the user account associated with the process execution to determine if it aligns with expected behavior or if it might be compromised.
+- Examine the network connections made by the host around the time of the alert to identify any suspicious outbound connections, especially those involving known malicious IPs or domains.
+- Use Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE name = 'powershell.exe' AND cmdline LIKE '%encodedCommand%' OR cmdline LIKE '%Invoke-webrequest%' OR cmdline LIKE '%WebClient%' OR cmdline LIKE '%Reflection.Assembly%';`
+- Analyze any downloaded files or payloads referenced in the command line for malicious content using a sandbox or antivirus tools.
+- Correlate the alert with other security events or logs from the same host or user to identify patterns or repeated suspicious activities.
+- Check for any recent changes to the system, such as new scheduled tasks, services, or startup items, that might indicate persistence mechanisms.
+- Review the system's security patches and updates to ensure it is not vulnerable to known exploits that could have been leveraged in the attack.
+- Investigate any additional alerts or anomalies from the same timeframe to determine if this is part of a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate administrative scripts: PowerShell is commonly used by IT administrators for legitimate automation tasks, which may include encoded commands or downloading files. Users should review the context of the script execution and consider excluding known administrative scripts from the detection rule.
+- Software installations and updates: Some software installations or updates may use PowerShell scripts with arguments that match suspicious patterns. Users can create exceptions for specific software processes or installation paths that are verified as safe.
+- Security tools and monitoring solutions: Certain security tools or monitoring solutions may use PowerShell to perform checks or gather system information, potentially triggering the rule. Users should identify and exclude these tools from the detection criteria.
+- Development and testing environments: Developers and testers might use PowerShell to simulate attacks or test scripts, which could be flagged as suspicious. Users should consider excluding processes running in designated development or testing environments.
+- Automated backup or maintenance scripts: Scheduled tasks or automated scripts for backup and maintenance may use PowerShell with arguments that appear suspicious. Users should verify these scripts and exclude them if they are part of routine operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of potential malware.
+- Conduct a thorough investigation of the PowerShell command line arguments and scripts executed to identify the scope and intent of the activity.
+- Review and analyze logs from the affected system and any associated systems to trace the origin and timeline of the suspicious activity.
+- Remove any identified malicious scripts or payloads from the system and ensure that no unauthorized changes have been made to system configurations.
+- Update antivirus and endpoint protection solutions to the latest definitions and perform a full system scan to detect and remove any remaining threats.
+- Escalate the incident to the security operations center (SOC) or incident response team if the activity is part of a larger attack campaign or if sensitive data may have been compromised.
+- Implement enhanced logging policies to capture detailed PowerShell execution events, including command line arguments and script block logging.
+- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to improve detection and correlation of suspicious activities.
+- Restore the system to its operational state by applying verified clean backups and ensuring all security patches and updates are applied.
+- Harden the system by disabling unnecessary PowerShell features, enforcing script execution policies, and implementing application whitelisting to prevent unauthorized script execution."""
 
 
 [[rule.threat]]

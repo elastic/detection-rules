@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -64,6 +64,48 @@ event.category:process and host.os.type:windows and
     "function Invoke-Command {"
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PowerShell Script with Remote Execution Capabilities via WinRM
+
+Windows Remote Management (WinRM) facilitates remote command execution and management, leveraging PowerShell for automation. Adversaries exploit this by using cmdlets like `Invoke-Command` to move laterally across networks. The detection rule identifies suspicious PowerShell scripts executing remotely via WinRM, excluding benign processes, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to understand which specific PowerShell cmdlet triggered the alert, focusing on `Invoke-WmiMethod`, `Invoke-Command`, or `Enter-PSSession` with the `ComputerName` parameter.
+- Check the `event.category:process` and `host.os.type:windows` fields to confirm the event is related to a Windows process execution.
+- Investigate the user context by examining the `user.id` field to determine if the activity was performed by a non-system account, as the rule excludes the system account `S-1-5-18`.
+- Analyze the `powershell.file.script_block_text` to understand the script's intent and identify any potentially malicious commands or patterns.
+- Verify the file path in `file.directory` to ensure the script did not originate from a known benign directory like `C:\\\\Program Files\\\\LogicMonitor\\\\Agent\\\\tmp`.
+- Use Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE name = 'powershell.exe' AND path NOT LIKE 'C:\\\\Program Files\\\\LogicMonitor\\\\Agent\\\\tmp\\\\%' AND user_id != 'S-1-5-18';`
+- Cross-reference the alert with recent login events to identify any unusual or unauthorized access patterns that might correlate with the PowerShell activity.
+- Examine network logs for connections to the `ComputerName` specified in the PowerShell command to identify any unexpected or unauthorized remote connections.
+- Review historical data for the involved user account and host to identify any previous suspicious activities or patterns that might indicate a broader compromise.
+- Consult threat intelligence sources to determine if the observed PowerShell script or its components are associated with known malicious campaigns or threat actors.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators often use PowerShell cmdlets like `Invoke-Command` and `Enter-PSSession` for routine management tasks across multiple machines. These activities can trigger the detection rule, leading to false positives. To manage this, users can create exceptions for specific user accounts or IP addresses known to perform these tasks regularly.
+- Monitoring and management software: Some software solutions, such as monitoring tools, may use similar PowerShell commands to gather data or perform actions on remote systems. These benign processes can be excluded by adding their file directories or specific script block texts to the exception list.
+- Automated scripts: Organizations may have automated scripts that utilize WinRM for legitimate purposes, such as deploying updates or configurations. Identifying these scripts and excluding their specific characteristics, like script names or execution paths, can help reduce false positives.
+- Service accounts: Service accounts that are used for legitimate remote management tasks might trigger alerts. Users can exclude these accounts by adding their user IDs to the exception list, ensuring that only unexpected or unauthorized use is flagged.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further lateral movement and potential data exfiltration.
+- Conduct a thorough investigation to identify the source of the PowerShell script execution, including reviewing logs for any unauthorized access or changes.
+- Terminate any suspicious PowerShell processes running on the affected system to halt ongoing malicious activities.
+- Reset credentials for any compromised accounts to prevent further unauthorized access.
+- Review and update firewall rules to restrict WinRM access to only trusted hosts and networks.
+- Implement enhanced logging for PowerShell activities, including script block logging and module logging, to improve future detection capabilities.
+- Integrate security information and event management (SIEM) solutions to correlate and analyze logs for suspicious activities across the network.
+- Restore the system from a known good backup to ensure the removal of any persistent threats or unauthorized changes.
+- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities.
+- Educate users and administrators on secure practices for remote management and the risks associated with improper use of WinRM and PowerShell."""
 
 [[rule.filters]]
 [rule.filters.meta]

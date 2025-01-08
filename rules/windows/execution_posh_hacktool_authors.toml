@@ -2,7 +2,7 @@
 creation_date = "2024/05/08"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -80,6 +80,50 @@ host.os.type:windows and event.category:process and
       "splinter_code"
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential PowerShell HackTool Script by Author
+
+PowerShell is a powerful scripting language used for task automation and configuration management in Windows environments. Adversaries exploit its capabilities to execute malicious scripts, often leveraging well-known offensive tools without altering author identifiers. The detection rule identifies these scripts by scanning for specific author names linked to popular hacking tools, thus flagging potential misuse of PowerShell for malicious activities.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific author name detected in the PowerShell script, as this can provide insight into the potential tool or script being used.
+- Examine the `powershell.file.script_block_text` field in the event logs to analyze the script content for any suspicious or malicious commands.
+- Check the `event.category:process` field to identify the process that executed the PowerShell script, including the parent process, to understand the context of execution.
+- Investigate the `host.os.type:windows` field to confirm the affected host and gather additional system information such as hostname, IP address, and user context.
+- Use Osquery to gather more information about the process and its parent process. Example query: `SELECT * FROM processes WHERE name = 'powershell.exe';`
+- Correlate the detected author name with known offensive tools and techniques to assess the potential impact and intent of the script.
+- Review recent login events and user activity on the affected host to identify any unauthorized access or anomalies around the time the script was executed.
+- Check for any network connections initiated by the PowerShell process to external IP addresses, which may indicate data exfiltration or command-and-control communication.
+- Analyze other security logs and alerts from the same timeframe to identify any related or supporting indicators of compromise.
+- Consult threat intelligence sources to determine if the detected author or script is associated with any known threat actors or campaigns.
+
+### False positive analysis
+
+- Legitimate security researchers or IT administrators may use PowerShell scripts authored by well-known security experts for educational purposes or internal security assessments, leading to false positives.
+- Organizations that conduct regular red team exercises might have authorized scripts containing these author identifiers, which could be mistakenly flagged as malicious.
+- PowerShell scripts used in penetration testing environments may include these author names, as they are often part of widely accepted testing frameworks.
+- To manage false positives, users can create exceptions for specific scripts or processes that are known to be safe and are used regularly within their environment.
+- Implementing a whitelist of approved scripts or author names that are recognized as non-threatening can help reduce unnecessary alerts.
+- Regularly review and update the list of exceptions to ensure that only trusted scripts are excluded from detection, maintaining a balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of the potential malicious activity.
+- Conduct a thorough investigation of the PowerShell script to confirm if it is indeed malicious by analyzing the script content and its execution context.
+- Review system logs and PowerShell execution logs to identify any additional indicators of compromise or related activities.
+- If confirmed malicious, remove the script and any associated files or processes from the system.
+- Restore the system from a known good backup if the integrity of the system is compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed PowerShell execution logs and script block logging for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and detect similar threats in the future.
+- Apply security patches and updates to the system and ensure that all software is up to date to mitigate vulnerabilities.
+- Educate users and administrators on the risks of using unverified scripts and the importance of maintaining security hygiene."""
 
 
 [[rule.threat]]

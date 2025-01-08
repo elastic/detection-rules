@@ -2,7 +2,7 @@
 creation_date = "2023/07/27"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/10/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -36,6 +36,48 @@ event.action:("exec" or "exec_event" or "executed" or "process_started") and
 process.name:("xclip" or "xsel" or "wl-clipboard" or "clipman" or "copyq") and
 not process.parent.name:("bwrap" or "micro")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Clipboard Activity Detected
+
+Clipboard utilities on Linux facilitate data transfer between applications, enhancing user productivity. However, adversaries can exploit these tools to capture sensitive information copied by users. The detection rule identifies unusual clipboard activity by monitoring specific utilities initiated by uncommon process leaders, flagging potential unauthorized data collection attempts. This approach helps in identifying and mitigating clipboard-based data exfiltration threats.
+
+### Possible investigation steps
+
+- Review the alert details to understand which clipboard utility was triggered and the associated process leader by examining the `process.name` and `process.parent.name` fields.
+- Verify the legitimacy of the parent process by checking its usual behavior and purpose on the system, focusing on the `process.parent.name` field.
+- Investigate the user account associated with the process to determine if the activity aligns with their typical behavior by examining the `user.name` field.
+- Check the process command line arguments for any unusual or suspicious parameters using the `process.command_line` field.
+- Correlate the event with other recent process start events on the host to identify any patterns or anomalies using the `event.category:process` and `event.type:start` fields.
+- Use Osquery to list recent clipboard-related processes and their parent processes with a query like: `SELECT pid, name, parent, path FROM processes WHERE name IN ('xclip', 'xsel', 'wl-clipboard', 'clipman', 'copyq');`
+- Investigate the network activity of the host around the time of the alert to identify any potential data exfiltration attempts.
+- Review system logs for any other suspicious activities or errors that occurred around the same time as the clipboard event.
+- Check for any recent changes in user permissions or group memberships that might explain the unusual process initiation.
+- Consult with the user or system owner to verify if the clipboard activity was expected or authorized, providing context from the gathered data.
+
+### False positive analysis
+
+- Known false positives for the Linux Clipboard Activity Detected rule may include legitimate applications or scripts that frequently use clipboard utilities for automation or data processing tasks. These can be triggered by system administrators or developers who use scripts to automate data transfer between applications.
+- Users can handle these false positives by creating exceptions for specific process parent names or user accounts that are known to perform legitimate clipboard operations. This can be done by updating the detection rule to exclude these known benign activities.
+- Another common false positive scenario involves desktop environments or window managers that use clipboard utilities as part of their normal operation. Users should identify these environments and exclude their process parent names from the detection rule.
+- To manage false positives effectively, users should regularly review and update the list of excluded process parent names and user accounts based on observed activity patterns and organizational needs. This ensures that only non-threatening behaviors are excluded while maintaining the integrity of the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the clipboard activity, focusing on the uncommon process leaders identified in the alert.
+- Review system logs and process execution history to determine if any unauthorized data access or transfer occurred.
+- If malicious activity is confirmed, remove any unauthorized software or scripts that may have been used to capture clipboard data.
+- Change passwords and credentials that may have been exposed through clipboard activity to prevent unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed process execution and clipboard activity for future investigations.
+- Integrate threat intelligence feeds to correlate clipboard activity with known threat actors or campaigns.
+- Restore the system to its operational state by applying security patches and updates, and ensure all security configurations are properly set.
+- Harden the system by restricting clipboard access to trusted applications and users, and consider using application whitelisting to prevent unauthorized process execution."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,7 +2,7 @@
 creation_date = "2020/11/06"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -47,6 +47,52 @@ sequence by host.id with maxspan=5s
   process.parent.name : "explorer.exe"
  ] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Incoming DCOM Lateral Movement with ShellBrowserWindow or ShellWindows
+
+DCOM allows software components to communicate over a network, enabling remote execution of applications. Adversaries exploit this by using ShellBrowserWindow or ShellWindows to execute commands stealthily on remote systems. The detection rule identifies such activity by monitoring network traffic and process creation patterns, specifically looking for remote command execution initiated by explorer.exe, which may indicate lateral movement attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of network traffic and process creation patterns that match the rule criteria, focusing on the involvement of `explorer.exe` and the specified port range.
+- Verify the source IP address to determine if it is an expected or known entity within the network, ensuring it is not a loopback address like `127.0.0.1` or `::1`.
+- Check the destination IP address and port to identify the target system and service involved in the potential lateral movement attempt.
+- Investigate the process tree for `explorer.exe` to identify any unusual child processes that may have been spawned, indicating potential malicious activity.
+- Use Osquery to gather additional context on the involved processes. For example, run the following query to list processes with `explorer.exe` as the parent:
+  ```sql
+  SELECT pid, name, path, cmdline, parent FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'explorer.exe');
+  ```
+- Examine the network traffic logs for any other suspicious connections or patterns that coincide with the time of the alert, focusing on the `source.port` and `destination.port` fields.
+- Correlate the alert with other security events or logs from the same time period to identify any additional indicators of compromise or related activities.
+- Check for any recent changes or anomalies in user accounts or permissions on the involved systems that could facilitate lateral movement.
+- Review historical data for similar alerts or patterns involving the same source or destination IP addresses to assess if this is part of a broader attack campaign.
+- Consult threat intelligence sources to determine if there are any known threats or campaigns that match the observed behavior, leveraging the MITRE ATT&CK framework references (TA0008, T1021) for context.
+
+### False positive analysis
+
+- Legitimate administrative tools or software updates may trigger the rule if they use DCOM for remote management or updates, as these processes can mimic the behavior of lateral movement attempts.
+- Network monitoring solutions or security software that perform regular scans or updates across the network might also cause false positives by initiating connections that resemble the described pattern.
+- Users can manage these false positives by creating exceptions for known and trusted IP addresses or specific process names that are verified to be part of legitimate operations.
+- Regularly review and update the list of exceptions to ensure that only non-threatening behaviors are excluded, maintaining a balance between security and operational efficiency.
+- Consider implementing additional context checks, such as verifying the source of the network traffic or correlating with other security events, to differentiate between benign and malicious activities.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further lateral movement and potential data exfiltration.
+- Conduct a thorough investigation to identify the source of the DCOM exploitation, including reviewing network logs and process creation events.
+- Terminate any suspicious processes that were initiated by explorer.exe and are not part of normal operations.
+- Reset credentials for any accounts that were used during the lateral movement attempt to prevent unauthorized access.
+- Apply patches and updates to the operating system and any vulnerable applications to mitigate the exploited vulnerability.
+- Implement enhanced logging policies to capture detailed network and process activity, focusing on DCOM-related events and explorer.exe executions.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs).
+- Restore the system from a known good backup to ensure no malicious artifacts remain on the system.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Harden the environment by disabling unnecessary DCOM components and configuring firewalls to restrict high-numbered ports used in the attack."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -83,6 +83,49 @@ file.path : (
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Systemd-udevd Rule File Creation
+
+Systemd-udevd manages device nodes and handles kernel device events in Linux, using rule files to automate responses to hardware changes. Adversaries can exploit this by creating malicious rules that execute commands when specific devices are connected. The detection rule monitors the creation or renaming of these rule files, excluding legitimate processes, to identify potential abuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and name of the rule file that was created or renamed, focusing on paths like "/lib/udev/*" and "/etc/udev/rules.d/*".
+- Check the process executable that triggered the alert to ensure it is not one of the legitimate processes listed in the exclusion criteria, such as "/bin/dpkg" or "/usr/bin/rpm".
+- Investigate the parent process of the executable to understand the context in which the rule file was created, using process lineage to identify any suspicious activity.
+- Use Osquery to list all udev rule files and their metadata, including creation and modification times, to identify any recent changes: `SELECT * FROM file WHERE path LIKE '/etc/udev/rules.d/%' OR path LIKE '/lib/udev/rules.d/%';`
+- Examine the contents of the suspicious rule file to identify any potentially malicious commands or scripts that could be executed when a device is connected.
+- Cross-reference the file creation or modification time with other system logs to identify any correlated events or activities that occurred around the same time.
+- Check for any recent connections of new or unusual devices to the system that might have triggered the rule file execution.
+- Investigate the user account associated with the process that created or modified the rule file to determine if it has been compromised or is acting suspiciously.
+- Review historical data to determine if similar rule file creation or modification events have occurred in the past, indicating a pattern of behavior.
+- Analyze network logs for any outbound connections or data exfiltration attempts following the rule file creation, which might suggest malicious intent.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger the creation or modification of udev rule files, especially when using package managers like dpkg, rpm, or yum. These processes are typically excluded in the detection rule to prevent false positives.
+- System management tools such as Puppet, Chef, or Ansible might create or modify udev rules as part of their configuration management tasks. These tools are often run by trusted processes and can be excluded by adding their executables to the exception list.
+- Custom scripts or administrative tasks performed by system administrators might involve creating or modifying udev rules. If these actions are routine and verified as non-malicious, the specific scripts or processes can be added to the exclusion list.
+- Automated system updates or maintenance tasks, such as those performed by systemd or netplan, may also result in rule file changes. These processes are generally safe and can be excluded by specifying their names or paths in the detection rule.
+- Users can manage false positives by regularly reviewing and updating the exclusion list to include any new legitimate processes or paths that are identified as part of normal system operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the source of the malicious udev rule file creation, examining recent user activity and process execution logs.
+- Remove any unauthorized or suspicious udev rule files from the system directories, ensuring that only legitimate rules remain.
+- Review and restore any system configurations or files that may have been altered by the malicious rule execution.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging for udev rule file changes and process executions to improve detection of similar threats in the future.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and analyze related security events.
+- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent recurrence.
+- Educate users and administrators on the risks associated with unauthorized device connections and the importance of reporting suspicious activity."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

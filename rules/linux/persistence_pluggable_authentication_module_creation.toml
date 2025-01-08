@@ -2,7 +2,7 @@
 creation_date = "2024/03/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/12/16"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -71,6 +71,50 @@ process.executable != null and (
   (process.name == "perl" and file.name like~ "e2scrub_all.tmp*") 
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Creation or Modification of Pluggable Authentication Module or Configuration
+
+Pluggable Authentication Modules (PAM) are integral to Linux systems, managing authentication tasks. Adversaries may exploit PAM by creating or altering its modules or configurations to gain persistence or capture credentials. The detection rule identifies suspicious activities by monitoring file operations in key PAM directories, excluding benign processes, to flag unauthorized changes indicative of potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and process executable involved in the creation or modification event. Pay special attention to the `file.path` and `process.executable` fields.
+- Verify the legitimacy of the process executable by checking its hash against known good hashes or using a threat intelligence platform to determine if it is associated with known malicious activity.
+- Use Osquery to list all PAM modules and their metadata to identify any recent changes or anomalies. Example query: `SELECT * FROM file WHERE path LIKE '/lib/security/%' OR path LIKE '/etc/pam.d/%';`
+- Investigate the user account associated with the process that triggered the alert to determine if it has been compromised or is being used maliciously.
+- Check the system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any suspicious authentication attempts or errors around the time of the alert.
+- Examine the process tree to understand the parent and child processes of the executable involved in the alert. This can help identify if the process was spawned by a legitimate service or a malicious script.
+- Review recent system changes or package installations that might have legitimately modified PAM configurations, using package management logs or history commands.
+- Analyze network activity from the host to identify any unusual outbound connections that could indicate data exfiltration or command-and-control communication.
+- Cross-reference the alert with other security events or alerts from the same host to identify patterns or correlations that might indicate a broader attack campaign.
+- Consult with system administrators or application owners to verify if the changes were authorized or part of a scheduled update or maintenance activity.
+
+### False positive analysis
+
+- Routine system updates or package installations can trigger this rule, as legitimate package managers like `dpkg`, `rpm`, `yum`, and `apt` may modify PAM-related files. Users can handle these by ensuring that the processes associated with these package managers are included in the exclusion list.
+- Automated system management tools such as Puppet, Chef, or Ansible might also modify PAM configurations as part of their normal operations. Users should verify these activities and add the relevant process executables to the exclusion list if deemed non-threatening.
+- Temporary files created during legitimate software installations or updates, such as those with extensions like `swp`, `swpx`, or `dpkg-remove`, can be mistaken for suspicious activity. Users can exclude these extensions to reduce false positives.
+- Certain system maintenance scripts or tools, like `sed` or `perl`, may create temporary files that match the rule's criteria. Users should review these activities and consider excluding specific file names or patterns associated with these tools.
+- Snap package installations or updates may involve temporary paths like `/tmp/snap.rootfs_*`, which could be flagged by the rule. Users can exclude these paths if they are confident in the benign nature of the activities.
+- In environments using the Nix package manager, paths under `/nix/store/*` may be involved in legitimate PAM file modifications. Users should assess these activities and exclude the relevant paths if they are part of routine operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify any unauthorized PAM module or configuration changes, using forensic tools to analyze file integrity and system logs.
+- Review recent user account activity and authentication logs to identify any suspicious login attempts or credential harvesting.
+- Restore any modified or unauthorized PAM files from a known good backup to ensure system integrity.
+- Update all system and application software to the latest versions to patch any known vulnerabilities that may have been exploited.
+- Implement enhanced logging policies to capture detailed authentication and file modification events, ensuring logs are stored securely and monitored regularly.
+- Integrate security solutions such as intrusion detection systems (IDS) and endpoint detection and response (EDR) tools to improve threat detection capabilities.
+- Escalate the incident to the security operations center (SOC) or relevant security team for further analysis and to determine if additional systems are affected.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement hardening measures such as restricting access to PAM directories, enforcing strong authentication policies, and conducting regular security audits."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

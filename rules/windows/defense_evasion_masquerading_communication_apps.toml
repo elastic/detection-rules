@@ -2,7 +2,7 @@
 creation_date = "2023/05/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -90,6 +90,52 @@ process where host.os.type == "windows" and
     )
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Masquerading as Communication Apps
+
+Communication apps are integral to business operations, facilitating collaboration and information exchange. Adversaries may exploit these apps by masquerading malicious processes as legitimate ones, bypassing security measures and deceiving users. The detection rule identifies suspicious instances by checking for unsigned or improperly signed processes, ensuring they match known trusted signatures, thus flagging potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify which specific communication app process triggered the alert, focusing on the `process.name` field.
+- Verify the `process.code_signature.subject_name` and `process.code_signature.trusted` fields to confirm if the process is unsigned or improperly signed.
+- Check the process's parent process using the `process.parent.name` field to determine if it was spawned by a legitimate application or a suspicious one.
+- Investigate the process's command line arguments using the `process.command_line` field to identify any unusual or unexpected parameters.
+- Use Osquery to gather additional information about the process. For example, run the following query to check for any anomalies in the process's file path or hash:
+  ```sql
+  SELECT path, md5, sha256 FROM processes WHERE name = 'slack.exe' OR name = 'WebexHost.exe' OR name = 'Teams.exe' OR name = 'Discord.exe' OR name = 'Rocket.Chat.exe' OR name = 'Mattermost.exe' OR name = 'WhatsApp.exe' OR name = 'Zoom.exe' OR name = 'outlook.exe' OR name = 'thunderbird.exe';
+  ```
+- Examine the network connections established by the process using the `network.connection` field to identify any suspicious or unauthorized external communications.
+- Check the process's file path and compare it with the expected installation directory for the legitimate application to detect any discrepancies.
+- Review recent system logs and events around the time the process was started to identify any related activities or anomalies.
+- Investigate the user account associated with the process using the `user.name` field to determine if the activity aligns with the user's typical behavior.
+- Correlate the findings with other security alerts or incidents to identify any patterns or connections that may indicate a broader attack campaign.
+
+### False positive analysis
+
+- Unsigned or improperly signed legitimate applications: Some legitimate communication apps may occasionally have unsigned or improperly signed updates or versions, leading to false positives. Users should verify the legitimacy of the application version and consider adding exceptions for known safe versions.
+- Custom or internal communication tools: Organizations may use custom-built communication tools that mimic the names of popular apps for compatibility or user familiarity. These should be reviewed and, if deemed safe, added to an allowlist to prevent false positives.
+- Development or testing environments: In environments where communication apps are frequently modified or tested, unsigned versions may trigger alerts. Users should ensure these environments are isolated and consider excluding them from the rule to avoid unnecessary alerts.
+- Third-party integrations or plugins: Some third-party tools or plugins may interact with communication apps, causing them to appear unsigned or improperly signed. Users should verify these integrations and, if trusted, create exceptions for them.
+- Temporary network issues: Occasional network issues might prevent proper signature verification, leading to false positives. Users should monitor for repeated occurrences and investigate network stability if this becomes a frequent issue.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malware.
+- Verify the legitimacy of the detected process by checking the file path, hash, and any associated network activity.
+- Terminate any suspicious processes that are confirmed to be malicious or unauthorized.
+- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malware.
+- Review system and security logs to trace the origin and timeline of the suspicious activity, focusing on any unauthorized access or changes.
+- Escalate the incident to the security operations center (SOC) or incident response team if the threat is confirmed or if there is potential for widespread impact.
+- Implement or update application allowlists to ensure only trusted and signed applications can execute on the system.
+- Enhance logging policies to capture detailed process execution and code signing events for future investigations.
+- Restore the system from a known good backup if the integrity of the system is compromised and cannot be remediated.
+- Apply security patches and updates to the operating system and all installed applications to mitigate vulnerabilities that could be exploited by similar threats."""
 
 
 [[rule.threat]]

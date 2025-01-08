@@ -2,7 +2,7 @@
 creation_date = "2022/10/20"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -70,6 +70,52 @@ any where host.os.type == "windows" and event.provider: "Microsoft-Windows-Secur
           "?:\\Windows\\System32\\wbem\\WmiPrvSe.exe",
           "?:\\Windows\\SysWOW64\\wbem\\WmiPrvSe.exe")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SeDebugPrivilege Enabled by a Suspicious Process
+
+SeDebugPrivilege allows processes to debug and modify other processes, a capability often reserved for system-level tasks. Adversaries exploit this by creating processes with elevated privileges to bypass security controls. The detection rule identifies suspicious processes enabling SeDebugPrivilege by filtering out legitimate system processes and focusing on unusual privilege escalations, helping analysts spot potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to understand which process triggered the SeDebugPrivilege and note the timestamp, process name, and user context.
+- Verify the `winlog.event_data.SubjectUserSid` to determine the user account associated with the suspicious process and check if it deviates from expected system accounts.
+- Examine the `winlog.event_data.ProcessName` to identify the executable path and assess if it matches any known legitimate applications or if it appears unusual.
+- Cross-reference the process name and path against the exclusion list in the detection rule to confirm it is not a false positive from a known system process.
+- Use Osquery to gather additional context about the suspicious process. For example, run the following query to list processes with SeDebugPrivilege:
+  ```sql
+  SELECT pid, name, path, uid, gid, on_disk FROM processes WHERE name = '<suspicious_process_name>';
+  ```
+- Investigate the parent process of the suspicious process to understand the process lineage and identify any potential anomalies in process creation.
+- Check for any recent changes in user privileges or group memberships that might explain the unexpected privilege escalation.
+- Analyze the system's security logs around the time of the alert for any other suspicious activities or related events that could provide additional context.
+- Review network activity logs to identify any unusual outbound connections or data transfers initiated by the suspicious process.
+- Consult threat intelligence sources to determine if the process name or behavior is associated with known malware or adversary techniques.
+
+### False positive analysis
+
+- Legitimate administrative tools: Some legitimate administrative tools and processes, such as certain system maintenance or monitoring applications, may require SeDebugPrivilege to function correctly. These tools might trigger the detection rule if they are not included in the exclusion list. Users can handle these by identifying and adding these tools to the exclusion list based on their file paths or process names.
+- Software updates and installations: During software updates or installations, processes like msiexec.exe may temporarily enable SeDebugPrivilege. These processes are typically benign and can be excluded by ensuring their paths are included in the exclusion list.
+- System maintenance tasks: Scheduled tasks or system maintenance activities, such as those performed by cleanmgr.exe or MRT.exe, might also enable SeDebugPrivilege. Users should verify the legitimacy of these tasks and exclude them if they are part of routine system operations.
+- Custom scripts or applications: In environments where custom scripts or applications are used for system management, these might require elevated privileges. Users should review these scripts or applications and, if deemed safe, add them to the exclusion list to prevent false positives.
+- Security software: Some security software may use SeDebugPrivilege to perform deep system scans or other protective measures. Users should confirm the legitimacy of such software and exclude it from the detection rule if necessary.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Investigate the process that enabled SeDebugPrivilege by reviewing logs and identifying the parent process and any associated files or network connections.
+- Terminate any suspicious processes that have been identified as enabling SeDebugPrivilege without legitimate justification.
+- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to identify and remove any malicious software.
+- Review and analyze security logs to determine if there are any other systems that may have been compromised or are exhibiting similar suspicious behavior.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if this is part of a larger attack campaign.
+- Implement enhanced logging policies to capture detailed process creation and privilege escalation events for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and improve detection capabilities.
+- Restore the system to its operational state by applying the latest security patches, updating software, and ensuring all security configurations are hardened.
+- Educate users and administrators on the importance of maintaining least privilege principles and regularly reviewing privilege assignments to prevent unauthorized privilege escalation."""
 
 
 [[rule.threat]]

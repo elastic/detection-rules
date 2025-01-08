@@ -2,7 +2,7 @@
 creation_date = "2024/02/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -72,6 +72,48 @@ sequence by host.id with maxspan=5s
    )
   ] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious APT Package Manager Execution
+
+APT, a tool for managing software on Debian-based Linux systems, can be exploited by attackers to maintain persistence. By injecting malicious code into scripts executed by APT, adversaries can ensure unauthorized access whenever APT is used. The detection rule identifies suspicious executions by monitoring for shell or scripting language processes initiated by APT, indicating potential backdoor activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host and process entity IDs involved in the suspicious execution.
+- Examine the process tree to understand the parent-child relationship, focusing on the parent process named "apt" and its child processes, especially those involving shell or scripting languages.
+- Check the command-line arguments of the suspicious processes, particularly looking for the "-c" flag, which may indicate execution of a command string.
+- Investigate the timing of the suspicious process events to determine if they align with legitimate package management activities or if they appear anomalous.
+- Use Osquery to gather additional context on the host by running a query such as: `SELECT * FROM processes WHERE name IN ('bash', 'dash', 'sh', 'tcsh', 'csh', 'zsh', 'ksh', 'fish', 'python', 'php', 'perl', 'ruby', 'lua', 'openssl', 'nc', 'netcat', 'ncat', 'telnet', 'awk') AND parent = (SELECT pid FROM processes WHERE name = 'apt');`
+- Analyze the environment variables and working directory of the suspicious processes to identify any unusual settings or paths that could indicate tampering.
+- Review the system logs for any additional context around the time of the alert, such as user logins, cron jobs, or other scheduled tasks that might correlate with the suspicious activity.
+- Check for any recent changes to APT configuration files or scripts that could have been modified to include malicious code.
+- Investigate the network activity of the host around the time of the alert to identify any suspicious outbound connections that could suggest data exfiltration or command-and-control communication.
+- Correlate the findings with other security alerts or incidents involving the same host or user account to determine if this is part of a broader attack campaign.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators often use APT to perform legitimate package management tasks that may trigger the detection rule. These tasks can include running scripts for configuration or maintenance purposes, which might involve shell or scripting language processes.
+- Custom scripts: Organizations may have custom scripts that are executed during package installations or updates. These scripts could be mistakenly flagged as suspicious if they involve shell or scripting language processes.
+- Automated deployment tools: Tools like Ansible, Puppet, or Chef might use APT as part of their automated deployment processes, leading to benign script executions that could be misinterpreted as suspicious.
+- To manage false positives, users can create exceptions for known benign processes or scripts by whitelisting specific process names or command-line arguments that are frequently used in legitimate operations. This can be done by adjusting the detection rule to exclude these known non-threatening behaviors.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify any malicious scripts or code injected into APT-related scripts or processes.
+- Review and analyze logs from the affected system to trace the origin and timeline of the suspicious APT execution.
+- Remove any identified malicious scripts or code and restore original APT scripts from a trusted source or backup.
+- Update all system packages and apply security patches to mitigate any known vulnerabilities that could be exploited.
+- Implement enhanced logging policies to capture detailed process execution and network activity for future investigations.
+- Integrate security tools such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to monitor for similar threats.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and threat intelligence sharing.
+- Restore the system to its operational state by verifying the integrity of critical system files and configurations.
+- Harden the system by disabling unnecessary services, enforcing strong authentication mechanisms, and regularly reviewing user permissions and access controls."""
 
 
 [[rule.threat]]

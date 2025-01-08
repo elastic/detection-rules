@@ -2,7 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2024/06/18"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 50
@@ -86,6 +86,49 @@ tags = [
     "Tactic: Discovery",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Linux Process Discovery Activity
+In Linux environments, process discovery commands help users and administrators understand active processes, aiding in system management and troubleshooting. However, adversaries can exploit these commands to map out running applications, potentially identifying vulnerabilities for privilege escalation or persistence. The detection rule identifies atypical usage patterns of these commands, especially from unexpected user accounts, signaling possible account compromise or malicious reconnaissance activities.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific user account and process discovery command that triggered the alert.
+- Check the timestamp of the alert to determine when the unusual activity occurred and correlate it with any other suspicious activities in the same timeframe.
+- Investigate the user account's recent activity history to identify any anomalies or signs of compromise, such as unusual login times or IP addresses.
+- Examine the command execution context, including the parent process and any associated child processes, to understand the broader activity chain.
+- Use Osquery to gather additional context on the system. For example, run the following query to list all processes executed by the suspicious user in the last 24 hours: `SELECT * FROM processes WHERE user = '<suspicious_user>' AND datetime(start_time, 'unixepoch') > datetime('now', '-1 day');`
+- Analyze system logs, such as auth logs and bash history, to identify any unauthorized access or command execution patterns.
+- Cross-reference the process discovery command with known legitimate administrative activities to rule out false positives.
+- Investigate any network connections initiated by the suspicious process to identify potential data exfiltration or lateral movement attempts.
+- Check for any recent changes to system files or configurations that could indicate an attempt to establish persistence or escalate privileges.
+- Consult threat intelligence sources to determine if the observed activity matches any known tactics, techniques, or procedures (TTPs) associated with specific threat actors.
+
+### False positive analysis
+
+- System administrators or IT personnel performing routine maintenance or troubleshooting may trigger the rule if they use process discovery commands from accounts not typically associated with such activities. 
+- Automated scripts or monitoring tools that regularly execute process discovery commands for legitimate system health checks can also be flagged as unusual activity.
+- Developers or engineers conducting performance testing or debugging on production systems might inadvertently cause alerts if their accounts are not recognized as standard for such operations.
+- To manage these false positives, users can create exceptions for specific user accounts or groups known to perform legitimate process discovery tasks regularly.
+- Implementing a whitelist of IP addresses or hostnames from which legitimate process discovery commands are expected can help reduce unnecessary alerts.
+- Regularly review and update the list of known benign activities and user accounts to ensure that legitimate actions are not mistakenly flagged as suspicious.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Review the user account activity logs to identify any unauthorized access or anomalies, focusing on the account that executed the unusual process discovery commands.
+- Terminate any suspicious processes identified during the investigation to halt potential malicious activities.
+- Change passwords for compromised accounts and enforce multi-factor authentication to enhance account security.
+- Conduct a thorough forensic analysis of the system to identify any additional indicators of compromise or persistence mechanisms.
+- Restore the system from a known good backup if malicious activity is confirmed and ensure all security patches are applied.
+- Implement enhanced logging policies to capture detailed process execution and user activity for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response coordination.
+- Review and update security policies and hardening measures, such as disabling unnecessary services and enforcing least privilege principles, to reduce the attack surface."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

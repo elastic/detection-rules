@@ -2,7 +2,7 @@
 creation_date = "2023/06/09"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -69,6 +69,48 @@ process where host.os.type == "linux" and event.type == "start" and event.action
  and process.name == "kexec" and process.args in ("--exec", "-e", "--load", "-l", "--unload", "-u") and not
  process.parent.name in ("kdumpctl", "unload.sh")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kernel Load or Unload via Kexec Detected
+
+Kexec is a Linux utility that allows a new kernel to be loaded and executed without rebooting, facilitating quick kernel updates. However, attackers can exploit kexec to load malicious kernels, bypassing security controls and gaining unauthorized access or persistence. The detection rule identifies suspicious kexec usage by monitoring process execution patterns, focusing on specific arguments and excluding legitimate parent processes, thus highlighting potential security breaches.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the kexec process execution with suspicious arguments such as "--exec", "-e", "--load", "-l", "--unload", or "-u".
+- Verify the parent process of the kexec execution to ensure it is not a legitimate process like "kdumpctl" or "unload.sh", which are excluded in the detection rule.
+- Check the user account associated with the kexec process execution to determine if it has the necessary privileges and if the activity aligns with their typical behavior.
+- Investigate the command line arguments used with the kexec process to understand the intent and scope of the kernel load or unload operation.
+- Use Osquery to gather additional context about the kexec process by running a query such as: `SELECT * FROM processes WHERE name = 'kexec';` to retrieve details like process ID, parent process ID, and execution path.
+- Examine system logs and audit logs for any related entries around the time of the kexec execution to identify any preceding or subsequent suspicious activities.
+- Analyze network traffic logs to detect any unusual outbound connections or data exfiltration attempts that might coincide with the kexec activity.
+- Check for any recent changes to kernel modules or system configurations that could indicate tampering or unauthorized modifications.
+- Investigate other processes running on the system that might have been initiated by the same user or parent process to identify potential lateral movement or further compromise.
+- Correlate the kexec activity with other security alerts or incidents in the environment to determine if it is part of a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate system maintenance activities: System administrators may use kexec for legitimate kernel updates or system maintenance tasks. These activities can trigger the detection rule if they involve the specified arguments. To manage this, users can create exceptions for known maintenance scripts or processes by adding them to the exclusion list of parent processes.
+- Automated backup or recovery processes: Some automated scripts or tools, such as kdumpctl, may use kexec as part of their normal operation for system recovery or backup purposes. These should be excluded by verifying the parent process and adding it to the exclusion list if deemed non-threatening.
+- Custom scripts for performance testing: Developers or system engineers might use custom scripts that leverage kexec for performance testing or system optimization. Users should review these scripts and, if they are verified as safe, add them to the list of exceptions to prevent false positives.
+- Security tools or monitoring solutions: Certain security tools might use kexec to test system resilience or for other security-related tasks. Users should identify these tools and exclude them from the detection rule by specifying their parent processes in the exclusion criteria.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to confirm the presence of a malicious kernel by analyzing system logs, process trees, and any anomalies in kernel behavior.
+- Utilize forensic tools to capture memory and disk images for further analysis and evidence preservation.
+- If a malicious kernel is confirmed, initiate a system recovery process by restoring from a known good backup or reinstalling the operating system.
+- Review and update security policies to restrict the use of kexec to authorized personnel only, potentially disabling it if not required for operational purposes.
+- Implement enhanced logging and monitoring for kexec usage and other critical system processes to detect future unauthorized activities.
+- Integrate security solutions such as intrusion detection systems (IDS) and endpoint detection and response (EDR) tools to improve threat visibility and response capabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Apply system hardening measures, such as enabling secure boot, applying the latest security patches, and configuring kernel parameters to reduce the attack surface."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

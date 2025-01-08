@@ -2,7 +2,7 @@
 creation_date = "2023/03/30"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,52 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "First Time Seen Google Workspace OAuth Login from Third-Party Application"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Time Seen Google Workspace OAuth Login from Third-Party Application
+
+OAuth is a protocol that allows third-party applications to access user data without exposing credentials, enhancing security in Google Workspace. However, adversaries can exploit OAuth by using compromised credentials to gain unauthorized access and privileges. The detection rule identifies unusual OAuth logins by monitoring first-time authorizations from third-party apps, signaling potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific third-party application involved by examining the `google_workspace.token.client.id` field.
+- Verify the legitimacy of the third-party application by researching the client ID and checking if it is a known or trusted application.
+- Check the `google_workspace.token.scope.data` field to understand the permissions and data access requested by the application, assessing if they align with expected usage.
+- Investigate the user account associated with the OAuth login to determine if the login aligns with their typical behavior or if it appears suspicious.
+- Examine historical login patterns for the user to identify any anomalies or deviations from their normal activity.
+- Use Osquery to gather additional context on the user's device, such as running processes or network connections, with a query like: `SELECT * FROM processes WHERE user = '<username>';`.
+- Cross-reference the event timestamp with other security logs to identify any concurrent suspicious activities or anomalies.
+- Check for any recent changes in user permissions or roles that might have been exploited by the third-party application.
+- Investigate if there have been any recent phishing attempts or credential leaks that could have compromised the user's credentials.
+- Collaborate with the user to confirm whether they authorized the application and if they recognize the activity as legitimate.
+
+### False positive analysis
+
+- Known false positives may occur when legitimate third-party applications are authorized for the first time by users, such as productivity tools or integrations that enhance Google Workspace functionality.
+- Users can handle these false positives by creating exceptions for applications that are frequently used and verified as safe, ensuring they do not trigger alerts in the future.
+- Regularly review and update the list of trusted applications to include new tools that are widely adopted within the organization, reducing unnecessary alerts.
+- Implement a process for users to report and verify new applications they intend to use, allowing security teams to pre-approve these applications and prevent false positives.
+- Consider the context of the OAuth login, such as the time, location, and user behavior, to differentiate between legitimate and potentially malicious activities.
+- Use historical data to identify patterns of legitimate OAuth logins, which can help refine detection rules and minimize false positives.
+
+### Response and remediation
+
+- Immediately revoke the OAuth token associated with the suspicious third-party application to prevent further unauthorized access.
+- Conduct a thorough investigation to determine if any sensitive data was accessed or modified by the third-party application.
+- Review the permissions granted to the third-party application and assess whether they align with the principle of least privilege.
+- Notify affected users and relevant stakeholders about the potential security incident and provide guidance on monitoring for unusual activity.
+- Escalate the incident to the security operations team for further analysis and to determine if additional accounts or systems are compromised.
+- Implement enhanced logging and monitoring for OAuth activities in Google Workspace to detect similar incidents in the future.
+- Integrate threat intelligence feeds to correlate OAuth activity with known malicious indicators and improve detection capabilities.
+- Restore any affected systems or data to their last known good state, ensuring that any unauthorized changes are reversed.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures accordingly.
+- Educate users on the risks associated with third-party applications and the importance of scrutinizing permissions before granting access.
+
+## Setup
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 ### Important Information Regarding Google Workspace Event Lag Times
 - As per Google's documentation, Google Workspace administrators may observe lag times ranging from minutes up to 3 days between the time of an event's occurrence and the event being visible in the Google Workspace admin/audit logs.

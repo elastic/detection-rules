@@ -2,7 +2,7 @@
 creation_date = "2024/08/19"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/08/19"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -39,6 +39,49 @@ event.dataset: "aws.cloudtrail"
     and event.provider: sts.amazonaws.com
     and event.action: GetFederationToken
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Occurrence of STS GetFederationToken Request by User
+
+AWS Security Token Service (STS) enables users to request temporary credentials for accessing AWS resources. While beneficial for legitimate use, adversaries may exploit this to gain unauthorized access. The detection rule identifies unusual activity by flagging the first instance of a `GetFederationToken` request by a user within a 10-day window, helping to uncover potential misuse.
+
+### Possible investigation steps
+
+- Review the `event.dataset` field to confirm the event source is "aws.cloudtrail" and ensure the event is related to AWS CloudTrail logs.
+- Verify the `event.provider` field to ensure the event is associated with "sts.amazonaws.com", confirming it involves the AWS Security Token Service.
+- Check the `event.action` field to confirm the action is "GetFederationToken", indicating a request for temporary credentials.
+- Identify the user who initiated the `GetFederationToken` request by examining the `user.identity.arn` or `user.identity.userName` fields to determine if the user is legitimate and authorized.
+- Investigate the `sourceIPAddress` field to determine the origin of the request and assess if the IP address is expected or unusual for the user.
+- Analyze the `userAgent` field to understand the context of the request, such as the application or service used, and determine if it aligns with typical user behavior.
+- Review the `event.time` field to establish the timing of the request and correlate it with other activities or events that may indicate suspicious behavior.
+- Examine the `requestParameters` field to understand the specifics of the `GetFederationToken` request, such as the duration and permissions requested, to assess if they are appropriate.
+- Utilize Osquery to gather additional context on the user's activity on the host. For example, run the following Osquery query to list recent AWS CLI commands executed by the user: `SELECT * FROM shell_history WHERE command LIKE '%aws%' AND user = '<username>';`
+- Cross-reference the `GetFederationToken` request with other logs and alerts to identify any patterns or anomalies that could indicate a broader security incident.
+
+### False positive analysis
+
+- **Routine Administrative Tasks**: Regular administrative operations may involve the use of `GetFederationToken` for legitimate purposes, such as accessing AWS resources for maintenance or monitoring. Users can manage these by creating exceptions for known administrative accounts or roles that frequently perform these tasks.
+- **Automated Scripts and Tools**: Automated processes or third-party tools that integrate with AWS services might use `GetFederationToken` to function correctly. To handle these, identify and whitelist the specific scripts or tools that are known to use this API call regularly.
+- **New Service Integrations**: When integrating new services or applications with AWS, initial `GetFederationToken` requests might be flagged. Users should document and exclude these occurrences by updating the detection rule to recognize these integrations as non-threatening.
+- **User Onboarding**: During the onboarding of new users or roles, initial `GetFederationToken` requests may be expected. To prevent false positives, establish a process to temporarily exclude these users or roles from the detection rule during their onboarding period.
+- **Testing and Development Environments**: In testing or development environments, `GetFederationToken` requests might be used frequently for testing purposes. Users can manage these by setting up separate monitoring rules or exclusions for these environments to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Immediately revoke the temporary credentials obtained through the GetFederationToken request to prevent unauthorized access to AWS resources.
+- Investigate the user account that made the GetFederationToken request to determine if the activity was legitimate or indicative of compromise.
+- Review CloudTrail logs for any other unusual or unauthorized activities associated with the user account or related AWS resources.
+- If compromise is suspected, reset the credentials for the affected user account and any other accounts that may have been accessed using the temporary credentials.
+- Escalate the incident to the security operations team for further analysis and to determine if additional accounts or resources are affected.
+- Implement enhanced logging and monitoring for AWS STS activities, focusing on GetFederationToken requests, to detect similar activities in the future.
+- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system to enable real-time alerting and correlation with other security events.
+- Educate users on the risks associated with the misuse of AWS STS and the importance of reporting suspicious activities.
+- Review and update AWS IAM policies to ensure that only authorized users have the necessary permissions to request temporary credentials.
+- Conduct a post-incident review to identify gaps in the current security posture and implement hardening measures, such as multi-factor authentication and least privilege access controls, to prevent future incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

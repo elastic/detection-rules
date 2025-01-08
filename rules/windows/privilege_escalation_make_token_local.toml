@@ -2,7 +2,7 @@
 creation_date = "2023/12/04"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -50,6 +50,49 @@ authentication where
              "?:\\Windows\\System32\\inetsrv\\w3wp.exe", 
              "?:\\Windows\\SysWOW64\\msiexec.exe")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Interactive Logon by an Unusual Process
+
+Interactive logons in Windows environments typically involve processes like winlogon.exe, which handle user authentication. Adversaries may exploit this by using alternate processes to create tokens, escalating privileges and bypassing controls. The detection rule identifies anomalies by flagging logons initiated by unexpected processes, especially those not originating from standard system directories, indicating potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process executable path that triggered the alert, ensuring it matches the criteria of being outside standard system directories.
+- Verify the legitimacy of the process executable by checking its digital signature and comparing it against known good hashes or software inventories.
+- Examine the `winlog.event_data.LogonProcessName` field to determine if the process name "Advapi*" is expected or if it indicates potential misuse.
+- Investigate the `winlog.event_data.SubjectUserSid` and `winlog.event_data.TargetUserSid` fields to identify the user accounts involved in the logon attempt and assess if they are legitimate or potentially compromised.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE path = 'C:\\\\path\\\\to\\\\suspicious\\\\executable.exe';` to retrieve details like process start time, parent process, and command-line arguments.
+- Check the system's security and application logs for any related events around the time of the alert to identify any preceding or subsequent suspicious activities.
+- Investigate the host's network connections during the time of the alert to identify any unusual outbound or inbound connections that could indicate lateral movement or data exfiltration.
+- Analyze the process tree to understand the parent-child relationship of the suspicious process and identify any other processes that may have been spawned as part of the activity.
+- Review recent changes to the system, such as software installations or updates, that could explain the presence of the unusual process.
+- Consult threat intelligence sources to determine if the process or behavior matches any known attack patterns or indicators of compromise.
+
+### False positive analysis
+
+- Legitimate administrative tools or scripts that initiate logons from non-standard directories may trigger this rule. Users should review the source and purpose of these tools to determine if they are authorized.
+- Custom applications or services that require interactive logons and are installed in non-standard directories can also be flagged. Users can create exceptions for these applications by adding their executable paths to the exclusion list.
+- Automated processes or scheduled tasks that perform logons for maintenance or updates might be misidentified. Users should verify these tasks and, if legitimate, exclude their associated processes.
+- Developers or IT personnel using remote desktop or other remote management tools from non-standard locations may cause false positives. Users should ensure these activities are documented and consider excluding known safe processes.
+- To manage false positives, users can refine the detection rule by adding specific process paths or user SIDs to the exclusion criteria, ensuring that only unexpected or unauthorized activities are flagged.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the unusual process and determine if it is malicious or unauthorized, using endpoint detection and response (EDR) tools.
+- Review recent changes to user accounts and permissions to identify any unauthorized privilege escalations or account creations.
+- Terminate any suspicious processes and remove any unauthorized accounts or permissions identified during the investigation.
+- Escalate the incident to the security operations center (SOC) or incident response team if the investigation confirms malicious activity or if the scope of the incident is unclear.
+- Implement enhanced logging policies to capture detailed authentication and process execution events, ensuring logs are stored securely for future analysis.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and detect similar threats in the future.
+- Restore the system to its operational state by applying the latest security patches, updating antivirus definitions, and ensuring all security configurations are compliant with organizational policies.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement hardening measures such as enforcing least privilege access, using multi-factor authentication, and regularly auditing user accounts and permissions to prevent future incidents."""
 
 
 [[rule.threat]]

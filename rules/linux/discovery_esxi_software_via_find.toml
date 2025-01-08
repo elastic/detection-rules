@@ -2,7 +2,7 @@
 creation_date = "2023/04/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -65,6 +65,49 @@ event.action in ("exec", "exec_event", "executed", "process_started") and proces
 process.args : ("/etc/vmware/*", "/usr/lib/vmware/*", "/vmfs/*") and 
 not process.parent.executable == "/usr/lib/vmware/viewagent/bin/uninstall_viewagent.sh"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating ESXI Discovery via Find
+
+VMware ESXi is a hypervisor used to manage virtual machines (VMs) on physical servers. Adversaries may exploit the 'find' command on Linux systems to locate VM-related files, potentially to gather intelligence or manipulate configurations. The detection rule identifies suspicious 'find' command executions targeting VMware paths, excluding legitimate processes, to flag potential reconnaissance activities.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the 'find' command was executed on a Linux system, focusing on the 'process.name' and 'process.args' fields to verify the targeted VMware paths.
+- Check the 'process.parent.executable' field to ensure the command was not initiated by a legitimate process like "/usr/lib/vmware/viewagent/bin/uninstall_viewagent.sh".
+- Investigate the user account associated with the 'find' command execution to determine if it is a known and authorized user for VMware management tasks.
+- Examine the 'host.os.type' and 'event.type' fields to confirm the environment and context in which the command was executed.
+- Use Osquery to list all running processes related to VMware to identify any unusual or unauthorized activities. Example query: `SELECT pid, name, path FROM processes WHERE path LIKE '/usr/lib/vmware/%' OR path LIKE '/etc/vmware/%';`
+- Analyze system logs around the time of the alert to identify any other suspicious activities or commands executed by the same user or process.
+- Check for any recent changes or anomalies in the VMware configuration files located in the targeted paths to assess potential tampering or reconnaissance.
+- Investigate network logs for any unusual outbound connections from the host that might indicate data exfiltration or communication with a command and control server.
+- Review historical data to determine if similar 'find' command executions have occurred in the past, indicating a pattern or ongoing reconnaissance activity.
+- Correlate the alert with other security events or alerts from the same host or user to build a comprehensive picture of the potential threat actor's activities.
+
+### False positive analysis
+
+- System administrators or automated scripts may use the 'find' command to perform legitimate maintenance tasks, such as searching for configuration files or performing backups, which could trigger the rule.
+- Regular updates or installations of VMware software might involve the 'find' command to verify file integrity or locate specific files, leading to false positives.
+- Monitoring or security tools that scan directories for compliance or security checks might execute the 'find' command on VMware paths as part of their routine operations.
+- To manage these false positives, users can create exceptions for known benign processes or scripts by adding their parent executable paths to the exclusion list, similar to the existing exclusion for "/usr/lib/vmware/viewagent/bin/uninstall_viewagent.sh".
+- Users should regularly review and update the exclusion list to ensure it reflects current legitimate activities, minimizing the risk of overlooking genuine threats while reducing noise from false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to determine the scope of the activity, including reviewing logs and identifying any other systems that may have been targeted.
+- Analyze the 'find' command usage to confirm whether it was executed by a legitimate user or process, or if it indicates malicious activity.
+- If malicious activity is confirmed, remove any unauthorized accounts or processes identified during the investigation.
+- Restore the system from a known good backup to ensure that any potential malicious changes are reverted.
+- Implement enhanced logging policies to capture detailed process execution data, focusing on command-line arguments and parent-child process relationships.
+- Integrate security solutions such as SIEM or EDR to improve detection capabilities and automate alerting for suspicious activities.
+- Review and update access controls and permissions on VMware-related directories to limit exposure to unauthorized users.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users and administrators on recognizing and reporting suspicious activities, emphasizing the importance of maintaining security hygiene."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/08"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -33,6 +33,49 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "repo.create"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub Repo Created
+GitHub repositories are essential for code collaboration and version control, enabling developers to manage and share projects. However, adversaries may exploit this by creating repositories to host malicious code or scripts for serverless execution, aligning with MITRE ATT&CK tactics. The detection rule monitors GitHub audit logs for repository creation events, helping identify unauthorized or suspicious activities that could indicate potential threats.
+
+### Possible investigation steps
+
+- Review the GitHub audit log entry to confirm the event details, focusing on the `event.dataset` and `event.action` fields to ensure it matches "github.audit" and "repo.create".
+- Identify the user associated with the repository creation by examining the `actor` field in the audit log to determine if the action was performed by an authorized individual.
+- Check the `repository.name` and `repository.url` fields to gather information about the newly created repository, including its name and location.
+- Investigate the `repository.visibility` field to determine if the repository is public or private, as public repositories may pose a higher risk if they contain sensitive information.
+- Cross-reference the `actor` field with known user accounts and roles within the organization to assess if the user has the appropriate permissions to create repositories.
+- Use Osquery to gather additional context about the user's recent activities. For example, run the following query to list recent GitHub actions by the user: `SELECT * FROM github_events WHERE actor_login = '<actor_login>' ORDER BY created_at DESC LIMIT 10;`.
+- Examine the commit history of the new repository, if available, to identify any suspicious or unauthorized code changes that may indicate malicious intent.
+- Review any associated pull requests or issues linked to the repository to detect any unusual or unexpected activity that could suggest a security concern.
+- Analyze the repository's description and README files for any indications of malicious intent or unauthorized project objectives.
+- Collaborate with the repository owner or the user who created the repository to verify the legitimacy of the creation and gather additional context if necessary.
+
+### False positive analysis
+
+- Frequent repository creation by trusted developers or automated systems can trigger false positives. These activities are often part of regular development workflows and not indicative of malicious intent.
+- Internal projects or sandbox environments where repositories are created and deleted frequently for testing purposes may also lead to false positives.
+- To manage these, users can create exceptions for specific users or teams known to regularly create repositories as part of their job functions.
+- Implementing a whitelist of known safe IP addresses or user accounts can help reduce noise from expected repository creation events.
+- Regularly review and update the list of exceptions to ensure it reflects current organizational practices and personnel changes.
+- Consider integrating additional context, such as repository names or descriptions, to better assess the intent behind repository creation events.
+
+### Response and remediation
+
+- Immediately review the newly created GitHub repository to determine if it contains any malicious or unauthorized content.
+- Revoke access to the repository for any suspicious users or accounts to prevent further unauthorized actions.
+- Conduct a thorough investigation of the audit logs to identify any other suspicious activities or related events.
+- Notify the security team and relevant stakeholders about the potential threat and findings for further analysis and decision-making.
+- If malicious content is confirmed, remove the repository and any associated files from the GitHub platform.
+- Implement stricter access controls and permissions for repository creation to limit the ability of unauthorized users to create repositories.
+- Enhance logging policies to ensure comprehensive monitoring of all repository-related activities, including creation, modification, and deletion events.
+- Integrate GitHub with a Security Information and Event Management (SIEM) system to enable real-time alerting and correlation with other security events.
+- Conduct a post-incident review to identify gaps in the current security posture and update policies and procedures accordingly.
+- Educate developers and users on secure coding practices and the importance of reporting suspicious activities to prevent future incidents."""
 
 
 [[rule.threat]]

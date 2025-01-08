@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2024/09/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -70,6 +70,50 @@ query = '''
     "FF00::/8"
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating VNC (Virtual Network Computing) to the Internet
+
+VNC allows remote control of systems, facilitating maintenance and resource sharing. However, when exposed to the Internet, it becomes a target for attackers seeking unauthorized access. Adversaries exploit VNC for initial access or as a backdoor. The detection rule identifies suspicious VNC traffic by monitoring TCP connections on specific ports from private to public IPs, flagging potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the source and destination IP addresses involved in the suspicious VNC traffic. Pay special attention to the source IP to determine if it belongs to a known internal system.
+- Verify the destination IP address to ascertain if it is a known or trusted external entity, or if it appears suspicious or unknown.
+- Check the destination port (between 5800 and 5810) to confirm it aligns with typical VNC usage, as these ports are commonly used for VNC services.
+- Investigate the source IP address within internal network logs to determine if there are any other unusual or unauthorized activities associated with this IP.
+- Use Osquery to check for VNC server processes running on the source machine. Example query: `SELECT name, path, pid FROM processes WHERE name LIKE '%vnc%';`
+- Examine historical network traffic logs to identify any previous instances of VNC traffic from the same source IP to external destinations, which might indicate a pattern of unauthorized access attempts.
+- Correlate the alert with any recent changes or updates in the network or system configurations that might have inadvertently exposed VNC services to the Internet.
+- Investigate user activity on the source machine to determine if any legitimate user actions could have triggered the VNC traffic, such as remote work or maintenance tasks.
+- Check for any known vulnerabilities or exploits related to the VNC software version running on the source machine, which could have been targeted by attackers.
+- Consult threat intelligence sources to see if the destination IP or similar VNC traffic patterns have been associated with known threat actors or campaigns.
+
+### False positive analysis
+
+- Legitimate remote work scenarios: Employees working remotely may use VNC to access their office computers. This can be a false positive if the access is authorized and secure. To manage this, create exceptions for known employee IP addresses or VPN ranges.
+- Third-party vendor access: Vendors may require VNC access for system maintenance or support. If this access is pre-approved and monitored, it can be excluded by whitelisting the vendor's IP addresses.
+- Internal testing and development: IT teams might use VNC for testing purposes, which could trigger alerts. Document and exclude these activities by specifying the IP ranges used for testing environments.
+- Misconfigured network devices: Devices that are incorrectly configured to expose VNC to the Internet might generate false positives. Regularly audit and correct device configurations to prevent unnecessary alerts.
+- Cloud-based services: Some cloud services might use VNC for legitimate purposes. Identify and whitelist these services' IP addresses to avoid false positives.
+- Temporary remote access setups: Occasionally, temporary VNC access might be set up for specific projects. Ensure these are documented and create temporary exceptions for the duration of the project.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation of the affected system to identify any unauthorized changes or installed backdoors, leveraging forensic tools and techniques.
+- Review and analyze network logs to trace the source of the VNC traffic and identify any other potentially compromised systems.
+- Change all passwords and credentials associated with the affected system and any other systems that may have been accessed using the same credentials.
+- Apply security patches and updates to the affected system and ensure that VNC services are configured securely, including disabling direct Internet exposure.
+- Implement network segmentation to limit the exposure of critical systems and services to the Internet.
+- Enhance logging and monitoring policies to include detailed logging of remote access attempts and integrate with a Security Information and Event Management (SIEM) system for real-time analysis.
+- Escalate the incident to the security team or incident response team for further analysis and to determine if additional systems are affected.
+- Restore the system to its operational state from a known good backup, ensuring that all security measures are in place before reconnecting to the network.
+- Conduct a post-incident review to identify gaps in security controls and update the incident response plan, incorporating lessons learned and hardening measures such as disabling unused services and enforcing strong authentication mechanisms."""
 
 
 [[rule.threat]]

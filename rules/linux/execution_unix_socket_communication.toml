@@ -2,7 +2,7 @@
 creation_date = "2023/09/04"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/10/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -41,6 +41,49 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 ) and
 not process.args == "/var/run/libvirt/libvirt-sock"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unix Socket Connection
+
+Unix sockets facilitate efficient inter-process communication (IPC) on the same host, enabling data exchange between applications. Adversaries exploit this by connecting to local sockets to gather application data, identify vulnerabilities, or establish covert channels. The detection rule identifies suspicious processes like 'nc' or 'socat' using specific arguments, signaling potential misuse while excluding legitimate operations like those involving libvirt.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process name and arguments that triggered the rule, focusing on processes like 'nc', 'ncat', 'netcat', or 'socat' with suspicious arguments.
+- Check the process execution timeline to determine when the suspicious process started and if there are any patterns or anomalies in its execution frequency.
+- Investigate the parent process of the suspicious process to understand the context of its execution and identify if it was initiated by a legitimate application or a potentially malicious script.
+- Examine the user account associated with the process execution to determine if it aligns with expected behavior or if it indicates potential compromise or misuse.
+- Use Osquery to list all active Unix socket connections on the host to identify any unusual or unauthorized connections. Example query: `SELECT * FROM socket_events WHERE family = 'unix';`
+- Correlate the suspicious process activity with other system logs, such as authentication logs, to identify any concurrent suspicious activities or failed login attempts.
+- Analyze the command-line arguments of the process to understand the intended target of the Unix socket connection and assess if it aligns with known legitimate services or applications.
+- Investigate the file paths specified in the process arguments (e.g., "/usr/local/*", "/run/*", "/var/run/*") to verify if they are associated with known applications or if they have been recently modified.
+- Check for any recent changes or anomalies in the system's configuration files or application settings that could indicate tampering or misconfiguration.
+- Review historical data to determine if similar alerts have been triggered in the past and if they were associated with any confirmed security incidents or false positives.
+
+### False positive analysis
+
+- Legitimate administrative tools and services may trigger the rule, such as system management scripts or monitoring tools that use 'nc' or 'socat' for valid purposes. Users should review the context of these processes to determine if they are part of routine operations.
+- Automated backup or synchronization processes might use Unix sockets for data transfer, appearing suspicious but being part of regular maintenance tasks. Users can create exceptions for these processes by identifying their unique command-line arguments or execution patterns.
+- Development and testing environments often use Unix sockets for application testing and debugging, which can lead to false positives. Users should consider excluding known development tools or specific user accounts associated with these activities.
+- Some containerized applications may use Unix sockets for internal communication, which could be misinterpreted as malicious. Users can whitelist specific container IDs or paths that are known to be safe.
+- To manage false positives, users can refine the detection rule by adding exceptions for specific process arguments or paths that are consistently identified as non-threatening, ensuring that legitimate activities are not disrupted.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the intrusion, focusing on processes using Unix sockets with suspicious arguments.
+- Terminate any unauthorized or suspicious processes identified during the investigation to halt potential malicious activities.
+- Review system logs and Unix socket connections to gather evidence and understand the adversary's actions and objectives.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
+- Implement enhanced logging policies to capture detailed process execution and Unix socket activity for future monitoring and investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate alerts and improve detection capabilities.
+- Restore the system to its operational state by applying patches, updating configurations, and ensuring all unauthorized changes are reverted.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement hardening measures such as restricting Unix socket access, using application whitelisting, and regularly auditing system configurations to prevent similar incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

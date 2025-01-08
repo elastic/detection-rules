@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/08"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -35,6 +35,49 @@ event.dataset:"github.audit" and event.category:"configuration" and
 github.actor_ip:* and github.hashed_token:* and
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Occurrence of IP Address For GitHub Personal Access Token (PAT)
+
+GitHub Personal Access Tokens (PATs) facilitate secure API interactions, but adversaries can exploit them to gain unauthorized access. By monitoring for new IP addresses accessing PATs, this detection rule identifies potential misuse, as attackers often use unfamiliar IPs. It leverages GitHub audit logs to flag unusual activity, aligning with MITRE ATT&CK's focus on detecting valid account abuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific `github.actor_ip` and `github.hashed_token` involved in the suspicious activity.
+- Cross-reference the `github.actor_ip` with known IP addresses in your organization's network to determine if it is a recognized or expected IP.
+- Check the `github.audit` logs for any other activities associated with the same `github.hashed_token` to identify any patterns or additional suspicious behavior.
+- Investigate the user account associated with the `github.hashed_token` to verify if the access was legitimate or if the account may have been compromised.
+- Use Osquery to gather more information about the system from which the suspicious IP address originated. Example query: `SELECT * FROM osquery_info WHERE uuid = '<system_uuid>';` to identify the system details.
+- Analyze the `github.programmatic_access_type` to understand the scope of access granted by the token and assess the potential impact of its misuse.
+- Look for any recent changes in the `event.category:"configuration"` logs that might indicate unauthorized modifications to the GitHub account settings.
+- Check for any other alerts or incidents involving the same IP address or token in the past 14 days to identify potential patterns of attack.
+- Review the geographical location and ISP information of the `github.actor_ip` to assess if it aligns with the expected locations for your organization.
+- Collaborate with the user associated with the token to confirm if they recognize the IP address and if they have recently accessed GitHub from a new location or device.
+
+### False positive analysis
+
+- Frequent travel or remote work by legitimate users can trigger false positives when accessing GitHub from new IP addresses. Users can manage this by maintaining a list of known IP ranges associated with trusted locations and excluding them from alerts.
+- Use of VPNs or dynamic IP addresses by authorized personnel may result in new IP detections. To handle this, organizations can implement a process to regularly update and whitelist IP addresses associated with these services.
+- Automated systems or CI/CD pipelines that rotate IP addresses might be flagged. Users should document and exclude these systems' IP ranges from the detection rule to prevent unnecessary alerts.
+- Changes in corporate network infrastructure, such as new proxies or gateways, can lead to new IP addresses being flagged. It's advisable to update the detection rule with these new IP addresses as they become part of the trusted network.
+- Legitimate third-party integrations or services that access GitHub using PATs from different IP addresses can be mistaken for threats. Users should verify and whitelist these services' IP addresses to avoid false positives.
+
+### Response and remediation
+
+- Immediately revoke the compromised GitHub Personal Access Token to prevent further unauthorized access.
+- Conduct a thorough investigation to determine the scope of the breach, including identifying any unauthorized changes or data exfiltration.
+- Cross-reference the new IP address with known threat intelligence sources to assess if it is associated with malicious activity.
+- Notify the affected user and relevant stakeholders about the potential compromise and provide guidance on securing their accounts.
+- Implement multi-factor authentication (MFA) for all GitHub accounts to enhance security and prevent unauthorized access.
+- Review and update access controls and permissions to ensure the principle of least privilege is enforced across all GitHub repositories.
+- Integrate GitHub audit logs with a Security Information and Event Management (SIEM) system for continuous monitoring and alerting on suspicious activities.
+- Develop and enforce a logging policy that ensures all access and modification events are captured and retained for a sufficient period.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Educate users on recognizing phishing attempts and the importance of safeguarding their access tokens and credentials."""
 
 
 [[rule.threat]]

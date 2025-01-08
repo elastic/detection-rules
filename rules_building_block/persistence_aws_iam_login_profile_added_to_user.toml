@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/04/30"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -39,6 +39,48 @@ query = '''
 event.dataset: aws.cloudtrail and event.provider: "iam.amazonaws.com"
     and event.action: "CreateLoginProfile" and event.outcome: success
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS IAM Login Profile Added to User
+
+AWS IAM login profiles enable console access for users, typically reserved for programmatic access. Adversaries may exploit this by adding a login profile to maintain access even if access keys are changed. The detection rule monitors AWS CloudTrail logs for successful login profile creations, aiding in identifying unauthorized persistence attempts by correlating with other suspicious activities.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to confirm the `CreateLoginProfile` event by filtering logs with `event.dataset: aws.cloudtrail` and `event.provider: "iam.amazonaws.com"`.
+- Verify the `event.action: "CreateLoginProfile"` and `event.outcome: success` fields to ensure the login profile creation was successful.
+- Identify the IAM user associated with the login profile creation by examining the `userIdentity.arn` field in the CloudTrail logs.
+- Check the `sourceIPAddress` and `userAgent` fields to determine the origin of the request and assess if it aligns with expected activity.
+- Investigate the `eventTime` field to establish a timeline and correlate with other activities or alerts around the same time.
+- Use Osquery to gather additional context on the IAM user by running a query such as: `SELECT * FROM aws_iam_users WHERE user_name = '<IAM User Name>';` to retrieve details about the user.
+- Examine the IAM user's activity history to identify any unusual or unauthorized actions by querying for recent events involving the user.
+- Review the IAM policies attached to the user to assess their permissions and determine if they have been modified recently.
+- Cross-reference the login profile creation with other security alerts or logs to identify potential patterns or indicators of compromise.
+- Consult with relevant stakeholders or teams to verify if the login profile creation was authorized and aligns with any ongoing projects or changes.
+
+### False positive analysis
+
+- Routine administrative actions: Legitimate IAM administrators may create login profiles for users as part of regular account management or onboarding processes. To handle these, identify and document such activities and consider excluding them from alerts by creating exceptions for specific IAM administrator accounts or known maintenance periods.
+- Automated provisioning tools: Some organizations use automated tools or scripts to manage IAM users, which may include creating login profiles as part of their workflow. To manage these false positives, review and whitelist actions performed by these tools, ensuring they are recognized as non-threatening.
+- User role changes: Users transitioning from programmatic access to console access may require a login profile. In such cases, verify the legitimacy of the role change and exclude these events from alerts by correlating them with approved change management records.
+- Training and testing environments: In environments where IAM configurations are frequently modified for training or testing purposes, these actions may trigger false positives. To mitigate this, exclude specific environments or accounts used for training and testing from the detection rule.
+
+### Response and remediation
+
+- Immediately disable the newly created login profile to prevent unauthorized access.
+- Review CloudTrail logs to identify the source IP and user agent associated with the login profile creation for further investigation.
+- Correlate the event with other suspicious activities, such as unusual login attempts or changes to IAM policies, to assess the scope of the potential compromise.
+- Verify the IAM user's intended use and confirm with the account owner if the login profile creation was authorized.
+- Rotate and reissue access keys for the affected IAM user to ensure no unauthorized access persists.
+- Implement multi-factor authentication (MFA) for all IAM users to enhance security and prevent unauthorized access.
+- Escalate the incident to the security operations team for a comprehensive investigation and to determine if further action is required.
+- Review and update IAM policies to enforce the principle of least privilege and restrict unnecessary permissions.
+- Enhance logging and monitoring by enabling AWS CloudTrail and AWS Config to track changes and maintain a history of AWS account activity.
+- Conduct a security awareness session for users to educate them on the importance of securing IAM credentials and recognizing potential security threats."""
 
 
 [[rule.threat]]

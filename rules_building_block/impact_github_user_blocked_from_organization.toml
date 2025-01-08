@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/08"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -33,6 +33,50 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "org.block_user"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub User Blocked From Organization
+
+GitHub is a platform for version control and collaboration, crucial for software development. Organizations use it to manage access to repositories. Adversaries might exploit account access to exfiltrate data or disrupt operations. The detection rule monitors audit logs for user blocks, signaling potential unauthorized access removal, aligning with MITRE ATT&CK's account access removal technique.
+
+### Possible investigation steps
+
+- Review the audit log entry to confirm the event dataset is "github.audit" and the action is "org.block_user" to ensure the alert is valid.
+- Identify the user who was blocked by examining the relevant fields in the audit log, such as "actor" and "target" fields, to understand who initiated the block and who was blocked.
+- Check the timestamp of the event to determine when the block occurred and correlate it with any other suspicious activities around the same time.
+- Investigate the user's recent activity within the organization by reviewing their commit history, pull requests, and any other interactions with repositories to identify any unusual behavior.
+- Examine the organization's access control policies and recent changes to understand if the block aligns with any policy updates or if it was an unexpected action.
+- Cross-reference the blocked user's access permissions with other users in the organization to determine if there were any anomalies or deviations in their access level.
+- Utilize Osquery to gather additional context on the user's activity. For example, run a query to list recent login attempts or access patterns: `SELECT * FROM github_user_events WHERE user = 'blocked_user' AND action = 'login';`
+- Check for any recent security alerts or incidents reported within the organization that might have prompted the user block.
+- Review communication logs or messages within the organization to see if there was any discussion or decision-making process regarding the block.
+- Investigate any third-party integrations or applications the blocked user had access to, ensuring no unauthorized data access or exfiltration occurred through those channels.
+
+### False positive analysis
+
+- Routine administrative actions: Sometimes, users are blocked as part of regular administrative tasks, such as removing access for former employees or contractors. These actions are not malicious but can trigger the detection rule.
+- Temporary access restrictions: Users might be blocked temporarily due to policy changes or during security audits, which are non-threatening but can appear as suspicious activity.
+- Automated security tools: Some organizations use automated tools to block users based on predefined criteria, which might not always indicate a security threat.
+- To manage these false positives, organizations can create exceptions for known administrative actions by maintaining a list of expected user blocks and excluding them from alerts.
+- Implementing a review process for user blocks can help differentiate between legitimate administrative actions and potential security threats, reducing unnecessary alerts.
+- Regularly updating the list of users with temporary access can help in excluding these cases from triggering false positives.
+
+### Response and remediation
+
+- Verify the legitimacy of the block by reviewing the audit logs and confirming the action with the organization’s admin team.
+- Contain the potential threat by ensuring the blocked user no longer has access to any other organization resources or repositories.
+- Investigate the blocked user's recent activities to identify any unauthorized access or data exfiltration attempts.
+- Remediate any unauthorized changes or data breaches by restoring affected repositories from backups and revoking any compromised credentials.
+- Escalate the incident to the organization's security team if malicious intent is suspected, providing them with detailed logs and findings.
+- Enhance logging policies to ensure comprehensive audit trails for all user actions within the organization.
+- Implement additional security integrations, such as multi-factor authentication and anomaly detection tools, to prevent future unauthorized access.
+- Conduct a security review of the organization's GitHub settings and permissions to ensure they align with best practices.
+- Restore the system to its operational state by verifying that all legitimate users have appropriate access and that no unauthorized changes remain.
+- Harden the organization's security posture by regularly updating access controls and conducting security awareness training for all users."""
 
 
 [[rule.threat]]

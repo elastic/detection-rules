@@ -2,7 +2,7 @@
 creation_date = "2020/09/22"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,50 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Storage Bucket Configuration Modification"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP Storage Bucket Configuration Modification
+
+Google Cloud Platform (GCP) storage buckets are essential for storing and managing data. They can be configured to control access and security settings. Adversaries may alter these configurations to weaken security, enabling unauthorized access or data exfiltration. The detection rule monitors audit logs for successful bucket configuration changes, signaling potential security threats by identifying unauthorized modifications.
+
+### Possible investigation steps
+
+- Review the audit logs to confirm the details of the event, focusing on the `event.dataset:gcp.audit` and `event.action:"storage.buckets.update"` fields to verify the specific configuration changes made.
+- Check the `event.outcome:success` field to ensure the modification was successful and not a failed attempt, which might indicate a different type of issue.
+- Identify the user or service account responsible for the change by examining the `user.name` or `user.email` fields in the audit logs.
+- Investigate the source IP address and location from which the change was made to determine if it aligns with expected activity patterns.
+- Review the timing of the configuration change to see if it coincides with any other suspicious activities or known attack patterns.
+- Examine the specific changes made to the bucket configuration, such as changes to access controls or permissions, to assess the potential impact on security.
+- Cross-reference the bucket name and project ID with known assets to determine the criticality and sensitivity of the data stored in the affected bucket.
+- Utilize Osquery to gather additional context on the environment. For example, run the following Osquery query to list all recent bucket configuration changes: `SELECT * FROM gcp_storage_buckets WHERE action = 'update' AND outcome = 'success';`
+- Check for any other recent alerts or anomalies in the environment that might indicate a coordinated attack or broader security incident.
+- Consult with relevant stakeholders or teams to verify if the change was authorized and documented as part of a legitimate business process or project.
+
+### False positive analysis
+
+- Routine administrative tasks: Regular updates or maintenance by authorized personnel can trigger this rule. To manage this, create exceptions for known administrative accounts or scheduled maintenance windows.
+- Automated processes: Some organizations use automated scripts or tools to update bucket configurations as part of their workflow. Identify these processes and exclude them from triggering alerts by whitelisting specific service accounts or automation tools.
+- Third-party integrations: External services or applications with legitimate access may modify bucket settings as part of their operation. Review and document these integrations, then configure exceptions for their actions to prevent false positives.
+- Policy updates: Changes in organizational security policies may require updates to bucket configurations. Ensure that these policy-driven changes are documented and excluded from alerts by correlating them with change management records.
+
+### Response and remediation
+
+- Immediately isolate the affected storage bucket to prevent further unauthorized access or data exfiltration.
+- Review the audit logs to identify the source and nature of the configuration change, focusing on the user or service account responsible for the modification.
+- Verify the integrity of the data within the bucket to ensure no unauthorized changes or deletions have occurred.
+- Revert the storage bucket configuration to its last known secure state using backup configurations or documented settings.
+- Conduct a thorough investigation to determine if the configuration change is part of a larger attack, correlating with other suspicious activities in the environment.
+- Escalate the incident to the security operations team and, if necessary, involve legal or compliance departments to assess potential data breach implications.
+- Implement additional logging and monitoring policies to capture detailed access and modification events for storage buckets, enhancing future detection capabilities.
+- Integrate with security information and event management (SIEM) systems to automate alerting and response processes for similar incidents.
+- Apply hardening measures such as enforcing least privilege access, enabling bucket versioning, and implementing strong authentication mechanisms for accessing storage resources.
+- Educate and train staff on security best practices and the importance of maintaining secure configurations to prevent similar incidents in the future.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/storage/docs/key-terms#buckets"]

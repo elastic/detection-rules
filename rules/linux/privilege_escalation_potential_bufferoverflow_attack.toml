@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2023/12/11"
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -42,6 +42,49 @@ type = "threshold"
 query = '''
 kibana.alert.rule.rule_id:"5c81fc9d-1eae-437f-ba07-268472967013" and host.os.type:linux and event.kind:signal
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Buffer Overflow Attack Detected
+
+Buffer overflow attacks exploit vulnerabilities in software to execute arbitrary code, often leading to privilege escalation. Adversaries may trigger numerous segmentation faults (segfaults) on Linux systems as they attempt to exploit these vulnerabilities. The detection rule identifies potential attacks by monitoring for a surge in segfault alerts, indicating possible exploitation attempts, and correlates them with known privilege escalation tactics.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the rule ID "5c81fc9d-1eae-437f-ba07-268472967013" and ensure it matches the Potential Buffer Overflow Attack Detected rule.
+- Examine the host information, specifically focusing on `host.os.type:linux`, to identify the affected systems and prioritize them based on criticality and exposure.
+- Analyze the timeline of the segfault alerts to determine if they occurred in a short timespan, indicating a potential exploitation attempt.
+- Correlate the segfault alerts with any recent changes or deployments on the affected systems that might have introduced vulnerabilities.
+- Investigate the processes associated with the segfaults by reviewing logs and identifying any unusual or unauthorized applications running on the system.
+- Use Osquery to gather more context on the affected system. For example, run the following query to list processes that have recently crashed: `SELECT pid, name, path, cmdline FROM processes WHERE state = 'Z';`
+- Check for any known vulnerabilities or exploits related to the applications or services that triggered the segfaults, using CVE databases or security advisories.
+- Look for any additional indicators of compromise (IOCs) on the affected systems, such as unexpected network connections or file modifications, that might suggest further malicious activity.
+- Review user and system logs for any signs of privilege escalation attempts, focusing on the timeframe of the segfault alerts.
+- Cross-reference the detected activity with MITRE ATT&CK framework, specifically tactic TA0004 and technique T1068, to identify potential adversary behavior patterns and refine the investigation focus.
+
+### False positive analysis
+
+- Known false positives for the Potential Buffer Overflow Attack Detected rule may include legitimate applications or processes that inherently generate a high number of segmentation faults during normal operation, such as software under development or testing environments where debugging and crash testing are frequent.
+- System administrators can manage these false positives by creating exceptions for specific applications or processes known to cause frequent segfaults without malicious intent. This can be done by adjusting the detection rule to exclude certain process names or paths that are identified as non-threatening.
+- Another approach is to refine the threshold settings to better align with the typical behavior of the monitored environment, ensuring that only unusual spikes in segfaults trigger alerts.
+- Users should regularly review and update the list of exceptions to ensure that new legitimate applications are accounted for and that any changes in application behavior are reflected in the rule configuration.
+- It is also advisable to correlate segfault alerts with other indicators of compromise or suspicious activity to differentiate between benign and potentially malicious behavior more effectively.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation and lateral movement.
+- Conduct a thorough investigation to confirm the buffer overflow attack by analyzing logs and correlating segfault alerts with other suspicious activities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Apply patches and updates to the affected software and operating system to close the vulnerability exploited by the attacker.
+- Restore the system from a known good backup to ensure no malicious code remains on the system.
+- Implement enhanced logging policies to capture detailed information on system calls and application behavior for future investigations.
+- Integrate additional security tools such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to improve threat detection capabilities.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Harden the system by disabling unnecessary services, applying the principle of least privilege, and enabling security features such as stack canaries and address space layout randomization (ASLR).
+- Educate and train staff on recognizing and responding to buffer overflow attacks and other privilege escalation techniques to improve overall security awareness."""
 
 
 [[rule.threat]]

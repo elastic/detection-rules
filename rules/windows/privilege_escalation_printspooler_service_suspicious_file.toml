@@ -2,7 +2,7 @@
 creation_date = "2020/08/14"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -51,6 +51,48 @@ query = '''
 event.category : "file" and host.os.type : "windows" and event.type : "creation" and
   process.name : "spoolsv.exe" and file.extension : "dll"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious PrintSpooler Service Executable File Creation
+
+The Print Spooler service manages print jobs in Windows environments, but vulnerabilities like CVE-2020-1048 can be exploited for privilege escalation. Adversaries may create malicious DLL files executed by the spooler to gain elevated privileges. The detection rule identifies suspicious DLL file creation by monitoring file events linked to the spooler process, helping to flag potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the suspicious DLL file creation event, focusing on the `event.category`, `host.os.type`, `event.type`, `process.name`, and `file.extension` fields.
+- Verify the file path and name of the created DLL to determine if it matches known malicious patterns or if it is located in an unusual directory.
+- Check the timestamp of the DLL creation event to correlate it with other suspicious activities or known attack timelines.
+- Investigate the parent process of `spoolsv.exe` to identify any unusual or unauthorized processes that may have initiated the DLL creation.
+- Use Osquery to list all DLL files in the spooler directory and their creation times with a query like: `SELECT path, ctime FROM file WHERE directory = 'C:\\\\Windows\\\\System32\\\\spool\\\\drivers\\\\' AND extension = 'dll';`
+- Examine recent login events and user activities around the time of the DLL creation to identify any unauthorized access or privilege escalation attempts.
+- Analyze network traffic logs for any unusual outbound connections from the host around the time of the event, which may indicate data exfiltration or command and control communication.
+- Check for any recent patches or updates applied to the system to ensure that vulnerabilities like CVE-2020-1048, CVE-2020-1337, and CVE-2020-1300 have been addressed.
+- Review security logs for any other alerts or anomalies related to the Print Spooler service or the affected host to build a comprehensive picture of the incident.
+- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or campaigns targeting the Print Spooler service.
+
+### False positive analysis
+
+- Legitimate software updates or installations may trigger the rule if they involve creating DLL files through the Print Spooler service. Users should verify the source and context of the file creation to determine if it is part of a trusted update or installation process.
+- Some printer drivers or management software might create DLL files as part of their normal operation. Users can create exceptions for specific file paths or hashes associated with known and trusted printer software to reduce false positives.
+- In environments with custom scripts or administrative tools that interact with the Print Spooler service, these might inadvertently trigger the rule. Users should review and whitelist these scripts or tools if they are verified to be safe and necessary for operations.
+- To manage false positives, users can implement a monitoring period to identify patterns of benign activity and adjust the detection rule to exclude these patterns, ensuring that only truly suspicious activities are flagged.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement.
+- Conduct a thorough investigation to confirm the presence of malicious DLL files and identify any other compromised components.
+- Utilize endpoint detection and response (EDR) tools to analyze the spoolsv.exe process and associated file creation events for further indicators of compromise.
+- Apply the latest security patches for the Print Spooler service, specifically addressing CVE-2020-1048, CVE-2020-1337, and CVE-2020-1300, to mitigate known vulnerabilities.
+- Remove any unauthorized or suspicious DLL files and restore legitimate versions from a trusted backup or installation media.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed file creation events and process activities related to the Print Spooler service for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and detect similar threats proactively.
+- Restore the system to its operational state by verifying the integrity of critical system files and ensuring all security patches are applied.
+- Harden the system by disabling unnecessary services, enforcing least privilege access, and regularly reviewing security configurations to reduce the attack surface."""
 
 [[rule.filters]]
 [rule.filters.meta]

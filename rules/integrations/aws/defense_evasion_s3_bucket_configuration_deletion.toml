@@ -2,7 +2,7 @@
 creation_date = "2020/05/27"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,50 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS S3 Bucket Configuration Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS S3 Bucket Configuration Deletion
+
+Amazon S3 is a scalable storage service where configurations like policies, replication, and encryption ensure data security and compliance. Adversaries may delete these configurations to evade defenses, remove traces, or disrupt operations. The detection rule monitors successful deletions of these configurations, signaling potential malicious activity by correlating specific actions and outcomes in AWS CloudTrail logs.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to identify the user or role associated with the `DeleteBucketPolicy`, `DeleteBucketReplication`, `DeleteBucketCors`, `DeleteBucketEncryption`, or `DeleteBucketLifecycle` actions.
+- Check the `event.outcome` field to confirm the success of the deletion actions and correlate with the time of the alert.
+- Investigate the `event.provider` field to ensure the actions were performed on `s3.amazonaws.com`, confirming the target service.
+- Analyze the `event.dataset` field to verify the logs are from `aws.cloudtrail`, ensuring the source of the data is accurate.
+- Examine the IP address and location from which the actions were initiated to identify any anomalies or unauthorized access patterns.
+- Review the IAM policies and permissions of the user or role involved to determine if they had legitimate access to perform the deletions.
+- Cross-reference the actions with recent changes in the AWS environment to identify if these deletions were part of a planned change or an unexpected event.
+- Utilize Osquery to gather additional context on the AWS environment. For example, run an Osquery query to list recent S3 bucket configuration changes: `SELECT * FROM aws_s3_bucket WHERE action IN ('DeleteBucketPolicy', 'DeleteBucketReplication', 'DeleteBucketCors', 'DeleteBucketEncryption', 'DeleteBucketLifecycle') AND outcome = 'success';`
+- Check for any other suspicious activities in the AWS account around the same timeframe, such as unusual login attempts or changes to other critical resources.
+- Consult with the team responsible for AWS operations to verify if the deletions were authorized and documented as part of routine maintenance or updates.
+
+### False positive analysis
+
+- Routine administrative tasks: Regular maintenance or updates by authorized personnel may involve deleting and reconfiguring S3 bucket settings, which can trigger this rule. To manage this, users can create exceptions for known administrative accounts or scheduled maintenance windows.
+- Automated scripts or tools: Some organizations use automated processes to manage S3 configurations, which might include deleting and recreating configurations as part of their workflow. Users should identify these scripts and exclude their activity from triggering alerts by whitelisting specific IAM roles or user accounts associated with these processes.
+- Third-party integrations: Certain third-party services or applications may require temporary deletion of S3 configurations to function correctly. Users should review and document these integrations, then adjust the detection rule to exclude actions performed by these trusted services.
+- Testing environments: In development or testing environments, frequent changes to S3 configurations, including deletions, are common. Users can exclude these environments from the rule by filtering out specific AWS accounts or tags associated with non-production resources.
+
+### Response and remediation
+
+- Immediately isolate the affected S3 bucket to prevent further unauthorized changes or data loss.
+- Review AWS CloudTrail logs to identify the source and user responsible for the configuration deletion, correlating with other suspicious activities.
+- Restore the deleted configurations from backups or previous versions to ensure the bucket's security and compliance settings are reinstated.
+- Conduct a thorough investigation to determine if any data was accessed or exfiltrated during the period of misconfiguration.
+- Escalate the incident to the security operations team for further analysis and to determine if the activity is part of a larger attack pattern.
+- Implement additional logging and monitoring for S3 buckets to detect future unauthorized configuration changes promptly.
+- Review and update IAM policies to ensure that only authorized users have permissions to modify S3 bucket configurations.
+- Integrate AWS GuardDuty and other threat detection services to enhance visibility and automated alerting for suspicious activities.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Educate and train staff on security best practices and the importance of maintaining secure configurations to prevent similar incidents.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

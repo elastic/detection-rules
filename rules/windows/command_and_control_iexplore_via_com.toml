@@ -2,7 +2,7 @@
 creation_date = "2020/11/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -49,6 +49,52 @@ sequence by host.id, user.name with maxspan = 5s
     )
   ] /* with runs=5 */
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Command and Control via Internet Explorer
+
+Internet Explorer can be manipulated through the Component Object Model (COM) to initiate network connections, potentially bypassing security measures. Adversaries exploit this by embedding IE in processes like rundll32.exe, making unusual DNS requests. The detection rule identifies such anomalies by monitoring for IE's unexpected network activity, excluding legitimate Microsoft-related domains, to flag potential command and control activities.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of Internet Explorer (iexplore.exe) being started via the Component Object Model (COM) with unusual network activity.
+- Verify the parent process of Internet Explorer by checking if it was started by processes like rundll32.exe or regsvr32.exe, as indicated in the query.
+- Examine the command-line arguments of the parent process to ensure it includes the "-Embedding" argument, which suggests COM usage.
+- Investigate the DNS requests made by Internet Explorer to identify any suspicious or non-whitelisted domains, as specified in the query.
+- Use Osquery to gather additional context on the processes involved. For example, run the following query to list processes with their parent process IDs and command-line arguments:
+  ```sql
+  SELECT pid, name, path, cmdline, parent FROM processes WHERE name = 'iexplore.exe' OR name = 'rundll32.exe' OR name = 'regsvr32.exe';
+  ```
+- Check the network connections established by Internet Explorer using network monitoring tools or logs to identify any unusual or unexpected connections.
+- Correlate the timeline of the alert with other security events or logs to identify any related suspicious activities or anomalies on the host.
+- Investigate the user context (user.name) under which the suspicious processes were executed to determine if it aligns with expected user behavior.
+- Review the host's security posture and configuration to identify any potential vulnerabilities or misconfigurations that could have been exploited.
+- Consult threat intelligence sources to determine if the identified domains or IP addresses are associated with known malicious activities or command and control infrastructure.
+
+### False positive analysis
+
+- Legitimate enterprise applications may use Internet Explorer via COM for internal processes, leading to false positives if these applications frequently access non-Microsoft domains.
+- Automated scripts or administrative tools that leverage Internet Explorer for network tasks could trigger alerts if they connect to internal or third-party services not listed in the exclusion list.
+- Users can manage false positives by identifying and documenting regular network patterns of known safe applications and adding these domains to the exclusion list in the detection rule.
+- Regularly review and update the exclusion list to include any new legitimate domains that are frequently accessed by Internet Explorer in the organization’s environment.
+- Consider implementing a whitelist approach for specific processes or network activities that are known to be safe, reducing the likelihood of false positives while maintaining security vigilance.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further command and control communication.
+- Conduct a thorough investigation to identify any additional compromised systems by reviewing network logs and endpoint detection data.
+- Terminate any suspicious processes associated with Internet Explorer and COM objects, such as rundll32.exe or regsvr32.exe, that are not part of legitimate operations.
+- Remove any unauthorized or malicious COM objects and DLLs, such as IEProxy.dll, from the system.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the compromise.
+- Restore the system to a known good state using backups or system restore points, ensuring that all malicious artifacts are removed.
+- Implement enhanced logging policies to capture detailed process creation, network connections, and DNS queries for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats.
+- Apply security patches and updates to Internet Explorer and the operating system to mitigate known vulnerabilities.
+- Educate users on the risks of using outdated browsers and encourage the use of more secure alternatives to reduce the attack surface."""
 
 
 [[rule.threat]]

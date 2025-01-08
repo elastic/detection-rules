@@ -2,7 +2,7 @@
 creation_date = "2020/11/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,50 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Exchange Safe Attachment Rule Disabled"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Exchange Safe Attachment Rule Disabled
+
+Microsoft 365's Safe Attachment feature enhances security by analyzing email attachments in a secure environment to detect malware. Disabling this rule can expose organizations to threats, as it allows potentially harmful attachments to bypass scrutiny. Adversaries may exploit this by disabling the rule to facilitate data exfiltration or evade detection. The detection rule monitors audit logs for successful attempts to disable this feature, alerting security teams to potential misuse.
+
+### Possible investigation steps
+
+- Review the audit logs for the specific event.action "Disable-SafeAttachmentRule" to confirm the alert's validity and gather initial context.
+- Identify the user account associated with the event by examining the user information in the audit logs, focusing on the event.dataset:o365.audit and event.provider:Exchange fields.
+- Check the event.outcome field to ensure the action was successful, confirming that the rule was indeed disabled.
+- Investigate the timing of the event by analyzing the timestamp to determine if it coincides with any other suspicious activities or known incidents.
+- Correlate the event with other logs or alerts around the same timeframe to identify any patterns or additional suspicious activities.
+- Examine the user's recent activity history in Microsoft 365 to identify any unusual behavior or deviations from their normal activity patterns.
+- Use Osquery to gather more information about the user's device and recent activities. For example, run a query to list recent logins: `SELECT * FROM users WHERE username = 'suspected_user';`
+- Investigate any recent changes to security settings or configurations in Microsoft 365 that might indicate a broader attempt to impair defenses.
+- Check for any other recent successful or failed attempts to disable security features in Microsoft 365, which could indicate a larger attack strategy.
+- Collaborate with other security team members to cross-reference findings with threat intelligence sources to determine if the activity aligns with known threat actor behaviors or tactics.
+
+### False positive analysis
+
+- Routine administrative actions: Sometimes, IT administrators may disable the Safe Attachment Rule temporarily for maintenance or troubleshooting purposes. These actions, while legitimate, can trigger alerts. To manage this, organizations can create exceptions for specific user accounts or IP addresses known to perform these tasks regularly.
+- Automated scripts or tools: Certain automated processes or third-party tools might disable the rule as part of their operation. Identifying these tools and excluding their actions from alerts can reduce false positives.
+- Policy updates or changes: During policy updates or configuration changes, the rule might be disabled as part of the process. Documenting these changes and excluding them from alerts can help in managing false positives.
+- Testing environments: In testing or development environments, the rule might be disabled to simulate scenarios or test new configurations. Excluding these environments from monitoring can prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately re-enable the Safe Attachment Rule in Microsoft 365 to restore protection against malicious attachments.
+- Conduct a thorough investigation to identify the user or account responsible for disabling the rule and assess their access privileges.
+- Review audit logs to determine the scope of potential exposure and identify any suspicious activities or data exfiltration attempts.
+- Isolate any systems or accounts that may have been compromised to prevent further unauthorized access or data loss.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement additional logging and monitoring to capture detailed events related to email security settings and rule changes.
+- Integrate threat intelligence feeds to enhance detection capabilities and correlate with known threat actor behaviors.
+- Educate employees on the importance of email security and the risks associated with disabling security features.
+- Restore any affected systems to a known good state and apply security patches and updates to mitigate vulnerabilities.
+- Review and update security policies and procedures to include regular audits of security configurations and rule settings.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

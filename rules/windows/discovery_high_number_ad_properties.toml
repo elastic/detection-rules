@@ -2,7 +2,7 @@
 creation_date = "2023/01/29"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -49,6 +49,48 @@ any where event.action in ("Directory Service Access", "object-operation-perform
  event.code == "4662" and not winlog.event_data.SubjectUserSid : "S-1-5-18" and
  winlog.event_data.AccessMaskDescription == "Read Property" and length(winlog.event_data.Properties) >= 2000
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Access to LDAP Attributes
+
+LDAP (Lightweight Directory Access Protocol) is crucial for accessing and managing directory information in Active Directory environments. Adversaries may exploit LDAP to read numerous object attributes, seeking vulnerabilities or sensitive data. The detection rule identifies unusual read access patterns, excluding system accounts, by monitoring specific event codes and access descriptions, flagging potential reconnaissance activities.
+
+### Possible investigation steps
+
+- Review the event logs to confirm the alert by checking for event code 4662 and ensuring the AccessMaskDescription is "Read Property".
+- Verify the SubjectUserSid to ensure it is not the system account (S-1-5-18) and identify the actual user or service account involved.
+- Analyze the winlog.event_data.Properties field to understand which attributes were accessed and assess their sensitivity or relevance to potential vulnerabilities.
+- Cross-reference the identified user or service account with recent changes in user permissions or roles to determine if the access is legitimate or part of a broader pattern.
+- Investigate the source IP address or host from which the LDAP access was initiated to determine if it aligns with expected network behavior for the identified user or service account.
+- Use Osquery to gather additional context on the host involved. For example, run the query: `SELECT * FROM processes WHERE name LIKE '%ldap%' AND user = '<identified_user>';` to identify any suspicious processes related to LDAP access.
+- Check for any correlated alerts or logs that might indicate lateral movement or privilege escalation attempts by the same user or from the same host.
+- Review historical access patterns for the identified user or service account to determine if this level of access is typical or anomalous.
+- Consult with the directory services team to verify if there were any legitimate administrative tasks or audits that could explain the high volume of attribute reads.
+- Document all findings and observations, including any unusual patterns or discrepancies, to support further analysis or escalation if necessary.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators or automated scripts may perform legitimate bulk reads of LDAP attributes as part of regular maintenance or audits. These activities can trigger the rule but are non-threatening.
+- Monitoring and compliance tools: Security and compliance software often access a large number of LDAP attributes to ensure policy adherence and system health, which can be mistaken for suspicious activity.
+- Application service accounts: Some applications require extensive access to LDAP attributes for functionality, such as user provisioning or authentication services, which may appear as suspicious reads.
+- To manage false positives, users can create exceptions for known administrative accounts, service accounts, or specific tools that regularly perform high-volume LDAP reads. This can be done by adding these accounts to an exclusion list or adjusting the rule to ignore specific access patterns associated with legitimate activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access.
+- Conduct a thorough investigation to identify the source and scope of the suspicious LDAP access, focusing on the user accounts and systems involved.
+- Review and analyze logs from the affected system and related network devices to gather evidence and understand the attack vector.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Reset passwords and review permissions for any accounts that were involved in the suspicious activity to prevent further unauthorized access.
+- Implement enhanced logging policies to capture detailed LDAP access events, ensuring that all read operations on sensitive attributes are monitored.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate LDAP access patterns with known threat indicators.
+- Restore the affected system to its operational state by applying necessary patches, updates, and configuration changes to address any identified vulnerabilities.
+- Conduct a post-incident review to identify gaps in security controls and processes, and update security policies and procedures accordingly.
+- Implement hardening measures such as restricting LDAP access to only necessary accounts, enabling multi-factor authentication, and regularly auditing directory permissions."""
 
 
 [[rule.threat]]

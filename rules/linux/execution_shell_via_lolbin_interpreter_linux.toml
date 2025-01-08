@@ -2,7 +2,7 @@
 creation_date = "2023/07/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -84,6 +84,48 @@ sequence by host.id, process.entity_id with maxspan=1s
     process.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") and 
     destination.ip != null and not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Reverse Shell via Suspicious Child Process
+
+Reverse shells are a common technique used by attackers to gain remote access to a compromised system. They exploit scripting languages and utilities like Python, Perl, and Netcat to execute commands remotely. The detection rule identifies suspicious process chains and network activities, such as shell processes initiating unexpected network connections, to flag potential reverse shell attempts. This helps in identifying and mitigating unauthorized access and persistence mechanisms used by adversaries.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process chain and network activity that triggered the rule, focusing on `process.name`, `process.args`, and `destination.ip`.
+- Verify the parent process by examining `process.parent.name` to understand the context in which the suspicious process was spawned.
+- Check the `process.entity_id` and `host.id` to correlate this event with other activities on the same host, looking for patterns or repeated behavior.
+- Use Osquery to list all processes running on the host at the time of the alert. Example query: `SELECT pid, name, path, cmdline FROM processes WHERE pid = <suspicious_pid>;`.
+- Investigate the network connections initiated by the suspicious process using the `destination.ip` and `destination.port` fields to determine if they are known or expected.
+- Examine the command-line arguments (`process.args`) for any encoded or obfuscated commands that might indicate malicious intent.
+- Cross-reference the `destination.ip` with threat intelligence sources to check if it is associated with known malicious activity.
+- Review system logs and other security tools for any additional indicators of compromise or related alerts around the same timeframe.
+- Analyze the user account associated with the process to determine if it has been compromised or is being used in an unusual manner.
+- Investigate any file modifications or new files created by the suspicious process to identify potential payloads or scripts used in the attack.
+
+### False positive analysis
+
+- Legitimate administrative scripts: System administrators may use scripts that match the detection criteria for legitimate purposes, such as automating tasks or managing remote systems. These scripts might use utilities like Python, Perl, or Netcat to establish network connections, which could trigger the rule.
+- Development and testing environments: Developers often use scripting languages and network utilities to test applications or network configurations. These activities can mimic the behavior of a reverse shell, leading to false positives.
+- Security tools and penetration testing: Security teams might use penetration testing tools that simulate reverse shell behavior to assess system vulnerabilities. These tools can trigger the detection rule during authorized security assessments.
+- Excluding known safe processes: Users can manage false positives by creating exceptions for specific processes or scripts that are known to be safe. This can be done by adding these processes to an allowlist or by modifying the detection rule to exclude certain process names or arguments that are frequently used in non-threatening contexts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation of the suspicious process chain and network activity to confirm the presence of a reverse shell and identify the entry point.
+- Terminate any malicious processes identified during the investigation to stop the attacker's access.
+- Review and analyze system logs, including process execution and network connection logs, to understand the scope and impact of the compromise.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement or enhance logging policies to capture detailed process execution and network activity for future detection and analysis.
+- Restore the system from a known good backup to ensure all traces of the compromise are removed.
+- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities exploited by the attacker.
+- Implement network segmentation and access controls to limit the ability of attackers to move laterally within the network.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans and security measures accordingly."""
 
 
 [[rule.threat]]

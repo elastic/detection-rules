@@ -2,7 +2,7 @@
 creation_date = "2024/06/05"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -87,6 +87,49 @@ registry where host.os.type == "windows" and event.type == "change" and process.
         )
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via Service ImagePath Modification
+
+Windows services run with elevated privileges, often as SYSTEM, making them targets for privilege escalation. Adversaries may modify the ImagePath registry key of a service to execute malicious code with these privileges. The detection rule identifies changes to the ImagePath of critical services, excluding legitimate paths, to spot unauthorized modifications indicative of an attack.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific service whose ImagePath registry key was modified, using the `registry.key` field from the query.
+- Check the `process.executable` field to determine which process was responsible for the registry modification, and verify if it is a known legitimate process or potentially malicious.
+- Investigate the `registry.data.strings` field to see the new value of the ImagePath and assess if it points to a suspicious or unauthorized executable.
+- Use Osquery to list all services and their ImagePaths on the affected host to identify any other unusual modifications. Example query: `SELECT name, path FROM services WHERE path NOT LIKE 'C:\\\\Windows\\\\system32\\\\%';`
+- Cross-reference the modified ImagePath with known malicious file hashes or paths using threat intelligence sources.
+- Examine the event logs on the affected host for any additional context around the time of the modification, focusing on user activity and other system changes.
+- Check for any recent logins or privilege escalations on the host that could indicate how the attacker gained the necessary permissions to modify the registry.
+- Investigate the user account associated with the modification event to determine if it has been compromised or if it has legitimate reasons for making such changes.
+- Look for any other alerts or anomalies on the same host or network segment that might correlate with the suspicious activity, indicating a broader attack.
+- Review historical data to see if similar modifications have occurred in the past, which could suggest a recurring issue or persistent threat actor.
+
+### False positive analysis
+
+- Legitimate software updates or installations may modify the ImagePath of services, triggering the rule. Users can handle these by verifying the source and purpose of the change and adding exceptions for trusted software vendors.
+- System administrators may intentionally modify service configurations for maintenance or optimization purposes. To manage this, document and approve such changes through a change management process and exclude these specific modifications from the rule.
+- Some security tools or monitoring solutions might alter service paths as part of their operation. Identify these tools and create exceptions for their known behaviors to prevent false alerts.
+- Custom scripts or automation tasks that modify service configurations for legitimate reasons can also trigger the rule. Review these scripts, ensure they are secure, and exclude their actions from the detection rule.
+- In environments with frequent legitimate service modifications, consider implementing a baseline of expected service configurations and use it to differentiate between authorized and unauthorized changes.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the source of the modification, including reviewing recent user activity and process execution logs.
+- Verify the integrity of the modified service by comparing its current ImagePath with a known good configuration or baseline.
+- Restore the ImagePath registry key to its original, legitimate value using a backup or by manually correcting it.
+- Scan the system for additional signs of compromise, such as unauthorized user accounts or scheduled tasks, using endpoint detection and response (EDR) tools.
+- Escalate the incident to the security operations center (SOC) or incident response team if the modification is part of a broader attack campaign.
+- Implement enhanced logging policies to capture detailed registry changes and process execution events for future investigations.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs) from the MITRE ATT&CK framework.
+- Apply system hardening measures, such as restricting service modification permissions to only trusted administrators and enabling Windows Defender Application Control (WDAC) to prevent unauthorized executables.
+- Conduct a post-incident review to identify gaps in detection and response capabilities and update security policies and procedures accordingly."""
 
 
 [[rule.threat]]

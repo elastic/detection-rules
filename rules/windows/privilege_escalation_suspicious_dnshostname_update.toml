@@ -2,7 +2,7 @@
 creation_date = "2022/05/11"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -48,6 +48,50 @@ iam where event.action == "changed-computer-account" and user.id : ("S-1-5-21-*"
     /* exclude FPs where DnsHostName starts with the ComputerName that was changed */
     not startswith~(winlog.event_data.DnsHostName, substring(winlog.event_data.TargetUserName, 0, length(winlog.event_data.TargetUserName) - 1))
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Remote Computer Account DnsHostName Update
+
+In Active Directory environments, the DnsHostName attribute is crucial for identifying and locating computers within the network. Adversaries may exploit this by altering a computer account's DnsHostName to mimic a domain controller, potentially leveraging vulnerabilities like CVE-2022-26923 for privilege escalation. The detection rule identifies suspicious changes by monitoring for remote updates to this attribute, especially when the new hostname resembles a domain controller's, while filtering out false positives.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific computer account and the new DnsHostName value that triggered the alert.
+- Verify if the new DnsHostName matches any known domain controller DNS hostnames within the network to assess the likelihood of malicious intent.
+- Check the user.id field to determine which user account initiated the change and assess if this account has a history of similar activities or elevated privileges.
+- Investigate the winlog.event_data.TargetUserName to confirm the original computer account name and compare it with the new DnsHostName for any suspicious similarities.
+- Use Osquery to gather additional context on the affected computer account by running a query such as: `SELECT * FROM users WHERE uid = '<user_id_from_alert>';` to retrieve user details and recent activities.
+- Examine recent login events and changes associated with the user.id to identify any unusual patterns or unauthorized access attempts.
+- Cross-reference the event.action field with other logs to determine if there are additional changes or anomalies related to the same computer account or user.
+- Analyze network traffic logs to detect any unusual communication patterns from the affected computer account, especially towards domain controllers.
+- Consult Active Directory logs to verify if there are any other recent changes to the DnsHostName attribute across different computer accounts that might indicate a broader attack.
+- Collaborate with IT and security teams to gather insights on any recent network changes or incidents that could provide context to the alert.
+
+### False positive analysis
+
+- False positives may occur when legitimate administrative tasks involve updating the DnsHostName attribute of computer accounts, especially during network reconfigurations or migrations.
+- Routine maintenance activities by IT staff, such as renaming computers or updating DNS records, can trigger the detection rule if the new hostname coincidentally resembles a domain controller's.
+- Automated scripts or tools used for bulk updates to computer accounts might inadvertently match the detection criteria, especially in large environments with frequent changes.
+- To manage these false positives, users can create exceptions for known administrative accounts or specific time windows when legitimate changes are expected.
+- Implementing a whitelist of authorized scripts or tools that perform bulk updates can help reduce unnecessary alerts.
+- Regularly review and update the detection rule's filters to align with the organization's operational patterns and reduce noise from expected activities.
+
+### Response and remediation
+
+- Immediately isolate the affected computer from the network to prevent further unauthorized access or potential lateral movement.
+- Verify the legitimacy of the DnsHostName change by cross-referencing with recent administrative activities and change management records.
+- Conduct a thorough investigation to determine if CVE-2022-26923 or any other vulnerabilities were exploited, using endpoint detection and response (EDR) tools to gather forensic evidence.
+- Revert the DnsHostName to its original value if the change is confirmed to be unauthorized, and ensure that the computer account is not impersonating a domain controller.
+- Reset passwords for any accounts that may have been compromised during the incident, focusing on privileged accounts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed events related to Active Directory changes, including DnsHostName updates, and integrate with a security information and event management (SIEM) system for real-time monitoring.
+- Review and update access controls and permissions to ensure that only authorized personnel can modify critical attributes like DnsHostName.
+- Conduct a post-incident review to identify gaps in security controls and processes, and apply lessons learned to improve future incident response efforts.
+- Apply hardening measures such as patching known vulnerabilities, enforcing least privilege principles, and conducting regular security audits to prevent similar incidents."""
 
 
 [[rule.threat]]

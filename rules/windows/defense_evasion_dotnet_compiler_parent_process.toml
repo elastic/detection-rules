@@ -2,7 +2,7 @@
 creation_date = "2020/08/21"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/10/31"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -52,6 +52,48 @@ process where host.os.type == "windows" and event.type == "start" and
   process.name : ("csc.exe", "vbc.exe") and
   process.parent.name : ("wscript.exe", "mshta.exe", "cscript.exe", "wmic.exe", "svchost.exe", "rundll32.exe", "cmstp.exe", "regsvr32.exe")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious .NET Code Compilation
+
+.NET compilers like `csc.exe` and `vbc.exe` are essential for converting human-readable code into executable programs on Windows systems. Adversaries exploit these compilers by executing them with unusual parent processes, such as scripting engines or system utilities, to compile malicious code stealthily. The detection rule identifies such anomalies by monitoring compiler executions initiated by atypical parent processes, signaling potential evasion tactics.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a .NET compiler execution (`csc.exe` or `vbc.exe`) with a suspicious parent process (`wscript.exe`, `mshta.exe`, `cscript.exe`, `wmic.exe`, `svchost.exe`, `rundll32.exe`, `cmstp.exe`, `regsvr32.exe`).
+- Examine the process tree to understand the sequence of events leading to the compiler execution, focusing on the parent and grandparent processes.
+- Check the command line arguments used in the suspicious process execution to identify any potentially malicious scripts or commands.
+- Investigate the user account associated with the process execution to determine if it aligns with expected behavior or if it might be compromised.
+- Use Osquery to gather additional context about the process, such as the full command line and environment variables, with a query like: `SELECT * FROM processes WHERE name IN ('csc.exe', 'vbc.exe') AND parent IN (SELECT pid FROM processes WHERE name IN ('wscript.exe', 'mshta.exe', 'cscript.exe', 'wmic.exe', 'svchost.exe', 'rundll32.exe', 'cmstp.exe', 'regsvr32.exe'));`
+- Analyze recent file modifications in directories commonly used for temporary or suspicious file storage to identify any newly compiled executables or scripts.
+- Correlate the event with network activity logs to detect any unusual outbound connections that might indicate data exfiltration or command and control communication.
+- Review system logs for any other suspicious activities or anomalies around the time of the alert, such as privilege escalation attempts or unusual login patterns.
+- Check for any related alerts or incidents in the security information and event management (SIEM) system to identify potential patterns or coordinated attacks.
+- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or indicators of compromise (IOCs).
+
+### False positive analysis
+
+- Legitimate administrative scripts: System administrators may use scripts that invoke .NET compilers for legitimate tasks, such as automating software deployments or configurations. These scripts might be executed by scripting engines like `wscript.exe` or `cscript.exe`, leading to false positives.
+- Software development environments: Developers working on .NET applications might use integrated development environments (IDEs) or build scripts that call `csc.exe` or `vbc.exe` with parent processes that are not typical for production environments, such as `cmd.exe` or `powershell.exe`.
+- Automated build systems: Continuous integration/continuous deployment (CI/CD) systems might trigger .NET compiler executions as part of their build processes, which could be flagged if the parent process is a script or utility.
+- To manage these false positives, users can create exceptions for known benign processes or scripts by adding them to an allowlist. This can be done by identifying the specific parent processes or command lines associated with legitimate activities and excluding them from the detection rule. Regularly reviewing and updating these exceptions is crucial to ensure that only non-threatening behaviors are excluded.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of potentially malicious code.
+- Conduct a thorough investigation to identify the source and scope of the suspicious activity, focusing on the parent processes that initiated the .NET compiler execution.
+- Review and analyze logs from the affected system and any associated systems to trace the attacker's activities and identify any additional compromised systems.
+- Remove any malicious code or files identified during the investigation, ensuring that all remnants of the attack are eradicated from the system.
+- Restore the system from a known good backup taken before the suspicious activity was detected, ensuring that the backup is free from any compromise.
+- Update and patch all software and systems to the latest versions to mitigate vulnerabilities that could be exploited by similar attacks.
+- Implement enhanced logging policies to capture detailed process execution data, including parent-child process relationships, to aid in future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities for similar threats.
+- Conduct a post-incident review to identify gaps in security controls and processes, and implement measures to address these gaps, such as deploying application whitelisting or restricting script execution.
+- Escalate the incident to relevant internal teams and, if necessary, external authorities or cybersecurity experts for further analysis and assistance in preventing future occurrences."""
 
 
 [[rule.threat]]

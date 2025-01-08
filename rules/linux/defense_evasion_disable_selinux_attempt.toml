@@ -2,7 +2,7 @@
 creation_date = "2020/04/22"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -72,6 +72,50 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
  and process.name == "setenforce" and process.args == "0"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Disabling of SELinux
+
+SELinux is a critical security feature in Linux environments, enforcing access control policies to protect against unauthorized access. Adversaries may attempt to disable SELinux to evade detection and carry out malicious activities undetected. The detection rule identifies such attempts by monitoring for processes that execute the command to set SELinux to permissive mode, indicating a potential security compromise.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name is "setenforce" and the process arguments are "0", indicating an attempt to set SELinux to permissive mode.
+- Check the timestamp of the event to determine when the attempt to disable SELinux occurred.
+- Identify the user account associated with the process execution to determine if it was initiated by a legitimate user or a potential adversary.
+- Investigate the parent process of "setenforce" to understand the context in which it was executed and identify any related suspicious activity.
+- Examine the command history of the user account involved to see if there are other suspicious commands executed around the same time.
+- Use Osquery to gather additional context about the system state and user activity. For example, run the following Osquery query to list recent commands executed by the user: `SELECT * FROM shell_history WHERE uid = (SELECT uid FROM users WHERE username = '<username>') ORDER BY time DESC LIMIT 20;`
+- Analyze system logs, such as /var/log/audit/audit.log, for any related entries that might provide more context on the SELinux status change and other security events.
+- Check for any recent changes to SELinux configuration files, such as /etc/selinux/config, to see if there have been unauthorized modifications.
+- Investigate network activity from the host around the time of the event to identify any potential data exfiltration or communication with known malicious IP addresses.
+- Correlate this event with other security alerts or anomalies in the environment to determine if it is part of a larger attack campaign.
+
+### False positive analysis
+
+- System administrators or automated scripts may legitimately set SELinux to permissive mode during system maintenance or troubleshooting, leading to false positives. 
+- Development environments might temporarily disable SELinux to facilitate software testing, which can trigger the detection rule.
+- Some legacy applications may require SELinux to be set to permissive mode for compatibility reasons, resulting in non-malicious alerts.
+- To manage these false positives, users can create exceptions for known maintenance windows or specific user accounts that are authorized to modify SELinux settings.
+- Implementing a whitelist of processes or scripts that are allowed to change SELinux modes can help reduce unnecessary alerts.
+- Regularly review and update the list of exceptions to ensure that only legitimate activities are excluded from detection.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Verify the current SELinux status using the command `sestatus` to confirm if it has been set to permissive or disabled.
+- Conduct a thorough investigation to identify any unauthorized changes or suspicious activities on the system, focusing on recent process executions and file modifications.
+- Review system logs and security alerts to determine the timeline and scope of the compromise, correlating with the MITRE ATT&CK technique T1562 for impair defenses.
+- Restore SELinux to enforcing mode using the command `setenforce 1` and ensure that the SELinux configuration is set to enforcing in the `/etc/selinux/config` file.
+- Perform a comprehensive malware scan and integrity check on the system to identify and remove any malicious software or unauthorized changes.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging and monitoring policies to capture detailed process execution and system changes, integrating with SIEM solutions for real-time alerting.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent future occurrences.
+- Apply system hardening measures, such as regular patching, disabling unnecessary services, and enforcing strict access controls, to reduce the attack surface and improve overall security posture."""
 
 
 [[rule.threat]]

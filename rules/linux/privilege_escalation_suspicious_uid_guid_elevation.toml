@@ -2,7 +2,7 @@
 creation_date = "2024/01/08"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -79,6 +79,49 @@ sequence by host.id, process.entity_id with maxspan=1s
    (process.thread.capabilities.effective : "CAP_SET?ID" or process.thread.capabilities.permitted : "CAP_SET?ID")
    and user.id == "0"]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Privilege Escalation via CAP_SETUID/SETGID Capabilities
+
+In Linux, CAP_SETUID and CAP_SETGID capabilities allow processes to change user and group IDs, crucial for identity management. Adversaries exploit misconfigurations to gain root access. The detection rule identifies processes with these capabilities that elevate privileges to root, excluding benign scenarios, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process and host involved, focusing on `process.entity_id`, `process.name`, and `host.id`.
+- Verify the process's capabilities by checking `process.thread.capabilities.effective` and `process.thread.capabilities.permitted` to confirm the presence of CAP_SETUID or CAP_SETGID.
+- Examine the process's parent information using `process.parent.executable` and `process.parent.name` to determine if the parent process is known or expected.
+- Investigate the command line used to start the process with `process.command_line` to identify any suspicious or unexpected commands.
+- Check the user context before and after the process execution by reviewing `user.id` to confirm if there was an unauthorized change to UID 0 (root).
+- Use Osquery to gather additional context about the process and its capabilities. Example query: `SELECT pid, name, uid, gid, on_disk, path FROM processes WHERE pid = <process_id>;`
+- Analyze the process's executable path with `process.executable` to ensure it is not located in a suspicious directory or matches known benign paths.
+- Correlate the event with other logs or alerts from the same host to identify any related suspicious activities or patterns.
+- Review the system's recent changes or configurations that might have inadvertently granted the process these capabilities.
+- Consult threat intelligence sources to determine if the process or its behavior is associated with known privilege escalation techniques or campaigns.
+
+### False positive analysis
+
+- Processes related to system management tools like VMware, SolarWinds, and Dynatrace may trigger false positives due to their legitimate use of CAP_SETUID/SETGID capabilities for operational purposes. Users can handle these by adding exceptions for specific executables or paths such as "/usr/bin/vmware-toolbox-cmd" and "/opt/SolarWinds/Agent/*".
+- System update and notification processes, including "update-notifier" and "language-options", might be flagged as they sometimes require elevated privileges. Exclude these by specifying their parent names or command lines in the detection rule.
+- Security and monitoring tools like osquery and saposcol may also be flagged due to their need to access various system resources. Users should consider excluding these processes by their names or executable paths to prevent false alerts.
+- Common administrative commands like "sudo" and "pkexec" are often used in legitimate scenarios to change user IDs. To manage these, users can exclude specific command lines or process names that are known to be safe in their environment.
+- Automation tools such as Ansible, which may execute scripts with elevated privileges, can be excluded by identifying their command lines, such as those starting with "/usr/bin/python*ansible*".
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the source of the privilege escalation, focusing on recent changes to system configurations and user permissions.
+- Review system logs and security alerts to determine if any other systems have been compromised or if there are signs of lateral movement.
+- Revoke any unnecessary CAP_SETUID and CAP_SETGID capabilities from processes and users to minimize the risk of future privilege escalation.
+- Apply patches and updates to the operating system and any vulnerable applications to mitigate known exploits.
+- Restore the system to a known good state using backups, ensuring that the backup is free from any malicious modifications.
+- Implement enhanced logging policies to capture detailed information on process executions and user activities, aiding in future investigations.
+- Integrate security tools such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to improve threat detection capabilities.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
+- Educate users and administrators on security best practices and the importance of maintaining least privilege access to reduce the risk of privilege escalation attacks."""
 
 
 [[rule.threat]]

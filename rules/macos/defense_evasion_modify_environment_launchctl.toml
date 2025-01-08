@@ -2,7 +2,7 @@
 creation_date = "2021/01/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -74,6 +74,49 @@ event.category:process and host.os.type:macos and event.type:start and
                                   /Applications/NoMachine.app/Contents/Frameworks/bin/nxserver.bin or 
                                   /usr/local/bin/kr)
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Modification of Environment Variable via Unsigned or Untrusted Parent
+
+Environment variables in macOS can influence application behavior by specifying settings or paths. Adversaries exploit this by using the `launchctl` command to alter these variables, potentially loading malicious libraries or bypassing security measures. The detection rule identifies such modifications initiated by untrusted or unsigned parent processes, focusing on suspicious `launchctl` usage and excluding known safe applications, thus highlighting potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to understand which environment variable was modified and the specific `launchctl` command used.
+- Examine the `process.parent.code_signature` field to determine if the parent process is unsigned or untrusted, which could indicate a potential threat.
+- Investigate the parent process by checking its `process.parent.executable` path to identify the application or script that initiated the `launchctl` command.
+- Use Osquery to gather more information about the parent process. For example, run the following query to get details about the parent process: `SELECT * FROM processes WHERE pid = <parent_process_id>;`.
+- Check the `process.args` field to identify the specific environment variable being set and assess whether it is commonly used or potentially malicious.
+- Cross-reference the `process.parent.executable` with known safe applications to ensure it is not mistakenly flagged, as indicated in the exclusion list of the detection rule.
+- Investigate the user account associated with the process to determine if it is a legitimate user or potentially compromised.
+- Review recent system logs and user activity to identify any unusual behavior or patterns that coincide with the time of the alert.
+- Analyze network activity from the host to detect any suspicious outbound connections that may indicate data exfiltration or command-and-control communication.
+- If applicable, use Osquery to list all environment variables for the affected process to understand the full context of the environment: `SELECT * FROM environment WHERE pid = <affected_process_id>;`.
+
+### False positive analysis
+
+- Known false positives may arise from legitimate applications or scripts that are unsigned or lack a trusted code signature but are not malicious. These can include custom scripts or third-party applications that modify environment variables for legitimate purposes.
+- Users can handle these false positives by creating exceptions for specific parent processes that are known to be safe. This can be done by adding the executable paths of these trusted applications to the exclusion list in the detection rule.
+- Frequent non-threatening behaviors, such as development tools or automation scripts that use `launchctl` to set environment variables, can be excluded by identifying their parent process paths and ensuring they are added to the exclusion criteria.
+- It is important to regularly review and update the list of exclusions to ensure that new legitimate applications are not flagged as threats, while maintaining vigilance against potential adversarial activities.
+- Users should also verify the legitimacy of unsigned applications by checking their source and purpose, ensuring they are not inadvertently allowing malicious activities through overly broad exclusions.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the source of the untrusted or unsigned parent process that modified the environment variable using `launchctl`.
+- Review system logs and process execution history to determine if any malicious payloads were executed or if any unauthorized libraries were loaded.
+- Remove any identified malicious files or libraries and restore any altered environment variables to their original state.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat actor has a broader presence in the network.
+- Implement enhanced logging policies to capture detailed process execution and environment variable changes, ensuring future incidents can be detected more effectively.
+- Integrate additional security tools, such as endpoint detection and response (EDR) solutions, to improve visibility and response capabilities.
+- Apply system and application patches to address any vulnerabilities that may have been exploited by the adversary.
+- Educate users on recognizing and reporting suspicious activities, emphasizing the importance of running only trusted applications.
+- Review and update security policies and procedures to include specific measures against environment variable hijacking and unauthorized use of `launchctl`."""
 
 
 [[rule.threat]]

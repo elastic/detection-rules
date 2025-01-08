@@ -2,7 +2,7 @@
 creation_date = "2021/01/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,48 @@ query = '''
 event.category:process and host.os.type:macos and event.type:(start or process_started) and
   process.args:(spctl and "--master-disable")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Attempt to Disable Gatekeeper
+
+Gatekeeper is a macOS security feature that ensures only trusted software is executed by verifying app signatures. Adversaries may attempt to disable Gatekeeper to bypass these checks and run malicious code. The detection rule identifies such attempts by monitoring process activities for specific commands that indicate an effort to disable Gatekeeper, thus alerting analysts to potential security breaches.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the specific command `spctl --master-disable` in the `process.args` field, which indicates an attempt to disable Gatekeeper.
+- Check the `event.category` and `event.type` fields to ensure the event is related to a process start on a macOS host, confirming the context of the alert.
+- Identify the user account associated with the process by examining the `user.name` field to determine if the action was initiated by a legitimate user or a potential adversary.
+- Investigate the `process.name` and `process.executable` fields to gather more information about the process attempting to disable Gatekeeper, including its origin and legitimacy.
+- Use Osquery to list all processes running on the affected host to identify any other suspicious activities. Example query: `SELECT pid, name, path FROM processes WHERE name LIKE '%spctl%';`
+- Examine the `host.name` and `host.ip` fields to identify the affected machine and assess if it is part of a larger pattern or isolated incident.
+- Review recent login events on the affected host to identify any unauthorized access attempts that could correlate with the Gatekeeper disable attempt.
+- Analyze the `process.parent.name` and `process.parent.executable` fields to trace the parent process that initiated the Gatekeeper disable command, which may provide insights into the attack vector.
+- Check for any recent changes in system settings or configurations on the affected host that could indicate further tampering or preparation for executing malicious code.
+- Correlate the alert with other security events or logs from the same timeframe to identify any additional indicators of compromise or related suspicious activities.
+
+### False positive analysis
+
+- Legitimate administrative actions: System administrators or IT personnel may intentionally disable Gatekeeper for troubleshooting or software testing purposes. These actions can trigger the detection rule, leading to false positives.
+- Software development activities: Developers working on macOS applications might disable Gatekeeper to test unsigned apps during the development process, which can be mistakenly flagged as malicious behavior.
+- Custom scripts or automation tools: Some organizations use scripts or automation tools that include commands to disable Gatekeeper as part of their workflow, potentially causing false alerts.
+- To manage these false positives, users can create exceptions for known and trusted administrative accounts or specific processes that are regularly involved in legitimate Gatekeeper disabling activities. This can be done by refining the detection rule to exclude certain user accounts or process paths that are verified as non-threatening.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent potential lateral movement or data exfiltration.
+- Verify the presence of unauthorized changes by reviewing system logs and Gatekeeper settings to confirm if it has been disabled.
+- Conduct a thorough investigation to identify any malicious processes or files that may have been executed following the Gatekeeper disablement attempt.
+- Restore Gatekeeper to its default state by re-enabling it using the command `sudo spctl --master-enable` and ensure that system integrity is maintained.
+- Escalate the incident to the security operations team for further analysis and to determine if this attempt is part of a broader attack campaign.
+- Implement enhanced logging policies to capture detailed process execution data and command-line arguments for future monitoring and analysis.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context on similar threats.
+- Review and update security policies to include regular audits of security settings and configurations, ensuring compliance with best practices.
+- Educate users on the importance of security features like Gatekeeper and the risks associated with disabling them, reinforcing the organization's security culture.
+- Conduct a post-incident review to identify gaps in the current security posture and develop a plan to address these vulnerabilities, including potential system hardening measures such as application whitelisting and regular software updates."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -84,6 +84,48 @@ tags = [
     "Tactic: Execution",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Powershell Script
+
+PowerShell is a powerful scripting language used for task automation and configuration management in Windows environments. Adversaries exploit its capabilities to execute malicious scripts, often employing obfuscation to evade detection. The 'Suspicious Powershell Script' detection rule leverages machine learning to identify anomalies in script characteristics, such as obfuscation, indicative of potential threats, aligning with MITRE ATT&CK's execution tactics.
+
+### Possible investigation steps
+
+- Review the alert details to understand the specific characteristics of the detected PowerShell script, focusing on fields such as script content, execution time, and user context.
+- Examine the script content for signs of obfuscation, such as encoded commands, unusual variable names, or excessive use of special characters.
+- Check the execution context by identifying the user account and machine involved, using fields like `user.name` and `host.name`.
+- Correlate the script execution with recent user activity logs to determine if the execution aligns with expected behavior or if it appears anomalous.
+- Investigate the parent process that initiated the PowerShell script using fields like `process.parent.name` and `process.parent.id` to identify potential malicious chains.
+- Utilize Osquery to gather additional context on the host. For example, run the following query to list recent PowerShell executions: `SELECT * FROM processes WHERE name = 'powershell.exe' ORDER BY start_time DESC LIMIT 10;`
+- Analyze network connections established by the host around the time of the script execution to identify any suspicious outbound connections.
+- Review any file modifications or registry changes made by the script using endpoint detection logs or file integrity monitoring tools.
+- Check for any related alerts or incidents involving the same user or host to identify patterns or repeated suspicious behavior.
+- Consult threat intelligence sources to determine if the script or its components match known malicious indicators or tactics.
+
+### False positive analysis
+
+- Legitimate administrative scripts: PowerShell is commonly used for legitimate administrative tasks, which may include obfuscation for efficiency or to protect sensitive information. Users should review scripts flagged by the detection rule to determine if they are part of routine administrative operations.
+- Automated deployment tools: Some deployment tools use PowerShell scripts that might appear suspicious due to their automated nature and obfuscation techniques. Users can create exceptions for these tools by identifying their unique characteristics and excluding them from the detection rule.
+- Security software: Certain security solutions use PowerShell scripts for scanning and remediation purposes. These scripts might be flagged as suspicious due to their complexity and obfuscation. Users should verify the source of these scripts and whitelist them if they are from trusted security vendors.
+- Development and testing environments: Developers often use PowerShell scripts for testing and development purposes, which might include obfuscation to simulate real-world scenarios. Users can exclude specific development environments or known developer accounts from the detection rule to reduce false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat.
+- Analyze the detected PowerShell script to understand its behavior and intent, focusing on obfuscation techniques and any external connections it attempts to make.
+- Terminate any malicious processes associated with the script to halt its execution.
+- Review and collect relevant logs, such as PowerShell logs, Windows Event logs, and network traffic logs, to gather evidence and understand the scope of the incident.
+- Escalate the incident to the security operations center (SOC) or incident response team if the script is part of a larger attack campaign or if multiple systems are affected.
+- Remove any malicious files or registry entries created by the script to remediate the system.
+- Apply security patches and updates to the affected system to address any vulnerabilities exploited by the script.
+- Implement enhanced logging and monitoring policies for PowerShell activities to improve detection of similar threats in the future.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to enhance visibility and response capabilities.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent future incidents."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

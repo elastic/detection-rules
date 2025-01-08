@@ -2,7 +2,7 @@
 creation_date = "2023/09/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -63,6 +63,48 @@ sequence by host.id, process.entity_id with maxspan=1s
   [process where host.os.type == "linux" and event.action in ("uid_change", "gid_change") and event.type == "change" and 
    (user.id == "0" or group.id == "0")]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via Python cap_setuid
+
+In Unix-like systems, setuid and setgid allow processes to execute with elevated privileges, typically those of the file owner or group. Adversaries may exploit these features using Python scripts to gain unauthorized root access by executing commands with root privileges. The detection rule identifies such attempts by monitoring Python processes that invoke system commands with setuid or setgid, followed by a user or group ID change to root, indicating potential privilege escalation.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host and process entity ID involved in the potential privilege escalation attempt.
+- Examine the process arguments captured in the alert to confirm the presence of the suspicious Python command pattern: `import os;os.set?id(0);os.system(*)`.
+- Verify the user ID associated with the process to ensure it is not root (`user.id != "0"`), as this is a key indicator of a potential privilege escalation attempt.
+- Check the sequence of events to confirm that a UID or GID change to root (`user.id == "0"` or `group.id == "0"`) occurred immediately after the suspicious Python command execution.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT pid, name, path, cmdline, uid, gid FROM processes WHERE pid = <process_id>;` to retrieve detailed information about the process.
+- Investigate the parent process of the suspicious Python process to understand how it was initiated and whether it was spawned by a legitimate or suspicious parent.
+- Review the system logs on the affected host for any additional context or anomalies around the time of the alert, focusing on authentication logs and any other privilege-related events.
+- Check for any recent changes to the file permissions or ownership of the Python script or any related files that could have facilitated the privilege escalation attempt.
+- Analyze network activity from the host around the time of the alert to identify any potential command and control communication or data exfiltration attempts.
+- Correlate this alert with any other recent alerts or incidents involving the same host or user account to determine if this is part of a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate administrative scripts: System administrators may use Python scripts with setuid or setgid capabilities for legitimate purposes, such as system maintenance or automation tasks. These scripts might trigger the detection rule if they change user or group IDs to root. To handle this, users can create exceptions for known scripts by whitelisting specific script paths or hashes.
+- Development and testing environments: Developers might execute Python scripts with elevated privileges during testing or development phases, which could be mistaken for malicious activity. Users can exclude specific development environments or user accounts from the detection rule to reduce false positives.
+- Security tools and monitoring software: Some security tools or monitoring software may use Python scripts with setuid or setgid capabilities as part of their normal operation. Users should identify and exclude these tools from the detection rule by specifying their process names or paths.
+- Automated deployment processes: Automated deployment or configuration management systems might use Python scripts to perform tasks requiring elevated privileges. Users can manage these false positives by excluding known deployment processes or by setting up specific rules for these systems.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the source of the privilege escalation attempt, including reviewing logs and process histories.
+- Terminate any suspicious processes that are running with elevated privileges and verify the integrity of critical system files.
+- Change all passwords for accounts that may have been compromised, especially those with elevated privileges.
+- Restore the system from a known good backup if unauthorized changes or malware are detected.
+- Implement enhanced logging policies to capture detailed process execution and user activity, focusing on setuid and setgid operations.
+- Integrate security monitoring tools with SIEM solutions to improve detection capabilities for similar threats in the future.
+- Apply security patches and updates to the operating system and installed software to mitigate known vulnerabilities.
+- Conduct a security audit to identify and remediate any misconfigurations or weaknesses in user permissions and access controls.
+- Educate users and administrators on the risks of privilege escalation and the importance of adhering to the principle of least privilege."""
 
 
 [[rule.threat]]

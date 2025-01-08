@@ -2,7 +2,7 @@
 creation_date = "2020/01/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -62,6 +62,53 @@ type = "query"
 query = '''
 event.category:process and host.os.type:macos and event.type:(start or process_started) and process.args:("-e" and const*require*child_process*)
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Execution via Electron Child Process Node.js Module
+
+Electron applications, built on Node.js, can execute system commands using the child_process module, inheriting parent process permissions. Adversaries exploit this to run unauthorized commands, leveraging elevated privileges. The detection rule identifies such activities on macOS by monitoring process events and specific command patterns, flagging potential misuse of the child_process module.
+
+### Possible investigation steps
+
+- Review the alert details to understand the context, including the specific process arguments that triggered the alert, focusing on the presence of "-e" and "require('child_process')".
+- Examine the parent process of the flagged process to determine if it is a legitimate Electron application, using the `process.parent.name` and `process.parent.executable` fields.
+- Check the user account associated with the process using `user.name` to assess if it aligns with expected usage patterns or if it might be compromised.
+- Investigate the command line arguments (`process.args`) further to identify any suspicious or unexpected commands being executed.
+- Use Osquery to list all running Electron applications and their associated processes to identify any anomalies:
+  ```sql
+  SELECT name, path, pid, parent, cmdline FROM processes WHERE name LIKE '%Electron%';
+  ```
+- Correlate the process start time (`event.start`) with any known user activity or scheduled tasks to determine if the execution was expected.
+- Analyze the network activity of the process using `network.traffic` logs to identify any unusual outbound connections that might indicate data exfiltration or command-and-control communication.
+- Review recent file modifications or creations in directories commonly used by Electron applications to detect any unauthorized changes or script injections.
+- Check for any recent changes in the Electron application's source code or configuration files that might indicate tampering or the introduction of malicious code.
+- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or indicators of compromise related to Electron applications.
+
+### False positive analysis
+
+- Legitimate Electron applications often use the child_process module for valid operations such as spawning subprocesses for performance optimization or handling asynchronous tasks, which can trigger the detection rule.
+- Developers may use the child_process module during the development and testing phases of Electron applications, leading to benign process events being flagged.
+- Automated scripts or tools that rely on Electron applications for system management tasks might also generate alerts, as they frequently execute system commands.
+- To manage these false positives, users can create exceptions for known and trusted Electron applications by whitelisting specific process names or paths associated with legitimate use cases.
+- Implementing a baseline of normal behavior for Electron applications within the environment can help distinguish between expected and anomalous activities, reducing unnecessary alerts.
+- Regularly updating the list of trusted applications and processes can ensure that new legitimate use cases are not mistakenly flagged as threats.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or execution of malicious commands.
+- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on recent changes or installations of Electron applications.
+- Review process execution logs and command history to determine the specific commands executed via the child_process module.
+- Terminate any unauthorized or suspicious processes identified during the investigation to halt further malicious activity.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process execution events, including command-line arguments and parent-child process relationships.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
+- Restore the system to a known good state by reinstalling the operating system and applications from trusted sources, ensuring all security patches are applied.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
+- Implement hardening measures such as restricting the use of the child_process module in Electron applications and enforcing the principle of least privilege for application permissions."""
 
 
 [[rule.threat]]

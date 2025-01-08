@@ -2,7 +2,7 @@
 creation_date = "2023/07/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -55,6 +55,49 @@ file.path : (
   "/root/*.zshrc.swp", "/root/*.zlogin.swp", "/root/*.tcshrc.swp", "/root/*.kshrc.swp", "/root/*.config.fish.swp"
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Suspicious File Edit
+
+In Linux environments, text editors create temporary swap files (.swp) during file editing. Adversaries exploit this by editing critical system files to maintain persistence or escalate privileges. The detection rule identifies the creation of .swp files in sensitive directories, signaling potential unauthorized file edits, thus alerting analysts to investigate further.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and name of the .swp file that triggered the alert. Pay attention to the `file.path` field to understand which sensitive directory was involved.
+- Check the `event.action` field to confirm whether the action was a "creation" or "file_create_event" to ensure the alert is relevant to a new file creation.
+- Use Osquery to list recent file modifications in the directory where the .swp file was detected. Example query: `SELECT path, mtime FROM file WHERE directory = '/etc/' ORDER BY mtime DESC LIMIT 10;`
+- Investigate the user account associated with the file creation event. Look into the `user.name` field to determine if the action was performed by a legitimate user or a potential adversary.
+- Examine system logs around the time of the alert to identify any unusual login attempts or other suspicious activities. Focus on logs such as `/var/log/auth.log` or `/var/log/secure`.
+- Use Osquery to check for any running processes that might be related to text editors or suspicious activities. Example query: `SELECT name, pid, path FROM processes WHERE name IN ('vim', 'nano', 'emacs');`
+- Verify the integrity of the original file that the .swp file corresponds to by comparing it with a known good backup or using a file integrity monitoring tool.
+- Investigate any recent changes to user permissions or group memberships that could indicate privilege escalation attempts. Use Osquery: `SELECT * FROM user_groups WHERE user = 'suspicious_user';`
+- Check for any other .swp files in the system that might indicate a broader pattern of suspicious file edits. Use a command like `find / -name "*.swp"`.
+- Correlate the alert with other security events or alerts in your SIEM to identify if this is part of a larger attack pattern or campaign.
+
+### False positive analysis
+
+- Opening a file in a text editor without making any changes can trigger the creation of a .swp file, leading to a false positive. Users can handle this by monitoring the frequency and context of such events to distinguish between benign and suspicious activities.
+- System administrators or automated scripts that regularly open and review configuration files for maintenance purposes may inadvertently create .swp files. To manage this, users can create exceptions for known maintenance windows or specific user accounts that perform these tasks.
+- Development environments where users frequently edit configuration files in sensitive directories might generate numerous .swp files. Users can exclude specific directories or user accounts from triggering alerts if they are part of a controlled development process.
+- Backup or synchronization tools that temporarily open files for copying or syncing purposes might also create .swp files. Users can identify these tools and exclude their activities from the rule to prevent false positives.
+- In environments where multiple users have access to the same system, legitimate users might open files in sensitive directories for legitimate reasons. Users can implement user-based exceptions or monitor user behavior patterns to differentiate between normal and suspicious activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or potential lateral movement.
+- Conduct a thorough investigation to identify the source of the suspicious file edit, including reviewing recent user activity and system logs.
+- Verify the integrity of the affected files by comparing them with known good backups or using file integrity monitoring tools.
+- If unauthorized changes are confirmed, restore the affected files from a clean backup to ensure system integrity.
+- Escalate the incident to the security operations team if evidence of privilege escalation or persistence mechanisms is found.
+- Implement enhanced logging policies to capture detailed file access and modification events, focusing on sensitive directories and files.
+- Integrate with a Security Information and Event Management (SIEM) system to correlate events and improve detection capabilities.
+- Apply system hardening measures, such as restricting access to critical files and directories and enforcing the principle of least privilege.
+- Regularly update and patch the system to mitigate vulnerabilities that could be exploited for unauthorized file edits.
+- Educate users on secure file handling practices and the risks associated with editing sensitive files in critical directories."""
 
 
 [[rule.threat]]

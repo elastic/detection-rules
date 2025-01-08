@@ -2,7 +2,7 @@
 creation_date = "2024/10/25"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/10/25"
+updated_date = "2025/01/08"
 
 
 [rule]
@@ -18,7 +18,50 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS STS AssumeRole with New MFA Device"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS STS AssumeRole with New MFA Device
+
+AWS Security Token Service (STS) allows users to assume roles and gain temporary credentials for accessing AWS resources. This process can involve Multi-Factor Authentication (MFA) for enhanced security. However, adversaries may exploit new MFA devices to maintain persistence or escalate privileges. The detection rule identifies successful role assumptions with new MFA devices, flagging potential misuse by monitoring specific AWS CloudTrail events and parameters.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific user and role involved in the AssumeRole event, focusing on the `user.id` and `aws.cloudtrail.flattened.request_parameters.serialNumber` fields.
+- Verify the legitimacy of the new MFA device by checking the AWS IAM console for recent changes or additions to MFA devices associated with the user.
+- Cross-reference the `event.provider` and `event.action` fields to confirm the type of AssumeRole action taken and ensure it aligns with expected user behavior.
+- Analyze the `event.outcome` field to ensure the role assumption was successful and not part of a failed attempt pattern.
+- Investigate the source IP address and geolocation from which the AssumeRole request originated to identify any anomalies or unexpected locations.
+- Check the AWS CloudTrail logs for any preceding or subsequent suspicious activities related to the same user or role, such as changes in permissions or unusual API calls.
+- Use Osquery to gather additional context on the user's activity on their local machine. For example, run a query to list recent AWS CLI commands executed: `SELECT * FROM shell_history WHERE command LIKE '%aws%' AND user = '<username>';`.
+- Review the user's recent login history and access patterns to determine if there are any deviations from their normal behavior.
+- Consult with the user or their manager to verify if the new MFA device was legitimately added and if the role assumption was expected as part of their duties.
+- Document all findings and observations in the investigation report, highlighting any indicators of compromise or benign explanations for the alert.
+
+### False positive analysis
+
+- Users frequently adding new MFA devices for legitimate reasons, such as device upgrades or replacements, can trigger false positives. To manage this, maintain a list of known device changes and exclude these from alerts.
+- Organizational policy changes that require users to update or rotate MFA devices can result in multiple role assumptions with new devices. Implement a temporary exception during the policy change period to reduce noise.
+- Automated processes or scripts that involve role assumptions with new MFA devices for testing or deployment purposes may be flagged. Identify and whitelist these processes to prevent unnecessary alerts.
+- Shared accounts or roles used by multiple team members might show new MFA devices as different users authenticate. Consider monitoring these accounts separately and establish a baseline of expected behavior to differentiate between legitimate and suspicious activity.
+
+### Response and remediation
+
+- Verify the legitimacy of the new MFA device by contacting the user or reviewing the change request logs to ensure it was an authorized action.
+- Temporarily disable the assumed role or the associated user account if the new MFA device is deemed suspicious or unauthorized.
+- Review AWS CloudTrail logs for any unusual activity associated with the user or role, focusing on actions taken after the role assumption.
+- Conduct a thorough investigation to determine if any unauthorized changes or data access occurred during the session with the temporary credentials.
+- Escalate the incident to the security operations team if unauthorized access or malicious activity is confirmed, following the organization's incident response plan.
+- Implement additional logging and monitoring for AWS STS and MFA-related activities to detect similar incidents in the future.
+- Review and update IAM policies to ensure that only necessary permissions are granted and consider implementing least privilege principles.
+- Educate users on the importance of securing MFA devices and recognizing phishing attempts that could lead to unauthorized MFA registration.
+- Restore any unauthorized changes made during the incident to return the system to its operational state, ensuring data integrity and security.
+- Consider implementing additional security measures such as conditional access policies or more frequent reviews of MFA device registrations to enhance overall security posture.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

@@ -2,7 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,50 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS IAM Group Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS IAM Group Deletion
+
+AWS IAM groups facilitate efficient management of user permissions by organizing users with similar access needs. Adversaries may exploit group deletion to disrupt access controls, potentially hindering legitimate user activities. The detection rule monitors successful group deletions via AWS CloudTrail logs, flagging potential unauthorized access removal activities aligned with MITRE ATT&CK's impact tactics.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to confirm the event details, focusing on the `event.dataset:aws.cloudtrail`, `event.provider:iam.amazonaws.com`, and `event.action:DeleteGroup` fields to ensure the alert is valid.
+- Identify the IAM user or role responsible for the group deletion by examining the `userIdentity` field in the CloudTrail logs.
+- Check the `event.time` field to determine when the group deletion occurred and correlate this with any other suspicious activities around the same time.
+- Investigate the `sourceIPAddress` field to identify the origin of the request and determine if it aligns with known IP addresses or locations for legitimate users.
+- Review the `userAgent` field to understand the method used for deletion (e.g., AWS Management Console, AWS CLI) and assess if it matches typical usage patterns.
+- Examine the IAM policies and permissions associated with the user or role that performed the deletion to determine if they had the necessary permissions and if those permissions are appropriate.
+- Use Osquery to gather additional context on the IAM group deletion by running a query such as: `SELECT * FROM aws_iam_groups WHERE group_name = 'DeletedGroupName';` to verify if the group was recreated or if there are any related changes.
+- Check for any recent changes to IAM policies or roles that might have inadvertently allowed unauthorized group deletions.
+- Investigate other IAM activities by the same user or role around the time of the deletion to identify any patterns or additional unauthorized actions.
+- Review any recent security alerts or incidents involving the affected AWS account to determine if the group deletion is part of a larger security event.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate IAM group deletions may occur during regular maintenance or restructuring of AWS resources, where administrators remove outdated or unnecessary groups. 
+- Automated scripts or tools: Organizations may use automated processes to manage IAM groups, leading to frequent deletions that are non-threatening.
+- Testing environments: In development or testing environments, IAM groups may be created and deleted frequently as part of testing procedures.
+- To manage these false positives, users can create exceptions for known administrative accounts or scripts that regularly perform these actions, ensuring that alerts are only triggered for unexpected deletions.
+
+### Response and remediation
+
+- Immediately review AWS CloudTrail logs to confirm the deletion of the IAM group and identify the user or service responsible for the action.
+- Verify if the group deletion was authorized by checking with the IAM administrators or reviewing change management records.
+- If unauthorized, disable the IAM user or role responsible for the deletion to prevent further unauthorized actions.
+- Restore the deleted IAM group by recreating it and reassigning the necessary permissions and users based on the last known configuration.
+- Conduct a thorough investigation to determine if any other IAM resources or permissions were altered or deleted.
+- Escalate the incident to the security operations team for further analysis and to determine if there is a broader security breach.
+- Implement enhanced logging and monitoring for IAM activities, ensuring that all critical actions are captured and reviewed regularly.
+- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system for real-time alerting and correlation with other security events.
+- Review and update IAM policies to enforce the principle of least privilege, ensuring that only authorized users have permissions to delete IAM groups.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

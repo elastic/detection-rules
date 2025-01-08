@@ -2,7 +2,7 @@
 creation_date = "2024/02/14"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/10/31"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -61,6 +61,49 @@ process where host.os.type == "windows" and event.type == "start" and
     )
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Execution from INET Cache
+
+The INetCache folder stores temporary internet files, which can be exploited by adversaries to execute malicious payloads. Attackers may use this cache to deliver harmful content via web interactions, often leveraging phishing techniques. The detection rule identifies suspicious processes initiated from this cache, especially those spawned by common file explorers, signaling potential unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name and arguments, focusing on the `process.parent.name` field to verify if the process was spawned by `explorer.exe`, `winrar.exe`, `7zFM.exe`, or `Bandizip.exe`.
+- Examine the `process.args` field to identify the specific file path within the INetCache that was executed, noting any unusual or suspicious file names or extensions.
+- Check the `process.executable` field to determine the exact executable path and verify if it matches known legitimate software or if it appears suspicious.
+- Use Osquery to list all files in the INetCache directory for the affected user to identify any other potentially malicious files. Example query: `SELECT path, filename, size, atime FROM file WHERE path LIKE 'C:\\\\Users\\\\%\\\\AppData\\\\Local\\\\Microsoft\\\\Windows\\\\INetCache\\\\IE\\\\%';`
+- Investigate the parent process tree to understand the sequence of events leading to the execution, focusing on any unusual or unexpected parent-child process relationships.
+- Correlate the event timestamp with user activity logs to determine if the execution aligns with legitimate user actions or if it occurred during a period of inactivity.
+- Analyze network logs for any outbound connections made by the suspicious process to identify potential command and control communication or data exfiltration attempts.
+- Review email logs or web browsing history for the affected user to identify any recent phishing attempts or suspicious downloads that could have led to the execution.
+- Check for any recent changes or anomalies in the user's system configuration or installed software that could indicate compromise or unauthorized access.
+- Consult threat intelligence sources to determine if the identified file or behavior is associated with known malware or attack campaigns, providing additional context for the investigation.
+
+### False positive analysis
+
+- Legitimate software updates or installations may trigger the rule if they temporarily store files in the INetCache folder during the process. Users should verify the source and purpose of the process to determine if it is benign.
+- Web browsers or file explorers might cache legitimate files in the INetCache folder, leading to false positives when these files are executed. Users can create exceptions for known safe processes or applications that frequently use this cache.
+- Automated scripts or tools that interact with web content and store temporary files in the INetCache folder could be flagged. Users should review these scripts and whitelist them if they are part of routine operations.
+- Some enterprise applications may use the INetCache folder for temporary storage during normal operations. Users should identify these applications and configure the rule to exclude them from triggering alerts.
+- To manage false positives, users can adjust the detection rule to exclude specific processes or paths that are consistently identified as non-threatening, ensuring that only genuine threats are flagged.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation to identify the source of the suspicious execution, focusing on recent web interactions and email communications.
+- Terminate any malicious processes identified as originating from the INetCache folder.
+- Remove any malicious files found in the INetCache directory and perform a full antivirus scan on the system.
+- Review and analyze logs from the affected system to identify any additional indicators of compromise or lateral movement.
+- Escalate the incident to the security operations center (SOC) or incident response team if the threat appears to be part of a larger campaign or if multiple systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and network activity for future investigations.
+- Integrate threat intelligence feeds to improve detection capabilities and correlate with known phishing and initial access techniques.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure all security software is up to date.
+- Harden the system by implementing security best practices, such as disabling unnecessary services, enforcing strong password policies, and educating users on recognizing phishing attempts."""
 
 
 [[rule.threat]]

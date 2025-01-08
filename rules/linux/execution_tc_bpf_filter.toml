@@ -2,7 +2,7 @@
 creation_date = "2022/07/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -66,6 +66,49 @@ process where host.os.type == "linux" and event.type != "end" and process.execut
 process.args == "filter" and process.args == "add" and process.args == "bpf" and
 not process.parent.executable == "/usr/sbin/libvirtd"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating BPF filter applied using TC
+
+BPF (Berkeley Packet Filter) is a powerful tool for packet filtering and analysis, often used in conjunction with the `tc` command to manage network traffic on Linux systems. Adversaries may exploit this by applying BPF filters to manipulate or monitor traffic covertly. The detection rule identifies suspicious use of `tc` to add BPF filters, flagging potential misuse by checking for specific command patterns and excluding legitimate processes.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `tc` command with arguments `filter`, `add`, and `bpf`, ensuring the process executable is `/usr/sbin/tc`.
+- Verify the parent process of the `tc` command to ensure it is not `/usr/sbin/libvirtd`, as this is excluded from the detection rule.
+- Check the user account associated with the process to determine if it is a known or privileged account, which might indicate a higher risk if compromised.
+- Investigate the network interface on which the BPF filter was applied to understand the potential impact on network traffic.
+- Use Osquery to list all active BPF programs on the system to identify any other suspicious filters. Example query: `SELECT * FROM bpf_programs;`
+- Examine system logs for any other unusual activities or errors around the time the `tc` command was executed to gather more context.
+- Review recent command history for the user associated with the `tc` process to identify any other suspicious commands or patterns.
+- Analyze network traffic logs to detect any anomalies or unexpected patterns that might correlate with the time the BPF filter was applied.
+- Check for any recent changes in user permissions or group memberships that might have allowed unauthorized use of the `tc` command.
+- Investigate any other alerts or incidents involving the same host or user to determine if this is part of a broader attack pattern.
+
+### False positive analysis
+
+- Legitimate use of `tc` by system administrators for network performance tuning or traffic management can trigger the rule. This is common in environments where network optimization is a priority.
+- Automated scripts or configuration management tools that deploy network configurations using `tc` may also be flagged. These scripts often run as part of routine maintenance or deployment processes.
+- Network monitoring or security tools that utilize BPF filters for legitimate traffic analysis might inadvertently match the rule's criteria.
+- To manage these false positives, users can create exceptions for known benign processes by excluding specific parent processes or command patterns that are verified as non-threatening.
+- Regularly review and update the exclusion list to ensure it reflects the current network management practices and tools in use, minimizing the risk of overlooking genuine threats.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further manipulation or monitoring of network traffic.
+- Conduct a thorough investigation to identify any unauthorized BPF filters applied using the `tc` command by reviewing system logs and process execution history.
+- Verify the legitimacy of the `tc` command usage by checking for known legitimate processes, such as `/usr/sbin/libvirtd`, and ensure no other unauthorized processes are involved.
+- Remove any unauthorized BPF filters and restore the network interface configuration to its original state.
+- Escalate the incident to the security operations team for further analysis and to determine if the activity is part of a larger attack campaign.
+- Implement enhanced logging policies to capture detailed process execution and network activity, focusing on the use of `tc` and BPF filters.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate similar events and detect potential threats proactively.
+- Review and update firewall and intrusion detection/prevention system (IDS/IPS) rules to detect and block suspicious `tc` command usage.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Apply system hardening measures, such as restricting the use of the `tc` command to authorized users and processes, to prevent future exploitation."""
 
 
 [[rule.threat]]

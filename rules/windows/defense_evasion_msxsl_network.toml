@@ -2,7 +2,7 @@
 creation_date = "2020/03/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -46,6 +46,48 @@ sequence by process.entity_id
        "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1",
        "FE80::/10", "FF00::/8")]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Network Connection via MsXsl
+
+MsXsl.exe is a legitimate Windows utility used to transform XML data using XSLT stylesheets. Adversaries exploit it to execute malicious scripts, bypassing security measures. The detection rule identifies suspicious network activity by MsXsl.exe, focusing on connections to non-local IPs, which may indicate unauthorized data exfiltration or command-and-control communication.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name is msxsl.exe and the event type is "start" to ensure the alert is valid.
+- Check the destination IP address in the alert to determine if it falls outside the specified non-local IP ranges, indicating a potential external connection.
+- Investigate the process entity ID to trace the parent process and identify how msxsl.exe was executed, which may provide insight into the initial vector of execution.
+- Use Osquery to gather additional context on the msxsl.exe process by running a query such as: `SELECT * FROM processes WHERE name = 'msxsl.exe';` to retrieve details like process path, command line arguments, and parent process ID.
+- Examine the command line arguments used with msxsl.exe to identify any suspicious or unexpected scripts or files being processed.
+- Correlate the network activity with other logs to identify any additional suspicious connections or data transfers involving the same destination IP.
+- Review recent system changes or user activity logs to identify any anomalies or unauthorized actions that coincide with the msxsl.exe execution.
+- Check for any other alerts or indicators of compromise on the host that may suggest a broader attack or compromise.
+- Analyze historical data to determine if msxsl.exe has been used previously on the host and if similar network connections were made.
+- Consult threat intelligence sources to see if the destination IP or any related indicators are associated with known malicious activity or threat actors.
+
+### False positive analysis
+
+- Legitimate use of MsXsl.exe by IT administrators or software developers for XML data transformation tasks may trigger the rule. Users can handle this by creating exceptions for known and verified internal IP addresses or specific user accounts that regularly perform these tasks.
+- Automated scripts or applications that utilize MsXsl.exe for legitimate data processing or integration purposes might be flagged. To manage this, users can whitelist specific processes or applications that are known to use MsXsl.exe in a non-malicious manner.
+- Network monitoring tools or security software that leverage MsXsl.exe for legitimate network diagnostics or reporting could cause false positives. Users should identify these tools and exclude their network activities from the rule.
+- In environments where MsXsl.exe is part of a standard software deployment or configuration management process, its network activity might be benign. Users can exclude these processes by verifying the source and destination of the network connections and ensuring they align with expected operational patterns.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify any additional compromised systems by reviewing logs and network traffic for similar suspicious activity involving msxsl.exe.
+- Terminate any malicious processes associated with msxsl.exe and remove any unauthorized scripts or files from the system.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
+- Implement enhanced logging policies to capture detailed process execution and network connection data, focusing on msxsl.exe and other potential living-off-the-land binaries (LOLBins).
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar tactics and techniques.
+- Restore the system to its operational state by applying the latest security patches, updating antivirus definitions, and ensuring all security configurations are hardened.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users on the risks associated with executing unknown scripts and the importance of reporting suspicious activity.
+- Monitor for any recurrence of the activity and adjust security measures as necessary to prevent future incidents."""
 
 
 [[rule.threat]]

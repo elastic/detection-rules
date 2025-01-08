@@ -2,7 +2,7 @@
 creation_date = "2024/06/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -47,6 +47,49 @@ sequence by host.id with maxspan=1s
     )
   ] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Network Connection Initiated by SSHD Child Process
+
+The SSH Daemon (SSHD) is crucial for secure remote access on Linux systems, managing user logins and executing commands. Adversaries may exploit SSHD by altering shell configurations or backdooring the daemon to establish unauthorized connections, often for persistence or data exfiltration. The detection rule identifies suspicious outbound connections initiated by SSHD child processes, excluding benign processes and internal IP ranges, to flag potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific `host.id` and `process.entity_id` associated with the suspicious activity.
+- Examine the `process.parent.executable` field to confirm that the parent process is indeed `/usr/sbin/sshd`, indicating the connection was initiated by an SSHD child process.
+- Check the `destination.ip` field to determine the external IP address the connection was attempted to, and assess its reputation using threat intelligence sources.
+- Investigate the `process.executable` and `process.name` fields to identify the specific process that initiated the network connection, ensuring it is not a benign process like `/bin/yum` or `login_duo`.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE pid = <process_id>;` where `<process_id>` is the ID of the suspicious process.
+- Analyze the SSHD configuration files and shell configuration files for any unauthorized modifications or scripts that could trigger the process execution upon SSH login.
+- Review recent login attempts and user activity on the affected host to identify any unusual patterns or unauthorized access.
+- Correlate the event with other logs, such as authentication logs, to determine if there are any related suspicious activities or failed login attempts.
+- Investigate the network traffic logs for the specified `host.id` to identify any other unusual outbound connections or patterns that coincide with the alert.
+- Consult with the network team to verify if the destination IP is part of any known or legitimate business operations, or if it is associated with any known malicious infrastructure.
+
+### False positive analysis
+
+- **Automated System Updates**: Processes like `/bin/yum` or `/usr/bin/yum` may initiate network connections as part of routine system updates. These should be considered for exclusion if they are part of regular maintenance activities.
+- **Legitimate SSH Sessions**: Tools such as `login_duo`, `ssh`, `sshd`, and `sshd-session` might trigger alerts when they establish connections as part of normal SSH operations. Users can exclude these processes if they are verified as part of legitimate administrative tasks.
+- **Internal Network Scans**: Network connections to internal IP ranges might be flagged if the rule is not correctly excluding them. Ensure that the rule's IP exclusions cover all internal ranges used by the organization.
+- **Custom Scripts**: Custom scripts executed upon SSH login that initiate network connections for legitimate purposes, such as logging or monitoring, may trigger this rule. Users should identify and exclude these scripts if they are verified as non-threatening.
+- **Handling False Positives**: Users can manage false positives by updating the rule to include exceptions for known benign processes and IP ranges. Regularly review and adjust the exclusion list to align with the organization's network behavior and security policies.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the source and method of the compromise, focusing on SSHD configuration files and recent changes to shell scripts.
+- Review and analyze logs from the SSHD and network traffic to identify any unauthorized access or data transfer attempts.
+- Terminate any suspicious processes initiated by SSHD child processes and remove any unauthorized or malicious files or scripts found on the system.
+- Change all credentials associated with the compromised system, especially those used for SSH access, to prevent further unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed SSHD activity and network connections for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
+- Restore the system to its operational state by reinstalling the operating system and applications from trusted sources, ensuring all security patches are applied.
+- Harden the system by configuring SSHD with strong authentication methods, disabling root login, and using firewalls to restrict access to trusted IP addresses only."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

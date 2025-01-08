@@ -2,7 +2,7 @@
 creation_date = "2023/07/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -67,6 +67,48 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   (process.name == "socat" and process.args : ("UNIX-CONNECT:*/docker.sock", "UNIX-CONNECT:*/dockershim.sock"))
 ) and not user.Ext.real.id : "0" and not group.Ext.real.id : "0"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation through Writable Docker Socket
+
+Docker sockets facilitate communication between the Docker client and daemon, typically restricted to root or specific groups. If misconfigured to be writable by unauthorized users, adversaries can exploit this to execute containers with elevated privileges, potentially accessing the host system. The detection rule identifies suspicious processes attempting to interact with Docker sockets without root or group privileges, signaling possible privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process name and arguments that triggered the rule, focusing on `process.name` and `process.args` fields.
+- Verify the user and group IDs associated with the process using `user.Ext.real.id` and `group.Ext.real.id` fields to confirm they are not root or part of the docker group.
+- Check the system logs for any recent changes to Docker socket permissions that might have allowed unauthorized write access.
+- Use Osquery to list all processes interacting with Docker sockets by running: `SELECT pid, name, path FROM processes WHERE path LIKE '/var/run/docker.sock' OR path LIKE '/var/run/dockershim.sock';`
+- Investigate the user account associated with the process to determine if it has a history of legitimate Docker usage or if it might be compromised.
+- Examine the command history of the user to identify any recent commands that could indicate an attempt to exploit Docker socket permissions.
+- Analyze network logs to detect any unusual outbound connections from the host that might suggest data exfiltration or communication with a command and control server.
+- Review Docker daemon logs for any suspicious container creation or execution events that align with the alert timestamp.
+- Check for any newly created or modified containers on the host that could have been used to escalate privileges.
+- Investigate the system for any additional indicators of compromise, such as unauthorized file modifications or new user accounts, that might correlate with the alert.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators or authorized users may perform legitimate tasks that involve interacting with Docker sockets, such as maintenance or configuration changes. These actions can trigger the rule if they are not executed with root or group privileges. To manage this, users can create exceptions for specific user IDs or groups known to perform these tasks regularly.
+- Automated scripts or tools: Some automated scripts or monitoring tools might interact with Docker sockets as part of their normal operation. If these tools are known and trusted, users can exclude their process names or specific arguments from triggering the rule.
+- Development environments: In development environments, developers might frequently use Docker commands to test applications. If these actions are non-threatening and part of regular development workflows, users can exclude specific user IDs or process arguments associated with these activities.
+- Container orchestration systems: Systems like Kubernetes might interact with Docker sockets as part of their orchestration tasks. If these interactions are expected and secure, users can create exceptions for the specific processes or arguments used by these systems.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Investigate the source of the unauthorized access by reviewing logs and identifying any suspicious user accounts or processes that interacted with the Docker socket.
+- Terminate any unauthorized containers or processes that were started using the writable Docker socket to prevent further exploitation.
+- Change permissions on the Docker socket to restrict write access to only the root user and the docker group, ensuring no unauthorized users can access it.
+- Conduct a thorough review of user accounts and group memberships to ensure only authorized personnel have access to Docker-related privileges.
+- Implement enhanced logging for Docker daemon activities and socket interactions to capture detailed information for future investigations.
+- Integrate security monitoring tools with SIEM solutions to detect and alert on suspicious Docker socket activities in real-time.
+- Restore the system to its operational state by verifying the integrity of system files and configurations, ensuring no backdoors or malicious modifications remain.
+- Apply security patches and updates to the Docker daemon and related components to mitigate known vulnerabilities.
+- Educate and train system administrators and users on secure Docker practices and the importance of maintaining strict access controls."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2024/06/18"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 25
@@ -86,6 +86,49 @@ tags = [
     "Tactic: Discovery",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Linux Network Configuration Discovery
+
+Linux systems often use commands like `ifconfig`, `ip`, and `netstat` for network configuration discovery, essential for troubleshooting and network management. Adversaries exploit these commands to map network structures, aiding in lateral movement or further reconnaissance. The detection rule identifies atypical usage patterns by monitoring command execution from unexpected user accounts, signaling potential account compromise or malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific command executed, the user account involved, and the timestamp of the activity.
+- Check the user account's login history and recent activity to determine if the account has been used in an unusual manner or from unexpected locations.
+- Analyze the command execution context, including the terminal or process that initiated the command, to identify any anomalies or suspicious patterns.
+- Investigate the source IP address and hostname associated with the command execution to verify if they are known and trusted within the network.
+- Use Osquery to gather additional context about the system and user activity. For example, run the following query to list recent network-related commands executed by the user: `SELECT * FROM shell_history WHERE command LIKE '%ifconfig%' OR command LIKE '%ip%' OR command LIKE '%netstat%' AND uid = <user_id>;`
+- Examine system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any signs of unauthorized access or privilege escalation attempts around the time of the alert.
+- Cross-reference the alert with other security events or alerts to identify any correlated activities that might indicate a broader attack campaign.
+- Review the system's network configuration and recent changes to identify any unauthorized modifications or suspicious network connections.
+- Check for any recent file modifications or new files in the user's home directory or other sensitive directories that might indicate malicious activity.
+- Consult threat intelligence sources to determine if the observed behavior matches any known tactics, techniques, or procedures (TTPs) associated with specific threat actors or campaigns.
+
+### False positive analysis
+
+- System administrators or network engineers performing routine network diagnostics may trigger the rule if they use unexpected accounts or workstations. To manage this, create exceptions for known user accounts or IP addresses that regularly perform these tasks.
+- Automated scripts or monitoring tools that execute network configuration commands for legitimate purposes might be flagged. Users can whitelist these scripts or processes by identifying their signatures or execution patterns.
+- Temporary or new user accounts created for specific projects or troubleshooting can cause alerts. Ensure these accounts are documented and added to an exception list if their activities are verified as non-threatening.
+- Changes in user roles or responsibilities might lead to legitimate network configuration commands being run by users who previously did not perform such tasks. Regularly update the exception list to reflect these role changes.
+- In environments with frequent network changes or testing, legitimate users might execute network discovery commands more often. Implement a review process to periodically assess and update the list of exceptions based on current network activity patterns.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Verify the legitimacy of the user account that executed the unusual network configuration commands and reset its credentials if compromised.
+- Conduct a thorough investigation of the system logs to identify any additional suspicious activities or unauthorized access attempts.
+- Review and analyze the command history to understand the scope of the adversary's reconnaissance and any potential data exfiltration.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed command execution and user activity for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and detect similar threats.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure all security configurations are intact.
+- Conduct a security audit of the network to identify and remediate any vulnerabilities that could be exploited for similar attacks.
+- Implement hardening measures such as least privilege access, multi-factor authentication, and regular user activity reviews to prevent future incidents."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -40,6 +40,48 @@ query = '''
 process where event.type == "start" and process.name : "sc.exe" and
   process.args : "*config*" and process.args : "*binPath*"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Service Path Modification via sc.exe
+
+The `sc.exe` utility is a command-line tool used to manage Windows services, including configuring service paths. Adversaries may exploit this by altering service paths to execute malicious binaries, achieving persistence or privilege escalation. The detection rule identifies suspicious modifications by monitoring for `sc.exe` executions with specific arguments related to service configuration, signaling potential unauthorized changes.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of `sc.exe` execution with arguments containing `*config*` and `*binPath*`, indicating a service path modification attempt.
+- Correlate the timestamp of the `sc.exe` execution with other logs to identify any preceding or subsequent suspicious activities, such as file modifications or network connections.
+- Identify the user account associated with the `sc.exe` process execution to determine if it aligns with expected administrative activity or if it might be compromised.
+- Examine the parent process of `sc.exe` to understand how it was initiated, which could provide insights into whether the execution was automated or manually triggered.
+- Use Osquery to list all services and their current binary paths to identify any discrepancies or unexpected changes. Example query: `SELECT name, path FROM services WHERE path LIKE '%suspicious_binary%'`.
+- Investigate the modified service's purpose and typical behavior to assess the potential impact of the path change and whether it aligns with legitimate operations.
+- Check for any recent changes to the system's registry, particularly in areas related to service configurations, to identify unauthorized modifications.
+- Analyze network logs for any unusual outbound connections from the host around the time of the `sc.exe` execution, which might indicate data exfiltration or command-and-control activity.
+- Review historical logs for previous instances of `sc.exe` usage by the same user or on the same host to identify patterns or repeated attempts at service path modification.
+- Consult threat intelligence sources to determine if the modified service path or associated binary is linked to known malware or adversary techniques.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators may use `sc.exe` to legitimately modify service paths during maintenance or configuration changes. To manage these, users can create exceptions for known administrative accounts or specific time windows when such tasks are expected.  
+- Software updates: Some software installations or updates might modify service paths using `sc.exe` as part of their setup process. Users can exclude these by identifying and whitelisting the associated software update processes or vendors.  
+- Automated scripts: Organizations may have automated scripts that use `sc.exe` for service management. To handle these, users can exclude specific scripts or processes by their hash or command line patterns.  
+- Monitoring tools: Certain monitoring or management tools might invoke `sc.exe` for legitimate service checks or configurations. Users should identify these tools and create exceptions based on their known behavior or signatures.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the scope of the compromise, focusing on recent changes to service paths and any unauthorized binaries.
+- Review system logs and security events to trace the origin of the `sc.exe` command execution and identify any associated user accounts or processes.
+- Restore the original service path configurations from backups or system documentation to ensure legitimate service operation.
+- Remove any unauthorized binaries or scripts that were introduced as part of the service path modification.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future monitoring.
+- Integrate endpoint detection and response (EDR) solutions to provide real-time alerts and automated responses to suspicious service modifications.
+- Conduct a security audit of all services and their configurations to identify and remediate any other potential vulnerabilities.
+- Apply system hardening measures, such as restricting administrative privileges and implementing application whitelisting, to prevent unauthorized service modifications in the future."""
 
 
 [[rule.threat]]

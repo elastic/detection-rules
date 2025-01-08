@@ -2,7 +2,7 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -62,6 +62,49 @@ query = '''
 process where ((problemchild.prediction == 1 and problemchild.prediction_probability > 0.98) or
 blocklist_label == 1) and not process.args : ("*C:\\WINDOWS\\temp\\nessus_*.txt*", "*C:\\WINDOWS\\temp\\nessus_*.tmp*")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Machine Learning Detected a Suspicious Windows Event with a High Malicious Probability Score
+
+The detection leverages a machine learning model, ProblemChild, to identify potentially malicious Windows processes by analyzing patterns and assigning a high probability score to suspicious activities. Adversaries may exploit this by masquerading legitimate processes to evade detection. The rule flags processes with high malicious scores or those on a blocklist, excluding known benign activities, to pinpoint potential threats effectively.
+
+### Possible investigation steps
+
+- Review the process details flagged by the alert, focusing on the `process.args` field to understand the command line arguments used, which may provide insights into the process's intent.
+- Check the `problemchild.prediction_probability` score to assess the confidence level of the machine learning model in classifying the process as malicious.
+- Investigate the parent process of the flagged event to determine if it is a legitimate process or if it has been compromised, using the `process.parent` field.
+- Cross-reference the process name and path against known legitimate software and common masquerading techniques to identify potential false positives.
+- Utilize Osquery to gather additional context about the process. For example, run the following query to list all processes with similar names or paths: `SELECT pid, name, path, cmdline FROM processes WHERE name LIKE '%<suspicious_process_name>%' OR path LIKE '%<suspicious_process_path>%';`
+- Examine the process's network activity to identify any suspicious connections or data exfiltration attempts, using network monitoring tools or logs.
+- Check for any recent changes or anomalies in the system's file integrity, focusing on the directories and files associated with the flagged process.
+- Review the system's event logs for any related security events or anomalies that occurred around the same time as the suspicious process execution.
+- Investigate the user account associated with the process execution to determine if it has been compromised or is exhibiting unusual behavior.
+- Correlate the findings with threat intelligence sources to identify if the process or its behavior matches any known threat actor techniques or campaigns.
+
+### False positive analysis
+
+- Known false positives for the Machine Learning Detected a Suspicious Windows Event with a High Malicious Probability Score rule may include legitimate processes that mimic suspicious patterns, such as system updates or software installations that temporarily exhibit unusual behavior.
+- Users can manage these false positives by creating exceptions for processes that are verified as non-threatening, such as those related to trusted software updates or internal IT scripts.
+- Regularly review and update the blocklist and exception list to ensure that legitimate processes are not inadvertently flagged, especially after system updates or changes in software configurations.
+- Consider implementing additional context checks, such as verifying the digital signature of flagged processes, to differentiate between legitimate and malicious activities.
+- Engage with security teams to analyze flagged events and refine the machine learning model's parameters to reduce the likelihood of false positives while maintaining effective threat detection.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malicious activity.
+- Conduct a thorough investigation of the flagged process to confirm its malicious nature, using forensic tools to analyze process behavior and associated files.
+- Review and cross-reference the process with known threat intelligence sources to identify any indicators of compromise (IOCs) related to the detected activity.
+- If confirmed malicious, terminate the process and remove any associated files or registry entries to prevent persistence.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process execution data and network activity for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and reduce false positives.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure all security configurations are correctly set.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Implement hardening measures such as application whitelisting, disabling unnecessary services, and enforcing least privilege access to reduce the attack surface."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/12/16"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -65,6 +65,50 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   (process.name == "rpm" and process.args == "pam")
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Pluggable Authentication Module (PAM) Version Discovery
+
+Pluggable Authentication Modules (PAM) provide a flexible mechanism for authenticating users on Linux systems. Adversaries may exploit PAM by discovering its version to identify vulnerabilities or backdoor the authentication process with malicious modules. The detection rule identifies suspicious activities by monitoring processes like `dpkg` or `rpm` that query PAM-related packages, indicating potential reconnaissance or tampering attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the triggering process name and arguments, specifically checking if `dpkg`, `dpkg-query`, or `rpm` were used with arguments `libpam-modules` or `pam`.
+- Verify the user account associated with the process execution to determine if it aligns with expected administrative activity or if it appears suspicious.
+- Check the process execution timeline to identify any unusual patterns or sequences of commands that might indicate reconnaissance or tampering.
+- Investigate the parent process of the alert-triggering process to understand the context of how the command was initiated.
+- Examine the command history of the user associated with the process to identify any other potentially suspicious activities or commands executed around the same time.
+- Utilize Osquery to gather more information about PAM-related files and configurations. For example, run the query: `SELECT * FROM rpm_packages WHERE name LIKE 'pam%' OR name LIKE 'libpam%';` to list installed PAM packages and their versions.
+- Cross-reference the PAM version information obtained with known vulnerabilities or advisories to assess potential risks.
+- Analyze system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any unusual authentication attempts or errors that might correlate with the alert.
+- Investigate network activity from the host to identify any connections to known malicious IPs or domains that could suggest external reconnaissance or data exfiltration.
+- Review recent changes to PAM configuration files, such as `/etc/pam.d/`, to detect unauthorized modifications or the presence of suspicious modules.
+
+### False positive analysis
+
+- Routine system updates or package management activities can trigger the rule, as legitimate processes like `dpkg` or `rpm` may query PAM-related packages during normal operations.
+- System administrators performing audits or checks on installed packages might inadvertently cause alerts when using package management tools to verify PAM versions.
+- Automated scripts or configuration management tools that regularly check for package updates or system configurations could also lead to false positives if they include commands querying PAM packages.
+- To manage these false positives, users can create exceptions for known benign activities by excluding specific user accounts or processes that are regularly involved in legitimate package management tasks.
+- Implementing a whitelist for certain scripts or automation tools that are verified and trusted can help reduce unnecessary alerts while maintaining security monitoring.
+- Regularly reviewing and updating the list of exceptions based on observed patterns and system changes can help maintain the balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to confirm the presence of malicious PAM modules by reviewing system logs and checking for unauthorized changes in PAM configuration files.
+- Use forensic tools to capture and analyze memory and disk images to identify any additional indicators of compromise or persistence mechanisms.
+- Remove any unauthorized or suspicious PAM modules and restore the original configuration from a known good backup.
+- Apply security patches and updates to the PAM software and other system components to mitigate known vulnerabilities.
+- Implement enhanced logging policies to capture detailed authentication and process execution events for future analysis.
+- Integrate security information and event management (SIEM) systems to correlate PAM-related events with other security alerts for comprehensive threat detection.
+- Conduct a review of user accounts and authentication policies to ensure they adhere to the principle of least privilege and enforce strong password policies.
+- Escalate the incident to the appropriate internal security team or external cybersecurity experts if advanced persistent threats or sophisticated attack techniques are suspected.
+- Develop and implement a system hardening guide that includes disabling unused PAM modules, restricting access to PAM configuration files, and regularly auditing PAM-related activities."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

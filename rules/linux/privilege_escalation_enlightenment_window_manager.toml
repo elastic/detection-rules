@@ -2,7 +2,7 @@
 creation_date = "2024/01/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -62,6 +62,48 @@ sequence by host.id, process.parent.entity_id with maxspan=5s
     process.name == "enlightenment_sys" and process.args in ("/bin/mount/", "-o","noexec","nosuid","nodev","uid=*") ]
   [process where host.os.type == "linux" and event.action == "uid_change" and event.type == "change" and user.id == "0"]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via Enlightenment
+
+Enlightenment, a Linux window manager, can be exploited for privilege escalation due to a flaw in its setuid root binary, enlightenment_sys. Attackers exploit this by manipulating pathnames, gaining unauthorized root access. The detection rule identifies this by monitoring specific process executions and subsequent unauthorized user ID changes, flagging potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the host.id and process.parent.entity_id associated with the suspicious activity, ensuring you have the correct context for the investigation.
+- Verify the process execution by checking the process.name and process.args fields to confirm that the process "enlightenment_sys" was executed with the specific arguments ("/bin/mount/", "-o", "noexec", "nosuid", "nodev", "uid=*").
+- Investigate the timeline of events by examining the sequence of process executions and user ID changes within the maxspan of 5 seconds to identify any anomalies or patterns.
+- Check the user.id field to confirm if there was an unauthorized change to user ID "0", indicating a potential privilege escalation attempt.
+- Use Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE name = 'enlightenment_sys';` to retrieve details about the process, including its parent process, user, and execution path.
+- Investigate the parent process of "enlightenment_sys" using the process.parent.entity_id to understand the origin of the execution and whether it was initiated by a legitimate or suspicious process.
+- Examine system logs for any additional context around the time of the alert, focusing on authentication logs and any other security-related logs that might indicate unauthorized access attempts.
+- Review the system's history of privilege escalation attempts by searching for similar patterns or alerts in the past, which might indicate a recurring issue or targeted attack.
+- Analyze the host's environment for any recent changes or anomalies, such as new software installations or configuration changes, that could have facilitated the exploitation attempt.
+- Cross-reference the alert with known threat intelligence sources to determine if the activity matches any known attack patterns or threat actor behaviors associated with CVE-2022-37706.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators may execute the `enlightenment_sys` binary with specific arguments for maintenance or configuration purposes, which could trigger the detection rule. To manage this, users can create exceptions for known administrative scripts or processes that regularly perform these tasks.
+- Automated scripts: Some automated scripts or system management tools might use `enlightenment_sys` for legitimate operations, leading to false positives. Users should identify these scripts and whitelist them to prevent unnecessary alerts.
+- Testing environments: In environments where security testing or development is conducted, the execution of `enlightenment_sys` with root privileges might be part of routine testing. Users can exclude specific testing environments or IP ranges from the rule to reduce false positives.
+- System updates: During system updates, certain processes might temporarily mimic the behavior flagged by the rule. Users should monitor update schedules and consider temporary exceptions during these periods to avoid false alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to confirm the exploitation by reviewing logs and correlating events with the detection rule, focusing on unauthorized user ID changes and suspicious process executions.
+- If exploitation is confirmed, escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Remove or disable the vulnerable version of Enlightenment (before 0.25.4) and replace it with the latest patched version to mitigate the vulnerability.
+- Review and update system and application logging policies to ensure comprehensive coverage of process executions, user ID changes, and other relevant security events.
+- Implement additional security monitoring and alerting for similar privilege escalation attempts, leveraging MITRE ATT&CK framework techniques such as T1068 for context.
+- Restore the system to its operational state by verifying the integrity of system files and configurations, and ensure no unauthorized changes persist.
+- Conduct a post-incident review to identify gaps in detection and response, and update incident response plans accordingly.
+- Enhance system hardening by applying the principle of least privilege, ensuring that only necessary permissions are granted to users and processes.
+- Consider integrating additional security tools and technologies, such as endpoint detection and response (EDR) solutions, to improve future detection and response capabilities."""
 
 
 [[rule.threat]]

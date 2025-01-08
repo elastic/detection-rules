@@ -2,7 +2,7 @@
 creation_date = "2023/02/02"
 integration = ["windows", "endpoint"]
 maturity = "production"
-updated_date = "2024/12/23"
+updated_date = "2025/01/08"
 min_stack_version = "8.15.0"
 min_stack_comments = "Elastic Defend WMI events were added in Elastic Defend 8.15.0."
 
@@ -45,6 +45,49 @@ any where
     process.Ext.api.parameters.consumer_type in ("ActiveScriptEventConsumer", "CommandLineEventConsumer"))
  )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious WMI Event Subscription Created
+
+Windows Management Instrumentation (WMI) is a powerful framework for managing data and operations on Windows systems. It allows for event subscriptions that can trigger actions based on system events. Adversaries exploit this by creating malicious event subscriptions to maintain persistence or execute code with elevated privileges. The detection rule identifies such abuse by monitoring specific event creation patterns linked to suspicious consumer types, indicating potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of event code 21 from the "windows.sysmon_operational" dataset, indicating a WMI event subscription creation.
+- Examine the `winlog.event_data.Operation` field to ensure it specifies "Created," confirming the creation of a new event subscription.
+- Analyze the `winlog.event_data.Consumer` field to identify if it matches suspicious patterns like "*subscription:CommandLineEventConsumer*" or "*subscription:ActiveScriptEventConsumer*," which are commonly used in malicious activities.
+- Check the timestamp of the event to determine when the suspicious WMI event subscription was created and correlate it with other events or activities on the system around the same time.
+- Investigate the user account associated with the event to determine if it has the necessary privileges and if the activity aligns with the user's typical behavior.
+- Use Osquery to gather more information about the WMI subscriptions on the affected system. For example, run the query: `SELECT * FROM wmi_event_subscriptions WHERE consumer LIKE '%CommandLineEventConsumer%' OR consumer LIKE '%ActiveScriptEventConsumer%';` to identify all similar subscriptions.
+- Cross-reference the system's process creation logs to identify any processes that were spawned as a result of the WMI event subscription, focusing on unusual or unexpected processes.
+- Review the system's security logs for any signs of privilege escalation or lateral movement attempts that might be associated with the WMI event subscription.
+- Investigate any network connections initiated by the system around the time of the event to identify potential communication with external or suspicious IP addresses.
+- Consult threat intelligence sources to determine if the identified WMI event subscription patterns are associated with known malware or threat actor tactics.
+
+### False positive analysis
+
+- Legitimate administrative tools and scripts may create WMI event subscriptions for system monitoring or automation purposes, which can trigger this detection rule. 
+- Software installations or updates might use WMI event subscriptions as part of their setup or configuration processes, leading to benign alerts.
+- System management software, such as configuration management tools or monitoring solutions, often utilize WMI event subscriptions to track system changes or performance metrics.
+- To manage these false positives, users can create exceptions for known and trusted applications or scripts by identifying their specific event patterns and excluding them from the detection rule.
+- Regularly review and update the list of exceptions to ensure that only verified non-threatening behaviors are excluded, maintaining the effectiveness of the detection rule against genuine threats.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Use endpoint detection and response (EDR) tools to collect and analyze forensic data from the affected system, focusing on the WMI event subscription details.
+- Identify and terminate any malicious processes or scripts associated with the suspicious WMI event subscription.
+- Review and remove any unauthorized WMI event subscriptions, particularly those linked to CommandLineEventConsumer or ActiveScriptEventConsumer.
+- Conduct a thorough investigation to determine if the attacker has established additional persistence mechanisms or compromised other systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to assess the scope of the breach.
+- Implement enhanced logging policies to capture detailed WMI activity and integrate with a security information and event management (SIEM) system for real-time monitoring.
+- Restore the system to a known good state using backups or reimaging, ensuring all malicious artifacts are removed.
+- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities.
+- Strengthen system hardening measures by disabling unnecessary WMI features and enforcing least privilege access controls to reduce the attack surface."""
 
 
 [[rule.threat]]

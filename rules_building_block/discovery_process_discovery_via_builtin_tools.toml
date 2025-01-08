@@ -2,7 +2,7 @@
 creation_date = "2023/07/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -36,6 +36,49 @@ process where event.type == "start" and event.action in ("exec", "exec_event") a
 ) and 
 not process.parent.name in ("amazon-ssm-agent", "snap")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Process Discovery via Built-In Applications
+
+Built-in applications like `ps`, `pstree`, `htop`, and `pgrep` are essential for system administrators to monitor and manage processes on endpoints. However, adversaries exploit these tools to gain insights into running processes, aiding in lateral movement or privilege escalation. The detection rule identifies suspicious use of these tools by monitoring process start events, filtering out benign parent processes like system management agents, thus highlighting potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name matches one of the built-in tools: `ps`, `pstree`, `htop`, or `pgrep`.
+- Check the `event.type` and `event.action` fields to ensure the event corresponds to a process start with actions like "exec" or "exec_event".
+- Investigate the `process.parent.name` to verify it is not a benign process like "amazon-ssm-agent" or "snap", which are filtered out in the detection rule.
+- Examine the timestamp of the event to determine if it coincides with any known scheduled tasks or maintenance windows.
+- Correlate the event with user activity by checking the user account associated with the process start event to identify if it aligns with expected behavior.
+- Use Osquery to gather additional context about the process. For example, run the query: `SELECT * FROM processes WHERE name IN ('ps', 'pstree', 'htop', 'pgrep');` to list all instances of these processes and their details.
+- Investigate the command line arguments used with the process to identify any unusual or suspicious parameters that could indicate malicious intent.
+- Check for any network connections or file modifications initiated by the process to assess if it is part of a larger attack chain.
+- Review historical data to determine if there have been previous instances of similar process discovery activities on the endpoint.
+- Consult threat intelligence sources to see if there are any known campaigns or threat actors associated with the use of these tools in a malicious context.
+
+### False positive analysis
+
+- System administrators and automated scripts often use built-in tools like `ps`, `pstree`, `htop`, and `pgrep` for legitimate monitoring and management tasks, which can trigger false positives in the detection rule.
+- Regularly scheduled maintenance tasks or health checks performed by IT teams may also appear as suspicious activity if they involve these tools.
+- To manage these false positives, users can create exceptions for known benign parent processes or specific user accounts that frequently execute these commands as part of their routine operations.
+- Implementing a whitelist for certain processes or users that are verified to perform legitimate activities can help reduce noise and focus on truly suspicious events.
+- Monitoring the frequency and context of these tool executions can aid in distinguishing between normal administrative use and potential malicious activity.
+
+### Response and remediation
+
+- Immediately isolate the affected endpoint from the network to prevent further lateral movement by the adversary.
+- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any unauthorized access or privilege escalation attempts.
+- Review process execution logs to identify any unusual patterns or anomalies that could indicate malicious activity.
+- Terminate any suspicious processes identified during the investigation to prevent further exploitation.
+- Escalate the incident to the security operations center (SOC) or incident response team if the threat is confirmed to be part of a larger attack campaign.
+- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs) as outlined in the MITRE ATT&CK framework.
+- Restore the system to its operational state by applying security patches, updating antivirus definitions, and ensuring all security controls are functioning correctly.
+- Conduct a post-incident review to identify gaps in the current security posture and implement hardening measures such as disabling unnecessary built-in tools or restricting their use to authorized personnel only.
+- Provide training and awareness sessions for system administrators and users to recognize signs of process discovery attempts and report suspicious activities promptly."""
 
 
 [[rule.threat]]

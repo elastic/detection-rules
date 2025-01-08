@@ -2,7 +2,7 @@
 creation_date = "2021/07/15"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Austin Songer"]
@@ -21,7 +21,51 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Potential ransomware activity"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Potential ransomware activity
+
+Microsoft 365's Cloud App Security monitors user activities to identify potential ransomware threats, such as suspicious file uploads. Adversaries may exploit cloud storage to distribute or store ransomware, encrypting data for impact. The detection rule leverages audit logs to flag successful web actions linked to ransomware, aligning with MITRE ATT&CK's impact tactics, ensuring timely threat identification and response.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event.dataset is "o365.audit" and the event.provider is "SecurityComplianceCenter" to ensure the alert is from a legitimate source.
+- Verify the event.category is "web" and the event.action is "Potential ransomware activity" to confirm the nature of the alert.
+- Check the event.outcome field to ensure it is marked as "success," indicating the action was completed and potentially harmful.
+- Identify the user account involved in the alert to determine if the activity aligns with their typical behavior or if it appears suspicious.
+- Examine the timestamp of the alert to correlate with other security events or anomalies that may have occurred around the same time.
+- Investigate the specific files uploaded by the user by reviewing file names, types, and sizes to identify any unusual or suspicious characteristics.
+- Utilize Osquery to gather additional context on the user's activity. For example, run a query to list recent file modifications: `SELECT * FROM file WHERE path LIKE '/path/to/suspected/files/%';`
+- Cross-reference the user's IP address and location with known locations for the user to identify any discrepancies or unusual access patterns.
+- Analyze audit logs for any other recent activities by the same user that may indicate a broader pattern of suspicious behavior.
+- Collaborate with other security teams to gather additional intelligence or context on the potential ransomware activity, leveraging threat intelligence feeds if available.
+
+### False positive analysis
+
+- Legitimate file uploads by users, such as regular backups or large data transfers, may trigger the rule as potential ransomware activity due to the volume or nature of the files.
+- Automated processes or scripts that upload files to the cloud as part of routine operations can be mistakenly flagged as ransomware activity.
+- Users can manage these false positives by creating exceptions for known safe activities, such as whitelisting specific users or processes that regularly perform large uploads.
+- Implementing a review process for flagged activities can help distinguish between genuine threats and benign actions, allowing for more accurate threat detection.
+- Regularly updating the list of exceptions based on user feedback and activity patterns can reduce the occurrence of false positives over time.
+
+### Response and remediation
+
+- Immediately isolate the affected user account and device from the network to prevent further spread of the ransomware.
+- Conduct a thorough investigation of the audit logs to identify the scope of the ransomware activity and determine if other accounts or systems are compromised.
+- Remove any identified malicious files from the cloud storage and ensure they are quarantined for further analysis.
+- Escalate the incident to the security operations center (SOC) or incident response team for a deeper investigation and to determine if additional resources are needed.
+- Restore any encrypted or compromised files from the most recent clean backup to ensure data integrity and availability.
+- Implement or review existing logging policies to ensure comprehensive monitoring of user activities and cloud interactions for early detection of similar threats.
+- Integrate additional security tools, such as endpoint detection and response (EDR) solutions, to enhance visibility and response capabilities.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Educate users on recognizing phishing attempts and suspicious activities to reduce the risk of future ransomware infections.
+- Apply security hardening measures, such as enabling multi-factor authentication (MFA) and ensuring all systems are patched and up-to-date, to mitigate potential vulnerabilities.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 """

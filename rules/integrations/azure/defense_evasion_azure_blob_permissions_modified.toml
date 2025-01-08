@@ -2,7 +2,7 @@
 creation_date = "2021/09/22"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Austin Songer"]
@@ -21,7 +21,51 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Blob Permissions Modification"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure Blob Permissions Modification
+
+Azure Blob Storage is a service for storing large amounts of unstructured data, such as text or binary data. It uses Azure RBAC to manage access permissions. Adversaries may exploit this by altering permissions to gain unauthorized access or disrupt data integrity. The detection rule monitors specific Azure activity logs for successful operations that change blob permissions, signaling potential security threats.
+
+### Possible investigation steps
+
+- Review the alert details to understand the specific operation that triggered the alert, focusing on the `azure.activitylogs.operation_name` field to determine if it was a "MANAGEOWNERSHIP/ACTION" or "MODIFYPERMISSIONS/ACTION".
+- Check the `event.outcome` field to confirm the operation was successful, as this indicates a confirmed change in permissions.
+- Identify the user or service principal responsible for the change by examining the `azure.activitylogs.caller` field to determine if the action was performed by an authorized entity.
+- Investigate the `azure.activitylogs.resource_id` field to pinpoint the specific Azure Blob or container affected by the permission change.
+- Correlate the timestamp of the alert with other logs to identify any concurrent suspicious activities, such as unusual login attempts or data access patterns.
+- Use Osquery to gather additional context on the affected Azure Blob by running a query like: `SELECT * FROM azure_blob_permissions WHERE blob_name = '<affected_blob_name>' AND account_name = '<storage_account_name>';` to verify current permissions and compare with expected configurations.
+- Review recent changes in Azure Active Directory (AAD) logs to check for any modifications to roles or group memberships that could have influenced the permission change.
+- Analyze historical activity logs for the same `azure.activitylogs.caller` to identify any patterns of behavior that might suggest malicious intent or previous unauthorized access attempts.
+- Consult with the data owner or relevant stakeholders to verify if the permission change was expected or authorized, providing context from the alert details.
+- Document findings and gather evidence, including screenshots and log extracts, to support further analysis or escalation if necessary.
+
+### False positive analysis
+
+- Routine administrative tasks: Regular maintenance or updates by administrators may trigger the rule when they modify blob permissions as part of their duties. Users can handle these by identifying and excluding specific administrative accounts or operations from the rule.
+- Automated processes: Scheduled scripts or automated tools that manage blob permissions for operational purposes might cause false positives. Users should document these processes and create exceptions for known benign operations.
+- Third-party integrations: Some third-party applications may require permission changes to function correctly, leading to false positives. Users should review and whitelist these applications if they are verified as non-threatening.
+- Testing environments: Changes in permissions within testing or development environments can trigger alerts. Users can exclude these environments from monitoring or adjust the rule to focus on production environments only.
+- Temporary access changes: Short-term permission modifications for troubleshooting or temporary projects might be flagged. Users should track these changes and set up temporary exceptions with expiration dates to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected Azure Blob Storage account to prevent further unauthorized access or data manipulation.
+- Review Azure Activity Logs to identify the source and scope of the permission changes, focusing on the user or service principal responsible for the modification.
+- Verify the current permissions on the affected blobs and compare them with the baseline or expected permissions to assess the extent of unauthorized changes.
+- Revert any unauthorized permission changes to their original state to restore security controls and prevent data exposure.
+- Conduct a thorough investigation to determine if any data was accessed or exfiltrated during the period of unauthorized access.
+- Escalate the incident to the security operations team and, if necessary, involve legal or compliance teams to assess potential data breach implications.
+- Implement enhanced logging and monitoring policies to capture detailed access and modification events for Azure Blob Storage, ensuring future incidents are detected promptly.
+- Integrate Azure Security Center and other security tools to provide real-time alerts and automated responses to suspicious activities related to blob permissions.
+- Educate administrators and users on the importance of maintaining strict access controls and regularly reviewing permissions to prevent inadvertent exposure.
+- Apply hardening measures such as enabling Azure AD Conditional Access policies and using Azure Key Vault to manage and rotate access keys securely.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles"]

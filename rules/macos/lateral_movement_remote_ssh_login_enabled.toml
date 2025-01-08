@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,49 @@ event.category:process and host.os.type:macos and event.type:(start or process_s
  process.args:("-setremotelogin" and on) and
  not process.parent.executable : /usr/local/jamf/bin/jamf
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Remote SSH Login Enabled via systemsetup Command
+
+The `systemsetup` command in macOS is a utility that allows administrators to configure system settings, including enabling remote SSH login. While useful for legitimate remote management, adversaries can exploit this to gain unauthorized access. The detection rule identifies suspicious use of `systemsetup` to enable SSH, excluding known legitimate processes, thus highlighting potential lateral movement attempts by attackers.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `systemsetup` command with arguments `-setremotelogin on` and verify the process name as `systemsetup`.
+- Check the parent process of the `systemsetup` command to ensure it is not `/usr/local/jamf/bin/jamf`, as this is a known legitimate process.
+- Identify the user account associated with the process execution to determine if it is a known administrator or a potentially compromised account.
+- Examine the timestamp of the event to correlate with any other suspicious activities or anomalies in the system logs around the same time.
+- Use Osquery to list all current SSH configurations and check if remote login is enabled with the following query: `SELECT * FROM plist WHERE path = '/etc/ssh/sshd_config' AND key = 'PermitRootLogin';`
+- Investigate the system's SSH access logs to identify any recent or unusual login attempts, especially around the time the `systemsetup` command was executed.
+- Cross-reference the host IP address with known assets to determine if the system is part of a critical network segment or if it has any history of security incidents.
+- Analyze any network traffic logs to identify potential lateral movement or data exfiltration attempts following the enabling of remote SSH login.
+- Check for any recent changes in user permissions or group memberships that could indicate privilege escalation attempts.
+- Review any other security alerts or incidents involving the same host or user account to assess if this event is part of a broader attack campaign.
+
+### False positive analysis
+
+- Known false positives for the Remote SSH Login Enabled via systemsetup Command rule often arise from legitimate administrative tools and scripts that manage macOS systems, such as configuration management software or custom scripts used by IT departments.
+- One common source of false positives is the use of the `systemsetup` command by authorized IT personnel or automated scripts to enable SSH for legitimate remote management tasks.
+- To manage these false positives, users can create exceptions for specific parent processes or scripts that are known to perform legitimate SSH enabling actions. This can be done by adding these processes to the exclusion list in the detection rule.
+- Another method to handle false positives is to monitor the frequency and context of the `systemsetup` command usage. If a particular process or script frequently triggers the rule but is verified as non-threatening, it can be safely excluded.
+- It's important to regularly review and update the list of exceptions to ensure that new legitimate processes are accounted for while maintaining the integrity of the detection rule against potential threats.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further unauthorized access or lateral movement.
+- Verify the legitimacy of the process by checking the user account that executed the `systemsetup` command and cross-reference with known administrative activities.
+- Review system logs and security alerts to identify any other suspicious activities or unauthorized access attempts around the time the SSH was enabled.
+- If unauthorized access is confirmed, reset credentials for affected accounts and any other accounts that may have been compromised.
+- Disable remote SSH login if it was enabled without authorization and ensure that only authorized users can enable it in the future.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised.
+- Implement enhanced logging policies to capture detailed process execution and network activity, ensuring that future unauthorized changes are detected promptly.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Restore the system to its operational state by applying any necessary patches, updates, and security configurations to prevent exploitation of known vulnerabilities.
+- Harden the system by enforcing strong authentication mechanisms, such as multi-factor authentication, and regularly auditing user permissions and access controls."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2022/01/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -59,6 +59,49 @@ type = "eql"
 query = '''
 file where host.os.type == "linux" and file.path : "/*GCONV_PATH*"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via PKEXEC
+
+Polkit's pkexec is a command-line tool used in Linux environments to execute commands as another user, typically root, by leveraging policies. Adversaries exploit vulnerabilities like CVE-2021-4034 by injecting unsecure environment variables, allowing unauthorized privilege escalation. The detection rule identifies suspicious file paths indicative of such exploitation attempts, focusing on patterns linked to environment variable manipulation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the suspicious file path pattern `/*GCONV_PATH*` on a Linux host, as this is indicative of potential exploitation attempts.
+- Verify the host's operating system type to ensure it matches "linux," as the rule is specifically designed for Linux environments.
+- Check the file creation and modification timestamps to determine when the suspicious file path was accessed or altered, which can help establish a timeline of events.
+- Use Osquery to list all environment variables set for processes running on the affected host to identify any unsecure or unusual entries. Example query: `SELECT pid, name, path, cmdline, environ FROM processes WHERE path LIKE '%pkexec%';`
+- Investigate the user account associated with the suspicious activity to determine if it has a history of privilege escalation attempts or other suspicious behavior.
+- Examine system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any entries related to pkexec usage or unauthorized access attempts around the time of the alert.
+- Analyze the process tree to identify parent and child processes of pkexec, which may reveal the origin of the exploitation attempt and any subsequent actions taken by the adversary.
+- Check for any recent changes to polkit configurations or policies that could have been exploited to facilitate the privilege escalation.
+- Review network activity logs to identify any external connections or data exfiltration attempts that may have occurred following the privilege escalation.
+- Correlate the findings with other security alerts or incidents to determine if this is part of a larger attack campaign targeting the organization.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger the detection rule if they temporarily use environment variables that match the suspicious patterns, such as those involving GCONV_PATH. Users should verify the source and context of these activities to determine if they are benign.
+- Custom scripts or administrative tools that manipulate environment variables for configuration purposes might also match the detection criteria. Users can create exceptions for these known scripts by specifying their file paths or process names in the detection rule.
+- Development environments where developers frequently test or debug applications using environment variables may inadvertently trigger the rule. In such cases, users can whitelist specific development directories or user accounts to reduce noise.
+- Automated system management tools that perform legitimate privilege escalation tasks might be flagged. Users should review these tools and, if deemed safe, add them to an exception list to prevent false positives.
+- To manage false positives effectively, users can implement a logging and review process to regularly assess flagged activities, ensuring that only non-threatening behaviors are excluded from detection.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement.
+- Conduct a thorough investigation to confirm the exploitation of CVE-2021-4034 by reviewing logs and identifying any unauthorized changes or suspicious activities.
+- If exploitation is confirmed, escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Apply the latest security patches and updates for polkit and pkexec to mitigate the vulnerability and prevent future exploitation.
+- Review and enhance logging policies to ensure comprehensive monitoring of environment variable manipulations and pkexec usage.
+- Implement additional security controls such as application whitelisting and least privilege access to reduce the attack surface.
+- Restore the system to its operational state by removing any unauthorized changes and verifying the integrity of critical system files.
+- Conduct a post-incident review to identify gaps in security controls and improve incident response procedures.
+- Educate users and administrators on the importance of applying security patches promptly and recognizing signs of potential exploitation.
+- Consider integrating threat intelligence feeds and security information and event management (SIEM) solutions to enhance detection and response capabilities."""
 
 
 [[rule.threat]]

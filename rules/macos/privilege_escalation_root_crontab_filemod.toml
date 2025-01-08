@@ -2,7 +2,7 @@
 creation_date = "2021/01/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,48 @@ query = '''
 event.category:file and host.os.type:macos and not event.type:deletion and
  file.path:/private/var/at/tabs/root and not process.executable:/usr/bin/crontab
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Privilege Escalation via Root Crontab File Modification
+
+Crontab files in macOS are used to schedule tasks, often requiring elevated privileges for execution. Adversaries may exploit this by modifying the root crontab file to execute malicious code with root privileges. The detection rule identifies unauthorized changes to this file, excluding legitimate crontab processes, to flag potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event category is 'file' and the host operating system type is 'macos', ensuring the alert is relevant to the environment.
+- Verify the file path involved in the alert is '/private/var/at/tabs/root', which indicates a modification to the root crontab file.
+- Check the process executable path to ensure it is not '/usr/bin/crontab', as legitimate crontab modifications should originate from this executable.
+- Use Osquery to list all current scheduled tasks and jobs on the affected macOS system to identify any unauthorized or suspicious entries. Example query: `SELECT * FROM crontab WHERE path = '/private/var/at/tabs/root';`
+- Investigate the user account associated with the process that modified the root crontab file to determine if it has legitimate access or if it might be compromised.
+- Examine the timestamp of the modification event to correlate with other system activities or alerts that occurred around the same time.
+- Review system logs for any unusual or unauthorized login attempts or privilege escalation activities preceding the crontab modification.
+- Analyze the contents of the modified root crontab file to identify any suspicious or unexpected scheduled tasks that could indicate malicious intent.
+- Cross-reference the modification event with known MITRE ATT&CK techniques, specifically focusing on Privilege Escalation (TA0004) and Scheduled Task/Job (T1053), to understand potential adversary behavior.
+- Consult threat intelligence sources to determine if there are any known campaigns or malware that exploit root crontab modifications on macOS systems.
+
+### False positive analysis
+
+- System administrators may legitimately modify the root crontab file for maintenance tasks or scheduled updates, which could trigger the detection rule. To manage this, users can create exceptions for known administrator accounts or specific maintenance scripts.
+- Automated system management tools or software updates might alter the root crontab file as part of their normal operation. Users should identify these tools and add them to an exclusion list to prevent false alerts.
+- Backup or monitoring software that checks or modifies crontab entries for integrity purposes could also be flagged. Users can exclude these processes by specifying their executable paths in the detection rule.
+- In development environments, developers might test scheduled tasks using the root crontab, leading to false positives. Users can handle this by setting up a separate detection rule for development environments with relaxed criteria.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Verify the integrity of the root crontab file by comparing it with a known good backup or baseline configuration.
+- Investigate the source of the modification by reviewing logs for any suspicious activity around the time of the change, focusing on unauthorized access attempts or unusual process executions.
+- Identify and terminate any malicious processes that may have been initiated through the modified crontab entry.
+- Restore the root crontab file to its original state using a backup or by manually removing unauthorized entries.
+- Conduct a thorough scan of the system for additional signs of compromise, such as unauthorized user accounts or unexpected changes to critical system files.
+- Escalate the incident to the security operations team for further analysis and to determine if other systems may be affected.
+- Implement enhanced logging policies to capture detailed information on file modifications and process executions, particularly for privileged files and directories.
+- Integrate with a Security Information and Event Management (SIEM) system to correlate events and improve detection capabilities for similar threats in the future.
+- Apply system hardening measures, such as restricting write permissions to critical files and directories, and regularly auditing user privileges to minimize the risk of privilege escalation."""
 
 
 [[rule.threat]]

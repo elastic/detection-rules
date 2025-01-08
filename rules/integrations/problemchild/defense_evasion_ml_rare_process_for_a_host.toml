@@ -2,7 +2,7 @@
 creation_date = "2023/09/19"
 integration = ["problemchild", "endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -57,6 +57,48 @@ tags = [
     "Tactic: Defense Evasion",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Process Spawned by a Host
+
+The detection of unusual processes on a host leverages machine learning to identify anomalies in process behavior, particularly on systems not typically associated with malicious activity. Adversaries may exploit legitimate system binaries, known as LOLbins, to evade detection. The detection rule utilizes the ProblemChild ML model to flag processes that deviate from normal patterns, focusing on tactics like System Binary Proxy Execution to uncover potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process flagged as unusual, including the process name, path, and the host on which it was detected.
+- Check the process's parent process to understand the context of how it was spawned and whether it aligns with typical behavior for that host.
+- Investigate the user account associated with the process to determine if it is a legitimate user and if the activity aligns with their normal behavior.
+- Examine the process's command line arguments for any suspicious or unexpected parameters that could indicate malicious intent.
+- Utilize Osquery to gather additional context about the process. For example, run the following query to list all processes with their parent process and command line details: `SELECT pid, name, path, cmdline, parent FROM processes WHERE name = '<suspicious_process_name>';`
+- Cross-reference the process with known LOLbins to determine if it is a legitimate system binary being used in an unusual manner.
+- Analyze recent system logs and security events on the host to identify any other anomalies or related activities that occurred around the same time as the process execution.
+- Check for any network connections initiated by the process to external IP addresses, which could indicate data exfiltration or command and control communication.
+- Review any recent changes or updates to the host that could have introduced the unusual process, such as software installations or configuration changes.
+- Consult threat intelligence sources to see if the process or its behavior has been associated with known threat actors or campaigns.
+
+### False positive analysis
+
+- Known false positives for the Unusual Process Spawned by a Host rule often involve legitimate administrative tools or scripts that are used in non-standard ways, which may be flagged by the ProblemChild ML model. These can include system maintenance scripts or software updates that utilize system binaries in a manner similar to LOLbins.
+- Users can manage these false positives by creating exceptions for processes that are identified as non-threatening through consistent monitoring and verification. This involves analyzing the context in which the process is executed, such as the user account initiating the process and the frequency of its occurrence.
+- To handle frequent non-threatening behaviors, users can implement allowlists for specific processes or paths that are known to be safe, ensuring that these are regularly reviewed and updated to reflect any changes in the environment.
+- It is important to maintain a balance between reducing false positives and ensuring that potential threats are not overlooked, which can be achieved by continuously refining the detection rules and incorporating feedback from security teams.
+
+### Response and remediation
+
+- Isolate the affected host from the network to prevent further malicious activity and lateral movement.
+- Analyze the suspicious process and its parent processes to understand the scope and potential impact of the activity.
+- Terminate the suspicious process if it is confirmed to be malicious or unauthorized.
+- Review system logs and security alerts to identify any additional indicators of compromise or related activities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and threat intelligence correlation.
+- Implement enhanced logging policies to capture detailed process execution data and network activity for future analysis.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities against similar threats.
+- Restore the system to its operational state by applying necessary patches, updates, and security configurations.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement system hardening measures, such as restricting the use of LOLbins and enforcing application whitelisting, to reduce the attack surface."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

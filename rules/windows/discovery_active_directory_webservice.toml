@@ -2,7 +2,7 @@
 creation_date = "2024/01/31"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -44,6 +44,49 @@ sequence by process.entity_id with maxspan=3m
  [network where host.os.type == "windows" and destination.port == 9389 and source.port >= 49152 and
   network.direction == "egress" and network.transport == "tcp" and not cidrmatch(destination.ip, "127.0.0.0/8", "::1/128")]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Enumeration via Active Directory Web Service
+
+Active Directory Web Service (ADWS) facilitates querying Active Directory (AD) over a network, providing a web-based interface for directory services. Adversaries may exploit ADWS to enumerate network resources and user accounts, gaining insights into the environment. The detection rule identifies suspicious activity by monitoring processes loading specific AD-related modules and making network connections to the ADWS port, which may indicate unauthorized enumeration attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process entity ID that triggered the rule, focusing on the process loading the AD-related modules.
+- Examine the process executable path to determine if it matches any known legitimate applications or if it appears suspicious based on the exclusion list in the query.
+- Check the user ID associated with the process to verify if it belongs to a legitimate system account or an unexpected user, as the query excludes well-known service accounts.
+- Investigate the network connection details, particularly the destination IP and port 9389, to confirm if the connection was made to a legitimate ADWS server or an unexpected destination.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT pid, name, path, cmdline FROM processes WHERE pid = <process_id>;` to retrieve command-line arguments and other process details.
+- Analyze the source port used in the network connection to determine if it falls within the expected ephemeral port range, as specified in the query.
+- Cross-reference the destination IP address with known internal ADWS servers or external threat intelligence sources to assess its legitimacy.
+- Review recent login events and user activity logs for the user associated with the process to identify any unusual behavior or patterns.
+- Check for any other recent alerts or logs related to the same process entity ID or user ID to identify potential patterns or repeated attempts.
+- Investigate any other network connections made by the same process to determine if there are additional suspicious activities or connections to other critical services.
+
+### False positive analysis
+
+- Legitimate administrative tools and scripts may load Active Directory-related modules and connect to the ADWS port as part of routine operations, leading to false positives. 
+- Scheduled tasks or automated processes that query Active Directory for system management or monitoring purposes might trigger the rule.
+- Security software or monitoring agents that perform regular checks on Active Directory services could be mistakenly flagged.
+- To manage these false positives, users can create exceptions for known benign processes by excluding specific executables or user accounts that are verified as non-threatening.
+- Regularly review and update the list of excluded processes and users to ensure that only legitimate activities are exempted, maintaining a balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the source of the enumeration attempt, including reviewing logs and correlating with other security events.
+- Verify the legitimacy of the process and user account involved in the suspicious activity to determine if it is a false positive or a genuine threat.
+- If malicious activity is confirmed, terminate the suspicious process and disable the associated user account to prevent further access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Review and enhance logging policies to ensure comprehensive monitoring of Active Directory-related activities, including module loads and network connections.
+- Implement additional security controls, such as network segmentation and access controls, to limit exposure of the Active Directory Web Service.
+- Restore the system to its operational state by applying necessary patches, updating security configurations, and conducting a full system scan for malware.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users and administrators on the risks associated with Active Directory enumeration and the importance of adhering to security best practices."""
 
 
 [[rule.threat]]

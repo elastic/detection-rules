@@ -2,7 +2,7 @@
 creation_date = "2023/09/14"
 integration = ["dga", "endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -59,6 +59,49 @@ type = "query"
 query = '''
 ml_is_dga.malicious_prediction:1 and dns.question.registered_domain:avsvmcloud.com
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Machine Learning Detected DGA activity using a known SUNBURST DNS domain
+
+Machine learning models can identify patterns in DNS queries indicative of Domain Generation Algorithms (DGAs), often used by malware like SUNBURST for command and control. Adversaries exploit DGAs to dynamically generate domain names, evading static blocklists. This detection rule leverages machine learning to flag DNS queries linked to SUNBURST, focusing on domains like avsvmcloud.com, thus identifying potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `ml_is_dga.malicious_prediction:1` field, indicating a high-confidence prediction of DGA activity.
+- Verify the DNS query details, specifically focusing on the `dns.question.registered_domain:avsvmcloud.com`, to confirm the domain associated with SUNBURST activity.
+- Cross-reference the detected domain with known threat intelligence sources to gather additional context on its association with SUNBURST or other malicious activities.
+- Analyze historical DNS logs to identify any patterns or frequency of queries to `avsvmcloud.com` from the same host or network segment.
+- Use Osquery to investigate the host that generated the DNS query. For example, run the following query to list recent DNS queries made by the host: `SELECT name, time, count FROM dns_cache WHERE name LIKE '%avsvmcloud.com%';`
+- Examine network traffic logs to identify any additional suspicious domains or IP addresses that the host may have communicated with around the time of the alert.
+- Check endpoint security logs for any signs of suspicious processes or anomalies on the host that could indicate compromise or malware activity.
+- Investigate user activity on the affected host to determine if any unauthorized or unusual actions were performed around the time of the alert.
+- Review system and application logs on the host for any errors or warnings that could be related to the detected DGA activity.
+- Collaborate with other security teams to correlate this alert with any other ongoing investigations or incidents that might be related to SUNBURST or similar threats.
+
+### False positive analysis
+
+- Legitimate software or services that use dynamic DNS for load balancing or failover purposes may trigger false positives, as they can exhibit similar domain generation patterns to those used by DGAs.
+- Security researchers or network administrators conducting tests or simulations involving SUNBURST-related domains might inadvertently generate traffic that resembles malicious activity.
+- Organizations using security tools that perform DNS lookups on known malicious domains for threat intelligence purposes could also be flagged by this rule.
+- To manage these false positives, users can create exceptions for known legitimate services or internal testing environments by whitelisting specific IP addresses or domain names.
+- Regularly review and update the list of exceptions to ensure that only verified non-threatening behaviors are excluded, maintaining the effectiveness of the detection rule.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further communication with potentially malicious domains.
+- Conduct a thorough investigation of the affected system to identify any additional indicators of compromise, such as unusual processes or unauthorized access attempts.
+- Utilize endpoint detection and response (EDR) tools to scan for and remove any malicious software associated with the SUNBURST malware.
+- Review DNS logs and network traffic to identify other systems that may have communicated with the SUNBURST-related domains, expanding the scope of the investigation as needed.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional resources are required.
+- Implement or update DNS filtering policies to block known malicious domains and prevent future connections to SUNBURST-related domains.
+- Restore the affected system from a known good backup, ensuring that all security patches and updates are applied before reconnecting to the network.
+- Enhance logging and monitoring capabilities to capture detailed DNS query logs and network traffic for future investigations.
+- Integrate threat intelligence feeds to stay informed about emerging threats and update detection rules accordingly.
+- Conduct a post-incident review to identify gaps in the current security posture and implement hardening measures, such as network segmentation and least privilege access controls, to reduce the risk of future incidents."""
 
 
 [[rule.threat]]

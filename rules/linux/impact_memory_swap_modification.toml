@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/04"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -69,6 +69,49 @@ process.name in ("swapon", "swapoff") or (
   )
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Memory Swap Modification
+
+Memory swapping in Linux involves moving data between RAM and disk storage to manage system memory efficiently. Adversaries exploit this by altering swap settings to degrade performance or facilitate resource hijacking, often for cryptomining. The detection rule identifies suspicious processes like `swapon` or `swapoff`, and commands modifying swappiness settings, signaling potential misuse by malware such as XMRig.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process name and command line that triggered the alert, focusing on `process.name` and `process.command_line` fields.
+- Check the `process.parent.executable` field to determine the parent process of the suspicious activity, which can provide context on how the process was initiated.
+- Investigate the user account associated with the process by examining the `user.name` field to determine if the activity was initiated by a legitimate user or a compromised account.
+- Use Osquery to list all current swap devices and their usage with the query: `SELECT * FROM memory_info WHERE name LIKE 'Swap%';` to assess if there are any unusual swap activities.
+- Examine the system logs, such as `/var/log/syslog` or `/var/log/messages`, for any related entries around the time of the alert to gather additional context.
+- Check for any recent changes to the system's swappiness setting by reviewing the `/etc/sysctl.conf` file or using the command `sysctl vm.swappiness` to see if it matches expected configurations.
+- Investigate any recent modifications to the `/proc/sys/vm/swappiness` file by checking the file's metadata, such as modification time, using `stat /proc/sys/vm/swappiness`.
+- Use Osquery to identify any other processes that have been executed by the same user or parent process recently with the query: `SELECT * FROM processes WHERE uid = (SELECT uid FROM processes WHERE name = 'swapon' OR name = 'swapoff');`.
+- Analyze network activity for the host to identify any unusual outbound connections that could indicate resource hijacking, using tools like `netstat` or `ss`.
+- Review any other security alerts or logs from the same host or user account to identify patterns or additional indicators of compromise that may correlate with the memory swap modification activity.
+
+### False positive analysis
+
+- Routine system administration tasks can trigger this rule, such as when system administrators manually adjust swap settings for performance tuning or during system maintenance. These actions are typically benign and not indicative of malicious activity.
+- Automated scripts or configuration management tools like Ansible, Puppet, or Chef that manage system settings might execute commands that match the rule's criteria, leading to false positives.
+- Some Linux distributions or custom setups may include startup scripts that adjust swappiness settings as part of their normal boot process, which could be mistakenly flagged by this rule.
+- To manage these false positives, users can create exceptions for known administrative scripts or processes by excluding specific command lines or process names that are verified as non-threatening.
+- Implementing a whitelist of trusted users or processes that are allowed to modify swap settings can help reduce false positives while maintaining security monitoring for unauthorized changes.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further resource hijacking and potential lateral movement.
+- Investigate the process tree to identify the parent process and any related processes that may have initiated the swap modification.
+- Terminate any suspicious processes, especially those related to cryptomining software like XMRig, to halt malicious activity.
+- Review system logs and command history to determine the extent of the compromise and identify any unauthorized changes to swap settings.
+- Restore swap settings to their default values and ensure that no unauthorized modifications persist.
+- Conduct a thorough scan of the system using updated antivirus or anti-malware tools to detect and remove any remaining threats.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and command-line activity for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats.
+- Apply system hardening measures, such as restricting access to swap configuration files and limiting the execution of swap-related commands to authorized users only."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

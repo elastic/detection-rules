@@ -2,7 +2,7 @@
 creation_date = "2021/09/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -51,6 +51,49 @@ process where event.type == "start" and
  process.args : ("parallels*", "vmware*", "virtualbox*") and process.args : "Manufacturer*" and
  not process.parent.executable in ("/Applications/Docker.app/Contents/MacOS/Docker", "/usr/libexec/kcare/virt-what")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Virtual Machine Fingerprinting via Grep
+
+Virtual machine fingerprinting involves identifying virtualized environments by querying system details. Adversaries exploit tools like `grep` to extract information about virtual machine hardware, aiding in evasion or targeted attacks. The detection rule identifies non-root users executing `grep` with arguments related to virtual machine identifiers, flagging potential reconnaissance activities while excluding benign processes like Docker.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name is either "grep" or "egrep" and verify the user ID is not "0" to ensure the alert is triggered by a non-root user.
+- Examine the specific arguments used with the grep command to identify if they include terms like "parallels*", "vmware*", "virtualbox*", or "Manufacturer*". This helps determine if the command was likely used for virtual machine fingerprinting.
+- Check the parent process of the grep command to ensure it is not a benign process such as Docker or kcare/virt-what, as these are excluded in the detection rule.
+- Investigate the user account associated with the alert to determine if the account has a history of suspicious activity or if it is a legitimate user who might have a valid reason for running such commands.
+- Use Osquery to gather more context about the system and user activity. For example, run the following Osquery query to list recent processes executed by the user: `SELECT * FROM processes WHERE uid = '<user_id>' ORDER BY start_time DESC LIMIT 10;`.
+- Analyze system logs to identify any other unusual activities or patterns that coincide with the time of the alert, such as failed login attempts or other reconnaissance commands.
+- Check for any recent changes in the system environment or configurations that might explain the use of virtual machine-related grep commands.
+- Review network logs to identify any outbound connections that might suggest data exfiltration or communication with a command and control server.
+- Correlate the alert with other security events or alerts in the environment to determine if this is part of a larger attack campaign.
+- Consult threat intelligence sources to see if there are any known campaigns or malware that use similar techniques, such as the Pupy RAT, to understand the potential threat actor's tactics and objectives.
+
+### False positive analysis
+
+- Non-root users running legitimate scripts or applications that query virtual machine identifiers for maintenance or monitoring purposes may trigger false positives. 
+- Developers or IT personnel using `grep` to check virtual machine configurations during routine checks or system audits can be mistakenly flagged.
+- Automated scripts or tools that include virtual machine identifier checks as part of their functionality, such as inventory management or compliance tools, might be incorrectly identified as threats.
+- To manage these false positives, users can create exceptions for known benign processes by adding them to the exclusion list in the detection rule, ensuring that routine operations are not disrupted.
+- Regularly review and update the exclusion list to accommodate new legitimate processes that may arise, maintaining a balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to determine the scope of the intrusion, focusing on identifying any additional compromised systems or accounts.
+- Review system logs and security alerts to gather information on the adversary's activities and potential entry points.
+- Remove any unauthorized software or malware identified during the investigation, ensuring that all malicious processes are terminated.
+- Change all passwords and credentials associated with the affected system and any potentially compromised accounts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
+- Implement enhanced logging and monitoring policies to capture detailed information on system and network activities, aiding in future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context on similar threats.
+- Restore the system to its operational state by reinstalling the operating system and applications from trusted sources, ensuring all security patches are applied.
+- Harden the system by disabling unnecessary services, enforcing least privilege access, and regularly updating security configurations to mitigate future risks."""
 
 
 [[rule.threat]]

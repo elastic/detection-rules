@@ -2,7 +2,7 @@
 creation_date = "2023/12/15"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -97,6 +97,49 @@ sequence by winlog.computer_name with maxspan=1m
         "splunk.exe", "sysmon.exe", "sysmon64.exe", "taniumclient.exe"
     )] with runs=5
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Evasion via Windows Filtering Platform
+
+The Windows Filtering Platform (WFP) is a set of API and system services that provide a platform for network filtering and packet processing. Adversaries may exploit WFP by creating malicious rules to block security software from sending telemetry, thus evading detection. The detection rule identifies multiple blocked network events linked to security processes, indicating potential tampering with WFP rules to impair defenses.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific `winlog.computer_name` and `process.name` involved in the blocked network events.
+- Check the frequency and pattern of the blocked events to determine if they are consistent with normal operations or indicative of tampering.
+- Correlate the `process.name` with known security software to confirm if it is legitimate and expected on the system.
+- Use event logs to trace back any recent changes to the Windows Filtering Platform rules on the affected system.
+- Investigate the user accounts and processes that have modified WFP rules recently to identify any unauthorized changes.
+- Utilize Osquery to gather more information about the network configuration and WFP rules. Example query: `SELECT * FROM wfp_filters WHERE name LIKE '%<process_name>%';` to list any WFP rules associated with the suspicious process.
+- Examine the system for any signs of compromise, such as unusual processes, services, or scheduled tasks that could indicate malicious activity.
+- Cross-reference the alert with other security logs and alerts to identify any related suspicious activities or patterns.
+- Investigate the network traffic from the affected system to determine if there are any anomalies or connections to known malicious IPs.
+- Consult threat intelligence sources to check if the identified process or behavior is associated with known evasion techniques or threat actors.
+
+### False positive analysis
+
+- Legitimate software updates or installations may trigger the rule if they temporarily block network traffic for security processes, leading to false positives.
+- Network congestion or misconfigurations in firewall settings can cause legitimate security software to appear as if it's being blocked, resulting in false positives.
+- Users can handle these false positives by creating exceptions for known and trusted software update processes or installation activities that are frequently flagged.
+- Regularly review and update the list of process names in the detection rule to ensure it aligns with the current security software deployed in the environment, reducing unnecessary alerts.
+- Implement a monitoring period to observe the behavior of flagged processes and determine if they consistently result in false positives, allowing for informed decisions on exclusions.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and data exfiltration.
+- Conduct a thorough investigation to identify any unauthorized WFP rules and remove or correct them to restore normal security software operations.
+- Review and analyze logs from the affected system and network devices to trace the source and scope of the attack, focusing on any anomalies related to the processes listed in the detection query.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Restore the system to its operational state by reinstalling or updating endpoint security software and ensuring all security patches are applied.
+- Implement enhanced logging policies to capture detailed network and process activity, ensuring that future incidents can be detected and analyzed more effectively.
+- Integrate additional security tools, such as endpoint detection and response (EDR) solutions, to improve visibility and response capabilities.
+- Conduct a review of firewall and WFP configurations to ensure they are aligned with security best practices and do not allow unauthorized modifications.
+- Educate users and administrators on recognizing signs of potential evasion techniques and the importance of reporting suspicious activity promptly.
+- Consider implementing network segmentation and access controls to limit the potential impact of compromised systems and prevent lateral movement by adversaries."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2024/09/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -35,6 +35,49 @@ type = "query"
 query = '''
 (event.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and network.transport:udp and destination.port:4500
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating IPSEC NAT Traversal Port Activity
+
+IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by encapsulating IPSEC traffic in UDP packets, typically using port 4500. While essential for legitimate encrypted connections, adversaries exploit this to mask malicious traffic, evading detection. The detection rule identifies unusual UDP traffic on port 4500, flagging potential misuse of this technology for covert command and control activities.
+
+### Possible investigation steps
+
+- Review the alert details to understand the context, including the source and destination IP addresses, timestamps, and any associated user or device information.
+- Verify the legitimacy of the source and destination IP addresses by cross-referencing them with known internal assets or external threat intelligence sources.
+- Analyze historical network traffic logs to identify any patterns or anomalies associated with the source or destination IP addresses, focusing on previous instances of UDP traffic on port 4500.
+- Use Osquery to gather additional context on the involved systems. For example, run the following query to check for active IPSEC connections: `SELECT * FROM ipsec_status;`
+- Investigate the user or device associated with the alert to determine if there are any signs of compromise or unusual behavior, such as recent changes in user activity or system configurations.
+- Check for any other alerts or incidents related to the same source or destination IP addresses to identify potential correlations or patterns of malicious activity.
+- Examine the network flow data to determine the volume and frequency of the UDP traffic on port 4500, assessing whether it aligns with typical IPSEC NAT Traversal usage or suggests potential misuse.
+- Review firewall and intrusion detection/prevention system logs to identify any blocked or flagged traffic related to the source or destination IP addresses, which may provide additional context on the nature of the traffic.
+- Consult with network administrators to confirm whether the observed IPSEC NAT Traversal traffic is expected and authorized, particularly if the involved systems are part of known VPN configurations.
+- Document all findings and observations, including any identified anomalies or suspicious activities, to support further analysis and potential escalation if necessary.
+
+### False positive analysis
+
+- Legitimate VPN traffic: Many organizations use IPSEC NAT Traversal for secure VPN connections, which can generate expected UDP traffic on port 4500. This is a common false positive and should be considered when analyzing alerts.
+- Frequent remote access: Employees working remotely may frequently use VPNs that rely on IPSEC NAT Traversal, leading to regular traffic on port 4500. Monitoring patterns and establishing a baseline can help differentiate between normal and suspicious activity.
+- Automated network services: Some automated services or applications may use IPSEC NAT Traversal for legitimate purposes, resulting in consistent traffic that could be misinterpreted as malicious.
+- To manage false positives, users can create exceptions for known IP addresses or subnets associated with legitimate VPN endpoints. This can be done by updating the detection rule to exclude these trusted sources.
+- Regularly review and update the list of exceptions to ensure it reflects current network configurations and legitimate use cases, minimizing the risk of overlooking genuine threats.
+
+### Response and remediation
+
+- Immediately isolate the affected systems from the network to prevent further malicious activity and data exfiltration.
+- Conduct a thorough investigation of the flagged traffic to determine if it is legitimate or indicative of a compromise, using packet analysis tools to inspect the contents of the UDP traffic on port 4500.
+- Review and analyze logs from firewalls, intrusion detection systems, and VPN gateways to identify any patterns or anomalies associated with the suspicious IPSEC NAT Traversal traffic.
+- If malicious activity is confirmed, identify and remove any malware or unauthorized software from the affected systems using updated antivirus and anti-malware tools.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
+- Implement enhanced logging policies to capture detailed network traffic data, focusing on VPN and NAT traversal activities, to improve future detection capabilities.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and enrich data for more effective threat detection and response.
+- Restore affected systems from clean backups, ensuring that all security patches and updates are applied to prevent exploitation of known vulnerabilities.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Implement network segmentation and access controls to limit the potential impact of future incidents and reduce the attack surface."""
 
 
 [[rule.threat]]

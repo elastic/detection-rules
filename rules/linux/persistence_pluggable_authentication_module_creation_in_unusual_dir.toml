@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/12/16"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -54,6 +54,52 @@ file where host.os.type == "linux" and event.type == "creation" and file.name li
   )
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Pluggable Authentication Module (PAM) Creation in Unusual Directory
+
+Pluggable Authentication Modules (PAM) are integral to Linux systems, managing authentication tasks. Adversaries may exploit PAM by creating malicious modules in non-standard directories, aiming to gain persistence or capture credentials. The detection rule identifies such anomalies by monitoring the creation of PAM files outside typical system paths, excluding benign processes and known directories, thus highlighting potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and name of the PAM shared object file created, focusing on the `file.name` and `file.path` fields.
+- Verify the process responsible for creating the file by examining the `process.name` field to determine if it matches any known benign processes or if it appears suspicious.
+- Check the timestamp of the file creation event to correlate it with other system activities or anomalies that occurred around the same time.
+- Investigate the parent process of the file creation event to understand the context and origin of the action, using process lineage information if available.
+- Use Osquery to list all PAM modules on the system and their locations to identify any other unusual or unauthorized modules:
+  ```sql
+  SELECT * FROM file WHERE path LIKE '/%/pam_*.so';
+  ```
+- Examine system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any authentication-related anomalies or errors that coincide with the file creation event.
+- Check for any recent user account changes or privilege escalations that might indicate unauthorized access or manipulation.
+- Investigate the network activity of the host around the time of the alert to identify any suspicious connections or data exfiltration attempts.
+- Review the system's history of software installations and updates to rule out legitimate software that might have created the PAM module.
+- Assess the integrity of other critical system files and configurations to ensure no further unauthorized modifications have been made.
+
+### False positive analysis
+
+- **Development and Testing Environments**: In environments where developers or system administrators are testing PAM modules, files may be created in non-standard directories temporarily. Users can handle these by excluding specific directories used for development and testing from the detection rule.
+- **Containerized Applications**: Applications running in containers might create PAM modules in unusual directories as part of their normal operation. Users can exclude paths related to container environments, such as those under `/var/lib/containerd` or `/home/*/.local/share/containers`, to reduce false positives.
+- **Package Management and System Updates**: Some package managers or system update processes might temporarily create PAM modules in non-standard directories before moving them to the correct location. Users can exclude processes like `pacman` or paths related to package management, such as `/nix/store/*`, to prevent these from triggering alerts.
+- **Custom Security Solutions**: Organizations with custom security solutions might have legitimate PAM modules in non-standard directories. Users should identify and exclude these specific paths or processes to avoid false positives.
+- **Temporary File Creation**: Some legitimate processes might create temporary PAM files in directories like `/tmp` or `/var/tmp` during their operation. Users can exclude these directories or specific processes known to create temporary files to minimize false alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the source of the malicious PAM module creation, including reviewing recent user activity and process logs.
+- Remove any unauthorized PAM modules found in unusual directories and verify the integrity of legitimate PAM modules in standard directories.
+- Reset credentials for any accounts that may have been compromised, focusing on those with elevated privileges.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed file creation events and process activities, ensuring that logs are stored securely and monitored regularly.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
+- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent recurrence.
+- Harden the system by implementing least privilege access controls, disabling unused services, and regularly auditing PAM configurations and modules."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,7 +2,7 @@
 creation_date = "2021/05/17"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -16,7 +16,51 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "O365 Exchange Suspicious Mailbox Right Delegation"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating O365 Exchange Suspicious Mailbox Right Delegation
+
+Microsoft 365 Exchange allows users to delegate mailbox access, enabling collaboration by granting permissions like FullAccess, SendAs, or SendOnBehalf. However, adversaries can exploit this by assigning these rights to compromised accounts, facilitating unauthorized access and communication. The detection rule identifies such suspicious delegations by monitoring successful permission assignments, excluding legitimate system processes, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific user account and mailbox involved in the suspicious delegation event using the `user.id` and `o365.audit.Parameters.AccessRights` fields.
+- Verify the legitimacy of the mailbox permission change by contacting the mailbox owner or relevant department to confirm if the delegation was authorized.
+- Examine the `event.provider` and `event.action` fields to ensure the event is related to Exchange and involves the addition of mailbox permissions.
+- Check the `event.outcome` field to confirm the permission assignment was successful, indicating a potential unauthorized access.
+- Investigate the `event.dataset` field to ensure the event is part of the O365 audit logs, confirming the source of the data.
+- Analyze the historical activity of the involved user account to identify any unusual patterns or recent changes in behavior that could indicate compromise.
+- Use Osquery to gather additional context on the involved user account and mailbox. For example, run a query to list recent login activities: `SELECT * FROM o365_login WHERE user_id = '<user.id>' ORDER BY timestamp DESC LIMIT 10;`.
+- Review any recent changes to inbox rules for the affected mailbox to identify potential attempts to evade detection mechanisms.
+- Cross-reference the event with other security logs and alerts to identify any correlated activities or indicators of compromise.
+- Document all findings and observations during the investigation to maintain a comprehensive record for further analysis or escalation if needed.
+
+### False positive analysis
+
+- Delegations made by IT administrators for legitimate business purposes can trigger false positives. These should be reviewed and, if deemed non-threatening, added to an exception list to prevent future alerts.
+- Automated processes or third-party applications that require mailbox access for functionality might be flagged. Identifying these applications and excluding their associated accounts can reduce false positives.
+- Temporary delegations for projects or team collaborations may appear suspicious. Documenting these activities and setting time-bound exceptions can help manage alerts.
+- Changes made during organizational restructuring, such as department mergers, can result in multiple legitimate delegations. Monitoring these changes and updating the exception list accordingly can mitigate unnecessary alerts.
+- Regular audits of the exception list are recommended to ensure that only valid and current exceptions are maintained, reducing the risk of overlooking genuine threats.
+
+### Response and remediation
+
+- Immediately revoke the suspicious mailbox permissions to prevent further unauthorized access.
+- Isolate the compromised account by disabling it or resetting its password to contain the threat.
+- Conduct a thorough investigation to determine the extent of the compromise, including reviewing mailbox access logs and identifying any unauthorized activities.
+- Notify the affected users and relevant stakeholders about the incident and potential data exposure.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging and monitoring for mailbox permission changes to detect future unauthorized delegations.
+- Integrate threat intelligence feeds to correlate suspicious activities with known threat actors and tactics.
+- Restore the affected mailboxes to their last known good state, ensuring no malicious rules or forwarding settings remain.
+- Educate users on recognizing phishing attempts and the importance of reporting suspicious activities to prevent account compromise.
+- Apply security hardening measures, such as enabling multi-factor authentication (MFA) and regularly reviewing mailbox permissions, to reduce the risk of future incidents.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 risk_score = 21

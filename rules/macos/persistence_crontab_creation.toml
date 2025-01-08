@@ -2,7 +2,7 @@
 creation_date = "2022/04/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,49 @@ query = '''
 file where host.os.type == "macos" and event.type != "deletion" and process.name != null and
   file.path : "/private/var/at/tabs/*" and not process.executable == "/usr/bin/crontab"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious CronTab Creation or Modification
+
+Cron jobs are scheduled tasks in Unix-like systems, including macOS, used for automating repetitive tasks. Adversaries may exploit cron to maintain persistence by creating or altering cron jobs using unconventional processes like Python scripts. The detection rule identifies such anomalies by flagging non-standard processes modifying cron files, which could indicate malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process name and executable path that triggered the alert, focusing on the `process.name` and `process.executable` fields.
+- Verify the legitimacy of the process by checking the process's parent and child processes to understand its context and origin.
+- Use Osquery to list all cron jobs on the system and identify any recent changes. Example query: `SELECT * FROM crontab WHERE path LIKE '/private/var/at/tabs/%';`
+- Investigate the user account associated with the process to determine if it has a history of creating or modifying cron jobs.
+- Check the file modification timestamps in `/private/var/at/tabs/` to correlate with the alert time and identify any unauthorized changes.
+- Examine system logs around the time of the alert for any additional suspicious activity or related events.
+- Investigate the network activity of the process to identify any external connections that might indicate command and control communication.
+- Review the process's binary or script for any signs of tampering or malicious code, especially if it is a non-standard executable for cron modifications.
+- Cross-reference the process and file path with threat intelligence sources to identify any known malicious indicators.
+- Assess the system for other signs of compromise, such as unauthorized user accounts or unusual system behavior, to determine if the cron modification is part of a larger attack.
+
+### False positive analysis
+
+- System administrators or legitimate software may use scripts or automation tools to manage cron jobs, leading to false positives when these processes modify cron files. 
+- Development environments or testing scenarios might involve the use of scripts to automate task scheduling, which could trigger the rule.
+- Users can handle these false positives by creating exceptions for known and trusted processes that regularly modify cron files, such as specific automation scripts or administrative tools.
+- Regularly review and update the list of exceptions to ensure that only verified and non-threatening processes are excluded from detection.
+- Consider the context of the environment, such as development or production, to better assess whether a detected modification is likely to be benign.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Investigate the process that modified the crontab by reviewing process execution details, including the parent process, command-line arguments, and user context.
+- Check for other signs of compromise on the system, such as unusual network connections, unexpected user accounts, or additional unauthorized scheduled tasks.
+- Remove or disable the suspicious cron job and any other unauthorized persistence mechanisms identified during the investigation.
+- Restore the crontab to its original state using backups or by manually recreating legitimate scheduled tasks.
+- Escalate the incident to the security operations team if the investigation reveals evidence of a broader compromise or if the threat actor's identity or intent is unclear.
+- Implement enhanced logging and monitoring for cron job modifications and process execution to detect similar activities in the future.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and contextualize alerts with known threat actor behaviors.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent recurrence.
+- Apply system hardening measures, such as restricting cron job creation to authorized users and processes, and regularly review and audit scheduled tasks for anomalies."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -59,6 +59,48 @@ tags = [
     "Tactic: Defense Evasion",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Windows Process Cluster Spawned by a User
+The detection leverages machine learning to identify clusters of Windows processes with high malicious probability scores. Adversaries may exploit legitimate binaries (LOLBins) to evade detection, masquerading as benign processes. This rule uses both supervised and unsupervised ML models to flag anomalies, focusing on clusters with shared user names and high aggregate scores, indicating potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific processes flagged as suspicious, focusing on the user name and the aggregate malicious probability score.
+- Cross-reference the flagged processes with known legitimate binaries (LOLBins) to determine if they are being used in an unusual context or manner.
+- Use process lineage analysis to trace the parent and child processes of the flagged processes, identifying any unusual or unexpected process relationships.
+- Investigate the user account associated with the suspicious processes to determine if there have been any recent changes in behavior or access patterns.
+- Check for any recent logins or access attempts from unusual locations or devices for the user associated with the suspicious processes.
+- Utilize Osquery to gather additional context on the suspicious processes. For example, run the following query to list all processes started by the user in question: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE user = '<username>';`
+- Examine network connections initiated by the suspicious processes to identify any unusual or unauthorized external communications.
+- Review recent file modifications or creations by the suspicious processes to detect any potential data exfiltration or tampering activities.
+- Analyze system logs for any other anomalies or errors that coincide with the time frame of the suspicious process activity.
+- Correlate the findings with other security tools and logs to build a comprehensive picture of the potential threat and its scope.
+
+### False positive analysis
+
+- Legitimate administrative tools: Some legitimate administrative tools and scripts may trigger false positives due to their similarity to known malicious patterns. Users should review these alerts and consider adding exceptions for trusted tools frequently used in their environment.
+- Software updates and installations: During software updates or installations, processes may exhibit behaviors that resemble malicious activity. Users can mitigate these false positives by creating exceptions for known update processes or installation scripts.
+- Custom scripts and automation: Custom scripts or automated tasks that perform system-level operations might be flagged as suspicious. Users should evaluate these scripts and, if deemed safe, exclude them from detection to prevent unnecessary alerts.
+- Frequent use of LOLBins: In environments where legitimate use of LOLBins is common, such as in development or testing, these processes might be incorrectly classified as malicious. Users should identify and exclude these benign uses to reduce false positives.
+- Shared user accounts: Environments with shared user accounts may see higher false positive rates due to the aggregation of process scores. Users should consider monitoring these accounts separately or implementing more granular user tracking to better assess the context of alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malicious activity.
+- Conduct a thorough investigation of the flagged processes to confirm malicious activity, focusing on the use of LOLBins and masquerading techniques.
+- Terminate any identified malicious processes and remove any associated files or executables from the system.
+- Review and analyze user account activity to identify any unauthorized access or privilege escalation attempts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and user activity, aiding in future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Restore the system to its operational state by applying the latest security patches and updates, and verifying system integrity.
+- Conduct a security awareness session for users to educate them on recognizing and reporting suspicious activities.
+- Implement system hardening measures, such as disabling unnecessary services and enforcing least privilege access controls, to reduce the attack surface."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

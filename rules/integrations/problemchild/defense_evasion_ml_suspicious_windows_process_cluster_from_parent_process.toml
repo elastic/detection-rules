@@ -2,7 +2,7 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -59,6 +59,52 @@ tags = [
     "Tactic: Defense Evasion",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Windows Process Cluster Spawned by a Parent Process
+
+The detection leverages machine learning to identify clusters of Windows processes with high malicious probability scores, often linked to a common parent process. Adversaries exploit this by using legitimate binaries (LOLBins) to evade detection. The rule combines supervised and unsupervised ML models to flag anomalies, focusing on clusters with unusually high aggregate scores, indicating potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the parent process name and the associated child processes that triggered the alert. Focus on the aggregate score and individual malicious probability scores.
+- Cross-reference the parent process name with known legitimate binaries (LOLBins) to determine if it is commonly used for evasion techniques.
+- Use endpoint detection and response (EDR) tools to gather additional context on the parent process, including its command line arguments, execution path, and any associated network activity.
+- Investigate the timeline of the parent process and its child processes to identify any unusual patterns or sequences of execution that deviate from normal behavior.
+- Check the parent process and child processes against threat intelligence databases to see if they are associated with known malicious activity or threat actors.
+- Utilize Osquery to gather more information about the suspicious processes. For example, run the following query to list all processes spawned by the parent process:
+  ```sql
+  SELECT pid, name, path, cmdline, parent FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = '<parent_process_name>');
+  ```
+- Analyze the file hashes of the suspicious processes using a threat intelligence platform to determine if they are known malware.
+- Examine the user account context under which the parent process and its child processes were executed to assess if there is any indication of compromised credentials.
+- Review system logs and security events around the time of the alert to identify any other suspicious activities or anomalies that may correlate with the process cluster.
+- If applicable, check for any recent changes or updates to the system or software that could explain the unusual process behavior, ensuring to rule out false positives.
+
+### False positive analysis
+
+- Known false positives for the Suspicious Windows Process Cluster Spawned by a Parent Process rule often involve legitimate administrative tools or scripts that are frequently used in enterprise environments. These tools may include PowerShell scripts, system management software, or other automation tools that mimic the behavior of malicious processes.
+- Users can handle these false positives by creating exceptions for specific parent processes that are known to spawn legitimate clusters of processes. This can be done by maintaining a whitelist of trusted parent process names or paths that are regularly reviewed and updated.
+- Another method to manage false positives is to analyze the context of the detected processes, such as the time of execution, user account involved, and network activity. This can help differentiate between benign and potentially malicious activities.
+- It is also recommended to monitor the frequency and pattern of these process clusters. If a particular cluster is consistently flagged but is known to be part of routine operations, it can be excluded from future alerts.
+- Collaboration with IT and security teams to understand the normal behavior of systems and applications can aid in refining the detection rules and reducing false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malicious activity.
+- Conduct a thorough investigation of the parent process and its spawned processes to identify any malicious behavior or indicators of compromise.
+- Terminate any suspicious processes identified during the investigation to halt ongoing malicious activity.
+- Review and analyze logs from the affected system to gather additional context and identify any other potentially compromised systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed process execution data and network activity for future investigations.
+- Integrate threat intelligence feeds to correlate detected anomalies with known threat actors and tactics, techniques, and procedures (TTPs).
+- Restore the system to its operational state by applying the latest security patches and updates, and ensuring all security controls are functioning correctly.
+- Conduct a post-incident review to identify gaps in detection and response capabilities, and update security policies and procedures accordingly.
+- Implement system hardening measures, such as disabling unnecessary services and enforcing least privilege access, to reduce the attack surface and prevent future incidents."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

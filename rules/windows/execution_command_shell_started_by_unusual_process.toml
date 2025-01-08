@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -58,6 +58,48 @@ process where host.os.type == "windows" and event.type == "start" and
                          "wlanext.exe" ) and
   not (process.parent.name : "dllhost.exe" and process.parent.args : "/Processid:{CA8C87C1-929D-45BA-94DB-EF8E6CB346AD}")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Parent Process for cmd.exe
+
+The cmd.exe process is a command-line interpreter in Windows environments, often used for legitimate administrative tasks. However, adversaries can exploit it by launching it from atypical parent processes to execute malicious commands stealthily. The detection rule identifies such anomalies by flagging cmd.exe instances spawned by uncommon parent processes, which may indicate unauthorized or suspicious activity, thus helping analysts pinpoint potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of cmd.exe being spawned by an unusual parent process as specified in the detection rule.
+- Verify the legitimacy of the parent process by checking its usual behavior and purpose within the environment. Cross-reference with known software documentation or internal process baselines.
+- Examine the command-line arguments used by the parent process to launch cmd.exe, if available, to identify any suspicious or unexpected commands.
+- Investigate the user account associated with the process execution to determine if it aligns with expected usage patterns or if it might be compromised.
+- Check the process creation time and correlate it with other security events or logs to identify any concurrent suspicious activities.
+- Utilize Osquery to gather additional context about the parent process. For example, run the following query to list details about the parent process: `SELECT * FROM processes WHERE name = 'unusual_parent_process_name';`
+- Analyze network connections initiated by the cmd.exe process to identify any unusual or unauthorized external communications.
+- Review recent changes or updates to the system that might have introduced new or altered processes, potentially explaining the unusual parent-child relationship.
+- Investigate any file modifications or registry changes made by the cmd.exe process to assess potential malicious actions.
+- Consult threat intelligence sources to determine if the unusual parent process is associated with known malware or attack techniques.
+
+### False positive analysis
+
+- Certain legitimate applications or system processes may occasionally spawn cmd.exe for valid reasons, leading to false positives. For example, software updates or system maintenance tasks might trigger cmd.exe from processes like GoogleUpdate.exe or FlashPlayerUpdateService.exe.
+- Automated scripts or administrative tools that are scheduled to run at specific times might also cause cmd.exe to be launched by processes such as taskhostw.exe or sppsvc.exe, which are typically benign.
+- Users can manage these false positives by creating exceptions for known and verified processes that frequently trigger cmd.exe in a non-threatening manner. This can be done by adding specific process names or command-line arguments to an exclusion list within the detection rule.
+- Regularly review and update the exclusion list to ensure it reflects the current environment and any changes in legitimate software behavior, thus minimizing the risk of overlooking genuine threats while reducing noise from false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the unusual parent process that spawned cmd.exe.
+- Review and analyze logs from the affected system and any related systems to trace the attacker's actions and identify any additional compromised systems.
+- Terminate any malicious processes and remove any unauthorized files or scripts identified during the investigation.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional resources are needed.
+- Implement enhanced logging policies to capture detailed process creation events and parent-child process relationships for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
+- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement hardening measures such as application whitelisting, least privilege access, and regular security awareness training to reduce the risk of similar incidents."""
 
 
 [[rule.threat]]

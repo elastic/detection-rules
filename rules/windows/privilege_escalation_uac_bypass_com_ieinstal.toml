@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -45,6 +45,51 @@ process where host.os.type == "windows" and event.type == "start" and
  /* uncomment once in winlogbeat */
  /* and not (process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true) */
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating UAC Bypass Attempt via Elevated COM Internet Explorer Add-On Installer
+
+User Account Control (UAC) is a security feature in Windows designed to prevent unauthorized changes by prompting for elevated permissions. Adversaries exploit elevated COM interfaces, like the Internet Explorer Add-On Installer, to bypass UAC and execute malicious code with higher privileges. The detection rule identifies such attempts by monitoring specific process behaviors, such as the execution of temporary files with a parent process linked to the installer, indicating potential abuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a process execution event where the executable path matches the pattern `C:\\\\*\\\\AppData\\\\*\\\\Temp\\\\IDC*.tmp\\\\*.exe` and the parent process is `ieinstal.exe` with arguments `-Embedding`.
+- Verify the legitimacy of the parent process `ieinstal.exe` by checking its file path and hash against known good values or threat intelligence databases.
+- Investigate the process tree to understand the sequence of events leading to the execution of the suspicious temporary executable. Look for any unusual parent or sibling processes.
+- Examine the command-line arguments of the parent process `ieinstal.exe` to identify any anomalies or unexpected parameters that could indicate malicious intent.
+- Use Osquery to gather additional context about the suspicious process. For example, run the following query to list all processes with their parent process IDs and command-line arguments:
+  ```sql
+  SELECT pid, name, path, cmdline, parent FROM processes WHERE path LIKE 'C:\\\\%\\\\AppData\\\\%\\\\Temp\\\\IDC%.tmp\\\\%.exe';
+  ```
+- Check the code signature of the suspicious executable and its parent process to determine if they are signed by a trusted entity. If the signature is missing or untrusted, it may indicate malicious activity.
+- Investigate the network activity associated with the suspicious process to identify any external connections or data exfiltration attempts. Use network logs or tools like Wireshark for deeper analysis.
+- Review recent system changes or user activities that might have led to the execution of the suspicious process, such as software installations or updates.
+- Correlate the alert with other security events or logs from the same host or user account to identify any patterns or additional indicators of compromise.
+- Consult with threat intelligence sources or community forums to determine if the observed behavior matches any known UAC bypass techniques or malware campaigns.
+
+### False positive analysis
+
+- Legitimate software installations or updates that use the Internet Explorer Add-On Installer may trigger this detection rule, as they can create temporary executable files in the specified directory. Users should verify the legitimacy of the software being installed or updated to determine if it is a false positive.
+- System administrators may encounter false positives when deploying software through automated scripts or management tools that utilize the same COM interface for legitimate purposes. In such cases, adding exceptions for known and trusted software deployment tools can help reduce noise.
+- Some enterprise environments may have custom applications that interact with the Internet Explorer Add-On Installer for legitimate reasons. Identifying these applications and excluding their specific process signatures can prevent unnecessary alerts.
+- To manage false positives, users can create exceptions by adding specific process paths or signatures to an allowlist, ensuring that only verified and trusted processes are excluded from detection. This approach helps maintain security while reducing false alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to confirm the UAC bypass attempt by reviewing the process execution details and correlating with other security logs.
+- Terminate any suspicious processes identified during the investigation, particularly those matching the pattern of temporary files executed with "ieinstal.exe" as the parent process.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Remove any unauthorized or malicious software identified during the investigation and ensure the system is free from malware.
+- Restore the system to its operational state by applying the latest security patches and updates, and verify the integrity of system files.
+- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
+- Integrate security solutions such as endpoint detection and response (EDR) tools to improve visibility and detection capabilities.
+- Educate users on the risks of UAC bypass techniques and encourage reporting of any suspicious activity.
+- Review and update security policies and hardening measures, such as restricting the use of elevated COM interfaces and enforcing least privilege principles."""
 
 
 [[rule.threat]]

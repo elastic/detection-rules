@@ -2,7 +2,7 @@
 creation_date = "2020/08/20"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,50 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "User Added as Owner for Azure Application"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating User Added as Owner for Azure Application
+
+Azure applications often require specific permissions to function, managed through ownership roles. Adversaries may exploit this by adding themselves or compromised accounts as owners, gaining elevated privileges to alter configurations or access sensitive data. The detection rule monitors audit logs for successful operations where a user is added as an application owner, flagging potential unauthorized privilege escalations.
+
+### Possible investigation steps
+
+- Review the Azure audit logs to confirm the event details, focusing on the `azure.auditlogs.operation_name` field to ensure it matches "Add owner to application" and the `event.outcome` field to verify it indicates a success.
+- Identify the user account that was added as an owner by examining the relevant fields in the audit log entry, such as `azure.auditlogs.target_user`.
+- Determine the identity of the actor who performed the operation by checking the `azure.auditlogs.initiated_by` field to understand if it was an expected administrator or a potentially compromised account.
+- Cross-reference the timestamp of the event with other security logs to identify any unusual activities or patterns around the same time, such as failed login attempts or changes in user permissions.
+- Investigate the application in question by reviewing its configuration and permissions to assess the potential impact of the new owner addition.
+- Check the history of changes to the application to see if there have been any recent modifications that could indicate malicious intent.
+- Use Osquery to gather additional context on the user account added as an owner. For example, run a query to list recent logins or changes to the account: `SELECT * FROM users WHERE username = 'added_user';`
+- Analyze the network traffic logs for any suspicious connections or data transfers involving the application or the newly added owner account.
+- Review the organization's change management records to verify if the addition of the owner was part of an approved change request.
+- Consult with the application owner or relevant stakeholders to confirm if the addition of the new owner was expected and authorized.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate IT administrators may frequently add users as owners to manage application settings, leading to false positives. To handle this, create exceptions for known administrative accounts or specific time frames when these tasks are expected.  
+- Automated processes: Some organizations use automated scripts or tools to manage application ownership, which can trigger alerts. Identify and exclude these processes by filtering based on known service accounts or automation tools.  
+- Organizational changes: During mergers, acquisitions, or restructuring, there may be a legitimate need to update application ownership. Document these changes and temporarily adjust the detection rule to accommodate the expected increase in ownership changes.  
+- Training and onboarding: New employees or teams may require ownership access as part of their onboarding process. Coordinate with HR or team leads to anticipate these changes and exclude them from triggering alerts.
+
+### Response and remediation
+
+- Immediately revoke the added user's owner permissions from the Azure application to contain potential unauthorized access.
+- Conduct a thorough investigation to determine how the user was added as an owner, reviewing audit logs and identifying any suspicious activities or compromised accounts.
+- Verify the integrity of the Azure application configurations and data to ensure no unauthorized changes were made during the period of elevated access.
+- Reset credentials and enforce multi-factor authentication (MFA) for any accounts involved in the incident to prevent further unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems were affected.
+- Implement enhanced logging policies to capture detailed audit logs of all administrative actions within Azure applications for future investigations.
+- Integrate security information and event management (SIEM) solutions to correlate Azure audit logs with other security events for comprehensive threat detection.
+- Restore the Azure application to its last known good configuration if any unauthorized changes were detected during the investigation.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent similar incidents in the future.
+- Apply hardening measures such as least privilege access, regular review of application owners, and continuous monitoring to reduce the risk of unauthorized privilege escalation.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 risk_score = 21

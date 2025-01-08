@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -41,6 +41,48 @@ query = '''
 file where event.module == "cloud_defend" and event.action == "open" and 
 event.type == "change" and file.name : "notify_on_release"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Container Escape via Modified notify_on_release File
+
+Containers use cgroups to manage resources, with the `notify_on_release` file triggering host-level commands when a cgroup is released. Adversaries exploit this by modifying the file from privileged containers to execute unauthorized commands on the host, leading to potential escapes. The detection rule monitors changes to `notify_on_release` files, flagging suspicious modifications indicative of such exploits.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event.module is "cloud_defend" and the event.action is "open" with event.type as "change" for the file named "notify_on_release".
+- Identify the container from which the modification originated by examining the source IP, container ID, and associated metadata.
+- Check the user and process that initiated the change by reviewing the user ID and process ID associated with the event.
+- Investigate the history of the container to determine if it has been granted SYS_ADMIN capabilities, which are necessary for modifying cgroup settings.
+- Use Osquery to list all processes running within the container to identify any suspicious or unauthorized processes. Example query: `SELECT pid, name, path FROM processes WHERE cgroup LIKE '%<container_id>%';`
+- Examine the release_agent file associated with the cgroup to determine if it has been modified or contains suspicious commands.
+- Review recent logs and events from the host system to identify any execution of commands that could be linked to the release_agent.
+- Analyze network activity from the container to detect any unusual outbound connections that might indicate data exfiltration or command-and-control communication.
+- Cross-reference the alert with other security events or alerts to identify potential patterns or coordinated activities.
+- Consult threat intelligence sources to determine if there are known exploits or attack patterns related to the modification of the notify_on_release file.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators may modify the `notify_on_release` file during legitimate maintenance or configuration activities. To handle this, users can create exceptions for known administrative actions by whitelisting specific user accounts or processes that are authorized to perform these changes.
+- Automated container management tools: Some container orchestration or management tools might modify the `notify_on_release` file as part of their normal operations. Users should identify these tools and exclude their actions from triggering alerts by specifying the tool's process names or IDs in the exception list.
+- Testing and development environments: In environments where containers are frequently created and destroyed for testing purposes, modifications to the `notify_on_release` file might be common and benign. Users can reduce noise by setting up separate monitoring rules or thresholds for these environments, ensuring that only unexpected changes trigger alerts.
+- Custom scripts or applications: Organizations may have custom scripts or applications that interact with cgroups and modify the `notify_on_release` file. Users should document these scripts and create exceptions based on their unique identifiers or execution paths to prevent false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further unauthorized access or potential spread to other containers or the host system.
+- Conduct a thorough investigation to identify any unauthorized changes made to the notify_on_release file and determine the extent of the compromise.
+- Review container logs and host system logs to trace the actions of the adversary and identify any additional indicators of compromise.
+- Revoke any unnecessary privileged access and capabilities from containers, especially SYS_ADMIN, to minimize the risk of exploitation.
+- Restore the affected container and host system from a known good backup to ensure the integrity of the environment.
+- Update and patch the container runtime and host operating system to address any known vulnerabilities that could be exploited for container escapes.
+- Implement enhanced logging and monitoring for cgroup modifications and other critical system files to detect similar activities in the future.
+- Integrate security tools with SIEM solutions to correlate alerts and improve threat detection capabilities.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures accordingly.
+- Educate and train staff on container security best practices and the specific risks associated with cgroup modifications and container escapes."""
 
 
 [[rule.threat]]

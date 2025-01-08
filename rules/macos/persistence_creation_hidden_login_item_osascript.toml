@@ -2,7 +2,7 @@
 creation_date = "2020/01/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -58,6 +58,48 @@ query = '''
 process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name : "osascript" and
  process.command_line : "osascript*login item*hidden:true*"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Creation of Hidden Login Item via Apple Script
+
+AppleScript is a scripting language used to automate tasks on macOS. Adversaries may exploit it to create hidden login items, ensuring malicious programs start automatically while remaining concealed. The detection rule identifies such abuse by monitoring the execution of AppleScript commands that create hidden login items, focusing on specific command patterns indicative of this stealthy persistence technique.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `osascript` process execution with the command line pattern `osascript*login item*hidden:true*`.
+- Verify the timestamp of the event to understand when the suspicious activity occurred.
+- Identify the user account under which the `osascript` process was executed to determine if it aligns with expected user behavior.
+- Check the parent process of `osascript` to identify how the script was initiated and if it was triggered by another suspicious process.
+- Use Osquery to list all login items for the affected user to identify any hidden items. Example query: `SELECT * FROM login_items WHERE hidden = 1;`
+- Investigate the script content if accessible, to understand its purpose and any potential malicious actions it might perform.
+- Correlate the event with other logs, such as system logs or application logs, to gather additional context around the time of execution.
+- Examine recent file modifications in common script directories (e.g., `/Library/Scripts`, `~/Library/Scripts`) to identify any unauthorized changes.
+- Check for any recent changes in user permissions or system settings that could facilitate the execution of unauthorized scripts.
+- Review network activity logs around the time of the event to detect any unusual outbound connections that might indicate data exfiltration or command-and-control communication.
+
+### False positive analysis
+
+- Legitimate applications or scripts that use AppleScript to automate tasks may inadvertently trigger this detection rule if they create login items with hidden attributes. For example, productivity tools or system management scripts that use hidden login items for legitimate purposes could be flagged.
+- Users can manage these false positives by creating exceptions for known and trusted applications or scripts. This can be done by identifying the specific command patterns or process names associated with these legitimate activities and excluding them from the detection rule.
+- Regularly review and update the list of exceptions to ensure that only verified and non-threatening behaviors are excluded, maintaining the effectiveness of the detection rule against actual threats.
+- Consider implementing additional context checks, such as verifying the source or signature of the script, to differentiate between benign and potentially malicious activities.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further spread or communication with potential command and control servers.
+- Investigate the process tree and command line arguments of the osascript execution to identify any associated malicious scripts or payloads.
+- Terminate any suspicious processes that were initiated by the osascript command to halt any ongoing malicious activity.
+- Review and remove any unauthorized login items or startup scripts to eliminate persistence mechanisms.
+- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malware.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and command line arguments for future investigations.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs).
+- Restore the system from a known good backup if the integrity of the system is compromised and cannot be assured.
+- Apply security hardening measures such as disabling unnecessary scripting capabilities and enforcing strict application whitelisting policies."""
 
 
 [[rule.threat]]

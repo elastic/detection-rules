@@ -2,7 +2,7 @@
 creation_date = "2020/11/23"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -45,6 +45,50 @@ registry where host.os.type == "windows" and event.type == "change" and
     "MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration\\EnableAt"
   ) and registry.data.strings : ("1", "0x00000001")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Scheduled Tasks AT Command Enabled
+
+The AT command, a legacy tool in Windows, schedules tasks to run at specified times. Despite its deprecation in newer Windows versions, it remains for compatibility, posing a security risk. Attackers exploit this by enabling it via registry changes to maintain persistence or move laterally. The detection rule monitors specific registry paths for changes, identifying when the AT command is enabled, signaling potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the registry path involved matches one of the specified paths: `HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration\\EnableAt`, `\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration\\EnableAt`, or `MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration\\EnableAt`.
+- Verify the registry data value change to ensure it was set to "1" or "0x00000001", indicating the AT command was enabled.
+- Check the event logs for the specific host to identify any other registry changes or suspicious activities around the same time as the alert.
+- Investigate the user account associated with the registry change event to determine if it is a legitimate user or potentially compromised.
+- Use Osquery to list all scheduled tasks on the host to identify any unusual or unauthorized tasks. Example query: `SELECT * FROM scheduled_tasks WHERE hidden = 0;`
+- Examine the system's security logs for any recent login attempts or anomalies that could indicate unauthorized access.
+- Correlate the alert with other security events or alerts from the same host to identify patterns or additional indicators of compromise.
+- Check for any recent software installations or updates that might have inadvertently enabled the AT command.
+- Investigate network logs for any unusual outbound connections from the host that could suggest lateral movement or data exfiltration.
+- Review the host's patch and update status to ensure it is up-to-date, as attackers often exploit outdated systems.
+
+### False positive analysis
+
+- Legitimate administrative tools or scripts may modify the registry to enable the AT command for backward compatibility or specific operational needs, leading to false positives.
+- System administrators might enable the AT command temporarily for testing or maintenance purposes, which could trigger the detection rule.
+- Some legacy applications may require the AT command to function correctly, resulting in registry changes that are benign but flagged by the rule.
+- To manage these false positives, users can create exceptions for known and trusted administrative activities by excluding specific user accounts or processes from the detection rule.
+- Implementing a whitelist of approved applications or scripts that are allowed to modify the registry path can help reduce unnecessary alerts.
+- Regularly review and update the list of exceptions to ensure that only legitimate activities are excluded, maintaining the balance between security and operational needs.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the attacker.
+- Verify the registry change by checking the specified registry path to confirm if the AT command has been enabled.
+- Conduct a thorough investigation to identify any unauthorized scheduled tasks created using the AT command and disable or remove them.
+- Review system logs and security events to identify any suspicious activities or patterns that coincide with the registry change.
+- Restore the registry setting to its original state by disabling the AT command if it was enabled without authorization.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to monitor registry changes and scheduled task creations, ensuring that future unauthorized changes are detected promptly.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and improve detection capabilities.
+- Apply system hardening measures, such as disabling legacy tools like the AT command if not required for business operations, to reduce the attack surface.
+- Educate users and administrators on the risks associated with legacy tools and the importance of maintaining updated security configurations."""
 
 
 [[rule.threat]]

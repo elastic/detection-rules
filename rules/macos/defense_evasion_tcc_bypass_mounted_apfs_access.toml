@@ -2,7 +2,7 @@
 creation_date = "2020/01/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -60,6 +60,49 @@ query = '''
 event.category:process and host.os.type:macos and event.type:(start or process_started) and process.name:mount_apfs and
   process.args:(/System/Volumes/Data and noowners)
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating TCC Bypass via Mounted APFS Snapshot Access
+
+Apple's TCC framework safeguards user data by controlling app access to sensitive files. Adversaries exploit APFS snapshots, mounting them with specific flags to bypass these controls, gaining unauthorized access to protected data. The detection rule identifies suspicious use of the `mount_apfs` command, focusing on arguments that indicate attempts to access the file system without ownership restrictions, signaling potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `mount_apfs` command with the `noowners` flag in the process arguments, as this is a key indicator of potential misuse.
+- Check the timestamp of the event to determine when the suspicious activity occurred and correlate it with other events around the same time for additional context.
+- Identify the user account associated with the process execution to determine if it aligns with expected behavior or if it indicates a compromised account.
+- Investigate the parent process of `mount_apfs` to understand how it was initiated and whether it was part of a legitimate workflow or a suspicious chain of processes.
+- Use Osquery to list all mounted file systems and verify if any APFS snapshots are currently mounted with the `noowners` flag. Example query: `SELECT * FROM mounts WHERE device LIKE '%snapshot%' AND options LIKE '%noowners%';`
+- Examine system logs for any other unusual activities or errors around the time of the alert that might indicate tampering or exploitation attempts.
+- Cross-reference the event with any recent changes or updates to the system that might have inadvertently triggered the alert, such as software installations or system updates.
+- Analyze network activity from the host to identify any potential data exfiltration attempts or connections to known malicious IP addresses.
+- Review historical data for similar alerts or patterns of behavior from the same host or user account to assess if this is an isolated incident or part of a recurring issue.
+- Consult threat intelligence sources to determine if there are any known campaigns or adversaries currently exploiting APFS snapshot access for TCC bypass, which could provide additional context for the investigation.
+
+### False positive analysis
+
+- Legitimate system maintenance or backup processes may trigger the rule if they involve mounting APFS snapshots with the `noowners` flag, as these operations can mimic the behavior of an adversary attempting to bypass TCC protections.
+- Security or IT administrators performing routine checks or data recovery might use the `mount_apfs` command with similar arguments, leading to false positives.
+- Users can manage these false positives by creating exceptions for known maintenance scripts or backup applications that regularly perform these actions, ensuring they are documented and verified as non-threatening.
+- Implementing a whitelist for specific processes or users that are authorized to perform such operations can help reduce noise from legitimate activities.
+- Regularly review and update the list of exceptions to ensure that only trusted processes are excluded, maintaining a balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to confirm the use of the mount_apfs command with the noowners flag and identify any unauthorized access to sensitive files.
+- Review system logs and process execution history to determine the scope of the compromise and identify any additional affected systems.
+- Remove any unauthorized APFS snapshots and ensure that no malicious processes are running on the system.
+- Restore the system from a known good backup prior to the unauthorized access, ensuring that all security patches and updates are applied.
+- Implement enhanced logging policies to monitor for suspicious use of the mount_apfs command and other potential indicators of compromise.
+- Integrate security tools with SIEM solutions to improve detection capabilities and automate alerting for similar threats in the future.
+- Conduct a security audit of the TCC framework settings and permissions to ensure that only authorized applications have access to sensitive data.
+- Educate users and administrators on the risks associated with APFS snapshot access and the importance of maintaining strict access controls.
+- Report the incident to relevant internal teams and, if necessary, escalate to external cybersecurity authorities for further investigation and guidance."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["apm"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -32,4 +32,47 @@ type = "query"
 query = '''
 http.response.status_code:405
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Web Application Suspicious Activity: Unauthorized Method
+
+Web applications use HTTP methods to define actions on resources. A 405 status code signals a method is not allowed, often due to misconfigurations or probing by attackers. Adversaries may exploit this by testing various methods to find vulnerabilities. The detection rule identifies such attempts by flagging responses with a 405 status, indicating potential unauthorized method usage.
+
+### Possible investigation steps
+
+- Review the logs for the specific time frame when the 405 status code was triggered to identify any patterns or anomalies in the requests.
+- Examine the source IP addresses associated with the 405 responses to determine if they are known or potentially malicious.
+- Analyze the user-agent strings in the requests to identify if they are associated with known malicious tools or scripts.
+- Check the HTTP methods used in the requests that resulted in a 405 response to understand which methods were attempted.
+- Investigate the requested URLs or endpoints to determine if they are legitimate resources or if they appear to be probing for vulnerabilities.
+- Correlate the 405 response events with other security events or alerts to identify any related suspicious activity.
+- Use Osquery to gather additional context from the web server, such as running processes or open network connections. Example query: `SELECT * FROM processes WHERE name LIKE '%httpd%' OR name LIKE '%nginx%';`
+- Review the web application configuration files to ensure that the HTTP methods are correctly configured and that there are no misconfigurations.
+- Check for any recent changes or updates to the web application or server that might have affected the allowed HTTP methods.
+- Consult threat intelligence sources to determine if there are any known campaigns or threat actors associated with similar activity.
+
+### False positive analysis
+
+- Legitimate applications or services may trigger a 405 response when they are misconfigured or when certain HTTP methods are intentionally disabled for security reasons. 
+- Automated tools or scripts used for testing or monitoring web applications might inadvertently use unsupported HTTP methods, resulting in 405 responses.
+- Web crawlers or bots that are not malicious but are poorly configured can also cause 405 status codes by attempting to access resources with incorrect methods.
+- To manage these false positives, users can create exceptions for known and trusted IP addresses or user agents that frequently trigger 405 responses without malicious intent.
+- Regularly review and update the list of exceptions to ensure that only non-threatening behaviors are excluded, maintaining a balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately review the web server logs to identify the source IP addresses and user agents associated with the 405 status code responses to determine if they are part of a legitimate request or a potential attack.
+- Block or rate-limit the identified suspicious IP addresses at the firewall or web application firewall (WAF) to prevent further unauthorized method attempts.
+- Conduct a thorough investigation to determine if the unauthorized method attempts were successful in exploiting any vulnerabilities, and assess the potential impact on the system.
+- Review and update the web application's configuration to ensure that only necessary HTTP methods are allowed for each resource, reducing the attack surface.
+- Escalate the incident to the security operations team if there is evidence of a coordinated attack or if sensitive data may have been exposed.
+- Implement enhanced logging policies to capture detailed information about HTTP requests, including headers and payloads, to aid in future investigations.
+- Integrate security information and event management (SIEM) systems with web server logs to enable real-time monitoring and alerting of suspicious activities.
+- Restore the system to its operational state by applying patches or updates to address any identified vulnerabilities and ensure the web application is functioning correctly.
+- Conduct a post-incident review to analyze the attack vectors and improve the incident response plan, incorporating lessons learned from the investigation.
+- Implement hardening measures such as disabling unused HTTP methods, enforcing strong authentication and authorization controls, and regularly testing the web application for vulnerabilities."""
 

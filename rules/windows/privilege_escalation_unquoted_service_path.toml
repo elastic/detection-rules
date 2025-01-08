@@ -2,7 +2,7 @@
 creation_date = "2023/07/13"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -43,6 +43,49 @@ process where host.os.type == "windows" and event.type == "start" and
     process.executable regex """(C:\\Program Files \(x86\)\\|C:\\Program Files\\)\w+.exe"""
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Exploitation of an Unquoted Service Path Vulnerability
+
+Unquoted service paths in Windows can be exploited by adversaries to gain elevated privileges. When a service path lacks quotes and contains spaces, Windows may execute a malicious executable placed in a higher-level directory. The detection rule identifies suspicious process executions by monitoring for executables named "Program.exe" or those in common program directories, indicating potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific executable path that triggered the alert, focusing on the `process.executable` field.
+- Verify the existence of the suspicious executable (e.g., "Program.exe") in the specified directory by manually navigating to the path on the affected host.
+- Use Osquery to list all services with unquoted paths on the host to identify potential vulnerabilities. Example query: `SELECT name, path FROM services WHERE path LIKE '% %' AND path NOT LIKE '"%"';`
+- Check the file creation and modification timestamps of the suspicious executable to determine when it was placed in the directory.
+- Investigate the parent process of the suspicious executable using the `process.parent` field to understand how it was initiated.
+- Examine the user account context under which the suspicious process was executed to assess potential privilege escalation.
+- Review recent system logs and security events around the time of the alert for any anomalous activities or related events.
+- Conduct a file integrity check on the directory containing the suspicious executable to identify any unauthorized changes.
+- Analyze network connections initiated by the suspicious process to detect any potential communication with external hosts.
+- Cross-reference the alert with other security tools and logs to gather additional context and corroborate findings.
+
+### False positive analysis
+
+- Known false positives may include legitimate applications that are poorly configured with unquoted service paths but do not pose a security threat. These applications might inadvertently trigger the detection rule due to their executable names or locations.
+- System administrators can handle these false positives by creating exceptions for specific executables that are known to be safe. This can be done by adding these executables to an allowlist or by modifying the detection rule to exclude certain paths or executable names.
+- Regularly review and update the list of exceptions to ensure that only verified and non-threatening applications are excluded, maintaining a balance between security and operational efficiency.
+- Consider monitoring the behavior of excluded applications to ensure they do not exhibit any unexpected or malicious activity over time, as threat landscapes can change.
+- Engage with application vendors to address unquoted service path issues in their software, reducing the potential for false positives and improving overall security posture.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the adversary.
+- Conduct a thorough investigation to identify any malicious executables named "Program.exe" or located in common program directories, as indicated by the detection rule.
+- Review the service paths of all services on the affected system to identify any unquoted paths and correct them by adding quotes around the executable paths.
+- Remove any unauthorized or malicious executables found during the investigation to prevent further execution.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed process execution events, including command-line arguments and parent-child process relationships, to aid in future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure all services have correctly quoted paths.
+- Conduct a post-incident review to identify gaps in security controls and processes, and update security policies and procedures accordingly.
+- Educate users and administrators on the importance of secure service configurations and the risks associated with unquoted service paths to prevent future occurrences."""
 
 
 [[rule.threat]]

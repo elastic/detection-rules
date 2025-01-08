@@ -2,7 +2,7 @@
 creation_date = "2023/10/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -70,6 +70,48 @@ process.name:kworker* and not destination.ip:(
   "FF00::/8"
 ) and not destination.port:("2049" or "111" or "892" or "597")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Network Activity Detected via Kworker
+
+Kworker processes are integral to Linux systems, handling tasks like interrupts and background activities within the kernel. However, attackers can exploit these processes to disguise malicious network activities, evading detection. The detection rule identifies suspicious network connections initiated by kworker processes, excluding legitimate internal and reserved IP ranges, to uncover potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a kworker process initiating a network connection, focusing on the `process.name:kworker*` field.
+- Verify the destination IP address to ensure it is not within the excluded internal and reserved IP ranges specified in the query.
+- Check the destination port to confirm it is not one of the excluded ports (2049, 111, 892, 597) and assess if the port is commonly used for legitimate services.
+- Use Osquery to list all active network connections on the host to identify any other unusual connections. Example query: `SELECT * FROM process_open_sockets WHERE pid IN (SELECT pid FROM processes WHERE name LIKE 'kworker%');`
+- Investigate the parent process of the kworker instance to determine if it was spawned by a legitimate process or if there are signs of process injection or tampering.
+- Examine the command line arguments and environment variables of the kworker process to identify any anomalies or suspicious parameters.
+- Review recent system logs and security events on the host for any signs of compromise or unusual activity preceding the alert.
+- Analyze the network traffic associated with the kworker process using packet capture tools to identify any suspicious patterns or data exfiltration attempts.
+- Cross-reference the alert with other security tools and logs to identify if there are correlated events or indicators of compromise.
+- Consult threat intelligence sources to determine if the destination IP or any related indicators are associated with known malicious activity.
+
+### False positive analysis
+
+- **Legitimate System Tasks**: Kworker processes are designed to handle legitimate system tasks such as managing hardware interrupts and executing scheduled kernel tasks. These activities might occasionally trigger the detection rule if they involve network connections, especially if they are directed to external IP addresses. Users can manage these by monitoring the frequency and context of such connections to determine if they align with expected system behavior.
+- **Network Monitoring Tools**: Some network monitoring or management tools might use kworker processes to perform legitimate network checks or diagnostics. If these tools are known and trusted, users can create exceptions for specific IP addresses or ports associated with these tools to prevent false positives.
+- **Custom Kernel Modules**: In environments where custom kernel modules are used, they might leverage kworker processes for network communication. Users should document and review these modules to ensure they are not inadvertently flagged by the rule. Exceptions can be made for specific modules or their associated network activities.
+- **Development and Testing Environments**: In development or testing environments, kworker processes might be used in unconventional ways that involve network communication. Users should assess whether these activities are part of normal operations and, if so, exclude them from the rule to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and potential lateral movement.
+- Conduct a thorough investigation to confirm the legitimacy of the kworker process initiating the network connection, using tools like ps, netstat, or lsof to gather process details and network activity.
+- Analyze system logs and network traffic to identify any unusual patterns or connections that could indicate compromise, focusing on the time frame around the detected activity.
+- If malicious activity is confirmed, terminate the suspicious kworker process and any associated processes to stop ongoing threats.
+- Escalate the incident to the security operations team for further analysis and to determine if the threat is part of a larger attack campaign.
+- Restore the system by applying the latest security patches and updates, and ensure that the system is free from any backdoors or persistent threats.
+- Implement enhanced logging policies to capture detailed process and network activity, ensuring that future incidents can be detected and analyzed more effectively.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities and correlate events with known threat indicators.
+- Review and update firewall and intrusion detection/prevention system (IDS/IPS) rules to block unauthorized network connections and alert on suspicious activities.
+- Conduct a post-incident review to identify gaps in the current security posture and implement hardening measures, such as disabling unnecessary services and enforcing strict access controls, to prevent similar incidents in the future."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

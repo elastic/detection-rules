@@ -2,7 +2,7 @@
 creation_date = "2020/05/26"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,52 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Network Access Control List Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EC2 Network Access Control List Deletion
+
+Network Access Control Lists (ACLs) in AWS EC2 are essential for managing inbound and outbound traffic to subnets, acting as a firewall layer. Adversaries may delete these ACLs to disable security controls, facilitating unauthorized access or data exfiltration. The detection rule monitors successful deletion events of ACLs or their entries, signaling potential defense evasion attempts by identifying specific actions and outcomes in AWS CloudTrail logs.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to confirm the event details, focusing on the `event.dataset:aws.cloudtrail`, `event.provider:ec2.amazonaws.com`, `event.action:(DeleteNetworkAcl or DeleteNetworkAclEntry)`, and `event.outcome:success` fields to ensure the alert is valid.
+- Identify the IAM user or role associated with the deletion event by examining the `userIdentity` field in the CloudTrail logs to determine if the action was performed by an authorized entity.
+- Check the `sourceIPAddress` field in the CloudTrail logs to identify the IP address from which the deletion request originated, and assess if it aligns with known and trusted IP addresses.
+- Investigate the `eventTime` field to establish a timeline of events and correlate it with other activities in the AWS environment to identify any suspicious patterns or anomalies.
+- Use Osquery to gather additional context about the affected EC2 instances and subnets. For example, run the following Osquery query to list all current network ACLs and their entries: `SELECT * FROM aws_ec2_network_acls;`.
+- Examine the AWS CloudTrail logs for any preceding or subsequent events related to the same IAM user or role to identify any other potentially malicious activities.
+- Review the AWS Config history for changes to the network ACLs and associated resources to understand the broader impact of the deletion event.
+- Analyze the `userAgent` field in the CloudTrail logs to determine the tool or service used to perform the deletion, which may provide insights into the method of access.
+- Check for any recent changes in IAM policies or roles that might have inadvertently granted excessive permissions, allowing unauthorized users to delete network ACLs.
+- Investigate any alerts or logs from other security tools or services that might indicate concurrent or related suspicious activities in the AWS environment.
+
+### False positive analysis
+
+- Routine maintenance or infrastructure changes by authorized personnel can trigger false positives when ACLs are intentionally deleted as part of network reconfiguration or updates. 
+- Automated scripts or tools used for infrastructure management might delete and recreate ACLs as part of their normal operation, leading to benign deletion events.
+- Scheduled decommissioning of resources, where ACLs are removed as part of the cleanup process, can also result in false positives.
+- To manage these false positives, users can create exceptions for known maintenance windows or specific IAM roles that are authorized to perform such actions.
+- Implementing tagging strategies for resources can help identify and exclude ACL deletions associated with legitimate operational activities.
+- Regularly reviewing and updating the list of trusted IP addresses and IAM roles involved in network management can help refine detection rules and reduce false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected subnet to prevent further unauthorized access or data exfiltration.
+- Review AWS CloudTrail logs to identify the source and user responsible for the deletion of the Network ACL.
+- Verify if the deletion was authorized by cross-referencing with change management records or contacting the responsible team.
+- Restore the deleted Network ACL or its entries from backups or recreate them based on documented configurations.
+- Implement AWS Identity and Access Management (IAM) policies to restrict permissions for deleting Network ACLs to only necessary personnel.
+- Enable AWS Config to continuously monitor and record configuration changes to Network ACLs for future audits.
+- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system for real-time alerting and correlation with other security events.
+- Conduct a root cause analysis to determine how the deletion was executed and identify any security gaps.
+- Escalate the incident to the security operations team for further investigation and to assess potential impacts on other AWS resources.
+- Review and update the incident response plan to include specific procedures for handling Network ACL deletions and similar defense evasion tactics.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

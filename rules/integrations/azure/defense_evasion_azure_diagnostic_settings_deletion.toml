@@ -2,7 +2,7 @@
 creation_date = "2020/08/17"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,50 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Diagnostic Settings Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure Diagnostic Settings Deletion
+
+Azure Diagnostic Settings are crucial for monitoring and logging, directing platform logs and metrics to various destinations for analysis. Adversaries may delete these settings to obscure their tracks and evade detection. The detection rule identifies such deletions by monitoring specific Azure activity logs for successful operations related to the removal of diagnostic settings, aligning with defense evasion tactics.
+
+### Possible investigation steps
+
+- Review the Azure activity logs to confirm the deletion event by filtering logs with `event.dataset:azure.activitylogs` and `azure.activitylogs.operation_name:"MICROSOFT.INSIGHTS/DIAGNOSTICSETTINGS/DELETE"`.
+- Verify the `event.outcome` field to ensure the operation was successful, indicating that the diagnostic settings were indeed deleted.
+- Identify the user or service principal responsible for the deletion by examining the `azure.activitylogs.caller` field.
+- Check the `azure.activitylogs.resource_id` field to determine which specific diagnostic settings were deleted and assess the potential impact on monitoring and logging.
+- Investigate the `azure.activitylogs.correlation_id` to trace related activities and identify any other suspicious operations that occurred around the same time.
+- Analyze the `azure.activitylogs.timestamp` to establish a timeline of events and correlate with other security alerts or anomalies in the environment.
+- Use Osquery to gather additional context on the affected resources by running a query such as: `SELECT * FROM azure_diagnostic_settings WHERE resource_id = '<resource_id_from_logs>';` to retrieve current settings and compare with historical data.
+- Cross-reference the deletion event with any recent changes in user permissions or roles that might have allowed unauthorized access to delete diagnostic settings.
+- Investigate any other alerts or logs from the same user or service principal to identify patterns of suspicious behavior or potential lateral movement.
+- Review the organization's change management records to determine if the deletion was part of an approved change or if it was unauthorized.
+
+### False positive analysis
+
+- Routine maintenance or administrative tasks may lead to the deletion of diagnostic settings, which can trigger false positives. These activities are often performed by authorized personnel and should be reviewed to confirm legitimacy.
+- Automated scripts or tools used for infrastructure management might delete and recreate diagnostic settings as part of their normal operation. Identifying these scripts and excluding their activity from alerts can reduce false positives.
+- Changes in organizational policies or compliance requirements might necessitate the removal of certain diagnostic settings. Documenting these changes and updating monitoring rules accordingly can help in managing false positives.
+- To handle false positives, users can create exceptions for known and verified activities by excluding specific user accounts or service principals that are responsible for legitimate deletions. This can be done by adjusting the detection rule to ignore operations performed by these trusted entities.
+
+### Response and remediation
+
+- Immediately isolate affected Azure resources to prevent further unauthorized actions and assess the scope of the deletion.
+- Review Azure activity logs to identify the source and timeline of the deletion event, focusing on user accounts and IP addresses involved.
+- Verify if any other critical settings or configurations have been altered or deleted, indicating a broader compromise.
+- Restore deleted diagnostic settings from backups or reconfigure them manually to ensure continued logging and monitoring.
+- Implement Azure Role-Based Access Control (RBAC) to restrict permissions for deleting diagnostic settings to only essential personnel.
+- Escalate the incident to the security operations team for a detailed investigation and to determine if further actions are required.
+- Conduct a root cause analysis to understand how the adversary gained access and deleted the settings, leveraging MITRE ATT&CK framework for threat context.
+- Enhance logging policies to include alerts for any changes to diagnostic settings and other critical configurations.
+- Integrate Azure Security Center and other security tools to provide comprehensive monitoring and alerting capabilities.
+- Review and update incident response plans to incorporate lessons learned from the incident and improve future response efforts.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.microsoft.com/en-us/azure/azure-monitor/platform/diagnostic-settings"]

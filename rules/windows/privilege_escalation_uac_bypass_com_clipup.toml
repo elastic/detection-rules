@@ -2,7 +2,7 @@
 creation_date = "2020/10/28"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -43,6 +43,48 @@ process where host.os.type == "windows" and event.type == "start" and process.na
   /* CLSID of the Elevated COM Interface IEditionUpgradeManager */
   process.parent.args : "/Processid:{BD54C901-076B-434E-B6C7-17C531F4AB41}"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating UAC Bypass Attempt with IEditionUpgradeManager Elevated COM Interface
+
+User Account Control (UAC) is a security feature in Windows designed to prevent unauthorized changes by prompting for elevated permissions. The IEditionUpgradeManager COM interface can be exploited by attackers to bypass UAC, allowing them to execute code with elevated privileges without user consent. This detection rule identifies such attempts by monitoring for the execution of the ClipUp program from non-standard paths, initiated by a specific COM interface process, indicating potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the ClipUp.exe process execution from a non-standard path, as indicated by the process.executable field.
+- Verify the parent process information to ensure it matches dllhost.exe, and check the process.parent.args for the specific CLSID {BD54C901-076B-434E-B6C7-17C531F4AB41} to confirm the use of the IEditionUpgradeManager COM interface.
+- Use Osquery to list all running processes and identify any suspicious processes that may have been spawned by ClipUp.exe. Example query: `SELECT pid, name, path, parent FROM processes WHERE name = 'Clipup.exe';`
+- Investigate the origin of the ClipUp.exe file by checking its file properties, such as creation date and digital signature, to determine if it is a legitimate or potentially malicious file.
+- Examine the system's event logs, particularly the Security and Application logs, for any related events around the time of the alert to gather additional context on the activity.
+- Check for any recent changes in user account privileges or group memberships that could indicate an attempt to escalate privileges.
+- Investigate any network connections initiated by ClipUp.exe or its parent process to identify potential command and control communication or data exfiltration.
+- Review the system's scheduled tasks and startup items to identify any persistence mechanisms that may have been established by the attacker.
+- Analyze any recent software installations or updates that could have introduced the rogue ClipUp.exe file, focusing on software installed around the time of the alert.
+- Correlate this alert with other security alerts or incidents in the environment to determine if this is part of a larger attack campaign.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger this detection if they use the ClipUp program from non-standard paths as part of their process. Users should verify the source and purpose of such installations to determine if they are benign.
+- System administrators or IT personnel might use scripts or tools that inadvertently mimic the behavior of a UAC bypass attempt. In such cases, ensure these activities are documented and authorized.
+- Some enterprise environments may have custom applications that utilize the ClipUp program for legitimate purposes. These should be reviewed and, if deemed safe, added to an exception list to prevent false alarms.
+- To manage false positives, users can create exceptions in their monitoring tools for known safe processes or paths that frequently trigger this rule. This can be done by specifying trusted parent processes or executable paths in the detection rule configuration.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to confirm the UAC bypass attempt by reviewing logs and identifying any unauthorized changes or suspicious activities.
+- Terminate any malicious processes associated with the ClipUp program running from non-standard paths.
+- Remove any unauthorized or malicious files and restore any altered system files from a known good backup.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
+- Implement enhanced logging policies to capture detailed process execution and COM interface usage, ensuring future attempts are detected promptly.
+- Integrate security information and event management (SIEM) solutions to correlate events and provide comprehensive threat visibility.
+- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited for UAC bypass.
+- Educate users on the importance of UAC prompts and encourage reporting of any unexpected or suspicious prompts.
+- Review and update security policies and hardening measures, such as restricting COM interface access and enforcing least privilege principles, to prevent similar attacks in the future."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -53,6 +53,50 @@ sequence with maxspan=1m
     not (?process.Ext.token.integrity_level_name : "System" or ?winlog.event_data.IntegrityLevel : "System")
   ] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Local Scheduled Task Creation
+
+Scheduled tasks in Windows automate routine tasks, but adversaries exploit them for persistence, lateral movement, or privilege escalation. They may create tasks using command-line tools like `schtasks.exe`. The detection rule identifies suspicious task creation by monitoring processes linked to task creation, especially when initiated by non-system users, indicating potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process that triggered the rule, focusing on the `process.name` and `process.args` fields to understand the context of the task creation.
+- Check the `process.entity_id` and `process.parent.entity_id` to trace the parent-child relationship of the processes involved, which can help identify the origin of the task creation.
+- Investigate the user account associated with the task creation by examining the `process.args` for `/RU` to determine if it aligns with expected user behavior or if it is a non-system user.
+- Verify the integrity level of the process using `?process.Ext.token.integrity_level_name` or `?winlog.event_data.IntegrityLevel` to confirm that the task was created by a non-SYSTEM user, which could indicate suspicious activity.
+- Use Osquery to list all scheduled tasks on the host and identify any recently created or modified tasks. Example query: `SELECT * FROM scheduled_tasks WHERE hidden = 0;`
+- Cross-reference the scheduled task name and path from the alert with known legitimate tasks to identify any anomalies or unauthorized tasks.
+- Examine the command or script specified in the task's `/TR` argument to determine if it contains any suspicious or unexpected actions.
+- Review the task's schedule specified by `/SC` to assess if the timing aligns with typical user activity or if it appears to be set for persistence.
+- Check for any recent changes in the system's environment or configuration that could explain the task creation, such as software updates or new application installations.
+- Correlate the findings with other security events or logs from the same timeframe to identify any related activities or patterns that could indicate a broader attack campaign.
+
+### False positive analysis
+
+- Scheduled tasks created by legitimate administrative tools or scripts can trigger false positives, especially in environments with automated maintenance or deployment processes.
+- Regularly scheduled tasks by IT management software, such as patch management or system monitoring tools, may appear suspicious but are benign.
+- Users can manage these false positives by creating exceptions for known administrative tools or scripts that frequently create scheduled tasks.
+- Exclude specific user accounts or processes that are known to perform legitimate task creation, ensuring they are documented and verified as non-threatening.
+- Implement a review process to regularly update and refine exceptions based on changes in the environment or new legitimate task creation patterns.
+- Consider the context of task creation, such as the time of day or associated user activity, to differentiate between legitimate and suspicious behavior.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement or data exfiltration.
+- Review the scheduled task details, including the user account that created it, the command executed, and the timing of the task, to understand the scope and intent of the task.
+- Terminate any malicious processes associated with the scheduled task and remove the task from the system.
+- Conduct a thorough investigation of the affected system to identify any additional indicators of compromise or persistence mechanisms.
+- Escalate the incident to the security operations center (SOC) or incident response team if the task is part of a broader attack campaign or if multiple systems are affected.
+- Implement enhanced logging policies to capture detailed process creation events and command-line arguments for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Restore the system to its operational state by applying the latest security patches, updating antivirus definitions, and ensuring all security controls are functioning correctly.
+- Conduct a post-incident review to identify gaps in security controls and processes, and implement hardening measures such as restricting the use of administrative tools and enforcing least privilege principles.
+- Educate users on recognizing and reporting suspicious activities, emphasizing the importance of adhering to security policies and procedures."""
 
 
 [[rule.threat]]

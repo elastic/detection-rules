@@ -2,7 +2,7 @@
 creation_date = "2020/11/15"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -62,6 +62,49 @@ registry where host.os.type == "windows" and event.type == "change" and length(r
                   "\\REGISTRY\\USER\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\",
                   "\\REGISTRY\\MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via Hidden Run Key Detected
+
+Windows systems use registry keys to manage startup programs, a feature adversaries exploit to maintain persistence. By leveraging the NtSetValueKey API, attackers can create hidden registry entries that evade standard tools like regedit. The detection rule identifies changes in specific registry paths, focusing on entries with null-terminated keys, signaling potential stealthy persistence attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific registry path and key that triggered the detection, focusing on paths ending with a backslash as indicated in the query.
+- Verify the host information from the alert to determine the affected system and gather additional context about its role and importance within the network.
+- Use a tool like Osquery to list all registry keys under the specified path to identify any null-terminated keys. Example query: `SELECT * FROM registry WHERE path LIKE 'HKEY_USERS\\\\%\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\%' OR path LIKE 'HKLM\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\%' OR path LIKE 'HKLM\\\\Software\\\\WOW6432Node\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\%' OR path LIKE 'HKEY_USERS\\\\%\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Policies\\\\Explorer\\\\Run\\\\%' OR path LIKE 'HKLM\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Policies\\\\Explorer\\\\Run\\\\%' OR path LIKE '\\\\REGISTRY\\\\MACHINE\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Policies\\\\Explorer\\\\Run\\\\%' OR path LIKE '\\\\REGISTRY\\\\USER\\\\%\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\%' OR path LIKE '\\\\REGISTRY\\\\MACHINE\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\%' OR path LIKE '\\\\REGISTRY\\\\MACHINE\\\\Software\\\\WOW6432Node\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\%' OR path LIKE '\\\\REGISTRY\\\\USER\\\\%\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Policies\\\\Explorer\\\\Run\\\\%' OR path LIKE '\\\\REGISTRY\\\\MACHINE\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Policies\\\\Explorer\\\\Run\\\\%'`.
+- Check the timestamp of the registry change event to correlate it with other system activities or logs, such as user logins or software installations, to identify potential sources or related events.
+- Investigate the process that made the registry change by reviewing process creation logs or using endpoint detection and response (EDR) tools to trace the process lineage and command-line arguments.
+- Examine the registry key value data to determine if it points to a legitimate application or a suspicious executable, and verify the file's existence and properties on the disk.
+- Cross-reference the registry key value data with known good baselines or threat intelligence sources to identify any known malicious indicators or patterns.
+- Analyze network logs or traffic from the affected host around the time of the registry change to detect any unusual outbound connections or data exfiltration attempts.
+- Review user activity logs to determine if the registry change was made by a legitimate user or if there are signs of compromised credentials or unauthorized access.
+- Document all findings and evidence collected during the investigation to support further analysis or potential escalation to incident response teams.
+
+### False positive analysis
+
+- Legitimate software installations or updates may modify registry keys in the specified paths, leading to false positives. Users should verify if the changes coincide with known software activities.
+- System administrators may use scripts or management tools that alter registry keys for configuration purposes. These should be documented and excluded from alerts if verified as non-malicious.
+- Some security software may create or modify registry entries in these paths as part of their normal operation. Users should identify these applications and create exceptions for them.
+- Group Policy Objects (GPOs) applied in enterprise environments might result in registry changes that trigger the detection rule. Administrators should review GPO settings and exclude expected changes.
+- Users can handle false positives by creating exceptions for specific registry paths or values that are known to be safe, ensuring these exceptions are regularly reviewed and updated as necessary.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat.
+- Use a trusted tool to inspect the registry paths identified in the alert for any suspicious or unauthorized entries.
+- Remove any unauthorized or suspicious registry entries found in the specified paths to eliminate persistence mechanisms.
+- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any associated malware.
+- Review recent system changes and user activity logs to identify how the persistence mechanism was introduced and assess the scope of the compromise.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed registry changes and process execution events for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate alerts and improve detection capabilities.
+- Restore the system to a known good state using backups or system restore points, ensuring that all malicious artifacts are removed.
+- Apply hardening measures such as restricting registry editing permissions, enforcing least privilege principles, and regularly updating software to mitigate future risks."""
 
 
 [[rule.threat]]

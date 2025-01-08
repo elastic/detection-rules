@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -35,6 +35,48 @@ query = '''
 process where host.os.type == "windows" and process.name: "MSBuild.exe" and
     event.action:("CreateRemoteThread detected (rule: CreateRemoteThread)", "CreateRemoteThread")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Process Injection by the Microsoft Build Engine
+
+The Microsoft Build Engine (MSBuild) is a platform for building applications, often used in software development environments. Adversaries exploit MSBuild to perform process injection, a technique to execute malicious code within the address space of another process, thereby evading detection and elevating privileges. The detection rule identifies suspicious activity by monitoring MSBuild for actions like creating remote threads, a common indicator of process injection attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the "CreateRemoteThread" event action associated with "MSBuild.exe" to ensure the alert is not a false positive.
+- Check the process tree to identify the parent process of "MSBuild.exe" to determine if it was launched by a legitimate application or a suspicious one.
+- Investigate the command line arguments used to launch "MSBuild.exe" to identify any unusual or unexpected parameters that could indicate malicious activity.
+- Examine the timeline of events leading up to and following the "CreateRemoteThread" event to identify any other suspicious activities or patterns.
+- Use Osquery to gather additional context about the processes involved. For example, run the following query to list all processes with their parent process IDs and command lines: `SELECT pid, name, path, cmdline, parent FROM processes WHERE name = 'MSBuild.exe';`
+- Check for any network connections initiated by "MSBuild.exe" to external IP addresses, which could indicate data exfiltration or command and control communication.
+- Analyze any files or scripts that "MSBuild.exe" may have accessed or executed to determine if they contain malicious code or payloads.
+- Review the user account context under which "MSBuild.exe" was executed to assess if it aligns with expected user behavior or if it indicates potential credential compromise.
+- Correlate the alert with other security events or logs from the same host or network segment to identify if this is part of a broader attack campaign.
+- Consult threat intelligence sources to determine if there are known attack patterns or campaigns involving MSBuild process injection that match the observed behavior.
+
+### False positive analysis
+
+- Legitimate software development activities: MSBuild is commonly used in development environments, and legitimate processes may create remote threads as part of normal operations. Developers should verify if the activity aligns with known development tasks.
+- Automated build systems: Continuous integration and deployment systems might trigger MSBuild to perform actions that resemble process injection. Users should review the context of the build process to determine if the activity is expected.
+- Debugging tools: Some debugging or profiling tools may interact with processes in a way that mimics process injection. Users should check if such tools are running and exclude their activities if verified as non-threatening.
+- Excluding known safe processes: Users can create exceptions for specific processes or environments where MSBuild's behavior is understood and deemed safe, reducing noise from false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of the threat.
+- Conduct a thorough investigation to confirm the presence of process injection by analyzing logs and memory dumps for suspicious activity related to MSBuild.
+- Terminate any malicious processes identified during the investigation to halt ongoing malicious activities.
+- Review and analyze the affected system's startup items, scheduled tasks, and services for unauthorized changes or additions.
+- Restore the system from a known good backup if available, ensuring that the backup is free from any signs of compromise.
+- Apply security patches and updates to the operating system and all installed software to mitigate known vulnerabilities.
+- Implement enhanced logging policies to capture detailed process creation and thread injection events for future analysis.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent future occurrences."""
 
 
 [[rule.threat]]

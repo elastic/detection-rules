@@ -2,7 +2,7 @@
 creation_date = "2023/07/12"
 integration = ["apm"]
 maturity = "production"
-updated_date = "2024/09/01"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -31,6 +31,52 @@ any where processor.name == "transaction" and
 url.fragment : ("<iframe*", "*prompt(*)*", "<script*>", "<svg*>", "*onerror=*", "*javascript*alert*", "*eval*(*)*", "*onclick=*",
 "*alert(document.cookie)*", "*alert(document.domain)*","*onresize=*","*onload=*","*onmouseover=*")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Cross Site Scripting (XSS)
+
+Cross-Site Scripting (XSS) exploits vulnerabilities in web applications by injecting malicious scripts into trusted sites, often targeting users' browsers. Adversaries leverage this to execute harmful scripts, potentially stealing data or hijacking sessions. The detection rule identifies suspicious script patterns in web transactions, such as script tags or event handlers, signaling potential XSS attempts.
+
+### Possible investigation steps
+
+- Review the alert details to understand which specific pattern from the query triggered the alert, such as "<script*>", "*onerror=*", or "*alert(document.cookie)*".
+- Examine the URL and URL fragment fields in the alert to identify the source and context of the suspicious script injection.
+- Check the HTTP request and response headers for any anomalies or indications of script injection attempts.
+- Analyze the user agent string to determine if the request originated from a legitimate browser or a potentially malicious source.
+- Investigate the referrer field to trace back the navigation path that led to the suspicious request, which might reveal the attack vector.
+- Use Osquery to gather additional context on the affected system. For example, run the following query to list all running browser processes and their command-line arguments:
+  ```sql
+  SELECT pid, name, path, cmdline FROM processes WHERE name LIKE '%chrome%' OR name LIKE '%firefox%' OR name LIKE '%edge%';
+  ```
+- Correlate the alert with other logs, such as web server logs or application logs, to identify any patterns or repeated attempts of similar XSS payloads.
+- Check for any recent changes or deployments in the web application that might have introduced new vulnerabilities or bypassed existing security controls.
+- Investigate the affected user's session details to determine if any unauthorized actions were performed or if sensitive data was accessed.
+- Review historical alerts and incidents to see if this is part of a larger pattern or campaign targeting the organization.
+
+### False positive analysis
+
+- Certain legitimate web applications may use script tags or event handlers for benign purposes, such as loading external resources or enhancing user interaction, which can trigger false positives in the detection rule.
+- Web development tools and frameworks often include inline scripts or event handlers for debugging or functionality testing, which might be mistakenly flagged as XSS attempts.
+- User-generated content platforms, like forums or comment sections, may allow HTML or script-like syntax for formatting or embedding media, leading to false positives if not properly sanitized.
+- To manage these false positives, users can create exceptions for known safe scripts or domains by updating the detection rule to exclude specific patterns or URLs that are verified as non-threatening.
+- Regularly reviewing and updating the list of exceptions based on the evolving web application landscape and user behavior can help minimize unnecessary alerts while maintaining security.
+
+### Response and remediation
+
+- Immediately isolate affected systems from the network to prevent further exploitation and data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the XSS attack, focusing on logs and user activity around the time of the alert.
+- Remove any injected scripts or malicious code from the affected web applications and databases.
+- Reset credentials and session tokens for users who may have been affected to prevent unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement or enhance web application firewalls (WAF) to detect and block XSS attempts in real-time.
+- Review and update input validation and output encoding practices in web applications to prevent future XSS vulnerabilities.
+- Enable comprehensive logging of web application activities and integrate with a security information and event management (SIEM) system for continuous monitoring.
+- Conduct a security awareness training session for developers and users to recognize and prevent XSS attacks.
+- Apply security patches and updates to web applications and underlying systems to mitigate known vulnerabilities."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/06/10"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,51 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS CloudTrail Log Created"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS CloudTrail Log Created
+
+AWS CloudTrail is a service that enables governance, compliance, and operational and risk auditing of your AWS account. It logs and monitors account activity across your AWS infrastructure. Adversaries may create new trails to capture sensitive data or cover their tracks. The detection rule identifies successful creation events of log trails, which could indicate unauthorized activity or configuration changes, helping analysts to quickly investigate potential security incidents.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event dataset is `aws.cloudtrail` and the event provider is `cloudtrail.amazonaws.com`, ensuring the alert is relevant to AWS CloudTrail activity.
+- Verify the event action is `CreateTrail` and the event outcome is `success` to confirm that a new log trail was successfully created.
+- Identify the AWS account and region where the trail was created to understand the scope and potential impact of the activity.
+- Check the IAM user or role associated with the `CreateTrail` action to determine if the activity was performed by an authorized entity.
+- Investigate the time and date of the trail creation to correlate with other suspicious activities or known incidents.
+- Use AWS CloudTrail logs to review recent activities by the identified IAM user or role to detect any other unauthorized or unusual actions.
+- Examine the configuration of the newly created trail, including the S3 bucket and SNS topic settings, to ensure they align with organizational policies and do not expose sensitive data.
+- Utilize Osquery to gather additional context on the AWS environment. For example, run the following Osquery query to list all CloudTrail trails and their configurations: `SELECT * FROM aws_cloudtrail_trails;`
+- Cross-reference the trail creation event with other security tools and logs, such as AWS Config or GuardDuty, to identify any related alerts or configuration changes.
+- Document findings and gather evidence, including logs and screenshots, to support further analysis and potential escalation if unauthorized activity is confirmed.
+
+### False positive analysis
+
+- Routine administrative actions: Regular maintenance or configuration changes by authorized personnel can trigger the AWS CloudTrail Log Created rule. These actions are typically non-threatening and can be excluded by creating exceptions for known administrative accounts or specific time windows when maintenance is scheduled.
+- Automated deployment tools: Organizations using automated tools for infrastructure deployment may frequently create and delete log trails as part of their processes. To manage these false positives, users can identify and exclude specific IAM roles or services associated with these tools.
+- Testing environments: In environments where AWS services are frequently tested, the creation of log trails might be a common occurrence. Users can handle these by excluding specific AWS accounts or regions dedicated to testing.
+- Third-party integrations: Some third-party security or monitoring tools may create log trails as part of their integration with AWS. Users should review and whitelist these tools to prevent unnecessary alerts.
+- Policy updates: Changes in organizational policies might require the creation of new log trails. Users can document and exclude these changes by correlating them with policy update records.
+
+### Response and remediation
+
+- Verify the legitimacy of the newly created AWS CloudTrail log by checking with the responsible team or individual to confirm if the action was authorized.
+- If unauthorized, immediately disable or delete the suspicious CloudTrail log to prevent further data collection or misuse.
+- Review AWS CloudTrail logs and other relevant logs to identify any unauthorized access or suspicious activities that may have occurred before or after the trail creation.
+- Conduct a thorough investigation to determine the scope of the incident, including identifying any compromised accounts or credentials.
+- Reset passwords and rotate access keys for any accounts that may have been compromised to prevent further unauthorized access.
+- Escalate the incident to the security operations team or incident response team for further analysis and to determine if additional actions are required.
+- Implement stricter IAM policies and multi-factor authentication to enhance account security and prevent unauthorized changes to CloudTrail configurations.
+- Enhance logging and monitoring by integrating AWS CloudTrail with a Security Information and Event Management (SIEM) system for real-time alerts and analysis.
+- Review and update AWS logging policies to ensure all critical actions and changes are logged and monitored effectively.
+- Conduct a post-incident review to identify gaps in security controls and processes, and implement hardening measures such as least privilege access and regular security training for staff.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

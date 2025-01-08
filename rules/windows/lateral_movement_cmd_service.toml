@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -43,6 +43,49 @@ sequence by process.entity_id with maxspan = 1m
       process.args : ("create", "config", "failure", "start")]
   [network where host.os.type == "windows" and process.name : "sc.exe" and destination.ip != "127.0.0.1"]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Service Command Lateral Movement
+
+The `sc.exe` utility in Windows is used for managing services, including creating, modifying, or starting them on remote systems. While essential for administrative tasks, adversaries can exploit it for lateral movement by executing malicious services on remote hosts. The detection rule identifies suspicious use of `sc.exe` by monitoring for specific command patterns and network activity, flagging potential unauthorized service manipulations.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific `process.entity_id` and `process.name` involved in the suspicious activity.
+- Examine the `process.args` to determine the exact command executed, focusing on arguments like `binPath=*`, `create`, `config`, `failure`, and `start` to understand the service manipulation intent.
+- Check the `destination.ip` field to identify the remote host targeted by the `sc.exe` command and verify if it is a legitimate administrative action or an unauthorized attempt.
+- Investigate the user account associated with the process execution to determine if it has the necessary privileges and if the activity aligns with the user's typical behavior.
+- Correlate the timestamp of the event with other security logs to identify any concurrent suspicious activities or anomalies on the involved systems.
+- Use Osquery to gather additional context on the involved systems. For example, run the following query to list services recently created or modified: `SELECT name, path, start_type, status FROM services WHERE timestamp > (SELECT MAX(timestamp) - 3600 FROM services);`
+- Analyze network logs to trace any unusual connections or data transfers between the source and destination IPs around the time of the alert.
+- Review historical data for similar patterns of `sc.exe` usage across the network to identify potential trends or repeated unauthorized access attempts.
+- Check for any related alerts or incidents involving the same `process.entity_id` or `destination.ip` to assess if this is part of a larger attack campaign.
+- Consult with system administrators to verify if the detected activity was part of routine maintenance or an expected operation, ensuring alignment with organizational policies.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators often use `sc.exe` for legitimate purposes such as configuring services on remote systems, which can trigger false positives. To manage this, users can create exceptions for known administrative accounts or specific IP addresses frequently used for these tasks.
+- Automated scripts and management tools: Automated processes or management tools that rely on `sc.exe` for service management across multiple machines may also be flagged. Users should identify these scripts or tools and exclude their associated processes or network patterns from the detection rule.
+- Monitoring and management software: Some enterprise monitoring or management software may use `sc.exe` to interact with services on remote hosts. Users can whitelist these applications by their process names or digital signatures to reduce noise.
+- Internal IT operations: Regular IT operations, such as software updates or system maintenance, might involve the use of `sc.exe` across the network. Users should document these operations and adjust the detection rule to exclude them based on time windows or specific network segments.
+- Testing and development environments: In environments where frequent testing or development occurs, `sc.exe` might be used extensively. Users can create exceptions for specific environments or subnets to prevent false positives in these areas.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
+- Conduct a thorough investigation to confirm the unauthorized use of sc.exe, reviewing logs and correlating with other security events.
+- Identify and terminate any malicious services created or modified by the adversary using sc.exe on the affected and remote systems.
+- Change credentials for any accounts that were used to execute the sc.exe commands, as they may be compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
+- Implement enhanced logging policies to capture detailed service creation and modification events, including command-line arguments and network connections.
+- Integrate threat intelligence feeds to correlate detected activity with known adversary tactics, techniques, and procedures (TTPs) from MITRE ATT&CK.
+- Restore the system to its operational state by reinstalling or repairing the operating system and applications, ensuring all patches and updates are applied.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent similar incidents in the future.
+- Harden systems by disabling unnecessary services, enforcing least privilege access, and implementing network segmentation to limit lateral movement opportunities."""
 
 
 [[rule.threat]]

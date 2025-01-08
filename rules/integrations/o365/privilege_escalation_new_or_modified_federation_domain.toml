@@ -2,7 +2,7 @@
 creation_date = "2021/05/17"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Austin Songer"]
@@ -14,7 +14,50 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "New or Modified Federation Domain"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating New or Modified Federation Domain
+Federation domains enable trust relationships between Office 365 and external identity providers, facilitating seamless authentication. Adversaries may exploit this by altering federation settings to redirect authentication flows, potentially gaining unauthorized access. The detection rule monitors specific actions within Exchange logs, identifying successful modifications to federation domains, which may indicate malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific action that triggered the alert, focusing on the `event.action` field to determine whether it was a domain addition, modification, or removal.
+- Examine the `event.outcome` field to confirm the success of the action, ensuring that the alert is not a false positive due to a failed attempt.
+- Check the `event.provider` and `event.dataset` fields to verify that the event originated from the expected source, ensuring the integrity of the alert.
+- Investigate the user account associated with the action by reviewing the `user.name` field to determine if the account has a history of suspicious activity or if it is a known administrative account.
+- Analyze the `event.time` field to establish a timeline of events, identifying any unusual patterns or times that could indicate malicious intent.
+- Correlate the event with other logs or alerts from the same time period to identify any related suspicious activities, such as unauthorized access attempts or privilege escalations.
+- Use Osquery to gather additional context on the system where the action was performed. For example, run the following query to list recent changes to federation settings: `SELECT * FROM federated_domains WHERE action IN ('Set-AcceptedDomain', 'Set-MsolDomainFederationSettings', 'Add-FederatedDomain', 'New-AcceptedDomain', 'Remove-AcceptedDomain', 'Remove-FederatedDomain');`
+- Investigate any recent changes to administrative roles or permissions that could have facilitated the unauthorized modification of federation domains.
+- Review the organization's change management records to verify if the action was part of a planned and approved change, potentially ruling out malicious activity.
+- Consult with the identity and access management team to confirm whether the federation domain changes align with current business needs and security policies.
+
+### False positive analysis
+
+- Routine administrative changes: Legitimate IT administrators may frequently update federation domains as part of regular maintenance or configuration changes. These actions can trigger the detection rule, leading to false positives.
+- Scheduled domain updates: Organizations may have scheduled updates or migrations that involve modifying federation domains, which can be mistaken for malicious activity.
+- Integration with new identity providers: When an organization integrates a new external identity provider, it may involve adding or modifying federation domains, which could be flagged by the rule.
+- To manage these false positives, users can create exceptions for known administrative accounts or scheduled maintenance windows, ensuring that only unexpected or unauthorized changes trigger alerts.
+- Implementing a review process for flagged events can help distinguish between legitimate administrative actions and potential threats, reducing the number of false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected accounts or systems to prevent further unauthorized access.
+- Review the audit logs to identify the scope of the changes made to federation domains and determine if any unauthorized domains were added or modified.
+- Revert any unauthorized changes to federation settings by restoring the original configuration from backups or documented settings.
+- Conduct a thorough investigation to identify the source of the unauthorized changes, including reviewing user activity and access logs.
+- Escalate the incident to the security operations team and, if necessary, involve legal or compliance teams to assess potential impacts.
+- Implement additional monitoring and alerting for changes to federation domains to detect future unauthorized modifications promptly.
+- Enhance logging policies to ensure comprehensive capture of authentication and federation-related activities, integrating with SIEM solutions for real-time analysis.
+- Educate users and administrators on the importance of secure federation settings and the risks associated with unauthorized modifications.
+- Apply security hardening measures such as multi-factor authentication (MFA) for administrative accounts and regular reviews of federation trust relationships.
+- Review and update incident response plans to incorporate lessons learned from the investigation and ensure readiness for similar future incidents.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

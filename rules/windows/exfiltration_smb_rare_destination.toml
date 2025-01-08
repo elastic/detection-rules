@@ -2,7 +2,7 @@
 creation_date = "2023/12/04"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -79,6 +79,50 @@ event.category:network and host.os.type:windows and process.pid:4 and
     "FF00::/8"
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Rare SMB Connection to the Internet
+
+Server Message Block (SMB) is a protocol used for sharing files and printers within local networks. Adversaries exploit SMB to exfiltrate data by injecting rogue paths to capture NTLM credentials. The detection rule identifies unusual SMB traffic from internal IPs to external networks, flagging potential exfiltration attempts by monitoring specific ports and excluding known safe IP ranges.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the source IP address falls within the internal IP ranges specified in the query (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) and the destination IP is external.
+- Verify the destination port is either 139 or 445, as these are the ports associated with SMB traffic, to ensure the alert is relevant.
+- Check the process ID (PID) 4 on the host, which typically corresponds to the System process, to confirm the legitimacy of the SMB connection.
+- Use network logs to trace the SMB connection path and identify any unusual patterns or repeated attempts to connect to the same external IP.
+- Investigate the external IP address to determine if it is associated with known malicious activity or if it belongs to a legitimate service.
+- Utilize Osquery to gather more information about the host's network connections. Example query: `SELECT * FROM process_open_sockets WHERE pid = 4 AND remote_port IN (139, 445);` to identify all active connections from the System process.
+- Examine recent changes or updates on the host that might have triggered the unusual SMB connection, such as new software installations or configuration changes.
+- Review user activity logs on the host to identify any suspicious behavior or unauthorized access attempts around the time of the alert.
+- Correlate the alert with other security events or alerts in the network to determine if this is part of a larger attack pattern.
+- Consult threat intelligence sources to check for any recent campaigns or tactics involving SMB exfiltration that match the observed behavior.
+
+### False positive analysis
+
+- Known false positives may include legitimate SMB traffic to external cloud services or remote offices that are part of the organization's infrastructure but not included in the safe IP ranges.
+- Regularly scheduled backups or file synchronization tasks that use SMB to connect to external storage solutions can trigger alerts.
+- Users can handle these false positives by identifying and documenting legitimate external SMB connections and updating the detection rule to exclude these specific IP addresses or IP ranges.
+- Implementing a whitelist of known and trusted external IPs or domains that require SMB access can help reduce false positives.
+- Monitoring and reviewing the frequency and context of flagged connections can assist in distinguishing between legitimate and suspicious activities.
+- Collaborate with network and security teams to ensure that any changes in infrastructure or external partnerships are reflected in the detection rule's exceptions.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the SMB connection, including reviewing logs and network traffic for any signs of unauthorized access or data transfer.
+- Reset credentials for any accounts that may have been compromised, particularly those using NTLM authentication.
+- Remove any unauthorized SMB shares or rogue UNC paths identified during the investigation.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed network traffic and SMB activity, ensuring that logs are stored securely and monitored regularly.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats in the future.
+- Restore the system to its operational state by applying the latest security patches and updates, and verify that all security controls are functioning correctly.
+- Conduct a post-incident review to identify any gaps in the security posture and update incident response plans accordingly.
+- Implement hardening measures such as disabling SMBv1, enforcing strong password policies, and using network segmentation to limit the exposure of critical systems."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2021/01/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -74,6 +74,49 @@ event.category:file and host.os.type:macos and event.action:modification and
     )
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Calendar File Modification
+
+Calendar files on macOS can be manipulated to trigger events, potentially allowing adversaries to execute malicious programs at set intervals, thus maintaining persistence. By monitoring file modifications in calendar directories, especially by non-standard processes, the detection rule identifies unusual activity. It excludes legitimate system processes, focusing on unexpected executables, to flag potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to understand which specific calendar file was modified and by which process, focusing on the `file.path` and `process.executable` fields.
+- Verify the legitimacy of the process executable by checking its location and signature. Use the `process.executable` field to determine if the process is expected or potentially malicious.
+- Cross-reference the process executable with known good applications and system processes to rule out false positives.
+- Use Osquery to list all processes that have recently interacted with calendar files. Example query: `SELECT pid, name, path FROM processes WHERE path LIKE '/Users/%/Library/Calendars/%.calendar/Events/%.ics';`
+- Investigate the parent process of the suspicious executable to understand how it was launched. This can provide insights into whether it was user-initiated or automated.
+- Check the modification timestamps of the calendar file to determine if the timing aligns with any known user activity or scheduled tasks.
+- Review system logs around the time of the modification for any additional context or related events, such as user logins or other file modifications.
+- Examine the contents of the modified calendar file to identify any unusual or unexpected entries that could indicate malicious intent.
+- Investigate the user account associated with the modified calendar file to determine if there are any signs of compromise or unusual activity.
+- Correlate the event with other alerts or logs from the same host to identify patterns or additional indicators of compromise.
+
+### False positive analysis
+
+- Known false positives may include legitimate third-party applications that interact with calendar files for synchronization or notification purposes, such as productivity tools or calendar management apps.
+- Users can handle these false positives by identifying and documenting the legitimate applications that modify calendar files regularly, then creating exceptions for these applications in the detection rule.
+- Another potential false positive source could be user-initiated scripts or automation tools that modify calendar events for personal scheduling needs. Users should verify the legitimacy of these scripts and exclude them if they are deemed non-threatening.
+- Regularly review and update the list of excluded processes to ensure that only trusted applications are allowed, minimizing the risk of overlooking a genuine threat.
+- Consider implementing a logging mechanism to track excluded processes, allowing for periodic audits and ensuring that no malicious activity is being inadvertently ignored.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the process responsible for the calendar file modification, using endpoint detection and response (EDR) tools to trace the process lineage and identify any associated malicious files or processes.
+- Terminate any suspicious processes identified during the investigation and remove any unauthorized calendar events or scripts that have been added to the system.
+- Restore any modified calendar files from a known good backup to ensure the integrity of the calendar data.
+- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals signs of a broader compromise or if the threat actor's identity and intent are unclear.
+- Implement enhanced logging policies to capture detailed process execution and file modification events, ensuring that future suspicious activities are detected promptly.
+- Integrate threat intelligence feeds and MITRE ATT&CK framework mappings into security monitoring tools to improve detection capabilities for similar persistence techniques.
+- Apply security patches and updates to the macOS system and all installed applications to mitigate vulnerabilities that could be exploited by adversaries.
+- Educate users on the risks of calendar file modifications and the importance of reporting unusual system behavior to IT security personnel.
+- Review and update security policies and hardening measures, such as disabling unnecessary services and enforcing least privilege access, to reduce the attack surface and improve overall system resilience."""
 
 
 [[rule.threat]]

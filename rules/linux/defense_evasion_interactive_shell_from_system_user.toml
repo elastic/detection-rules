@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/04"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -69,6 +69,49 @@ event.category:process and host.os.type:linux and event.type:start and event.act
   (user.name:daemon and process.name:at)
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Interactive Shell Launched from System User
+
+In Linux environments, system users are typically non-interactive and serve specific system functions. Adversaries may exploit these accounts to launch interactive shells, bypassing security measures and evading detection. The detection rule identifies such anomalies by monitoring process activities linked to system users, excluding legitimate processes, to flag potential misuse indicative of malicious intent.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific system user and process involved in launching the interactive shell. Pay attention to the `user.name` and `process.name` fields.
+- Check the `process.parent.executable` and `process.parent.name` fields to understand the parent process that initiated the shell. This can provide context on how the shell was launched.
+- Use Osquery to list all active processes for the identified system user to determine if there are other suspicious activities. Example query: `SELECT pid, name, path, cmdline FROM processes WHERE uid = (SELECT uid FROM users WHERE username = 'system_user');`
+- Investigate the command-line arguments of the suspicious process using the `process.args` field to identify any potentially malicious commands or scripts being executed.
+- Examine the system logs around the time of the alert to identify any related events or anomalies that could provide additional context.
+- Check for any recent changes to user accounts or permissions that might have allowed the system user to launch an interactive shell.
+- Investigate network connections initiated by the suspicious process using tools like `netstat` or `ss` to identify any unusual outbound connections.
+- Review the system's authentication logs (e.g., `/var/log/auth.log`) to identify any unauthorized access attempts or successful logins around the time of the alert.
+- Use Osquery to check for any recent file modifications or creations in critical directories that might indicate tampering or preparation for further attacks. Example query: `SELECT * FROM file WHERE path LIKE '/etc/%' AND mtime > (SELECT strftime('%s', 'now') - 3600);`
+- Correlate the findings with other security tools and logs to determine if this activity is part of a broader attack pattern or isolated incident.
+
+### False positive analysis
+
+- System maintenance tasks: Some system maintenance scripts or automated tasks may inadvertently trigger interactive shells under system user accounts. These tasks are typically scheduled and can be identified by their regular occurrence and specific command patterns.
+- Software updates: During software updates, certain processes might temporarily launch interactive shells as part of their installation or configuration routines. Monitoring the timing and context of these updates can help differentiate between legitimate and suspicious activities.
+- Backup operations: Backup software might use system accounts to perform data integrity checks or other operations that could involve launching interactive shells. Identifying the specific backup software and its behavior can help in creating exceptions.
+- Custom scripts: Organizations may have custom scripts that run under system user accounts for specific operational needs. These should be documented, and their behavior should be analyzed to ensure they are not flagged as false positives.
+- To manage false positives, users can create exceptions by adding specific process names, arguments, or user names to the exclusion list in the detection rule. Regularly reviewing and updating these exceptions based on observed legitimate activities will help maintain the accuracy of the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the processes and user accounts involved.
+- Terminate any unauthorized interactive shell sessions and processes initiated by system users.
+- Review and analyze system logs, including authentication logs and process execution logs, to gather evidence and understand the attack vector.
+- Change passwords and review permissions for all system user accounts to prevent further exploitation.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging and monitoring policies to capture detailed process execution and user activity for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities.
+- Restore the system to a known good state using backups, ensuring that all malicious artifacts are removed.
+- Apply system hardening measures, such as disabling unnecessary system user accounts and services, to reduce the attack surface."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 

@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/04"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -79,6 +79,49 @@ process.name == "curl" and (
   process.env_vars like ("http_proxy=socks5h://*", "HTTPS_PROXY=socks5h://*", "ALL_PROXY=socks5h://*")
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Curl SOCKS Proxy Activity from Unusual Parent
+
+Curl is a versatile command-line tool used for transferring data with URLs, often employed for legitimate data retrieval. However, adversaries can exploit it to establish SOCKS proxy connections, bypassing network restrictions for data exfiltration or C2 communication. The detection rule identifies suspicious curl usage by monitoring its execution from atypical parent processes and specific proxy-related arguments, signaling potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `curl` process execution with SOCKS proxy options and identify the unusual parent process from which it was launched.
+- Examine the parent process's executable path and name to determine if it is located in a suspicious directory such as `/dev/shm/`, `/tmp/`, or `/var/tmp/`, which are commonly used for temporary or potentially malicious activities.
+- Investigate the command-line arguments used with the `curl` process to verify the presence of SOCKS proxy options like `--socks5-hostname`, `--proxy`, or `-x`, which may indicate an attempt to bypass network restrictions.
+- Check the environment variables associated with the `curl` process for any proxy settings such as `http_proxy=socks5h://*`, which could suggest the use of a proxy for data exfiltration or C2 communication.
+- Use Osquery to gather additional context about the `curl` process and its parent. For example, run the following query to list processes with their parent details: `SELECT pid, name, path, parent, cmdline FROM processes WHERE name = 'curl';`
+- Investigate the parent process's history and behavior by reviewing shell history files (e.g., `.bash_history`) to identify any commands that may have led to the execution of the `curl` process.
+- Analyze network logs to identify any unusual outbound connections made by the `curl` process, focusing on connections to external IP addresses or domains that are not part of normal business operations.
+- Correlate the alert with other security events or logs to identify any related activities or patterns that may indicate a broader attack campaign or compromise.
+- Review user activity and access logs to determine if the user associated with the `curl` process execution has a history of suspicious behavior or if their credentials may have been compromised.
+- Consult threat intelligence sources to check if the IP addresses or domains contacted by the `curl` process are associated with known malicious activities or threat actors.
+
+### False positive analysis
+
+- **System Administrators and Developers**: Legitimate use of curl with SOCKS proxy options by system administrators or developers for testing or maintenance purposes can trigger false positives. To manage this, consider creating exceptions for specific user accounts or known maintenance scripts.
+- **Automated Scripts and Tools**: Some automated scripts or tools may use curl with SOCKS proxy options for legitimate data retrieval or network testing. Identify these scripts and exclude them by specifying their parent process paths or names in the detection rule.
+- **Security Tools and Monitoring Solutions**: Security tools that perform network diagnostics or monitoring might use curl with SOCKS proxy options. Verify the source of these processes and exclude them if they are part of trusted security solutions.
+- **Custom Applications**: Custom applications developed in-house might use curl for legitimate purposes, including through SOCKS proxies. Document these applications and adjust the detection rule to exclude their specific parent processes or execution paths.
+- **Frequent Network Testing**: Organizations that frequently conduct network testing or audits might see false positives from legitimate curl usage. Establish a list of known testing activities and exclude them from the rule to reduce noise.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further data exfiltration or communication with C2 servers.
+- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on unusual parent processes and the use of SOCKS proxy options with curl.
+- Review system logs and network traffic to trace the origin of the malicious activity and identify any other potentially compromised systems.
+- Remove any unauthorized or suspicious scripts and files found in directories like /dev/shm, /tmp, /var/tmp, and others specified in the detection rule.
+- Change credentials and keys that may have been exposed or used during the compromise, especially those related to network access and system administration.
+- Restore the system from a known good backup if the integrity of the system is in question, ensuring that all patches and updates are applied.
+- Implement enhanced logging policies to capture detailed process execution and network activity, focusing on command-line arguments and parent-child process relationships.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate alerts and improve detection capabilities.
+- Educate users and administrators on the risks associated with command-line tools and the importance of monitoring for unusual activity.
+- Apply system hardening measures, such as restricting the execution of scripts from writable directories and enforcing the principle of least privilege for user accounts."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

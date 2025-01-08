@@ -2,7 +2,7 @@
 creation_date = "2020/09/22"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,50 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Logging Sink Modification"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP Logging Sink Modification
+
+In GCP, logging sinks are used to route log entries to specified destinations for storage or analysis. Adversaries may exploit this by altering sink configurations to redirect logs to unauthorized locations, facilitating data exfiltration. The detection rule monitors audit logs for successful sink updates, flagging potential unauthorized modifications indicative of such malicious activities.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific `event.action` and `event.outcome` fields, confirming that the action was a successful `UpdateSink`.
+- Examine the `event.dataset` field to ensure the log entry is from `gcp.audit`, verifying the source of the alert.
+- Identify the user or service account associated with the `UpdateSink` action by reviewing the `user.name` or `user.email` fields in the audit log.
+- Check the `source.ip` or `source.location` fields to determine the origin of the request, which may provide insights into whether the action was performed from an unusual location.
+- Investigate the `destination` field in the log entry to identify the new export destination for the logging sink, assessing whether it is an authorized and expected location.
+- Review historical logs for the same `user.name` or `user.email` to identify any other suspicious activities or patterns of behavior.
+- Use Osquery to query the GCP environment for recent changes to logging sinks with a command like: `SELECT * FROM gcp_logging_sinks WHERE last_modified > date('now', '-1 day');` to identify any other recent modifications.
+- Cross-reference the `UpdateSink` action with any recent IAM policy changes to determine if there were any permissions granted that could facilitate unauthorized sink modifications.
+- Analyze the timeline of events leading up to the `UpdateSink` action to identify any preceding suspicious activities or anomalies.
+- Consult with the relevant GCP project owners or administrators to verify if the sink modification was authorized and aligns with expected changes or business needs.
+
+### False positive analysis
+
+- Routine administrative changes: Regular updates or maintenance by authorized personnel can trigger the rule. To manage this, users can create exceptions for known administrative accounts or specific time frames when maintenance is scheduled.
+- Automated processes: Some organizations use automated scripts or tools to update logging sinks as part of their cloud management strategy. Users should identify these processes and exclude them from triggering alerts by whitelisting the associated service accounts or IP addresses.
+- Integration with third-party services: When integrating GCP with third-party logging or monitoring services, sink modifications may occur. Users can handle these by verifying the legitimacy of the third-party service and excluding its associated actions from the rule.
+- Testing and development environments: Changes in non-production environments might be frequent and benign. Users can exclude specific projects or environments from the rule to reduce noise while ensuring production environments remain monitored.
+
+### Response and remediation
+
+- Immediately isolate the affected GCP project to prevent further unauthorized access or data exfiltration.
+- Review the audit logs to identify the source and scope of the sink modification, including the user account and IP address involved.
+- Revert the logging sink configuration to its original state to ensure logs are routed to the intended destinations.
+- Conduct a thorough investigation to determine if any data was exfiltrated and assess the impact on the organization.
+- Escalate the incident to the security operations center (SOC) and relevant stakeholders for further analysis and response.
+- Implement stricter access controls and permissions for modifying logging sinks, ensuring only authorized personnel have access.
+- Enhance logging and monitoring policies to include alerts for any future modifications to logging sinks.
+- Integrate with a security information and event management (SIEM) system to correlate events and improve threat detection capabilities.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Apply hardening measures such as enabling multi-factor authentication (MFA) and regular audits of logging configurations to prevent similar incidents.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/logging/docs/export#how_sinks_work"]

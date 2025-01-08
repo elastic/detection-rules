@@ -2,7 +2,7 @@
 creation_date = "2023/08/15"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -61,6 +61,49 @@ query = '''
 host.os.type: "windows" and event.action : ("Directory Service Access" or "object-operation-performed") and
   event.code : "4662" and winlog.event_data.AccessMask:"0x40000"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating WRITEDAC Access on Active Directory Object
+
+WRITEDAC permissions allow modification of an object's access control list in Active Directory, crucial for managing access rights. Adversaries exploit this by altering permissions to escalate privileges or maintain persistence. The detection rule identifies suspicious WRITEDAC activities by monitoring specific Windows event codes and access masks, signaling potential unauthorized access modifications.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of event code "4662" and AccessMask "0x40000" to verify that the alert is related to WRITEDAC access.
+- Identify the user account associated with the WRITEDAC event by examining the event data fields such as `winlog.event_data.SubjectUserName` and `winlog.event_data.SubjectUserSid`.
+- Determine the target object of the WRITEDAC operation by reviewing `winlog.event_data.ObjectName` and `winlog.event_data.ObjectType` to understand what was potentially modified.
+- Check the timestamp of the event to establish a timeline and correlate it with other suspicious activities or alerts in the same timeframe.
+- Investigate the source machine from which the WRITEDAC operation was performed using `winlog.event_data.IpAddress` and `winlog.event_data.WorkstationName`.
+- Use Osquery to gather additional context on the involved user account and machine. For example, run the following query to list recent logins for the user: `SELECT * FROM logged_in_users WHERE user = '<username>';`.
+- Examine the user's recent activities and access patterns in Active Directory to identify any anomalies or deviations from their normal behavior.
+- Cross-reference the WRITEDAC event with other security logs and alerts to identify potential lateral movement or privilege escalation attempts.
+- Review the access control list (ACL) changes on the target object to determine what specific permissions were altered and assess the potential impact.
+- Consult with relevant stakeholders or system owners to verify if the WRITEDAC operation was authorized or part of a legitimate administrative task.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate system administrators may perform WRITEDAC operations as part of their regular duties, such as updating permissions for user accounts or groups. These actions can be excluded by creating exceptions for known administrator accounts or specific times when these tasks are scheduled.
+- Automated scripts and tools: Some organizations use automated scripts or third-party tools to manage Active Directory permissions, which may trigger the WRITEDAC rule. Users can handle these by identifying and excluding the specific scripts or tools from the detection rule.
+- Software updates and installations: Certain software updates or installations may require temporary changes to access control lists, resulting in WRITEDAC events. Users should monitor and document these activities, creating exceptions for known software processes or during maintenance windows.
+- Group policy updates: Changes to group policies can sometimes involve WRITEDAC operations. Users can manage these by correlating the events with scheduled group policy updates and excluding them from the detection rule.
+- Service account activities: Service accounts with legitimate access to modify permissions may trigger false positives. Users should identify these accounts and exclude their activities from the rule, ensuring they are monitored separately for any unusual behavior.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Review the event logs, specifically Windows Event ID 4662, to identify the source of the WRITEDAC access and any associated accounts or systems.
+- Verify the integrity of the access control lists (ACLs) on the affected Active Directory objects and revert any unauthorized changes.
+- Conduct a thorough investigation to determine if any other systems or accounts have been compromised, focusing on privilege escalation and persistence techniques.
+- Reset passwords and review permissions for any accounts involved in the incident to prevent further unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed access and modification events in Active Directory for future investigations.
+- Integrate security information and event management (SIEM) solutions to correlate and analyze security events across the network.
+- Restore the system to its operational state by applying verified backups and ensuring all security patches and updates are installed.
+- Harden the Active Directory environment by applying least privilege principles, regularly reviewing permissions, and conducting security awareness training for administrators."""
 
 
 [[rule.threat]]

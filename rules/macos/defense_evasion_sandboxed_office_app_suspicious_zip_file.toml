@@ -2,7 +2,7 @@
 creation_date = "2021/01/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -62,6 +62,49 @@ type = "query"
 query = '''
 event.category:file and host.os.type:(macos and macos) and not event.type:deletion and file.name:~$*.zip
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Microsoft Office Sandbox Evasion
+
+Microsoft Office applications on macOS operate within a sandbox to limit potential damage from malicious files. However, adversaries can exploit this by creating zip files with special character prefixes, allowing them to bypass sandbox restrictions and execute unauthorized actions. The detection rule identifies such suspicious zip file creations, focusing on non-deletion events with specific naming patterns, to flag potential evasion attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a zip file with a name starting with special characters, as indicated by the `file.name:~$*.zip` pattern.
+- Verify the `event.category:file` and `host.os.type:macos` fields to ensure the event pertains to a file operation on a macOS system.
+- Check the `event.type` field to confirm that the event is not a deletion, which aligns with the rule's focus on non-deletion events.
+- Investigate the source of the zip file creation by identifying the user account and process responsible for the action.
+- Use Osquery to list recent file creations in the suspected directory. Example query: `SELECT path, filename, uid, gid, atime, mtime FROM file WHERE path LIKE '/path/to/suspected/directory/%' AND filename LIKE '~$%.zip';`
+- Examine the process tree to identify any parent processes that may have initiated the suspicious file creation, focusing on Microsoft Office applications.
+- Analyze system logs for any related events or anomalies around the time of the zip file creation to gather additional context.
+- Check for any AutoStart locations that may have been modified or targeted by the suspicious zip file to facilitate sandbox evasion.
+- Investigate any network connections or external communications initiated by the system around the time of the event to identify potential data exfiltration or command-and-control activity.
+- Correlate the findings with other security alerts or incidents to determine if this event is part of a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate applications or processes that create zip files with special character prefixes for valid reasons, such as temporary file storage or backup processes, may trigger false positives.
+- Automated scripts or system processes that generate zip files with special characters as part of their normal operation can be mistakenly flagged.
+- Users can manage these false positives by identifying and documenting known benign processes that exhibit this behavior and creating exceptions for them in the detection rule.
+- Regularly review and update the list of exceptions to ensure that only verified non-threatening activities are excluded, maintaining the integrity of the detection system.
+- Consider implementing additional context checks, such as verifying the source application or process, to differentiate between legitimate and suspicious activities.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further unauthorized actions or data exfiltration.
+- Conduct a thorough investigation to identify the source of the suspicious zip file and any associated processes or files that may have been executed.
+- Utilize endpoint detection and response (EDR) tools to scan for additional indicators of compromise (IOCs) related to the sandbox evasion technique.
+- Review system and application logs to trace the origin of the zip file and any user accounts involved in its creation or execution.
+- Remove any unauthorized files or applications identified during the investigation and ensure that the system is free from malicious software.
+- Restore the system to a known good state using backups or system restore points, ensuring that all security patches and updates are applied.
+- Implement enhanced logging policies to capture detailed file creation and modification events, focusing on files with special character prefixes.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar evasion techniques.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Apply hardening measures such as restricting the execution of files with special character prefixes and enforcing strict application whitelisting policies."""
 
 
 [[rule.threat]]

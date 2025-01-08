@@ -2,7 +2,7 @@
 creation_date = "2020/11/23"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -40,6 +40,48 @@ query = '''
 file where host.os.type == "windows" and event.type != "deletion" and
  file.path : "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Outlook\\VbaProject.OTM"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via Microsoft Outlook VBA
+
+Microsoft Outlook supports VBA scripting to automate tasks, which can be exploited by adversaries to maintain persistence. By embedding malicious scripts in the Outlook VBA environment, attackers can execute code each time Outlook is launched. The detection rule identifies suspicious activity by monitoring for unauthorized modifications to the VBA project file, a common indicator of such persistence techniques.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the file path matches "C:\\\\Users\\\\*\\\\AppData\\\\Roaming\\\\Microsoft\\\\Outlook\\\\VbaProject.OTM" and ensure the event type is not a deletion.
+- Verify the timestamp of the modification event to determine when the unauthorized change occurred.
+- Identify the user account associated with the file path to understand which user's Outlook environment was potentially compromised.
+- Check the system's event logs for any unusual login activities or privilege escalations around the time of the modification.
+- Use Osquery to list all processes running under the user's context to identify any suspicious or unexpected processes. Example query: `SELECT name, pid, path FROM processes WHERE uid = (SELECT uid FROM users WHERE username = 'target_username');`
+- Investigate the contents of the VbaProject.OTM file to identify any suspicious or malicious VBA code.
+- Cross-reference the identified VBA code with known malicious scripts or indicators of compromise (IOCs) from threat intelligence sources.
+- Examine the user's Outlook rules and settings for any unauthorized changes that could indicate further persistence mechanisms.
+- Review network logs for any outbound connections initiated by the user's machine that could suggest data exfiltration or command and control communication.
+- Consult with other security tools or logs to identify any correlated alerts or anomalies on the same endpoint or user account.
+
+### False positive analysis
+
+- Legitimate use of VBA scripts by power users or IT administrators for automating routine tasks in Microsoft Outlook can trigger the detection rule. These scripts might be used for tasks like email sorting, auto-replies, or calendar management.
+- Some third-party Outlook add-ins or plugins may modify the VBA project file as part of their normal operation, leading to false positives.
+- Users can manage these false positives by creating exceptions for known and trusted scripts or applications. This can be done by maintaining a whitelist of approved VBA scripts or by verifying the digital signatures of trusted add-ins.
+- Regularly review and update the list of exceptions to ensure that only legitimate activities are excluded from detection, minimizing the risk of overlooking genuine threats.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to confirm unauthorized modifications to the VbaProject.OTM file and identify any additional compromised systems.
+- Remove or disable the malicious VBA script from the Outlook environment to prevent further execution.
+- Restore the VbaProject.OTM file from a known good backup if available, or recreate it to ensure no malicious code remains.
+- Review and update endpoint protection solutions to detect and block similar persistence techniques in the future.
+- Implement enhanced logging policies to monitor changes to critical files and directories, focusing on the AppData and Outlook directories.
+- Integrate security information and event management (SIEM) solutions to correlate and analyze logs for suspicious activities related to Office applications.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional actions are required.
+- Educate users on the risks of enabling macros and VBA scripts, emphasizing the importance of vigilance against phishing attacks that may deliver such payloads.
+- Apply hardening measures by configuring Outlook security settings to restrict the execution of unauthorized scripts and macros, aligning with best practices and organizational policies."""
 
 
 [[rule.threat]]

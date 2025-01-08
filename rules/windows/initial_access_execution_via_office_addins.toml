@@ -2,7 +2,7 @@
 creation_date = "2023/03/20"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -81,6 +81,52 @@ process where
          process.parent.args : "?:\\WINDOWS\\Installer\\MSI*.tmp,zzzzInvokeManagedCustomActionOutOfProc") and
     not (process.name : "VSTOInstaller.exe" and process.args : "https://dl.getsidekick.com/outlook/vsto/Sidekick.vsto")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Execution via Microsoft Office Add-Ins
+
+Microsoft Office Add-Ins enhance productivity by allowing custom functionalities within Office applications. However, adversaries can exploit this by embedding malicious code in add-ins, often delivered via phishing. The detection rule identifies unusual execution patterns, such as Office apps launching add-ins from atypical paths or with unexpected parent processes, signaling potential malicious activity. It filters out known benign processes to reduce false positives, focusing on genuine threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific Microsoft Office application involved (e.g., WINWORD.EXE, EXCEL.EXE) and the suspicious add-in file path or parent process.
+- Examine the process arguments to determine the type of add-in file executed (e.g., .wll, .xll, .ppa) and verify if the path is listed as suspicious in the detection rule.
+- Check the parent process name to see if it matches any unusual or suspicious processes such as cmd.exe or powershell.exe, which could indicate script-based execution.
+- Investigate the user account associated with the process execution to determine if the activity aligns with their typical behavior or if it appears anomalous.
+- Utilize Osquery to gather additional context about the process execution. For example, run the following query to list recent processes executed by the user:
+  ```sql
+  SELECT pid, name, path, cmdline, parent FROM processes WHERE uid = (SELECT uid FROM users WHERE username = 'target_username');
+  ```
+- Correlate the process execution time with any known phishing attempts or suspicious email activity targeting the user to assess potential initial access vectors.
+- Analyze network logs to identify any outbound connections made by the process, especially to external IPs or domains, which could indicate data exfiltration or command-and-control communication.
+- Review system logs for any additional suspicious activities or errors around the time of the alert, such as failed logins or unusual file access patterns.
+- Check for any recent changes or installations on the system that could have introduced the suspicious add-in, such as new software installations or updates.
+- Consult threat intelligence sources to determine if the identified add-in file or associated domains/IPs are known to be associated with malicious activity or campaigns.
+
+### False positive analysis
+
+- The rule may trigger on legitimate installations or updates of Microsoft Office Add-Ins, particularly those involving Logitech software, as these processes can mimic suspicious behavior. Users can manage this by excluding processes with arguments like "*.vsto" and parent executables from Logitech directories, such as "?:\\\\Program Files\\\\Logitech\\\\LogiOptions\\\\PlugInInstallerUtility*.exe".
+- Another potential false positive involves the VSTOInstaller.exe process when it is used for legitimate purposes, such as uninstalling add-ins. Users can exclude processes with arguments like "/Uninstall" and the process name "VSTOInstaller.exe" to prevent unnecessary alerts.
+- The rule might also flag processes initiated by "rundll32.exe" with specific arguments related to Windows Installer temporary files. Users can exclude these by specifying the parent name "rundll32.exe" and parent arguments like "?:\\\\WINDOWS\\\\Installer\\\\MSI*.tmp,zzzzInvokeManagedCustomActionOutOfProc".
+- To avoid false positives related to the Sidekick add-in for Outlook, users can exclude the process name "VSTOInstaller.exe" with arguments pointing to "https://dl.getsidekick.com/outlook/vsto/Sidekick.vsto".
+- Users should regularly review and update their exclusion lists to ensure that only non-threatening behaviors are filtered out, maintaining the effectiveness of the detection rule.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation of the suspicious Office Add-In by analyzing the file path, parent process, and any associated network activity.
+- Use endpoint detection and response (EDR) tools to identify and terminate any malicious processes or scripts running on the system.
+- Remove the malicious Office Add-In and any associated files from the system, ensuring that all remnants are deleted.
+- Restore the system from a known good backup if the integrity of the system is compromised.
+- Update antivirus and anti-malware solutions to ensure they can detect and prevent similar threats in the future.
+- Implement logging policies to capture detailed process execution and network activity for future investigations.
+- Integrate threat intelligence feeds to enhance detection capabilities and stay informed about emerging threats.
+- Escalate the incident to the security operations center (SOC) or relevant team if the threat is part of a larger attack campaign.
+- Review and update security policies and user training programs to reduce the risk of phishing attacks and improve overall security posture."""
 
 
 [[rule.threat]]

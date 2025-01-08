@@ -2,7 +2,7 @@
 creation_date = "2024/07/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -60,6 +60,49 @@ query = '''
 file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and
 file.path == "/etc/shadow" and file.Ext.original.path != null
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Shadow File Modification
+
+The shadow file in Linux systems securely stores hashed user passwords, crucial for system authentication. Adversaries may exploit this by altering the file to add users or change passwords, ensuring persistent access. The detection rule identifies suspicious modifications by monitoring changes and renames of the shadow file, signaling potential unauthorized account manipulation activities.
+
+### Possible investigation steps
+
+- Verify the alert details, including the timestamp and the host where the modification was detected, to understand the context of the event.
+- Check the user account associated with the event to determine if it is a legitimate system administrator or a potential threat actor.
+- Review recent login activity on the affected host to identify any unusual or unauthorized access attempts around the time of the shadow file modification.
+- Use Osquery to list all users on the system and check for any newly added or suspicious accounts. Example query: `SELECT * FROM users WHERE uid >= 1000;`
+- Investigate the process tree to identify any processes that were running at the time of the modification, which might indicate the tool or method used for the change.
+- Examine the system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any entries that correlate with the time of the shadow file modification.
+- Check for any recent changes to the `/etc/passwd` file, as modifications here might accompany changes to the shadow file.
+- Review the file integrity monitoring logs to see if there are any other unauthorized changes to critical system files.
+- Investigate any network connections from the host around the time of the event to identify potential command and control activity.
+- Correlate the event with other security alerts or incidents in the environment to determine if this is part of a larger attack campaign.
+
+### False positive analysis
+
+- Routine system updates or administrative tasks may trigger legitimate changes to the shadow file, such as when a system administrator updates user passwords or adds new users as part of regular maintenance.
+- Automated scripts or configuration management tools like Ansible, Puppet, or Chef that manage user accounts and passwords can also cause expected modifications to the shadow file.
+- To manage these false positives, users can create exceptions for known administrative activities or trusted scripts by correlating the changes with scheduled maintenance windows or specific user actions.
+- Implementing a whitelist of trusted processes or users that are allowed to modify the shadow file can help reduce noise from expected changes.
+- Regularly review and update the list of exceptions to ensure that only legitimate activities are excluded, maintaining a balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Verify the integrity of the shadow file by comparing it with a known good backup, if available, to identify unauthorized changes.
+- Conduct a thorough investigation to identify any unauthorized user accounts or password changes and remove or reset them as necessary.
+- Review system logs and security alerts to trace the source of the modification and determine if other systems may be compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Restore the shadow file from a secure backup if unauthorized changes are confirmed and ensure all legitimate user accounts are intact.
+- Implement enhanced logging and monitoring for critical system files, including the shadow file, to detect future unauthorized modifications.
+- Integrate with security information and event management (SIEM) systems to correlate events and improve detection capabilities.
+- Apply system hardening measures, such as enforcing strong password policies and disabling unnecessary services, to reduce the attack surface.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans and procedures accordingly."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

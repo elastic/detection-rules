@@ -2,7 +2,7 @@
 creation_date = "2023/09/26"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -68,6 +68,49 @@ process where host.os.type == "windows" and event.action == "start" and
 
   not process.args : ("?:\\Program Files (x86)\\*", "?:\\Program Files\\*")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Execution via MSIEXEC
+
+MSIEXEC is a Windows Installer utility used for installing, maintaining, and removing software. Adversaries exploit it to execute malicious MSI files, often bypassing security controls. The detection rule identifies unusual MSIEXEC activity by scrutinizing execution paths, parent processes, and command-line arguments, flagging deviations from typical usage patterns to uncover potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to understand which specific conditions of the detection rule were met, focusing on the process name, parent process, and command-line arguments.
+- Examine the `process.parent.executable` field to identify the parent process that initiated `msiexec.exe`. Determine if this parent process is commonly associated with legitimate software installations.
+- Investigate the `process.args` field to analyze the command-line arguments used with `msiexec.exe`, paying particular attention to the presence of `/i`, `/q`, or `/quiet` flags, which may indicate silent installations.
+- Check the `process.args_count` to ensure it aligns with typical usage patterns. An unusual count may suggest additional, potentially malicious arguments.
+- Analyze the `process.working_directory` to verify if the execution path is consistent with standard software installation directories or if it points to suspicious locations.
+- Use Osquery to gather more context about the process and its parent. For example, run the following query to list processes with their parent details: `SELECT pid, name, path, parent, cmdline FROM processes WHERE name = 'msiexec.exe';`
+- Investigate the `user.id` field to determine the user account under which `msiexec.exe` was executed. Check if this account has a history of performing software installations.
+- Cross-reference the `process.parent.name` with known legitimate processes like `explorer.exe` or `wmiprvse.exe` to assess if the parent process is expected or unusual.
+- Look into the `process.parent.command_line` length, especially if the parent process is `powershell.exe` or `cmd.exe`, to identify potentially obfuscated or complex command lines.
+- Review historical data for similar alerts involving the same `process.parent.executable` or `process.args` to identify patterns or repeated suspicious behavior.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger the rule if they use msiexec.exe with command-line arguments that match the suspicious patterns, such as silent installations using "/q" or "/quiet" switches.
+- System administrators or automated deployment tools might use msiexec.exe to install software across multiple systems, which could be flagged if the parent process or execution path is unusual.
+- Custom scripts or third-party management tools that leverage msiexec.exe for software management tasks could be misidentified as malicious if they execute from non-standard directories or with uncommon parent processes.
+- To manage these false positives, users can create exceptions for known benign processes or paths by adding them to the exclusion list in the detection rule, ensuring that frequent non-threatening behaviors are not flagged.
+- Regularly review and update the exclusion list to accommodate changes in legitimate software deployment practices or new trusted applications that may trigger the rule.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential threats.
+- Analyze the suspicious msiexec.exe process and its parent process to determine if it is part of a known attack pattern or a false positive.
+- Terminate any malicious processes identified during the investigation to stop ongoing malicious activity.
+- Review and collect relevant logs, including Windows Event Logs and security software logs, to gather evidence and understand the scope of the incident.
+- Escalate the incident to the security operations center (SOC) or incident response team if the threat is confirmed to be part of a larger attack campaign.
+- Remove any malicious MSI files and associated artifacts from the system to ensure complete remediation.
+- Restore the system from a known good backup if the integrity of the system is compromised.
+- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to improve detection capabilities.
+- Apply system hardening measures, such as restricting the execution of msiexec.exe to authorized users and paths, to reduce the risk of similar attacks in the future."""
 
 
 [[rule.threat]]

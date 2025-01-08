@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2024/09/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -62,6 +62,50 @@ query = '''
     "FF00::/8"
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SMB (Windows File Sharing) Activity to the Internet
+
+SMB, or Server Message Block, is a protocol used for sharing files and resources within trusted networks. However, when exposed to the internet, it becomes a target for attackers seeking unauthorized access or data theft. Adversaries exploit SMB by scanning for open ports and using vulnerabilities to gain entry. The detection rule identifies suspicious SMB traffic from internal IPs to external networks, flagging potential threats by monitoring specific ports and excluding known safe IP ranges.
+
+### Possible investigation steps
+
+- Review the alert details to identify the internal source IP address involved in the suspicious SMB traffic. Cross-reference this IP with asset management systems to determine the device owner and its role within the network.
+- Examine the destination IP address to ascertain if it belongs to a known or trusted external entity. Use threat intelligence sources to check if the IP is associated with malicious activity.
+- Analyze network logs to identify the volume and frequency of SMB traffic from the source IP to the destination IP. Look for patterns that might indicate automated or scripted activity.
+- Check for any recent changes or updates on the source device that might have inadvertently exposed SMB services to the internet.
+- Use Osquery to gather more information about the SMB service running on the source device. Example query: `SELECT * FROM listening_ports WHERE port IN (139, 445);` to verify if the SMB service is actively listening on these ports.
+- Investigate any recent user activity on the source device that might have initiated the SMB connection. Look for unusual login times or access from unexpected locations.
+- Review firewall and security appliance logs to determine if there were any attempts to block or alert on this SMB traffic before the alert was triggered.
+- Check for any other alerts or incidents related to the same source or destination IPs to identify if this is part of a larger pattern of suspicious activity.
+- Analyze the payload of the SMB traffic, if available, to identify any potential data exfiltration or unauthorized access attempts.
+- Collaborate with the IT team to verify if there are legitimate business needs for SMB traffic to the internet from the identified source device, and document any findings for future reference.
+
+### False positive analysis
+
+- **Internal Services with External IPs**: Some organizations may have legitimate services hosted on external IPs that require SMB access. These should be identified and whitelisted to prevent false positives.
+- **VPN or Remote Access Scenarios**: Users accessing internal resources via VPNs or remote access solutions might trigger alerts if their traffic appears to originate from external IPs. Ensure these IP ranges are accounted for in exceptions.
+- **Cloud Services**: If cloud services are used for file sharing or backup, they might use SMB over the internet. Verify these services and exclude their IP ranges if they are deemed safe.
+- **Misconfigured Network Devices**: Devices that are incorrectly configured to route internal SMB traffic through external networks can cause false positives. Regularly audit network configurations to prevent this.
+- **Testing and Development Environments**: Test environments that simulate external access for development purposes might trigger alerts. Document and exclude these environments if they are secure and monitored.
+- **Handling False Positives**: Regularly review and update the list of excluded IPs and services to ensure they reflect current network architecture and business needs. Use network monitoring tools to validate the legitimacy of flagged traffic before adding exceptions.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the SMB traffic, including reviewing logs and network traffic data.
+- Verify if any unauthorized access or data exfiltration has occurred and document all findings for further analysis.
+- Apply patches and updates to the SMB service and any other vulnerable applications to mitigate known vulnerabilities.
+- Change all passwords and credentials that may have been exposed or compromised during the incident.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging and monitoring for SMB traffic and other critical services to detect future anomalies.
+- Integrate threat intelligence feeds to improve detection capabilities and stay informed about emerging threats.
+- Restore the affected system to its operational state by reinstalling the operating system and applications from trusted sources.
+- Harden the network by disabling SMB access to the internet, configuring firewalls, and applying least privilege principles to reduce attack surfaces."""
 
 
 [[rule.threat]]

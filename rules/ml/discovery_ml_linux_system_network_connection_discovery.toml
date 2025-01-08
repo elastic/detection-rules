@@ -2,7 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2024/06/18"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 25
@@ -86,6 +86,49 @@ tags = [
     "Tactic: Discovery",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Linux Network Connection Discovery
+
+In Linux environments, network connection discovery tools help administrators understand system connectivity. Adversaries exploit these tools to map networks, aiding in lateral movement or further reconnaissance. The detection rule identifies atypical usage patterns by monitoring commands executed from unexpected user contexts, signaling potential account compromise or unauthorized network probing.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific command executed and the user context from which it was run. Pay attention to fields such as `user`, `command`, and `timestamp`.
+- Check the user's login history and session details using `last` and `who` commands to determine if the user context is legitimate or if there are signs of unauthorized access.
+- Analyze the command history for the user in question by reviewing the `.bash_history` or equivalent shell history files to identify any other suspicious activities.
+- Use Osquery to gather more context about the network connections on the system. For example, run the query: `SELECT * FROM process_open_sockets WHERE pid IN (SELECT pid FROM processes WHERE name = 'netstat' OR name = 'ss');` to identify processes that have opened network connections.
+- Investigate the source IP addresses and destinations involved in the network connections to determine if they are known and trusted or if they are unusual or malicious.
+- Cross-reference the alert with any recent changes in user permissions or group memberships that might explain the unusual activity.
+- Check for any recent file modifications or new files in the user's home directory that could indicate the presence of malicious scripts or tools.
+- Review system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any anomalies or failed login attempts around the time of the alert.
+- Correlate the alert with other security events or alerts in the environment to identify if this is part of a larger attack pattern or campaign.
+- Consult threat intelligence sources to determine if the observed behavior matches any known tactics, techniques, or procedures (TTPs) associated with specific threat actors.
+
+### False positive analysis
+
+- System administrators or network engineers may execute network discovery commands during routine maintenance or troubleshooting, which could trigger the rule. To manage this, create exceptions for known user accounts or specific time windows when such activities are expected.
+- Automated scripts or monitoring tools that perform regular network checks might be flagged as unusual. Identify these scripts and whitelist their execution paths or associated user accounts to prevent false alerts.
+- New employees or contractors who are unfamiliar with standard procedures might inadvertently run network discovery commands. Educate these users on proper protocols and consider temporary exceptions while they are onboarded.
+- Changes in network infrastructure or security policies might necessitate increased network discovery activities. During these periods, adjust the rule's sensitivity or temporarily disable it to accommodate the expected increase in legitimate network probing.
+- In environments with frequent role changes, users might inherit permissions that allow them to execute network discovery commands. Regularly review and update user permissions to ensure they align with current job responsibilities, and adjust the rule to account for these transitions.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying the user account and commands involved in the unusual network connection discovery.
+- Reset passwords and review permissions for the compromised account to prevent further unauthorized access.
+- Analyze system logs and network traffic to identify any additional indicators of compromise or related suspicious activities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat actor has accessed other systems.
+- Implement enhanced logging policies to capture detailed command execution and network activity, ensuring future incidents can be detected more effectively.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate unusual activities with known threat actor behaviors.
+- Restore the system to its operational state by applying necessary patches, updates, and verifying the integrity of critical system files.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement hardening measures such as disabling unused network services, enforcing least privilege access, and regularly auditing user accounts and permissions."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

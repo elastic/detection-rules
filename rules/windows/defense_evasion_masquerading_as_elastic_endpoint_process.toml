@@ -2,7 +2,7 @@
 creation_date = "2020/08/24"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -71,6 +71,48 @@ process where host.os.type == "windows" and event.type == "start" and
     )
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Endpoint Security Parent Process
+
+Endpoint security solutions, like Elastic Endpoint, monitor and protect systems by analyzing process behaviors. Adversaries may exploit these processes through techniques like process hollowing, where malicious code is injected into legitimate processes. The detection rule identifies anomalies by flagging unexpected parent processes of endpoint security executables, excluding known benign sources, to uncover potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific parent process executable and its path that triggered the alert, focusing on the `process.parent.executable` field.
+- Verify the legitimacy of the parent process by checking its digital signature and comparing it against known trusted signatures.
+- Investigate the process tree to understand the relationship between the parent and child processes, using the `process.name` and `process.parent.executable` fields to map out the hierarchy.
+- Examine the command-line arguments of the parent process using the `process.args` field to identify any unusual or suspicious commands that may indicate malicious activity.
+- Use Osquery to gather additional context about the parent process. For example, run the following query to retrieve details about the parent process: `SELECT * FROM processes WHERE path = '<parent_process_path>';`.
+- Check the file hash of the parent process executable against threat intelligence databases to determine if it is associated with known malware.
+- Analyze recent system logs and security events for any other anomalies or related activities around the time the suspicious process was started.
+- Investigate the user account associated with the process start event to determine if there are any signs of compromise or unusual behavior.
+- Review network connections initiated by the suspicious process to identify any unexpected or unauthorized external communications.
+- Correlate the findings with other alerts or incidents in the environment to determine if this is part of a larger attack campaign.
+
+### False positive analysis
+
+- Known false positives for the Suspicious Endpoint Security Parent Process rule may include legitimate administrative or system maintenance activities where processes like `cmd.exe` or `powershell.exe` are used to execute benign scripts or commands. These activities might be flagged if they involve endpoint security executables as child processes.
+- Users can manage these false positives by adding exceptions for specific parent processes and command-line arguments that are known to be safe. For instance, if a script regularly uses `powershell.exe` with arguments like "status" or "upgrade" for legitimate purposes, these can be added to the exclusion list to prevent unnecessary alerts.
+- It's important to regularly review and update the list of excluded processes and arguments to ensure that only verified benign activities are excluded, maintaining a balance between security and operational efficiency.
+- Users should also consider the context of the flagged activity, such as the time of execution and the user account involved, to better assess whether an alert is a false positive or a potential threat.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation of the parent process to determine if it is indeed malicious, using forensic tools to analyze process memory and behavior.
+- Terminate any suspicious processes identified during the investigation to halt any ongoing malicious activity.
+- Review and collect relevant logs from the endpoint and network devices to understand the scope and impact of the incident.
+- Escalate the incident to the security operations center (SOC) or incident response team if the threat is confirmed to be part of a larger attack campaign.
+- Restore the system from a known good backup if the investigation confirms system compromise, ensuring that the backup is free from any malicious code.
+- Apply security patches and updates to the operating system and all installed software to mitigate vulnerabilities that may have been exploited.
+- Implement enhanced logging policies to capture detailed process execution and network activity for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities against similar threats.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent recurrence."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/11/06"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2024/12/09"
+updated_date = "2025/01/08"
 min_stack_version = "8.15.0"
 min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
 
@@ -23,7 +23,49 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Administrator Role Assigned to an Okta User"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Administrator Role Assigned to an Okta User
+Okta is a widely used identity management service that facilitates secure user authentication and authorization. Administrator roles in Okta grant elevated permissions, allowing users to manage settings and access controls. Adversaries may exploit this by assigning admin roles to themselves or compromised accounts to gain persistent access. The detection rule monitors system events for privilege grants, flagging suspicious admin role assignments to mitigate unauthorized access.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event.dataset is "okta.system" and the event.action is "user.account.privilege.grant" to ensure the alert is valid and triggered by the correct rule.
+- Identify the user account that was assigned the administrator role by examining the relevant fields in the alert, such as user.name and user.id.
+- Check the timestamp of the event to determine when the administrator role was assigned and correlate it with any other suspicious activities around that time.
+- Investigate the source IP address and geolocation associated with the event to determine if the access was from an unusual or unexpected location.
+- Review the user's recent login history and activity logs in Okta to identify any anomalies or patterns that could indicate compromise.
+- Examine the change history for the user account to see if there were any recent modifications or unusual activities prior to the role assignment.
+- Use Osquery to gather additional context on the system where the role assignment was made. For example, run the following query to list recent Okta-related processes: `SELECT * FROM processes WHERE name LIKE '%okta%';`
+- Check for any other privilege escalation events or role assignments in the same timeframe to identify potential coordinated attacks or multiple compromised accounts.
+- Review the list of users with administrative roles in Okta to ensure no other unauthorized assignments have occurred.
+- Cross-reference the event with any other security alerts or incidents in your environment to determine if this is part of a larger attack campaign.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate IT staff may frequently assign administrator roles as part of their job responsibilities. To manage this, organizations can create exceptions for known IT personnel or specific time frames when such activities are expected.
+- Automated provisioning systems: Some organizations use automated systems to manage user roles, which might trigger the rule. Users can exclude events originating from these systems by identifying their unique identifiers or IP addresses.
+- Role-based access control updates: Regular updates to role-based access controls might involve temporary admin role assignments. Users can handle these by setting up alerts only for unexpected changes outside of scheduled maintenance windows.
+- Training and onboarding: New administrators might be assigned roles during training or onboarding processes. Organizations can mitigate false positives by excluding events related to new employee onboarding sessions or specific training periods.
+
+### Response and remediation
+
+- Immediately revoke the newly assigned administrator role from the affected Okta user account to prevent further unauthorized access.
+- Conduct a thorough investigation to determine if the role assignment was legitimate or if it indicates a compromise, reviewing recent activity logs for suspicious behavior.
+- Isolate the affected user account by temporarily disabling it until the investigation is complete to prevent potential lateral movement or further privilege escalation.
+- Notify the security team and relevant stakeholders about the incident for awareness and to initiate a coordinated response.
+- Review and enhance logging policies to ensure comprehensive capture of privilege changes and other critical events in Okta for future investigations.
+- Integrate Okta logs with a Security Information and Event Management (SIEM) system to enable real-time monitoring and alerting on suspicious activities.
+- Conduct a root cause analysis to identify how the adversary gained access and assigned the administrator role, addressing any identified vulnerabilities or misconfigurations.
+- Restore the system to its operational state by re-enabling legitimate user accounts and ensuring all security controls are functioning as intended.
+- Implement hardening measures such as multi-factor authentication (MFA) for all administrative accounts and regular audits of user permissions to reduce the risk of future incidents.
+- Escalate the incident to higher management and, if necessary, involve legal or law enforcement agencies if the breach is significant or involves sensitive data.
+
+## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

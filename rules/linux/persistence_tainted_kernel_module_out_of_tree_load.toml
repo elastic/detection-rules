@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["system"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -55,6 +55,48 @@ query = '''
 host.os.type:linux and event.dataset:"system.syslog" and process.name:kernel and 
 message:"loading out-of-tree module taints kernel."
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Tainted Out-Of-Tree Kernel Module Load
+
+Kernel modules extend the functionality of the Linux kernel without rebooting the system. While beneficial, out-of-tree modules, not included in the official kernel source, can taint the kernel, posing security risks. Adversaries exploit this by loading malicious modules to maintain persistence or evade detection. The detection rule monitors syslog for specific messages indicating such module loads, helping identify potential rootkit activity.
+
+### Possible investigation steps
+
+- Review the syslog entries around the time of the alert to gather more context about the module load event, focusing on the `event.dataset:"system.syslog"` and `process.name:kernel` fields.
+- Identify the specific out-of-tree module that was loaded by examining the `message` field for details about the module name and path.
+- Check the system's kernel module directory (e.g., `/lib/modules/$(uname -r)/extra/`) to verify the presence and legitimacy of the module file.
+- Use Osquery to list all currently loaded kernel modules and their details with the query: `SELECT name, size, used_by FROM kernel_modules WHERE name = '<module_name>';` to confirm the module's presence and usage.
+- Investigate the source and integrity of the module file by checking its creation and modification timestamps, and compare its hash against known good values if available.
+- Examine the system's package manager logs or configuration management tools to determine if the module was installed or updated recently as part of a legitimate package or update.
+- Review user and process activity logs around the time of the module load to identify any suspicious behavior or unauthorized access attempts.
+- Check for any recent changes to system configurations or scripts that could have led to the loading of the module, focusing on boot or startup scripts.
+- Investigate any other alerts or anomalies in the system logs that coincide with the module load event to identify potential related malicious activity.
+- Consult threat intelligence sources to determine if the module or its characteristics match any known malicious signatures or behaviors.
+
+### False positive analysis
+
+- Legitimate third-party drivers: Some out-of-tree kernel modules are legitimate third-party drivers necessary for specific hardware functionality. These can trigger the rule but do not pose a security threat. Users can create exceptions for these known drivers by identifying their specific module names and excluding them from the detection rule.
+- Custom kernel modules: Organizations may develop custom kernel modules for internal use, which can also taint the kernel. These should be documented and whitelisted to prevent false positives. Users should maintain a list of approved custom modules and adjust the detection rule to exclude these from alerts.
+- Development and testing environments: In environments where kernel development or testing occurs, frequent loading of out-of-tree modules is expected. Users can configure the rule to ignore these environments by excluding specific hostnames or IP addresses associated with development and testing.
+- Vendor-specific modules: Some vendors provide out-of-tree modules for enhanced functionality or performance. Users should verify the legitimacy of these modules and, if deemed safe, add them to an exception list to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
+- Conduct a thorough investigation to identify the loaded out-of-tree kernel module, including its origin, purpose, and any associated processes or files.
+- Utilize forensic tools to capture memory and disk images for further analysis, ensuring evidence preservation for potential legal or compliance requirements.
+- Cross-reference the identified module with known malicious signatures or behaviors using threat intelligence databases and resources.
+- Remove the unauthorized or malicious kernel module and any associated files or processes from the system.
+- Apply patches and updates to the kernel and all installed software to mitigate vulnerabilities that could be exploited by similar threats.
+- Implement enhanced logging policies to capture detailed system and network activity, focusing on kernel module loads and other critical events.
+- Integrate security solutions such as intrusion detection systems (IDS) and endpoint detection and response (EDR) tools to improve monitoring and detection capabilities.
+- Conduct a post-incident review to identify gaps in security controls and processes, and update incident response plans accordingly.
+- Educate and train staff on recognizing and responding to similar threats, emphasizing the importance of maintaining system integrity and security."""
 
 
 [[rule.threat]]

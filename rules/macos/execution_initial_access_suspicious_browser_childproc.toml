@@ -2,7 +2,7 @@
 creation_date = "2020/12/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -82,6 +82,49 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
       "/usr/local/*brew*"
     )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Browser Child Process
+
+Web browsers often spawn child processes to handle tasks like rendering content or executing scripts. Adversaries exploit this by injecting malicious scripts or commands, leveraging browsers as entry points for attacks. The detection rule identifies unusual child processes spawned by browsers on macOS, focusing on shell scripts and command-line tools often used in attacks, while excluding known benign processes. This helps in pinpointing potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific browser and child process involved, focusing on the `process.parent.name` and `process.name` fields.
+- Examine the `process.command_line` field to understand the exact command executed by the child process, looking for any unusual or unexpected arguments.
+- Check the `process.args` field to identify any arguments that might indicate malicious activity, ensuring they are not part of the known benign exclusions.
+- Use Osquery to list all processes spawned by the identified browser during the time of the alert. Example query: `SELECT * FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'Google Chrome' OR name = 'firefox' OR name = 'Safari');`
+- Investigate the parent process's history to determine if it has been involved in any other suspicious activities or alerts.
+- Correlate the alert with any recent network activity logs to identify potential data exfiltration or communication with known malicious IPs.
+- Check the system's browser history to identify the websites visited around the time of the alert, looking for any known malicious or suspicious domains.
+- Review any recent downloads or file modifications on the system that might be related to the suspicious process execution.
+- Analyze the user account associated with the process to determine if there have been any unusual login attempts or privilege escalations.
+- Consult threat intelligence sources to see if the command line or process name matches any known attack patterns or indicators of compromise.
+
+### False positive analysis
+
+- Known false positives may include legitimate scripts or command-line tools executed by browser extensions or plugins, which are not inherently malicious but match the detection criteria.
+- System updates or software installations that use shell scripts or command-line tools can trigger the rule, especially if they are initiated through a browser download or update process.
+- Users can manage these false positives by creating exceptions for specific command-line patterns or arguments that are known to be safe, such as those related to software updates or trusted applications.
+- Regularly review and update the exclusion list to include new benign processes or command-line patterns that are identified over time, ensuring that the detection rule remains effective without generating excessive noise.
+- Consider the context of the process execution, such as the parent process and the command-line arguments, to differentiate between legitimate and suspicious activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of potential threats.
+- Conduct a thorough investigation of the suspicious process, including reviewing the command line and parent process details to understand the scope of the compromise.
+- Terminate any malicious processes identified during the investigation to halt ongoing malicious activity.
+- Review browser and system logs to identify any additional indicators of compromise or related suspicious activities.
+- Escalate the incident to the security operations team if the threat appears to be part of a larger attack campaign or if sensitive data may have been accessed.
+- Restore the system from a known good backup if the integrity of the system is in question, ensuring that all patches and updates are applied.
+- Implement enhanced logging policies to capture detailed process execution and network activity for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
+- Educate users on safe browsing practices and the risks of executing unknown scripts or commands from web browsers.
+- Apply security hardening measures such as disabling unnecessary browser plugins, enforcing strict content security policies, and using browser isolation techniques to reduce the attack surface."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/11/19"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -51,6 +51,49 @@ sequence by host.id, user.name with maxspan=1m
     process.args : ("C:\\Users\\*", "C:\\ProgramData\\*", "C:\\Windows\\Temp\\*", "C:\\Windows\\Tasks\\*", "C:\\PerfLogs\\*", "C:\\Intel\\*")
    ]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Execution of Persistent Suspicious Program
+
+Persistent programs, often legitimate, can be exploited by adversaries to maintain access to a system. By leveraging process lineage and command line analysis, attackers may execute scripts or utilities like PowerShell or rundll32 to persist malicious activities. The detection rule identifies such abuse by monitoring the sequence of process executions post-login, flagging early child processes of explorer.exe that are unlikely to be user-initiated, and scrutinizing their command line arguments and file paths for suspicious patterns.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host and user involved, using the `host.id` and `user.name` fields from the query.
+- Examine the process lineage to confirm the sequence of `userinit.exe`, `explorer.exe`, and the suspicious child process. Verify the `process.name` and `process.parent.name` fields to ensure the sequence matches the alert criteria.
+- Analyze the command line arguments of the suspicious process using the `process.args` field to identify any unusual or potentially malicious commands or scripts being executed.
+- Check the file path of the suspicious process using the `process.args` field to determine if it matches any of the known suspicious paths, such as `C:\\Users\\*`, `C:\\ProgramData\\*`, or `C:\\Windows\\Temp\\*`.
+- Investigate the parent process `explorer.exe` to determine if it has any other unusual child processes that may indicate further suspicious activity.
+- Use Osquery to gather additional context about the suspicious process. For example, run the following Osquery query to list all processes with their parent process IDs and command line arguments: `SELECT pid, name, path, cmdline, parent FROM processes WHERE name IN ('cscript.exe', 'wscript.exe', 'PowerShell.EXE', 'MSHTA.EXE', 'RUNDLL32.EXE', 'REGSVR32.EXE', 'RegAsm.exe', 'MSBuild.exe', 'InstallUtil.exe');`
+- Check the system's startup items and scheduled tasks to identify any persistent mechanisms that may have been used to execute the suspicious program.
+- Review recent login events on the host to correlate the timing of the suspicious process execution with user activity, using event logs or security information and event management (SIEM) tools.
+- Investigate any network connections initiated by the suspicious process to identify potential command and control (C2) communication or data exfiltration attempts.
+- Consult threat intelligence sources to determine if the identified process or command line patterns are associated with known malware or adversary techniques.
+
+### False positive analysis
+
+- Legitimate administrative scripts: System administrators often use scripts for maintenance tasks, which may trigger the rule if they are executed shortly after login. To manage this, users can create exceptions for known administrative scripts by specifying their file paths or command line arguments.
+- Software updates and installations: Some software updates or installations may use processes like PowerShell or rundll32, which could be flagged as suspicious. Users can handle these by excluding specific update or installation processes that are known to be safe.
+- Automated tasks and scheduled jobs: Certain automated tasks or scheduled jobs may run shortly after login and use processes listed in the detection rule. Users can exclude these tasks by identifying their specific command line patterns or file paths.
+- Development tools: Developers might use tools like MSBuild or InstallUtil during their workflow, which could be misidentified as malicious. Users can create exceptions for these tools when used in known development environments or by specific user accounts.
+- Security software: Some security software may use similar processes to perform legitimate actions, such as scanning or updating. Users should identify and exclude these processes by verifying their source and purpose.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation of the flagged processes and their command line arguments to confirm malicious activity.
+- Terminate any suspicious processes identified during the investigation to halt ongoing malicious activities.
+- Review and analyze the process lineage to understand the scope of the compromise and identify any additional affected systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed process execution and command line activity for future investigations.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs).
+- Restore the system to its operational state by removing any malicious files and ensuring all software is up to date with the latest security patches.
+- Harden the system by disabling unnecessary services and implementing application whitelisting to prevent unauthorized execution of scripts and utilities.
+- Conduct a post-incident review to identify gaps in detection and response capabilities and update security policies and procedures accordingly."""
 
 
 [[rule.threat]]

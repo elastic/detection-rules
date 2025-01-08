@@ -2,7 +2,7 @@
 creation_date = "2021/01/20"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/11/02"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -66,6 +66,49 @@ process where host.os.type == "windows" and event.type == "start" and
    )
  )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Execution of COM object via Xwizard
+
+The Windows Component Object Model (COM) facilitates communication between software components. Adversaries exploit this by using Xwizard to execute COM objects, bypassing security measures. The detection rule identifies suspicious Xwizard executions by checking for unusual arguments or non-standard executable paths, indicating potential misuse for malicious activities.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of `xwizard.exe` in the process name or original file name fields, as this is the primary indicator of potential misuse.
+- Examine the process arguments to check for the presence of "RunWizard" and GUID-like patterns (e.g., "{*}"), which may indicate an attempt to execute a COM object.
+- Verify the executable path of `xwizard.exe` to determine if it deviates from standard paths such as "C:\\Windows\\SysWOW64\\xwizard.exe" or "C:\\Windows\\System32\\xwizard.exe", which could suggest tampering or unauthorized use.
+- Investigate the parent process of `xwizard.exe` to understand how it was launched and identify any potentially malicious parent processes.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name = 'xwizard.exe';` to retrieve details like process ID, parent process ID, and command line arguments.
+- Check the system's event logs for any related entries around the time of the alert to identify other suspicious activities or corroborating evidence.
+- Analyze the registry for any unusual or unauthorized COM objects that may have been created or modified, focusing on recent changes.
+- Investigate network connections initiated by `xwizard.exe` to identify any suspicious outbound communication that could indicate data exfiltration or command-and-control activity.
+- Review the user account associated with the `xwizard.exe` process to determine if it has been compromised or is being used in an unauthorized manner.
+- Correlate the findings with other security alerts or incidents in the environment to identify potential patterns or coordinated attacks.
+
+### False positive analysis
+
+- Legitimate administrative tasks: Xwizard.exe may be used by system administrators for legitimate configuration tasks, which can trigger the detection rule. Users should verify the context of the execution to determine if it aligns with routine administrative activities.
+- Software installations or updates: Some software installations or updates might invoke Xwizard.exe as part of their setup process. Users can create exceptions for known software that frequently triggers this rule during installation or updates.
+- System maintenance scripts: Automated scripts for system maintenance might use Xwizard.exe to perform legitimate operations. Users should review these scripts and whitelist them if they are verified as non-threatening.
+- Custom enterprise applications: In some environments, custom applications may use Xwizard.exe for inter-process communication. Users should document these applications and exclude their known behaviors from triggering the rule.
+- To manage false positives, users can create exceptions in their detection systems for specific processes or paths that are verified as safe. This can be done by adding these known benign activities to an allowlist or exclusion list, ensuring that only truly suspicious activities are flagged.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the scope of the compromise, focusing on the execution of the COM object via Xwizard and any associated processes or files.
+- Terminate any suspicious processes related to Xwizard that are not running from standard executable paths.
+- Review and analyze the Windows Event Logs and any available security logs for additional indicators of compromise or related suspicious activities.
+- Restore the system from a known good backup if the investigation confirms malicious activity and system integrity is compromised.
+- Update and apply security patches to the operating system and all installed software to mitigate known vulnerabilities.
+- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users on recognizing and reporting suspicious activities to prevent future incidents and improve overall security awareness."""
 
 
 [[rule.threat]]

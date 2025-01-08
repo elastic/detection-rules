@@ -2,7 +2,7 @@
 creation_date = "2020/11/17"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,50 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Google Workspace Suspended User Account Renewed"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Google Workspace Suspended User Account Renewed
+
+Google Workspace allows administrators to manage user accounts, including suspending and unsuspending them. Adversaries may exploit this by unsuspending accounts to regain access to an organization. The detection rule monitors for unsuspension actions within the IAM category, alerting analysts to potential unauthorized access attempts by identifying when a suspended account is reactivated.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event.dataset is "google_workspace.admin" and the event.category is "iam" with the event.action "UNSUSPEND_USER" to ensure the alert is valid.
+- Identify the user account that was unsuspended by examining the specific user details in the alert, such as user.email or user.name.
+- Check the timestamp of the unsuspension event to determine when the action occurred and correlate it with any other suspicious activities around the same time.
+- Investigate the actor responsible for the unsuspension by reviewing the admin.email or admin.name fields to determine if the action was performed by an authorized administrator.
+- Analyze the user's account history to identify any previous suspicious activities or patterns that might indicate compromise.
+- Use Google Workspace audit logs to search for any other recent administrative actions performed by the same actor to identify potential patterns of unauthorized access.
+- Cross-reference the unsuspended user account with recent login activity to determine if there have been any successful logins post-unsuspension, especially from unusual locations or devices.
+- Utilize Osquery to gather additional context on the unsuspended account by running a query such as: `SELECT * FROM google_workspace_users WHERE email = 'user@example.com';` to retrieve detailed user information and status.
+- Investigate any recent changes to the organization's IAM policies or permissions that might have allowed unauthorized unsuspension actions.
+- Collaborate with the IT or security team to review any recent changes in administrative roles or permissions that could have inadvertently allowed unauthorized access to user management functions.
+
+### False positive analysis
+
+- Routine administrative actions: Legitimate IT administrators may unsuspend user accounts as part of regular account management tasks, such as when an employee returns from leave. To manage these, organizations can create exceptions for known administrative actions by whitelisting specific administrator accounts or IP addresses.
+- Automated processes: Some organizations may have automated workflows that unsuspend accounts based on predefined criteria, such as a scheduled return date for employees. These processes can be excluded from alerts by identifying and excluding the specific automated system accounts or scripts involved.
+- User error: Occasionally, an account may be unsuspended by mistake due to human error. To handle these, organizations can implement a review process for unsuspension actions, ensuring that any unsuspension is verified by a second administrator before being excluded from alerts.
+- Third-party integrations: Certain third-party applications integrated with Google Workspace may have permissions to unsuspend accounts as part of their functionality. To address this, organizations should review and document all third-party applications with such permissions and exclude their actions from alerts if deemed non-threatening.
+
+### Response and remediation
+
+- Immediately suspend the reactivated user account to prevent further unauthorized access.
+- Review audit logs to identify who performed the unsuspension action and assess if it was authorized.
+- Investigate any recent activities associated with the reactivated account to determine if any sensitive data was accessed or modified.
+- Change passwords and enforce multi-factor authentication for the affected account and any other accounts accessed by the adversary.
+- Escalate the incident to the security operations team for further analysis and to determine if additional accounts or systems were compromised.
+- Implement stricter access controls and review permissions for user accounts to minimize the risk of unauthorized actions.
+- Enhance logging policies to ensure detailed tracking of account management activities, including suspensions and unsuspensions.
+- Integrate Google Workspace with a Security Information and Event Management (SIEM) system to improve real-time monitoring and alerting capabilities.
+- Conduct a security awareness training session for administrators to reinforce the importance of account management best practices.
+- Review and update incident response plans to incorporate lessons learned from the incident and improve future response efforts.
+
+## Setup
 
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 

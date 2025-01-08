@@ -2,7 +2,7 @@
 creation_date = "2020/08/31"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,51 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure External Guest User Invitation"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure External Guest User Invitation
+
+Azure Active Directory (AD) facilitates collaboration by allowing external users to be invited as guests, enhancing flexibility but also introducing security risks. Adversaries might exploit this by creating guest accounts to gain unauthorized access. The detection rule monitors audit logs for successful external user invitations, flagging potential misuse by identifying operations linked to guest account creation.
+
+### Possible investigation steps
+
+- Review the audit logs to confirm the details of the invitation event by checking the `azure.auditlogs.operation_name` field for "Invite external user" and ensure the `event.outcome` is marked as "Success".
+- Identify the inviter by examining the `azure.auditlogs.properties.initiated_by.user.display_name` and `azure.auditlogs.properties.initiated_by.user.user_principal_name` fields to determine who initiated the guest invitation.
+- Verify the legitimacy of the invited guest by checking the `azure.auditlogs.properties.target_resources.*.display_name` field for the guest's display name and cross-referencing it with known business contacts or partners.
+- Investigate the inviter's recent activities by querying additional audit logs for any unusual or unauthorized actions performed by the inviter's account.
+- Check the `azure.auditlogs.properties.target_resources.*.user_principal_name` field to gather more information about the guest account and verify if it aligns with any known external collaborators.
+- Use Osquery to further investigate the inviter's machine for any signs of compromise. Example query: `SELECT * FROM processes WHERE user = '<inviter_user_principal_name>';` to list running processes under the inviter's account.
+- Assess the frequency and pattern of guest invitations by the same inviter to identify any anomalies or patterns that deviate from normal business operations.
+- Review the organization's guest user policy and compare it with the current invitation to ensure compliance and identify any deviations.
+- Investigate any recent changes to the Azure AD configuration or permissions that might have facilitated unauthorized guest invitations.
+- Collaborate with the IT or security team to gather additional context on the business need for the guest invitation and verify if it aligns with ongoing projects or partnerships.
+
+### False positive analysis
+
+- Invitations sent to external partners or vendors for legitimate business collaborations can trigger false positives. These are often necessary for project-based work or temporary access needs.
+- Automated systems or applications that require guest access for integration purposes might also be flagged. These systems often have predictable patterns and can be whitelisted.
+- Regular audits of guest accounts can help identify and exclude known, non-threatening guest users from triggering alerts. This involves maintaining an updated list of approved external collaborators.
+- Implementing a review process for guest invitations can help distinguish between legitimate and suspicious activities. This process can include verifying the inviter's identity and the business justification for the invitation.
+- Use Azure AD's built-in features to set up conditional access policies that can help reduce false positives by allowing only specific domains or email addresses to be invited as guests.
+
+### Response and remediation
+
+- Verify the legitimacy of the guest user invitation by contacting the inviter and confirming the business need for the guest account.
+- Temporarily disable the guest account to prevent unauthorized access while the investigation is ongoing.
+- Review the audit logs to identify any suspicious activities associated with the guest account, such as unusual login attempts or access to sensitive resources.
+- Cross-reference the guest account details with known threat intelligence sources to determine if the account is linked to any known adversaries or malicious activities.
+- If the guest account is deemed unauthorized, remove the account from Azure Active Directory and revoke any permissions or access granted.
+- Escalate the incident to the security operations team if the investigation reveals potential compromise or if the guest account is linked to a broader attack campaign.
+- Implement stricter guest user invitation policies, such as requiring multi-factor authentication and approval from a higher-level authority before creating guest accounts.
+- Enhance logging and monitoring by integrating Azure AD logs with a Security Information and Event Management (SIEM) system to detect and alert on suspicious activities in real-time.
+- Conduct a post-incident review to identify gaps in the current security posture and update security policies and procedures accordingly.
+- Educate employees on the risks associated with guest user invitations and provide training on secure collaboration practices to prevent future incidents.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.microsoft.com/en-us/azure/governance/policy/samples/cis-azure-1-1-0"]

@@ -2,7 +2,7 @@
 creation_date = "2021/05/28"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -50,6 +50,49 @@ sequence by host.id, process.entity_id with maxspan=1m
     "192.175.48.0/24", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
     "FF00::/8")]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Network Connection via DllHost
+
+Dllhost.exe is a legitimate Windows process responsible for managing DLL-based applications. Adversaries may exploit it to execute malicious code under the guise of a trusted process, often for Command and Control (C2) activities. The detection rule identifies suspicious outbound connections by dllhost.exe, focusing on connections to non-local IP addresses, which may indicate unauthorized network activity. This helps in identifying potential misuse of system binaries for evasion tactics.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name is "dllhost.exe" and verify the process.args_count is 1, as specified in the detection rule.
+- Check the destination IP address of the outbound connection to determine if it falls outside the specified non-local IP ranges, indicating a potential external connection.
+- Correlate the process.entity_id and host.id with other logs to identify any related processes or activities on the same host around the time of the alert.
+- Use Osquery to gather additional context about the dllhost.exe process by running a query such as: `SELECT * FROM processes WHERE name = 'dllhost.exe' AND pid = <process_id>;` to retrieve details like parent process, command line arguments, and execution path.
+- Investigate the parent process of dllhost.exe to determine if it was spawned by a legitimate application or a potentially malicious one.
+- Examine historical network activity from the same host to identify any patterns or repeated connections to suspicious IP addresses.
+- Check for any recent changes or anomalies in the system's configuration or installed software that could explain the unusual network activity.
+- Review any related security alerts or incidents involving the same host or IP address to identify potential patterns or ongoing threats.
+- Analyze the network traffic associated with the suspicious connection using packet captures or network logs to identify any data exfiltration or command and control communication.
+- Consult threat intelligence sources to determine if the destination IP address or any related indicators are associated with known malicious activity or threat actors.
+
+### False positive analysis
+
+- Legitimate software updates or cloud services may cause dllhost.exe to make outbound connections to non-local IP addresses, which can be mistaken for malicious activity.
+- Some enterprise applications may use dllhost.exe for legitimate network communications, especially in environments with custom or legacy software.
+- Users can handle these false positives by creating exceptions for known IP addresses or domains associated with trusted software updates and services.
+- Regularly review and update the list of exceptions to ensure it reflects current legitimate network activities and does not inadvertently allow malicious traffic.
+- Collaborate with IT and security teams to identify and document legitimate use cases of dllhost.exe network connections within the organization.
+
+### Response and remediation
+
+- Isolate the affected host from the network to prevent further malicious activity and potential lateral movement.
+- Conduct a thorough investigation of the dllhost.exe process to determine if it is executing unauthorized or malicious code, using tools like process explorers or endpoint detection and response (EDR) solutions.
+- Analyze network traffic logs to identify any unusual outbound connections made by dllhost.exe and correlate them with known malicious IP addresses or domains.
+- Terminate any suspicious instances of dllhost.exe and remove any associated malicious files or scripts from the system.
+- Restore the system from a known good backup if malicious activity is confirmed and cannot be remediated through other means.
+- Update and patch the operating system and all installed software to mitigate vulnerabilities that could be exploited by adversaries.
+- Implement enhanced logging policies to capture detailed process execution and network connection data for future investigations.
+- Integrate threat intelligence feeds to automatically update detection rules with known indicators of compromise (IOCs) related to dllhost.exe misuse.
+- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals a broader compromise or advanced persistent threat (APT) activity.
+- Conduct a post-incident review to identify gaps in detection and response capabilities and implement hardening measures such as application whitelisting and least privilege access controls."""
 
 
 [[rule.threat]]

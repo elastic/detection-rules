@@ -2,7 +2,7 @@
 creation_date = "2020/04/15"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -63,6 +63,53 @@ process where host.os.type == "linux" and event.type == "start" and event.action
    "fish") and process.args : "*sh" and process.args_count == 1 and process.parent.args_count == 1)
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Interactive Terminal Spawned via Python
+
+Python's ability to spawn interactive terminals is a powerful feature often used for legitimate administrative tasks. However, adversaries can exploit this to escalate a basic reverse shell into a fully interactive terminal, enhancing their control over a compromised system. The detection rule identifies such abuse by monitoring processes where Python spawns shell environments, focusing on specific patterns in process arguments and parent-child relationships indicative of malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a Python process spawning a shell, focusing on the `process.parent.name` and `process.name` fields to verify the parent-child relationship.
+- Examine the `process.parent.args` field to identify the specific command used, looking for patterns like `*pty.spawn*` and `-c` that indicate an attempt to spawn an interactive terminal.
+- Check the `process.args` field for any suspicious shell commands that might have been executed, especially if the `args_count` is minimal, suggesting a direct shell invocation.
+- Investigate the `host.os.type` to ensure the alert is relevant to a Linux environment, as the rule is specifically designed for Linux systems.
+- Use Osquery to gather additional context about the processes involved. For example, run the following query to list all processes spawned by Python that match the suspicious criteria:
+  ```sql
+  SELECT pid, name, cmdline, parent FROM processes WHERE parent IN (SELECT pid FROM processes WHERE name LIKE 'python%') AND name IN ('bash', 'dash', 'ash', 'sh', 'tcsh', 'csh', 'zsh', 'ksh', 'fish');
+  ```
+- Analyze the `event.type` and `event.action` fields to confirm that the process was indeed started and executed, which aligns with the rule's focus on process initiation.
+- Correlate the alert with any recent network activity logs to identify potential reverse shell connections or data exfiltration attempts.
+- Review user activity logs to determine if the Python process was initiated by a legitimate user or if it might be indicative of compromised credentials.
+- Check for any recent changes in user privileges or group memberships that could have facilitated the execution of such commands.
+- Investigate any other alerts or anomalies on the host around the same timeframe to identify potential lateral movement or further exploitation attempts.
+
+### False positive analysis
+
+- System administrators and developers often use Python scripts to automate tasks that require spawning shell environments, which can trigger this detection rule. These activities are typically benign and part of routine operations.
+- Automated deployment tools and configuration management systems like Ansible or Puppet may execute Python scripts that spawn shells as part of their normal operation, leading to false positives.
+- Security tools and monitoring solutions might use Python scripts to perform checks or gather system information, inadvertently matching the detection criteria.
+- To manage these false positives, users can create exceptions for known scripts or processes by whitelisting specific parent process names or arguments that are verified as non-threatening.
+- Implementing a baseline of normal behavior for Python processes in the environment can help distinguish between legitimate and suspicious activity, allowing for more accurate tuning of the detection rule.
+- Regularly reviewing and updating the list of exceptions based on changes in administrative practices or tool usage can help maintain the effectiveness of the detection rule while minimizing false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to confirm the presence of a reverse shell and identify any additional compromised systems or accounts.
+- Terminate any suspicious processes identified by the detection rule, particularly those involving Python spawning shell environments.
+- Review and analyze logs from the affected system and network devices to trace the attacker's actions and entry point.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed process execution and network activity, focusing on command and scripting interpreter usage.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Harden the environment by implementing least privilege access controls, disabling unnecessary services, and conducting regular security awareness training for users."""
 
 
 [[rule.threat]]

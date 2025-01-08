@@ -2,7 +2,7 @@
 creation_date = "2024/05/31"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -55,6 +55,50 @@ registry where host.os.type == "windows" and event.type == "change" and
   (registry.value : "GlobalQueryBlockList" and not registry.data.strings : "wpad")
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating DNS Global Query Block List Modified or Disabled
+
+The DNS Global Query Block List (GQBL) is a security feature that blocks the resolution of specific DNS names, such as WPAD, to prevent attacks like spoofing. Adversaries with elevated privileges can alter or disable the GQBL, enabling exploitation for privilege escalation. The detection rule identifies such changes by monitoring registry modifications, signaling potential defense evasion attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific registry value that triggered the alert, focusing on `registry.value` and `registry.data.strings` fields.
+- Verify the timestamp of the registry change event to determine when the modification occurred.
+- Identify the user account associated with the registry change event to assess if the account has elevated privileges, such as DNSAdmins.
+- Check the host's recent login history to see if there were any unusual or unauthorized access attempts around the time of the registry modification.
+- Use Osquery to list all current registry settings related to the DNS Global Query Block List on the affected host. Example query: `SELECT * FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\DNS\\\\Parameters\\\\%';`
+- Investigate any recent changes to user group memberships, especially those related to DNSAdmins, to identify potential privilege escalation.
+- Examine the system's event logs for any other suspicious activities or errors that coincide with the registry change event.
+- Cross-reference the affected host with other security alerts or incidents to determine if it is part of a broader attack pattern.
+- Analyze network traffic logs for any unusual DNS queries or connections from the affected host, particularly those involving WPAD.
+- Consult threat intelligence sources to check for any known campaigns or adversaries that exploit changes to the DNS Global Query Block List.
+
+### False positive analysis
+
+- Changes to the DNS Global Query Block List may occur during legitimate administrative tasks, such as network configuration updates or security policy adjustments, leading to false positives.
+- Organizations using custom DNS configurations might intentionally modify the GQBL to accommodate specific network requirements, which could trigger the detection rule.
+- Security software or network management tools that automatically adjust DNS settings for optimization or compliance purposes might inadvertently alter the GQBL, resulting in false alerts.
+- To manage these false positives, users can create exceptions for known and approved administrative activities by documenting and excluding specific registry changes associated with these tasks.
+- Implementing a whitelist of trusted applications or processes that are allowed to modify the GQBL can help reduce unnecessary alerts while maintaining security oversight.
+- Regularly reviewing and updating the list of exceptions based on changes in network policies or configurations can ensure that only non-threatening behaviors are excluded from detection.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement.
+- Verify the current state of the DNS Global Query Block List by checking the registry settings to confirm unauthorized changes.
+- Conduct a thorough investigation to identify any unauthorized users or processes that modified the GQBL settings, focusing on accounts with elevated privileges like DNSAdmins.
+- Review system and security logs to trace the origin of the changes and identify any potential indicators of compromise or related suspicious activities.
+- Restore the DNS Global Query Block List to its default settings, ensuring that entries like WPAD are included to prevent spoofing attacks.
+- Apply patches and updates to the operating system and DNS services to mitigate known vulnerabilities that could be exploited.
+- Implement enhanced logging policies to capture detailed registry changes and monitor for any future unauthorized modifications.
+- Integrate security solutions such as SIEM to correlate events and provide real-time alerts for similar incidents.
+- Conduct a security audit of privileged accounts and enforce the principle of least privilege to minimize the risk of future exploitation.
+- Educate and train IT staff on recognizing and responding to DNS-related threats, leveraging MITRE ATT&CK framework for threat context and defense strategies."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2021/01/15"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -60,6 +60,48 @@ event.category:process and host.os.type:macos and event.type:(start or process_s
  process.name:defaults and
  process.args:(write and "-bool" and (com.apple.SoftwareUpdate or /Library/Preferences/com.apple.SoftwareUpdate.plist) and not (TRUE or true))
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SoftwareUpdate Preferences Modification
+
+In macOS environments, the 'defaults' command is used to modify system and application preferences, including SoftwareUpdate settings. Adversaries may exploit this to disable security updates, weakening system defenses. The detection rule identifies suspicious 'defaults' command executions that attempt to alter SoftwareUpdate preferences, focusing on disabling updates without setting them to true, thus flagging potential defense evasion activities.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the 'defaults' command execution with arguments targeting SoftwareUpdate preferences, specifically looking for the absence of 'TRUE' or 'true' in the command.
+- Cross-reference the timestamp of the alert with user activity logs to identify which user account executed the command.
+- Examine the process lineage to determine the parent process of the 'defaults' command, which may provide context on how the command was initiated.
+- Check for any recent login events or changes in user permissions around the time of the alert to identify potential unauthorized access.
+- Use Osquery to inspect the current state of the SoftwareUpdate preferences by running: `SELECT * FROM plist WHERE path = '/Library/Preferences/com.apple.SoftwareUpdate.plist';` to verify if updates have been disabled.
+- Investigate other process executions around the same time to identify any additional suspicious activities or commands that may indicate a broader attack.
+- Analyze network logs for any unusual outbound connections from the host that could suggest data exfiltration or communication with a command and control server.
+- Review system logs for any error messages or warnings related to SoftwareUpdate services that might indicate tampering or misconfiguration.
+- Check for any recent installations or modifications of software that could have introduced malicious scripts or tools used to execute the 'defaults' command.
+- Correlate the alert with other security events or alerts from the same host or user to identify patterns or repeated attempts to modify system settings.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators or IT personnel may use the 'defaults' command to configure SoftwareUpdate settings for maintenance or compliance purposes. These actions, while benign, can trigger the detection rule.
+- Automated scripts: Some management tools or scripts may programmatically adjust SoftwareUpdate preferences as part of routine system configuration, leading to false positives.
+- User customization: Advanced users might modify SoftwareUpdate settings to manage updates manually, which could be flagged by the rule.
+- To manage these false positives, users can create exceptions for known administrative accounts or specific scripts that are verified as non-threatening. This can be done by excluding certain user accounts or process hashes from the detection rule. Additionally, monitoring the frequency and context of the 'defaults' command usage can help differentiate between legitimate and suspicious activities.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further potential compromise or spread.
+- Review the process execution logs to confirm the unauthorized use of the 'defaults' command targeting SoftwareUpdate preferences.
+- Investigate the source of the command execution to determine if it was initiated by a legitimate user or an adversary.
+- Restore the SoftwareUpdate preferences to their default state to ensure security updates are re-enabled.
+- Conduct a full system scan using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious activity.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and threat intelligence correlation.
+- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
+- Integrate with a centralized logging solution, such as a Security Information and Event Management (SIEM) system, to monitor for similar suspicious activities.
+- Apply hardening measures by restricting the use of the 'defaults' command to authorized users only and consider using configuration management tools to enforce security settings.
+- Review and update security awareness training for users to recognize and report suspicious activities related to system preferences and updates."""
 
 
 [[rule.threat]]

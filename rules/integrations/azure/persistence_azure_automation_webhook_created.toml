@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,52 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Automation Webhook Created"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure Automation Webhook Created
+
+Azure Automation webhooks enable automated task execution via HTTP requests, integrating external systems with Azure runbooks. Adversaries may exploit this by creating webhooks to trigger runbooks with harmful scripts. The detection rule monitors Azure activity logs for webhook creation events, identifying potential misuse by flagging successful operations related to webhook actions.
+
+### Possible investigation steps
+
+- Review the Azure activity logs to confirm the details of the webhook creation event, focusing on the `azure.activitylogs.operation_name` field to verify if it matches "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/WEBHOOKS/ACTION" or "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/WEBHOOKS/WRITE".
+- Check the `event.outcome` field to ensure the operation was successful, as this indicates the webhook was indeed created.
+- Identify the user or service principal that initiated the webhook creation by examining the `azure.activitylogs.caller` field to determine if the action was authorized or suspicious.
+- Investigate the source IP address and location from which the webhook creation request originated to identify any anomalies or unexpected geolocations.
+- Review the associated runbook that the webhook is configured to trigger, ensuring it does not contain any unauthorized or malicious scripts.
+- Cross-reference the webhook creation event with other recent Azure activity logs to identify any related suspicious activities, such as changes to runbooks or automation accounts.
+- Utilize Osquery to gather additional context on the system where the webhook was created. For example, run the following Osquery query to list recent Azure Automation activities: `SELECT * FROM azure_activity WHERE operation_name LIKE '%WEBHOOKS%' AND outcome = 'Success';`
+- Check for any recent changes in permissions or roles assigned to the user or service principal involved in the webhook creation to ensure they have not been escalated improperly.
+- Analyze any alerts or logs from security monitoring tools that might indicate attempts to exploit the webhook or the associated runbook.
+- Consult with the team responsible for Azure Automation to verify if the webhook creation was part of a legitimate change or deployment process.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate IT operations may involve creating webhooks for automation purposes, such as regular system maintenance or data processing tasks. These actions can trigger the detection rule, leading to false positives.
+- Development and testing activities: Developers and IT teams often create and test webhooks during the development of new automation processes. These activities can be mistaken for malicious actions.
+- Third-party integrations: Some third-party applications and services integrate with Azure Automation using webhooks to perform authorized tasks, which might be flagged by the rule.
+- To manage false positives, users can create exceptions for known and trusted sources by whitelisting specific IP addresses or user accounts associated with legitimate webhook creation activities.
+- Implementing a review process for webhook creation logs can help differentiate between authorized and unauthorized activities, allowing for more accurate threat detection.
+- Regularly updating and refining the detection rule criteria based on organizational needs and known benign activities can reduce the occurrence of false positives.
+
+### Response and remediation
+
+- Immediately disable the suspicious webhook to prevent further execution of potentially harmful runbooks.
+- Review the Azure activity logs to identify the source and context of the webhook creation, including the user account and IP address involved.
+- Conduct a thorough investigation of the runbook associated with the webhook to determine if it contains malicious code or unauthorized changes.
+- If malicious activity is confirmed, isolate affected systems and runbooks to prevent further compromise.
+- Escalate the incident to the security operations team for a detailed analysis and to determine the scope of the breach.
+- Implement Azure Monitor alerts to notify security teams of any future webhook creation events for proactive monitoring.
+- Enhance logging policies to ensure comprehensive capture of Azure activity logs, focusing on automation accounts and webhook activities.
+- Integrate Azure Security Center and other security tools to provide a unified view of security alerts and streamline incident response.
+- Restore any affected systems or runbooks to their last known good state, ensuring that all malicious code is removed.
+- Apply hardening measures such as restricting webhook creation permissions to only trusted administrators and regularly reviewing access controls.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

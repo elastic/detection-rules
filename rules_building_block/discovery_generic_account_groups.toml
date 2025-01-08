@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -60,6 +60,48 @@ process where host.os.type == "windows" and event.type == "start" and
 ) and not process.parent.args: "C:\\Program Files (x86)\\Microsoft Intune Management Extension\\Content\\DetectionScripts\\*.ps1"
 and not process.parent.name : "LTSVC.exe" and not user.id : "S-1-5-18"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Windows Account or Group Discovery
+
+Windows environments utilize built-in tools to manage and query user and group information, essential for system administration. Adversaries exploit these tools to gather intelligence on user accounts and group memberships, aiding in privilege escalation and lateral movement. The detection rule identifies suspicious use of these tools by monitoring specific command executions and arguments, filtering out benign activities to highlight potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific command and arguments that triggered the rule, focusing on the `process.name` and `process.args` fields.
+- Check the `user.id` field to determine which user account executed the suspicious command and assess if this account has a history of similar activities.
+- Investigate the `process.parent.name` and `process.parent.args` fields to understand the parent process that initiated the command, which can provide context on whether the execution was part of a legitimate script or application.
+- Examine the `host.os.type` and `event.type` fields to confirm the environment and nature of the event, ensuring it aligns with the expected Windows system behavior.
+- Utilize Osquery to gather additional context on the system by running a query such as: `SELECT * FROM processes WHERE name IN ('net.exe', 'dsquery.exe', 'whoami.exe');` to identify other related processes running on the host.
+- Cross-reference the `process.args` with known benign scripts or administrative tasks to rule out false positives, especially focusing on arguments like "accounts", "group", "user", and "localgroup".
+- Check for any recent changes in user permissions or group memberships on the system that could correlate with the suspicious command execution.
+- Review system logs and security events around the time of the alert to identify any other anomalous activities or patterns that could indicate a broader attack.
+- Investigate the network activity from the host to see if there are any unusual outbound connections or data transfers that might suggest data exfiltration or lateral movement.
+- Consult with the user associated with the `user.id` to verify if they were performing legitimate administrative tasks or if their credentials might have been compromised.
+
+### False positive analysis
+
+- Scheduled administrative tasks: Routine system administration tasks often involve querying user and group information, which can trigger this rule. Users can create exceptions for known administrative scripts or scheduled tasks by excluding specific process names or command arguments.
+- Software management tools: Applications like Microsoft Intune or other endpoint management solutions may execute similar commands for inventory or compliance checks. Exclude these processes by specifying their parent process names or paths in the rule.
+- Legitimate user queries: Users may use command-line tools to check their own account information. To reduce noise, consider excluding processes initiated by specific user IDs or those with known benign parent processes.
+- Custom scripts: Organizations may have custom scripts that perform account or group enumeration as part of their operations. Identify these scripts and exclude them by their file paths or specific command-line arguments to prevent false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any unauthorized accounts or group memberships created or modified.
+- Review the execution logs of the identified commands to understand the adversary's actions and objectives.
+- Remove any unauthorized accounts or group memberships identified during the investigation to prevent privilege escalation.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed command execution and user activity, ensuring that future suspicious activities are detected promptly.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and analyze potential threats more effectively.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure that all security configurations are hardened according to best practices.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Educate users and administrators on recognizing and reporting suspicious activities to improve overall security awareness and reduce the risk of future incidents."""
 
 
 [[rule.threat]]

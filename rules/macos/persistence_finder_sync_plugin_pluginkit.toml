@@ -2,7 +2,7 @@
 creation_date = "2020/12/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -78,6 +78,53 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
                                                  "/Library/Application Support/Checkpoint/Endpoint Security/AMFinderExtensions.app/Contents/MacOS/AMFinderExtensions",
                                                  "/Applications/pCloud Drive.app/Contents/MacOS/pCloud Drive")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Finder Sync Plugin Registered and Enabled
+
+Finder Sync plugins enhance macOS Finder by allowing third-party applications to modify its interface, providing additional functionality. However, adversaries can exploit this by registering malicious plugins to maintain persistence on a system. The detection rule identifies suspicious plugin registrations by monitoring the `pluginkit` process for unusual arguments and excluding known legitimate plugins and parent processes, thus highlighting potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to understand which specific Finder Sync plugin registration triggered the alert, focusing on the `process.args` field to identify the suspicious plugin.
+- Verify the legitimacy of the plugin by researching the plugin identifier found in the `process.args` field against known legitimate plugins and any available threat intelligence sources.
+- Examine the `process.parent.executable` and `process.Ext.effective_parent.executable` fields to identify the parent process that initiated the plugin registration, checking for any unusual or unexpected parent processes.
+- Use Osquery to list all currently registered Finder Sync plugins on the system to identify any other potentially malicious plugins:
+  ```sql
+  SELECT * FROM plist WHERE path = '/Library/Preferences/com.apple.finder.plist' AND key = 'NSExtension' AND value LIKE '%FinderSync%';
+  ```
+- Investigate the system for any recent changes or installations that could have introduced the suspicious plugin, focusing on recent application installations or updates.
+- Check system logs for any other unusual activity around the time the plugin was registered, such as other process executions or network connections.
+- Review user activity on the system to determine if any user actions could have inadvertently led to the plugin registration, such as downloading and installing new software.
+- Investigate the file path and contents of the suspicious plugin to determine its purpose and whether it contains any malicious code or payloads.
+- Cross-reference the system's installed applications and extensions with known software inventory to identify any unauthorized or unexpected software.
+- Consult with other security tools or logs, such as endpoint detection and response (EDR) solutions, to gather additional context on the system's activity and any potential indicators of compromise.
+
+### False positive analysis
+
+- Known false positives for the Finder Sync Plugin Registered and Enabled rule include legitimate applications that register Finder Sync plugins for enhancing their functionality, such as cloud storage services and productivity tools.
+- Applications like Google Drive, Microsoft OneDrive, Adobe Creative Cloud, and Box are known to register Finder Sync plugins, which can trigger the detection rule if not properly excluded.
+- Users can manage these false positives by adding exceptions for known legitimate plugins and their parent processes in the detection rule, ensuring that these applications do not trigger alerts.
+- Regularly update the list of excluded plugins and parent processes to include any new legitimate applications that may register Finder Sync plugins, reducing unnecessary alerts.
+- Monitor updates from trusted software vendors for any changes in their plugin registration processes, which may require adjustments to the exclusion list.
+- Consider the context of the detected activity, such as the source and behavior of the parent process, to differentiate between benign and potentially malicious plugin registrations.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malicious activity.
+- Review the Finder Sync plugin registration logs to identify any unauthorized or suspicious plugins.
+- Terminate any suspicious processes related to the unauthorized Finder Sync plugins.
+- Remove any identified malicious Finder Sync plugins from the system.
+- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to detect and remove any additional threats.
+- Restore any affected system files from a known good backup to ensure system integrity.
+- Implement logging policies to monitor pluginkit process activities and other critical system processes for future detection of similar threats.
+- Integrate security solutions with SIEM tools to enhance real-time monitoring and alerting capabilities.
+- Escalate the incident to the security operations team for further analysis and to determine if the threat is part of a larger attack campaign.
+- Apply system hardening measures, such as restricting Finder Sync plugin installations to trusted applications only, to reduce the attack surface."""
 
 
 [[rule.threat]]

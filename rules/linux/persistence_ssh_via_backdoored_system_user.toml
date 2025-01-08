@@ -2,7 +2,7 @@
 creation_date = "2025/01/07"
 integration = ["system"]
 maturity = "production"
-updated_date = "2025/01/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,49 @@ user.name in (
   "avahi", "sshd", "dnsmasq"
 ) and event.outcome == "success"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Login via Unusual System User
+
+In Linux environments, system users typically have restricted login capabilities to prevent unauthorized access. These accounts, often set with `nologin`, are not meant for interactive sessions. Adversaries may exploit these accounts by altering their configurations to enable SSH access, thus bypassing standard security measures. The detection rule identifies successful logins by these uncommon system users, signaling potential unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific system user involved in the login attempt and the host where the login occurred.
+- Verify the login time and correlate it with known maintenance windows or authorized activities to rule out false positives.
+- Check the user's shell configuration to confirm if it was altered from `nologin` to a valid shell, indicating potential tampering.
+- Investigate the source IP address of the login attempt to determine if it is from a known or trusted network.
+- Use Osquery to gather additional context on the system user by running: `SELECT * FROM etc_passwd WHERE username = '<system_user>';` to verify user details and shell configuration.
+- Examine the SSH configuration files (e.g., `/etc/ssh/sshd_config`) for any unauthorized changes that might allow system users to log in.
+- Review recent authentication logs (e.g., `/var/log/auth.log`) for any unusual patterns or repeated login attempts involving the system user.
+- Check for any recent changes to user accounts or group memberships that might indicate account manipulation.
+- Investigate any related processes or services running under the system user account to identify potential malicious activity.
+- Correlate the event with other security alerts or logs to identify if this login attempt is part of a broader attack pattern.
+
+### False positive analysis
+
+- System maintenance tasks: Some automated scripts or maintenance tasks may require temporary login access using system accounts. These should be reviewed and, if deemed non-threatening, can be excluded by adding exceptions for specific scripts or IP addresses.
+- Backup operations: Backup software might use system accounts like "backup" to perform regular data backups. Verify the legitimacy of these operations and exclude them if they are part of routine, authorized processes.
+- Monitoring and management tools: Certain monitoring or management tools may use system accounts for health checks or updates. Confirm these activities with your IT team and exclude them if they are recognized as safe and necessary.
+- Custom applications: In some environments, custom applications might be configured to use system accounts for specific functions. Ensure these applications are secure and exclude their activities if they are essential and authorized.
+- Scheduled tasks: Cron jobs or other scheduled tasks might inadvertently trigger logins using system accounts. Review these tasks and exclude them if they are part of expected and secure operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access.
+- Review authentication logs to confirm the unusual login activity and identify any other potentially compromised accounts.
+- Change passwords for all system users and ensure that default system accounts are set back to 'nologin' where applicable.
+- Conduct a thorough investigation to determine how the adversary gained access and whether any other systems are affected.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed authentication events and system changes for future investigations.
+- Integrate threat intelligence feeds to correlate unusual login activities with known threat actor tactics and techniques.
+- Restore the system from a known good backup if any unauthorized changes or malware are detected.
+- Apply system hardening measures, such as disabling unused services and enforcing least privilege access controls.
+- Educate users and administrators on recognizing and reporting suspicious activities to improve overall security awareness."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

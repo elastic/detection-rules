@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2024/06/18"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 50
@@ -82,6 +82,48 @@ tags = [
     "Tactic: Command and Control",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual DNS Activity
+DNS, a cornerstone of internet functionality, translates domain names into IP addresses. Adversaries exploit DNS by using rare domains for malicious activities like command-and-control or data exfiltration. The 'Unusual DNS Activity' detection rule leverages machine learning to identify atypical DNS queries, signaling potential threats such as phishing or malware communication, by flagging uncommon domain interactions.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific uncommon domain that triggered the alert and the associated timestamp.
+- Cross-reference the uncommon domain with threat intelligence sources to determine if it is associated with known malicious activity.
+- Analyze DNS logs to identify the source IP address of the device making the unusual DNS query and any other domains it has queried recently.
+- Investigate the user or system associated with the source IP address to determine if there are any signs of compromise or unusual behavior.
+- Use Osquery to gather additional context from the affected system. For example, run the following query to list recent DNS queries made by the system: `SELECT name, time FROM dns_resolvers WHERE time > strftime('%s', 'now', '-1 day');`
+- Check network traffic logs for any outbound connections to the uncommon domain and assess the volume and frequency of these connections.
+- Examine endpoint security logs for any alerts or detections that coincide with the timestamp of the unusual DNS activity.
+- Investigate any recent changes or installations on the affected system that could be related to the unusual DNS activity.
+- Review email logs for any phishing attempts or suspicious emails received by the user associated with the alert.
+- Consult with other security team members or departments to gather additional insights or context regarding the unusual DNS activity.
+
+### False positive analysis
+
+- Legitimate software updates or cloud services may trigger the Unusual DNS Activity rule if they use uncommon domains for content delivery or API calls. Users can manage these by identifying and whitelisting known update servers or cloud service domains.
+- Internal development or testing environments might use non-standard domains that appear unusual. To handle these, users should document and exclude these domains from the detection rule to prevent false alerts.
+- Third-party applications or services that rely on dynamic or ephemeral domains for functionality can be mistaken for malicious activity. Users should maintain a list of trusted applications and their associated domains to exclude them from triggering the rule.
+- Some organizations use custom DNS configurations or private domains that may not be widely recognized. Users should ensure these are accounted for in the detection rule settings to avoid false positives.
+- Temporary spikes in DNS queries due to legitimate business activities, such as marketing campaigns or product launches, can be misinterpreted as unusual activity. Users should monitor and adjust the rule thresholds during such events to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further communication with the malicious domain.
+- Conduct a thorough investigation to identify the scope of the compromise, including checking for other systems that may have communicated with the same domain.
+- Analyze DNS logs and network traffic to identify any additional indicators of compromise (IOCs) related to the unusual DNS activity.
+- Remove any identified malware or unauthorized software from the affected system using antivirus or endpoint detection and response (EDR) tools.
+- Change passwords and credentials that may have been exposed or used on the compromised system.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional resources are needed.
+- Implement or enhance DNS logging and monitoring to detect future unusual DNS activities more effectively.
+- Integrate threat intelligence feeds to enrich DNS data and improve detection capabilities for known malicious domains.
+- Restore the system to its operational state by applying necessary patches and updates, and verify that all security controls are functioning correctly.
+- Harden the system by implementing security best practices, such as disabling unnecessary services, applying least privilege principles, and ensuring regular security training for users."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

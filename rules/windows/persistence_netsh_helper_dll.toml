@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -43,6 +43,48 @@ registry where host.os.type == "windows" and event.type == "change" and
     "MACHINE\\Software\\Microsoft\\netsh\\*"
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Netsh Helper DLL
+
+Netsh Helper DLLs are extensions for the netsh.exe utility, enhancing its capabilities in Windows environments. While legitimate, adversaries can exploit this by adding malicious DLLs, ensuring their payloads execute whenever netsh runs, often via admin actions or scheduled tasks. The detection rule monitors registry changes in specific paths, flagging unauthorized DLL additions to thwart such persistence tactics.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific registry path that triggered the alert, focusing on paths like "HKLM\\\\Software\\\\Microsoft\\\\netsh\\\\*".
+- Verify the legitimacy of the DLL by checking its file path and comparing it against known good DLLs or a whitelist of approved Netsh Helper DLLs.
+- Use Osquery to list all DLLs associated with Netsh by executing: `SELECT * FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\Software\\\\Microsoft\\\\netsh\\\\%';`.
+- Investigate the file properties of the suspicious DLL, including its creation and modification dates, using tools like PowerShell or the command line.
+- Check the digital signature of the DLL to ensure it is signed by a trusted publisher.
+- Correlate the timestamp of the registry change event with other logs, such as user login events or scheduled task executions, to identify potential responsible users or processes.
+- Search for any related scheduled tasks that might execute netsh.exe, using commands like `schtasks` or reviewing Task Scheduler logs.
+- Analyze network activity around the time of the registry change to detect any unusual outbound connections that might indicate data exfiltration or command and control communication.
+- Review system logs for any other suspicious activities or errors that coincide with the time of the registry modification.
+- Consult threat intelligence sources to determine if the DLL or its associated file path has been reported in any known attack campaigns or malware signatures.
+
+### False positive analysis
+
+- Legitimate software installations or updates may add or modify Netsh Helper DLLs, triggering the detection rule. Users should verify the source and purpose of the DLL changes to determine if they are part of a trusted application.
+- System administrators might intentionally add custom Netsh Helper DLLs to enhance network management capabilities. In such cases, these changes should be documented and excluded from the detection rule to prevent unnecessary alerts.
+- Some network management tools or scripts may programmatically modify the Netsh registry paths as part of their normal operation. Users should identify these tools and create exceptions for their known behaviors to avoid false positives.
+- Regular audits of the Netsh Helper DLL registry paths can help distinguish between expected changes and potential threats. Users should maintain a baseline of known good DLLs and update their detection rules to exclude these from triggering alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify any unauthorized Netsh Helper DLLs by reviewing recent registry changes and correlating them with known malicious indicators.
+- Remove any unauthorized or suspicious DLLs from the registry paths specified in the detection rule to prevent further execution of malicious payloads.
+- Perform a comprehensive malware scan on the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional threats.
+- Review and analyze system logs, including Windows Event Logs and security logs, to trace the origin of the unauthorized changes and identify potential entry points or compromised accounts.
+- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals a broader compromise or if additional expertise is required.
+- Implement enhanced logging policies to capture detailed registry changes and process execution events, ensuring better visibility for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to correlate alerts and improve detection capabilities for similar threats.
+- Restore the system to its operational state by applying clean backups, ensuring all security patches and updates are installed, and verifying the integrity of critical system files.
+- Harden the system by implementing least privilege principles, disabling unnecessary services, and regularly auditing user permissions and scheduled tasks to reduce the attack surface."""
 
 
 [[rule.threat]]

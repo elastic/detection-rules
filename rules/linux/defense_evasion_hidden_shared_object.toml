@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 min_stack_version = "8.13.0"
-updated_date = "2025/01/06"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -78,6 +78,49 @@ query = '''
 file where host.os.type == "linux" and event.type == "creation" and file.extension == "so" and file.name : ".*.so" and
 not process.name == "dockerd"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Creation of Hidden Shared Object File
+
+Shared object files (.so) are dynamic libraries used in Linux environments to provide reusable code. Adversaries may exploit the ability to hide files by prefixing them with a dot, concealing malicious .so files for persistence and evasion. The detection rule identifies the creation of such hidden files, excluding benign processes like Docker, to uncover potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the file creation event, focusing on the file name and path to determine if it matches the pattern of a hidden shared object file (e.g., `.hiddenfile.so`).
+- Examine the process that created the file by checking the `process.name` and `process.pid` fields to identify any suspicious or unexpected processes involved in the file creation.
+- Investigate the user account associated with the file creation event using the `user.name` field to determine if the action was performed by a legitimate user or a potentially compromised account.
+- Use Osquery to list all hidden shared object files on the system with a query like: `SELECT path FROM file WHERE path LIKE '/%.so';` to identify any other hidden .so files that may have been created.
+- Check the file metadata, such as creation and modification timestamps, to understand the timeline of the file's existence and correlate it with other system events.
+- Analyze the file's contents or hash it and compare it against known malicious signatures using a threat intelligence database to determine if it is a known threat.
+- Investigate the parent process of the file creation event to understand the origin of the process chain and identify any potential exploitation or lateral movement activities.
+- Review system logs around the time of the file creation for any unusual activity or errors that might indicate exploitation attempts or other malicious behavior.
+- Check for any network connections initiated by the process that created the file to identify potential command and control communication or data exfiltration attempts.
+- Correlate the event with other alerts or incidents in the environment to determine if this is part of a larger attack campaign or isolated incident.
+
+### False positive analysis
+
+- Development and testing environments may generate hidden .so files as part of normal operations, especially when developers are working on shared libraries and use hidden files for version control or temporary storage.
+- System maintenance scripts or automated backup processes might create hidden .so files to temporarily store or manage shared libraries, which can be mistaken for malicious activity.
+- Some legitimate applications or services may use hidden .so files for configuration or internal operations, particularly those that manage plugins or extensions, leading to false positives.
+- Users can manage these false positives by creating exceptions for known benign processes or directories where hidden .so files are expected, such as specific development directories or application-specific paths.
+- Regularly review and update the list of exceptions to ensure that new legitimate processes or directories are accounted for, minimizing the risk of overlooking genuine threats.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation to identify the source and scope of the hidden .so file creation, examining process trees and user activity.
+- Remove the malicious hidden .so file and any associated files or processes identified during the investigation.
+- Review and update access controls and permissions to prevent unauthorized file creation and execution.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and threat intelligence correlation.
+- Implement enhanced logging policies to capture detailed file creation events and process activities, ensuring visibility into similar future activities.
+- Integrate with threat intelligence platforms to enrich alerts with context and improve detection capabilities.
+- Restore the system from a known good backup to ensure the integrity and security of the operating environment.
+- Apply system hardening measures, such as disabling unnecessary services and enforcing strict file permissions, to reduce the attack surface.
+- Conduct a post-incident review to identify gaps in detection and response, updating security policies and procedures accordingly."""
 
 
 [[rule.threat]]

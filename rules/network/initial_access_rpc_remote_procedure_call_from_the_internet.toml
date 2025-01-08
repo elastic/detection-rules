@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2024/09/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -62,6 +62,53 @@ query = '''
     192.168.0.0/16
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating RPC (Remote Procedure Call) from the Internet
+
+RPC allows systems to execute code on remote machines, facilitating administrative tasks and resource sharing. However, when exposed to the Internet, it becomes a target for attackers seeking initial access or backdoor entry. The detection rule identifies suspicious RPC traffic by monitoring TCP port 135 and filtering out internal IP addresses, focusing on potential threats from external sources.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the source IP address is external and not part of the excluded internal IP ranges specified in the detection rule.
+- Verify the destination IP address to ensure it belongs to your internal network, as specified in the detection rule.
+- Check historical logs for any previous RPC traffic from the same external IP address to identify patterns or repeated attempts.
+- Analyze the network traffic flow data to determine the volume and frequency of RPC requests from the external source.
+- Use packet capture tools to inspect the payload of the suspicious RPC traffic for any signs of malicious activity or anomalies.
+- Cross-reference the external IP address with threat intelligence databases to check for any known malicious activity associated with it.
+- Investigate the destination host to determine if it has any vulnerabilities or misconfigurations that could be exploited via RPC.
+- Utilize Osquery to gather more information about the destination host. For example, run the following Osquery query to list active network connections and identify any unusual or unauthorized connections:
+  ```sql
+  SELECT * FROM process_open_sockets WHERE remote_address = '<external_ip>';
+  ```
+- Check for any recent changes or updates on the destination host that might have inadvertently exposed RPC services to the Internet.
+- Collaborate with the system administrators to verify if there is a legitimate reason for RPC traffic from the Internet and document any findings or anomalies for further analysis.
+
+### False positive analysis
+
+- **Internal Misconfigurations**: Sometimes, internal systems may be misconfigured to route traffic through external IPs, triggering false positives. Ensure network configurations are correct and internal traffic is not mistakenly flagged as external.
+- **Third-Party Services**: Certain legitimate third-party services might use RPC over the Internet for valid reasons, such as remote management or monitoring. Identify these services and create exceptions for their IP addresses to prevent false alerts.
+- **VPN and Proxy Usage**: Users connecting through VPNs or proxies might appear as external sources. Verify if the flagged IPs belong to known VPN or proxy services and consider excluding them if they are part of regular operations.
+- **Cloud-Based Resources**: Cloud environments might have public-facing IPs that are used for internal communications. Review cloud configurations and whitelist known IP ranges that are part of your cloud infrastructure.
+- **Testing and Development Environments**: Traffic from testing or development environments might mimic suspicious patterns. Document these environments and exclude their IPs from the rule to avoid unnecessary alerts.
+- **Regular Audits**: Conduct regular audits of the exceptions list to ensure that only legitimate and necessary exclusions are maintained, reducing the risk of overlooking genuine threats.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to determine the scope of the intrusion, focusing on identifying any unauthorized access or changes made to the system.
+- Review logs and network traffic to identify the source of the RPC traffic and any other potentially malicious activity.
+- Apply patches and updates to the affected system and any other vulnerable systems to mitigate the exploited vulnerability.
+- Change all passwords and credentials that may have been compromised during the incident.
+- Restore the system from a known good backup if unauthorized changes or malware are detected.
+- Implement network segmentation to limit exposure of critical systems and services to the Internet.
+- Enhance logging and monitoring to include detailed records of RPC traffic and other critical services for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly."""
 
 
 [[rule.threat]]

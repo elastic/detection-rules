@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -78,6 +78,53 @@ process where host.os.type == "windows" and event.type == "start" and
     )
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Masquerading as System32 Executable
+
+System32 executables are critical components of Windows, often targeted by adversaries for masquerading attacks to evade detection. Attackers may replace or backdoor these executables with malicious versions, often altering their signatures. The detection rule identifies suspicious executions of these files by checking for non-Microsoft signatures or unsigned executables, while excluding known trusted exceptions, to flag potential masquerading attempts.
+
+### Possible investigation steps
+
+- Review the process name and executable path to confirm if it matches any known legitimate System32 executables or if it appears suspicious or out of place.
+- Check the process code signature status and subject name to determine if the executable is signed by a trusted Microsoft certificate or if it is unsigned or signed by a non-Microsoft entity.
+- Investigate the parent process to understand how the suspicious executable was launched and if it was initiated by a legitimate process or a potentially malicious one.
+- Examine the process creation time to see if it aligns with any known user activity or scheduled tasks, which might provide context for its execution.
+- Use Osquery to gather additional details about the process. For example, run the following query to check for any anomalies in the process's file attributes:
+  ```sql
+  SELECT * FROM processes WHERE name = 'suspicious_executable_name.exe';
+  ```
+- Analyze the network activity associated with the process to identify any unusual connections or data transfers that could indicate malicious behavior.
+- Check the file hash of the executable against known malware databases to see if it matches any known threats.
+- Review recent system changes or updates that might have affected the executable, such as software installations or patches, to determine if they could explain the signature anomaly.
+- Investigate any other alerts or logs from the same host around the time of the alert to identify potential patterns or related activities.
+- Consult threat intelligence sources to see if there are any known campaigns or techniques that match the observed behavior, which could provide additional context for the investigation.
+
+### False positive analysis
+
+- **Git for Windows**: The rule may flag executables like `hostname.exe` and `find.exe` located in the Git for Windows installation path. Users can handle this by adding exceptions for these specific paths.
+- **Temporary Files**: Executables such as `taskkill.exe` in temporary directories may trigger alerts. Users should consider excluding these paths if they are part of legitimate processes.
+- **Windows Upgrade**: During Windows upgrades, executables like `ie4ushowIE.exe` in the `$WINDOWS.~BT` directory might be flagged. Users can exclude this path during known upgrade periods.
+- **Third-party Software**: Some third-party software, such as Axence nVision Agent, may use executables like `certutil.exe` that are flagged. Users should verify the software's legitimacy and add exceptions for these specific paths.
+- **Trusted Vendors**: Executables signed by trusted vendors like Wellbia.com Co., Ltd., Lenovo, HP Inc., Dell Inc., ImageMagick Studio LLC, Arctic Wolf Networks, Intel, Fortinet, and Cisco may be flagged. Users can add exceptions for these vendors if the signatures are verified as trusted.
+- **Custom Software**: Organizations using custom or less common software that mimics system32 executables should verify the software's legitimacy and add necessary exceptions to avoid false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malware.
+- Verify the legitimacy of the suspicious executable by checking its hash against known good versions or using a trusted source.
+- If the executable is confirmed malicious, remove or replace it with a clean version from a trusted source.
+- Conduct a thorough investigation of the system to identify any additional signs of compromise, such as unauthorized user accounts or changes to system settings.
+- Review and analyze logs from the affected system and any associated network devices to trace the origin and scope of the attack.
+- Escalate the incident to the security operations center (SOC) or incident response team if the threat is beyond the current team's capabilities.
+- Implement enhanced logging policies to capture detailed process execution and code signing events for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure all security controls are functioning correctly.
+- Harden the system by implementing least privilege access, disabling unnecessary services, and ensuring all software is up to date to reduce the attack surface."""
 
 
 [[rule.threat]]

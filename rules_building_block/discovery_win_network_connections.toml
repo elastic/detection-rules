@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -48,6 +48,49 @@ process where event.type == "start" and
   (process.name : "nbtstat.exe" and process.args : "-s*")
 ) and not user.id : "S-1-5-18"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Windows System Network Connections Discovery
+
+Windows systems provide utilities like `netstat`, `net`, and `nbtstat` to manage and monitor network connections. Adversaries exploit these tools to map network connections, identifying potential targets. The detection rule flags unusual use of these commands, especially when executed by non-system users, to uncover unauthorized network enumeration attempts, thereby helping analysts identify potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific command executed, including the process name and arguments, to understand the context of the network enumeration attempt.
+- Check the user ID associated with the process execution to determine if it was initiated by a non-system user, as indicated by the exclusion of user ID "S-1-5-18".
+- Investigate the parent process of the suspicious command to identify if it was spawned by a legitimate process or potentially malicious activity.
+- Examine the process start time to correlate with other events or activities on the system that might indicate a broader attack pattern.
+- Use Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE name IN ('netstat.exe', 'net.exe', 'net1.exe', 'nbtstat.exe');` to retrieve details about the process execution.
+- Analyze network logs to identify any unusual outbound or inbound connections that coincide with the execution of the flagged command.
+- Check for any recent changes in user permissions or group memberships that might have allowed unauthorized users to execute network discovery commands.
+- Review system logs for any other suspicious activities or anomalies around the time of the alert to identify potential lateral movement or privilege escalation attempts.
+- Investigate the system for any signs of compromise, such as unexpected files, scheduled tasks, or registry changes, that could indicate a broader intrusion.
+- Correlate the findings with threat intelligence sources to determine if the activity matches known tactics, techniques, and procedures (TTPs) of adversaries targeting similar environments.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators often use `netstat`, `net`, and `nbtstat` for legitimate network management and troubleshooting, which can trigger the rule. To manage this, create exceptions for specific user accounts or processes known to perform these tasks regularly.
+- Automated scripts: Scheduled scripts or automated tools that perform network diagnostics or inventory checks may execute these commands. Identify and exclude these scripts by their process names or paths to reduce false positives.
+- Monitoring software: Network monitoring or security software might use these commands to gather network data. Verify the legitimacy of such software and exclude its processes from the rule.
+- System updates or patches: Some system updates or patches might temporarily use these commands as part of their installation process. Monitor update schedules and exclude related processes during these times.
+- Training or testing environments: In environments where users are trained on network management or security testing, these commands might be used frequently. Consider excluding specific user IDs or machine names associated with these environments.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation of the system to identify any additional signs of compromise, focusing on unusual processes, network connections, and user activities.
+- Review the execution context of the flagged commands, including the user account and associated processes, to determine if the activity was authorized or malicious.
+- Escalate the incident to the security operations center (SOC) or incident response team if unauthorized network enumeration is confirmed, providing them with detailed logs and findings.
+- Implement enhanced logging policies to capture detailed process execution and network activity, ensuring that future incidents can be detected and analyzed more effectively.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
+- Restore the system to its operational state by removing any malicious software, resetting compromised credentials, and applying necessary security patches.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement network segmentation and access controls to limit the ability of adversaries to move laterally within the environment.
+- Educate users on recognizing and reporting suspicious activities, emphasizing the importance of adhering to security policies and procedures."""
 
 
 [[rule.threat]]

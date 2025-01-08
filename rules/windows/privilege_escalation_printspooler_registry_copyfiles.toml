@@ -2,7 +2,7 @@
 creation_date = "2020/11/26"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -53,6 +53,52 @@ sequence by host.id with maxspan=30s
     ) and
  registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4\\*"]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Print Spooler Point and Print DLL
+
+The Windows Print Spooler service manages print jobs and related tasks, often requiring elevated privileges. Adversaries exploit vulnerabilities like CVE-2020-1030 to load malicious DLLs, gaining SYSTEM-level access. The detection rule identifies registry changes linked to unauthorized DLL loading paths, signaling potential exploitation attempts by monitoring specific registry keys and values associated with the print spooler.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the registry paths involved, specifically checking for changes in `HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory` and `HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module`.
+- Verify the `registry.data.strings` value to ensure it matches the suspicious path `C:\\Windows\\System32\\spool\\drivers\\x64\\4` or any subdirectory, indicating potential unauthorized DLL loading.
+- Cross-reference the host.id from the alert with recent logs to identify any other suspicious activities or anomalies on the same host.
+- Use Osquery to list all DLLs currently loaded by the print spooler process to identify any unexpected or unauthorized modules:
+  ```sql
+  SELECT pid, name, path FROM processes JOIN process_open_sockets ON processes.pid = process_open_sockets.pid WHERE name LIKE '%spoolsv%';
+  ```
+- Investigate the process tree for the print spooler service to identify any unusual parent or child processes that could indicate exploitation.
+- Check for any recent privilege escalation attempts or successful escalations on the host by reviewing security event logs, particularly those related to user privilege changes.
+- Analyze network traffic logs from the host around the time of the alert to detect any outbound connections that could suggest data exfiltration or command and control activity.
+- Review recent changes to the system, including software installations or updates, that could have introduced vulnerabilities or been exploited.
+- Examine the timeline of registry changes to determine if they coincide with known attack patterns or other suspicious activities.
+- Consult threat intelligence sources to see if there are any known campaigns or threat actors currently exploiting CVE-2020-1030, which could provide additional context or indicators of compromise.
+
+### False positive analysis
+
+- Legitimate software installations or updates may modify the registry paths monitored by the rule, leading to false positives. Users should verify if any authorized software changes align with the detected activity.
+- Printer driver updates or installations can trigger the rule due to legitimate changes in the spool directory or module paths. Users should cross-reference the timing of these updates with the alerts to determine if they are benign.
+- Network administrators performing routine maintenance or configuration changes on print servers might inadvertently cause registry modifications that match the rule's criteria. Users should document and exclude these known maintenance windows to reduce false positives.
+- To manage false positives, users can create exceptions for specific registry paths or values that are known to be safe and frequently modified by trusted processes. This can be done by updating the detection rule to exclude these paths or by using a security information and event management (SIEM) system to filter out non-threatening alerts.
+- Regularly review and update the list of exceptions to ensure that only verified and non-malicious activities are excluded, maintaining the balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation and lateral movement.
+- Conduct a thorough investigation to confirm the presence of unauthorized DLLs and identify any other compromised systems by reviewing registry changes and system logs.
+- Remove any unauthorized DLLs and restore legitimate DLLs from a known good backup or installation media.
+- Apply the latest security patches and updates from Microsoft to address CVE-2020-1030 and other known vulnerabilities.
+- Reset all credentials and passwords for accounts that have been accessed or could potentially be compromised, especially those with elevated privileges.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging and monitoring policies to capture detailed information on registry changes, DLL loads, and print spooler activities for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide real-time alerts on suspicious activities.
+- Restore the system to its operational state by verifying the integrity of system files and configurations, ensuring no backdoors or persistence mechanisms remain.
+- Harden the system by disabling unnecessary services, enforcing least privilege principles, and regularly reviewing and updating security configurations to mitigate future risks."""
 
 
 [[rule.threat]]

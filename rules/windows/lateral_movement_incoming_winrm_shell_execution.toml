@@ -2,7 +2,7 @@
 creation_date = "2020/11/24"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -48,6 +48,49 @@ sequence by host.id with maxspan=30s
    [process where host.os.type == "windows" and 
     event.type == "start" and process.parent.name : "winrshost.exe" and not process.executable : "?:\\Windows\\System32\\conhost.exe"]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Incoming Execution via WinRM Remote Shell
+
+Windows Remote Management (WinRM) facilitates remote command execution and management, crucial for system administration. However, adversaries exploit it for lateral movement by executing commands on remote systems. The detection rule identifies such abuse by monitoring network traffic for incoming connections on WinRM ports and subsequent suspicious process starts, indicating potential unauthorized remote shell activity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of incoming network connections on WinRM ports (5985, 5986) and verify the network direction is "incoming" or "ingress".
+- Check the source IP address of the incoming connection to determine if it is from a known or trusted source. Investigate any unfamiliar or suspicious IP addresses.
+- Examine the process start event to identify the process that was initiated by "winrshost.exe". Pay attention to the process name and executable path to determine if it is expected or potentially malicious.
+- Use Osquery to list all processes currently running on the host to identify any unusual or unexpected processes. Example query: `SELECT pid, name, path FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'winrshost.exe');`
+- Investigate the parent-child process relationship to understand the context of the process execution. Look for any anomalies in the process tree that could indicate malicious activity.
+- Analyze the network traffic logs to identify any additional connections from the same source IP or to the same destination port that could indicate further lateral movement attempts.
+- Check the Windows Event Logs, particularly Security and System logs, for any related events around the time of the alert to gather more context on the activity.
+- Review the host's security configuration and WinRM settings to ensure they are in line with best practices and have not been altered to allow unauthorized access.
+- Investigate any recent changes or updates on the host that could have introduced vulnerabilities or misconfigurations exploited by the adversary.
+- Correlate the findings with other alerts or incidents in the environment to determine if this activity is part of a larger attack campaign or isolated incident.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators often use WinRM for legitimate remote management tasks, which can trigger the rule. To manage this, users can create exceptions for known administrative IP addresses or user accounts frequently performing these tasks.
+- Automated scripts and tools: Automated scripts or management tools that utilize WinRM for routine operations may also cause false positives. Users should identify these scripts and tools and exclude their associated processes or IP addresses from the rule.
+- Monitoring and security software: Some security and monitoring solutions use WinRM to gather data from remote systems, potentially triggering the rule. Users can whitelist these solutions by excluding their process names or network traffic patterns.
+- Internal network scans: Internal network scans or vulnerability assessments that interact with WinRM ports might be flagged. Users should coordinate with IT teams to recognize these activities and exclude them from detection.
+- Testing environments: In testing or development environments, frequent use of WinRM for testing purposes can lead to false positives. Users can exclude these environments by specifying their IP ranges or hostnames.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further lateral movement and potential data exfiltration.
+- Conduct a thorough investigation to identify the source of the WinRM connection, including reviewing logs for unusual login attempts or unauthorized access.
+- Terminate any suspicious processes associated with the WinRM remote shell activity, particularly those not originating from legitimate administrative tasks.
+- Change credentials for any accounts that were used during the unauthorized WinRM session to prevent further unauthorized access.
+- Review and enhance logging policies to ensure detailed monitoring of WinRM activities, including successful and failed login attempts, and process creation events.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate WinRM activity with known threat indicators.
+- Restore the system to its operational state by applying the latest security patches and updates, and verifying the integrity of critical system files.
+- Implement network segmentation to limit the ability of adversaries to move laterally within the network using remote services like WinRM.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users and administrators on secure remote management practices and the risks associated with improper use of WinRM."""
 
 
 [[rule.threat]]

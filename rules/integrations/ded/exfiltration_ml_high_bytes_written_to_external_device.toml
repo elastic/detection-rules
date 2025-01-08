@@ -2,7 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["ded", "endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 75
@@ -51,6 +51,49 @@ tags = [
     "Tactic: Exfiltration",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in Bytes Sent to an External Device
+
+In modern environments, data transfer to external devices is common, yet it follows predictable patterns. Adversaries exploit this by transferring large volumes of data to external media, bypassing network defenses. The detection rule leverages machine learning to identify anomalies in data transfer volumes, flagging potential exfiltration attempts that deviate from normal operational behavior.
+
+### Possible investigation steps
+
+- Review the alert details to understand the context, including the timestamp, user, and device involved in the data transfer.
+- Verify the volume of data transferred against historical data transfer patterns for the specific user and device to confirm the anomaly.
+- Check the user activity logs around the time of the alert to identify any unusual behavior or access patterns.
+- Investigate the external device's details, such as the device ID and connection history, to determine if it is a known or trusted device.
+- Use Osquery to gather more information about the external device connection. Example query: `SELECT * FROM usb_devices WHERE serial = '<device_serial_number>';`
+- Examine file access logs to identify which files were accessed and potentially transferred to the external device.
+- Correlate the alert with other security events or alerts to identify if this is part of a larger pattern of suspicious activity.
+- Interview the user associated with the alert to gather context on the data transfer and verify if it was a legitimate business need.
+- Check for any recent changes in user permissions or roles that might explain the increased data transfer.
+- Review the organization's data transfer policies and compare them with the user's activity to assess compliance and identify any policy violations.
+
+### False positive analysis
+
+- Routine data backups to external devices can trigger false positives, especially if they involve large volumes of data. Users can manage this by creating exceptions for scheduled backup activities.
+- Software updates or installations that require transferring substantial data to external media may be flagged. To handle this, users should whitelist known update processes or installation activities.
+- Data transfers related to legitimate business operations, such as transferring large datasets for analysis or reporting, can be mistaken for exfiltration attempts. Users should document and exclude these regular business processes from triggering alerts.
+- Employee use of external storage for legitimate purposes, like presentations or offsite work, might cause false positives. Implementing a policy to register and approve such devices can help in excluding these activities.
+- Automated system processes that involve data archiving or migration to external devices can be misinterpreted as suspicious. Users should identify and exclude these automated tasks from the anomaly detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected device from the network to prevent further data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the data transfer, including reviewing logs and any available forensic data.
+- Verify the legitimacy of the data transfer by contacting the user or department responsible for the device.
+- If malicious activity is confirmed, escalate the incident to the security operations center (SOC) or incident response team for further analysis and action.
+- Implement additional logging and monitoring on external device connections and data transfers to detect future anomalies.
+- Review and update data transfer policies to ensure they align with current security standards and practices.
+- Restore the system to its operational state by removing any unauthorized software or malware and applying necessary patches or updates.
+- Conduct a security awareness training session for employees to reinforce the importance of data security and the risks associated with unauthorized data transfers.
+- Implement hardening measures such as disabling unused ports, enforcing strict access controls, and using data loss prevention (DLP) tools.
+- Document the incident and response actions taken to improve future incident handling and refine detection capabilities."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

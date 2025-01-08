@@ -2,7 +2,7 @@
 creation_date = "2021/01/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -64,6 +64,49 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
   ) and
   not process.parent.executable : "/Applications/Google Drive.app/Contents/MacOS/Google Drive"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Attempt to Mount SMB Share via Command Line
+
+SMB (Server Message Block) is a protocol used for network file sharing, allowing users to access files on remote servers. On macOS, commands like `mount_smbfs` facilitate this interaction. Adversaries exploit SMB to move laterally within networks by accessing shared resources using stolen credentials. The detection rule identifies suspicious command executions related to SMB mounting, excluding benign processes like Google Drive, to flag potential unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the alert details to understand which specific command triggered the alert, focusing on the `process.name` and `process.args` fields to identify the exact method used for the SMB mount attempt.
+- Examine the `process.parent.executable` field to determine the parent process that initiated the SMB mount command, which can provide context on whether the action was user-initiated or potentially automated by a script or application.
+- Check the user account associated with the process execution to verify if it is a legitimate user and if the account has a history of accessing SMB shares.
+- Investigate the timestamp of the event to correlate with any other suspicious activities or alerts that occurred around the same time, which might indicate a coordinated attack or lateral movement attempt.
+- Use Osquery to gather additional context about the process and its parent. For example, run the following Osquery query to list recent processes executed by the same user: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE uid = (SELECT uid FROM users WHERE username = '<username>') ORDER BY start_time DESC LIMIT 10;`
+- Analyze network logs to identify any unusual SMB traffic patterns or connections to unfamiliar or suspicious IP addresses, which might indicate unauthorized access attempts.
+- Review system logs for any failed authentication attempts or unusual login activities that could suggest credential theft or misuse.
+- Investigate any recent changes to the system or user account, such as password changes or new software installations, that could be related to the alert.
+- Check for any other alerts or indicators of compromise on the same host that might suggest a broader security incident.
+- Consult with the user or system owner to verify if the SMB mount attempt was legitimate and authorized, and gather any additional context or explanations they might provide.
+
+### False positive analysis
+
+- Known false positives for the Attempt to Mount SMB Share via Command Line rule include legitimate applications or scripts that mount SMB shares as part of their normal operation, such as backup software or file synchronization tools.
+- Users can handle these false positives by creating exceptions for specific processes or parent executables that are known to perform legitimate SMB mounting, such as excluding specific backup software paths.
+- Frequent non-threatening behaviors can be excluded by refining the detection rule to ignore processes with specific command-line arguments or parent processes that are verified as safe.
+- It is important to regularly review and update the list of exceptions to ensure that new legitimate applications are not mistakenly flagged as threats.
+- Users should also consider the context of the network environment, such as known trusted devices or users, to further refine the detection criteria and reduce false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
+- Verify the credentials used in the SMB mounting attempt and reset passwords for any compromised accounts.
+- Conduct a thorough investigation of the system to identify any additional unauthorized access or malicious activity, focusing on lateral movement patterns.
+- Review and analyze logs from the affected system and network devices to trace the source and scope of the intrusion.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed information on SMB-related activities and other remote service interactions.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats.
+- Restore the system to its operational state by removing any malicious software, applying security patches, and verifying system integrity.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
+- Implement hardening measures such as disabling unnecessary SMB services, enforcing strong password policies, and using multi-factor authentication to reduce the risk of future attacks."""
 
 
 [[rule.threat]]

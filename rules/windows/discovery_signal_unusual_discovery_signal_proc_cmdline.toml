@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2023/09/22"
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -35,6 +35,48 @@ host.os.type:windows and event.kind:signal and kibana.alert.rule.rule_id:(
   "c4e9ed3e-55a2-4309-a012-bc3c78dad10a" or "51176ed2-2d90-49f2-9f3d-17196428b169"
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Discovery Signal Alert with Unusual Process Command Line
+
+In Windows environments, adversaries often exploit command-line tools to gather system information stealthily. This detection rule identifies anomalies by monitoring unique combinations of host, user, and command-line entries. By correlating these with known discovery tactics, it flags potential misuse, alerting analysts to investigate further.
+
+### Possible investigation steps
+
+- Review the alert details to understand the specific host.id, user.id, and process.command_line that triggered the alert. This will provide context on the potentially suspicious activity.
+- Cross-reference the command line entry with known legitimate processes and commands to determine if the activity is expected or unusual for the given host and user.
+- Check the event logs on the affected host for any related events around the time of the alert to gather additional context on the process execution.
+- Investigate the user.id associated with the alert to determine if the user has a history of executing similar commands or if this behavior is atypical.
+- Utilize Osquery to gather more information about the process and its parent process. For example, run the following Osquery query to list processes with their parent processes: `SELECT pid, name, path, parent FROM processes WHERE pid = <suspicious_pid>;`
+- Examine the network activity from the host during the time of the alert to identify any unusual outbound connections that may correlate with the command line activity.
+- Review any recent changes or updates to the host that might explain the unusual command line activity, such as software installations or configuration changes.
+- Check for any other alerts or signals from the same host or user within a similar timeframe to identify potential patterns or related activities.
+- Consult threat intelligence sources to determine if the command line or process is associated with known malicious activity or threat actor techniques.
+- Document all findings and observations during the investigation to provide a comprehensive overview of the incident and support any further analysis or escalation.
+
+### False positive analysis
+
+- Known false positives for the Unusual Discovery Signal Alert with Unusual Process Command Line rule often arise from legitimate administrative tasks or automated scripts that use command-line tools for system management or monitoring. These activities can mimic adversarial discovery techniques but are benign in nature.
+- Users can manage these false positives by identifying and documenting regular administrative processes and scripts that trigger the alert. Once identified, these can be excluded from the alerting criteria by creating exceptions based on specific host.id, user.id, or process.command_line patterns that are known to be safe.
+- It is important to regularly review and update these exceptions to ensure they remain relevant and do not inadvertently exclude new or modified legitimate processes that could be exploited by adversaries.
+- Collaboration with IT and security teams can help in distinguishing between legitimate and suspicious activities, ensuring that the rule remains effective in detecting genuine threats while minimizing noise from false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation of the unusual process command line to determine if it aligns with known malicious patterns or behaviors.
+- Review user activity and permissions associated with the alert to identify any unauthorized access or privilege escalation.
+- Utilize endpoint detection and response (EDR) tools to perform a detailed analysis of the affected system, focusing on any additional indicators of compromise (IOCs).
+- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals a confirmed threat or if the scope of the attack is unclear.
+- Apply patches and updates to the operating system and any vulnerable applications to mitigate known vulnerabilities.
+- Restore the system from a clean backup if malicious activity is confirmed and ensure that the backup is free from compromise.
+- Implement enhanced logging and monitoring policies to capture detailed command-line activity and user actions for future investigations.
+- Integrate threat intelligence feeds to correlate alerts with known threat actor tactics, techniques, and procedures (TTPs) as outlined in the MITRE ATT&CK framework.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent similar incidents in the future."""
 
 
 [[rule.threat]]

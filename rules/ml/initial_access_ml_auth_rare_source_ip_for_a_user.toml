@@ -2,7 +2,7 @@
 creation_date = "2021/06/10"
 integration = ["auditd_manager", "endpoint", "system"]
 maturity = "production"
-updated_date = "2024/06/18"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 75
@@ -95,6 +95,50 @@ tags = [
     "Tactic: Initial Access",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Source IP for a User to Logon from
+
+Machine learning models analyze login patterns to identify atypical IP addresses for users, flagging potential threats like compromised accounts or lateral movement. Adversaries exploit valid credentials to access systems from unexpected locations. This detection rule leverages these models to alert analysts to suspicious logins, aiding in early threat identification and response.
+
+### Possible investigation steps
+
+- Review the alert details to identify the unusual source IP address and the associated user account.
+- Check the login history for the user to determine if the IP address has been used previously and assess the frequency of its occurrence.
+- Correlate the unusual IP address with known threat intelligence sources to check if it has been associated with malicious activity.
+- Analyze the geolocation of the unusual IP address to determine if it aligns with the user's typical login locations or if it is from a high-risk region.
+- Investigate the time of the login event to see if it coincides with the user's normal working hours or if it is an anomaly.
+- Use Osquery to gather additional context on the endpoint from which the login was attempted. Example query: `SELECT * FROM logged_in_users WHERE user = '<username>';`
+- Examine any recent changes in the user's account permissions or group memberships that could indicate unauthorized access.
+- Review any concurrent login attempts from different locations for the same user, which could suggest account compromise.
+- Check for any recent password changes or failed login attempts for the user account that could indicate a brute force attack.
+- Investigate any other security alerts or logs related to the user or the unusual IP address to identify potential patterns or related incidents.
+
+### False positive analysis
+
+- Known false positives for the "Unusual Source IP for a User to Logon from" rule can occur when users travel or work remotely, leading to logins from legitimate but previously unseen IP addresses. 
+- Another common false positive scenario is when users access systems through VPNs or proxy services, which can result in logins from IP addresses that differ from their usual patterns.
+- To manage these false positives, users can create exceptions for known and verified IP addresses associated with frequent travel destinations or remote work locations.
+- Implementing a whitelist for IP addresses associated with trusted VPN or proxy services can help reduce unnecessary alerts.
+- Regularly updating the list of approved IP addresses based on user travel patterns and organizational changes can further minimize false positives.
+- Analysts should review and validate the context of flagged logins, considering factors like time of access and user activity, to distinguish between legitimate and suspicious behavior.
+
+### Response and remediation
+
+- Immediately isolate the affected user account by disabling it to prevent further unauthorized access.
+- Conduct a thorough investigation to determine the scope of the breach, including identifying any other compromised accounts or systems.
+- Analyze the unusual IP address to gather intelligence on its origin and any associated malicious activity.
+- Review recent login activity for the affected user and other users to identify any patterns or additional suspicious logins.
+- Reset passwords for the compromised account and any other accounts that may have been affected, ensuring the use of strong, unique passwords.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging and monitoring policies to capture detailed login events and network activity for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities.
+- Restore the system to its operational state by ensuring all compromised accounts are secured and any malicious software is removed.
+- Apply hardening measures such as multi-factor authentication (MFA) and least privilege access to reduce the risk of future incidents."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

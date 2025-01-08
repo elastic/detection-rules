@@ -2,7 +2,7 @@
 creation_date = "2021/07/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -73,6 +73,52 @@ sequence by host.id, user.id with maxspan=3m
               "?:\\Windows\\SysWOW64\\WerFault.exe")
  ] by process.parent.Ext.real.pid
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Parent Process PID Spoofing
+
+Parent Process ID (PPID) spoofing involves manipulating the PPID of a process to mislead security tools and analysts about the true origin of a process. Adversaries exploit this to evade detection and escalate privileges. The detection rule identifies suspicious processes by monitoring for mismatches between expected and actual PPIDs, focusing on processes with non-system integrity levels and unverified signatures, thus highlighting potential spoofing activities.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process and parent process involved, focusing on `process.pid` and `process.parent.Ext.real.pid` fields.
+- Verify the integrity level of the process using the `process.Ext.token.integrity_level_name` field to determine if it is non-system, which may indicate suspicious activity.
+- Check the `process.pe.original_file_name` and `process.executable` fields to identify if the process is a known application or if it is running from an unusual location.
+- Investigate the code signature status using the `process.code_signature.exists` and `process.code_signature.status` fields to determine if the executable is unsigned or has a bad digest.
+- Use Osquery to gather additional context about the process and its parent. For example, run the following query to list processes with their parent process IDs and names:
+  ```sql
+  SELECT pid, name, parent, path FROM processes WHERE pid = <triggered_process_pid>;
+  ```
+- Cross-reference the parent process ID (`process.parent.Ext.real.pid`) with known legitimate parent processes to identify potential anomalies.
+- Examine the process creation time and compare it with the parent process's start time to identify any discrepancies that might suggest spoofing.
+- Investigate the user context (`user.id`) under which the process is running to determine if it aligns with expected behavior for that user.
+- Review historical data for the host (`host.id`) to identify any patterns or previous instances of similar suspicious activity.
+- Correlate the findings with other security events or logs from the same timeframe to build a comprehensive picture of the potential threat.
+
+### False positive analysis
+
+- Known false positives may occur when legitimate software updates or installations temporarily alter the parent process ID, such as during system updates or software patching. These activities can mimic the behavior of PPID spoofing but are benign.
+- Certain administrative tools or scripts that automate tasks might also trigger the rule if they launch processes with altered PPIDs as part of their normal operation.
+- Users can manage these false positives by creating exceptions for specific processes or directories known to be safe, such as trusted software update paths or administrative scripts.
+- Regularly review and update the list of excluded processes to ensure that only verified and non-threatening activities are exempted, maintaining a balance between security and operational efficiency.
+- Consider implementing additional context checks, such as verifying the digital signature of the process or cross-referencing with known safe hash values, to further reduce false positives while maintaining robust detection capabilities.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Use endpoint detection and response (EDR) tools to gather detailed information about the suspicious process, including its parent process and any child processes it may have spawned.
+- Terminate the malicious process and any associated processes that are identified as part of the attack chain.
+- Conduct a thorough investigation to determine the initial access vector and identify any other systems that may be compromised.
+- Review and analyze security logs to trace the origin of the spoofed process and understand the scope of the attack.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional resources are needed.
+- Implement or enhance logging policies to ensure comprehensive monitoring of process creation events and parent-child process relationships.
+- Integrate threat intelligence feeds and MITRE ATT&CK framework mappings into security tools to improve detection capabilities for similar tactics, techniques, and procedures (TTPs).
+- Restore the system to its operational state by applying security patches, updating antivirus definitions, and conducting a full system scan to ensure no remnants of the attack remain.
+- Harden the system by implementing least privilege access controls, enabling application whitelisting, and conducting regular security awareness training for users."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/12/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -67,6 +67,48 @@ sequence by host.id, process.entity_id with maxspan=30s
     "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24",
     "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10", "FF00::/8")]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Apple Script Execution followed by Network Connection
+
+AppleScript, a scripting language for macOS, automates tasks by controlling applications and system functions. Adversaries exploit it to execute scripts that initiate network connections, potentially for command and control activities. The detection rule identifies such behavior by monitoring the osascript process for network activity shortly after script execution, excluding local and reserved IP addresses to focus on suspicious external connections.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the osascript process was involved, noting the `host.id` and `process.entity_id` for correlation.
+- Check the timestamp of the osascript process start event to establish a timeline and determine if the network connection occurred within the 30-second window.
+- Identify the destination IP address from the network event and verify if it is external and potentially malicious by cross-referencing threat intelligence sources.
+- Use Osquery to gather additional context on the osascript process by running a query such as: `SELECT * FROM processes WHERE name = 'osascript' AND pid = <process_id>;` to retrieve details like parent process, command line arguments, and execution path.
+- Investigate the parent process of osascript to determine if it was spawned by a legitimate application or a suspicious process.
+- Examine recent system logs and user activity around the time of the alert to identify any unusual behavior or script execution attempts.
+- Analyze the command line arguments used with osascript to understand the script's purpose and whether it aligns with known malicious patterns.
+- Check for any additional network connections made by the osascript process to other external IPs that might indicate further command and control activity.
+- Review historical data for the same `host.id` to identify any previous similar alerts or patterns of suspicious behavior involving osascript.
+- If available, use endpoint detection and response (EDR) tools to perform a deeper analysis of the affected host, focusing on file modifications, registry changes, and other indicators of compromise related to the osascript execution.
+
+### False positive analysis
+
+- Legitimate automation scripts: Users may have legitimate AppleScripts that automate tasks and require network access, such as scripts for data synchronization or cloud service interactions. To handle these, users can create exceptions for known scripts by whitelisting specific script names or paths.
+- Software updates and system processes: Some macOS system processes or third-party applications might use AppleScript for updates or network communications. Users should monitor and identify these processes, then exclude them from the detection rule by adding their process identifiers or network patterns to an exception list.
+- Development and testing environments: Developers often use AppleScript for testing network-related functionalities. In such environments, users can reduce false positives by excluding specific host IDs or IP ranges associated with development machines.
+- Remote management tools: IT departments might use AppleScript for remote management tasks that involve network connections. Users can manage these false positives by identifying and excluding the IP addresses or hostnames of known management servers from the detection criteria.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further malicious activity and potential data exfiltration.
+- Conduct a thorough investigation of the osascript process to determine the script's origin and intent, checking for any unauthorized or suspicious scripts.
+- Review network logs to identify any external IP addresses the osascript process attempted to connect to, and block these IPs at the network perimeter.
+- Analyze the system for additional signs of compromise, such as unauthorized user accounts or changes to system configurations.
+- Remove any identified malicious scripts or files from the system and ensure that the osascript process is not running unauthorized tasks.
+- Restore the system from a known good backup if the integrity of the system is in question, ensuring that the backup is free from compromise.
+- Implement enhanced logging policies to capture detailed process execution and network activity, focusing on scripting and network connection events.
+- Integrate threat intelligence feeds to update detection rules with known malicious IP addresses and script signatures.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
+- Apply system hardening measures, such as disabling unnecessary scripting capabilities and enforcing strict application control policies, to reduce the attack surface."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/10/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -86,6 +86,49 @@ and (
   process.parent.executable like ("/vz/root/*", "/var/rudder/*")
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential curl CVE-2023-38545 Exploitation
+
+Curl is a command-line tool used for transferring data with URLs, often employed in scripts and automation. The CVE-2023-38545 vulnerability in curl versions up to 8.3 can be exploited via a buffer overflow during SOCKS5 proxy handshakes, potentially allowing remote code execution. Adversaries might exploit this by crafting specific command-line arguments or environment variables. The detection rule identifies suspicious curl executions by monitoring for unusual command-line lengths and specific SOCKS5-related arguments, excluding known benign processes, to flag potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of suspicious curl executions, focusing on the command line arguments and environment variables related to SOCKS5 proxy usage.
+- Verify the version of curl installed on the affected system to determine if it is vulnerable (version <= 8.3). Use the command `curl --version` to check.
+- Examine the `process.command_line` field to understand the full context of the curl command executed, paying attention to any unusual or unexpected arguments.
+- Investigate the `process.parent.name` and `process.parent.executable` fields to identify the parent process that initiated the curl command, ensuring it is not a known benign process.
+- Check the `process.env_vars` field for any suspicious proxy settings, such as `http_proxy`, `HTTPS_PROXY`, or `ALL_PROXY`, that might indicate an attempt to exploit the vulnerability.
+- Use Osquery to gather additional context about the process and its environment. For example, run the following Osquery query to list all processes with their environment variables: `SELECT pid, name, path, cmdline, environ FROM processes WHERE name = 'curl';`
+- Analyze network logs to identify any unusual outbound connections or data transfers that coincide with the time of the suspicious curl execution.
+- Correlate the alert with other security events or logs from the same host to identify any related suspicious activities or patterns.
+- Review user activity logs to determine if the curl execution aligns with legitimate user actions or if it appears to be unauthorized or unexpected.
+- Consult threat intelligence sources to check for any known indicators of compromise or attack patterns associated with CVE-2023-38545 that might match the observed activity.
+
+### False positive analysis
+
+- Known false positives may arise from legitimate administrative scripts or automation tools that use curl with SOCKS5 proxies for valid purposes, such as network testing or configuration management.
+- Processes like "cf-agent", "agent-run", "agent-check", "rudder", "agent-inventory", and "cf-execd" are already excluded as they are known to use curl in a non-threatening manner.
+- Users can handle additional false positives by identifying and excluding other benign parent processes or specific command-line patterns that are frequently observed in their environment.
+- Consider adding exceptions for specific directories or executable paths, such as "/opt/rudder/*" or "/vz/root/*", if they are known to host non-malicious curl operations.
+- Regularly review and update the exclusion list to adapt to changes in the environment and ensure that legitimate activities are not flagged as suspicious.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation and lateral movement.
+- Conduct a thorough investigation to identify any unauthorized changes or suspicious activities, focusing on processes involving curl and SOCKS5 proxy usage.
+- Upgrade curl to version 8.4 or later on all systems to patch the CVE-2023-38545 vulnerability and prevent future exploitation.
+- Review and update firewall and proxy configurations to restrict unauthorized SOCKS5 proxy connections.
+- Implement enhanced logging for curl executions, including capturing command-line arguments and environment variables, to improve detection capabilities.
+- Integrate security information and event management (SIEM) solutions to correlate and analyze logs for suspicious patterns related to curl usage.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Restore the system to its operational state by verifying the integrity of critical files and applications, and ensure all security patches are applied.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement hardening measures such as disabling unused services, enforcing least privilege access, and conducting regular security audits to reduce the attack surface."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

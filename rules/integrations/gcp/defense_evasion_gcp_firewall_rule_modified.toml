@@ -2,7 +2,7 @@
 creation_date = "2020/09/21"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,50 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Firewall Rule Modification"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP Firewall Rule Modification
+In GCP, firewall rules regulate network traffic to and from VPCs and App Engine applications, crucial for maintaining security. Adversaries may alter these rules to weaken defenses, enabling unauthorized access or data exfiltration. The detection rule monitors audit logs for modifications to firewall rules, identifying potential security breaches by tracking specific actions indicative of such changes.
+
+### Possible investigation steps
+
+- Review the audit logs to identify the specific firewall rule that was modified by filtering logs with `event.dataset:gcp.audit` and `event.action:(*.compute.firewalls.patch or google.appengine.*.Firewall.Update*Rule)`.
+- Examine the `user.email` field in the audit logs to determine who made the modification and verify if the user is authorized to make such changes.
+- Check the `resource.name` field to identify the specific firewall rule and associated VPC or App Engine application that was altered.
+- Analyze the `protoPayload.request` field to understand the nature of the changes made to the firewall rule, such as new IP ranges or protocols allowed.
+- Investigate the `protoPayload.serviceData.policyDelta` field to see the before and after states of the firewall rule to assess the impact of the modification.
+- Use Osquery to query the GCP environment for additional context on the affected resources. Example query: `SELECT * FROM gcp_firewall_rules WHERE name = '<firewall_rule_name>';`.
+- Correlate the time of the firewall rule modification with other security events or alerts to identify any suspicious activity that might have occurred concurrently.
+- Review the `protoPayload.authenticationInfo.principalEmail` field to confirm the identity of the user and cross-reference with HR or identity management systems for any anomalies.
+- Investigate any recent changes in IAM roles or permissions for the user identified in the audit logs to ensure there are no unauthorized privilege escalations.
+- Check for any other recent modifications to firewall rules or security settings in the GCP environment to identify potential patterns or coordinated attacks.
+
+### False positive analysis
+
+- Routine administrative changes: Regular updates or maintenance by network administrators can trigger the rule. To manage this, users can create exceptions for known administrative accounts or scheduled maintenance windows.
+- Automated deployment tools: Tools that automatically adjust firewall settings during deployments may cause false positives. Users should identify and exclude these tools' actions from the rule.
+- Internal security audits: Security teams may intentionally modify firewall rules for testing purposes. Users can whitelist these activities by correlating them with audit schedules or specific user accounts.
+- Application updates: Updates to App Engine applications might require temporary firewall rule changes. Users can track these updates and exclude related actions from triggering alerts.
+- Cloud infrastructure changes: Changes in cloud infrastructure, such as scaling operations, might necessitate firewall rule modifications. Users should document these changes and adjust the rule to ignore them when they align with expected patterns.
+
+### Response and remediation
+
+- Immediately isolate affected systems or networks to prevent further unauthorized access or data exfiltration.
+- Review the audit logs to identify the source and scope of the firewall rule modification, including the user account and IP address involved.
+- Revert the modified firewall rules to their previous state to restore intended security controls and prevent unauthorized traffic.
+- Conduct a thorough investigation to determine if any unauthorized access or data exfiltration occurred during the period of altered firewall rules.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement additional logging and monitoring for firewall rule changes to detect and respond to future unauthorized modifications promptly.
+- Integrate with security information and event management (SIEM) systems to correlate firewall rule changes with other security events for comprehensive threat detection.
+- Review and update access controls and permissions to ensure that only authorized personnel can modify firewall rules.
+- Conduct a post-incident review to identify gaps in security controls and processes, and implement measures to address these vulnerabilities.
+- Enhance security awareness training for staff to recognize and report suspicious activities related to firewall rule modifications.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

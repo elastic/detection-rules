@@ -2,7 +2,7 @@
 creation_date = "2020/01/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -68,6 +68,52 @@ file where host.os.type == "macos" and event.type != "deletion" and
     "/Library/LaunchDaemons/.*.plist"
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Creation of Hidden Launch Agent or Daemon
+
+Launch agents and daemons in macOS are background services that start at login or system boot, respectively. Adversaries exploit these to maintain persistence by creating hidden or unauthorized entries in system directories. The detection rule identifies suspicious creation events in key directories, flagging potential unauthorized persistence mechanisms by monitoring file creation activities in specific system paths.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path where the suspicious launch agent or daemon was created, focusing on the directories specified in the query.
+- Check the file creation timestamp to determine when the suspicious file was created and correlate this with any known user activity or system events.
+- Use Osquery to list all launch agents and daemons on the system to identify any other potentially unauthorized entries:
+  ```sql
+  SELECT * FROM launchd WHERE path LIKE '/Library/LaunchAgents/%' OR path LIKE '/Library/LaunchDaemons/%' OR path LIKE '/System/Library/LaunchAgents/%' OR path LIKE '/System/Library/LaunchDaemons/%' OR path LIKE '/Users/%/Library/LaunchAgents/%';
+  ```
+- Investigate the file owner and permissions of the suspicious file to determine if it was created by a legitimate user or process.
+- Examine the contents of the .plist file to understand what executable or script it is configured to run and assess its legitimacy.
+- Cross-reference the executable or script specified in the .plist file with known malicious signatures or behaviors.
+- Check system logs around the time of file creation for any unusual activity or errors that might provide additional context.
+- Investigate any network connections or external communications initiated by the system around the time of the file creation to identify potential command and control activity.
+- Review user accounts and recent logins on the system to identify any unauthorized access that might have led to the creation of the launch agent or daemon.
+- Consult threat intelligence sources to determine if the identified behavior or file matches any known attack patterns or indicators of compromise.
+
+### False positive analysis
+
+- System or application updates: During legitimate system or application updates, new launch agents or daemons may be created in the monitored directories. These updates are typically signed by trusted developers and can be verified through digital signatures.
+- User-installed applications: Some user-installed applications may create launch agents or daemons to provide background services or functionalities. Users should verify the legitimacy of these applications and consider excluding them if they are deemed safe.
+- Development tools: Developers may create launch agents or daemons as part of their development process. These can be excluded by identifying the developer's environment and ensuring it aligns with expected behavior.
+- Administrative scripts: IT administrators might deploy scripts that create or modify launch agents or daemons for system management purposes. These should be documented and excluded if they are part of routine administrative tasks.
+- To manage false positives, users can create exceptions for known and verified applications or processes by using digital signatures, file hashes, or specific file paths to exclude them from triggering alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or persistence.
+- Investigate the creation event by reviewing the file path, timestamp, and associated user account to determine if the creation was authorized.
+- Check for other signs of compromise, such as unusual network activity or unauthorized user accounts, to assess the scope of the intrusion.
+- Remove the unauthorized launch agent or daemon by deleting the suspicious plist file and any associated scripts or binaries.
+- Restore the system to a known good state using backups or system restore points if available and necessary.
+- Update macOS and all installed applications to the latest versions to patch any known vulnerabilities.
+- Implement logging policies to monitor file creation and modification events in critical directories, ensuring logs are retained for an appropriate period.
+- Integrate security solutions such as endpoint detection and response (EDR) tools to enhance visibility and detection capabilities.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent future incidents.
+- Escalate the incident to the appropriate internal or external teams if the scope of the attack is beyond initial containment efforts, or if it involves sensitive data or critical systems."""
 
 
 [[rule.threat]]

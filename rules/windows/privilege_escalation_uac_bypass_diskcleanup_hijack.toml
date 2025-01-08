@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/11/02"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -60,6 +60,49 @@ process where host.os.type == "windows" and event.type == "start" and
         "\\Device\\HarddiskVolume?\\Windows\\System32\\taskhostw.exe"
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating UAC Bypass via DiskCleanup Scheduled Task Hijack
+
+User Account Control (UAC) is a security feature in Windows that helps prevent unauthorized changes by prompting for permission or an administrator password. Adversaries may exploit scheduled tasks like DiskCleanup to bypass UAC, executing code with elevated privileges. The detection rule identifies suspicious processes using specific arguments and executables, excluding legitimate system paths, to flag potential UAC bypass attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of suspicious process arguments `/autoclean` and `/d` in conjunction with the process start event.
+- Verify the executable path of the process to ensure it does not match any of the legitimate system paths listed in the detection rule.
+- Check the parent process of the suspicious executable to understand how it was initiated and assess if it aligns with expected behavior.
+- Investigate the user account under which the suspicious process was executed to determine if it has administrative privileges or a history of unusual activity.
+- Use Osquery to list all scheduled tasks on the system and identify any modifications or unusual entries related to DiskCleanup. Example query: `SELECT * FROM scheduled_tasks WHERE name LIKE '%DiskCleanup%';`
+- Examine the system's event logs, particularly the Security and System logs, for any related entries that might provide additional context or corroborate the suspicious activity.
+- Analyze the file hash of the suspicious executable using threat intelligence sources to determine if it is associated with known malicious activity.
+- Investigate any network connections initiated by the suspicious process to identify potential command and control communication or data exfiltration.
+- Review recent changes to the system, such as software installations or updates, that might explain the presence of the suspicious executable.
+- Correlate the findings with other alerts or incidents in the environment to determine if this is part of a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate software updates or maintenance tools may trigger the detection rule if they use similar command-line arguments and executables not listed in the exclusion paths. Users should verify the source and purpose of such processes to determine if they are benign.
+- Custom scripts or administrative tools developed in-house that automate disk cleanup tasks might also be flagged. Users can manage these by adding the specific executable paths of trusted scripts to the exclusion list.
+- Scheduled tasks created by IT departments for routine maintenance that mimic the DiskCleanup process could be misidentified. To handle this, users should document and exclude these known tasks from the detection rule.
+- Security software or system optimization tools that perform disk cleanup operations might inadvertently match the rule's criteria. Users should confirm the legitimacy of these tools and consider excluding their executables if they are verified as safe.
+- In environments with non-standard system configurations, legitimate system processes might reside in different paths. Users should adjust the exclusion list to accommodate these variations by adding the correct paths for their specific setup.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify any unauthorized changes or additional malicious activities on the system, focusing on processes and scheduled tasks.
+- Terminate any suspicious processes identified during the investigation that are not part of legitimate system operations.
+- Review and restore any altered scheduled tasks to their default configurations, ensuring no unauthorized tasks remain.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and scheduled task changes, aiding in future detection and investigation efforts.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and analyze potential threats in real-time.
+- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited for UAC bypass.
+- Educate users on the importance of UAC prompts and the risks associated with bypassing them, reinforcing security awareness.
+- Consider deploying application whitelisting and endpoint detection and response (EDR) solutions to prevent unauthorized code execution and improve threat visibility."""
 
 
 [[rule.threat]]

@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -60,6 +60,49 @@ process where host.os.type == "windows" and event.type == "start" and
 
   not process.executable : ("?:\\Windows\\SysWOW64\\Initcrypt.exe", "?:\\Program Files (x86)\\Heimdal\\Heimdal.Guard.exe")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious WerFault Child Process
+
+WerFault.exe is a Windows Error Reporting tool that handles application crashes. Adversaries may exploit it by manipulating the SilentProcessExit registry key to stealthily execute malicious processes. The detection rule identifies unusual child processes of WerFault.exe, focusing on specific command-line arguments indicative of this abuse, while excluding known legitimate executables, thus highlighting potential masquerading attempts.
+
+### Possible investigation steps
+
+- Review the command line arguments of the suspicious WerFault child process to confirm the presence of "-s", "-t", and "-c" flags, which are indicative of SilentProcessExit abuse.
+- Examine the parent process details, specifically WerFault.exe, to verify its legitimacy and check for any anomalies in its execution context.
+- Investigate the process executable path to ensure it is not one of the known legitimate executables excluded in the detection rule, such as "?:\\\\Windows\\\\SysWOW64\\\\Initcrypt.exe" or "?:\\\\Program Files (x86)\\\\Heimdal\\\\Heimdal.Guard.exe".
+- Analyze network connections initiated by the suspicious process to identify any unusual or unauthorized external communications.
+- Check for any file writes or modifications made by the suspicious process to detect potential data exfiltration or tampering activities.
+- Utilize Osquery to gather additional context about the process. For example, run the following query to list all child processes of WerFault.exe: `SELECT pid, name, path, cmdline FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'WerFault.exe');`
+- Correlate the process start event with other security logs to identify any related activities or patterns that might indicate a broader attack.
+- Investigate the user account under which the suspicious process was executed to determine if it has been compromised or is being misused.
+- Review recent changes to the registry, particularly the SilentProcessExit key, to identify unauthorized modifications that could facilitate process masquerading.
+- Cross-reference the suspicious process with threat intelligence sources to determine if it matches any known malicious signatures or behaviors.
+
+### False positive analysis
+
+- Known false positives for the Suspicious WerFault Child Process rule may include legitimate software that uses the SilentProcessExit mechanism for valid purposes, such as certain system utilities or third-party applications that are not widely recognized.
+- Users can handle these false positives by creating exceptions for specific executables that are known to be safe and frequently trigger the rule. This can be done by adding these executables to the exclusion list in the detection rule.
+- It is important to verify the legitimacy of the process by checking the digital signature of the executable and ensuring it matches the expected vendor.
+- Regularly review and update the exclusion list to accommodate new legitimate software that may be introduced into the environment, while ensuring that no malicious processes are inadvertently excluded.
+- Consider implementing additional monitoring for excluded processes to ensure they do not exhibit other suspicious behaviors, such as unexpected network connections or file modifications, which could indicate a compromise.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Investigate the suspicious WerFault child process by reviewing the command line arguments, network connections, and file writes to determine the scope and impact of the incident.
+- Terminate any malicious processes identified during the investigation to stop ongoing threats.
+- Review and analyze the SilentProcessExit registry key for unauthorized modifications and revert any changes to their default state.
+- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to identify and remove any additional threats.
+- Escalate the incident to the security operations team if the investigation reveals a broader compromise or if assistance is needed for further analysis.
+- Implement enhanced logging policies to capture detailed process execution and registry changes for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure all security configurations are correctly set.
+- Harden the system by disabling unnecessary services, applying least privilege principles, and regularly reviewing security policies to prevent similar incidents in the future."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2024/07/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/10"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -44,6 +44,49 @@ sequence by host.id with maxspan=3s
        )
     )] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Egress Connection from Entrypoint in Container
+
+Containers use entrypoints to execute initial commands or scripts upon startup, often defined in Dockerfiles. Adversaries may exploit this by embedding malicious scripts to initiate unauthorized outbound connections, potentially breaching network boundaries. The detection rule identifies such threats by monitoring for the execution of `entrypoint.sh` followed by suspicious network activity, flagging attempts to connect to non-local IPs, which may indicate an attacker's effort to establish external communication or persistence.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name `entrypoint.sh` and verify it is associated with a container by checking `process.entry_leader.entry_meta.type`.
+- Examine the `host.id` and `process.entity_id` to identify the specific container and host involved in the alert.
+- Check the `destination.ip` in the network event to determine the external IP address the container attempted to connect to, ensuring it is not within the specified local or reserved IP ranges.
+- Investigate the `process.parent.entity_id` to trace the parent process of `entrypoint.sh` and understand the process hierarchy and potential origin of the script.
+- Use Osquery to gather more information about the container environment. For example, run the following query to list all running processes within the container: `SELECT pid, name, path FROM processes WHERE pid IN (SELECT pid FROM process_open_sockets WHERE remote_address = '<destination.ip>');`
+- Analyze the Dockerfile or container image used to deploy the container to identify any embedded scripts or commands that could be malicious.
+- Review the container's logs and any associated application logs for additional context around the time of the alert to identify any anomalous behavior or errors.
+- Check for any recent changes or deployments to the container or host that could have introduced the suspicious behavior.
+- Investigate the network traffic patterns from the host to determine if there are other unusual outbound connections or if this is an isolated incident.
+- Correlate the alert with other security events or alerts from the same host or container to identify potential patterns or related incidents.
+
+### False positive analysis
+
+- **Legitimate Software Updates**: Containers may initiate outbound connections for legitimate software updates or to download necessary dependencies. Users can handle these by identifying and excluding known update servers or IP ranges from the detection rule.
+- **Cloud Service Integrations**: Containers often connect to cloud services for integrations or data processing tasks. Users should identify these regular connections and create exceptions for specific IP addresses or domains associated with trusted cloud services.
+- **Monitoring and Logging Tools**: Some containers are designed to send logs or monitoring data to external systems. Users can manage these by excluding IPs or domains related to known logging and monitoring services.
+- **Internal Microservices Communication**: In environments where microservices communicate across different subnets, some connections might be flagged. Users should map out their internal network architecture and exclude IP ranges that are part of legitimate internal communications.
+- **Development and Testing Environments**: Containers in development or testing environments might exhibit behaviors that mimic suspicious activity. Users can exclude these environments by tagging them appropriately and adjusting the detection rule to ignore these tags.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further unauthorized egress connections and potential lateral movement.
+- Conduct a thorough investigation of the container's entrypoint script to identify any malicious code or unauthorized modifications.
+- Review network logs to trace the destination of the egress connection and assess if any data exfiltration occurred.
+- Escalate the incident to the security operations center (SOC) for further analysis and to determine if the attack is part of a larger campaign.
+- Remove any identified malicious scripts or files from the container and ensure the entrypoint script is restored to its original, secure state.
+- Apply security patches and updates to the container image and underlying host to mitigate known vulnerabilities.
+- Implement enhanced logging policies to capture detailed process and network activity within containers for future investigations.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actors and tactics, techniques, and procedures (TTPs).
+- Restore the container to its operational state by redeploying it from a clean, verified image.
+- Harden the container environment by enforcing least privilege access, using network segmentation, and regularly scanning for vulnerabilities."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

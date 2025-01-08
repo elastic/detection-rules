@@ -2,7 +2,7 @@
 creation_date = "2024/09/04"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/09/25"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -37,6 +37,49 @@ event.dataset: "o365.audit"
     and not o365.audit.UserId: "Not Available"
     and o365.audit.Target.Type: ("0" or "2" or "3" or "5" or "6" or "10")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Portal Login from Rare Location
+
+Microsoft 365 is a cloud-based suite that facilitates collaboration and productivity. Adversaries may exploit it by logging in from uncommon locations, potentially using stolen credentials or VPNs to mask their origin. The detection rule identifies successful logins from atypical locations, flagging potential unauthorized access by analyzing login events and user location patterns.
+
+### Possible investigation steps
+
+- Review the login event details in the security logs to confirm the event dataset is "o365.audit" and the event provider is "AzureActiveDirectory" to ensure the alert is based on accurate data.
+- Verify the user account involved by checking the "o365.audit.UserId" field to determine if the account is legitimate and active.
+- Analyze the "event.outcome" field to confirm the login was successful, indicating potential unauthorized access.
+- Investigate the "event.action" field to ensure it matches "UserLoggedIn," confirming the nature of the event.
+- Examine the "o365.audit.Target.Type" field to understand the type of resource accessed, which can provide context on the potential impact.
+- Cross-reference the login location with known user travel patterns or VPN usage to determine if the location is indeed rare or expected.
+- Check historical login patterns for the user to identify any previous logins from the same location or similar unusual locations.
+- Use Osquery to gather additional context on the user's device, such as recent network connections or VPN usage, with a query like: `SELECT * FROM users WHERE username = '<UserId>';`
+- Investigate any recent changes to the user's account settings or permissions that could indicate account compromise.
+- Collaborate with the user or their manager to verify if the login was legitimate, potentially involving direct communication to confirm the user's activities.
+
+### False positive analysis
+
+- Users traveling for business or personal reasons may trigger false positives if they log in from locations not typically associated with their account. To manage this, organizations can create exceptions for known travel patterns or pre-approved travel destinations.
+- Employees using VPNs for legitimate purposes might appear to be logging in from rare locations. To handle this, IT teams can maintain a list of approved VPN IP addresses and exclude them from triggering alerts.
+- Remote workers who frequently change their physical location, such as digital nomads, may also cause false positives. Organizations can address this by identifying and documenting these users' typical movement patterns and adjusting the detection rule accordingly.
+- Temporary relocations, such as employees working from a different office or location for a short period, can be managed by setting temporary exceptions for these users during the specified timeframe.
+- Users accessing Microsoft 365 services through shared or public networks, like cafes or coworking spaces, might be flagged. To mitigate this, organizations can educate users on secure access practices and adjust the rule to account for these common access points.
+
+### Response and remediation
+
+- Verify the login attempt by contacting the user to confirm if the login was legitimate or unauthorized.
+- Temporarily suspend the user's account to prevent further unauthorized access if the login is confirmed to be suspicious.
+- Review the user's recent activity logs in Microsoft 365 to identify any other unusual or unauthorized actions.
+- Reset the user's password and enforce multi-factor authentication (MFA) to enhance account security.
+- Investigate the source IP address and location of the login attempt to determine if it correlates with known threat actors or VPN services.
+- Escalate the incident to the security operations team for further analysis and to determine if other accounts or systems are compromised.
+- Implement logging policies to ensure comprehensive capture of login events and user activities for future investigations.
+- Integrate threat intelligence feeds to enhance detection capabilities and correlate with known threat indicators.
+- Restore the user's account access once it is confirmed secure and provide guidance on recognizing phishing attempts and securing credentials.
+- Conduct a security awareness training session for users to reinforce the importance of account security and recognizing suspicious activities."""
 
 
 [[rule.threat]]

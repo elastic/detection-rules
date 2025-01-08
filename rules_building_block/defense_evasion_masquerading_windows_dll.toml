@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -104,6 +104,55 @@ library where event.action == "load" and dll.Ext.relative_file_creation_time <= 
       )
     )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Masquerading as System32 DLL
+
+System32 DLLs are critical components of Windows, providing essential functions for applications. Adversaries may exploit this by replacing or hijacking these DLLs to execute malicious code under the guise of legitimate processes. The detection rule identifies anomalies by checking for unsigned or non-Microsoft signed DLLs, recent file creation, and specific DLL names, helping to uncover potential masquerading attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific DLL name and path that triggered the alert. Pay attention to the `dll.name` and `dll.path` fields.
+- Check the `dll.code_signature.subject_name` and `dll.code_signature.trusted` fields to determine if the DLL is signed by a trusted entity or if there are any anomalies in the signature.
+- Investigate the `dll.Ext.relative_file_creation_time` to understand how recently the DLL was created. A creation time within the last hour could indicate suspicious activity.
+- Use Osquery to list all DLLs loaded by the process that triggered the alert. Example query: `SELECT path, name, signed, sign_info FROM processes JOIN signature ON processes.path = signature.path WHERE name = '<process_name>';`
+- Examine the process that loaded the suspicious DLL using the `process.name` field. Determine if the process is legitimate and expected to load such DLLs.
+- Cross-reference the `dll.path` with known safe directories and check if it matches any of the excluded paths in the query to rule out false positives.
+- Investigate the parent process of the process that loaded the DLL to understand the process hierarchy and identify any unusual parent-child relationships.
+- Check for any recent changes or installations on the system that might have introduced the DLL, using system logs or software inventory tools.
+- Analyze network activity associated with the process to identify any suspicious connections or data exfiltration attempts.
+- Review historical data to determine if the same DLL or process has triggered alerts in the past, indicating a recurring issue or persistent threat.
+
+### False positive analysis
+
+- **Valve and Adobe Inc. DLLs**: The rule may flag `icuuc.dll` signed by Valve, Valve Corp., Avanquest Software, or Adobe Inc. as suspicious. These are known false positives and can be excluded by verifying the signature and adding exceptions for these trusted entities.
+- **VMware DLLs**: `timeSync.dll` and `appInfo.dll` signed by VMware Inc. or VMware, Inc. may trigger alerts. Users can handle these by confirming the signature and excluding these DLLs from the rule.
+- **NoMachine and Oculus VR DLLs**: `libcrypto.dll` signed by NoMachine S.a.r.l. or Oculus VR, LLC is a known false positive. Users should verify the signature and add exceptions for these trusted sources.
+- **Bitdefender DLLs**: `libcrypto.dll`, `wmi.dll`, `geolocation.dll`, and `kerberos.dll` signed by Bitdefender SRL may be flagged. These can be excluded by confirming the signature and adding them to the exception list.
+- **Paessler AG DLL**: `ICMP.dll` signed by Paessler AG is a known false positive. Users should verify the signature and exclude it from the rule.
+- **Adobe Inc. DirectML DLL**: `DirectML.dll` signed by Adobe Inc. may trigger alerts. Users can handle this by confirming the signature and excluding it.
+- **Dell Technologies DLL**: `icsvc.dll` signed by Dell Inc or Dell Technologies Inc. is a known false positive. Users should verify the signature and add exceptions for these trusted entities.
+- **Malwarebytes DLL**: `offreg.dll` signed by Malwarebytes Inc. may be flagged. Users can exclude this by confirming the signature and adding it to the exception list.
+- **Autodesk DLL**: `AppMgr.dll` signed by Autodesk, Inc is a known false positive. Users should verify the signature and exclude it.
+- **DismHost.exe Process**: DLLs like `SsShim.dll`, `Msi.dll`, and `wdscore.dll` in the `C:\\Windows\\Temp\\` directory when associated with the `DismHost.exe` process may trigger alerts. Users can exclude these by confirming the process and path context.
+- **Specific Paths**: DLLs located in paths such as `?:\\Windows\\SystemApps\\*\\dxgi.dll`, `?:\\Windows\\SystemApps\\*\\wincorlib.dll`, `?:\\Windows\\dxgi.dll`, and `?:\\Users\\*\\AppData\\Local\\LINE\\bin\\current\\dbghelp.dll` are known false positives. Users should verify the path and exclude these from the rule.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malicious activity.
+- Verify the legitimacy of the detected DLLs by checking their digital signatures and comparing them against known good versions.
+- Conduct a thorough investigation of recent file creation and modification activities to identify any unauthorized changes.
+- Utilize endpoint detection and response (EDR) tools to scan for additional indicators of compromise (IOCs) across the network.
+- Remove or replace any identified malicious or unauthorized DLLs with legitimate versions from a trusted source.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed information on DLL loads and process executions for future investigations.
+- Integrate threat intelligence feeds to stay updated on emerging threats and incorporate them into detection mechanisms.
+- Restore the system to its operational state by applying the latest security patches and updates to prevent exploitation of known vulnerabilities.
+- Harden the system by implementing application whitelisting, restricting administrative privileges, and ensuring regular security audits."""
 
 
 [[rule.threat]]

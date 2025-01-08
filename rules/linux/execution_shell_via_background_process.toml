@@ -2,7 +2,7 @@
 creation_date = "2023/09/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -59,6 +59,49 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 process.name in ("setsid", "nohup") and process.args : "*/dev/tcp/*0>&1*" and 
 process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Reverse Shell via Background Process
+
+In Linux environments, adversaries may exploit shell capabilities to establish reverse shells, allowing remote control over a compromised system. By leveraging background processes like `setsid` or `nohup` with socket connections via `/dev/tcp`, attackers can create persistent backdoors. The detection rule identifies such activities by monitoring specific process executions and arguments, signaling potential reverse shell attempts for further investigation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of suspicious process executions involving `setsid` or `nohup` with `/dev/tcp` in the arguments, as these are key indicators of potential reverse shell activity.
+- Examine the `process.parent.name` field to identify the shell used to execute the command, which can provide insights into the attacker's preferred environment or tools.
+- Check the `process.args` field for any additional suspicious patterns or commands that might indicate further malicious intent or context.
+- Investigate the `process.parent.pid` to trace back to the parent process and understand the origin of the suspicious activity.
+- Use Osquery to gather more information about the process tree and environment variables by running a query like: `SELECT * FROM processes WHERE pid = <suspicious_process_id>;`.
+- Analyze the network connections on the host to identify any unusual outbound connections that might correlate with the reverse shell attempt, using tools like `netstat` or `ss`.
+- Review the user's command history files (e.g., `.bash_history`) for any evidence of manual execution or testing of reverse shell commands.
+- Check for any recent changes in user accounts or permissions that might have facilitated the execution of the reverse shell.
+- Investigate any related logs, such as authentication logs, to identify potential unauthorized access or privilege escalation attempts.
+- Correlate the findings with other security alerts or logs to determine if this activity is part of a larger attack campaign or isolated incident.
+
+### False positive analysis
+
+- Legitimate administrative scripts or maintenance tasks may use `setsid` or `nohup` with `/dev/tcp` for network communication, leading to false positives. Users should review such scripts and, if verified as non-threatening, create exceptions for these specific processes.
+- Automated monitoring or logging tools might employ similar techniques to establish network connections for data collection or alerting purposes. Identifying these tools and excluding their process signatures can reduce false alerts.
+- Developers or system administrators testing network applications might use `/dev/tcp` in shell scripts for debugging or connectivity checks. These activities should be documented, and exceptions should be configured for known testing environments.
+- Backup or synchronization scripts that use shell commands to transfer data between systems could trigger the rule. Users should ensure these scripts are secure and add them to an allowlist if they are deemed safe.
+- Custom user scripts that are part of routine operations might inadvertently match the rule's criteria. Regular audits and documentation of such scripts can help in distinguishing between benign and malicious activities, allowing for appropriate exclusions.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation of the process tree and network connections to identify any additional compromised systems or lateral movement.
+- Terminate any suspicious processes identified as part of the reverse shell activity to halt the attacker's access.
+- Review and analyze logs from the affected system and any connected systems to gather evidence and understand the scope of the compromise.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional resources are needed.
+- Restore the system from a known good backup to ensure that no malicious code remains on the system.
+- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities.
+- Implement enhanced logging and monitoring policies to detect similar activities in the future, focusing on process execution and network connections.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and response times.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans and security policies accordingly."""
 
 
 [[rule.threat]]

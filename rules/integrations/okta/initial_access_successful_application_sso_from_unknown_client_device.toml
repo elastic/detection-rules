@@ -2,7 +2,7 @@
 creation_date = "2024/10/07"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2024/12/09"
+updated_date = "2025/01/08"
 min_stack_version = "8.15.0"
 min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
 
@@ -40,6 +40,51 @@ event.dataset: "okta.system"
     and event.outcome: "success"
     and okta.client.device: ("Unknown" or "unknown")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Successful Application SSO from Rare Unknown Client Device
+
+Single sign-on (SSO) streamlines user access across applications by using a single set of credentials. However, if compromised, it can be exploited by attackers to bypass security policies. Adversaries may leverage vulnerabilities to gain unauthorized access using stolen credentials. The detection rule identifies unusual SSO events from unknown devices, signaling potential misuse of valid accounts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a successful SSO event from an unknown client device by checking the `event.dataset`, `event.action`, `event.outcome`, and `okta.client.device` fields.
+- Verify the user account involved in the SSO event by examining the user details in the alert and cross-referencing with known user activity and access patterns.
+- Check the user-agent string associated with the SSO event to identify any anomalies or inconsistencies that could indicate spoofing or the use of unauthorized devices.
+- Investigate the IP address associated with the SSO event to determine its geolocation and assess whether it aligns with the user's typical access locations.
+- Review recent login history for the user account to identify any other unusual or suspicious login attempts, especially from unknown devices or locations.
+- Utilize Osquery to gather additional context on the device involved in the SSO event. For example, run the following Osquery query to check for recent network connections: `SELECT * FROM process_open_sockets WHERE remote_address = '<IP_ADDRESS_FROM_ALERT>';`
+- Examine Okta logs for any recent changes to the user's account settings or permissions that could indicate account compromise or unauthorized access.
+- Check for any other security alerts or incidents involving the same user account or IP address to identify potential patterns of malicious activity.
+- Collaborate with the user to verify whether they recognize the device and the SSO event, and gather any additional context they can provide about their recent activities.
+- Review the organization's security policies and configurations related to SSO and Okta to ensure they are properly enforced and have not been bypassed or misconfigured.
+
+### False positive analysis
+
+- Employees using new or updated devices may trigger false positives if the device is not yet recognized by the system. This can occur when users upgrade their hardware or use a different browser that alters the user-agent string.
+- Remote workers accessing applications from different locations or networks, such as public Wi-Fi or VPNs, might appear as unknown devices, leading to false positives.
+- IT personnel conducting legitimate testing or troubleshooting activities on unregistered devices can also trigger this rule.
+- To manage these false positives, organizations can create exceptions for known and trusted devices by maintaining an updated inventory of user devices and their corresponding user-agent strings.
+- Implementing a process to quickly verify and whitelist new devices for regular users can help reduce unnecessary alerts.
+- Regularly reviewing and updating network and device policies to reflect changes in user behavior and technology can minimize false positives.
+- Encourage users to report new devices or changes in their access patterns to IT, allowing for proactive adjustments to the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected user account by disabling it to prevent further unauthorized access.
+- Conduct a thorough investigation to determine the scope of the breach, focusing on identifying any other accounts accessed from the same unknown device.
+- Review Okta logs and cross-reference with other security logs to identify any lateral movement or additional suspicious activities.
+- Reset passwords for compromised accounts and enforce multi-factor authentication (MFA) for all users to mitigate the risk of future unauthorized access.
+- Escalate the incident to the security operations center (SOC) and inform relevant stakeholders, including IT and management, to ensure coordinated response efforts.
+- Apply patches or updates to Okta's Classic Engine to address any known vulnerabilities that may have been exploited.
+- Implement enhanced logging policies to capture detailed user-agent strings and device information for future investigations.
+- Integrate Okta with a security information and event management (SIEM) system to enable real-time monitoring and alerting of suspicious SSO activities.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
+- Educate users on recognizing phishing attempts and the importance of safeguarding their credentials to prevent credential theft."""
 
 
 [[rule.threat]]

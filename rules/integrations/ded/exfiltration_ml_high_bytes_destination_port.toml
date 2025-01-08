@@ -2,7 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["ded", "endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 75
@@ -51,6 +51,52 @@ tags = [
     "Tactic: Exfiltration",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Data Exfiltration Activity to an Unusual Destination Port
+
+Machine learning models analyze network traffic to identify anomalies, such as data transfers to uncommon ports, which may suggest exfiltration via command and control channels. Adversaries exploit these channels to stealthily siphon data. The detection rule leverages these models to flag deviations from typical traffic patterns, aiding in the identification of potential exfiltration activities.
+
+### Possible investigation steps
+
+- Review the alert details to identify the unusual destination port and the source IP address involved in the potential exfiltration activity.
+- Analyze historical network traffic logs to determine if the identified destination port has been used previously and assess the frequency and volume of data transferred.
+- Cross-reference the source IP address with asset management databases to identify the device and user associated with the activity.
+- Examine the destination IP address to determine if it is associated with known malicious activity or if it belongs to an unfamiliar or suspicious domain.
+- Utilize threat intelligence feeds to check if the destination IP or domain is linked to any known command and control infrastructure.
+- Conduct a deeper inspection of the network traffic associated with the alert using packet capture tools to identify the nature of the data being transferred.
+- Use Osquery to gather additional context from the source machine. For example, run the following query to list active network connections and identify any unusual or persistent connections:
+  ```sql
+  SELECT * FROM process_open_sockets WHERE remote_port = <unusual_port>;
+  ```
+- Investigate any processes on the source machine that are associated with the unusual network activity to determine if they are legitimate or potentially malicious.
+- Check for any recent changes or anomalies in the system logs of the source machine that could indicate compromise or unauthorized access.
+- Collaborate with other security teams to correlate this alert with any other suspicious activities or alerts that may have been triggered around the same time frame.
+
+### False positive analysis
+
+- Routine administrative tasks or legitimate software updates may trigger alerts if they involve data transfers to uncommon ports, as these activities can mimic exfiltration patterns.
+- Internal testing or development environments might use non-standard ports for data transfer, leading to false positives if these activities are not accounted for in the baseline traffic patterns.
+- Certain legitimate applications or services may inherently use unusual ports for communication, which could be misinterpreted as exfiltration attempts.
+- To manage these false positives, users can create exceptions for known benign activities by updating the detection rule to exclude specific IP addresses, ports, or applications that are verified as non-threatening.
+- Regularly review and update the list of exceptions to ensure that only legitimate activities are excluded, maintaining the effectiveness of the detection rule against genuine threats.
+
+### Response and remediation
+
+- Immediately isolate the affected systems from the network to prevent further data exfiltration.
+- Conduct a thorough investigation to identify the scope of the exfiltration, including the data types and volumes transferred.
+- Analyze network logs and endpoint data to trace the source of the anomaly and identify any compromised accounts or systems.
+- Escalate the incident to the security operations center (SOC) and relevant stakeholders for further analysis and decision-making.
+- Implement enhanced logging and monitoring on network traffic, focusing on unusual destination ports and data transfer patterns.
+- Review and update firewall and intrusion detection/prevention system (IDS/IPS) rules to block traffic to and from the identified unusual ports.
+- Apply patches and updates to all affected systems to close any vulnerabilities exploited during the exfiltration.
+- Conduct a security awareness training session for employees to recognize and report suspicious activities.
+- Restore systems to their operational state by reimaging affected machines and verifying the integrity of data backups.
+- Implement hardening measures such as network segmentation, least privilege access, and multi-factor authentication to reduce the risk of future incidents."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

@@ -2,7 +2,7 @@
 creation_date = "2020/01/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -58,6 +58,48 @@ query = '''
 event.category:process and host.os.type:macos and event.type:(start or process_started) and
  process.name:dsenableroot and not process.args:"-d"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Attempt to Enable the Root Account
+
+In macOS environments, the root account is typically disabled to enhance security. However, adversaries may attempt to enable it using the `dsenableroot` command to gain persistent, privileged access. The detection rule identifies such attempts by monitoring process events for the execution of this command without the disable flag, signaling potential misuse for unauthorized access.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `dsenableroot` command execution without the `-d` flag, as indicated by the query fields `process.name:dsenableroot` and `not process.args:"-d"`.
+- Check the `event.category:process` and `event.type:(start or process_started)` fields to verify the process initiation and gather the exact timestamp of the event.
+- Identify the user account associated with the process execution by examining the `user.name` field to determine if it aligns with expected administrative activity.
+- Investigate the parent process of `dsenableroot` using the `process.parent.name` field to understand the context in which the command was executed.
+- Use Osquery to list all recent processes executed by the user identified in the alert. Example query: `SELECT * FROM processes WHERE user = '<username>' ORDER BY start_time DESC LIMIT 10;`.
+- Examine the system logs around the time of the event for any additional suspicious activity or related events that might indicate a broader attack pattern.
+- Check for any recent changes to user accounts or permissions on the system that could suggest unauthorized access attempts.
+- Investigate network connections from the host around the time of the event to identify any potential exfiltration or command-and-control activity.
+- Review any recent software installations or updates on the host that could have introduced vulnerabilities or been used as a vector for the attack.
+- Correlate this event with other alerts or logs from the same host or user to identify patterns or repeated attempts to enable the root account.
+
+### False positive analysis
+
+- System administrators or IT personnel may legitimately enable the root account for maintenance or troubleshooting purposes, leading to false positives. To manage this, users can create exceptions for known administrator accounts or specific maintenance windows.
+- Automated scripts or management tools that require root access for legitimate tasks might trigger the detection rule. Users should identify these scripts and whitelist them by process hash or specific command-line arguments.
+- In educational or testing environments, enabling the root account might be part of a controlled exercise. Users can exclude these environments from monitoring or adjust the rule to account for specific IP ranges or hostnames.
+- Some third-party applications may require root access for installation or updates, potentially causing false positives. Users should verify the legitimacy of these applications and consider excluding their associated processes from the rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Verify the legitimacy of the `dsenableroot` command execution by checking user activity logs and correlating with authorized change requests.
+- If unauthorized, terminate any suspicious processes and sessions associated with the root account to contain potential threats.
+- Conduct a thorough investigation to identify any additional compromised accounts or systems, focusing on persistence mechanisms and unauthorized access patterns.
+- Reset passwords for all accounts with elevated privileges, including the root account, and enforce strong password policies.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and user activity, ensuring that all critical events are monitored and retained for future investigations.
+- Integrate with security information and event management (SIEM) systems to automate alerting and correlation of suspicious activities related to account misuse.
+- Restore the system to its operational state by applying the latest security patches and updates, and verify the integrity of critical system files and configurations.
+- Harden the system by disabling the root account if not needed, and implement multi-factor authentication for all administrative access to reduce the risk of unauthorized access."""
 
 
 [[rule.threat]]

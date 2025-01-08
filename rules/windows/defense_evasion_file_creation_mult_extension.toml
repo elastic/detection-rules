@@ -2,7 +2,7 @@
 creation_date = "2021/01/19"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -41,6 +41,49 @@ file where host.os.type == "windows" and event.type == "creation" and file.exten
   not (process.executable : ("?:\\Windows\\System32\\msiexec.exe", "C:\\Users\\*\\QGIS_SCCM\\Files\\QGIS-OSGeo4W-*-Setup-x86_64.exe") and
        file.path : "?:\\Program Files\\QGIS *\\apps\\grass\\*.exe")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Executable File Creation with Multiple Extensions
+
+In Windows environments, files with multiple extensions can be used by adversaries to disguise malicious executables as benign files, such as documents or images. This technique, known as masquerading, exploits user trust and can bypass security measures. The detection rule identifies suspicious file creations by checking for executables with misleading extensions, excluding known legitimate processes, to uncover potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file name and path that triggered the rule, focusing on the `file.name` and `file.path` fields.
+- Verify the file extension pattern by checking if the file name matches the regex pattern for multiple extensions, particularly looking for `.exe` files masquerading as other types.
+- Examine the `process.executable` field to determine the process responsible for creating the file, ensuring it is not a known legitimate process like `msiexec.exe`.
+- Use Osquery to gather additional context about the file by running a query such as: `SELECT * FROM file WHERE path = 'C:\\\\Path\\\\To\\\\SuspiciousFile.exe';` to retrieve metadata and attributes.
+- Investigate the parent process of the file creation event by examining the `process.parent` field to understand the origin of the executable.
+- Check the file's digital signature and hash against known threat intelligence databases to assess its legitimacy.
+- Analyze recent user activity on the host to identify any unusual behavior or actions that might have led to the file creation.
+- Review system logs for any other suspicious activities or anomalies around the time of the file creation event.
+- Investigate network connections from the host to determine if there are any suspicious outbound connections that could indicate data exfiltration or command and control communication.
+- Correlate the findings with other alerts or incidents in the environment to identify potential patterns or related threats.
+
+### False positive analysis
+
+- Known false positives may occur when legitimate software installations or updates create files with multiple extensions, such as setup or update executables that include additional extensions for versioning or compatibility purposes.
+- Users can handle these false positives by creating exceptions for specific processes or file paths that are known to be safe, such as trusted software installers or update mechanisms.
+- Another potential false positive source is software development environments where developers might create test files with multiple extensions for debugging or testing purposes.
+- To manage these, users can exclude specific directories or processes associated with development tools from the detection rule.
+- It's important to regularly review and update the list of exceptions to ensure that only verified and trusted activities are excluded, maintaining a balance between security and operational efficiency.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation to identify the source and scope of the masquerading executable, using endpoint detection and response (EDR) tools.
+- Analyze the file creation event and associated processes to determine if any unauthorized changes or additional malicious activities have occurred.
+- Remove the malicious executable and any associated files or registry entries from the system.
+- Restore the system from a known good backup if the integrity of the system is compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed file creation and modification events, focusing on executable files with multiple extensions.
+- Integrate threat intelligence feeds to improve detection capabilities and correlate with known indicators of compromise (IOCs) related to masquerading techniques.
+- Educate users on the risks of opening files with multiple extensions and the importance of verifying file types before execution.
+- Apply system hardening measures, such as restricting script execution policies and enforcing application whitelisting, to reduce the attack surface and prevent similar threats in the future."""
 
 
 [[rule.threat]]

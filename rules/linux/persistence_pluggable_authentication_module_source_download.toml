@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/12/16"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -44,6 +44,52 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 process.name in ("curl", "wget") and
 process.args like~ "https://github.com/linux-pam/linux-pam/releases/download/v*/Linux-PAM-*.tar.xz"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Pluggable Authentication Module (PAM) Source Download
+
+Pluggable Authentication Modules (PAM) are integral to Linux systems, providing a flexible mechanism for authenticating users. Adversaries may exploit PAM by downloading its source code to modify authentication processes, potentially creating backdoors. The detection rule identifies suspicious downloads of PAM source files using tools like `curl` or `wget`, signaling potential attempts to tamper with authentication mechanisms.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of `curl` or `wget` in the `process.name` field and verify the URL pattern in `process.args` to ensure it matches the known PAM source download URL.
+- Check the `host.os.type` field to confirm the operating system is Linux, as this rule is specific to Linux environments.
+- Investigate the `event.type` and `event.action` fields to ensure the process was indeed started and executed, indicating an actual download attempt.
+- Examine the user account associated with the process to determine if the activity aligns with expected behavior or if it is potentially malicious.
+- Use Osquery to list all PAM modules currently installed on the system to identify any unauthorized or suspicious modules:
+  ```sql
+  SELECT * FROM pam_modules;
+  ```
+- Analyze the network logs to identify any other suspicious outbound connections from the host around the time of the alert.
+- Review the system's process execution history to identify any subsequent actions taken by the same user or process that downloaded the PAM source.
+- Check for any recent changes to PAM configuration files, such as `/etc/pam.d/`, to detect unauthorized modifications.
+- Investigate the file system for any downloaded PAM source files or extracted contents, focusing on directories typically used for temporary storage or user downloads.
+- Correlate this event with other security alerts or logs from the same host to identify patterns or additional indicators of compromise.
+
+### False positive analysis
+
+- System administrators or developers may legitimately download PAM source files for testing, development, or educational purposes, which could trigger the detection rule. To manage this, users can create exceptions for specific user accounts or IP addresses known to perform these activities regularly.
+- Automated scripts or configuration management tools that update or install software packages might download PAM source files as part of their routine operations. Users can handle these by excluding specific processes or scripts from triggering the rule.
+- Security researchers or auditors conducting vulnerability assessments might download PAM source files to analyze potential security issues. Organizations can whitelist these activities by identifying and excluding the researchers' user accounts or IP addresses.
+- Some Linux distributions or custom setups might include scripts that download PAM source files for building or updating packages. Users should identify these scripts and add them to an exception list to prevent false positives.
+- In educational environments, students might download PAM source files as part of their coursework. Institutions can manage this by excluding specific user groups or network segments associated with educational activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to confirm the download of the PAM source code and identify any modifications made to the authentication modules.
+- Review system logs and process execution history to trace the origin of the suspicious activity and identify any other potentially compromised systems.
+- Remove any unauthorized or malicious PAM modules and restore the original, verified versions from trusted sources.
+- Change all passwords and authentication credentials that may have been exposed or compromised during the incident.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging and monitoring for PAM-related activities, including downloads and modifications, to detect future attempts at unauthorized access.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and analyze suspicious activities related to PAM.
+- Restore the system to its operational state by applying security patches, updating software, and ensuring all configurations adhere to security best practices.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent similar incidents in the future."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

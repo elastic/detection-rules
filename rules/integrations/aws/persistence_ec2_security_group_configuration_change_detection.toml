@@ -2,7 +2,7 @@
 creation_date = "2021/05/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -23,7 +23,49 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Security Group Configuration Change"
-note = """
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EC2 Security Group Configuration Change
+
+AWS EC2 Security Groups act as virtual firewalls, controlling inbound and outbound traffic to instances. Adversaries may exploit changes in these configurations to gain unauthorized access, maintain persistence, or move laterally within an AWS environment. The detection rule monitors successful changes to security group settings, such as rule modifications or group creation, to identify potential misuse by threat actors.
+
+### Possible investigation steps
+
+- Review the specific `event.action` that triggered the alert to understand the type of change made to the security group configuration.
+- Examine the `event.dataset` and `event.provider` fields to confirm the event source and ensure it is related to AWS EC2.
+- Check the `event.outcome` field to verify that the change was successful, as unsuccessful attempts may indicate probing or testing by an adversary.
+- Identify the `user.identity` or `user.name` associated with the event to determine who made the change and assess if this user has legitimate access and reasons for the modification.
+- Investigate the `source.ip` or `source.address` to determine the origin of the request and assess if it is from a known or expected location.
+- Review the `aws.region` field to ensure the change was made in an expected region, as unexpected regions may indicate unauthorized activity.
+- Analyze the `event.time` to correlate the timing of the change with other suspicious activities or known incidents.
+- Use Osquery to gather additional context on the affected instances. For example, run the following query to list all security groups and their rules: `SELECT * FROM ec2_security_groups WHERE group_id = '<affected_group_id>';`
+- Cross-reference the security group changes with recent IAM policy changes or user activity logs to identify potential privilege escalation or misuse.
+- Investigate any other related CloudTrail logs around the same timeframe to identify additional suspicious activities or patterns that may indicate a broader attack.
+
+### False positive analysis
+
+- Routine administrative tasks: Changes made by authorized personnel during regular maintenance or updates can trigger alerts. To manage this, users can create exceptions for specific user accounts or roles known to perform these tasks regularly.
+- Automated scripts or tools: Security group modifications by automated processes or tools used for infrastructure management may be flagged. Users should identify these tools and exclude their actions from triggering alerts by specifying their associated IAM roles or user accounts.
+- CloudFormation or other infrastructure as code deployments: Deployments that involve security group changes as part of infrastructure updates can result in false positives. Users can handle these by excluding changes initiated by specific CloudFormation stacks or deployment tools.
+- Third-party integrations: Some third-party services may require security group modifications for functionality. Users should review and whitelist these services if they are deemed non-threatening, ensuring that their actions do not trigger unnecessary alerts.
+
+### Response and remediation
+
+- Immediately review the AWS CloudTrail logs to identify the source and nature of the security group changes, focusing on the user or service account responsible for the modifications.
+- Contain the potential threat by reverting unauthorized security group changes to their previous state and temporarily restricting access to critical resources.
+- Investigate the IAM roles and permissions associated with the user or service account that made the changes to ensure they are appropriate and not overly permissive.
+- If unauthorized access is confirmed, rotate credentials and access keys for affected accounts and services to prevent further unauthorized actions.
+- Escalate the incident to the security operations team for a deeper investigation into potential lateral movement or persistence mechanisms used by the threat actor.
+- Implement enhanced logging and monitoring policies to capture detailed information on security group changes and other critical AWS activities.
+- Integrate AWS GuardDuty and other threat detection services to provide real-time alerts on suspicious activities and potential security breaches.
+- Restore the system to its operational state by ensuring all security group configurations are aligned with the organization's security policies and best practices.
+- Conduct a post-incident review to identify gaps in the current security posture and update security policies and procedures accordingly.
+- Apply hardening measures such as implementing least privilege access, enabling multi-factor authentication, and regularly reviewing security group rules to minimize the risk of future incidents.
+
 ### Investigating AWS EC2 Security Group Configuration Change
 
 This rule identifies any changes to an AWS Security Group, which functions as a virtual firewall controlling inbound and outbound traffic for resources like EC2 instances. Modifications to a security group configuration could expose critical assets to unauthorized access. Threat actors may exploit such changes to establish persistence, exfiltrate data, or pivot within an AWS environment.

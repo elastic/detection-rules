@@ -2,7 +2,7 @@
 creation_date = "2023/07/28"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -63,6 +63,48 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
  and process.name in ("chown", "chmod") and process.args == "-R" and process.args : "--reference=*"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Unauthorized Access via Wildcard Injection Detected
+
+In Linux environments, commands like `chown` and `chmod` are used to change file ownership and permissions. Adversaries may exploit wildcard characters in these commands to escalate privileges or access sensitive data by executing unintended operations. The detection rule identifies suspicious use of these commands with recursive flags and wildcard references, signaling potential misuse for privilege escalation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `chown` or `chmod` command execution with the `-R` flag and wildcard references in the `process.args` field.
+- Examine the `process.name` field to verify which command (`chown` or `chmod`) was executed and assess the potential impact based on the command's function.
+- Check the `host.os.type` field to ensure the alert is relevant to a Linux environment, as the rule is designed for Linux systems.
+- Investigate the `event.type` and `event.action` fields to confirm the process was indeed started and executed, indicating the command was run.
+- Analyze the `process.args` field further to identify any specific patterns or anomalies in the arguments that could suggest malicious intent or misuse.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name IN ('chown', 'chmod') AND cmdline LIKE '%-R%' AND cmdline LIKE '%--reference=%';` to identify other instances of similar command executions.
+- Review system logs and audit logs for any additional context around the time of the alert to identify any preceding or subsequent suspicious activities.
+- Investigate the user account associated with the process execution to determine if the account has a history of suspicious activity or if it has been compromised.
+- Check for any recent changes in file ownership or permissions on critical files or directories that could indicate successful exploitation.
+- Correlate the alert with other security events or alerts in the environment to identify potential patterns or coordinated attacks.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators often use `chown` and `chmod` with recursive flags and wildcards for legitimate purposes, such as updating permissions across multiple files or directories. These actions can trigger the rule, leading to false positives.
+- Automated scripts: Scheduled scripts or cron jobs that perform regular maintenance tasks using these commands might also be flagged. These scripts are typically non-threatening if verified as part of standard operations.
+- Software installations or updates: Some software packages or updates may use these commands with wildcards during installation or configuration processes, which can be mistakenly identified as suspicious activity.
+- To manage false positives, users can create exceptions for known safe operations by whitelisting specific scripts, users, or directories that frequently trigger the rule. This can be done by adjusting the detection rule to exclude certain command patterns or by using a monitoring tool's built-in exception handling features.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the wildcard injection attack, reviewing logs and process execution details.
+- Terminate any suspicious processes that are running with elevated privileges or accessing sensitive data.
+- Review and update user permissions and access controls to ensure the principle of least privilege is enforced, reducing the risk of privilege escalation.
+- Apply patches and updates to the operating system and any vulnerable applications to mitigate known exploits, including those related to wildcard injection.
+- Implement enhanced logging policies to capture detailed command execution and process activity, aiding in future investigations.
+- Integrate security tools such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to monitor for similar threats.
+- Restore the system to its operational state by verifying the integrity of critical files and configurations, and re-establishing network connectivity once secure.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users and administrators on the risks of wildcard injection and best practices for secure command execution to prevent future incidents."""
 
 
 [[rule.threat]]

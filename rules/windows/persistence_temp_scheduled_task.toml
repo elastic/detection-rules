@@ -2,7 +2,7 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -37,6 +37,49 @@ sequence by winlog.computer_name, winlog.event_data.TaskName with maxspan=5m
    [iam where event.action == "scheduled-task-created" and not user.name : "*$"]
    [iam where event.action == "scheduled-task-deleted" and not user.name : "*$"]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Temporarily Scheduled Task Creation
+
+Scheduled tasks in Windows environments automate routine tasks, but adversaries exploit them for persistence and stealthy execution. By creating and quickly deleting tasks, they can execute malicious code while evading detection. The detection rule identifies this behavior by tracking task creation and deletion events within a short timeframe, flagging potential misuse by excluding system accounts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the `winlog.computer_name` and `winlog.event_data.TaskName` fields to determine which system and task are involved.
+- Check the timestamp of the task creation and deletion events to confirm they occurred within the specified `maxspan=5m` timeframe.
+- Investigate the user account associated with the task creation and deletion events, ensuring it is not a system account (i.e., does not end with `$`).
+- Use Osquery to list all scheduled tasks on the affected system to verify if the task still exists or if it was indeed deleted. Example query: `SELECT * FROM scheduled_tasks WHERE name = '<TaskName>';`
+- Examine the command or script associated with the scheduled task to identify any potentially malicious code or unusual behavior.
+- Cross-reference the task name and associated command with known indicators of compromise (IOCs) or threat intelligence feeds.
+- Analyze the system's event logs around the time of the task creation and deletion for any other suspicious activities or related events.
+- Check for any recent changes in user privileges or group memberships that might have allowed the creation of the scheduled task.
+- Investigate network logs for any unusual outbound connections from the affected system around the time of the task execution.
+- Review historical data to determine if similar scheduled task creation and deletion patterns have occurred on the same or other systems within the network.
+
+### False positive analysis
+
+- Scheduled tasks created and deleted by legitimate software updates or system maintenance tools can trigger false positives. These tasks often run under non-system accounts but are benign in nature.
+- Automated scripts or administrative tools used by IT departments for routine maintenance might create and delete tasks within a short timeframe, mimicking the behavior flagged by the rule.
+- Users can manage these false positives by identifying and documenting known legitimate task creation and deletion patterns, then creating exceptions for these specific tasks or user accounts.
+- Implementing a whitelist of trusted applications and scripts that are known to create and delete tasks can help reduce noise and focus on truly suspicious activities.
+- Regularly review and update the list of exceptions to ensure it reflects current legitimate activities, especially after software updates or changes in IT processes.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity.
+- Review the scheduled task creation and deletion logs to confirm the presence of suspicious activity and identify any associated user accounts.
+- Conduct a thorough investigation to determine if any malicious payloads were executed and assess the scope of the compromise.
+- Remove any unauthorized scheduled tasks and ensure no remnants of the malicious activity remain on the system.
+- Reset credentials for any compromised user accounts and enforce strong password policies to prevent future unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed information on scheduled task activities and user actions for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Restore the system to its operational state by applying the latest security patches and updates, and verify system integrity.
+- Harden the system by disabling unnecessary services, applying least privilege principles, and conducting regular security audits to reduce the attack surface."""
 
 
 [[rule.threat]]

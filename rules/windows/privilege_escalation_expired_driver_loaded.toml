@@ -2,7 +2,7 @@
 creation_date = "2023/06/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -36,6 +36,49 @@ query = '''
 driver where host.os.type == "windows" and process.pid == 4 and
   dll.code_signature.status : ("errorExpired", "errorRevoked")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Expired or Revoked Driver Loaded
+
+In Windows environments, drivers facilitate communication between the OS and hardware. Adversaries exploit vulnerabilities in outdated drivers or misuse revoked certificates to execute malicious code in kernel mode, gaining elevated privileges. The detection rule identifies such threats by monitoring for drivers with expired or revoked signatures, specifically targeting processes with system-level access.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a driver with an expired or revoked signature, focusing on the `dll.code_signature.status` field for values "errorExpired" or "errorRevoked".
+- Verify the process ID (`process.pid`) to ensure it matches the system process (PID 4), which indicates a driver loaded at the system level.
+- Identify the specific driver file involved by examining the associated file path and name, if available, in the alert details.
+- Check the driver file's digital signature details to confirm its expiration or revocation status using tools like Sigcheck.
+- Investigate the driver file's origin and history by checking its creation and modification timestamps to determine if it was recently introduced to the system.
+- Use Osquery to gather additional context about the driver file. Example query: `SELECT * FROM kernel_modules WHERE name = '<driver_name>';` to retrieve details about the loaded driver.
+- Cross-reference the driver file's hash against known malware databases or threat intelligence sources to identify any known malicious activity associated with it.
+- Examine system logs and security events around the time the driver was loaded to identify any suspicious activities or related alerts.
+- Investigate any recent changes or updates to the system that might have introduced the driver, such as software installations or updates.
+- Collaborate with other security teams or stakeholders to gather additional context or insights about the driver and its potential impact on the system.
+
+### False positive analysis
+
+- Legitimate software updates or installations may trigger the rule if they involve drivers with expired or revoked signatures, especially if the vendor has not updated their certificates promptly.
+- Some older hardware devices may rely on drivers that are no longer supported or updated, leading to false positives when these drivers are loaded.
+- Security or system management tools that interact with kernel mode might use drivers with expired signatures for legitimate purposes, causing alerts.
+- To manage these false positives, users can create exceptions for specific drivers or processes known to be safe by adding them to an allowlist within the monitoring system.
+- Regularly review and update the list of exceptions to ensure that only verified non-threatening drivers are excluded, maintaining a balance between security and operational needs.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further exploitation or lateral movement.
+- Verify the legitimacy of the driver by checking its source and intended use; remove any unauthorized or malicious drivers.
+- Conduct a thorough investigation to identify how the expired or revoked driver was loaded, focusing on potential vulnerabilities or misconfigurations.
+- Utilize endpoint detection and response (EDR) tools to scan for additional signs of compromise or related malicious activity.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and containment measures.
+- Apply patches or updates to the operating system and all drivers to mitigate known vulnerabilities.
+- Implement strict driver signing policies and enforce the use of only trusted and verified drivers.
+- Enhance logging and monitoring to capture detailed information on driver loads and process activities, integrating with SIEM solutions for real-time alerts.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users and administrators on the risks associated with outdated or unauthorized drivers and the importance of maintaining up-to-date systems."""
 
 
 [[rule.threat]]

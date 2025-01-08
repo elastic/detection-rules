@@ -2,7 +2,7 @@
 creation_date = "2020/04/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -74,6 +74,48 @@ process where host.os.type == "linux" and event.action in ("exec", "exec_event")
    (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))
  ) and process.args in ("syslog", "rsyslog", "syslog-ng")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Attempt to Disable Syslog Service
+
+Syslog is a critical component in Linux environments, responsible for logging system events and activities. Adversaries may target syslog to disrupt logging, thereby evading detection by security systems. They might use commands like `service stop`, `chkconfig off`, or `systemctl disable` to halt syslog services. The detection rule identifies such attempts by monitoring process executions that match these patterns, ensuring any disruption attempts are flagged for investigation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name and arguments that triggered the alert, focusing on `process.name` and `process.args` fields to ensure they match the suspicious patterns.
+- Check the `event.action` field to verify if the action was an execution event, which is critical for confirming the attempt to disable the syslog service.
+- Investigate the user account associated with the process execution to determine if it is a legitimate user or potentially compromised, using the `user.name` field.
+- Examine the `host.os.type` field to ensure the alert pertains to a Linux system, as the rule is specifically designed for Linux environments.
+- Use Osquery to gather additional context about the process execution. For example, run the following query to list recent commands executed by the user: `SELECT * FROM shell_history WHERE uid = (SELECT uid FROM users WHERE username = 'suspicious_user');`
+- Analyze the process tree to understand the parent process and any child processes spawned by the suspicious process, which can provide insights into how the command was executed.
+- Review system logs around the time of the alert to identify any other suspicious activities or anomalies that might correlate with the attempt to disable syslog.
+- Check for any recent changes to system configurations or services that might indicate tampering or preparation for disabling syslog.
+- Investigate network connections from the host to identify any unusual outbound connections that could suggest data exfiltration or communication with a command and control server.
+- Correlate the alert with other security events or alerts from the same host or user to identify patterns or repeated attempts to disable logging services.
+
+### False positive analysis
+
+- Routine maintenance activities by system administrators may trigger this rule when they intentionally stop or disable syslog services for updates or configuration changes. To manage this, users can create exceptions for known maintenance windows or specific administrator accounts.
+- Automated scripts or configuration management tools that manage service states might also cause false positives if they include commands to stop or disable syslog services as part of their operations. Users should review these scripts and, if deemed non-threatening, exclude them from triggering the rule by specifying the script names or paths.
+- Testing environments where syslog services are intentionally stopped for testing purposes can also lead to false positives. Users can handle this by excluding specific test environment hosts or IP addresses from the rule.
+- Some legitimate software installations or updates might require stopping syslog services temporarily, which could be flagged by this rule. Users should identify such software and create exceptions based on the software's process names or installation paths.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and data exfiltration.
+- Investigate the process execution logs to confirm the attempt to disable the syslog service and identify any associated processes or users involved.
+- Review user access logs to determine if unauthorized access was gained and identify any compromised accounts.
+- Re-enable the syslog service using the appropriate command for your system (e.g., `systemctl enable syslog` and `systemctl start syslog`) to restore logging functionality.
+- Conduct a thorough review of system logs to identify any other suspicious activities or anomalies that occurred around the time of the syslog service disruption attempt.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attempt is part of a larger attack campaign.
+- Implement stricter access controls and monitoring on critical services like syslog to prevent unauthorized modifications, including using role-based access controls and multi-factor authentication.
+- Enhance logging policies by ensuring that all critical system events are logged and that logs are securely stored and regularly reviewed for signs of tampering or suspicious activity.
+- Integrate additional security tools and threat intelligence feeds to improve detection capabilities and provide context for future investigations, such as endpoint detection and response (EDR) solutions.
+- Apply system hardening measures by regularly updating and patching software, disabling unnecessary services, and configuring security settings according to best practices to reduce the attack surface."""
 
 
 [[rule.threat]]

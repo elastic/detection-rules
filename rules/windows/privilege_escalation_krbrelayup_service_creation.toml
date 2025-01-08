@@ -2,7 +2,7 @@
 creation_date = "2022/04/27"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -54,6 +54,49 @@ sequence by winlog.computer_name with maxspan=5m
    /* event 4697 need to be logged */
    event.action : "service-installed"] by winlog.event_data.SubjectLogonId
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Service Creation via Local Kerberos Authentication
+
+Kerberos is a network authentication protocol designed to provide secure identity verification for users and services. In a Windows environment, it is often used for authenticating domain users. Adversaries may exploit Kerberos by relaying authentication tickets locally to escalate privileges, potentially creating unauthorized services. The detection rule identifies suspicious local logins using Kerberos, followed by service creation, indicating possible misuse of Kerberos for privilege escalation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a successful local logon event (event ID 4624) with the Logon Package set to "Kerberos" and the source IP address within the loopback range (127.0.0.0/8 or ::1).
+- Verify the timestamp and LogonId of the suspicious logon event to ensure it aligns with the subsequent service creation event (event ID 4697).
+- Check the winlog.computer_name field to identify the affected host and determine if it is a domain-joined machine.
+- Investigate the winlog.event_data.TargetLogonId and winlog.event_data.SubjectLogonId fields to confirm that the same LogonId is used in both the logon and service creation events, indicating a potential Kerberos relay attack.
+- Use Osquery to list all services created or modified recently on the affected host with the following query: `SELECT name, path, start_type, status FROM services WHERE timestamp >= (SELECT MAX(timestamp) FROM services) - 300;`
+- Examine the source.port field in the logon event to identify any unusual or high-numbered ports that might indicate non-standard communication.
+- Correlate the alert with other security events or logs from the same timeframe to identify any additional suspicious activities or anomalies on the host.
+- Check for any known vulnerabilities or misconfigurations in the Kerberos setup on the affected host that could have been exploited.
+- Review user account activity associated with the logon event to determine if the account has been involved in any other suspicious activities or if it has been compromised.
+- Consult threat intelligence sources to identify if there are any known Kerberos relay attack variants or indicators of compromise that match the observed behavior.
+
+### False positive analysis
+
+- Scheduled tasks or legitimate software updates may trigger local Kerberos authentication followed by service creation, as these processes often use network logon types and may appear similar to malicious activity.
+- System administrators performing routine maintenance or deploying new services might inadvertently match the detection criteria, especially if they use scripts or tools that authenticate locally.
+- Security software or monitoring tools that perform regular checks or updates could also generate events that resemble the described pattern, leading to false positives.
+- To manage these false positives, users can create exceptions for known and trusted processes or accounts that frequently trigger the rule, ensuring that these are well-documented and regularly reviewed to maintain security integrity.
+- Implementing a whitelist of approved service creation activities or specific logon IDs associated with legitimate administrative tasks can help reduce noise and focus on truly suspicious activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to confirm the presence of a Kerberos relay attack by reviewing relevant logs, including event IDs 4624 and 4697, and correlating them with the suspicious activity.
+- Identify and terminate any unauthorized services created during the attack to prevent further exploitation.
+- Reset passwords for affected accounts and consider implementing multi-factor authentication to enhance security.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the full scope of the attack.
+- Restore the system to its operational state by removing any malicious software and ensuring all security patches and updates are applied.
+- Implement enhanced logging policies to capture detailed authentication and service creation events, ensuring that event IDs 4624 and 4697 are consistently logged.
+- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to improve detection and response capabilities for similar threats in the future.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Apply hardening measures such as disabling unused services, enforcing least privilege access, and regularly auditing user permissions to reduce the risk of future attacks."""
 
 
 [[rule.threat]]

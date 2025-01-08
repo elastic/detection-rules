@@ -2,7 +2,7 @@
 creation_date = "2023/04/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -62,6 +62,52 @@ file where host.os.type == "linux" and event.action == "rename" and
 file.Ext.original.name : ("*.vmdk", "*.vmx", "*.vmxf", "*.vmsd", "*.vmsn", "*.vswp", "*.vmss", "*.nvram", "*.vmem")
 and not file.name : ("*.vmdk", "*.vmx", "*.vmxf", "*.vmsd", "*.vmsn", "*.vswp", "*.vmss", "*.nvram", "*.vmem")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Renaming of ESXI Files
+
+VMware ESXi files, crucial for virtual machine operations, can be targeted by adversaries aiming to disguise malicious activities. By renaming files like ".vmdk" or ".vmx", attackers may evade detection tools. The detection rule identifies such renaming events on Linux systems, flagging potential masquerading attempts by monitoring changes in file extensions, thus aiding in defense evasion detection.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the file extensions involved in the renaming event, ensuring they match the specified VMware-related extensions such as ".vmdk", ".vmx", etc.
+- Verify the source and destination file names to understand the nature of the renaming and assess if the new file name appears suspicious or attempts to masquerade as a legitimate file.
+- Check the timestamp of the renaming event to determine if it coincides with any other suspicious activities or known attack timelines.
+- Investigate the user account associated with the renaming event to determine if it is a legitimate user or potentially compromised.
+- Examine the host where the renaming occurred to identify any other unusual activities or anomalies, such as unexpected processes or network connections.
+- Utilize Osquery to gather additional context about the file and system state. For example, run the following Osquery query to list recent file modifications on the host:
+  ```sql
+  SELECT * FROM file_events WHERE action = 'RENAME' AND path LIKE '%.vmdk' OR path LIKE '%.vmx' OR path LIKE '%.vmxf' OR path LIKE '%.vmsd' OR path LIKE '%.vmsn' OR path LIKE '%.vswp' OR path LIKE '%.vmss' OR path LIKE '%.nvram' OR path LIKE '%.vmem';
+  ```
+- Cross-reference the event with system logs to identify any correlated events, such as login attempts, privilege escalations, or other file operations around the same time.
+- Analyze network traffic logs from the host to detect any unusual outbound connections that might suggest data exfiltration or command-and-control communication.
+- Check for any recent changes in system configurations or installed software that could indicate a broader compromise or persistence mechanism.
+- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or indicators of compromise (IOCs) related to VMware ESXi environments.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators may rename VMware ESXi files during maintenance or migration activities, which can trigger the rule. To manage this, users can create exceptions for known administrative actions or specific time frames when such tasks are performed.
+- Backup operations: Automated backup processes might rename files as part of their operation, leading to false positives. Users can exclude backup-related processes or directories from the rule to reduce noise.
+- Software updates: Updates to VMware or related software might involve renaming files, which could be flagged by the rule. Users should consider excluding update processes or specific update directories to prevent unnecessary alerts.
+- Testing environments: In environments where frequent testing and development occur, file renaming might be a common practice. Users can create exceptions for specific test environments or user accounts to minimize false positives.
+- Custom scripts: Organizations may use custom scripts that rename VMware files for legitimate purposes. Identifying and excluding these scripts from the rule can help in reducing false alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to confirm the renaming event's legitimacy by reviewing logs and correlating with recent administrative activities.
+- If malicious activity is confirmed, identify and terminate any suspicious processes associated with the renamed files.
+- Restore any renamed VMware ESXi files to their original state using verified backups to ensure virtual machine integrity.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed file operation events, including renaming actions, to improve future detection capabilities.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to identify and respond to similar threats more effectively.
+- Review and update access controls and permissions on VMware ESXi files to limit the ability to rename or modify them without proper authorization.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Educate and train staff on recognizing and reporting suspicious activities related to VMware ESXi files to enhance organizational awareness and readiness."""
 
 
 [[rule.threat]]

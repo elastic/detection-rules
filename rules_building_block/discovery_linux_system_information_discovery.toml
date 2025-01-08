@@ -2,7 +2,7 @@
 creation_date = "2023/07/10"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -37,6 +37,50 @@ process where event.type == "start" and event.action in ("exec", "exec_event", "
   )
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux System Information Discovery
+
+Linux system information discovery involves commands like `uname`, `cat`, `more`, and `less` to gather system details such as kernel version, hardware, and configuration files. Adversaries exploit these to understand the environment and tailor their attacks. The detection rule identifies suspicious use of these commands, focusing on process initiation events and specific arguments that suggest system probing, thus flagging potential reconnaissance activities.
+
+### Possible investigation steps
+
+- Review the alert details to understand which specific command triggered the detection, focusing on the `process.name` and `process.args` fields.
+- Examine the `event.type` and `event.action` fields to confirm the nature of the process initiation and ensure it aligns with typical reconnaissance activities.
+- Check the user account associated with the process to determine if it is a legitimate user or potentially compromised.
+- Investigate the parent process of the suspicious command to identify if it was spawned by a legitimate application or script.
+- Analyze the command execution context by reviewing the `process.args` field to understand the specific system information being queried.
+- Correlate the timing of the alert with other security events or logs to identify any related suspicious activities or patterns.
+- Use Osquery to gather additional context on the system. For example, run the following query to list recent commands executed by the user: `SELECT * FROM shell_history WHERE uid = (SELECT uid FROM users WHERE username = 'suspicious_user');`
+- Investigate network connections at the time of the alert to identify any unusual outbound connections that may indicate data exfiltration.
+- Review system logs for any anomalies or errors around the time of the alert that could provide additional context or evidence of compromise.
+- Consult threat intelligence sources to determine if the observed behavior matches known tactics, techniques, and procedures (TTPs) of specific threat actors.
+
+### False positive analysis
+
+- Routine administrative tasks often involve the use of commands like `uname`, `cat`, `more`, and `less` to check system configurations, kernel versions, or hardware details, which can trigger false positives.
+- Automated scripts or monitoring tools that regularly check system status or configurations may also generate alerts, as they frequently execute these commands with arguments that match the detection criteria.
+- Developers and system administrators might use these commands during troubleshooting or system audits, leading to benign process initiation events being flagged.
+- To manage these false positives, users can create exceptions for known scripts or processes that are verified as non-threatening, ensuring they are excluded from triggering alerts.
+- Implementing a whitelist of trusted users or processes that regularly perform these actions can help reduce noise and focus on genuinely suspicious activities.
+- Regularly review and update the list of exceptions to adapt to changes in system administration practices or new tools that might be introduced into the environment.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation of the process events to confirm the nature and scope of the suspicious activity, focusing on the commands and arguments used.
+- Review user accounts and permissions on the affected system to identify any unauthorized access or privilege escalation.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the activity is part of a larger attack campaign.
+- Implement enhanced logging policies to capture detailed command-line activity and process execution events for future investigations.
+- Integrate threat intelligence feeds and MITRE ATT&CK framework into security monitoring tools to improve detection of similar tactics and techniques.
+- Restore the system to its operational state by applying necessary patches, updating configurations, and ensuring all security controls are active.
+- Conduct a post-incident review to identify gaps in security controls and processes, and update incident response plans accordingly.
+- Implement system hardening measures, such as disabling unnecessary services, enforcing strong authentication mechanisms, and applying least privilege principles.
+- Educate users and administrators on recognizing and reporting suspicious activities to enhance organizational security awareness."""
 
 
 [[rule.threat]]

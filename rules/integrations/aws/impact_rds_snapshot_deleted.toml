@@ -2,7 +2,7 @@
 creation_date = "2024/06/29"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/07/06"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -46,6 +46,48 @@ any where event.dataset == "aws.cloudtrail"
         (event.action == "ModifyDBInstance" and stringContains(aws.cloudtrail.request_parameters, "backupRetentionPeriod=0"))
     )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS RDS Snapshot Deleted
+
+AWS RDS snapshots are critical for data recovery, capturing full backups of database instances. Adversaries may delete these snapshots to prevent data restoration, effectively causing data loss. The detection rule monitors AWS CloudTrail logs for successful deletion actions or modifications that disable automated backups, signaling potential malicious activity aimed at data destruction.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to confirm the event details, focusing on the `event.action` field to verify if it matches "DeleteDBSnapshot", "DeleteDBClusterSnapshot", or "ModifyDBInstance" with `backupRetentionPeriod=0`.
+- Check the `event.provider` field to ensure the event is associated with "rds.amazonaws.com", confirming it pertains to RDS operations.
+- Analyze the `event.outcome` field to ensure the action was successful, indicating the snapshot was indeed deleted or the backup retention was modified.
+- Investigate the `aws.cloudtrail.user_identity` field to identify the user or role that performed the deletion or modification, which can help determine if the action was authorized.
+- Examine the `aws.cloudtrail.source_ip_address` field to identify the source IP address from which the request originated, which may provide clues about the actor's location or network.
+- Review the `aws.cloudtrail.request_parameters` field for additional context on the request, such as the specific snapshot or DB instance affected.
+- Utilize Osquery to gather further information on the AWS environment by running a query like: `SELECT * FROM aws_cloudtrail_events WHERE eventName IN ('DeleteDBSnapshot', 'DeleteDBClusterSnapshot', 'ModifyDBInstance') AND requestParameters LIKE '%backupRetentionPeriod=0%';` to cross-reference and validate the CloudTrail logs.
+- Check for any recent IAM policy changes or unusual activity in the AWS account that could indicate compromised credentials or privilege escalation.
+- Investigate other related AWS services and logs for any concurrent suspicious activities, such as unauthorized access attempts or changes in security group configurations.
+- Correlate the event with any known threat intelligence or past incidents to determine if this activity aligns with known attack patterns or adversary tactics.
+
+### False positive analysis
+
+- Routine maintenance activities by authorized personnel can trigger the rule, such as scheduled deletions of outdated snapshots to manage storage costs. Users can handle these by creating exceptions for specific user accounts or roles known to perform these tasks regularly.
+- Automated scripts or tools used for database management might delete snapshots as part of their normal operation. Users should identify these scripts and exclude their actions from triggering alerts by specifying the associated IAM roles or user accounts.
+- Changes in backup policies by the database administration team, such as temporarily setting the backupRetentionPeriod to 0 for testing purposes, can be mistaken for malicious activity. Users can manage this by documenting and excluding these policy changes when performed by trusted personnel.
+- Development or testing environments where snapshots are frequently created and deleted as part of the workflow may generate false positives. Users can exclude these environments by filtering out events associated with specific database instance identifiers or tags.
+
+### Response and remediation
+
+- Immediately isolate the affected AWS account to prevent further unauthorized actions and assess the scope of the incident.
+- Review AWS CloudTrail logs to identify the source of the deletion request, including the IAM user or role involved, and verify if it was authorized.
+- If unauthorized access is confirmed, rotate credentials and access keys for compromised accounts and implement multi-factor authentication (MFA) for all users.
+- Restore the deleted RDS snapshot from a backup if available, or contact AWS Support for potential recovery options.
+- Increase the backup frequency and retention period for critical databases to minimize data loss in future incidents.
+- Implement AWS Config rules to monitor and alert on changes to RDS snapshot configurations and backup settings.
+- Conduct a thorough investigation to determine if other AWS resources have been compromised and take necessary actions to secure them.
+- Escalate the incident to the security operations team and, if necessary, involve legal or compliance teams to assess regulatory impacts.
+- Enhance logging and monitoring by integrating AWS CloudTrail with a Security Information and Event Management (SIEM) system for real-time alerts and analysis.
+- Review and update the organization's incident response plan to incorporate lessons learned from the incident and improve future response efforts."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/06/08"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/10/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -60,6 +60,49 @@ file.path : ("/etc/sysctl.conf" or "/etc/sysctl.d" or /etc/sysctl.d/*) and not p
   dpkg or dockerd or unattended-upg or systemd-sysctl or python* or auditbeat or dpkg or pool*
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Sysctl File Event
+
+Sysctl configuration files in Linux systems manage kernel parameters, crucial for system performance and security. Adversaries may exploit these files to alter system behavior, potentially destabilizing or compromising the system. The detection rule identifies unauthorized access or changes to these files by monitoring file events and excluding legitimate processes, thus highlighting potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to understand which sysctl configuration file was accessed or modified, focusing on the `file.path` field to identify the specific file involved.
+- Examine the `event.action` field to determine the type of file operation (e.g., "opened-file", "read-file", "wrote-to-file") that triggered the alert.
+- Identify the process responsible for the file event by reviewing the `process.name` field, and cross-reference it with known legitimate processes to confirm if it is indeed suspicious.
+- Check the `host.os.type` field to ensure the alert pertains to a Linux system, as the rule is specifically designed for Linux environments.
+- Investigate the user account associated with the process by examining the `user.name` field to determine if the access was performed by a legitimate or suspicious user.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name = '<suspicious_process_name>';` to retrieve details like process ID, parent process, and command line arguments.
+- Review recent system logs for any unusual activity around the time of the alert, focusing on authentication logs and other security-related logs.
+- Analyze the system's process tree to understand the parent-child relationship of the suspicious process, which can provide insights into how the process was initiated.
+- Check for any recent changes to the sysctl configuration files by comparing the current file contents with a known good baseline or backup, if available.
+- Investigate any network connections established by the suspicious process using Osquery: `SELECT * FROM socket_events WHERE pid = <suspicious_process_pid>;` to identify potential external communication.
+
+### False positive analysis
+
+- Routine system maintenance tasks can trigger false positives. For example, legitimate system updates or package installations may access sysctl files, especially if not all relevant processes are excluded in the detection rule.
+- Automated configuration management tools like Ansible, Puppet, or Chef might access sysctl files to ensure system configurations are consistent, leading to benign alerts.
+- Backup or monitoring software that reads system configuration files for integrity checks or data collection purposes can also cause false positives.
+- To manage these false positives, users can update the detection rule to exclude additional known legitimate processes by adding them to the `not process.name` list. This can include specific maintenance scripts or tools that are regularly used in the environment.
+- Regularly review and update the exclusion list to reflect changes in system management practices or new tools introduced into the environment, ensuring that only non-threatening behaviors are excluded.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or changes.
+- Conduct a thorough investigation to identify the source of the unauthorized access, focusing on recent changes to sysctl configuration files and correlating with process activity.
+- Review system logs and security alerts to determine if any other systems have been targeted or compromised.
+- Restore the sysctl configuration files from a known good backup to ensure system stability and security.
+- Apply patches and updates to the operating system and applications to mitigate any known vulnerabilities that may have been exploited.
+- Implement stricter access controls and permissions on sysctl configuration files to limit who can read or modify them.
+- Enhance logging and monitoring by integrating with a Security Information and Event Management (SIEM) system to detect future unauthorized access attempts.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate and train staff on recognizing and responding to suspicious activities related to system configuration files.
+- Consider deploying additional security measures such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to improve threat detection capabilities."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

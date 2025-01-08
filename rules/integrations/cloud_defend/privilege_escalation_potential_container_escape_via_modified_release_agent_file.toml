@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -40,6 +40,48 @@ query = '''
 file where event.module == "cloud_defend" and event.action == "open" and 
 event.type == "change" and file.name : "release_agent"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Container Escape via Modified release_agent File
+
+In containerized environments, the release_agent file in CGroup directories can execute scripts upon process termination. Adversaries exploit this by modifying the file from privileged containers, potentially escalating privileges or escaping to the host. The detection rule monitors changes to the release_agent file, signaling possible malicious activity by identifying unauthorized modifications.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the file involved is indeed the `release_agent` file and verify the event.module is "cloud_defend" with event.action as "open" and event.type as "change".
+- Identify the container from which the modification originated by examining the source IP, container ID, and any associated user or process information.
+- Check the privileges of the container, specifically looking for SYS_ADMIN capabilities, to assess if it has the necessary permissions to modify the release_agent file.
+- Use Osquery to list all processes running in the container to identify any suspicious or unauthorized processes. Example query: `SELECT pid, name, path FROM processes WHERE path LIKE '/proc/%/exe';`
+- Investigate the history of the release_agent file to determine when it was last modified and by which process or user.
+- Examine the contents of the modified release_agent file to understand what script or command is being executed upon process termination.
+- Correlate the modification event with any other suspicious activities or alerts in the same timeframe to identify potential lateral movement or privilege escalation attempts.
+- Check for any recent changes in the CGroup directory permissions or configurations that could have facilitated the modification.
+- Review system logs and audit logs for any anomalies or unauthorized access attempts around the time of the modification.
+- Investigate any network connections from the container to external IPs that could indicate data exfiltration or command and control communication.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators may legitimately modify the release_agent file during maintenance or configuration changes. Users can handle these by creating exceptions for known administrative activities or specific time windows when such tasks are expected.
+- Automated scripts or tools: Some container management tools or scripts might modify the release_agent file as part of their normal operation. Users should identify these tools and whitelist their activities to prevent false alerts.
+- Testing environments: In development or testing environments, developers might intentionally modify the release_agent file to test container behaviors. Users can exclude these environments from monitoring or set up specific rules that differentiate between production and non-production environments.
+- Legitimate software updates: Certain software updates might involve changes to the release_agent file. Users should maintain an updated list of software that is allowed to perform such updates and configure exceptions accordingly.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further unauthorized access or potential spread to other containers or the host system.
+- Investigate the container's logs and any associated network traffic to identify the source and scope of the compromise.
+- Verify the integrity of the release_agent file and any scripts it may execute, ensuring they have not been tampered with or replaced by malicious versions.
+- Check for any unauthorized changes to the container's configuration, particularly those related to CGroup settings and SYS_ADMIN capabilities.
+- Escalate the incident to the security operations team if the investigation reveals a potential breach or if the threat actor's identity and methods are unclear.
+- Restore the container from a known good backup if available, ensuring that any vulnerabilities exploited by the attacker are patched.
+- Implement enhanced logging and monitoring for CGroup directories and privileged container activities to detect similar threats in the future.
+- Review and update access controls and permissions for containers, ensuring that only necessary privileges are granted to minimize the risk of exploitation.
+- Conduct a post-incident review to identify gaps in security controls and processes, and update incident response plans accordingly.
+- Educate relevant personnel on the risks associated with container escapes and the importance of maintaining strict security practices in containerized environments."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/10/16"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -42,6 +42,48 @@ file where host.os.type == "windows" and event.type != "deletion" and
     "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Excel\\XLSTART\\*"
     )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via Microsoft Office AddIns
+
+Microsoft Office add-ins enhance functionality by allowing custom code execution when Office applications start. Adversaries exploit this by placing malicious add-ins in specific directories, ensuring their code runs whenever the application launches, thus achieving persistence. The detection rule identifies suspicious files with extensions like .xll or .xlam in these directories, signaling potential abuse for persistence.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and extension that triggered the detection, focusing on the `file.path` and `file.extension` fields.
+- Verify the legitimacy of the file by checking its creation and modification timestamps to determine if it aligns with known user activity or software updates.
+- Examine the file's metadata and properties to identify the publisher or author, which may provide clues about its legitimacy.
+- Use Osquery to list all files in the suspicious directories to identify any other potentially malicious add-ins. Example query: `SELECT path, filename, extension, size, atime, mtime FROM file WHERE path LIKE 'C:\\\\Users\\\\%\\\\AppData\\\\Roaming\\\\Microsoft\\\\%\\\\%' AND extension IN ('wll', 'xll', 'ppa', 'ppam', 'xla', 'xlam');`
+- Check the file's hash against known malware databases or threat intelligence sources to determine if it is a known threat.
+- Investigate the user account associated with the file path to determine if there is any unusual or unauthorized activity linked to that account.
+- Review recent system logs and events for any signs of suspicious activity or anomalies around the time the file was created or modified.
+- Analyze network traffic from the affected endpoint to identify any unusual outbound connections that may indicate data exfiltration or command-and-control communication.
+- Correlate the alert with other security events or alerts from the same endpoint to identify potential patterns or related incidents.
+- Consult with the user or system owner to verify if the add-in was intentionally installed and if they have experienced any unusual behavior with their Office applications.
+
+### False positive analysis
+
+- Legitimate add-ins: Users may have legitimate Microsoft Office add-ins installed that match the detection criteria, such as productivity tools or custom scripts developed by IT departments. These can trigger false positives if they reside in the monitored directories.
+- Frequent updates: Some legitimate add-ins may update frequently, causing repeated alerts. This is common with add-ins that receive regular feature enhancements or security patches.
+- User-specific add-ins: In environments where users are allowed to install their own add-ins, personal productivity tools or educational add-ins might be flagged as suspicious.
+- Handling false positives: To manage these, users can create exceptions for known legitimate add-ins by excluding specific file paths or hashes from the detection rule. Regularly review and update the list of exceptions to ensure it reflects the current environment and does not inadvertently exclude new threats.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the malicious add-in.
+- Conduct a thorough investigation to identify the source of the malicious add-in, checking for any recent downloads or email attachments that may have been the initial vector.
+- Remove the identified malicious add-in files from the specified directories to eliminate the persistence mechanism.
+- Perform a full antivirus and anti-malware scan on the affected system to detect and remove any additional threats.
+- Review user account activity for any unauthorized access or changes, and reset passwords if necessary to secure accounts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed file creation and modification events, focusing on the directories used for Office add-ins.
+- Integrate threat intelligence feeds to update detection rules and improve the identification of similar threats in the future.
+- Restore the system to its operational state by ensuring all legitimate add-ins are intact and the system is fully patched and updated.
+- Apply hardening measures such as restricting write access to Office add-in directories and educating users on the risks of downloading and opening untrusted files."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["ded", "endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 75
@@ -52,6 +52,49 @@ tags = [
     "Tactic: Exfiltration",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in Bytes Sent to an External Device via Airdrop
+
+Airdrop facilitates seamless file sharing between Apple devices, leveraging Bluetooth and Wi-Fi. While convenient, adversaries can exploit it to exfiltrate data stealthily. The detection rule identifies anomalies by monitoring data transfer volumes, flagging unusually high data spikes as potential illicit activities, thus alerting analysts to investigate possible data breaches.
+
+### Possible investigation steps
+
+- Review the alert details to understand the context, including the timestamp, source device, and volume of data transferred.
+- Verify the identity of the external device receiving the data to determine if it is a known and trusted device.
+- Cross-reference the user account associated with the data transfer to check for any unusual or unauthorized access patterns.
+- Analyze historical data transfer patterns for the source device to identify deviations from normal behavior.
+- Use Osquery to gather additional context on the source device. For example, run the following query to list recent Airdrop activities: `SELECT * FROM process_events WHERE path LIKE '%AirDrop%' AND datetime > (SELECT datetime('now', '-1 day'));`
+- Check for any recent changes in user permissions or configurations on the source device that might have facilitated the data transfer.
+- Investigate any concurrent network activities or connections from the source device that could indicate coordinated data exfiltration efforts.
+- Examine system logs for any signs of malware or unauthorized software that could be facilitating the data transfer.
+- Correlate the alert with other security events or alerts to identify potential patterns or coordinated attacks.
+- Consult with the user or device owner to verify if the data transfer was legitimate and authorized, and gather any additional context or explanations.
+
+### False positive analysis
+
+- High data transfer volumes via Airdrop can occur during legitimate activities such as software updates, large media file transfers, or backups, which may trigger false positives.
+- Users frequently sharing large files for collaborative projects or educational purposes might also cause spikes that are non-threatening.
+- To manage these false positives, analysts can create exceptions for known devices or users who regularly transfer large amounts of data as part of their normal workflow.
+- Implementing a baseline of typical data transfer patterns for specific departments or roles can help distinguish between legitimate and suspicious activities.
+- Regularly updating the detection model with feedback from investigations can improve its accuracy in differentiating between false positives and genuine threats.
+
+### Response and remediation
+
+- Immediately isolate the affected device from the network to prevent further data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the data transfer, including reviewing logs and any associated user activity.
+- Verify the legitimacy of the data transfer by contacting the user involved and cross-referencing with business operations.
+- If malicious activity is confirmed, escalate the incident to the security operations center (SOC) and relevant stakeholders for further analysis and response.
+- Implement additional logging and monitoring for Airdrop activities to capture detailed information on future data transfers.
+- Review and update security policies to restrict Airdrop usage to only authorized personnel and devices.
+- Restore the system to its operational state by ensuring all unauthorized changes are reverted and any malicious software is removed.
+- Conduct a post-incident review to identify gaps in the current security posture and improve detection capabilities.
+- Educate employees on the risks associated with Airdrop and best practices for secure data sharing.
+- Consider integrating advanced threat detection tools that leverage machine learning to enhance anomaly detection and response capabilities."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

@@ -2,7 +2,7 @@
 creation_date = "2021/05/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -24,7 +24,50 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Full Network Packet Capture Detected"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EC2 Full Network Packet Capture Detected
+
+Traffic Mirroring in AWS EC2 allows the duplication of network traffic from an Elastic Network Interface for monitoring and analysis. While beneficial for diagnostics, adversaries can exploit this to siphon off unencrypted data. The detection rule identifies successful creation events of traffic mirroring components, signaling potential misuse for data exfiltration.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs to identify the user or role associated with the creation of traffic mirroring components by examining the `user.identity.arn` field.
+- Check the `sourceIPAddress` field in the CloudTrail logs to determine the origin of the request, which can help identify if the request was made from an unusual or unauthorized location.
+- Analyze the `event.time` field to establish a timeline of when the traffic mirroring components were created, which can help correlate with other suspicious activities.
+- Investigate the `eventName` field to confirm which specific traffic mirroring component was created (e.g., `CreateTrafficMirrorFilter`, `CreateTrafficMirrorFilterRule`, `CreateTrafficMirrorSession`, or `CreateTrafficMirrorTarget`).
+- Use Osquery to query the AWS EC2 instance metadata and configuration for any unusual changes or configurations. Example query: `SELECT * FROM ec2_instance_metadata WHERE key = 'instance-id';`
+- Examine the `event.outcome` field to ensure the creation event was successful, confirming that the traffic mirroring components are active.
+- Cross-reference the `awsRegion` field to verify if the traffic mirroring activity is occurring in an expected region or if it is happening in a region that is not typically used by your organization.
+- Investigate the `requestParameters` field to gather more details about the configuration of the traffic mirroring components, such as the target and session settings.
+- Check for any other related CloudTrail events around the same timeframe that might indicate additional suspicious activities, such as changes to security groups or IAM policies.
+- Review network traffic logs and flow logs for the mirrored traffic to identify any unusual data patterns or potential data exfiltration attempts.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate network monitoring activities by security teams can trigger this detection. Regularly scheduled traffic mirroring for performance analysis or troubleshooting may appear as suspicious but are benign.
+- Automated infrastructure management: Automated scripts or tools that manage AWS resources might create traffic mirroring components as part of their operations. These should be reviewed to ensure they align with expected behavior.
+- Development and testing environments: In non-production environments, developers might use traffic mirroring to test network configurations or application performance, leading to false positives.
+- To manage these false positives, users can create exceptions for known IP addresses or AWS accounts that regularly perform legitimate traffic mirroring. Additionally, tagging resources with specific identifiers for approved activities can help in filtering out non-threatening events.
+
+### Response and remediation
+
+- Immediately isolate the affected EC2 instance to prevent further data exfiltration by disabling the traffic mirroring session.
+- Review CloudTrail logs to identify the source and scope of the traffic mirroring creation events, focusing on the user or service account responsible.
+- Conduct a thorough investigation to determine if any sensitive data was accessed or exfiltrated during the traffic mirroring session.
+- Change credentials and access keys for any compromised accounts and review IAM policies to ensure least privilege access is enforced.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement network segmentation to limit the exposure of sensitive data and reduce the risk of unauthorized traffic mirroring.
+- Enable encryption for all sensitive data in transit to mitigate the risk of data exfiltration through unencrypted traffic.
+- Enhance logging and monitoring by integrating AWS CloudTrail with a Security Information and Event Management (SIEM) system for real-time alerting and analysis.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Apply hardening measures such as disabling unused services, regularly updating software, and conducting security awareness training for users.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

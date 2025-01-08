@@ -2,7 +2,7 @@
 creation_date = "2024/08/23"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/10/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -37,6 +37,48 @@ process.name == "setfacl" and not (
   process.args == "/var/log/journal/"
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Access Control List Modification via setfacl
+
+Access Control Lists (ACLs) in Linux enhance file permissions by allowing more granular control over who can access or modify files. The `setfacl` command is used to set these permissions. Adversaries may exploit `setfacl` to stealthily alter permissions, evading detection and maintaining persistence. The detection rule identifies suspicious `setfacl` executions, excluding benign patterns, to flag potential unauthorized ACL modifications.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `setfacl` command execution, focusing on the `process.name` and `event.type` fields to ensure the event is a process start.
+- Examine the `process.command_line` field to understand the exact command executed and identify any unusual or suspicious arguments that deviate from typical usage patterns.
+- Check the `process.args` field to determine the specific files or directories targeted by the `setfacl` command, paying attention to any sensitive or critical system files.
+- Investigate the user account associated with the `setfacl` execution to determine if the action aligns with their typical behavior or role within the organization.
+- Correlate the event with other recent activities from the same user or process to identify any patterns or sequences that suggest malicious intent.
+- Use Osquery to gather additional context on the file or directory affected by the ACL modification. For example, run the following query to list current ACLs for a specific file: `SELECT * FROM file WHERE path = '/path/to/suspicious/file';`
+- Review system logs around the time of the `setfacl` execution to identify any related events or anomalies that could provide further context or indicate a broader attack.
+- Investigate the parent process of the `setfacl` execution to determine if it was initiated by a legitimate application or script, or if it was potentially spawned by malicious software.
+- Assess the system for any signs of compromise or unauthorized access that could explain the unexpected ACL modification, such as unusual network connections or new user accounts.
+- Consult with the system owner or relevant personnel to verify if the `setfacl` execution was authorized and necessary, and gather any additional context that could aid in the investigation.
+
+### False positive analysis
+
+- Routine administrative tasks often involve the use of `setfacl` to manage file permissions, which can trigger false positives. System administrators frequently use `setfacl` to configure permissions for shared directories or to restore permissions from backups.
+- Automated scripts or configuration management tools like Ansible, Puppet, or Chef may execute `setfacl` as part of their normal operations, leading to benign alerts.
+- To manage these false positives, users can create exceptions for specific command-line patterns or arguments that are known to be safe, such as excluding processes with command lines that match regular maintenance tasks.
+- Users should regularly review and update the exclusion list to ensure it reflects current operational practices, minimizing the risk of overlooking genuine threats while reducing noise from legitimate activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the scope of the ACL modifications, including which files or directories were affected and the specific changes made.
+- Review system logs and security alerts to determine if the `setfacl` command was executed by a legitimate user or if credentials may have been compromised.
+- Revert unauthorized ACL changes by restoring permissions to their original state using backups or predefined security baselines.
+- Escalate the incident to the security operations center (SOC) or incident response team if unauthorized access or potential compromise is confirmed.
+- Implement enhanced logging for ACL changes and `setfacl` command executions to improve detection of future unauthorized modifications.
+- Integrate with a security information and event management (SIEM) system to correlate ACL modification events with other suspicious activities.
+- Educate users on the importance of secure credential management and the risks associated with unauthorized permission changes.
+- Apply system hardening measures, such as restricting the use of `setfacl` to authorized administrators only and using role-based access controls.
+- Regularly review and update access control policies to ensure they align with the principle of least privilege and are resilient against evasion techniques."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

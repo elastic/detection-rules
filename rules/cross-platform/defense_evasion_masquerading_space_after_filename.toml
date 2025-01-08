@@ -2,7 +2,7 @@
 creation_date = "2022/10/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -52,6 +52,49 @@ process.executable regex~ """/[a-z0-9\s_\-\\./]+\s""" and not (
   )
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Masquerading Space After Filename
+
+In Linux and macOS environments, appending a space to a filename can trick the OS into executing a file based on its true type rather than its extension. Adversaries exploit this by disguising malicious files with benign extensions, adding a space to ensure execution. The detection rule identifies such anomalies by monitoring process creation events, filtering out known benign processes, and flagging suspicious executable patterns.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process executable path that triggered the rule, focusing on the presence of a space at the end of the filename.
+- Verify the legitimacy of the process by checking the process name and executable path against known benign processes and paths listed in the query's exceptions.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT pid, name, path, cmdline, cwd, uid, gid, start_time FROM processes WHERE path LIKE '% ' AND path = '<triggered_executable_path>';` to retrieve detailed information about the suspicious process.
+- Investigate the parent process of the suspicious executable to understand the process hierarchy and determine if the parent process is known or expected.
+- Check the file metadata of the suspicious executable, including creation and modification times, to identify any anomalies or recent changes that could indicate tampering.
+- Examine the file type of the executable using the `file` command to confirm if the actual file type matches the expected type based on the file extension.
+- Search for any network connections or communications initiated by the suspicious process to identify potential command and control activity or data exfiltration.
+- Review system logs and other security tools for any additional indicators of compromise or related suspicious activity around the time the process was executed.
+- Investigate the user account associated with the process execution to determine if the account has been compromised or is exhibiting unusual behavior.
+- Correlate the findings with threat intelligence sources to check for known indicators of compromise or patterns associated with the detected behavior.
+
+### False positive analysis
+
+- Known false positives for the Masquerading Space After Filename rule include legitimate processes that may have a space appended to their filenames due to user error or specific application behavior. These can include scripts or executables that are mistakenly renamed with a trailing space.
+- Users can manage these false positives by creating exceptions for known benign processes. This can be done by adding specific process names or executable paths to the exclusion list within the detection rule.
+- For instance, if a legitimate script in a custom directory frequently triggers the rule, users can modify the rule to exclude that specific path or process name.
+- It's important to regularly review and update the exclusion list to ensure that new legitimate processes are not mistakenly flagged, while still maintaining the integrity of the detection for potential threats.
+- Users should also consider the context of the flagged process, such as its parent process and command-line arguments, to determine if it aligns with expected behavior or if it warrants further investigation.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation to identify the source and scope of the masquerading file, examining logs and process creation events.
+- Terminate any suspicious processes identified as being executed with a space after the filename to halt any ongoing malicious activity.
+- Remove or quarantine the identified malicious files from the system to prevent re-execution.
+- Review and update endpoint protection and antivirus signatures to detect similar threats in the future.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process creation events and file modifications for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar masquerading techniques.
+- Restore the system from a known good backup to ensure the integrity and security of the operating environment.
+- Apply system hardening measures, such as restricting file execution permissions and educating users on recognizing suspicious file behaviors, to reduce the risk of future attacks."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

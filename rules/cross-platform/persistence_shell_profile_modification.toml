@@ -2,7 +2,7 @@
 creation_date = "2021/01/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -49,6 +49,50 @@ event.category:file and event.type:change and
              /Users/*/.bash_profile or
              /Users/*/.zshenv)
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Bash Shell Profile Modification
+
+Bash shell profiles, such as `.bash_profile` and `.bashrc`, are scripts that configure user environments upon login. Adversaries exploit these files to maintain persistence by embedding malicious commands that execute automatically. The detection rule identifies unauthorized changes to these profiles by monitoring file modifications and filtering out benign processes, thus highlighting potential security threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path that was modified, focusing on paths like `/home/*/.bash_profile` or `/home/*/.bashrc`.
+- Examine the `process.name` field in the alert to determine which process was responsible for the modification, ensuring it is not one of the benign processes filtered out in the query.
+- Check the `process.executable` field to verify the location of the executable that made the change, ensuring it is not from a known safe directory like `/Applications/*` or `/usr/local/*`.
+- Use Osquery to list recent modifications to the user's shell profile files with a query like: `SELECT path, mtime FROM file WHERE path IN ('/home/*/.bash_profile', '/home/*/.bashrc') ORDER BY mtime DESC LIMIT 5;`.
+- Investigate the user account associated with the modified file to determine if the activity aligns with their typical behavior or if it appears suspicious.
+- Review the contents of the modified shell profile file to identify any unusual or malicious commands that may have been added.
+- Cross-reference the timestamp of the file modification with other logs, such as authentication or network logs, to identify any correlated suspicious activity.
+- Check for any recent installations or updates on the system that might have legitimately modified the shell profile files.
+- Investigate any other alerts or anomalies associated with the same user or system to determine if this is part of a broader attack pattern.
+- Consult threat intelligence sources to see if the identified modification or process is associated with known adversary techniques or campaigns.
+
+### False positive analysis
+
+- Frequent legitimate modifications to Bash shell profiles by system administrators or automated scripts can trigger false positives. These include updates made by package managers or configuration management tools.
+- Users often customize their shell environment by adding aliases, functions, or environment variables, which can be mistakenly flagged as suspicious.
+- Development tools and IDEs might modify these profiles to set up necessary environment variables or paths, leading to benign alerts.
+- To manage these false positives, users can create exceptions for known benign processes or specific file paths that are regularly modified for legitimate reasons.
+- Implementing a whitelist of trusted processes or directories can help reduce noise by excluding routine modifications from triggering alerts.
+- Regularly review and update the detection rule to accommodate new legitimate processes or tools that interact with Bash shell profiles.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify unauthorized changes by comparing the current Bash shell profile files with known good backups or baselines.
+- Review recent user activity and process execution logs to identify the source of the unauthorized modifications and any associated malicious processes.
+- Remove any malicious entries from the Bash shell profile files and restore them to their original state using verified backups.
+- Scan the system for additional indicators of compromise, such as unauthorized user accounts or scheduled tasks, and remove any identified threats.
+- Escalate the incident to the security operations center (SOC) or incident response team if the threat appears to be part of a larger attack campaign or if multiple systems are affected.
+- Implement enhanced logging policies to capture detailed file modification events and process execution data for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
+- Educate users on the importance of secure shell practices and the risks associated with unauthorized profile modifications.
+- Apply system hardening measures, such as restricting write permissions to critical configuration files and using multi-factor authentication (MFA) for user logins, to reduce the attack surface."""
 
 
 [[rule.threat]]

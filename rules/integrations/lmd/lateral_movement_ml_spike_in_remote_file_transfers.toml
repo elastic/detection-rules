@@ -2,7 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 70
@@ -53,6 +53,49 @@ tags = [
     "Tactic: Lateral Movement",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in Remote File Transfers
+
+Remote file transfer technologies facilitate seamless data sharing across networks, essential for collaboration and operations. However, adversaries exploit these technologies to move laterally within a network, often transferring data in small, inconspicuous batches to avoid detection. The 'Spike in Remote File Transfers' detection rule leverages machine learning to identify unusual transfer volumes, signaling potential malicious activity and aligning with MITRE ATT&CK's lateral movement tactics.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host and user account involved in the unusual remote file transfer activity.
+- Examine the timestamp of the detected spike to correlate with any known scheduled tasks or legitimate business operations.
+- Analyze network logs to identify the source and destination IP addresses involved in the file transfers, checking for any known malicious IPs.
+- Investigate the file types and sizes transferred to determine if they align with typical business operations or if they contain sensitive data.
+- Use Osquery to gather additional context on the host by running a query such as: `SELECT * FROM processes WHERE name LIKE '%scp%' OR name LIKE '%rsync%' OR name LIKE '%ftp%';` to identify any suspicious file transfer processes.
+- Check user activity logs to verify if the user account involved in the transfer has a history of similar activities or if this is an anomaly.
+- Review authentication logs to determine if there were any unusual login attempts or successful logins around the time of the file transfer spike.
+- Investigate any recent changes in user permissions or roles that might have facilitated the file transfers.
+- Correlate the detected activity with any other alerts or incidents in the same timeframe to identify potential patterns or coordinated attacks.
+- Consult threat intelligence sources to see if there are any known campaigns or threat actors using similar tactics, techniques, and procedures (TTPs) that match the observed activity.
+
+### False positive analysis
+
+- Known false positives for the Spike in Remote File Transfers rule often include legitimate business operations such as regular data backups, software updates, or large file transfers related to business processes. These activities can mimic the patterns of small, frequent data transfers that the rule is designed to detect.
+- To manage these false positives, users can create exceptions for specific hosts or IP addresses known to perform regular, non-threatening file transfers. This can be done by analyzing historical data to identify consistent patterns and then configuring the detection system to exclude these patterns from triggering alerts.
+- Another method to handle false positives is to adjust the sensitivity of the machine learning model. By fine-tuning the model parameters, users can reduce the likelihood of false positives while still maintaining the ability to detect genuine threats.
+- Users should also consider implementing a whitelist of trusted applications and services that are known to perform legitimate remote file transfers. This can help in distinguishing between benign and potentially malicious activities.
+- Regularly reviewing and updating the list of exceptions and whitelisted entities is crucial, as network environments and business processes evolve over time, potentially altering the baseline of normal activity.
+
+### Response and remediation
+
+- Isolate the affected systems from the network to prevent further lateral movement and data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the intrusion, focusing on logs and alerts related to remote file transfers.
+- Analyze the detected abnormal file transfer patterns to determine if they align with known MITRE ATT&CK techniques, specifically T1210 Exploitation of Remote Services.
+- Review and enhance logging policies to ensure comprehensive monitoring of remote file transfer activities, including the implementation of centralized logging solutions.
+- Implement additional security controls such as network segmentation and access controls to limit the potential for lateral movement.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response coordination.
+- Remove any identified malicious software or tools used by the adversary to facilitate remote file transfers.
+- Restore affected systems from clean backups and ensure all security patches and updates are applied.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Educate employees on recognizing and reporting suspicious activities, emphasizing the importance of adhering to security policies and procedures."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

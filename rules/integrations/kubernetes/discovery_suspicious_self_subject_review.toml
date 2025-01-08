@@ -2,7 +2,7 @@
 creation_date = "2022/06/30"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,50 @@ index = ["logs-kubernetes.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Kubernetes Suspicious Self-Subject Review"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kubernetes Suspicious Self-Subject Review
+
+Kubernetes uses Self-Subject Access Review APIs to allow entities to check their own permissions, a feature typically unnecessary for service accounts or nodes. Adversaries exploiting compromised credentials might use these APIs to assess their access rights, aiding lateral movement or privilege escalation. The detection rule identifies unusual API calls by non-human identities, flagging potential unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific service account or node involved by examining the `kubernetes.audit.user.username` or `kubernetes.audit.impersonatedUser.username` fields.
+- Check the `kubernetes.audit.objectRef.resource` field to confirm whether the API call was for `selfsubjectaccessreviews` or `selfsubjectrulesreviews`.
+- Investigate the `kubernetes.audit.annotations.authorization_k8s_io/decision` field to ensure the request was indeed allowed, indicating a successful permission check.
+- Analyze the `kubernetes.audit.verb` field to verify that the action was a `create` operation, which is necessary for initiating a self-subject review.
+- Correlate the timestamp of the alert with other logs to identify any preceding or subsequent suspicious activities involving the same service account or node.
+- Use Osquery to gather additional context about the node or pod from which the request originated. Example query: `SELECT * FROM kubernetes_pods WHERE name = '<pod_name>' AND namespace = '<namespace>';`
+- Examine the Kubernetes RBAC (Role-Based Access Control) settings to determine the permissions associated with the service account or node in question.
+- Investigate any recent changes to the service account or node's permissions or roles that might explain the unusual behavior.
+- Check for any known vulnerabilities or security advisories related to Kubernetes that might be relevant to the observed behavior.
+- Review historical logs to determine if similar self-subject review requests have been made by the same or other service accounts or nodes, indicating a pattern of behavior.
+
+### False positive analysis
+
+- Service accounts or nodes that are part of automated processes or CI/CD pipelines might legitimately use self-subject access review APIs to verify permissions before executing tasks. These should be reviewed and, if deemed non-threatening, can be excluded from the rule by adding exceptions for specific service accounts or node identities.
+- Monitoring or security tools that integrate with Kubernetes may perform self-subject access reviews as part of their normal operation to ensure they have the necessary permissions to function correctly. Identifying these tools and excluding their service accounts from the rule can reduce false positives.
+- During cluster setup or maintenance, administrators might temporarily use service accounts or nodes to verify permissions, which could trigger the rule. Documenting these activities and excluding the relevant accounts during these periods can help manage false positives.
+- In environments where role-based access control (RBAC) policies are frequently updated, service accounts might perform self-subject access reviews to adapt to new permissions. Regularly reviewing and updating the list of exceptions to include these accounts can help maintain the balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected service account or node to prevent further unauthorized access or lateral movement within the cluster.
+- Review Kubernetes audit logs to identify any other suspicious activities or API calls made by the compromised identity.
+- Revoke and rotate credentials or tokens associated with the compromised service account or node to prevent further misuse.
+- Conduct a thorough investigation to determine how the credentials were compromised and assess the extent of the breach.
+- Escalate the incident to the security operations team and involve relevant stakeholders to ensure a coordinated response.
+- Implement enhanced logging and monitoring for Kubernetes audit logs to detect similar suspicious activities in the future.
+- Integrate with a Security Information and Event Management (SIEM) system to correlate Kubernetes events with other security data for comprehensive threat detection.
+- Apply Kubernetes Role-Based Access Control (RBAC) policies to limit permissions for service accounts and nodes, adhering to the principle of least privilege.
+- Restore the system to its operational state by verifying the integrity of the cluster and ensuring no unauthorized changes were made.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans to improve future resilience against similar threats.
+
+## Setup
 
 The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
 references = [

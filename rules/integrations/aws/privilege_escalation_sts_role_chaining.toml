@@ -2,7 +2,7 @@
 creation_date = "2024/10/23"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/10/23"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,50 @@ from = "now-6m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS STS Role Chaining"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS STS Role Chaining
+
+AWS STS (Security Token Service) allows temporary, limited-privilege credentials for AWS resources. Role chaining involves using one temporary role to assume another, potentially escalating privileges if the second role has more access. Adversaries exploit this for privilege escalation or persistence. The detection rule identifies such activity by monitoring specific API calls and access patterns within a single account, focusing on temporary credentials to spot potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to understand the context, focusing on the `aws.cloudtrail.user_identity.arn` to identify the user or service that initiated the role chaining.
+- Examine the `aws.cloudtrail.user_identity.access_key_id` to confirm it begins with "ASIA", indicating the use of temporary credentials.
+- Check the `cloud.region` field to determine the geographical location of the activity and assess if it aligns with expected operations.
+- Analyze the `aws.cloudtrail.resources.account_id` and `aws.cloudtrail.recipient_account_id` to ensure the activity is confined within a single account, ruling out cross-account role assumptions.
+- Investigate the history of the `aws.cloudtrail.user_identity.arn` to identify any unusual patterns or recent changes in behavior.
+- Use Osquery to gather additional context on the system where the role chaining was initiated. Example query: `SELECT * FROM aws_sts WHERE access_key_id LIKE 'ASIA%' AND arn = '<user_arn>';`
+- Correlate the `AssumeRole` events with other logs to identify any subsequent actions taken using the assumed role, focusing on sensitive operations.
+- Review IAM policies associated with the roles involved to determine if the permissions granted could lead to privilege escalation.
+- Check for any recent changes to IAM roles or policies that might have inadvertently allowed for increased privileges.
+- Consult with relevant stakeholders or system owners to verify if the role chaining activity was expected or authorized as part of normal operations.
+
+### False positive analysis
+
+- Role chaining within a single account for legitimate operational purposes can trigger false positives. This often occurs in environments where automated processes or scripts frequently assume roles for routine tasks.
+- Cross-account role assumptions are common in multi-account AWS environments, but this rule specifically filters them out to reduce false positives. However, similar patterns within a single account can still be flagged.
+- Users can manage these false positives by creating exceptions for known, benign role chaining activities. This can be done by maintaining a list of trusted role ARNs or access key IDs that are known to perform legitimate role chaining.
+- Regularly review and update the list of exceptions to ensure that only non-threatening behaviors are excluded, and monitor for any changes in access patterns that might indicate misuse.
+
+### Response and remediation
+
+- Immediately revoke the temporary credentials associated with the suspicious AssumeRole activity to prevent further unauthorized access.
+- Conduct a thorough investigation of the AWS CloudTrail logs to identify the source and scope of the role chaining activity, focusing on the user identity and access patterns.
+- Verify the permissions of the roles involved in the chaining to ensure they do not exceed the intended access levels and adjust policies to adhere to the principle of least privilege.
+- Escalate the incident to the security operations team if the role chaining activity is linked to a known threat actor or if it involves sensitive resources.
+- Implement enhanced logging and monitoring for AWS STS and IAM activities to detect similar patterns in the future, ensuring that all AssumeRole actions are logged and reviewed.
+- Integrate AWS CloudTrail logs with a Security Information and Event Management (SIEM) system to automate the detection and alerting of suspicious role chaining activities.
+- Review and update the AWS IAM policies and roles to include multi-factor authentication (MFA) for sensitive operations to reduce the risk of unauthorized access.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Restore any affected systems or services to their operational state by rolling back unauthorized changes and verifying the integrity of critical resources.
+- Educate and train staff on the risks associated with role chaining and the importance of adhering to security best practices to prevent future incidents.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

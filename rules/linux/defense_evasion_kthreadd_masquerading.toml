@@ -2,7 +2,7 @@
 creation_date = "2024/02/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,49 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
 process.name : ("kworker*", "kthread*") and process.executable != null
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Executable Masquerading as Kernel Process
+
+In Linux environments, kernel processes like kthreadd and kworker are integral to system operations and typically lack associated executable paths. Adversaries exploit this by naming malicious executables after these processes to evade detection. The detection rule identifies anomalies by flagging kernel-named processes that have non-empty executable fields, indicating potential masquerading attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name and executable path, focusing on the `process.name` and `process.executable` fields to verify if they match known kernel process names like "kworker" or "kthreadd".
+- Check the process start time and correlate it with any known legitimate system activities or updates that might have occurred around the same time.
+- Use Osquery to gather more information about the suspicious process. Execute a query such as: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE name LIKE 'kworker%' OR name LIKE 'kthreadd%' AND path IS NOT NULL;` to list processes with kernel-like names and non-empty paths.
+- Investigate the parent process of the suspicious executable by examining the `process.parent` field to determine if it was spawned by a legitimate process or another suspicious one.
+- Analyze the command line arguments (`process.cmdline`) used to start the process to identify any unusual or unexpected parameters that could indicate malicious activity.
+- Check the file hash of the executable using a tool like `sha256sum` and compare it against known malware databases or threat intelligence feeds to identify any known malicious signatures.
+- Review system logs around the time of the process start event for any additional context or related suspicious activities, such as unauthorized access attempts or privilege escalation.
+- Investigate the user account (`process.user`) under which the process is running to determine if it has the necessary permissions and if the account has been involved in any suspicious activities.
+- Examine network connections initiated by the process using tools like `netstat` or `ss` to identify any unusual outbound connections that could indicate data exfiltration or command-and-control communication.
+- Cross-reference the findings with other security tools and logs, such as intrusion detection systems or endpoint protection solutions, to gather additional context and corroborate the suspicious activity.
+
+### False positive analysis
+
+- Some legitimate software or system updates may create processes with names similar to kernel processes, leading to false positives. Users should verify the source and legitimacy of such processes before taking action.
+- Custom scripts or administrative tools that mimic kernel process names for legitimate purposes can trigger alerts. Users can create exceptions for these known scripts by whitelisting their executable paths.
+- Certain monitoring or security tools may use kernel-like process names for internal operations. Users should consult with their IT or security teams to identify these tools and exclude them from the detection rule.
+- In environments with custom kernel modules or patches, legitimate processes might be named similarly to kernel processes. Users should document these customizations and adjust the detection rule to prevent unnecessary alerts.
+- Regularly review and update the list of exceptions to ensure that only verified and non-threatening processes are excluded, maintaining the effectiveness of the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation to confirm the masquerading attempt by analyzing the process tree and associated executable paths.
+- Terminate any suspicious processes that are masquerading as kernel processes to halt malicious activity.
+- Review system logs and security alerts to identify any additional indicators of compromise or related suspicious activities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Restore the system by removing any malicious executables and ensuring all system files are intact and unaltered.
+- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
+- Apply system hardening measures, such as disabling unnecessary services and enforcing strict access controls, to reduce the attack surface."""
 
 
 [[rule.threat]]

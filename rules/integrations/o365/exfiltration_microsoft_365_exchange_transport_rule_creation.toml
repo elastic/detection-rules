@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,51 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Exchange Transport Rule Creation"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Exchange Transport Rule Creation
+
+Microsoft 365 Exchange transport rules manage email flow and apply specific actions to messages. Adversaries may exploit these rules to redirect emails to external domains, facilitating data exfiltration. The detection rule monitors successful creation of new transport rules, focusing on web-based actions within Exchange, to identify potential misuse indicative of such malicious activities.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the event.action field with the value "New-TransportRule" and ensure the event.outcome is marked as success.
+- Examine the event.dataset field to verify it is set to o365.audit and the event.provider field is Exchange, confirming the source of the alert.
+- Check the event.category field for the value web to ensure the rule creation was performed through a web-based interface, which might indicate unauthorized access.
+- Identify the user account associated with the transport rule creation by reviewing the user.name or user.id fields in the alert details.
+- Investigate the IP address from which the transport rule was created using the source.ip field to determine if it is from a known or suspicious location.
+- Analyze the transport rule's configuration, focusing on any actions that forward emails to external domains, which could indicate data exfiltration attempts.
+- Review recent login activities for the user account involved, looking for unusual patterns or locations, using Microsoft 365 audit logs.
+- Use Osquery to gather additional context on the user account and recent activities. Example query: `SELECT * FROM users WHERE username = '<user.name from alert>';`
+- Check for any other recent changes in the Microsoft 365 environment, such as modifications to user permissions or other transport rules, that could be related to the alert.
+- Correlate this alert with other security events or alerts in your environment to identify potential patterns or coordinated activities that might indicate a broader attack.
+
+### False positive analysis
+
+- Legitimate administrative activities: IT administrators may create transport rules for valid business purposes, such as managing email flow or applying compliance policies. Regular audits and communication with the IT team can help distinguish between legitimate and suspicious rule creations.
+- Automated system processes: Some automated systems or third-party applications integrated with Microsoft 365 might create transport rules as part of their normal operation. Identifying these systems and documenting their expected behavior can help in excluding them from alerts.
+- Testing and development environments: Transport rules might be created frequently in testing or development environments as part of routine testing procedures. Excluding these environments from monitoring or setting up specific alerts for production environments only can reduce false positives.
+- Organizational changes: During mergers, acquisitions, or organizational restructuring, transport rules may be created to facilitate email redirection and communication. Understanding the context of these changes and temporarily adjusting monitoring criteria can help manage false positives.
+- To handle these false positives, users can create exceptions for known non-threatening behaviors by maintaining an allowlist of trusted administrators, systems, and environments. Regularly updating this list and reviewing transport rule creation logs can ensure that only suspicious activities trigger alerts.
+
+### Response and remediation
+
+- Immediately disable the newly created transport rule to prevent further data exfiltration.
+- Conduct a thorough investigation to identify the source of the rule creation, including reviewing audit logs for suspicious activities around the time of the rule creation.
+- Verify if any data was exfiltrated by analyzing email logs and any external communications initiated by the transport rule.
+- Escalate the incident to the security operations team for a deeper analysis and to determine if other systems or accounts have been compromised.
+- Reset credentials and enforce multi-factor authentication for any accounts involved in the incident to prevent unauthorized access.
+- Implement stricter transport rule policies to prevent the creation of rules that forward emails to external domains without proper authorization.
+- Enhance logging and monitoring by integrating with a Security Information and Event Management (SIEM) system to detect similar activities in the future.
+- Conduct a security awareness training session for administrators to recognize and respond to suspicious activities related to transport rules.
+- Restore the system to its operational state by ensuring all unauthorized changes are reverted and verifying the integrity of the email system.
+- Apply hardening measures such as restricting administrative access to the Exchange management interface and regularly reviewing transport rule configurations.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

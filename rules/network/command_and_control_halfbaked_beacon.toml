@@ -2,7 +2,7 @@
 creation_date = "2020/07/06"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,51 @@ index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "lucene"
 license = "Elastic License v2"
 name = "Halfbaked Command and Control Beacon"
-note = """## Threat intel
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Halfbaked Command and Control Beacon
+
+Halfbaked malware exploits common network protocols like HTTP and TLS to maintain persistence and facilitate command and control (C2) communication within compromised networks. Adversaries leverage these protocols to blend malicious traffic with legitimate network activity, evading detection. The detection rule identifies suspicious TCP traffic patterns, specifically targeting HTTP requests to numeric IP addresses on common ports, indicative of Halfbaked C2 beacons.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of suspicious TCP traffic patterns, focusing on HTTP requests to numeric IP addresses on ports 53, 80, 8080, or 443.
+- Analyze the network traffic logs to identify the source and destination IP addresses involved in the suspicious activity, paying close attention to the `url.full` field for patterns matching `/http:\\/\\/[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}\\/cd/`.
+- Correlate the identified IP addresses with known threat intelligence sources to determine if they are associated with malicious activity or known Halfbaked C2 infrastructure.
+- Examine the `event.dataset` and `event.category` fields to verify if the traffic is categorized under `network_traffic.tls` or `network_traffic.http`, which may indicate the use of common protocols for C2 communication.
+- Use Osquery to gather additional context on the affected host. For example, run the following query to list all network connections on the host: `SELECT * FROM process_open_sockets WHERE remote_address IN ('<suspicious_ip>');`.
+- Investigate the processes associated with the suspicious network connections by examining the process IDs and command lines to identify any unusual or unauthorized applications.
+- Check for any persistence mechanisms on the host that may be related to the Halfbaked malware, such as scheduled tasks or startup items, using Osquery: `SELECT * FROM scheduled_tasks WHERE name LIKE '%Halfbaked%';`.
+- Review historical network traffic data to determine if similar patterns of communication have occurred in the past, indicating a potential ongoing compromise.
+- Analyze any related alerts or logs from other security tools to gather additional context and corroborate the findings from the Halfbaked alert.
+- Document all findings and observations in a detailed report to support further analysis and decision-making by the security team.
+
+### False positive analysis
+
+- Legitimate applications or services that use numeric IP addresses in their HTTP requests can trigger false positives. For example, internal tools or monitoring systems that communicate with devices using IP addresses instead of domain names may be flagged.
+- Automated scripts or legacy systems that rely on numeric IP addresses for communication over common ports (53, 80, 8080, 443) might also be mistakenly identified as malicious.
+- To manage these false positives, users can create exceptions for known benign IP addresses or specific applications that are verified to use numeric IP addresses for legitimate purposes.
+- Regularly review and update the list of exceptions to ensure that only trusted sources are excluded, minimizing the risk of overlooking genuine threats.
+- Implement network segmentation and monitoring to distinguish between expected and unexpected traffic patterns, helping to refine detection rules and reduce false positives.
+
+### Response and remediation
+
+- Isolate the affected systems from the network to prevent further communication with the command and control server.
+- Conduct a thorough investigation of the affected systems to identify the extent of the compromise and any additional indicators of compromise (IOCs).
+- Remove the Halfbaked malware from the affected systems using updated antivirus or endpoint detection and response (EDR) tools.
+- Apply patches and updates to all systems to address any vulnerabilities that may have been exploited by the malware.
+- Review and enhance firewall rules to block outbound traffic to known malicious IP addresses and domains associated with Halfbaked C2 activity.
+- Implement network segmentation to limit lateral movement within the network and protect critical assets.
+- Enable detailed logging of network traffic, especially for HTTP and TLS protocols, to improve detection of similar threats in the future.
+- Integrate threat intelligence feeds into security information and event management (SIEM) systems to stay informed about emerging threats and IOCs.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Educate employees on recognizing phishing attempts and other common attack vectors used to deliver malware like Halfbaked.
+
+## Threat intel
 
 This activity has been observed in FIN7 campaigns."""
 references = [

@@ -2,7 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 70
@@ -52,6 +52,52 @@ tags = [
     "Tactic: Lateral Movement",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating High Variance in RDP Session Duration
+Remote Desktop Protocol (RDP) enables remote access to systems, facilitating legitimate administrative tasks. However, adversaries exploit prolonged RDP sessions to maintain persistent access, often for lateral movement within networks. The detection rule leverages machine learning to identify anomalies in session duration, flagging potential misuse by highlighting sessions with unusually high variance, indicative of suspicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific RDP session(s) with high variance in duration, noting the user accounts and source IP addresses involved.
+- Correlate the session details with historical data to determine if the user or IP address has a pattern of unusual activity or if this is an isolated incident.
+- Check the login times and durations of the flagged RDP sessions to see if they align with typical working hours or if they occur at unusual times.
+- Investigate the user account(s) involved in the sessions for any recent changes, such as password resets or privilege escalations, that could indicate compromise.
+- Use Osquery to gather additional context on the affected systems. For example, run the following query to list active RDP sessions and their durations:
+  ```sql
+  SELECT user, remote_address, start_time, end_time, (julianday(end_time) - julianday(start_time)) * 24 * 60 AS duration_minutes 
+  FROM rdp_sessions 
+  WHERE duration_minutes > <threshold>;
+  ```
+- Examine the network traffic logs for the source IP addresses to identify any other suspicious connections or data transfers that coincide with the RDP sessions.
+- Analyze system logs on the affected machines for any unusual processes or commands executed during the flagged RDP sessions.
+- Check for any recent changes in firewall or security group configurations that might have allowed unauthorized RDP access.
+- Review any recent alerts or incidents involving the same user accounts or IP addresses to identify potential patterns of malicious activity.
+- Consult with the user(s) associated with the flagged sessions to verify if the activity was legitimate and authorized, documenting their responses for further analysis.
+
+### False positive analysis
+
+- Legitimate administrative tasks: Extended RDP sessions by IT staff for system maintenance or software updates can trigger false positives. Users can manage this by creating exceptions for known administrative accounts or IP addresses.
+- Remote support sessions: Third-party vendors providing remote support might have prolonged RDP sessions. To handle this, users can whitelist specific vendor IPs or user accounts.
+- Training sessions: RDP sessions used for training purposes may last longer than usual. Users should consider excluding training-related accounts or session times from the detection rule.
+- Automated processes: Some automated scripts or processes might require long RDP sessions. Users can exclude these by identifying and listing the specific scripts or processes that are known to be non-threatening.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement and potential data exfiltration.
+- Conduct a thorough investigation of the RDP session logs to identify the source IP address and any associated user accounts involved in the suspicious activity.
+- Review and analyze other network logs and security alerts to determine if there are additional compromised systems or accounts.
+- Reset passwords for any user accounts that were involved in the suspicious RDP sessions and enforce multi-factor authentication (MFA) for all remote access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the activity is part of a larger attack campaign.
+- Implement enhanced logging policies to capture detailed RDP session data, including session duration, source IP addresses, and user activity.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate RDP session anomalies with known threat actor tactics, techniques, and procedures (TTPs).
+- Restore the affected system to its operational state by reimaging the machine and applying the latest security patches and updates.
+- Conduct a post-incident review to identify gaps in security controls and update the incident response plan accordingly.
+- Implement hardening measures such as restricting RDP access to specific IP addresses, using network segmentation, and regularly auditing RDP usage to prevent future exploitation."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

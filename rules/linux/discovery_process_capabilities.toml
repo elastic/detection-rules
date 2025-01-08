@@ -2,7 +2,7 @@
 creation_date = "2024/01/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -60,6 +60,50 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 process.name == "getcap" and process.args == "-r" and process.args == "/" and process.args_count == 3 and
 user.id != "0"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Process Capability Enumeration
+
+In Linux environments, the `getcap` command is used to list file capabilities, which define specific privileges for executables. Adversaries may exploit this by recursively scanning the filesystem to identify and manipulate capabilities, potentially escalating privileges to root. The detection rule identifies suspicious use of `getcap` by monitoring for non-root users executing it with specific arguments, indicating potential malicious enumeration activities.
+
+### Possible investigation steps
+
+- Verify the alert details by checking the user ID associated with the `getcap` command execution to ensure it is indeed a non-root user (user.id != "0").
+- Review the process execution context by examining the parent process of `getcap` to understand how it was initiated and if it was part of a larger script or command chain.
+- Investigate the command line arguments used with `getcap` to confirm the recursive scan of the entire filesystem (`-r /`) and ensure the args_count is exactly 3.
+- Check the user's login history and session details to determine if the user was logged in at the time of the alert and if there were any unusual login patterns.
+- Use Osquery to list all capabilities set on files in the system to identify any unusual or suspicious capabilities that might have been manipulated. Example query: `SELECT * FROM file WHERE capabilities IS NOT NULL;`
+- Examine the user's shell history files (e.g., `.bash_history`) to identify any other potentially suspicious commands executed around the time of the alert.
+- Review system logs for any other unusual activities or errors that occurred around the time of the `getcap` execution, focusing on authentication logs and sudo usage.
+- Investigate any recent changes to the system's capabilities database or related configuration files to identify unauthorized modifications.
+- Cross-reference the alert with other security tools or logs to identify if there are any correlated alerts or indicators of compromise involving the same user or system.
+- Assess the user's role and permissions within the organization to determine if they have a legitimate reason to perform such enumeration and if their access level is appropriate.
+
+### False positive analysis
+
+- System administrators or security teams may intentionally use the `getcap` command with recursive options during routine audits or security assessments, leading to false positives.
+- Automated scripts or configuration management tools that verify file capabilities across the filesystem for compliance or security hardening purposes might trigger the rule.
+- Developers or DevOps personnel might execute `getcap` as part of testing or debugging processes in development environments, which could be mistaken for malicious activity.
+- To manage these false positives, users can create exceptions for specific user accounts or groups known to perform legitimate capability checks, ensuring these are well-documented and reviewed regularly.
+- Implementing a whitelist of known safe scripts or tools that use `getcap` can help reduce noise while maintaining security oversight.
+- Regularly review and update the detection rule to accommodate changes in legitimate use cases, ensuring that only suspicious activities are flagged.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or potential lateral movement.
+- Verify the identity and permissions of the user who executed the `getcap` command to determine if the action was authorized or malicious.
+- Conduct a thorough review of the system's audit logs and process execution history to identify any unauthorized changes or suspicious activities following the `getcap` execution.
+- Check for any modifications to file capabilities and revert any unauthorized changes to prevent privilege escalation.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging and monitoring for the `getcap` command and other capability-modifying commands to detect future unauthorized use.
+- Integrate threat intelligence feeds and MITRE ATT&CK framework data to improve detection and response capabilities for similar threats.
+- Restore the system to its operational state by applying verified backups and ensuring all security patches and updates are applied.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent recurrence.
+- Implement system hardening measures, such as restricting the use of capability-modifying commands to authorized users only and employing the principle of least privilege."""
 
 
 [[rule.threat]]

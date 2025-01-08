@@ -2,7 +2,7 @@
 creation_date = "2023/07/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -35,6 +35,49 @@ query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
 process.name in ("netstat", "lsof", "who", "w")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating System Network Connections Discovery
+
+System network connections discovery involves tools like `netstat` and `lsof` to list active connections, aiding in network diagnostics. Adversaries exploit this to map network topology and identify potential targets. The detection rule monitors process initiation events for these tools, flagging suspicious activity indicative of reconnaissance efforts, aligning with MITRE ATT&CK's discovery tactics.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name involved is either "netstat", "lsof", "who", or "w" and verify the event type is "start" with actions like "exec", "exec_event", "executed", or "process_started".
+- Check the timestamp of the event to determine when the suspicious activity occurred and correlate it with any other unusual activities around the same time.
+- Identify the user account associated with the process initiation to determine if it aligns with expected behavior or if it might be a compromised account.
+- Investigate the parent process of the flagged process to understand how it was initiated and if it was spawned by a legitimate or suspicious application.
+- Examine the command line arguments used with the process to gather more context on what specific network information the adversary might be targeting.
+- Utilize Osquery to further investigate by running a query such as `SELECT * FROM process_open_sockets WHERE pid = (SELECT pid FROM processes WHERE name = 'netstat' OR name = 'lsof');` to identify active network connections associated with the suspicious process.
+- Cross-reference the network connections discovered with known malicious IP addresses or domains to identify potential communication with threat actors.
+- Analyze historical data to determine if there have been previous instances of similar process executions and if they correlate with any known attack patterns.
+- Review system logs and network traffic logs for any anomalies or indicators of compromise that coincide with the time of the alert.
+- Consult threat intelligence sources to check for any recent campaigns or tactics involving the use of these tools for reconnaissance purposes.
+
+### False positive analysis
+
+- Routine administrative tasks often involve the use of `netstat` and `lsof` for legitimate network diagnostics, which can trigger false positives. System administrators frequently use these tools to monitor network performance and troubleshoot issues.
+- Automated scripts and monitoring tools may execute `netstat` or `lsof` as part of regular system health checks, leading to benign process initiation events being flagged.
+- Security software and network management applications might utilize these commands to gather network statistics, which can be mistaken for adversarial reconnaissance.
+- To manage false positives, users can create exceptions for known administrative accounts or specific scripts that regularly execute these commands. This can be done by excluding certain user accounts or process paths from the detection rule.
+- Implementing a baseline of normal network diagnostic activities can help differentiate between legitimate use and potential threats, allowing for more accurate detection and fewer false alarms.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further reconnaissance or lateral movement by the adversary.
+- Conduct a thorough investigation of the process initiation events to confirm whether the use of tools like netstat or lsof was authorized or indicative of malicious activity.
+- Review system logs and network traffic to identify any unauthorized access or data exfiltration attempts that may have occurred.
+- If unauthorized activity is confirmed, perform a full malware scan and remove any identified threats from the system.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the compromise.
+- Implement enhanced logging policies to capture detailed process execution and network connection data for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and detect similar reconnaissance activities.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure all security configurations are hardened.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users and administrators on recognizing and reporting suspicious activities to improve overall security awareness."""
 
 
 [[rule.threat]]

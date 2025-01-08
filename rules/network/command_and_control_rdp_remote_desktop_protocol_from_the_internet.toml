@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2024/09/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -74,6 +74,49 @@ query = '''
     192.168.0.0/16
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating RDP (Remote Desktop Protocol) from the Internet
+
+RDP enables remote access to systems, facilitating administrative tasks and resource sharing. However, when exposed to the internet, it becomes a target for attackers seeking unauthorized access. Adversaries exploit RDP for initial access or persistence. The detection rule identifies suspicious RDP traffic by monitoring TCP connections on port 3389 from non-private IPs, flagging potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the source IP address is indeed from a non-private range, as specified in the query, and verify if it is known or expected to access the network.
+- Check historical logs for any previous connections from the same source IP to determine if this is a recurring event or a new occurrence.
+- Analyze the destination IP address within the private range to identify the specific system being accessed and determine its role and importance within the network.
+- Investigate the user accounts associated with the RDP session to ensure they are legitimate and authorized to access the system remotely.
+- Utilize Osquery to gather more information about the RDP service on the destination machine. For example, run the following query to list active RDP sessions: `SELECT * FROM logged_in_users WHERE tty = 'rdp-tcp';`
+- Examine the network traffic logs for any unusual patterns or anomalies around the time of the alert, such as large data transfers or connections to other suspicious IP addresses.
+- Cross-reference the alert with any recent changes or updates to the system or network configuration that might explain the RDP exposure.
+- Check for any other security alerts or incidents involving the same source or destination IP addresses to identify potential patterns or coordinated attacks.
+- Review the system's security settings and logs for any signs of compromise, such as unauthorized changes to firewall rules or user account settings.
+- Consult threat intelligence sources to determine if the source IP address or any related indicators are associated with known malicious activity or threat actors.
+
+### False positive analysis
+
+- **Internal Testing and Monitoring**: Organizations may conduct legitimate RDP sessions from external IPs for testing or monitoring purposes. To manage this, users can create exceptions for known IP addresses used by their IT or security teams.
+- **Third-Party Vendors**: Some businesses rely on third-party vendors for remote support or maintenance, which may involve RDP access from external IPs. Users should whitelist the IP addresses of trusted vendors to prevent false positives.
+- **Remote Workforce**: Employees working remotely might use RDP to access internal resources. If these connections are from known and secure locations, their IPs can be added to an exception list.
+- **Cloud Services**: Connections from cloud service providers might be flagged if they are not part of the internal network. Users should identify and exclude IP ranges associated with their cloud services to avoid false alerts.
+- **VPN Misconfigurations**: If a VPN is not properly configured, RDP traffic might appear to originate from an external IP. Ensuring correct VPN setup and excluding known VPN IPs can help mitigate this issue.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access.
+- Verify the alert by checking logs and network traffic to confirm the presence of unauthorized RDP connections.
+- Change all passwords associated with the affected system and any accounts that may have been compromised.
+- Conduct a thorough investigation to identify the source of the unauthorized access and any potential lateral movement within the network.
+- Remove any unauthorized users or backdoors that may have been installed by the attacker.
+- Restore the system from a known good backup to ensure no malicious software remains.
+- Implement network segmentation to limit RDP access to only necessary internal IP addresses.
+- Enable and configure logging for RDP access attempts and integrate with a Security Information and Event Management (SIEM) system for real-time monitoring.
+- Apply security patches and updates to the affected system and ensure all systems are regularly updated.
+- Review and update firewall rules to block RDP traffic from the internet and consider using a VPN for secure remote access."""
 
 
 [[rule.threat]]

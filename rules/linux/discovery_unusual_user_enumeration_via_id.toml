@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -59,6 +59,49 @@ sequence by host.id, process.parent.entity_id with maxspan=1s
    process.name == "id" and process.args_count == 2 and 
    not (process.parent.name == "rpm" or process.parent.args : "/var/tmp/rpm-tmp*")] with runs=20
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual User Privilege Enumeration via id
+
+In Linux environments, the `id` command is used to display user identity and group memberships, crucial for privilege assessment. Adversaries exploit this by executing scripts like LinPEAS to rapidly enumerate user privileges, potentially revealing sensitive information. The detection rule identifies suspicious activity by flagging rapid, repeated `id` executions, suggesting automated enumeration attempts, thus alerting analysts to potential reconnaissance activities.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the host.id and process.parent.entity_id associated with the suspicious activity.
+- Check the process execution timeline to verify if the 20 "id" command executions occurred within the specified 1-second window.
+- Investigate the parent process of the "id" command using the process.parent.entity_id to determine if it is a known or legitimate process.
+- Examine the process.parent.name and process.parent.args fields to identify any unusual or unexpected parent processes that might have triggered the "id" command.
+- Use Osquery to list all processes running on the host at the time of the alert to identify any other suspicious activities. Example query: `SELECT pid, name, path, cmdline FROM processes WHERE start_time > (SELECT datetime('now', '-1 minute'));`
+- Analyze the command-line arguments (process.args) used with the "id" command to check for any specific patterns or anomalies.
+- Review system logs and audit logs for any other unusual activities or errors around the time of the alert.
+- Investigate the user account associated with the process to determine if it has been compromised or is being misused.
+- Check for any recent changes in user privileges or group memberships on the system that could indicate privilege escalation attempts.
+- Correlate this activity with other alerts or incidents on the same host or network to identify potential patterns or coordinated attacks.
+
+### False positive analysis
+
+- System administration scripts or automated maintenance tasks that frequently execute the `id` command as part of their routine checks can trigger false positives. These scripts may be scheduled to run at regular intervals and are not indicative of malicious activity.
+- Monitoring tools or security solutions that perform regular checks on user privileges for compliance or auditing purposes might also execute the `id` command multiple times in quick succession, leading to false alerts.
+- Developers or system administrators testing scripts that involve user privilege checks could inadvertently cause the rule to trigger during development or debugging sessions.
+- To manage these false positives, users can create exceptions for known benign processes by excluding specific parent process names or paths that are identified as non-threatening. This can be done by updating the detection rule to ignore executions originating from trusted scripts or applications.
+- Another approach is to adjust the threshold of the rule to better fit the environment's normal behavior, such as increasing the number of allowed `id` executions or extending the time window, while ensuring it still effectively detects genuine threats.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to confirm the presence of enumeration scripts like LinPEAS or LinEnum by reviewing process execution logs and command history.
+- Analyze the parent process and its origin to determine if the activity was initiated by a legitimate user or an adversary.
+- Escalate the incident to the security operations center (SOC) for further analysis and to assess the potential impact on other systems within the network.
+- Review and enhance logging policies to ensure comprehensive monitoring of command executions and user activities, focusing on privilege escalation attempts.
+- Implement additional security measures such as multi-factor authentication and least privilege access to reduce the risk of unauthorized privilege enumeration.
+- Restore the system to its operational state by removing any unauthorized scripts or tools and applying necessary security patches.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users on recognizing and reporting suspicious activities to improve overall security awareness within the organization.
+- Leverage MITRE ATT&CK framework to understand the adversary's tactics and techniques, and apply relevant threat intelligence to enhance detection and response capabilities."""
 
 
 [[rule.threat]]

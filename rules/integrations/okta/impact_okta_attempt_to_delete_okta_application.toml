@@ -2,7 +2,7 @@
 creation_date = "2020/11/06"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2024/12/09"
+updated_date = "2025/01/08"
 min_stack_version = "8.15.0"
 min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
 
@@ -22,7 +22,50 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Attempt to Delete an Okta Application"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Attempt to Delete an Okta Application
+
+Okta is a widely used identity and access management service that helps organizations manage user authentication and application access. Adversaries may target Okta applications to disrupt operations or weaken security by attempting deletions. The detection rule monitors system events for deletion actions, identifying potential threats by flagging unauthorized attempts to remove applications, thus safeguarding organizational integrity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event dataset is `okta.system` and the event action is `application.lifecycle.delete` to ensure the alert is valid.
+- Check the timestamp of the event to determine when the deletion attempt occurred and correlate it with any other suspicious activities around the same time.
+- Identify the user account associated with the deletion attempt by examining the event data, and verify if the account has legitimate access and permissions to perform such actions.
+- Investigate the IP address and location from which the deletion attempt was made to determine if it aligns with the user's typical access patterns.
+- Review recent login activities for the user account involved to identify any unusual or unauthorized access attempts.
+- Examine the application targeted for deletion to understand its role within the organization and assess the potential impact of its removal.
+- Utilize Osquery to gather additional context on the system from which the attempt was made. For example, run the query: `SELECT * FROM processes WHERE name LIKE '%okta%'` to identify any related processes running on the system.
+- Check for any recent changes in user permissions or roles that might have inadvertently allowed the deletion attempt.
+- Look for any other alerts or logs related to Okta applications or user accounts that might indicate a broader attack or compromise.
+- Document all findings and observations to build a comprehensive understanding of the incident and facilitate further analysis if needed.
+
+### False positive analysis
+
+- Routine maintenance or administrative tasks may trigger the detection rule if legitimate users with appropriate permissions delete or modify Okta applications as part of their job responsibilities.
+- Automated scripts or third-party integrations that manage application lifecycles could also generate false positives if they perform deletion actions as part of their normal operation.
+- To manage these false positives, organizations can create exceptions for specific user accounts or service accounts known to perform regular maintenance tasks, ensuring these actions are not flagged as threats.
+- Implementing a review process for flagged events can help distinguish between legitimate administrative actions and potential security threats, allowing for more accurate threat detection.
+
+### Response and remediation
+
+- Immediately isolate the affected Okta application to prevent further unauthorized actions and assess the scope of the incident.
+- Verify the identity and access permissions of the user or system that attempted the deletion to determine if it was a legitimate action or a compromised account.
+- Review Okta system logs and event history to gather detailed information about the deletion attempt, including timestamps, IP addresses, and user agents.
+- Escalate the incident to the security operations team for further investigation and to determine if other systems or applications are at risk.
+- Restore the deleted application from backups or snapshots, ensuring that all configurations and settings are intact and operational.
+- Implement additional logging and monitoring policies to capture detailed events related to application lifecycle changes in Okta.
+- Integrate Okta with a Security Information and Event Management (SIEM) system to enhance real-time monitoring and alerting capabilities.
+- Conduct a thorough review of access controls and permissions within Okta to ensure that only authorized personnel have the ability to modify or delete applications.
+- Educate users and administrators on the importance of strong authentication practices and the risks associated with unauthorized application modifications.
+- Consider implementing multi-factor authentication (MFA) and other security hardening measures to reduce the risk of unauthorized access and actions in the future.
+
+## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

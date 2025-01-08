@@ -2,7 +2,7 @@
 creation_date = "2021/03/08"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -46,6 +46,51 @@ process where host.os.type == "windows" and event.type == "start" and
   (process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe") or
   ?process.pe.original_file_name in ("cmd.exe", "powershell.exe", "pwsh.dll", "powershell_ise.exe"))
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft Exchange Worker Spawning Suspicious Processes
+
+Microsoft Exchange Server uses the worker process (w3wp.exe) to handle web requests, often running under specific application pools. Adversaries exploit this by executing malicious scripts or commands, potentially through web shells, to gain unauthorized access. The detection rule identifies unusual child processes like command-line interpreters spawned by w3wp, signaling possible exploitation or backdoor activity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of suspicious child processes spawned by `w3wp.exe`, focusing on processes like `cmd.exe`, `powershell.exe`, `pwsh.exe`, and `powershell_ise.exe`.
+- Examine the command-line arguments (`process.parent.args`) associated with the `w3wp.exe` process to identify the specific application pool (`MSExchange*AppPool`) involved, which may provide context on the targeted service.
+- Check the process creation time (`event.type == "start"`) to correlate with any known suspicious activity or incidents reported around the same timeframe.
+- Investigate the parent process (`process.parent.name`) to ensure it is indeed `w3wp.exe` and verify its legitimacy by checking its file path and hash against known good values.
+- Use Osquery to gather additional context on the suspicious processes. For example, run the following query to list all child processes of `w3wp.exe`:
+  ```sql
+  SELECT pid, name, path, cmdline FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'w3wp.exe');
+  ```
+- Analyze the network connections and traffic associated with the `w3wp.exe` process to identify any unusual outbound connections that could indicate data exfiltration or command-and-control activity.
+- Review the system and security event logs for any additional indicators of compromise or related suspicious activity around the time the alert was triggered.
+- Investigate the user accounts and privileges associated with the `w3wp.exe` process to determine if any unauthorized access or privilege escalation has occurred.
+- Check for any recent changes or anomalies in the Microsoft Exchange Server configuration or application pool settings that could have facilitated the suspicious activity.
+- Correlate the findings with threat intelligence sources to determine if the activity matches any known attack patterns or campaigns targeting Microsoft Exchange Servers.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators may use command-line tools like cmd.exe or PowerShell for legitimate maintenance activities on the Exchange server, which could trigger the rule. To manage this, create exceptions for known administrative accounts or scheduled tasks that regularly perform these actions.
+- Monitoring and management tools: Some third-party monitoring or management tools might spawn processes from w3wp.exe as part of their normal operation. Identify these tools and exclude their specific process names or hashes from the rule to prevent false alerts.
+- Automated scripts: Legitimate automated scripts running under the MSExchangeAppPool may occasionally invoke command-line interpreters. Review and whitelist these scripts by their specific command-line arguments or script paths to reduce false positives.
+- Software updates: During software updates or patches, certain processes might be temporarily spawned by w3wp.exe. Temporarily disable the rule or adjust its sensitivity during scheduled maintenance windows to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected Microsoft Exchange Server from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the scope of the compromise, focusing on logs and alerts related to the suspicious processes spawned by w3wp.exe.
+- Terminate any malicious processes identified during the investigation to halt ongoing exploitation activities.
+- Review and analyze web server logs to identify any web shells or unauthorized scripts that may have been uploaded or executed.
+- Apply the latest security patches and updates to the Microsoft Exchange Server to mitigate known vulnerabilities, particularly those related to public-facing applications.
+- Restore the system from a known good backup taken before the compromise, ensuring that any backdoors or malicious modifications are removed.
+- Implement enhanced logging and monitoring policies to capture detailed process creation events and network activity, aiding in future detection and investigation efforts.
+- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to correlate alerts and improve detection capabilities.
+- Conduct a post-incident review to identify gaps in security controls and processes, and update incident response plans accordingly.
+- Educate and train IT staff on the latest threat tactics, techniques, and procedures (TTPs) related to web shell exploitation and public-facing application attacks, leveraging MITRE ATT&CK framework insights."""
 
 
 [[rule.threat]]

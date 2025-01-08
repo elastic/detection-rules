@@ -2,7 +2,7 @@
 creation_date = "2024/01/22"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -85,6 +85,48 @@ sequence by host.id, process.parent.pid with maxspan=1m
   [file where host.os.type == "linux" and file.path == "/etc/passwd" and process.parent.pid != 1 and
    not auditd.data.a2 == "80000" and event.outcome == "success" and user.id != "0"]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Passwd File Event Action
+
+In Linux environments, the `/etc/passwd` file is crucial for managing user accounts. Adversaries may exploit vulnerabilities or misconfigurations to insert unauthorized entries, potentially gaining root access. The detection rule identifies suspicious activity by monitoring for the use of `openssl` to generate password entries, followed by unauthorized modifications to the `/etc/passwd` file, indicating potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the host.id and process.parent.pid involved in the suspicious activity to ensure accurate context.
+- Verify the user.id associated with the openssl process execution to determine if a non-root user attempted to generate a password entry.
+- Check the process.args field to confirm the use of "openssl passwd" and gather any additional arguments that might indicate the password generation method.
+- Investigate the file write activity on the /etc/passwd file by examining the file.path and event.outcome fields to confirm unauthorized modifications.
+- Use Osquery to list recent processes executed by the user.id in question to identify any other suspicious activities: `SELECT pid, name, path, cmdline FROM processes WHERE uid = <user_id>;`
+- Examine the process.parent.pid to trace the parent process and understand the context of how the openssl command was executed.
+- Review system logs for any login attempts or successful logins by the newly created user account, focusing on the time frame around the alert.
+- Check for any recent changes in file permissions or ownership of the /etc/passwd file that could have facilitated unauthorized access.
+- Investigate other security alerts or anomalies on the same host.id to identify potential lateral movement or additional compromise indicators.
+- Correlate the activity with known MITRE ATT&CK techniques, specifically T1068, to assess if this is part of a broader privilege escalation attempt.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators may use `openssl` to generate password entries for valid user account management. To handle this, users can create exceptions for specific user IDs or processes known to perform these tasks regularly.
+- Automated scripts: Some automated maintenance scripts might use `openssl` for password management and modify the `/etc/passwd` file as part of their routine operations. Users should identify these scripts and exclude them from triggering alerts by specifying their process names or paths.
+- Non-root user activities: Developers or non-root users might use `openssl` for testing purposes, leading to false positives. Users can exclude specific user IDs or groups from the detection rule to prevent unnecessary alerts.
+- System updates or installations: During system updates or software installations, legitimate processes might modify the `/etc/passwd` file. Users should monitor these activities and temporarily disable the rule or whitelist known update processes to avoid false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify any unauthorized entries in the `/etc/passwd` file and remove them. Verify the integrity of the file against a known good backup.
+- Review system logs and process execution history to trace the source of the unauthorized `openssl` command and any subsequent actions taken by the adversary.
+- Change all passwords for user accounts on the affected system, especially those with elevated privileges, to prevent further unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging and monitoring for critical files like `/etc/passwd` and processes involving `openssl` to detect similar activities in the future.
+- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited for privilege escalation.
+- Conduct a security audit of user account permissions and file access controls to ensure they adhere to the principle of least privilege.
+- Restore the system from a clean backup if necessary, ensuring that all unauthorized changes are removed and the system is returned to a secure operational state.
+- Educate users and administrators on secure password practices and the importance of monitoring for suspicious activities to enhance overall security awareness."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2022/01/13"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,50 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "O365 Mailbox Audit Logging Bypass"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating O365 Mailbox Audit Logging Bypass
+
+O365 Mailbox Audit Logging is crucial for tracking mailbox activities, ensuring transparency and security. However, bypass associations can be configured to exclude certain accounts from logging, often for operational efficiency. Adversaries exploit this by adding malicious accounts to the bypass list, concealing their actions. The detection rule identifies successful bypass configurations, signaling potential abuse by monitoring specific audit events.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific account associated with the `Set-MailboxAuditBypassAssociation` event and verify the `event.outcome:success` field to confirm the bypass was successfully configured.
+- Cross-reference the account in question with known authorized accounts that may have legitimate reasons for bypassing audit logging, such as service accounts or accounts used by third-party tools.
+- Examine the `event.dataset:o365.audit` and `event.provider:Exchange` fields to gather additional context about the environment and the specific actions taken.
+- Investigate recent activities associated with the account by querying O365 audit logs for any unusual or unauthorized actions that might have been performed by the account.
+- Utilize Osquery to gather additional information about the system and user activities. For example, run a query to list recent login events: `SELECT * FROM users WHERE username = 'suspicious_account';`.
+- Check for any recent changes in permissions or roles for the account in question that might indicate privilege escalation or unauthorized access.
+- Analyze the timeline of events leading up to the bypass configuration to identify any preceding suspicious activities or anomalies.
+- Investigate any other accounts that have been added to the bypass list recently to determine if there is a pattern or coordinated effort to conceal malicious activities.
+- Review the organization's policy and documentation regarding audit logging bypass to ensure the configuration aligns with operational requirements and security policies.
+- Consult with the IT or security team to verify if there were any legitimate operational needs or changes that could justify the bypass configuration for the account.
+
+### False positive analysis
+
+- Known false positives may arise from legitimate administrative actions where certain accounts are intentionally added to the bypass list for operational efficiency, such as service accounts used by third-party applications or monitoring tools that generate excessive log entries.
+- To manage these false positives, organizations can create exceptions by maintaining a documented list of approved accounts that are allowed to bypass audit logging. This list should be regularly reviewed and updated to ensure it only includes accounts necessary for business operations.
+- Implementing a review process for any changes to the bypass list can help distinguish between legitimate and potentially malicious modifications, reducing the risk of overlooking unauthorized actions.
+- Users should consider correlating bypass events with other security logs and alerts to verify the legitimacy of the bypass configuration, ensuring that it aligns with expected behavior and does not coincide with other suspicious activities.
+
+### Response and remediation
+
+- Immediately isolate the affected accounts by removing them from the bypass list to prevent further unauthorized actions.
+- Conduct a thorough investigation to identify any unauthorized changes or suspicious activities associated with the affected accounts.
+- Review and validate the list of accounts with bypass associations to ensure only legitimate accounts are included.
+- Escalate the incident to the security operations team for a deeper analysis of potential compromise and to assess the scope of the breach.
+- Implement enhanced logging policies to capture detailed audit logs for all accounts, including those with bypass associations, to improve visibility.
+- Integrate security information and event management (SIEM) tools to correlate audit logs with other security events for comprehensive threat detection.
+- Restore any altered or deleted mailbox data from backups to ensure data integrity and continuity of operations.
+- Apply security patches and updates to the O365 environment to mitigate any known vulnerabilities that could be exploited.
+- Conduct a post-incident review to identify gaps in the current security posture and update security policies and procedures accordingly.
+- Educate and train administrators on the risks associated with audit logging bypass and the importance of maintaining strict access controls.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://twitter.com/misconfig/status/1476144066807140355"]

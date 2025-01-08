@@ -2,7 +2,7 @@
 creation_date = "2023/07/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -69,6 +69,50 @@ sequence by host.id with maxspan=1s
      process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
   ] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Shell via Wildcard Injection Detected
+
+Wildcard injection exploits vulnerabilities in Linux command-line utilities by manipulating wildcard characters to execute unauthorized commands. Adversaries may leverage this to escalate privileges or access sensitive data. The detection rule identifies suspicious executions of vulnerable binaries like `tar`, `rsync`, and `zip`, followed by shell spawns, indicating potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific binary (e.g., `tar`, `rsync`, `zip`) and the suspicious command line flags that triggered the alert.
+- Examine the `process.entity_id` and `process.parent.entity_id` fields to trace the process lineage and understand the parent-child relationship of the processes involved.
+- Check the `host.id` and `host.os.type` fields to confirm the affected host and ensure it is running a Linux operating system.
+- Investigate the `process.args` field to analyze the exact command line arguments used, looking for any unusual or unexpected patterns that could indicate manipulation.
+- Use Osquery to gather additional context about the processes involved. For example, run the following query to list recent processes executed by the same user: `SELECT * FROM processes WHERE uid = (SELECT uid FROM processes WHERE pid = <suspicious_process_id>);`
+- Review the `event.type` and `event.action` fields to confirm the nature of the process execution events and ensure they align with the expected behavior of the binaries.
+- Check for any recent changes or anomalies in the `/tmp/newroot/` directory, as the query excludes processes executed from this path, which might indicate an attempt to bypass detection.
+- Investigate the `process.parent.name` field to determine if the shell spawn was legitimate or if it indicates an unauthorized shell access attempt.
+- Correlate the alert with other security events or logs from the same host to identify any additional suspicious activities or patterns.
+- Consult threat intelligence sources or internal knowledge bases to determine if there are known vulnerabilities or exploits associated with the specific binaries and command line flags observed.
+
+### False positive analysis
+
+- Known false positives may occur when legitimate administrative scripts or automated processes use the `tar`, `rsync`, or `zip` commands with wildcard characters for routine operations, such as backups or file synchronization, which may inadvertently match the detection criteria.
+- System administrators often use `tar` with `--checkpoint` and `--checkpoint-action` flags for monitoring purposes during large file operations, which can trigger the rule without malicious intent.
+- The `rsync` command with `-e` options is commonly used in secure file transfer scripts, which might be flagged if the script spawns a shell for legitimate reasons.
+- The `zip` command with `--unzip-command` is sometimes used in custom scripts to handle specific file extraction tasks, potentially leading to false positives if a shell is invoked as part of the process.
+- To manage these false positives, users can create exceptions by excluding specific scripts or processes known to perform these operations safely. This can be done by adding the paths or process names to an exclusion list within the detection rule configuration.
+- Regularly review and update the exclusion list to ensure it reflects current legitimate usage patterns, minimizing the risk of overlooking genuine threats while reducing noise from benign activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the scope of the intrusion, focusing on logs and process trees related to the detected binaries (tar, rsync, zip) and subsequent shell spawns.
+- Terminate any unauthorized processes that were spawned as a result of the wildcard injection to halt any ongoing malicious activities.
+- Review and analyze system logs to determine if any sensitive data was accessed or exfiltrated during the exploitation attempt.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
+- Apply patches or updates to the affected binaries and the operating system to mitigate the vulnerability and prevent future exploitation.
+- Implement enhanced logging policies to capture detailed command-line arguments and process execution details for better visibility in future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to detect similar patterns of behavior and improve threat detection capabilities.
+- Restore the system to its operational state by reinstalling the operating system and applications from trusted sources, ensuring all security patches are applied.
+- Harden the system by disabling unnecessary services, enforcing the principle of least privilege, and implementing application whitelisting to reduce the attack surface."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

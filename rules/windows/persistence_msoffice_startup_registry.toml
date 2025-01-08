@@ -2,7 +2,7 @@
 creation_date = "2023/08/22"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/10"
+updated_date = "2025/01/08"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 
@@ -42,6 +42,48 @@ query = '''
 registry where host.os.type == "windows" and event.action != "deletion" and
     registry.path : "*\\Software\\Microsoft\\Office Test\\Special\\Perf\\*"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Office Test Registry Persistence
+
+The Office Test Registry key in Windows environments allows specifying a DLL to execute whenever an Office application launches, intended for legitimate testing purposes. Adversaries exploit this by inserting malicious DLLs, ensuring persistence on compromised systems. The detection rule monitors modifications to this registry path, excluding deletions, to identify potential abuse by tracking unauthorized changes.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific registry path that was modified, focusing on the `registry.path` field to understand which DLL might be involved.
+- Check the `event.action` field to confirm the type of modification that occurred, ensuring it wasn't a deletion, as deletions are excluded from the rule.
+- Investigate the timestamp of the modification to determine when the change occurred and correlate it with other events on the system.
+- Use Osquery to list all DLLs specified in the Office Test Registry path with a query like: `SELECT * FROM registry WHERE path LIKE 'HKEY_CURRENT_USER\\\\Software\\\\Microsoft\\\\Office Test\\\\Special\\\\Perf\\\\%' OR path LIKE 'HKEY_LOCAL_MACHINE\\\\Software\\\\Microsoft\\\\Office Test\\\\Special\\\\Perf\\\\%';`
+- Examine the DLL file's properties, such as its creation and modification dates, to assess if it aligns with known legitimate software updates or installations.
+- Check the file hash of the DLL against known malware databases to determine if it is a known malicious file.
+- Review recent user activity on the host to identify any suspicious behavior or unauthorized access that might have led to the registry modification.
+- Investigate other registry changes around the same time to identify if there are additional persistence mechanisms being established.
+- Analyze network logs for any unusual outbound connections from the host that might indicate data exfiltration or command and control communication.
+- Cross-reference the host's security logs for any other alerts or anomalies that could provide additional context to the registry modification event.
+
+### False positive analysis
+
+- Legitimate software testing: Developers or IT personnel may use the Office Test Registry key for legitimate testing purposes, leading to benign modifications. Users can handle this by identifying and documenting authorized testing activities and excluding these from alerts.
+- Software updates: Some legitimate software updates might modify the registry key as part of their installation or update process. Users should verify the source of the update and, if confirmed as safe, create exceptions for these specific update activities.
+- Security tools: Certain security or monitoring tools might interact with the registry key as part of their normal operations. Users should review the behavior of these tools and, if deemed non-threatening, exclude them from triggering alerts.
+- Custom scripts or automation: Organizations may have custom scripts or automation processes that modify the registry key for operational purposes. Users should ensure these scripts are documented and create exceptions for their known activities to prevent false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of the threat.
+- Conduct a thorough investigation to identify the malicious DLL and any associated processes or files. Use endpoint detection and response (EDR) tools to gather detailed information.
+- Remove the unauthorized DLL from the specified Office Test Registry path and any other locations where it may have been copied.
+- Restore the registry to its previous state using backups or system restore points, ensuring no unauthorized changes remain.
+- Perform a full antivirus and anti-malware scan on the affected system to detect and remove any additional threats.
+- Review and enhance logging policies to ensure detailed monitoring of registry changes, particularly focusing on the Office Test Registry path.
+- Implement additional security measures such as application whitelisting to prevent unauthorized DLLs from executing.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Update security policies and conduct user awareness training to prevent similar incidents, emphasizing the risks associated with unauthorized software installations.
+- Consider integrating threat intelligence feeds and MITRE ATT&CK framework mappings into security tools to improve detection and response capabilities for persistence techniques like T1137."""
 
 
 [[rule.threat]]

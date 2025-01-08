@@ -2,7 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["beaconing", "endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -50,6 +50,49 @@ type = "query"
 query = '''
 beacon_stats.beaconing_score: 3
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Statistical Model Detected C2 Beaconing Activity with High Confidence
+
+Statistical models analyze network traffic patterns to identify anomalies indicative of C2 beaconing, a tactic where attackers maintain covert communication with their servers. Adversaries exploit this to issue commands, exfiltrate data, and sustain network presence. The detection rule flags high-confidence beaconing activity by scoring traffic patterns, aligning with known C2 tactics and techniques.
+
+### Possible investigation steps
+
+- Review the alert details to understand the context, including the timestamp, source and destination IP addresses, and any associated user accounts.
+- Examine the `beacon_stats.beaconing_score` field to assess the severity and confidence level of the detected activity.
+- Correlate the detected IP addresses with known threat intelligence feeds to check for any matches with known malicious C2 servers.
+- Use network traffic analysis tools to inspect the traffic patterns associated with the flagged IP addresses, focusing on regular intervals or unusual data transfer patterns.
+- Investigate the processes and applications on the affected host(s) using Osquery to identify any suspicious or unauthorized software. Example Osquery query: `SELECT name, path, pid FROM processes WHERE pid IN (SELECT pid FROM listening_ports WHERE address = '<flagged IP address>');`
+- Check for any recent changes or anomalies in the system logs of the affected host(s) that might indicate compromise or unauthorized access.
+- Analyze DNS query logs to identify any unusual or frequent DNS requests to domains associated with the flagged IP addresses.
+- Review user activity logs to determine if any unauthorized or unusual actions were performed by the user accounts associated with the alert.
+- Investigate any related alerts or incidents in the security information and event management (SIEM) system to identify potential patterns or correlations with other suspicious activities.
+- Consult with threat intelligence teams or resources to gather additional context or insights into the potential threat actor's tactics, techniques, and procedures (TTPs) associated with the detected C2 activity.
+
+### False positive analysis
+
+- Known false positives for the Statistical Model Detected C2 Beaconing Activity with High Confidence rule may include legitimate applications or services that regularly communicate with external servers, such as software updates, cloud services, or telemetry data transmissions. These activities can mimic C2 beaconing patterns due to their periodic nature.
+- To manage these false positives, users can create exceptions for specific IP addresses or domains known to be associated with legitimate services. This can be done by maintaining a whitelist of trusted sources and updating it regularly to ensure that benign traffic is not flagged as malicious.
+- Users should also consider analyzing the frequency and timing of the detected beaconing activity. If the pattern aligns with known update schedules or business operations, it may be a candidate for exclusion.
+- Implementing network segmentation and monitoring can help differentiate between legitimate and suspicious traffic, allowing for more accurate identification of false positives.
+- Regularly reviewing and updating the statistical model's parameters and thresholds can help reduce the occurrence of false positives by better aligning the detection criteria with the organization's specific network environment and traffic patterns.
+
+### Response and remediation
+
+- Isolate the affected systems from the network to prevent further communication with the C2 server and contain the threat.
+- Conduct a thorough investigation of the affected systems to identify the scope of the compromise, focusing on network traffic logs and endpoint activity.
+- Utilize MITRE ATT&CK framework details to understand the adversary's tactics, techniques, and procedures, specifically focusing on TA0011 and T1102, to anticipate potential attacker actions.
+- Remove any identified malicious software or scripts from the affected systems and ensure all unauthorized access points are closed.
+- Change all credentials and authentication tokens that may have been exposed or compromised during the incident.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional resources are needed.
+- Implement enhanced logging policies to capture detailed network traffic and endpoint activity for future investigations, ensuring logs are stored securely and are easily accessible.
+- Integrate threat intelligence feeds and anomaly detection tools to improve the detection of similar threats in the future.
+- Restore the affected systems from clean backups, ensuring that all security patches and updates are applied before reconnecting to the network.
+- Conduct a post-incident review to identify gaps in the current security posture and implement hardening measures, such as network segmentation and stricter access controls, to prevent future incidents."""
 
 
 [[rule.threat]]

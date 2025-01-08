@@ -2,7 +2,7 @@
 creation_date = "2024/07/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -54,6 +54,49 @@ query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.name:rpm and
 process.args:("-i" or "--install")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating RPM Package Installed by Unusual Parent Process
+
+RPM is a crucial package management tool in Linux systems like Red Hat and CentOS, facilitating software installation and updates. Adversaries may exploit RPM by installing backdoored or malicious packages to gain persistence or initial access. The detection rule identifies anomalies by flagging RPM installations initiated by atypical parent processes, signaling potential unauthorized activities.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host and timestamp of the RPM installation event.
+- Examine the parent process of the RPM installation using the `process.parent.name` and `process.parent.pid` fields to determine if it is indeed unusual or suspicious.
+- Check the command-line arguments used during the RPM installation by reviewing the `process.args` field to understand what package was being installed.
+- Investigate the user account associated with the RPM installation event using the `user.name` field to determine if the action was authorized or expected.
+- Use Osquery to list all RPM packages installed on the host and identify any recent additions or modifications. Example query: `SELECT name, version, release, install_time FROM rpm_packages WHERE install_time > strftime('%s', '2023-10-01');`
+- Cross-reference the installed package name and version with known repositories or package signatures to verify its legitimacy.
+- Analyze the network activity around the time of the RPM installation to identify any unusual outbound or inbound connections that could indicate data exfiltration or command-and-control activity.
+- Review system logs for any other suspicious activities or errors around the time of the RPM installation to gather additional context.
+- Check for any recent privilege escalation events on the host that could have allowed an adversary to perform the RPM installation.
+- Consult threat intelligence sources to determine if the package or the parent process is associated with known malicious activity or campaigns.
+
+### False positive analysis
+
+- System administrators or automated scripts may frequently install or update RPM packages as part of routine maintenance, which could trigger the rule if these actions are initiated by non-standard parent processes like custom scripts or management tools.
+- Development environments often use containerization or virtualization tools that might execute RPM installations through atypical parent processes, leading to false positives.
+- Security or monitoring tools that perform regular checks or updates on system packages might also appear as unusual parent processes when executing RPM commands.
+- To manage these false positives, users can create exceptions for known benign parent processes by adding them to an allowlist, ensuring that routine administrative tasks or automated processes do not trigger alerts.
+- Regularly review and update the list of excluded parent processes to adapt to changes in system management practices or toolsets, maintaining a balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Verify the legitimacy of the parent process that initiated the RPM installation by reviewing process logs and correlating with known benign activities.
+- Conduct a thorough investigation to identify any malicious RPM packages installed, using file integrity monitoring and package verification tools.
+- Remove any identified malicious or unauthorized RPM packages and replace them with verified, clean versions from trusted repositories.
+- Escalate the incident to the security operations team if the investigation reveals signs of a broader compromise or if the threat actor's identity and intent are unclear.
+- Implement enhanced logging policies to capture detailed process execution data, including parent-child process relationships, to aid in future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure all software is up-to-date.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement system hardening measures, such as disabling unnecessary services and enforcing least privilege access controls, to reduce the attack surface."""
 
 
 [[rule.threat]]

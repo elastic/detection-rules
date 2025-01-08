@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "system","sentinel_one_cloud_funnel", "m36
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/11/02"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -46,6 +46,48 @@ process.executable : (
 ) and
 (process.name : "psexec64.exe" or ?process.pe.original_file_name : "psexec.c")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential WSUS Abuse for Lateral Movement
+
+Windows Server Update Services (WSUS) is a system that manages updates for Microsoft products, ensuring that only trusted, signed binaries are executed. However, adversaries can exploit WSUS to execute Microsoft-signed tools like PsExec for lateral movement within a network. The detection rule identifies suspicious processes initiated by WSUS, specifically targeting the execution of PsExec, which is indicative of potential abuse for unauthorized lateral movement.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the suspicious process execution, focusing on the `process.parent.name` field to verify if `wuauclt.exe` is the parent process.
+- Examine the `process.executable` path to ensure it matches the specified paths in the query, indicating potential abuse of the WSUS download directory.
+- Check the `process.name` and `process.pe.original_file_name` fields to confirm the execution of `psexec64.exe` or `psexec.c`, which are indicative of lateral movement attempts.
+- Investigate the timeline of events leading up to the alert by reviewing related process creation events to identify any preceding suspicious activities.
+- Use Osquery to gather additional context on the system by running a query such as: `SELECT * FROM processes WHERE name = 'psexec64.exe' OR name = 'psexec.c';` to identify other instances of these processes running on the host.
+- Analyze network logs to identify any unusual outbound connections from the affected host that may indicate lateral movement attempts.
+- Review user account activity on the affected host to determine if any unauthorized or unexpected accounts were used to execute the suspicious processes.
+- Check for any recent changes or updates to the WSUS configuration that could have been exploited to facilitate the execution of unauthorized binaries.
+- Correlate the alert with other security events or alerts in the environment to identify potential patterns or coordinated attack activities.
+- Consult threat intelligence sources to determine if there are any known campaigns or threat actors associated with similar WSUS abuse techniques.
+
+### False positive analysis
+
+- Legitimate administrative activities: In some environments, system administrators may use PsExec for legitimate purposes, such as deploying software or performing maintenance tasks. These activities can trigger the detection rule, leading to false positives.
+- Automated update scripts: Organizations may have automated scripts that utilize PsExec for deploying updates or patches across the network. These scripts, if executed by WSUS, can be mistaken for malicious activity.
+- Testing and development environments: In testing or development environments, PsExec might be used frequently for testing purposes, which could lead to false positives if these environments are not properly excluded from monitoring.
+- To manage these false positives, users can create exceptions for known legitimate activities by excluding specific processes or scripts that are regularly used for administrative tasks. Additionally, users can refine the detection rule to exclude certain hosts or environments, such as development or testing servers, where PsExec usage is expected and non-threatening.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
+- Conduct a thorough investigation to confirm the presence of PsExec execution initiated by WSUS and identify any other potentially compromised systems.
+- Review and analyze logs from WSUS, endpoint detection and response (EDR) tools, and network traffic to trace the adversary's activities and entry points.
+- Remove unauthorized PsExec binaries and any other malicious tools or scripts found on the affected systems.
+- Apply security patches and updates to all systems to mitigate vulnerabilities that could be exploited for lateral movement.
+- Reset credentials for accounts that were accessed or potentially compromised during the incident.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and network activity, focusing on WSUS and related services.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection of similar threats in the future.
+- Conduct a post-incident review to identify gaps in security controls and apply hardening measures, such as restricting WSUS permissions and monitoring for unusual process executions."""
 
 
 [[rule.threat]]

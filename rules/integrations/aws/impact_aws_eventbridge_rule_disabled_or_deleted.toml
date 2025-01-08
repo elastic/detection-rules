@@ -2,7 +2,7 @@
 creation_date = "2021/10/17"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Austin Songer"]
@@ -23,7 +23,50 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EventBridge Rule Disabled or Deleted"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EventBridge Rule Disabled or Deleted
+
+AWS EventBridge is a serverless event bus service that enables applications to respond to changes in data. Disabling or deleting rules can disrupt event-driven workflows, potentially masking malicious activities. Adversaries might exploit this by halting critical alerts or data flows. The detection rule monitors for successful disablement or deletion actions, signaling potential misuse or configuration tampering.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs to identify the user or role associated with the `DeleteRule` or `DisableRule` actions by examining the `user.identity.arn` field.
+- Check the `event.time` field in the CloudTrail logs to determine the exact time the rule was disabled or deleted, and correlate this with other activities in the AWS account around the same time.
+- Investigate the `event.sourceIPAddress` field to identify the source IP address from which the action was initiated, and determine if it is a known or expected address.
+- Examine the `event.requestParameters` field to identify the specific EventBridge rule that was disabled or deleted, and assess its importance in the event-driven architecture.
+- Use AWS CloudTrail insights to detect any unusual activity patterns or anomalies associated with the user or role that performed the action.
+- Cross-reference the `event.userAgent` field to understand the tool or service used to perform the action, which might provide additional context about the method of access.
+- Utilize Osquery to query AWS API logs for any other suspicious activities related to EventBridge. Example query: `SELECT * FROM aws_cloudtrail_events WHERE eventName IN ('DeleteRule', 'DisableRule') AND eventSource = 'eventbridge.amazonaws.com';`
+- Investigate any recent IAM policy changes that might have granted new permissions to the user or role involved, which could indicate privilege escalation.
+- Review the AWS Config history for the EventBridge rule to understand its previous state and any recent changes that might have led to its disablement or deletion.
+- Check for any associated CloudWatch alarms or logs that might have been affected by the rule's disablement or deletion, to assess the potential impact on monitoring and alerting.
+
+### False positive analysis
+
+- Routine maintenance or updates: Scheduled maintenance activities or updates by authorized personnel may involve disabling or deleting EventBridge rules temporarily. These actions, while legitimate, can trigger alerts. Users can manage these by creating exceptions for known maintenance windows or by whitelisting actions performed by specific IAM roles or users responsible for maintenance.
+- Development and testing environments: In non-production environments, developers might frequently disable or delete rules as part of testing new features or configurations. To reduce noise, users can exclude events originating from specific AWS accounts or regions designated for development and testing.
+- Automated workflows: Some automated processes or third-party tools might disable or delete rules as part of their normal operation. Users should identify these tools and create exceptions for their actions, ensuring that only expected and documented automated changes are excluded.
+- Organizational policy changes: Changes in organizational policies might require temporary suspension of certain rules. Users should document these policy-driven changes and adjust detection rules to account for them, possibly by excluding actions taken by specific policy enforcement tools or teams.
+
+### Response and remediation
+
+- Immediately review CloudTrail logs to identify the user or service account responsible for disabling or deleting the EventBridge rule and verify if the action was authorized.
+- Contain the potential threat by temporarily revoking permissions for the identified user or service account to prevent further unauthorized actions.
+- Investigate the context and intent behind the rule modification by checking related activities in CloudTrail and other AWS services to determine if it is part of a larger attack pattern.
+- Restore the disabled or deleted EventBridge rule from backups or recreate it based on the last known good configuration to resume normal operations.
+- Escalate the incident to the security operations team if unauthorized activity is confirmed, and involve relevant stakeholders for a coordinated response.
+- Implement AWS CloudWatch alarms to monitor for future disablement or deletion of critical EventBridge rules to ensure timely detection of similar incidents.
+- Enhance logging policies by enabling detailed logging for EventBridge and related AWS services to improve visibility and facilitate future investigations.
+- Integrate AWS Security Hub or a similar security information and event management (SIEM) tool to centralize alerts and streamline incident response processes.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans to address identified weaknesses.
+- Apply hardening measures by enforcing least privilege access, using AWS Identity and Access Management (IAM) roles with strict permissions, and regularly reviewing access policies to minimize the risk of unauthorized actions.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

@@ -2,7 +2,7 @@
 creation_date = "2024/06/03"
 integration = ["fim"]
 maturity = "production"
-updated_date = "2024/12/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -133,6 +133,48 @@ file.path : (
   file.extension in ("dpkg-new", "dpkg-remove", "SEQ")
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Persistence via File Modification
+
+File Integrity Monitoring (FIM) is crucial for detecting unauthorized changes to critical files, often targeted by adversaries for persistence. Attackers may modify cron jobs, systemd services, or shell configurations to maintain access. The detection rule identifies suspicious updates to these files, excluding benign changes, to alert analysts to potential persistence mechanisms.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path that triggered the alert, focusing on the `file.path` field to understand which critical file was modified.
+- Check the `event.action` field to confirm that the action was indeed an "updated" event, indicating a modification rather than a creation or deletion.
+- Investigate the `host.os.type` field to ensure the alert pertains to a Linux system, as the rule is specifically designed for Linux environments.
+- Examine the `event.dataset` field to verify that the event originated from the "fim.event" dataset, confirming it was captured by File Integrity Monitoring.
+- Use Osquery to gather additional context about the modified file. For example, run the following query to check the file's current permissions and ownership: `SELECT path, mode, uid, gid FROM file WHERE path = '<file_path>';` Replace `<file_path>` with the actual path from the alert.
+- Investigate recent user activity on the system by reviewing authentication logs (e.g., `/var/log/auth.log`) to identify any suspicious logins or user actions around the time of the file modification.
+- Check for any recent changes to systemd services or cron jobs by listing all active services and scheduled tasks, which might provide clues about persistence mechanisms.
+- Review the system's bash history or other shell history files for commands executed by users that might have led to the file modification.
+- Use Osquery to list all currently loaded kernel modules and running processes to identify any unusual or unauthorized modules or processes that could be related to persistence: `SELECT name, path FROM kernel_modules;` and `SELECT pid, name, path FROM processes;`.
+- Investigate the system for any additional indicators of compromise, such as unexpected network connections or unusual system behavior, which might correlate with the file modification event.
+
+### False positive analysis
+
+- Routine system updates or package installations may modify files monitored by the rule, leading to false positives. Users can manage this by excluding file extensions like "dpkg-new" or "dpkg-remove" from triggering alerts.
+- Temporary files created during system operations, such as those in "/var/spool/cron/crontabs/tmp.*" or "/run/udev/rules.d/*rules.*", can cause false positives. These can be excluded from monitoring to reduce noise.
+- Known hosts files in SSH directories, such as "/home/*/.ssh/known_hosts.*" and "/root/.ssh/known_hosts.*", are often updated during normal SSH operations and can be safely excluded to prevent false alerts.
+- Users should regularly review and update the exclusion list to reflect any new benign patterns observed in their environment, ensuring that legitimate changes do not trigger unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the scope of the modification, including reviewing logs and correlating with other security events.
+- Verify the integrity of the modified files against known good configurations or backups to determine unauthorized changes.
+- Restore the affected files from a clean backup if unauthorized modifications are confirmed.
+- Change all credentials and keys that may have been exposed or compromised due to the persistence mechanism.
+- Escalate the incident to the security operations center (SOC) or incident response team if the modification is part of a broader attack campaign.
+- Implement enhanced logging and monitoring for critical files and directories to detect future unauthorized changes promptly.
+- Review and update file integrity monitoring policies to ensure comprehensive coverage of critical system files.
+- Apply system hardening measures, such as disabling unnecessary services and enforcing least privilege access controls.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

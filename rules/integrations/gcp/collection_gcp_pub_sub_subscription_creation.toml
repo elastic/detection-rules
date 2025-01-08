@@ -2,7 +2,7 @@
 creation_date = "2020/09/23"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,52 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Pub/Sub Subscription Creation"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP Pub/Sub Subscription Creation
+
+Google Cloud Platform's Pub/Sub service facilitates asynchronous messaging, allowing services to communicate without direct interaction. Adversaries might exploit this by creating unauthorized subscriptions to intercept or exfiltrate data. The detection rule monitors audit logs for successful subscription creation events, helping identify potential misuse by flagging unexpected or suspicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event dataset is `gcp.audit` and the action is `google.pubsub.v*.Subscriber.CreateSubscription` with a successful outcome.
+- Identify the user or service account associated with the subscription creation event to determine if it aligns with expected activity.
+- Check the timestamp of the event to see if it coincides with any known maintenance windows or scheduled tasks.
+- Investigate the project and resource names involved in the subscription creation to verify if they are legitimate and expected.
+- Examine the IP address and location from which the subscription creation request originated to identify any anomalies or unexpected access patterns.
+- Use Osquery to gather additional context on the GCP environment. For example, run a query to list all subscriptions in the project: `SELECT * FROM gcp_pubsub_subscriptions WHERE project_id = '<project_id>';`.
+- Cross-reference the subscription creation event with other logs, such as IAM activity logs, to identify any preceding or subsequent suspicious actions.
+- Analyze the permissions and roles assigned to the user or service account to ensure they are appropriate and have not been escalated recently.
+- Review historical data to determine if there have been any similar subscription creation events in the past and their outcomes.
+- Consult with relevant stakeholders or teams to confirm if the subscription creation was part of a legitimate business process or project initiative.
+
+### False positive analysis
+
+- Routine subscription creations by automated processes or scheduled jobs can trigger false positives. These are often part of normal operations and not indicative of malicious activity.
+- Development and testing environments may frequently create and delete subscriptions as part of their workflow, leading to benign alerts.
+- Internal monitoring or logging services might create subscriptions to capture application metrics or logs, which are legitimate and expected activities.
+- To manage these false positives, users can create exceptions for known service accounts or projects that regularly perform these actions.
+- Implementing a baseline of normal subscription creation activity can help differentiate between expected and suspicious behavior.
+- Regularly review and update the list of exceptions to ensure they align with current operational practices and do not inadvertently exclude genuine threats.
+
+### Response and remediation
+
+- Verify the legitimacy of the subscription creation by checking the associated user or service account and their permissions.
+- Contain the potential threat by temporarily disabling the suspicious subscription and any associated service accounts.
+- Investigate the source of the subscription creation by reviewing audit logs for unusual activity or unauthorized access patterns.
+- Remediate by revoking any unauthorized access and resetting credentials for compromised accounts.
+- Escalate the incident to the security operations team if the activity is confirmed as malicious or if there is evidence of data exfiltration.
+- Implement enhanced logging policies to capture detailed access and modification events for Pub/Sub resources.
+- Integrate with a Security Information and Event Management (SIEM) system to automate the detection of suspicious subscription activities.
+- Restore the system to its operational state by re-enabling legitimate subscriptions and ensuring all security measures are in place.
+- Harden the environment by applying the principle of least privilege to all service accounts and regularly reviewing permissions.
+- Educate users and administrators on recognizing and reporting suspicious activities related to Pub/Sub services.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/pubsub/docs/overview"]

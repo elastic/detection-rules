@@ -4,7 +4,7 @@ integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender"
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -104,6 +104,49 @@ process where host.os.type == "windows" and event.type == "start" and
   not (process.name : "cmd.exe" and process.args : "%TEMP%\\Spiceworks\\*" and process.args : "http*/dataloader/persist_netstat_data") and 
   not (process.args == "echo" and process.args == "GEQ" and process.args == "1073741824")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Windows Command Shell Arguments
+
+The Windows Command Shell (cmd.exe) is a critical component for executing commands and scripts. Adversaries exploit it to execute malicious scripts, download payloads, or manipulate system settings. The detection rule identifies unusual command-line arguments and patterns indicative of such abuse, while excluding known benign processes, to flag potential threats effectively.
+
+### Possible investigation steps
+
+- Review the full command line of the cmd.exe process to understand the context and intent of the suspicious arguments.
+- Check the parent process of cmd.exe to determine if it is a known benign process or if it might be part of a malicious chain of execution.
+- Investigate the user account associated with the process to determine if it is a legitimate user or potentially compromised.
+- Examine the network connections made by the host during the time of the alert to identify any suspicious outbound connections or data exfiltration attempts.
+- Use Osquery to list all running processes on the host to identify any other suspicious activities or processes. Example query: `SELECT name, path, cmdline FROM processes WHERE name = 'cmd.exe';`
+- Analyze the file system for any newly created or modified files that could be related to the suspicious command execution.
+- Check for any scheduled tasks or startup items that might have been created or modified to persist malicious activities.
+- Review the Windows Event Logs, particularly Security and System logs, for any additional indicators of compromise or related events.
+- Investigate any registry changes that might have been made by the cmd.exe process to alter system settings or establish persistence.
+- Correlate the alert with other security events or alerts from the same host or user to identify patterns or broader attack campaigns.
+
+### False positive analysis
+
+- The rule excludes processes with known benign parent executables such as Perl, Node.js, and PostgreSQL, which are often used in legitimate scripting and database operations. Users should ensure these paths are correctly specified to avoid unnecessary alerts.
+- Specific command-line patterns related to software like NetBeans, Citrix Secure Access Client, and npm installations are excluded to prevent false positives from common development and IT management tasks. Users should verify these patterns align with their environment's typical usage.
+- Processes originating from Spiceworks and other IT management tools are excluded to prevent alerts from routine network monitoring and management activities. Users can add similar exclusions for other trusted IT tools in their environment.
+- The rule excludes certain command-line arguments and parent processes associated with known benign applications like PRTG Network Monitor and Tripwire Agent. Users should review and update these exclusions based on the specific software versions and configurations in use.
+- Users can manage false positives by adding exceptions for specific command-line patterns or parent processes that are frequently observed in their environment but are known to be non-threatening. This can be done by updating the exclusion list with paths or patterns unique to their trusted applications.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of potential malware.
+- Conduct a thorough investigation of the suspicious command-line activity to determine the scope and impact, using available logs and forensic tools.
+- Identify and terminate any malicious processes associated with the suspicious command-line arguments.
+- Remove any malicious files or scripts identified during the investigation from the affected system.
+- Apply security patches and updates to the operating system and all installed software to mitigate known vulnerabilities.
+- Restore the system from a clean backup if the integrity of the system is compromised beyond repair.
+- Implement enhanced logging policies to capture detailed command-line activity and integrate with a centralized logging solution for future analysis.
+- Review and update security policies and procedures to include detection and response to similar threats, leveraging MITRE ATT&CK framework for guidance.
+- Conduct a post-incident review to identify gaps in the current security posture and implement hardening measures such as disabling unnecessary services and enforcing least privilege access.
+- Escalate the incident to the appropriate internal or external cybersecurity team if the threat is beyond the organization's capability to handle."""
 
 
 [[rule.threat]]

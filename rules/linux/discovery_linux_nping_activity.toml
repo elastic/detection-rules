@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -78,6 +78,47 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
  and process.name == "nping"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Nping Process Activity
+Nping, a component of the Nmap suite, is used for crafting raw packets, aiding in network diagnostics and security testing. Adversaries may exploit Nping to perform network reconnaissance or denial-of-service attacks by probing network services. The detection rule identifies Nping execution on Linux systems by monitoring process initiation events, helping to flag potential misuse aligned with network discovery tactics.
+
+### Possible investigation steps
+
+- Verify the alert by checking the process initiation event details, focusing on the `process.name` field to confirm it is indeed "nping".
+- Examine the `host.os.type` field to ensure the alert pertains to a Linux system, as expected.
+- Review the `event.type` and `event.action` fields to confirm the process was started and executed, ensuring the alert is not a false positive.
+- Investigate the user account associated with the `process` to determine if the execution was authorized or expected.
+- Check the parent process of the Nping execution to understand how it was initiated and if it was part of a larger script or automated task.
+- Use Osquery to gather more context on the Nping process by running a query such as: `SELECT * FROM processes WHERE name = 'nping';` to retrieve details like process ID, user, and command line arguments.
+- Analyze the command line arguments used with Nping to understand the intent of the execution, such as specific network targets or options that indicate reconnaissance or denial-of-service activities.
+- Review network logs and traffic patterns around the time of the Nping execution to identify any unusual or suspicious network activity that correlates with the alert.
+- Cross-reference the alert with other security events or logs to identify if there are any related activities or patterns, such as multiple reconnaissance attempts or other suspicious processes.
+- Consult threat intelligence sources to determine if there are any known campaigns or threat actors that commonly use Nping in their operations, providing additional context to the alert.
+
+### False positive analysis
+
+- Routine network diagnostics: System administrators may use Nping for legitimate network diagnostics and performance testing, which can trigger the detection rule. To manage this, users can create exceptions for specific user accounts or IP addresses known to perform regular diagnostics.
+- Security testing by authorized personnel: Security teams might employ Nping as part of scheduled vulnerability assessments or penetration testing. Users can handle these false positives by excluding processes initiated by designated security team accounts or during predefined testing windows.
+- Automated scripts or tools: Some automated network management scripts or tools might incorporate Nping for monitoring purposes. Users should identify these scripts and exclude their execution paths or associated service accounts from triggering alerts.
+- Development and testing environments: In environments where network tools are frequently tested, Nping might be executed as part of development activities. Users can exclude specific development servers or environments from the detection rule to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected Linux host from the network to prevent further reconnaissance or potential denial-of-service attacks.
+- Verify the legitimacy of the Nping process by checking the user account that initiated it and cross-referencing with authorized network testing activities.
+- Conduct a thorough investigation of the system logs to identify any unauthorized access or suspicious activities preceding the Nping execution.
+- Review network traffic logs to determine if there were any unusual patterns or connections initiated by the Nping process.
+- If unauthorized use is confirmed, terminate the Nping process and any other suspicious processes running on the host.
+- Escalate the incident to the security operations team for further analysis and to determine if other systems may be affected.
+- Implement enhanced logging policies to capture detailed process execution and network activity, ensuring future incidents can be detected more efficiently.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate Nping activity with known threat actor behaviors.
+- Restore the system to its operational state by applying any necessary patches, updating security configurations, and conducting a full system scan for malware.
+- Harden the system by disabling unnecessary network services, enforcing strict access controls, and regularly updating security policies to mitigate future risks."""
 
 
 [[rule.threat]]

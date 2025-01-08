@@ -2,7 +2,7 @@
 creation_date = "2020/04/16"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -70,6 +70,50 @@ query = '''
 event.category:process and host.os.type:linux and event.type:(start or process_started) and process.name:perl and
   process.args:("exec \"/bin/sh\";" or "exec \"/bin/dash\";" or "exec \"/bin/bash\";")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Interactive Terminal Spawned via Perl
+
+Perl, a versatile scripting language, can execute system commands, making it a target for adversaries seeking to escalate privileges or maintain persistence. Attackers may exploit Perl to spawn interactive terminals, upgrading basic shells to fully interactive ones. The detection rule identifies such activity by monitoring process events where Perl executes shell commands, signaling potential misuse for unauthorized access.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the specific process arguments indicating an interactive terminal spawn via Perl, such as "exec \\"/bin/sh\\";", "exec \\"/bin/dash\\";", or "exec \\"/bin/bash\\";".
+- Examine the process tree to identify the parent process of the Perl execution, which may provide insights into how the Perl script was initiated.
+- Check the user account associated with the Perl process to determine if it aligns with expected usage patterns or if it indicates potential compromise.
+- Investigate the source IP address and network connections associated with the host to identify any suspicious or unauthorized access attempts.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name = 'perl' AND cmdline LIKE '%exec%';` to list all Perl processes with execution commands.
+- Analyze recent login events on the host to identify any unusual or unauthorized access that may correlate with the timing of the Perl process execution.
+- Review file modification and creation events around the time of the alert to detect any scripts or files that may have been used to execute the Perl command.
+- Check for any other alerts or anomalies on the host that may indicate a broader attack or compromise, such as other scripting or command execution alerts.
+- Investigate the environment for any signs of privilege escalation attempts or lateral movement that may have been facilitated by the interactive terminal.
+- Correlate the findings with threat intelligence sources to determine if the activity matches known attack patterns or indicators of compromise.
+
+### False positive analysis
+
+- Routine administrative scripts: System administrators may use Perl scripts to automate tasks that involve spawning shells for legitimate purposes, such as maintenance or configuration changes. These activities can trigger the detection rule but are not malicious.
+- Development and testing environments: Developers might use Perl to test scripts that require shell access, leading to false positives. These environments often have frequent, non-threatening shell spawns.
+- Monitoring and automation tools: Some monitoring or automation tools may use Perl to execute shell commands as part of their normal operation, which can be mistaken for malicious activity.
+- To manage false positives, users can create exceptions for known benign scripts or processes by whitelisting specific script paths or process arguments that are regularly used in legitimate operations.
+- Implementing a baseline of normal activity for specific hosts or environments can help differentiate between expected and suspicious behavior, reducing the likelihood of false positives.
+- Regularly review and update the exclusion list to ensure it reflects current operational practices and does not inadvertently allow malicious activity.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized access or lateral movement.
+- Investigate the process tree to identify the parent process and any child processes spawned by the Perl script to understand the scope of the compromise.
+- Terminate any malicious processes identified during the investigation to halt ongoing unauthorized activities.
+- Review system logs and security alerts to determine the initial access vector and any other potentially compromised systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional resources are needed.
+- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Restore the affected system from a known good backup to ensure the removal of any persistent threats or backdoors.
+- Apply security patches and updates to the operating system and installed applications to mitigate known vulnerabilities.
+- Conduct a security review and harden the system by disabling unnecessary services, enforcing least privilege access, and implementing multi-factor authentication (MFA) where possible."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -43,6 +43,49 @@ process where host.os.type == "windows" and event.type == "start" and
   process.args : ("call", "set", "get") and
   not process.args : ("*/node:localhost*", "*/node:\"127.0.0.1\"*", "/node:127.0.0.1")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating WMIC Remote Command
+
+WMIC (Windows Management Instrumentation Command-line) is a powerful tool for managing Windows systems, allowing administrators to execute commands on remote hosts. However, attackers can exploit WMIC for lateral movement by executing commands on other systems within a network. The detection rule identifies suspicious WMIC usage by monitoring command executions targeting remote nodes, excluding local addresses, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of `WMIC.exe` in the `process.name` field and ensure the `process.args` include remote node specifications.
+- Verify the `host.os.type` is "windows" and the `event.type` is "start" to ensure the alert is relevant to the rule.
+- Examine the `process.args` field to identify the specific command executed (e.g., "call", "set", "get") and the targeted remote node.
+- Check for any exclusion patterns in `process.args` to ensure the command was not targeting local addresses like "localhost" or "127.0.0.1".
+- Correlate the alert with other logs or alerts from the same host to identify any patterns or sequences of suspicious activities.
+- Investigate the user account associated with the process execution to determine if it is a legitimate administrative account or potentially compromised.
+- Use Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE name = 'WMIC.exe';` to retrieve details like process ID, parent process, and execution path.
+- Analyze network logs to identify any unusual connections or data transfers between the source and target nodes around the time of the alert.
+- Review historical data to determine if there have been previous instances of similar WMIC usage from the same host or user account.
+- Consult threat intelligence sources to check if the remote node or any associated IP addresses have been flagged for malicious activity.
+
+### False positive analysis
+
+- Legitimate administrative tasks: Administrators often use WMIC for routine management tasks across multiple systems, which can trigger the detection rule. To manage this, users can create exceptions for known administrative accounts or specific command patterns that are regularly used for maintenance.
+- Automated scripts and management tools: Some automated scripts or third-party management tools may utilize WMIC to perform legitimate operations on remote hosts. Users should identify these scripts or tools and exclude their specific command patterns or originating accounts from the detection rule.
+- Monitoring and alerting systems: Certain monitoring solutions might use WMIC to gather system information from remote hosts. Users can handle these false positives by excluding the IP addresses or hostnames of known monitoring systems from the rule.
+- Scheduled tasks: Scheduled tasks that use WMIC for legitimate purposes, such as system updates or health checks, can also be excluded by identifying the specific task names or associated user accounts.
+- Testing and development environments: In environments where WMIC is used frequently for testing or development purposes, users can exclude specific IP ranges or hostnames associated with these environments to reduce noise in alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement by the attacker.
+- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying other systems that may have been targeted or affected.
+- Review WMIC logs and other relevant system logs to gather evidence of unauthorized access and command execution.
+- Change all credentials that may have been exposed or used during the attack, especially those with administrative privileges.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed information on WMIC usage and other remote command executions.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats in the future.
+- Restore the affected system from a known good backup to ensure it is free from any malicious modifications.
+- Apply security patches and updates to all systems to mitigate vulnerabilities that could be exploited for lateral movement.
+- Implement network segmentation and access controls to limit the ability of attackers to move laterally within the network."""
 
 
 [[rule.threat]]

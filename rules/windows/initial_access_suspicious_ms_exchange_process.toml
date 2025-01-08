@@ -2,7 +2,7 @@
 creation_date = "2021/03/04"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/10/31"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -82,6 +82,53 @@ process where host.os.type == "windows" and event.type == "start" and
           "\\Device\\HarddiskVolume?\\Exchange Server\\V15\\Bin\\UMWorkerProcess.exe"
     )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft Exchange Server UM Spawning Suspicious Processes
+
+Microsoft Exchange Server's Unified Messaging (UM) integrates voicemail and email, enhancing communication efficiency. However, adversaries can exploit vulnerabilities, such as CVE-2021-26857, to execute unauthorized processes. The detection rule identifies unusual processes initiated by UM services, excluding known legitimate executables, to flag potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name and executable path that triggered the alert, focusing on the `process.parent.name` and `process.executable` fields.
+- Verify the legitimacy of the process by checking the parent process `UMService.exe` or `UMWorkerProcess.exe` against known legitimate executables listed in the detection rule.
+- Cross-reference the process executable path with known Exchange Server installation paths to identify any anomalies or deviations.
+- Use Osquery to list all processes spawned by `UMService.exe` or `UMWorkerProcess.exe` to identify any unexpected or suspicious processes:
+  ```sql
+  SELECT pid, name, path, cmdline FROM processes WHERE parent = (SELECT pid FROM processes WHERE name IN ('UMService.exe', 'UMWorkerProcess.exe'));
+  ```
+- Investigate the command line arguments (`cmdline`) of the suspicious process to gather more context about its execution.
+- Check the process creation time and correlate it with any known suspicious activity or anomalies in the system logs.
+- Examine the user account context under which the suspicious process was executed to determine if it aligns with expected behavior.
+- Review recent security patches and updates applied to the Exchange Server to ensure CVE-2021-26857 and other vulnerabilities are addressed.
+- Analyze network traffic logs for any unusual outbound connections initiated by the suspicious process to external IP addresses.
+- Consult threat intelligence sources to determine if the identified process or behavior is associated with known threat actors or campaigns exploiting Exchange Server vulnerabilities.
+
+### False positive analysis
+
+- Known false positives may occur when legitimate administrative tools or scripts are executed by the UM services, which are not included in the predefined list of known executables. 
+- Scheduled maintenance tasks or updates that involve UM services might trigger alerts if they spawn processes not recognized by the detection rule.
+- Custom scripts or third-party applications integrated with Exchange Server for enhanced functionality could also be flagged if they initiate processes through UM services.
+- To manage these false positives, users can create exceptions by adding the specific executable paths of these legitimate processes to the exclusion list within the detection rule.
+- Regularly review and update the exclusion list to accommodate any new legitimate processes that are part of routine operations or maintenance activities.
+- Collaborate with IT and security teams to identify and document any custom or third-party applications that interact with UM services to ensure they are accounted for in the detection rule.
+
+### Response and remediation
+
+- Isolate the affected Microsoft Exchange Server from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify any unauthorized processes or changes made by exploiting CVE-2021-26857, using forensic tools to analyze logs and system changes.
+- Terminate any suspicious processes spawned by the UM service that are not part of the known legitimate executables list.
+- Apply the latest security patches and updates from Microsoft to address CVE-2021-26857 and other known vulnerabilities.
+- Restore the system from a clean backup taken before the compromise, ensuring that the backup is free from any malicious alterations.
+- Implement enhanced logging policies to capture detailed process creation events and network activity for future investigations.
+- Integrate security solutions such as Endpoint Detection and Response (EDR) and Intrusion Detection Systems (IDS) to monitor for similar threats.
+- Escalate the incident to the security operations center (SOC) or relevant cybersecurity team for further analysis and to determine if additional systems are affected.
+- Review and update firewall and access control policies to restrict unnecessary exposure of the Exchange Server to the internet.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans to improve future response efforts."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["ded", "endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 75
@@ -52,6 +52,48 @@ tags = [
     "Tactic: Exfiltration",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Data Exfiltration Activity to an Unusual Region
+
+Machine learning models analyze network traffic patterns to identify anomalies, such as data transfers to atypical regions. Adversaries exploit command and control (C2) channels to exfiltrate data to these unusual locations, bypassing traditional security measures. The detection rule leverages these models to flag suspicious geo-location activities, aligning with MITRE ATT&CK's exfiltration tactics, thus aiding in early threat identification.
+
+### Possible investigation steps
+
+- Review the alert details to understand the specific geo-location flagged as unusual and the volume of data transferred.
+- Cross-reference the geo-location with the organization's known business operations to determine if the location is indeed atypical.
+- Analyze historical network traffic logs to identify patterns and determine if similar data transfers have occurred in the past.
+- Examine the source IP address and destination IP address involved in the data transfer to identify any known malicious activity or anomalies.
+- Utilize Osquery to gather additional context on the involved endpoints. For example, run the following query to list recent network connections: `SELECT * FROM process_open_sockets WHERE remote_address = '<destination_ip>';`
+- Investigate the user accounts associated with the data transfer to check for any signs of compromise or unusual activity.
+- Check for any recent changes in firewall or proxy configurations that might have allowed the data transfer to bypass security controls.
+- Correlate the alert with other security events or alerts to identify potential patterns or coordinated attacks.
+- Review endpoint logs for any signs of malware or unauthorized software that could facilitate data exfiltration.
+- Consult threat intelligence sources to determine if the destination IP or geo-location is associated with known threat actors or campaigns.
+
+### False positive analysis
+
+- Legitimate business operations involving international data transfers can trigger false positives. Organizations with global operations may frequently transfer data to regions that are atypical for other businesses but normal for them.
+- Cloud service providers often have data centers in various regions. Routine data synchronization or backup activities to these locations might be misidentified as exfiltration attempts.
+- Remote work scenarios where employees connect from different geographical locations can lead to false positives, especially if employees are traveling or using VPNs that exit in unusual regions.
+- To manage these false positives, users can create exceptions for known and verified data transfer activities that align with business operations. This involves maintaining an updated list of trusted geo-locations and regularly reviewing and adjusting the detection rule's sensitivity to accommodate legitimate traffic patterns.
+
+### Response and remediation
+
+- Immediately isolate the affected systems from the network to prevent further data exfiltration.
+- Conduct a thorough investigation to identify the scope of the exfiltration, including the data types and volumes transferred.
+- Analyze network logs and endpoint data to trace the source of the command and control (C2) channel used for exfiltration.
+- Escalate the incident to the security operations center (SOC) and relevant stakeholders for awareness and further action.
+- Implement enhanced logging policies to capture detailed network traffic and endpoint activities for future investigations.
+- Integrate threat intelligence feeds to update detection rules and improve anomaly detection capabilities.
+- Restore affected systems from clean backups to ensure no malicious code remains.
+- Apply security patches and updates to all systems to mitigate vulnerabilities exploited during the attack.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement network segmentation and data loss prevention (DLP) measures to harden the environment against future exfiltration attempts."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

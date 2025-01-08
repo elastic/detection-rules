@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -42,6 +42,49 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name : "cmstp.exe" and process.args == "/s"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Defense Evasion via CMSTP.exe
+
+CMSTP.exe is a Windows utility for installing network profiles using INF files. Adversaries exploit it to execute malicious code by crafting INF files with harmful commands, bypassing security measures. The detection rule identifies suspicious activity by monitoring the execution of CMSTP.exe with specific arguments, flagging potential misuse for further investigation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of CMSTP.exe execution with the "/s" argument, as this indicates a silent installation which could be suspicious.
+- Check the parent process of CMSTP.exe to determine if it was launched by a legitimate application or a potentially malicious process.
+- Investigate the user account associated with the CMSTP.exe process to verify if the activity aligns with their typical behavior or if it appears anomalous.
+- Examine the command line arguments used with CMSTP.exe to identify any unusual or unexpected parameters that could indicate malicious intent.
+- Use Osquery to list recent processes executed by the user associated with the alert to identify any other suspicious activities. Example query: `SELECT * FROM processes WHERE uid = (SELECT uid FROM users WHERE username = 'suspicious_user');`
+- Analyze the INF file associated with the CMSTP.exe execution to check for any embedded malicious commands or scripts.
+- Review recent file modifications in directories commonly used for storing INF files to identify any unauthorized changes or suspicious files.
+- Correlate the event with other security alerts or logs from the same host to identify patterns or additional indicators of compromise.
+- Check network logs for any unusual outbound connections initiated around the time of the CMSTP.exe execution, which could suggest data exfiltration or command and control activity.
+- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or campaigns involving CMSTP.exe.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger the rule if they use CMSTP.exe with the "/s" argument for silent installations, which is a common practice for deploying network profiles or VPN configurations.
+- System administrators might use CMSTP.exe in scripts or automated tasks for deploying or updating network settings across multiple machines, leading to benign alerts.
+- To manage these false positives, users can create exceptions for known and trusted software installations by whitelisting specific INF files or directories from which these files are executed.
+- Monitoring the context of CMSTP.exe execution, such as the parent process or the source of the INF file, can help differentiate between legitimate and suspicious activities.
+- Regularly review and update the list of exceptions to ensure that only verified and necessary activities are excluded from alerts, maintaining a balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the source of the malicious INF file and any other potentially compromised systems.
+- Analyze the execution context of CMSTP.exe, including the command-line arguments and associated files, to understand the scope of the attack.
+- Review and collect relevant logs, such as Windows Event Logs and security software logs, to gather evidence and trace the attacker's actions.
+- Remove any malicious files or scripts identified during the investigation and ensure that no unauthorized changes remain on the system.
+- Apply security patches and updates to the operating system and all installed software to mitigate known vulnerabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional actions are required.
+- Implement enhanced logging and monitoring policies to detect similar activities in the future, focusing on process execution and command-line arguments.
+- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to improve detection capabilities and correlate events.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent recurrence."""
 
 
 [[rule.threat]]

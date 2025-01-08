@@ -2,7 +2,7 @@
 creation_date = "2020/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,51 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Encryption Disabled"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EC2 Encryption Disabled
+
+Amazon EC2's EBS encryption ensures data at rest is secure by default. Disabling this feature can expose sensitive data, making it vulnerable to unauthorized access. Adversaries might exploit this by disabling encryption to manipulate or exfiltrate data without detection. The detection rule monitors CloudTrail logs for successful attempts to disable EBS encryption, alerting analysts to potential security breaches.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs to confirm the event by filtering for `event.dataset:aws.cloudtrail` and `event.provider:ec2.amazonaws.com` to ensure the event is related to EC2 actions.
+- Verify the specific action by checking `event.action:DisableEbsEncryptionByDefault` to confirm that the alert was triggered by an attempt to disable EBS encryption by default.
+- Check the `event.outcome:success` field to ensure that the action was successfully executed, indicating a potential security concern.
+- Identify the IAM user or role responsible for the action by examining the `user.identity.arn` field in the CloudTrail logs to determine if the action was authorized or potentially malicious.
+- Investigate the source IP address and location by reviewing the `sourceIPAddress` field to identify any unusual or unauthorized access patterns.
+- Cross-reference the timestamp of the event with other logs and alerts to identify any correlated activities or anomalies around the same time.
+- Use Osquery to gather additional context on the instance involved. For example, run the following Osquery query to list all EC2 instances and their encryption status: `SELECT instance_id, block_device_mapping FROM ec2_instance WHERE region = 'your-region';`
+- Analyze the historical activity of the IAM user or role involved by reviewing past CloudTrail logs to identify any patterns of suspicious behavior or previous attempts to disable encryption.
+- Check for any recent changes in IAM policies or permissions that might have allowed the user or role to disable EBS encryption by default.
+- Collaborate with the AWS account management team to verify if the action was part of a legitimate change request or if it requires further investigation.
+
+### False positive analysis
+
+- Routine administrative actions: In some cases, disabling EBS encryption by default may be part of regular maintenance or configuration changes performed by authorized personnel. Users should verify if the action aligns with scheduled tasks or approved change requests.
+- Testing and development environments: Developers might disable encryption in non-production environments for testing purposes. It's important to differentiate between production and non-production activities to avoid unnecessary alerts.
+- Automated scripts or tools: Some automation tools or scripts might disable encryption as part of their setup process. Users should review and whitelist these tools if they are deemed non-threatening.
+- Regional configuration changes: Changes in regional settings might trigger this alert. Users should ensure that such changes are intentional and documented, and consider excluding these events if they are part of a known process.
+- To manage false positives, users can create exceptions or filters in their monitoring systems to exclude known non-threatening behaviors, ensuring that alerts are only generated for unexpected or unauthorized actions.
+
+### Response and remediation
+
+- Immediately isolate the affected EC2 instances to prevent further unauthorized access or data manipulation.
+- Review CloudTrail logs to identify the user or service account responsible for disabling EBS encryption and assess their activity for any other suspicious actions.
+- Re-enable EBS encryption by default in the affected region to ensure future volumes are encrypted.
+- Conduct a thorough investigation of the affected volumes to determine if any data manipulation or exfiltration has occurred.
+- Escalate the incident to the security operations team for further analysis and to determine if additional security measures are needed.
+- Implement AWS Config rules to continuously monitor and alert on changes to EBS encryption settings.
+- Enhance logging policies by ensuring that all relevant AWS services are logging to CloudTrail and that logs are retained for an appropriate period.
+- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system for real-time monitoring and alerting.
+- Restore any manipulated data from backups, ensuring that restored data is encrypted and secure.
+- Review and update IAM policies to enforce the principle of least privilege, ensuring only authorized users can modify encryption settings.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2023/12/14"
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/08"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -34,6 +34,48 @@ type = "threshold"
 query = '''
 signal.rule.tags:("Use Case: UEBA" and "Data Source: Github") and kibana.alert.workflow_status:"open"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub UEBA - Multiple Alerts from a GitHub Account
+
+User and Entity Behavior Analytics (UEBA) in GitHub environments helps identify unusual patterns that may indicate compromised accounts. Adversaries might exploit GitHub by executing multiple unauthorized actions within a short period, such as using stolen credentials or personal access tokens (PATs). The detection rule flags accounts with multiple alerts in an hour, signaling potential misuse and enabling analysts to prioritize investigation and response.
+
+### Possible investigation steps
+
+- Review the alert details in the security information and event management (SIEM) system, focusing on the `signal.rule.tags` field to confirm the alert is related to GitHub UEBA and involves multiple alerts from the same account.
+- Check the `kibana.alert.workflow_status` field to ensure the alert is still open and requires investigation.
+- Identify the specific GitHub account associated with the alert and gather historical activity logs for this account to establish a baseline of normal behavior.
+- Analyze the timestamps of the alerts to determine the exact time window of the suspicious activity and correlate it with any known events or changes in the environment.
+- Investigate the types of actions or events that triggered the alerts to understand the nature of the potential compromise, such as unauthorized repository access or unusual API calls.
+- Use Osquery to gather additional context on the system or environment where the suspicious activity originated. For example, run an Osquery query to list recent GitHub API calls made from the system: `SELECT * FROM curl WHERE url LIKE '%github.com%' AND time > strftime('%s', 'now', '-1 hour');`
+- Cross-reference the GitHub account activity with other security logs, such as network or endpoint logs, to identify any related suspicious behavior or anomalies.
+- Check for any recent changes to the account's permissions or settings that could indicate unauthorized access or privilege escalation.
+- Investigate any associated IP addresses or geolocations involved in the alerts to determine if they are consistent with the user's typical access patterns or if they suggest a potential threat actor.
+- Document all findings and observations in a case management system to maintain a comprehensive record of the investigation and facilitate further analysis if needed.
+
+### False positive analysis
+
+- Frequent legitimate activities by automated scripts or CI/CD pipelines can trigger multiple alerts within a short period, leading to false positives. Users should identify and document these scripts or pipelines to differentiate them from potential threats.
+- Developers or teams working on high-intensity projects may generate numerous alerts due to rapid code pushes or repository interactions. Establishing a baseline of normal activity for these users can help in distinguishing between expected behavior and potential threats.
+- Scheduled tasks or maintenance activities that involve multiple repository interactions can also result in false positives. Users can create exceptions for these known activities by setting specific time windows or user accounts that are exempt from triggering alerts.
+- Collaborations with external partners or contributors who have legitimate access to repositories might cause multiple alerts if their activity patterns differ from internal users. Regularly reviewing and updating access permissions and documenting expected behaviors can help manage these false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected GitHub account by revoking access tokens and changing passwords to prevent further unauthorized actions.
+- Conduct a thorough investigation to identify the scope of the compromise, including reviewing recent activity logs and identifying any unauthorized changes or data exfiltration.
+- Utilize GitHub's audit logs and integrate with SIEM tools to enhance visibility and trace the adversary's actions within the environment.
+- Escalate the incident to the security operations team if the investigation reveals a broader compromise or if sensitive data has been accessed or modified.
+- Remediate any unauthorized changes by reverting code or configuration changes and ensuring that no malicious code remains in the repositories.
+- Implement additional security measures such as enabling two-factor authentication (2FA) for all users and enforcing strong password policies.
+- Enhance logging and monitoring by integrating GitHub with centralized logging solutions to ensure comprehensive visibility of user activities and potential threats.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Educate users on recognizing phishing attempts and the importance of safeguarding their credentials to prevent future incidents.
+- Consider implementing automated alerting and response mechanisms to quickly detect and respond to similar threats in the future."""
 
 
 [[rule.threat]]

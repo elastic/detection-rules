@@ -5,7 +5,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 
 
 [rule]
@@ -70,6 +70,48 @@ not powershell.file.script_block_text : (
 ) and
 not file.directory : "C:\Program Files\Microsoft Dependency Agent\plugins\lib"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PowerShell Script with Archive Compression Capabilities
+
+PowerShell, a powerful scripting language in Windows, includes capabilities for file compression using various .NET classes and cmdlets. Adversaries exploit these to compress and encrypt data for exfiltration. The detection rule identifies suspicious use of compression methods and cmdlets, excluding known legitimate activities, to flag potential data exfiltration attempts.
+
+### Possible investigation steps
+
+- Review the alert details to understand which specific PowerShell script block text triggered the alert, focusing on the use of compression methods like "IO.Compression.ZipFile" or cmdlets like "Compress-Archive".
+- Check the event logs for the process category to identify the user account and host involved in the activity, using the `event.category:process` and `host.os.type:windows` fields.
+- Investigate the script block text to determine if the compression activity is part of a known legitimate process or if it appears suspicious, especially if it involves unusual directories or file paths.
+- Examine the command line arguments and script content for any signs of obfuscation or attempts to hide the true intent of the script.
+- Use Osquery to gather more context about the process by running a query like: `SELECT * FROM processes WHERE name = 'powershell.exe' AND cmdline LIKE '%IO.Compression%'`.
+- Cross-reference the timestamp of the alert with other security events on the host to identify any correlated activities, such as network connections or file modifications.
+- Check for any recent changes in the file system, especially in directories not excluded by the rule, to identify any compressed files that may have been created.
+- Investigate the network activity from the host around the time of the alert to detect any potential data exfiltration attempts.
+- Review the history of PowerShell execution on the host to identify any patterns or repeated use of compression methods that could indicate malicious behavior.
+- Consult threat intelligence sources to determine if the observed behavior matches any known tactics, techniques, or procedures (TTPs) associated with adversaries using PowerShell for data exfiltration.
+
+### False positive analysis
+
+- Legitimate software updates or system maintenance tasks may trigger the rule, such as Lenovo diagnostics using compression for log files. Users can handle these by adding specific paths or script block text to the exclusion list.
+- Backup solutions like Ansible may use compression methods for routine operations. Users should identify and exclude these by recognizing specific script block text patterns associated with these tools.
+- Microsoft Dependency Agent plugins might use compression for legitimate purposes. Excluding the directory "C:\\Program Files\\Microsoft Dependency Agent\\plugins\\lib" can prevent false positives related to this activity.
+- Regularly review and update exclusion lists to ensure they reflect current legitimate activities, minimizing the risk of overlooking genuine threats while reducing false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further data exfiltration.
+- Conduct a thorough investigation of the PowerShell script logs to identify the source and scope of the compression activity.
+- Verify if any unauthorized data access or exfiltration has occurred by reviewing network logs and data transfer records.
+- Remove any malicious scripts or files identified during the investigation from the affected system.
+- Apply security patches and updates to the operating system and any vulnerable applications to prevent exploitation of known vulnerabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the activity is part of a larger attack campaign.
+- Implement enhanced logging policies to capture detailed PowerShell activity, including script block logging and module logging, for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and detect similar threats in real-time.
+- Restore the system to its operational state by reinstalling the operating system if necessary and restoring data from verified clean backups.
+- Harden the system by disabling unnecessary PowerShell features, enforcing the principle of least privilege, and implementing application whitelisting to prevent unauthorized script execution."""
 
 [[rule.filters]]
 [rule.filters.meta]

@@ -2,7 +2,7 @@
 creation_date = "2022/09/03"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -86,6 +86,53 @@ and process.args: (
     and ("AWS-RunShellScript" or "AWS-RunPowerShellScript")
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS SSM `SendCommand` with Run Shell Command Parameters
+
+AWS Systems Manager (SSM) `SendCommand` allows remote command execution on EC2 instances, bypassing traditional access methods like SSH. Adversaries exploit this to execute unauthorized commands, potentially leading to data breaches or system compromise. The detection rule identifies unusual `SendCommand` usage, flagging first-time occurrences of shell script execution on hosts, which may indicate malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific EC2 instance and the time when the `SendCommand` was executed. Pay attention to the `process.args` field to understand the exact command and parameters used.
+- Verify the identity of the user or role that initiated the `SendCommand` by examining the AWS CloudTrail logs. Look for the `userIdentity` field to determine if the action was performed by an expected user or service.
+- Check the AWS CloudTrail logs for any other unusual activities around the same time, such as changes in IAM policies or unusual API calls, which might indicate a broader attack.
+- Investigate the EC2 instance's recent activity by reviewing its system logs. Look for any unexpected processes or network connections that could suggest malicious behavior.
+- Use Osquery to gather more information about the processes running on the affected EC2 instance. For example, run the following query to list all processes that have been started recently:
+  ```sql
+  SELECT pid, name, path, cmdline, start_time FROM processes WHERE start_time > (SELECT datetime('now', '-1 hour'));
+  ```
+- Examine the `host.os.type` field to determine the operating system of the affected instance and tailor your investigation steps accordingly, such as checking for specific OS-related logs or configurations.
+- Analyze the `event.category` and `event.type` fields to confirm that the event is indeed a process start event, ensuring that the alert is not a false positive.
+- Cross-reference the `process.name` field with known legitimate AWS CLI usage patterns within your organization to determine if the command execution is expected or anomalous.
+- Investigate any other alerts or incidents involving the same EC2 instance or AWS account to identify potential patterns or correlations with other suspicious activities.
+- Consult with the instance owner or relevant stakeholders to verify if the `SendCommand` execution was authorized and part of a legitimate operation, or if it requires further investigation.
+
+### False positive analysis
+
+- Routine administrative tasks: Organizations often use AWS SSM `SendCommand` with `AWS-RunShellScript` or `AWS-RunPowerShellScript` for legitimate administrative purposes, such as patch management or software installation. These activities can trigger the rule as false positives.
+- Automated scripts: Scheduled or automated scripts that perform regular maintenance or monitoring tasks on EC2 instances may also use these parameters, leading to false positives.
+- DevOps processes: Continuous integration and deployment pipelines might leverage AWS SSM `SendCommand` for deploying applications or configurations, which can be mistakenly flagged as suspicious.
+- To manage these false positives, users can create exceptions for known, non-threatening behaviors by identifying and excluding specific hosts or processes that regularly use these commands for legitimate purposes.
+- Implementing a baseline of normal activity for each host can help distinguish between expected and anomalous command executions, reducing the likelihood of false positives.
+- Regularly review and update the list of exceptions to ensure that only verified and safe activities are excluded from detection.
+
+### Response and remediation
+
+- Immediately isolate the affected EC2 instance from the network to prevent further unauthorized access or data exfiltration.
+- Review AWS CloudTrail logs to identify the source of the `SendCommand` API call and determine if it was authorized or if credentials were compromised.
+- Verify the integrity of the affected instance by checking for unauthorized changes or installed software, focusing on the execution of shell scripts.
+- Revoke any compromised AWS IAM credentials and rotate keys to prevent further unauthorized access.
+- Conduct a thorough investigation to determine the scope of the incident, including identifying other potentially affected instances or services.
+- Escalate the incident to the security operations team for further analysis and to determine if additional resources are needed.
+- Implement enhanced logging and monitoring for AWS SSM and related services to detect similar activities in the future.
+- Restore the affected EC2 instance from a known good backup or AMI to ensure it is free from malicious modifications.
+- Apply security hardening measures, such as restricting SSM command execution permissions to only trusted users and roles.
+- Update security policies and provide training to relevant personnel to prevent similar incidents, leveraging MITRE ATT&CK framework insights on cloud administration command threats."""
 
 [rule.investigation_fields]
 field_names = [

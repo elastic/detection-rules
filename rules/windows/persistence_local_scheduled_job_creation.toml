@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -42,6 +42,51 @@ file where host.os.type == "windows" and event.type != "deletion" and
     )
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via Scheduled Job Creation
+
+Scheduled jobs in Windows allow users to automate the execution of tasks at specified times. Adversaries exploit this feature to maintain persistence by scheduling malicious scripts or programs to run automatically. The detection rule identifies suspicious job files in the Windows Tasks directory, excluding known legitimate processes, to flag potential abuse of this functionality for unauthorized persistence.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and process executable involved in the scheduled job creation.
+- Verify the legitimacy of the file path by checking if it matches any known legitimate processes or paths excluded in the detection rule.
+- Use Osquery to list all scheduled tasks on the host to identify any other potentially suspicious tasks:
+  ```sql
+  SELECT * FROM scheduled_tasks WHERE path LIKE 'C:\\\\Windows\\\\Tasks\\\\%';
+  ```
+- Investigate the process executable associated with the scheduled job to determine if it is a known legitimate application or potentially malicious.
+- Check the creation and modification timestamps of the suspicious job file to understand when it was created and if it aligns with any known user activity or system changes.
+- Correlate the scheduled job creation with other security events or logs from the same timeframe to identify any related suspicious activity.
+- Examine the user account context under which the scheduled job was created to determine if it was created by an authorized user or potentially compromised account.
+- Investigate the parent process of the executable that created the scheduled job to trace back the origin of the job creation.
+- Review any network connections or external communications initiated by the process executable to identify potential command and control activity.
+- Consult threat intelligence sources to determine if the process executable or file path is associated with known malware or adversary techniques.
+
+### False positive analysis
+
+- Scheduled jobs created by legitimate software such as CCleaner and ManageEngine UEMS Agent can trigger false positives. These applications are known to create job files in the Windows Tasks directory for routine maintenance and updates.
+- To manage these false positives, users can implement exceptions in the detection rule. For instance, exclude job files associated with CCleanerCrashReporting.job and DCAgentUpdater.job by specifying their respective process executables in the exclusion criteria.
+- Regularly review and update the exclusion list to include any new legitimate applications that may create scheduled jobs, ensuring that the detection rule remains effective without flagging benign activities.
+- Consider the context of the environment and the presence of known software that utilizes scheduled tasks for legitimate purposes, adjusting the rule to accommodate these scenarios while maintaining security vigilance.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malicious activity.
+- Review the scheduled job details, including the script or program being executed, to determine if it is malicious or unauthorized.
+- Terminate any malicious processes associated with the suspicious scheduled job to stop further execution.
+- Delete the unauthorized scheduled job from the Windows Tasks directory to remove persistence.
+- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malware.
+- Investigate the source of the scheduled job creation by reviewing system logs and user activity to identify potential compromise vectors.
+- Escalate the incident to the security operations center (SOC) or incident response team if the threat is part of a larger attack campaign or if additional expertise is required.
+- Implement enhanced logging policies to capture detailed information on scheduled task creation and modification events for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and detect similar threats in the future.
+- Apply system hardening measures, such as restricting user permissions and implementing application whitelisting, to prevent unauthorized task scheduling and improve overall security posture."""
 
 
 [[rule.threat]]

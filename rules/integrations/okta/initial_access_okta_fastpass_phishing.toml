@@ -2,7 +2,7 @@
 creation_date = "2023/05/07"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2024/12/09"
+updated_date = "2025/01/08"
 min_stack_version = "8.15.0"
 min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
 
@@ -13,7 +13,54 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Okta FastPass Phishing Detection"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Okta FastPass Phishing Detection
+
+Okta FastPass is a security feature that enhances user authentication by preventing access to phishing sites. Adversaries may attempt to exploit this by redirecting users to malicious sites to capture credentials. The detection rule identifies failed authentication attempts where FastPass blocks phishing, signaling potential phishing activity. This helps security analysts quickly respond to and mitigate phishing threats.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `event.dataset:okta.system` and `event.category:authentication` fields, ensuring the alert is related to an authentication event.
+- Verify the `okta.event_type:user.authentication.auth_via_mfa` field to confirm that the authentication attempt involved multi-factor authentication, which adds context to the security posture.
+- Check the `event.outcome:failure` field to ensure the authentication attempt was unsuccessful, indicating a potential phishing attempt blocked by FastPass.
+- Investigate the `okta.outcome.reason:"FastPass declined phishing attempt"` field to confirm that the failure was due to FastPass identifying a phishing attempt.
+- Identify the user involved in the alert by examining the user-related fields in the event data to determine if they have a history of similar alerts or suspicious activity.
+- Analyze the timestamp of the event to correlate with other security events or logs that might provide additional context or evidence of a broader attack.
+- Use Osquery to gather additional information about the user's device at the time of the alert. For example, run the following Osquery query to check for recent network connections that might indicate communication with suspicious domains:
+  ```sql
+  SELECT * FROM process_open_sockets WHERE remote_address IS NOT NULL AND remote_port != 0;
+  ```
+- Investigate any associated IP addresses or domains from the alert to determine if they are known for malicious activity by cross-referencing threat intelligence sources.
+- Review the user's recent login history and patterns to identify any anomalies or deviations from their typical behavior that might suggest compromised credentials.
+- Collaborate with other security tools and logs, such as firewall or proxy logs, to trace the origin of the phishing attempt and gather more context about the potential threat actor.
+
+### False positive analysis
+
+- Legitimate third-party applications or services that use authentication methods similar to phishing sites may trigger false positives. Security teams should review these instances to determine if they are benign.
+- Users accessing unfamiliar but legitimate websites for the first time might be flagged. Analysts should verify the legitimacy of these sites and consider adding them to an allowlist if they are deemed safe.
+- Internal testing environments that mimic phishing scenarios for training purposes can also be mistakenly identified. These should be documented and excluded from detection rules to prevent unnecessary alerts.
+- Frequent false positives from specific users or departments may indicate a need for additional user education or adjustments to the detection parameters. Security teams can create exceptions for known safe behaviors to reduce noise.
+- Collaboration with IT and security teams to regularly update and refine the list of exceptions can help maintain the balance between security and usability, ensuring that legitimate activities are not hindered by the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected user account to prevent further unauthorized access and notify the user of the potential phishing attempt.
+- Conduct a thorough investigation of the phishing attempt by analyzing logs and identifying the source of the phishing URL to understand the scope of the attack.
+- Review and update email filtering and web proxy settings to block the identified phishing domain and similar malicious domains.
+- Escalate the incident to the security operations center (SOC) for further analysis and to determine if other users or systems have been targeted.
+- Implement additional logging policies to capture detailed authentication events and user activity for enhanced monitoring and future investigations.
+- Integrate threat intelligence feeds with security information and event management (SIEM) systems to improve detection of phishing attempts and related threats.
+- Restore the affected user account by resetting credentials and ensuring no unauthorized changes were made to the account or associated systems.
+- Educate the user and potentially affected employees on recognizing phishing attempts and best practices for maintaining account security.
+- Review and update security policies and procedures to incorporate lessons learned from the incident and improve organizational resilience against phishing attacks.
+- Apply hardening measures such as enabling multi-factor authentication (MFA) for all users and regularly updating security software to protect against similar threats in the future.
+
+## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 

@@ -2,7 +2,7 @@
 creation_date = "2021/10/13"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -51,6 +51,52 @@ file where host.os.type == "windows" and event.action : "Pipe Created*" and
  /* normal sysmon named pipe creation events truncate the pipe keyword */
   file.name : "\\*\\Pipe\\*"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Privilege Escalation via Rogue Named Pipe Impersonation
+
+Named pipes facilitate inter-process communication in Windows environments, allowing data exchange between processes. Adversaries exploit this by creating rogue named pipes, tricking privileged processes into connecting and escalating privileges. The detection rule identifies suspicious named pipe creation events, focusing on patterns indicative of impersonation attempts, thus flagging potential privilege escalation activities.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a named pipe creation event with the pattern "\\\\*\\\\Pipe\\\\*" on a Windows host, as indicated by the query.
+- Correlate the event with the specific host and timestamp to identify the process that created the named pipe. Check for any unusual or unauthorized processes running on the host.
+- Investigate the parent process of the named pipe creation event to determine if it is a legitimate process or potentially malicious. Use process lineage data to trace back the process tree.
+- Examine the user context under which the named pipe was created. Verify if the user has legitimate reasons to perform such actions or if there are signs of compromised credentials.
+- Utilize Osquery to gather additional context about the processes involved. For example, run the following Osquery query to list all named pipes and their associated processes:
+  ```sql
+  SELECT name, pid, path FROM pipes WHERE path LIKE '\\\\%\\\\Pipe\\\\%';
+  ```
+- Check for any recent privilege escalation attempts or access token manipulation activities on the host, as these may be related to the named pipe impersonation.
+- Analyze network activity from the host around the time of the event to identify any suspicious connections or data exfiltration attempts.
+- Review system logs and security events for any other indicators of compromise or related suspicious activities on the host.
+- Investigate any other alerts or anomalies associated with the same host or user account to determine if this is part of a broader attack campaign.
+- Document all findings and maintain a timeline of events to assist in understanding the scope and impact of the potential privilege escalation attempt.
+
+### False positive analysis
+
+- Legitimate software and system processes may create named pipes that match the detection pattern, leading to false positives. For example, certain enterprise applications or system management tools might use named pipes for legitimate inter-process communication.
+- Regularly occurring named pipe creation by trusted applications can be excluded by creating exceptions in the detection rule. This involves identifying the specific named pipes or processes that are known to be safe and adding them to an allowlist.
+- System administrators should monitor and document normal named pipe activity within their environment to distinguish between benign and suspicious behavior. This documentation can help refine detection rules and reduce false positives.
+- Consider the context of the named pipe creation event, such as the user account and process involved. If the event is associated with a known and trusted process, it may be safe to exclude it from alerts.
+- Implement a review process for flagged events to ensure that legitimate activities are not being incorrectly classified as threats, which can help in adjusting the detection parameters over time.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the source of the rogue named pipe and determine if any other systems are compromised.
+- Terminate any suspicious processes associated with the rogue named pipe to stop ongoing malicious activities.
+- Review and analyze logs from Sysmon and other security tools to gather evidence and understand the scope of the attack.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Apply patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited.
+- Implement enhanced logging policies to capture detailed named pipe creation events and other relevant security events for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
+- Restore the system to its operational state by reinstalling the operating system or restoring from a clean backup, ensuring all malicious artifacts are removed.
+- Harden the system by disabling unnecessary services, applying least privilege principles, and conducting regular security audits to prevent future attacks."""
 
 
 [[rule.threat]]

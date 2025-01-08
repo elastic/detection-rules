@@ -2,7 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 70
@@ -52,6 +52,51 @@ tags = [
     "Tactic: Lateral Movement",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating High Mean of Process Arguments in an RDP Session
+
+Remote Desktop Protocol (RDP) allows users to connect to systems remotely, often used for administrative tasks. Adversaries exploit RDP for lateral movement by executing complex commands with numerous arguments, often to obfuscate their actions. The detection rule identifies anomalies in the number of process arguments during RDP sessions, signaling potential misuse or sophisticated attack attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific RDP session and the associated user account that triggered the high mean of process arguments.
+- Examine the timestamp of the alert to correlate it with any known scheduled tasks or legitimate administrative activities.
+- Analyze the process command line arguments captured in the alert to identify any suspicious patterns, such as excessive length, obfuscation, or unusual command structures.
+- Check the source and destination IP addresses involved in the RDP session to determine if they are part of the organization's network or if they are external and potentially malicious.
+- Investigate the historical activity of the user account involved in the alert to identify any previous suspicious behavior or anomalies.
+- Utilize Osquery to gather additional context on the processes executed during the RDP session. For example, run the following Osquery query to list processes with a high number of arguments:
+  ```sql
+  SELECT pid, name, path, cmdline FROM processes WHERE length(cmdline) > 1000;
+  ```
+- Cross-reference the processes identified with known malicious software or tools commonly used for lateral movement and exploitation.
+- Review the system logs for any failed login attempts or unusual authentication patterns around the time of the alert.
+- Check for any recent changes in user privileges or group memberships that could indicate privilege escalation attempts.
+- Investigate any network connections initiated by the processes with high argument counts to identify potential data exfiltration or communication with command and control servers.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators often execute complex scripts or commands with numerous arguments during maintenance or configuration tasks, which can trigger false positives. To manage this, users can create exceptions for known administrative accounts or specific time windows when such activities are expected.
+- Automated scripts and software updates: Scheduled tasks or automated scripts that run during RDP sessions may involve commands with a high number of arguments. Users can whitelist these scripts or processes by identifying their unique characteristics, such as specific command patterns or originating IP addresses.
+- Development and testing environments: Developers and testers might use RDP sessions to run scripts with multiple arguments for testing purposes. Organizations can exclude these environments from monitoring or set up specific rules that account for the high argument count typical in these scenarios.
+- Third-party software: Some legitimate third-party applications may inherently use complex commands with many arguments during their operation. Users should identify these applications and create exceptions based on their known behavior and usage patterns.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement and potential data exfiltration.
+- Conduct a thorough investigation of the RDP session logs to identify the source IP address and any associated user accounts involved in the suspicious activity.
+- Analyze the process arguments and commands executed during the RDP session to determine the intent and scope of the attack.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are compromised.
+- Implement enhanced logging policies to capture detailed RDP session activities, including command-line arguments and user actions, for future investigations.
+- Integrate threat intelligence feeds and MITRE ATT&CK framework into the security information and event management (SIEM) system to improve detection capabilities.
+- Restore the affected system to its operational state by removing any malicious software, resetting compromised credentials, and applying necessary security patches.
+- Conduct a security audit of RDP configurations and apply hardening measures such as enforcing strong authentication, using network-level authentication, and limiting RDP access to trusted IP addresses.
+- Provide security awareness training to users on the risks associated with RDP and best practices for secure remote access.
+- Review and update the incident response plan to incorporate lessons learned from the incident and improve response strategies for future threats."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

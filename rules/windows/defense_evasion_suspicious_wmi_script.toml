@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -45,6 +45,48 @@ sequence by process.entity_id with maxspan = 2m
 [any where host.os.type == "windows" and (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
  (?dll.name : ("jscript.dll", "vbscript.dll") or file.name : ("jscript.dll", "vbscript.dll"))]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious WMIC XSL Script Execution
+
+Windows Management Instrumentation Command-line (WMIC) is a powerful tool for managing Windows systems. Adversaries exploit WMIC to bypass security controls by executing scripts via XSL files, often loading scripting libraries like JScript or VBScript. The detection rule identifies such abuse by monitoring for unusual WMIC command patterns and the loading of specific scripting libraries, indicating potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to understand the specific WMIC command that triggered the alert, focusing on the `process.args` field to identify the suspicious format pattern used.
+- Examine the `process.command_line` field to gather the full command executed, noting any deviations from typical WMIC usage patterns.
+- Check the `process.entity_id` to correlate this event with other related processes within the 2-minute window specified by the `maxspan` parameter.
+- Investigate the parent process of the WMIC execution to determine if it was initiated by a legitimate application or a potentially malicious process.
+- Analyze the `dll.name` or `file.name` fields to confirm the loading of `jscript.dll` or `vbscript.dll`, which may indicate script execution.
+- Use Osquery to list all processes that have recently loaded `jscript.dll` or `vbscript.dll` with a query like: `SELECT pid, name, path FROM processes WHERE path LIKE '%jscript.dll%' OR path LIKE '%vbscript.dll%';`
+- Cross-reference the process start time with user activity logs to determine if the execution aligns with expected user behavior or if it occurred during off-hours.
+- Investigate the network activity of the host around the time of the alert to identify any suspicious outbound connections that may indicate data exfiltration or command and control communication.
+- Review recent changes to the system's allowlist or security policies that might have permitted the execution of such scripts.
+- Check for any other alerts or indicators of compromise on the same host or associated user account to assess if this event is part of a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators may use WMIC with XSL scripts for legitimate purposes, such as automating system management tasks. These activities can trigger the rule if they involve loading scripting libraries like JScript or VBScript.
+- Monitoring and management software: Some enterprise monitoring or management tools may use WMIC and scripting libraries to gather system information or perform routine checks, leading to false positives.
+- Custom scripts: Organizations may have custom scripts that utilize WMIC and XSL files for specific operational needs, which could be mistakenly flagged as suspicious.
+- To manage these false positives, users can create exceptions for known legitimate processes by adding them to an allowlist. This can be done by identifying the specific command lines or scripts that are frequently used and excluding them from the detection rule. Additionally, users should regularly review and update the allowlist to ensure it reflects current legitimate activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the execution of WMIC with suspicious XSL script patterns.
+- Review and analyze logs from the affected system and any related systems to trace the adversary's actions and identify any additional compromised systems.
+- Remove any unauthorized scripts or files identified during the investigation, particularly those involving jscript.dll or vbscript.dll.
+- Apply patches and updates to the operating system and all installed software to mitigate vulnerabilities that may have been exploited.
+- Restore the system from a known good backup taken before the suspicious activity was detected, ensuring that the backup is free from compromise.
+- Implement enhanced logging policies to capture detailed information on script execution and library loading activities, aiding future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
+- Escalate the incident to the appropriate internal teams and, if necessary, external authorities or cybersecurity experts for further analysis and support.
+- Conduct a post-incident review to identify gaps in security controls and processes, and implement hardening measures such as application whitelisting and stricter execution policies to prevent similar incidents in the future."""
 
 
 [[rule.threat]]

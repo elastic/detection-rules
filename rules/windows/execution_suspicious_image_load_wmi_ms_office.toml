@@ -2,7 +2,7 @@
 creation_date = "2020/11/17"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -50,6 +50,48 @@ any where host.os.type == "windows" and
   process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
   (?dll.name : "wmiutils.dll" or file.name : "wmiutils.dll")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious WMI Image Load from MS Office
+
+Windows Management Instrumentation (WMI) is a powerful framework for managing data and operations on Windows systems. Adversaries exploit WMI to execute code stealthily, bypassing traditional security measures by spawning processes indirectly. The detection rule identifies unusual loading of the `wmiutils.dll` library by Microsoft Office applications, signaling potential misuse of WMI for malicious activities. This rule focuses on monitoring specific Office processes for suspicious library loads, which may indicate adversarial attempts to execute code covertly.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of `wmiutils.dll` being loaded by one of the specified Microsoft Office processes (`WINWORD.EXE`, `EXCEL.EXE`, `POWERPNT.EXE`, `MSPUB.EXE`, `MSACCESS.EXE`).
+- Check the timestamp of the event to determine when the suspicious activity occurred and correlate it with any other unusual activities on the system around the same time.
+- Investigate the user account associated with the process to determine if the activity aligns with their typical behavior or if it appears anomalous.
+- Examine the parent process of the Office application to identify if it was launched by a legitimate user action or another process that might indicate malicious activity.
+- Use Osquery to gather additional context about the process and DLL load. Example query: `SELECT * FROM processes WHERE name IN ('WINWORD.EXE', 'EXCEL.EXE', 'POWERPNT.EXE', 'MSPUB.EXE', 'MSACCESS.EXE') AND pid IN (SELECT pid FROM process_open_sockets WHERE remote_address IS NOT NULL);`
+- Analyze network connections established by the Office process to identify any suspicious or unexpected external communications.
+- Review recent changes to the system, such as new software installations or updates, that might explain the unusual DLL load.
+- Check for any other security alerts or logs that might indicate a broader attack pattern or campaign targeting the system or network.
+- Investigate the system for any signs of persistence mechanisms that might have been established by an adversary using WMI or other techniques.
+- Consult threat intelligence sources to determine if there are known campaigns or threat actors that utilize similar techniques involving WMI and Office applications.
+
+### False positive analysis
+
+- Legitimate software updates or plugins for Microsoft Office applications may load `wmiutils.dll` as part of their normal operation, leading to false positives. Users should verify the source and purpose of the update or plugin to determine if it is benign.
+- Some enterprise environments use custom scripts or automation tools that leverage WMI for legitimate administrative tasks, which might trigger this rule. Users can create exceptions for known scripts or tools by excluding specific process hashes or command lines associated with these tasks.
+- Security software or monitoring tools that integrate with Microsoft Office for enhanced protection or data analysis might also load `wmiutils.dll` as part of their functionality. Users should confirm the legitimacy of such software and consider excluding it from the rule if it is verified as safe.
+- To manage false positives, users can implement a whitelist of known safe applications or processes that are allowed to load `wmiutils.dll`, ensuring that only unexpected or unknown instances trigger alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to confirm the presence of malicious activity by analyzing the process tree and any associated network connections.
+- Terminate any suspicious processes that are identified as part of the malicious activity, particularly those involving WMI and Microsoft Office applications.
+- Review and collect relevant logs, including Windows Event Logs and security logs, to gather evidence and understand the scope of the incident.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement or enhance logging policies to ensure detailed monitoring of WMI activities and Microsoft Office processes, focusing on unusual DLL loads.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats in the future.
+- Restore the system to its operational state by applying the latest security patches, updating antivirus definitions, and conducting a full system scan.
+- Harden the system by disabling unnecessary WMI services and applying least privilege principles to limit the execution of unauthorized scripts and processes.
+- Educate users on recognizing phishing attempts and suspicious activities, as these are common vectors for initiating such attacks."""
 
 
 [[rule.threat]]

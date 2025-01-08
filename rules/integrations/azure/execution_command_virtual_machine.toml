@@ -2,7 +2,7 @@
 creation_date = "2020/08/17"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -25,7 +25,50 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Command Execution on Virtual Machine"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure Command Execution on Virtual Machine
+
+Azure Virtual Machines (VMs) allow users to run applications and services in the cloud. While roles like Virtual Machine Contributor can manage VMs, they can't directly access them. However, commands can be executed remotely via PowerShell, running as System. Adversaries may exploit this to execute malicious scripts. The detection rule monitors Azure activity logs for successful command executions, identifying potential misuse by correlating specific operation names and outcomes.
+
+### Possible investigation steps
+
+- Review the Azure activity logs to confirm the details of the command execution event, focusing on the `azure.activitylogs.operation_name` field to ensure it matches "MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION".
+- Verify the `event.outcome` field to ensure the command execution was successful, as this indicates the command was executed on the VM.
+- Identify the user or service principal that initiated the command execution by examining the `azure.activitylogs.caller` field.
+- Check the timestamp of the event to determine when the command execution occurred and correlate it with any other suspicious activities around the same time.
+- Investigate the specific command or script executed on the VM by reviewing any available command logs or script content, if accessible.
+- Cross-reference the VM's activity with other logs, such as network logs or application logs, to identify any unusual behavior or data exfiltration attempts following the command execution.
+- Use Osquery to gather more information about the VM's current state. For example, run the following Osquery query to list all running processes on the VM: `SELECT pid, name, path FROM processes;`.
+- Analyze the roles and permissions of the user or service principal involved in the command execution to determine if they have legitimate access or if there are any privilege escalation concerns.
+- Investigate any recent changes to the VM's configuration or security settings that could have facilitated unauthorized command execution.
+- Review the history of command executions on the VM to identify any patterns or repeated attempts that could indicate ongoing malicious activity.
+
+### False positive analysis
+
+- Routine administrative tasks: Regular maintenance or updates performed by IT staff using PowerShell commands on VMs may trigger the detection rule. To manage this, users can create exceptions for known administrative accounts or specific time windows when these tasks are scheduled.
+- Automated scripts: Scheduled scripts or automation tools that execute commands on VMs for legitimate purposes, such as backups or performance monitoring, can be mistaken for malicious activity. Users should document these scripts and exclude their associated accounts or operations from the detection rule.
+- Third-party integrations: Some third-party services or applications may require command execution on VMs as part of their normal operation. Identifying these services and excluding their activity from the rule can help reduce false positives.
+- Testing environments: Commands executed in test or development environments may not pose a threat. Users can exclude these environments by filtering out specific resource groups or VM names associated with non-production use.
+
+### Response and remediation
+
+- Immediately isolate the affected virtual machine from the network to prevent further malicious activity.
+- Review Azure activity logs to identify the source and scope of the command execution, focusing on the user or service principal involved.
+- Verify the integrity of the system by checking for unauthorized changes or the presence of malicious scripts or software.
+- Revoke or adjust permissions for the user or role that executed the command, ensuring least privilege access is enforced.
+- Conduct a thorough investigation to determine if any data exfiltration or lateral movement occurred as a result of the command execution.
+- Escalate the incident to the security operations team for further analysis and to determine if additional resources are needed.
+- Implement enhanced logging and monitoring policies to capture detailed activity on virtual machines, including command execution and network traffic.
+- Integrate Azure Security Center and other security tools to provide real-time alerts and automated responses to suspicious activities.
+- Restore the virtual machine to a known good state using backups or snapshots, ensuring all malicious artifacts are removed.
+- Apply hardening measures such as enabling Just-In-Time VM access, using Azure Bastion for secure RDP/SSH, and regularly updating security patches.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

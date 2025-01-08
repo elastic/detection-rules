@@ -2,7 +2,7 @@
 creation_date = "2020/07/06"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,52 @@ index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "lucene"
 license = "Elastic License v2"
 name = "Cobalt Strike Command and Control Beacon"
-note = """## Threat intel
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Cobalt Strike Command and Control Beacon
+
+Cobalt Strike is a penetration testing tool often repurposed by attackers for malicious activities, particularly for establishing command and control (C2) channels. Adversaries exploit its beaconing feature to communicate with compromised systems using obfuscated network traffic. The detection rule identifies suspicious domain patterns typical of Cobalt Strike beacons, focusing on specific network events and domain structures indicative of C2 activity.
+
+### Possible investigation steps
+
+- Review the alert details to understand the specific network event and domain pattern that triggered the rule, focusing on the `destination.domain` field for suspicious domain structures.
+- Examine the network traffic logs associated with the alert, particularly those categorized under `event.category: network` or `network_traffic`, and `type: tls` or `http`, to identify any unusual patterns or anomalies.
+- Cross-reference the `destination.domain` with known malicious domains or threat intelligence feeds to determine if it has been previously associated with Cobalt Strike or other malicious activities.
+- Use Osquery to gather additional context on the affected host. For example, run the following query to list all network connections on the host: `SELECT * FROM process_open_sockets WHERE remote_address LIKE '%stage.%';`
+- Investigate the process responsible for the network connection by correlating the `process.pid` from the Osquery results with process execution logs to identify the parent process and any associated command-line arguments.
+- Analyze historical network traffic to determine if the suspicious domain has been contacted previously, indicating a potential ongoing C2 communication.
+- Check for any other alerts or logs related to the same `destination.domain` or IP address to assess the scope and potential impact of the activity.
+- Review endpoint security logs for any signs of suspicious activity or indicators of compromise on the affected host, such as unusual process executions or file modifications.
+- Investigate user activity on the affected host around the time of the alert to identify any unauthorized access or actions that may have facilitated the C2 communication.
+- Consult with threat intelligence teams or resources to gather additional insights or context about the specific Cobalt Strike variant or campaign potentially involved in the alert.
+
+### False positive analysis
+
+- Legitimate software updates or patch management systems may generate network traffic patterns similar to Cobalt Strike beacons, especially if they use automated scripts or tools that follow a predictable domain structure.
+- Content delivery networks (CDNs) and cloud services often use domain names that match the pattern detected by the rule, leading to potential false positives when these services are accessed frequently.
+- Internal development or testing environments might use domain naming conventions that inadvertently match the suspicious pattern, particularly if they employ automated deployment or staging processes.
+- To manage these false positives, users can create exceptions for known benign domains or IP addresses that consistently trigger the rule but are verified as non-threatening.
+- Implementing a whitelist of trusted domains or services can help reduce noise from false positives, allowing security teams to focus on genuine threats.
+- Regularly reviewing and updating the list of exceptions is crucial to ensure that new legitimate services are not mistakenly flagged as malicious.
+
+### Response and remediation
+
+- Isolate the affected systems from the network to prevent further communication with the command and control server.
+- Conduct a thorough investigation to identify the scope of the compromise, including all affected systems and data.
+- Utilize endpoint detection and response (EDR) tools to analyze and remove Cobalt Strike beacons and any associated malware.
+- Review and analyze network traffic logs to identify any additional indicators of compromise (IOCs) and ensure no other systems are affected.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed network and endpoint activity for future investigations.
+- Integrate threat intelligence feeds to update detection rules and improve the identification of similar threats in the future.
+- Restore affected systems from clean backups and ensure all security patches and updates are applied.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement network segmentation and hardening measures to reduce the attack surface and prevent similar incidents.
+
+## Threat intel
 
 This activity has been observed in FIN7 campaigns."""
 references = [

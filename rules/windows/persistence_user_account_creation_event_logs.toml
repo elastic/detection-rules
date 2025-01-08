@@ -2,7 +2,7 @@
 creation_date = "2021/01/04"
 integration = ["system", "windows"]
 maturity = "development"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -34,6 +34,48 @@ query = '''
 event.module:("system" or "security") and winlog.api:"wineventlog" and
   (event.code:"4720" or event.action:"added-user-account")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Windows User Account Creation
+
+Windows user accounts are essential for managing access and permissions within systems and domains. Adversaries may exploit this by creating unauthorized accounts to maintain persistence or escalate privileges. The detection rule leverages event logs, specifically targeting account creation events, to identify suspicious activities indicative of such abuse, aligning with MITRE ATT&CK's persistence tactics.
+
+### Possible investigation steps
+
+- Review the event logs for the specific event codes 4720 or actions labeled as "added-user-account" to confirm the account creation event.
+- Identify the user account that was created and note the username and any associated details such as the domain or system where it was created.
+- Check the timestamp of the account creation event to determine when the account was created and correlate it with other events around the same time for additional context.
+- Investigate the source of the account creation by identifying the user or process that initiated the event, using fields such as event.module and winlog.api.
+- Examine the system or domain where the account was created to determine if there are any other suspicious activities or anomalies present.
+- Use Osquery to gather more information about the newly created account. For example, run the query: `SELECT * FROM users WHERE username = '<newly_created_username>';` to retrieve details about the account.
+- Analyze the privileges and group memberships of the newly created account to assess if it has elevated permissions that could pose a security risk.
+- Cross-reference the account creation event with other security alerts or logs to identify any patterns or indicators of compromise.
+- Investigate any recent changes to user account policies or configurations that could have facilitated unauthorized account creation.
+- Consult with relevant personnel or teams to verify if the account creation was authorized or part of any legitimate administrative activities.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate system administrators often create user accounts as part of their daily responsibilities. These actions can trigger the detection rule, leading to false positives. To manage this, users can create exceptions for known administrator accounts or specific times when account creation is expected.
+- Automated account creation: Some organizations use scripts or automated processes to create user accounts in bulk, such as during onboarding. These activities can be mistaken for suspicious behavior. Users can exclude these processes by identifying and whitelisting the scripts or automation tools involved.
+- Software installations: Certain software installations may create service accounts or user accounts as part of their setup process. To handle these, users should document and exclude known software-related account creation events.
+- Testing environments: In testing or development environments, frequent account creation may occur as part of testing procedures. Users can exclude these environments from monitoring or create specific rules to differentiate between test and production systems.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Verify the legitimacy of the newly created user account by cross-referencing with authorized account creation requests and contacting the account requester if necessary.
+- If the account is unauthorized, disable or delete the account to prevent its use for persistence or privilege escalation.
+- Conduct a thorough investigation of the system and network logs to identify any additional unauthorized accounts or suspicious activities linked to the same threat actor.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
+- Review and enhance logging policies to ensure comprehensive coverage of account creation events, including enabling detailed auditing for user account management.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and improve detection capabilities for similar threats in the future.
+- Restore the system to its operational state by applying any necessary patches, updates, and security configurations to prevent exploitation of known vulnerabilities.
+- Implement hardening measures such as enforcing strong password policies, enabling multi-factor authentication, and restricting account creation privileges to minimize the risk of unauthorized account creation.
+- Conduct a post-incident review to identify gaps in the response process and update incident response plans and security policies accordingly."""
 
 
 [[rule.threat]]

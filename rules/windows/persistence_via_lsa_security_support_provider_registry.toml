@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -47,6 +47,48 @@ registry where host.os.type == "windows" and event.type == "change" and
    ) and
    not process.executable : ("C:\\Windows\\System32\\msiexec.exe", "C:\\Windows\\SysWOW64\\msiexec.exe")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Installation of Security Support Provider
+
+Security Support Providers (SSPs) in Windows are crucial for handling authentication requests. They are configured via specific registry paths. Adversaries may exploit SSPs to gain persistence by modifying these registry entries to load malicious code at system startup. The detection rule identifies unauthorized changes to these registry paths, excluding legitimate processes, to flag potential abuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific registry path that was modified, focusing on paths related to "HKLM\\\\SYSTEM\\\\*ControlSet*\\\\Control\\\\Lsa\\\\Security Packages*" and "HKLM\\\\SYSTEM\\\\*ControlSet*\\\\Control\\\\Lsa\\\\OSConfig\\\\Security Packages*".
+- Check the timestamp of the registry change event to determine when the modification occurred and correlate it with other events in the system logs around the same time.
+- Investigate the process that made the registry change by examining the process ID and executable path, ensuring it is not one of the excluded legitimate processes like "C:\\\\Windows\\\\System32\\\\msiexec.exe".
+- Use Osquery to list all current entries in the Security Packages registry key to identify any unfamiliar or suspicious entries. Example query: `SELECT * FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\%\\\\Control\\\\Lsa\\\\Security Packages';`
+- Cross-reference the process that made the change with known malicious processes or hash values using threat intelligence sources.
+- Analyze the user account context under which the registry change was made to determine if it was performed by an unauthorized or compromised account.
+- Review recent login events and user activity for the account associated with the registry change to identify any anomalies or unauthorized access.
+- Check for any recent software installations or updates that might have legitimately modified the Security Support Provider configuration.
+- Investigate network activity from the host around the time of the registry change for any signs of data exfiltration or communication with known malicious IP addresses.
+- Examine other systems in the network for similar registry changes to assess if this is an isolated incident or part of a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger registry changes in the Security Support Provider paths, particularly when using installers like msiexec.exe. These are typically benign and can be excluded from alerts.
+- System administrators or security tools may intentionally modify SSP registry entries as part of routine maintenance or security hardening, which could be mistaken for malicious activity.
+- To manage these false positives, users can create exceptions for known and trusted processes or executables that frequently modify these registry paths, ensuring they are not flagged by the detection rule.
+- Regularly review and update the list of excluded processes to reflect changes in the environment, such as new software deployments or updates to existing applications, to maintain an accurate and effective detection strategy.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or spread of malicious code.
+- Review the registry changes to confirm unauthorized modifications and identify any malicious SSPs that have been added.
+- Terminate any suspicious processes associated with the unauthorized registry changes to halt potential malicious activity.
+- Restore the registry entries to their original state using a known good backup or by manually removing the unauthorized entries.
+- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to detect and remove any additional threats.
+- Review system and security logs to trace the source of the unauthorized changes and identify any other potentially compromised systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and response.
+- Implement enhanced logging policies to capture detailed information on registry changes and process executions for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
+- Apply security hardening measures, such as restricting registry access permissions and implementing application whitelisting, to prevent similar attacks in the future."""
 
 
 [[rule.threat]]

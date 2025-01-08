@@ -2,7 +2,7 @@
 creation_date = "2020/04/12"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/10/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -58,6 +58,49 @@ query = '''
 host.os.type:linux and event.category:file and event.action:"opened-file" and file.path:"/proc/modules" and
 not process.name:(python* or chef-client)
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Enumeration of Kernel Modules via Proc
+
+Loadable Kernel Modules (LKMs) enhance kernel functionality dynamically. The `/proc/modules` file lists these modules, aiding utilities like `lsmod` in module management. Adversaries exploit this by querying `/proc/modules` to gather system insights, potentially identifying security weaknesses. The detection rule flags unauthorized access attempts to this file, excluding benign processes, to identify suspicious enumeration activities.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event category is 'file' and the action is 'opened-file', ensuring it matches the rule criteria.
+- Verify the file path is indeed '/proc/modules' to confirm the alert is related to kernel module enumeration.
+- Check the process name that triggered the alert. Ensure it is not a benign process like 'python*' or 'chef-client', which are excluded in the rule.
+- Investigate the user account associated with the process to determine if it has legitimate reasons to access '/proc/modules'.
+- Examine the process's parent process to understand the context in which the access attempt was made.
+- Use Osquery to gather more information about the process. For example, run the query: `SELECT * FROM processes WHERE name = '<process_name>';` to get details about the process that accessed '/proc/modules'.
+- Check the system's recent login history to identify any unusual or unauthorized access patterns that might correlate with the alert.
+- Review system logs for any other suspicious activities around the time of the alert, such as failed login attempts or other file access anomalies.
+- Investigate any network connections established by the process to determine if there is any communication with known malicious IPs or domains.
+- Correlate this alert with other security events in the environment to identify if this is part of a broader attack pattern or isolated incident.
+
+### False positive analysis
+
+- System management tools and scripts that regularly check kernel module status for legitimate purposes may trigger false positives. These include automated monitoring tools or configuration management systems like Ansible or Puppet.
+- Scheduled maintenance scripts that verify system integrity by accessing `/proc/modules` can also be mistaken for suspicious activity.
+- Developers and system administrators using custom scripts to monitor or log kernel module changes might inadvertently cause false positives.
+- To manage these false positives, users can create exceptions for known benign processes by adding them to the exclusion list in the detection rule, similar to the existing exclusion for `python*` or `chef-client`.
+- Regularly review and update the exclusion list to include any new legitimate processes that frequently access `/proc/modules` to ensure accurate detection without compromising security.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
+- Conduct a thorough investigation to identify the process or user responsible for accessing /proc/modules, focusing on any unauthorized or suspicious activity.
+- Review system logs and security alerts to gather additional context and determine if the access was part of a broader attack pattern.
+- If malicious activity is confirmed, remove any unauthorized kernel modules and restore the system to a known good state using backups or system snapshots.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed access attempts to critical files like /proc/modules, ensuring that logs are stored securely and monitored regularly.
+- Integrate threat intelligence feeds to correlate the activity with known attack patterns and adversary tactics, techniques, and procedures (TTPs) as outlined in the MITRE ATT&CK framework.
+- Apply system hardening measures, such as restricting access to /proc/modules to only trusted processes and users, and regularly updating and patching the system to mitigate vulnerabilities.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Educate users and administrators on the importance of monitoring and securing kernel modules to prevent future unauthorized access attempts."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,7 +2,7 @@
 creation_date = "2022/09/21"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Xavier Pich"]
@@ -25,7 +25,50 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS KMS Customer Managed Key Disabled or Scheduled for Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS KMS Customer Managed Key Disabled or Scheduled for Deletion
+
+AWS KMS Customer Managed Keys (CMKs) are crucial for encrypting sensitive data. Disabling or scheduling their deletion can lead to irreversible data loss, as encrypted data becomes inaccessible. Adversaries may exploit this to destroy data or disrupt operations. The detection rule monitors successful disablement or deletion attempts, alerting security teams to potential malicious activities targeting data integrity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event dataset is `aws.cloudtrail` and the event provider is `kms.amazonaws.com`, ensuring the alert is related to AWS KMS activities.
+- Verify the event action is either `DisableKey` or `ScheduleKeyDeletion` and that the event outcome is `success` to confirm the key was successfully disabled or scheduled for deletion.
+- Identify the specific AWS KMS Customer Managed Key (CMK) involved by examining the key ID or ARN in the event details.
+- Check the CloudTrail logs for the user identity or role that initiated the action to determine if it was an authorized user or a potential compromise.
+- Investigate the time and date of the event to correlate with any other suspicious activities or changes in the AWS environment.
+- Use AWS CloudTrail to review the history of actions taken on the affected CMK to identify any previous suspicious or unauthorized activities.
+- Examine IAM policies and permissions associated with the user or role to ensure they have the appropriate level of access and no excessive permissions.
+- Utilize Osquery to gather additional context on the AWS environment. For example, run a query to list all KMS keys and their current status: `SELECT * FROM aws_kms_keys WHERE key_state IN ('Disabled', 'PendingDeletion');`
+- Check for any recent changes in IAM roles, policies, or configurations that could have allowed unauthorized access to the KMS key.
+- Collaborate with the AWS account owner or security team to verify if the action was part of a planned operation or if it indicates a potential security incident.
+
+### False positive analysis
+
+- Routine maintenance activities: Organizations may have scheduled tasks or maintenance activities that involve disabling or scheduling the deletion of KMS keys as part of their lifecycle management. These actions, while legitimate, can trigger alerts. To manage this, users can create exceptions for specific keys or timeframes when these activities are expected.
+- Automated processes: Some automated systems or scripts might disable or schedule the deletion of KMS keys as part of their normal operation, such as rotating keys or decommissioning resources. Users should identify these processes and exclude them from alerts by specifying the associated user or service accounts.
+- Testing environments: In testing or development environments, disabling or scheduling the deletion of KMS keys might be a common practice to simulate scenarios or test recovery processes. Users can exclude these environments from alerts by filtering based on environment tags or resource identifiers.
+- Misconfigured alerts: Sometimes, alerts may be triggered due to misconfigured monitoring rules or incorrect tagging of resources. Users should review and adjust their alert configurations to ensure they accurately reflect the organization's security policies and operational practices.
+
+### Response and remediation
+
+- Immediately isolate the affected AWS account or resources to prevent further unauthorized actions.
+- Review CloudTrail logs to identify the source and scope of the disablement or deletion attempt, focusing on user identity, IP address, and time of the event.
+- Verify if the disablement or deletion was authorized by cross-referencing with change management records or contacting the responsible team.
+- If unauthorized, revoke any compromised credentials and enforce a password reset for affected accounts.
+- Restore any disabled keys by re-enabling them if within the allowed recovery period, or initiate data recovery procedures if keys were deleted.
+- Escalate the incident to the security operations center (SOC) for further investigation and potential legal action if malicious intent is confirmed.
+- Implement AWS CloudTrail and AWS Config rules to continuously monitor and alert on key management activities.
+- Enhance logging policies to include detailed audit trails and integrate with a Security Information and Event Management (SIEM) system for real-time analysis.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Apply hardening measures such as enforcing multi-factor authentication (MFA) for all users and restricting key management permissions to a minimal set of trusted administrators.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

@@ -2,7 +2,7 @@
 creation_date = "2021/04/12"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -66,6 +66,53 @@ any where host.os.type == "windows" and
   )
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Remote Desktop Shadowing Activity
+
+Remote Desktop Shadowing allows administrators to view or control active RDP sessions, aiding in support and troubleshooting. However, adversaries can exploit this feature to monitor or hijack user sessions without consent. The detection rule identifies suspicious registry changes and process executions linked to shadowing, flagging potential unauthorized access attempts by monitoring specific registry paths and process activities.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the specific registry path or process that triggered the alert, focusing on the `registry.path` and `process.name` fields.
+- Check the timestamp of the event to determine when the suspicious activity occurred and correlate it with any other unusual activities around the same time.
+- Investigate the user account associated with the event to determine if the activity aligns with their typical behavior or if it appears suspicious.
+- Examine the source IP address and hostname of the machine where the activity was detected to identify if it is a known and trusted device.
+- Use Osquery to list all current RDP sessions on the host to identify any active shadowing sessions:
+  ```sql
+  SELECT * FROM rdp_connections;
+  ```
+- Query the Windows Event Logs for any related events around the time of the alert, focusing on Event ID 1149 (RDP connection) and Event ID 4624 (successful logon).
+- Investigate the parent process `svchost.exe` to determine if it has any unusual child processes or command-line arguments that could indicate malicious activity.
+- Check for any recent changes to the registry path `HKLM\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow` to identify unauthorized modifications.
+- Review the process execution history on the host to identify any instances of `mstsc.exe` with the `/shadow:*` argument, which could indicate shadowing attempts.
+- Analyze network traffic logs to identify any unusual outbound connections from the host that could suggest data exfiltration or communication with a command and control server.
+
+### False positive analysis
+
+- Legitimate administrative activities: System administrators may use Remote Desktop Shadowing for valid support and troubleshooting purposes, leading to benign registry changes or process executions. 
+- Scheduled maintenance tasks: Automated scripts or scheduled tasks might trigger similar registry modifications or process starts as part of routine system maintenance.
+- Third-party remote support tools: Some remote support applications may mimic RDP shadowing behavior, causing similar registry and process activity.
+- To manage these false positives, users can create exceptions for known administrative accounts or specific maintenance windows where such activities are expected.
+- Implementing a whitelist for trusted third-party remote support tools can help reduce unnecessary alerts.
+- Regularly review and update the exclusion list to ensure it aligns with current operational practices and does not inadvertently allow malicious activity.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to confirm the unauthorized RDP shadowing activity by reviewing logs and correlating with other security events.
+- Terminate any suspicious RDP sessions and processes identified during the investigation to stop ongoing unauthorized access.
+- Change passwords for all accounts that were active during the suspicious RDP sessions to prevent further unauthorized access.
+- Review and update the RDP configuration settings to ensure that shadowing requires user consent and is logged appropriately.
+- Implement enhanced logging policies to capture detailed RDP session activities, including shadowing attempts, for future investigations.
+- Integrate security solutions such as SIEM and EDR to provide real-time monitoring and alerting on suspicious RDP activities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Restore the system to its operational state by applying the latest security patches and updates, and conducting a full malware scan.
+- Harden the system by disabling unnecessary RDP features, enforcing strong authentication mechanisms, and regularly reviewing user access permissions."""
 
 
 [[rule.threat]]

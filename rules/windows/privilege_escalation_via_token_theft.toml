@@ -2,7 +2,7 @@
 creation_date = "2022/10/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -98,6 +98,53 @@ not (process.parent.executable : "?\\Windows\\System32\\spoolsv.exe" and
                  "Cisco WebEx LLC", 
                  "Dell Inc"))
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Process Created with an Elevated Token
+
+In Windows environments, processes can be created with elevated tokens to perform tasks requiring higher privileges. Adversaries exploit this by impersonating system-level processes to escalate privileges and bypass security controls. The detection rule identifies suspicious process creations by monitoring for processes running as SYSTEM, excluding known legitimate activities, and focusing on potential token theft scenarios. This helps in identifying unauthorized privilege escalations.
+
+### Possible investigation steps
+
+- Review the alert details to understand which process was created with an elevated token, focusing on the `process.executable` and `process.parent.executable` fields.
+- Verify the `user.id` field to confirm the process is running as SYSTEM (S-1-5-18), indicating potential privilege escalation.
+- Examine the `process.Ext.effective_parent.executable` field to identify the parent process and determine if it is a known target for token theft.
+- Check the `process.code_signature.trusted` and `process.code_signature.subject_name` fields to assess if the process has a trusted signature, which might indicate a false positive.
+- Use Osquery to gather additional context about the suspicious process. For example, run the following query to list all processes with elevated tokens:
+  ```sql
+  SELECT pid, name, path, uid, gid, on_disk, wired_size FROM processes WHERE uid = 0;
+  ```
+- Investigate the command-line arguments of the process using the `process.parent.args` field to identify any unusual or suspicious parameters.
+- Correlate the process creation event with other logs, such as authentication logs, to identify any anomalous user activity around the time of the alert.
+- Check for any recent changes or updates in the system that might explain the process creation, focusing on the `process.parent.executable` paths.
+- Review historical data to determine if this process creation pattern has occurred previously and if it correlates with any known malicious activity.
+- Consult threat intelligence sources to see if the process or its parent is associated with known adversary techniques or campaigns.
+
+### False positive analysis
+
+- Known false positives include processes initiated by legitimate system maintenance tasks or software updates that require elevated privileges, such as Windows Update processes or system diagnostics tools.
+- Processes related to Windows core binaries like `Utilman.exe` in debug mode or `spoolsv.exe` associated with Access Intelligent Form can trigger false positives.
+- Windows error reporting tools like `WerFault.exe` and `WerMgr.exe` may also be flagged, despite being legitimate.
+- Software installations or updates using `msiexec.exe` or processes under `DriverStore` can be mistakenly identified as threats.
+- Trusted applications with valid code signatures from known vendors such as TeamViewer, Cisco WebEx, or Dell may be incorrectly flagged.
+- Users can manage these false positives by creating exceptions for known legitimate processes and paths in their monitoring tools, ensuring that frequent non-threatening behaviors are excluded from triggering alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to confirm the legitimacy of the process creation and identify any unauthorized privilege escalation attempts.
+- Review system logs and security alerts to gather evidence of the attack vector and any associated malicious activities.
+- Terminate any suspicious processes running with elevated privileges that are not part of legitimate system operations.
+- Change all potentially compromised credentials, especially those with administrative privileges, to prevent further unauthorized access.
+- Restore the system from a known good backup if malicious activity is confirmed and the system integrity is compromised.
+- Implement enhanced logging policies to capture detailed process creation events and access token manipulations for future investigations.
+- Integrate security solutions with threat intelligence feeds to improve detection capabilities and correlate alerts with known threat actors.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Apply system hardening measures, such as enforcing least privilege access, enabling multi-factor authentication, and regularly updating software to mitigate future risks."""
 
 
 [[rule.threat]]

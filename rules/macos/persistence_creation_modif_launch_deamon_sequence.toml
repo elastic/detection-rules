@@ -2,7 +2,7 @@
 creation_date = "2020/12/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,49 @@ sequence by host.id with maxspan=1m
  [file where host.os.type == "macos" and event.type != "deletion" and file.path : ("/System/Library/LaunchDaemons/*", "/Library/LaunchDaemons/*")]
  [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "launchctl" and process.args == "load"]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating LaunchDaemon Creation or Modification and Immediate Loading
+
+LaunchDaemons in macOS are system-level services that start at boot and run in the background, often used for legitimate system tasks. Adversaries exploit this by creating or altering LaunchDaemons to ensure malicious payloads persistently execute. The detection rule identifies such abuse by monitoring for new or modified LaunchDaemons followed by their immediate loading, signaling potential unauthorized persistence attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific `host.id` and `file.path` involved in the LaunchDaemon creation or modification event.
+- Verify the legitimacy of the LaunchDaemon by checking the `file.path` against known system and third-party LaunchDaemons. Look for any unusual or unexpected entries.
+- Use Osquery to list all LaunchDaemons on the affected host and compare them with the baseline of known good configurations. Example query: `SELECT * FROM launchd WHERE path LIKE '/Library/LaunchDaemons/%' OR path LIKE '/System/Library/LaunchDaemons/%';`
+- Investigate the `process.name` and `process.args` fields to confirm the use of `launchctl` for loading the LaunchDaemon. Check for any anomalies in the arguments used.
+- Examine the `process.parent` and `process.executable` fields to determine the parent process that initiated the `launchctl` command, which may provide insight into how the LaunchDaemon was loaded.
+- Check the file metadata, such as creation and modification timestamps, to identify any discrepancies or unusual patterns that could indicate tampering.
+- Review recent system logs and security logs on the affected host for any related events or errors that coincide with the LaunchDaemon creation or modification.
+- Investigate the user account context under which the LaunchDaemon was created or modified to determine if it aligns with expected administrative activity.
+- Correlate the event with other alerts or suspicious activities on the same host to identify potential patterns or related incidents.
+- Consult threat intelligence sources to determine if the LaunchDaemon's name or characteristics match known malicious indicators or tactics.
+
+### False positive analysis
+
+- System updates or legitimate software installations may create or modify LaunchDaemons, triggering the detection rule. Users should verify if the changes coincide with known updates or installations.
+- Administrative tasks performed by IT personnel, such as configuring new services or updating existing ones, can also result in false positives. Users can manage these by maintaining a log of authorized changes and cross-referencing them with alerts.
+- Some third-party applications may use LaunchDaemons for legitimate background processes. Users can create exceptions for these applications by identifying their specific LaunchDaemon paths and excluding them from monitoring.
+- Regular maintenance scripts or system management tools might load LaunchDaemons as part of their operation. Users should document these tools and consider excluding their associated processes from the detection rule.
+- To handle frequent non-threatening behaviors, users can implement a whitelist of known safe LaunchDaemons and processes, ensuring that only unauthorized or unexpected changes trigger alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on recent changes to LaunchDaemons and correlating with other suspicious activities.
+- Review and analyze system logs, including file creation and modification times, to determine the timeline of the unauthorized LaunchDaemon creation or modification.
+- Utilize endpoint detection and response (EDR) tools to scan for additional indicators of compromise (IOCs) and ensure no other persistence mechanisms are in place.
+- Remove or disable the malicious LaunchDaemon by deleting the associated files and unloading them using the 'launchctl' command.
+- Restore the system to a known good state using backups or system snapshots, ensuring that all malicious changes are reverted.
+- Implement enhanced logging policies to capture detailed file and process activity, focusing on LaunchDaemon directories and 'launchctl' usage.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities and correlate alerts with known threat actor tactics.
+- Escalate the incident to the appropriate internal teams and, if necessary, external cybersecurity experts for further analysis and response.
+- Apply hardening measures such as restricting write access to LaunchDaemon directories, enforcing strict user permissions, and regularly auditing system configurations to prevent future persistence attempts."""
 
 
 [[rule.threat]]

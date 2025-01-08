@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "system","sentinel_one_cloud_funnel", "m36
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/11/02"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -55,6 +55,51 @@ process where host.os.type == "windows" and event.type == "start" and
         "\\Device\\HarddiskVolume?\\Program Files\\*\\cdb.exe"
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Execution via Windows Command Debugging Utility
+
+The Windows command line debugging utility, cdb.exe, is a legitimate tool used for debugging applications. However, adversaries can exploit it to execute unauthorized commands or shellcode, bypassing security measures. The detection rule identifies suspicious use of cdb.exe by monitoring its execution outside standard installation paths and checking for specific command-line arguments, indicating potential misuse for malicious activities.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of cdb.exe execution outside the standard installation paths specified in the detection rule.
+- Verify the process arguments used with cdb.exe by examining the `process.args` field to identify any suspicious commands such as `-cf`, `-c`, or `-pd`.
+- Check the `process.executable` field to determine the exact path from which cdb.exe was executed, ensuring it is not within the expected directories.
+- Investigate the parent process of cdb.exe using the `process.parent.name` and `process.parent.executable` fields to understand how cdb.exe was launched and identify potential malicious parent processes.
+- Correlate the event timestamp with other security logs to identify any concurrent suspicious activities or anomalies on the host.
+- Use Osquery to gather additional context about the process and its execution environment. For example, run the following Osquery query to list all processes related to cdb.exe:
+  ```sql
+  SELECT pid, name, path, cmdline, parent FROM processes WHERE name = 'cdb.exe';
+  ```
+- Examine the user account associated with the cdb.exe process using the `process.user.name` field to determine if the account is legitimate and authorized to perform debugging tasks.
+- Investigate network connections established by the host around the time of the alert to identify any unusual outbound connections that may indicate data exfiltration or command-and-control activity.
+- Review recent file modifications and creations on the host to detect any unauthorized changes or the presence of suspicious files that may have been introduced by the execution of cdb.exe.
+- Consult threat intelligence sources to determine if there are known campaigns or threat actors that utilize cdb.exe for malicious purposes, which could provide additional context for the investigation.
+
+### False positive analysis
+
+- Legitimate software development and debugging activities: Developers and IT professionals may use cdb.exe for legitimate debugging purposes, which can trigger the detection rule. To manage this, users can create exceptions for known development environments or specific user accounts that regularly perform debugging tasks.
+- Automated testing environments: Continuous integration and automated testing setups might utilize cdb.exe as part of their processes. Users should identify these environments and exclude them from the rule to prevent false positives.
+- System administration scripts: Some system administrators might use cdb.exe in scripts for maintenance or monitoring tasks. It's advisable to review these scripts and whitelist them if they are verified as non-threatening.
+- Security tools and forensic analysis: Security teams might employ cdb.exe during forensic investigations or security assessments. Users should document these activities and exclude them from the detection rule to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any additional systems that may have been affected.
+- Analyze the command-line arguments used with cdb.exe to understand the adversary's intent and actions taken on the system.
+- Review system and security logs to identify any other suspicious activities or anomalies that occurred around the time of the alert.
+- Remove any unauthorized or malicious files and restore any altered system files from a known good backup.
+- Apply patches and updates to the operating system and installed applications to mitigate any exploited vulnerabilities.
+- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users and administrators on the risks associated with misuse of legitimate tools like cdb.exe and enforce strict access controls to limit their use."""
 
 
 [[rule.threat]]

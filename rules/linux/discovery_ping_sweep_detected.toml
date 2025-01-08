@@ -2,7 +2,7 @@
 creation_date = "2023/09/04"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,49 @@ query = '''
 event.category:process and host.os.type:linux and event.action:(exec or exec_event or executed or process_started) and
 event.type:start and process.name:(ping or nping or hping or hping2 or hping3 or nc or ncat or netcat or socat)
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Network Scan Executed From Host
+
+Network scanning utilities like ping, netcat, and socat are essential for diagnosing connectivity and network issues in Linux environments. However, adversaries exploit these tools to map networks stealthily, often using rapid execution to avoid detection. The detection rule identifies suspicious activity by monitoring the initiation of these processes, flagging potential misuse indicative of network reconnaissance efforts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the specific process name that triggered the alert, focusing on `process.name` to identify if it was ping, netcat, socat, or another utility.
+- Check the `event.category` and `event.action` fields to ensure the alert corresponds to a process execution event on a Linux host.
+- Investigate the `host.os.type` to confirm the operating system is Linux, as this rule is specific to Linux environments.
+- Examine the `event.type` field to verify that the process was indeed started, which aligns with the rule's focus on process initiation.
+- Use Osquery to gather more context about the process by running a query such as: `SELECT * FROM processes WHERE name IN ('ping', 'nping', 'hping', 'hping2', 'hping3', 'nc', 'ncat', 'netcat', 'socat');` to retrieve detailed information about the suspicious process.
+- Analyze the command line arguments of the process to understand the scope and intent of the network scan, which can be done by checking the `process.command_line` field.
+- Review the user account associated with the process execution to determine if it was initiated by a legitimate user or a potential adversary.
+- Check the process's parent process to identify if it was spawned by another suspicious or unauthorized process.
+- Investigate network connections established by the host around the time of the alert to identify any unusual or unauthorized network activity.
+- Correlate this event with other logs and alerts from the same host or network segment to identify patterns or additional indicators of compromise.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators often use tools like ping, netcat, and socat for legitimate network diagnostics and troubleshooting, which can trigger false positives. To manage this, create exceptions for known administrative activities by whitelisting specific user accounts or IP addresses associated with these tasks.
+- Automated monitoring scripts: Some environments deploy automated scripts that regularly execute network scanning utilities to ensure network health and connectivity. These scripts can be excluded by identifying their unique process names or execution patterns and adding them to an exception list.
+- Scheduled maintenance activities: During scheduled network maintenance, network scanning tools may be used to verify network configurations and connectivity. To prevent false positives, schedule exceptions during known maintenance windows or for specific maintenance-related processes.
+- Security tools: Certain security tools and intrusion detection systems may use similar utilities for legitimate network scanning and monitoring purposes. Identify these tools and exclude their processes from triggering alerts by adding them to a trusted list.
+- Development and testing environments: In environments where network scanning is part of development or testing processes, frequent execution of these utilities may occur. Implement exceptions for specific environments or subnets where such activities are expected and non-threatening.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further reconnaissance or lateral movement by the adversary.
+- Conduct a thorough investigation of the host to identify any unauthorized access or additional malicious activities, focusing on the processes and network connections initiated by the flagged utilities.
+- Review system and network logs to trace the origin and scope of the network scan, identifying any other potentially compromised systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the activity is part of a larger attack campaign.
+- Remediate the affected host by removing any unauthorized tools or scripts and applying security patches to address known vulnerabilities.
+- Restore the host to its operational state by verifying the integrity of system files and configurations, and ensuring that all security controls are re-enabled.
+- Implement enhanced logging policies to capture detailed process execution and network activity, enabling better detection of similar threats in the future.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve the detection and response capabilities for network reconnaissance activities.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Apply hardening measures such as disabling unnecessary services, enforcing least privilege access, and regularly updating security configurations to reduce the attack surface."""
 
 
 [[rule.threat]]

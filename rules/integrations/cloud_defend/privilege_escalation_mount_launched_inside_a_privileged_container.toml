@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2024/07/23"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -40,6 +40,49 @@ query = '''
 process where event.module == "cloud_defend" and  event.type== "start" and 
 (process.name== "mount" or process.args== "mount") and container.security_context.privileged == true
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Mount Launched Inside a Privileged Container
+
+In containerized environments, the `mount` utility is crucial for attaching file systems to the system's directory tree. When used in privileged containers, which have extensive host capabilities, it can expose sensitive host files. Adversaries exploit this to escalate privileges or escape to the host. The detection rule identifies such misuse by monitoring the execution of `mount` in privileged containers, flagging potential security breaches.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `mount` command execution within a privileged container by checking the `process.name` and `process.args` fields.
+- Verify the `container.security_context.privileged` field to ensure the container was indeed running with privileged access.
+- Identify the container ID and image name associated with the alert to understand which application or service might be involved.
+- Check the `event.module` and `event.type` fields to confirm the event source and type, ensuring it aligns with the expected behavior of the detection rule.
+- Use Osquery to list all processes running inside the container to identify any other suspicious activities. Example query: `SELECT * FROM processes WHERE pid IN (SELECT pid FROM process_open_sockets WHERE remote_address = 'container_ip');`
+- Investigate the container's logs for any unusual or unauthorized access patterns around the time of the alert.
+- Examine the host system's logs for any signs of privilege escalation or attempts to access sensitive files from the container.
+- Review the container's configuration and deployment scripts to ensure no unintended privileged access was granted.
+- Check for any recent changes or deployments that might have introduced the privileged container or altered its behavior.
+- Collaborate with the development or DevOps team to understand the intended use of the `mount` command within the container and verify if it aligns with expected operations.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators may use the `mount` command within privileged containers for legitimate purposes such as attaching storage volumes or performing maintenance. These actions, while benign, can trigger the detection rule.
+- Backup operations: Automated backup processes might involve mounting file systems within privileged containers to access data, leading to false positives.
+- Monitoring and logging tools: Some security or monitoring tools may use the `mount` command to access file systems for scanning or logging purposes, which can be mistakenly flagged.
+- To manage these false positives, users can create exceptions for known benign processes by specifying trusted process names or arguments in the detection rule. This can be done by updating the query to exclude certain process names or arguments that are identified as non-threatening.
+- Regularly review and update the list of exceptions to ensure that only legitimate activities are excluded, maintaining a balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further unauthorized access or potential spread to other containers or the host system.
+- Investigate the container's logs and process history to identify any unauthorized or suspicious activities, focusing on the use of the mount command.
+- Verify the container's security context and configuration to ensure it was not inadvertently deployed with privileged access.
+- Conduct a thorough review of the container's filesystem to identify any unauthorized changes or access to sensitive host files.
+- Escalate the incident to the security operations team if evidence of privilege escalation or host escape is found, providing detailed findings and context.
+- Implement enhanced logging policies to capture detailed process execution and container activity, ensuring future incidents can be detected and analyzed more effectively.
+- Integrate security monitoring tools with SIEM systems to automate the detection of privileged container activities and generate alerts for suspicious behavior.
+- Restore the container to a known good state from a secure backup, ensuring any unauthorized changes are reverted.
+- Apply container hardening measures, such as using the principle of least privilege, to minimize the capabilities of containers and reduce the attack surface.
+- Review and update security policies and procedures to prevent similar incidents, incorporating lessons learned from the investigation and remediation process."""
 
 
 [[rule.threat]]

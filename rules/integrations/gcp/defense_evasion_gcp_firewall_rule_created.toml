@@ -2,7 +2,7 @@
 creation_date = "2020/09/21"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,49 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Firewall Rule Creation"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP Firewall Rule Creation
+In GCP, firewall rules manage network traffic to and from VPCs and App Engine applications, crucial for maintaining security. Adversaries may exploit this by creating rules that allow unauthorized access, bypassing security measures. The detection rule monitors audit logs for specific actions indicating new rule creation, helping identify potential security breaches by flagging suspicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific `event.action` that triggered the alert, focusing on `*.compute.firewalls.insert` or `google.appengine.*.Firewall.Create*Rule`.
+- Examine the `event.dataset` field to confirm the event source is `gcp.audit`, ensuring the alert is based on audit logs.
+- Check the `user` or `serviceAccount` associated with the firewall rule creation to determine if the action was performed by a legitimate user or service.
+- Investigate the `sourceIP` and `userAgent` fields to identify the origin of the request and assess if it aligns with expected behavior or known IP addresses.
+- Analyze the `resource.name` field to determine which specific VPC or App Engine application the firewall rule was created for, and assess its criticality.
+- Review the `request` field to understand the parameters of the firewall rule, such as allowed IP ranges, protocols, and ports, to evaluate the potential impact on security.
+- Cross-reference the `timestamp` of the event with other security events or logs to identify any correlated suspicious activities around the same time.
+- Utilize Osquery to gather additional context from affected systems. For example, run the following Osquery query to list recent firewall rule changes: `SELECT * FROM gcp_firewall_rules WHERE action = 'insert' AND timestamp > date('now', '-1 day');`
+- Check for any recent changes in IAM roles or permissions that might have allowed unauthorized users to create firewall rules.
+- Consult with the relevant teams or stakeholders to verify if the firewall rule creation was part of a legitimate change request or deployment process.
+
+### False positive analysis
+
+- Routine administrative actions: Legitimate changes made by network administrators or automated processes can trigger the rule. To manage this, users can create exceptions for known IP addresses or service accounts frequently involved in authorized rule creation.
+- Automated deployment tools: Tools like Terraform or Deployment Manager that automate infrastructure changes may create firewall rules as part of their normal operation. Users should identify and exclude these tools' actions by filtering based on service accounts or specific project IDs.
+- Scheduled maintenance: Regularly scheduled updates or maintenance tasks might involve creating or modifying firewall rules. Users can handle these by setting up time-based exceptions or correlating with maintenance schedules to differentiate between expected and suspicious activities.
+- Development and testing environments: Firewall rules created in non-production environments for testing purposes can be mistaken for malicious activity. Users should tag or label these environments and exclude them from alerts to reduce noise.
+
+### Response and remediation
+
+- Immediately isolate the affected VPC or application to prevent further unauthorized access while maintaining essential services.
+- Review the audit logs to identify the source and context of the unauthorized firewall rule creation, focusing on user accounts and IP addresses involved.
+- Revoke any suspicious or unauthorized firewall rules and revert to the last known good configuration to restore security posture.
+- Conduct a thorough investigation to determine if any other security controls have been impaired or if additional unauthorized changes have been made.
+- Escalate the incident to the security operations team and, if necessary, involve legal or compliance departments to assess potential impacts and obligations.
+- Implement enhanced logging policies to capture detailed information on firewall rule changes and other critical security events for future analysis.
+- Integrate with a Security Information and Event Management (SIEM) system to automate the detection and alerting of suspicious firewall rule activities.
+- Educate and train staff on the importance of secure firewall configurations and the risks associated with unauthorized changes.
+- Apply hardening measures such as least privilege access, multi-factor authentication, and regular audits of firewall rules and configurations.
+- Review and update incident response plans to incorporate lessons learned from the incident, ensuring a more robust response to future threats.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

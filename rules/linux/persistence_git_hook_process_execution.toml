@@ -2,7 +2,7 @@
 creation_date = "2024/06/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -76,6 +76,49 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   )
 ) and not process.name in ("git", "dirname")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Git Hook Child Process
+
+Git hooks are scripts that automate tasks during Git operations like commits and pushes. While they enhance workflow efficiency, adversaries can exploit them to execute unauthorized commands by embedding malicious scripts. The detection rule identifies unusual child processes spawned by Git hooks, focusing on atypical scripts and executables, thus flagging potential misuse and aiding in threat detection.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific Git hook that triggered the alert by examining the `process.parent.name` field.
+- Check the `process.name` and `process.executable` fields to determine the nature of the child process spawned by the Git hook and assess if it aligns with typical usage patterns.
+- Investigate the user account associated with the process by examining the `user.name` field to determine if the activity is expected or if the account may have been compromised.
+- Use Osquery to list all Git hooks present in the repository to identify any unauthorized or suspicious scripts. Example query: `SELECT * FROM file WHERE path LIKE '/path/to/repo/.git/hooks/%';`
+- Examine the contents of the Git hook script that triggered the alert to identify any embedded malicious commands or unusual modifications.
+- Review recent commit history and changes in the repository to identify any unauthorized modifications that could indicate tampering with Git hooks.
+- Analyze the process tree to understand the sequence of events leading to the execution of the suspicious child process, focusing on the `process.parent.name` and `process.name` fields.
+- Check system logs for any additional context around the time of the alert, such as login events or other process executions, to correlate with the suspicious activity.
+- Investigate the network activity associated with the process by reviewing network logs or using network monitoring tools to identify any suspicious outbound connections.
+- Consult with the repository owner or development team to verify if the detected activity aligns with any recent changes or deployments, ensuring it is not a false positive.
+
+### False positive analysis
+
+- Developers often use custom scripts in Git hooks for legitimate purposes, such as automating testing or deployment processes, which may trigger the rule. To handle this, users can create exceptions for specific scripts or processes that are known to be safe and frequently used in their development environment.
+- Continuous Integration/Continuous Deployment (CI/CD) systems might execute scripts as part of their workflow, leading to false positives. Users should identify and whitelist these processes to prevent unnecessary alerts.
+- Some development environments or tools might use shell scripts or other scripting languages that match the rule's criteria. Users can exclude these known benign processes by adding them to an exception list, ensuring they are not flagged as suspicious.
+- In environments where developers frequently use temporary directories for legitimate purposes, processes executed from these locations might be flagged. Users should review and whitelist specific directories or processes that are consistently used for non-malicious activities.
+- If certain processes are consistently flagged but are known to be part of regular operations, users can adjust the rule to exclude these processes by adding them to the list of exceptions, ensuring that only truly suspicious activities are highlighted.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the scope of the compromise, focusing on the specific Git hooks and child processes flagged by the detection rule.
+- Review the contents of the Git hooks to identify any unauthorized or malicious scripts and remove them.
+- Analyze system logs and process execution history to trace the origin of the malicious activity and identify any additional compromised systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
+- Restore the system to a known good state by reinstalling the operating system and applications from trusted sources, ensuring all patches and updates are applied.
+- Implement enhanced logging policies to capture detailed process execution and network activity, aiding in future investigations.
+- Integrate security tools such as endpoint detection and response (EDR) solutions to monitor for similar threats and provide real-time alerts.
+- Educate development and operations teams on secure Git practices, emphasizing the importance of monitoring and controlling Git hook scripts.
+- Apply hardening measures by restricting write permissions to Git hook directories and implementing strict access controls to minimize the risk of unauthorized modifications."""
 
 
 [[rule.threat]]

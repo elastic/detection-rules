@@ -2,7 +2,7 @@
 creation_date = "2020/11/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,50 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Exchange Anti-Phish Policy Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Exchange Anti-Phish Policy Deletion
+
+Microsoft 365's anti-phishing policies are crucial for enhancing email security by identifying and blocking phishing attempts. Adversaries may delete these policies to weaken defenses, facilitating phishing attacks. The detection rule monitors audit logs for successful deletions of anti-phishing policies, signaling potential malicious activity aimed at compromising email security.
+
+### Possible investigation steps
+
+- Review the audit logs to confirm the deletion event by filtering for `event.dataset:o365.audit` and `event.provider:Exchange` to ensure the event is related to Microsoft 365 Exchange.
+- Verify the `event.action:"Remove-AntiPhishPolicy"` to confirm that the action taken was indeed the removal of an anti-phishing policy.
+- Check the `event.outcome:success` field to ensure the deletion was successful, indicating a potential security concern.
+- Identify the user account associated with the deletion by examining the `user.name` field in the audit logs to determine if the action was performed by an authorized user.
+- Investigate the `source.ip` field to trace the IP address from which the deletion request originated, helping to identify if it was an internal or external source.
+- Cross-reference the `user.name` and `source.ip` with known user activity and location to detect any anomalies or unauthorized access patterns.
+- Utilize Osquery to gather additional context on the user account and device involved. For example, run a query like `SELECT * FROM users WHERE username = '<user.name>'` to gather more information about the user.
+- Check for any recent changes in user permissions or roles that might have allowed the deletion by reviewing the `event.category:web` logs for any privilege escalation activities.
+- Analyze other related security events around the same timestamp to identify any correlated activities, such as failed login attempts or unusual email forwarding rules.
+- Review the organization's change management records to verify if the deletion was part of a planned change or if it was unauthorized, providing further context to the investigation.
+
+### False positive analysis
+
+- Routine administrative actions: Legitimate IT administrators may delete anti-phishing policies as part of regular maintenance or policy updates. These actions can be mistaken for malicious activity.
+- Policy reconfiguration: Organizations may periodically review and reconfigure their security policies, including anti-phishing settings, which could involve deleting and recreating policies.
+- Testing and audits: Security teams might delete policies temporarily during testing phases or audits to evaluate system responses and ensure compliance.
+- To manage these false positives, users can create exceptions for known administrative accounts or specific time frames when policy changes are expected. This can be done by setting up filters or rules in the monitoring system to exclude these non-threatening activities from triggering alerts.
+
+### Response and remediation
+
+- Immediately isolate affected accounts and systems to prevent further unauthorized access or damage.
+- Review audit logs to identify the source and scope of the policy deletion, focusing on user accounts and IP addresses involved.
+- Recreate and apply the deleted anti-phishing policy to restore email security defenses.
+- Conduct a thorough investigation to determine if any phishing attacks were successful during the period the policy was absent.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging and monitoring for Microsoft 365 activities, ensuring that all policy changes are tracked and alerted.
+- Integrate threat intelligence feeds to correlate the incident with known phishing campaigns or threat actors.
+- Educate users on recognizing phishing attempts and the importance of reporting suspicious emails.
+- Review and update access controls and permissions to ensure only authorized personnel can modify security policies.
+- Consider deploying additional security measures such as multi-factor authentication (MFA) and advanced threat protection (ATP) to harden the environment against future attacks.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

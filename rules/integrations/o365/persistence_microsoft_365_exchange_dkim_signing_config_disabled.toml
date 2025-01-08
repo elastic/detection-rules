@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,50 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Exchange DKIM Signing Configuration Disabled"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Exchange DKIM Signing Configuration Disabled
+
+DomainKeys Identified Mail (DKIM) is a security protocol that ensures email authenticity by allowing receiving servers to verify that emails are sent from authorized domains. Disabling DKIM can expose organizations to email spoofing attacks. Adversaries might exploit this by disabling DKIM to send fraudulent emails that appear legitimate. The detection rule identifies successful attempts to disable DKIM, signaling potential misuse or configuration errors.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event dataset is `o365.audit` and the event provider is `Exchange`, ensuring the alert is relevant to Microsoft 365 Exchange DKIM configuration.
+- Verify the event category is `web` and the event action is `Set-DkimSigningConfig` to confirm the specific action of disabling DKIM signing configuration.
+- Check the `o365.audit.Parameters.Enabled` field to ensure it is set to `False`, indicating that DKIM signing was indeed disabled.
+- Examine the `event.outcome` field to confirm it shows `success`, indicating the action to disable DKIM was successfully executed.
+- Identify the user or service account associated with the action by reviewing the `user.name` or `user.id` fields to determine if the action was performed by an authorized individual.
+- Investigate the `source.ip` field to identify the IP address from which the DKIM configuration change was made, and assess if it is a known or trusted source.
+- Review recent activity logs for the identified user or service account to detect any unusual or unauthorized actions around the time of the DKIM configuration change.
+- Utilize Osquery to gather additional context on the system or user involved. For example, run a query to list recent login activities: `SELECT * FROM users WHERE username = '<identified_user>' AND last_login > date('now', '-1 day');`
+- Check for any recent changes in administrative roles or permissions that might have allowed the DKIM configuration to be disabled.
+- Correlate this event with other security alerts or incidents in the same timeframe to identify potential patterns or coordinated actions that could indicate a broader security issue.
+
+### False positive analysis
+
+- Routine administrative changes: Organizations may intentionally disable DKIM temporarily for maintenance or configuration updates. To manage this, create exceptions for known maintenance periods or authorized personnel performing these actions.
+- Testing and troubleshooting: IT teams might disable DKIM as part of testing or troubleshooting email configurations. Implement a process to log and approve such activities, allowing you to exclude these events from triggering alerts.
+- Misconfigured automation scripts: Automated scripts or tools used for managing email settings might inadvertently disable DKIM. Review and update scripts to ensure they align with security policies, and exclude known scripts from alerting.
+- Third-party integrations: Some third-party email services or integrations might require DKIM to be disabled temporarily. Document and approve these integrations, and set up exceptions for recognized third-party actions.
+
+### Response and remediation
+
+- Verify the alert by checking the audit logs to confirm that the DKIM signing configuration was indeed disabled and identify the user or system account responsible for the change.
+- Contain the potential threat by immediately re-enabling DKIM signing for the affected domain to prevent further spoofing attempts.
+- Investigate the source of the change by reviewing user activity logs and correlating with other security events to determine if the action was authorized or part of a malicious activity.
+- If unauthorized, reset the credentials of the compromised account and review access permissions to ensure least privilege principles are enforced.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems or accounts have been compromised.
+- Implement enhanced logging and monitoring for DKIM configuration changes and other critical security settings within Microsoft 365 to detect similar incidents in the future.
+- Integrate with a Security Information and Event Management (SIEM) system to centralize alerts and improve threat detection capabilities.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users and administrators on the importance of DKIM and other email security protocols to prevent accidental or malicious misconfigurations.
+- Apply hardening measures by enabling multi-factor authentication (MFA) for all administrative accounts and regularly reviewing security configurations in Microsoft 365.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

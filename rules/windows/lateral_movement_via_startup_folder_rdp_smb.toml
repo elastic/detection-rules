@@ -2,7 +2,7 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -47,6 +47,49 @@ file where host.os.type == "windows" and event.type in ("creation", "change") an
    file.path : ("?:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*",
                 "?:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Lateral Movement via Startup Folder
+
+The Windows Startup folder is a mechanism that allows programs to run automatically upon user logon or system reboot. Adversaries exploit this by placing malicious files in the Startup folder of a remote system, often accessed via RDP or SMB, to ensure persistence and facilitate lateral movement. The detection rule identifies suspicious file activities in these folders, focusing on processes like mstsc.exe, which may indicate unauthorized access and file creation, signaling potential lateral movement attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and process name involved in the suspicious activity, focusing on the `file.path` and `process.name` fields.
+- Verify the legitimacy of the process by checking the `process.name` and `process.pid` fields to determine if `mstsc.exe` or a process with PID 4 was involved, as these are indicative of RDP or SMB activity.
+- Use Osquery to list all files in the Startup folder to identify any unexpected or unauthorized files. Example query: `SELECT path, filename, md5 FROM file WHERE directory LIKE 'C:\\\\Users\\\\%\\\\AppData\\\\Roaming\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\%' OR directory LIKE 'C:\\\\ProgramData\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\%';`
+- Investigate the file creation or modification time to determine if it aligns with known user activity or if it occurred during unusual hours.
+- Check the file hash against known malware databases to identify if the file is a known threat.
+- Review recent RDP or SMB connection logs to identify any unusual or unauthorized access attempts that coincide with the file creation or modification event.
+- Analyze the user account associated with the process to determine if it has been compromised or if it has unusual permissions or activity.
+- Correlate the event with other security alerts or logs to identify if there are additional indicators of compromise or related suspicious activities.
+- Investigate the parent process of `mstsc.exe` or the process with PID 4 to understand the origin of the connection and whether it was initiated by a legitimate user or process.
+- Conduct a historical search for similar file creation events in the Startup folder to determine if this is an isolated incident or part of a broader pattern of activity.
+
+### False positive analysis
+
+- Legitimate software installations or updates may create files in the Startup folder, triggering the detection rule. Users can handle this by verifying the software's authenticity and adding it to an exception list if deemed safe.
+- System administrators might use scripts or tools that modify the Startup folder for maintenance or configuration purposes. These activities should be documented, and exceptions can be created for known administrative processes.
+- Remote desktop management tools or services that utilize mstsc.exe for legitimate purposes might inadvertently match the rule's criteria. Users should ensure these tools are authorized and consider excluding their specific file paths or process names.
+- Automated backup or synchronization software that interacts with the Startup folder could cause false positives. Users should verify the software's legitimacy and exclude its activities if they are part of routine operations.
+- In environments where shared systems are common, multiple users might have legitimate reasons to modify the Startup folder. Organizations should establish a baseline of expected behavior and create exceptions for known, non-threatening activities.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further lateral movement and contain the threat.
+- Verify the presence of unauthorized files in the Startup folder and remove any malicious scripts or executables identified.
+- Conduct a thorough investigation to determine the source of the unauthorized access, focusing on RDP and SMB logs to identify potential entry points.
+- Change credentials for any accounts that may have been compromised, especially those with administrative privileges.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed file creation and modification events, particularly in critical directories like the Startup folder.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs) from the MITRE ATT&CK framework.
+- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
+- Implement hardening measures such as restricting RDP access to trusted IP addresses, enabling multi-factor authentication, and regularly auditing user permissions and access rights."""
 
 
 [[rule.threat]]

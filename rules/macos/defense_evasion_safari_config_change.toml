@@ -2,7 +2,7 @@
 creation_date = "2021/01/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -68,6 +68,49 @@ event.category:process and host.os.type:macos and event.type:start and
       )
     )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Modification of Safari Settings via Defaults Command
+
+The 'defaults' command in macOS is a powerful utility for modifying application settings, including Safari's configuration. Adversaries may exploit this to alter Safari settings, potentially enabling harmful features like JavaScript from Apple Events, which can facilitate browser hijacking. The detection rule identifies suspicious 'defaults' command usage targeting Safari settings, excluding benign modifications, to flag potential defense evasion attempts.
+
+### Possible investigation steps
+
+- Review the alert details to understand which specific Safari setting was modified using the 'defaults' command, focusing on the process.args field to identify the exact change.
+- Check the event.timestamp to determine when the modification occurred and correlate it with any other suspicious activities around the same time.
+- Investigate the user account associated with the process.user.name field to determine if the account has a history of making unauthorized changes or if it has been compromised.
+- Examine the process.parent.name and process.parent.args fields to identify the parent process that initiated the 'defaults' command, which might provide context on how the command was executed.
+- Use Osquery to list recent processes executed by the user to identify any other potentially malicious activities. Example query: `SELECT * FROM processes WHERE user = '<user_name>' ORDER BY start_time DESC LIMIT 10;`
+- Check system logs for any other unusual activities or errors around the time of the modification, which might indicate a broader attack or compromise.
+- Investigate network connections from the host using Osquery to identify any suspicious outbound connections that could suggest data exfiltration or command and control activity. Example query: `SELECT * FROM process_open_sockets WHERE pid = <suspicious_pid>;`
+- Review any recent changes to the system's configuration or installed applications that could have facilitated the unauthorized modification of Safari settings.
+- Analyze the host's security software logs to check for any alerts or blocked activities that coincide with the time of the Safari settings modification.
+- Consult with the user or system owner to verify if the change was authorized or if they noticed any unusual behavior on their system, which could provide additional context for the investigation.
+
+### False positive analysis
+
+- Users may frequently modify Safari settings for legitimate reasons, such as personalizing their browsing experience or enhancing privacy. These benign changes can trigger false positives if they involve settings not explicitly excluded in the detection rule.
+- System administrators might use scripts to configure Safari settings across multiple devices for compliance or standardization purposes. These automated processes can be mistaken for malicious activity.
+- Developers and testers might adjust Safari settings to test web applications or browser features, leading to false positives if these changes are not part of the excluded settings.
+- To manage these false positives, users can create exceptions for known benign processes or scripts by adding specific process arguments to the exclusion list in the detection rule.
+- Regularly review and update the exclusion list to include new non-threatening behaviors as they are identified, ensuring that legitimate activities are not flagged as suspicious.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further malicious activity or data exfiltration.
+- Review the process execution logs to confirm the unauthorized use of the 'defaults' command targeting Safari settings and identify any other suspicious activities.
+- Terminate any suspicious processes that may have been initiated as a result of the altered Safari settings.
+- Restore Safari settings to their default state using a known good configuration or by manually resetting the settings through the Safari preferences.
+- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to detect and remove any additional threats.
+- Escalate the incident to the security operations team for further analysis and to determine if the attack is part of a larger campaign.
+- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
+- Integrate with a centralized security information and event management (SIEM) system to correlate events and improve threat detection capabilities.
+- Apply security patches and updates to the macOS system and Safari browser to mitigate known vulnerabilities.
+- Educate users on the risks of unauthorized configuration changes and reinforce the importance of reporting suspicious activities."""
 
 
 [[rule.threat]]

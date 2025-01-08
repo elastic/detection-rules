@@ -2,7 +2,7 @@
 creation_date = "2021/05/28"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -51,6 +51,49 @@ process where host.os.type == "windows" and event.type == "start" and process.ex
   process.name : ("rundll32.exe", "mshta.exe", "powershell.exe", "pwsh.exe", "cmd.exe", "regsvr32.exe",
                   "cscript.exe", "wscript.exe")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Execution from a Mounted Device
+
+In Windows environments, script interpreters and signed binaries are essential for executing legitimate tasks. However, adversaries can exploit these by launching them from non-standard directories, such as mounted devices, to bypass security measures. The detection rule identifies such anomalies by monitoring processes initiated from unexpected directories, especially when launched by common parent processes like Explorer. This helps in spotting potential evasion tactics where attackers use system binaries to execute malicious scripts stealthily.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name and working directory, ensuring they match the criteria specified in the detection rule.
+- Check the parent process name to verify if it is "explorer.exe," as this is a common parent process for user-initiated actions.
+- Investigate the process executable path to ensure it is not a legitimate application running from a non-standard directory.
+- Use Osquery to list all mounted devices and their paths to identify any unusual or unauthorized devices. Example query: `SELECT * FROM mounts WHERE device NOT LIKE '/dev/%';`
+- Examine the process command line arguments for any suspicious or unexpected parameters that could indicate malicious activity.
+- Correlate the process start time with user login sessions to determine if the execution aligns with legitimate user activity.
+- Check for any recent file modifications or creations in the non-standard working directory to identify potential malicious files.
+- Investigate the user account associated with the process to determine if it has a history of suspicious activity or if it has been compromised.
+- Review system logs for any other suspicious activities or alerts around the same time frame to identify potential lateral movement or additional threats.
+- Analyze network connections initiated by the process to detect any communication with known malicious IP addresses or domains.
+
+### False positive analysis
+
+- Legitimate software installations or updates: Some software installations or updates may execute scripts or binaries from mounted devices or external drives. Users should verify the source and purpose of such executions and consider excluding these specific processes if they are deemed safe.
+- Portable applications: Applications that are designed to run without installation, often from USB drives or network shares, may trigger this rule. Users can create exceptions for known and trusted portable applications to prevent false alerts.
+- IT administrative tasks: System administrators might use mounted devices to run scripts for maintenance or configuration purposes. It's important to document these activities and exclude them from the rule if they are part of regular administrative tasks.
+- Backup or recovery operations: Backup software might execute scripts from external drives during backup or recovery processes. Users should identify these operations and exclude them if they are part of a legitimate backup strategy.
+- Development and testing environments: Developers might run scripts from mounted devices during testing phases. It's advisable to differentiate between production and development environments and apply exceptions where necessary to avoid false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the source and scope of the execution, including reviewing logs and correlating with other security events.
+- Terminate any suspicious processes identified as being executed from non-standard directories to halt potential malicious activity.
+- Analyze the parent process and any associated files or scripts for signs of tampering or malicious intent.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs).
+- Restore the system to a known good state using backups or system restore points, ensuring that any malicious changes are removed.
+- Apply system hardening measures, such as restricting script interpreter execution from non-standard directories and enforcing application whitelisting.
+- Conduct a post-incident review to identify gaps in detection and response capabilities, and update security policies and procedures accordingly."""
 
 
 [[rule.threat]]

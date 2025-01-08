@@ -2,7 +2,7 @@
 creation_date = "2021/01/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -59,6 +59,49 @@ query = '''
 event.category:file and host.os.type:macos and not event.type:deletion and
   file.path:/Library/DirectoryServices/PlugIns/*.dsplug
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via DirectoryService Plugin Modification
+
+DirectoryService PlugIns on macOS are integral for managing directory-based services, automatically executing on boot. Adversaries exploit this by modifying or creating malicious plugins to ensure their code runs persistently. The detection rule monitors for non-deletion events involving dsplug files in the PlugIns directory, flagging potential unauthorized changes indicative of persistence tactics.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event.category is 'file' and host.os.type is 'macos', ensuring the alert is relevant to the DirectoryService Plugin Modification.
+- Verify the file path in the alert matches the pattern /Library/DirectoryServices/PlugIns/*.dsplug to confirm the location of the suspicious file.
+- Check the timestamp of the event to determine when the modification or creation occurred, which can help correlate with other system activities.
+- Investigate the file metadata, such as the file size, creation date, and modification date, to identify any anomalies or recent changes.
+- Use Osquery to list all files in the /Library/DirectoryServices/PlugIns/ directory and gather additional details. Example query: `SELECT path, size, atime, mtime, ctime FROM file WHERE directory = '/Library/DirectoryServices/PlugIns/' AND path LIKE '%.dsplug';`
+- Examine the file's contents or hash to determine if it matches known malicious signatures or if it has been altered from a known good state.
+- Review system logs around the time of the event for any unusual activities or errors that might indicate tampering or unauthorized access.
+- Check for any recent user logins or privilege escalations that could be related to the modification of the DirectoryService Plugin.
+- Investigate any other alerts or events from the same host around the same time to identify potential patterns or related activities.
+- Consult threat intelligence sources to see if the file or its characteristics match any known threats or indicators of compromise.
+
+### False positive analysis
+
+- Routine system updates or legitimate software installations may trigger the rule by creating or modifying dsplug files, as these processes often involve updating or adding new plugins to the DirectoryServices PlugIns folder.
+- Administrative actions by IT personnel, such as troubleshooting or configuring directory services, can also result in legitimate modifications to dsplug files, leading to false positives.
+- Users can manage these false positives by creating exceptions for known and trusted software update processes or specific administrative actions, ensuring that these are documented and reviewed regularly to maintain security integrity.
+- Implementing a whitelist of approved dsplug files or directories can help reduce noise from expected changes, allowing security teams to focus on truly suspicious activities.
+- Regularly reviewing and updating the list of exceptions is crucial to adapt to changes in software and system configurations, minimizing the risk of overlooking genuine threats.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent potential lateral movement by the adversary.
+- Conduct a thorough investigation to identify any unauthorized dsplug files in the /Library/DirectoryServices/PlugIns/ directory and verify their legitimacy.
+- Review system logs and security alerts to determine the timeline and method of the unauthorized modification or creation of the dsplug file.
+- Remove any unauthorized or malicious dsplug files and restore any legitimate files from a known good backup.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed file creation and modification events, focusing on the DirectoryServices PlugIns directory.
+- Integrate with endpoint detection and response (EDR) tools to monitor for similar persistence techniques and improve detection capabilities.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure that the DirectoryService daemon is functioning correctly.
+- Conduct a post-incident review to identify gaps in security controls and update security policies to prevent future occurrences.
+- Implement hardening measures such as restricting write permissions to critical directories and employing application whitelisting to prevent unauthorized code execution."""
 
 
 [[rule.threat]]

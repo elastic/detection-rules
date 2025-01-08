@@ -2,7 +2,7 @@
 creation_date = "2022/01/06"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,52 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure AD Global Administrator Role Assigned"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure AD Global Administrator Role Assigned
+
+Azure AD's Global Administrator role grants comprehensive access to manage Azure AD and associated services. Adversaries may exploit this by assigning themselves or others to this role, ensuring persistent control over resources. The detection rule identifies such unauthorized assignments by monitoring specific audit logs for role changes, focusing on the addition of members to the Global Administrator role.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the event.dataset:azure.auditlogs and azure.auditlogs.properties.category:RoleManagement fields, ensuring the alert is related to role management activities.
+- Examine the azure.auditlogs.operation_name field to verify that the operation was indeed "Add member to role," confirming the nature of the role assignment.
+- Check the azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value field to ensure the new value is "\\"Global Administrator\\"", indicating the specific role assigned.
+- Identify the user account that was added to the Global Administrator role by reviewing the azure.auditlogs.properties.target_resources.0.display_name field.
+- Investigate the initiator of the role assignment by examining the azure.auditlogs.properties.initiated_by.user.display_name and azure.auditlogs.properties.initiated_by.user.user_principal_name fields to determine if the action was performed by a legitimate administrator.
+- Correlate the timestamp of the event with other security logs to identify any suspicious activities or patterns around the time of the role assignment.
+- Use Osquery to gather additional context on the involved user accounts. For example, run a query to list all current Global Administrators: `SELECT * FROM azure_ad_users WHERE role = 'Global Administrator';`
+- Review the sign-in logs for the user account added to the Global Administrator role to identify any unusual login locations or times that could indicate unauthorized access.
+- Check for any recent changes to the organization's Azure AD configuration or policies that might have allowed unauthorized role assignments.
+- Investigate any other alerts or incidents involving the same user accounts or IP addresses to assess if this role assignment is part of a broader attack campaign.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate IT administrators may frequently assign users to the Global Administrator role as part of their regular duties, such as onboarding new IT staff or managing temporary access for troubleshooting. 
+- Automated processes: Some organizations use automated scripts or third-party tools to manage role assignments, which can trigger alerts if not properly documented or excluded.
+- Role assignment during migrations: During migrations or system upgrades, temporary role assignments might be necessary, leading to potential false positives.
+- To manage these false positives, organizations can create exceptions for known administrative accounts or processes by using filters or exclusion lists in their monitoring tools.
+- Implementing a review process for role assignments can help distinguish between legitimate and suspicious activities, reducing the likelihood of false positives.
+- Regularly updating and reviewing the list of exceptions ensures that only current and necessary exclusions are in place, maintaining the effectiveness of the detection rule.
+
+### Response and remediation
+
+- Immediately remove unauthorized users from the Global Administrator role to contain the threat and prevent further unauthorized access.
+- Conduct a thorough investigation to identify how the unauthorized assignment occurred, reviewing audit logs and any related security alerts.
+- Reset passwords and enforce multi-factor authentication (MFA) for all accounts that were added to the Global Administrator role to prevent further unauthorized access.
+- Escalate the incident to the security operations team and, if necessary, involve legal or compliance teams to assess potential impacts and obligations.
+- Review and update Azure AD role assignment policies to ensure that only authorized personnel can assign or modify Global Administrator roles.
+- Implement enhanced logging and monitoring for Azure AD role changes, ensuring that alerts are generated for any future unauthorized role assignments.
+- Integrate Azure AD logs with a Security Information and Event Management (SIEM) system to improve detection and response capabilities.
+- Conduct a post-incident review to identify gaps in security controls and processes, and implement necessary improvements.
+- Restore any affected systems or services to their operational state, ensuring that all security patches and updates are applied.
+- Harden Azure AD security by implementing least privilege access, regular role reviews, and continuous security awareness training for administrators.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

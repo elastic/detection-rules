@@ -2,7 +2,7 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint"]
 maturity = "production"
-updated_date = "2024/08/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -60,6 +60,53 @@ query = '''
 process where ((problemchild.prediction == 1 and problemchild.prediction_probability <= 0.98) or
 blocklist_label == 1) and not process.args : ("*C:\\WINDOWS\\temp\\nessus_*.txt*", "*C:\\WINDOWS\\temp\\nessus_*.tmp*")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Machine Learning Detected a Suspicious Windows Event with a Low Malicious Probability Score
+
+The detection leverages a machine learning model, ProblemChild, to identify potentially suspicious Windows processes. It flags events with a low probability of being malicious, focusing on defense evasion tactics like masquerading. Adversaries may exploit this by disguising malicious processes as legitimate ones. The rule detects such anomalies by analyzing process predictions and blocklist matches, excluding known benign patterns.
+
+### Possible investigation steps
+
+- Review the process details flagged by the ProblemChild model, focusing on the `process.args` field to understand the command line arguments used during execution.
+- Check the `problemchild.prediction_probability` to assess how close the event is to being considered benign, and prioritize investigation based on lower probabilities.
+- Investigate the `blocklist_label` to determine if the process is explicitly marked as malicious by the blocklist, which may indicate a higher risk.
+- Examine the parent process of the flagged event to identify if it was spawned by a known legitimate process or a potentially suspicious one.
+- Use Osquery to gather additional context about the process. For example, run the following query to get details about the process and its parent: 
+  ```sql
+  SELECT pid, name, path, cmdline, parent FROM processes WHERE pid = <flagged_process_pid>;
+  ```
+- Cross-reference the process path and name with known legitimate software to rule out false positives due to masquerading.
+- Analyze recent system logs and events around the time of the flagged process execution to identify any correlated suspicious activities.
+- Check for any recent changes or anomalies in the system's file system, registry, or network connections that could be related to the flagged process.
+- Investigate the user account associated with the process execution to determine if it aligns with expected behavior or if it shows signs of compromise.
+- Review historical data to see if the flagged process or similar processes have been detected previously, which might indicate a recurring issue or false positive pattern.
+
+### False positive analysis
+
+- Known false positives for this rule often include legitimate system processes or third-party applications that mimic common Windows processes for compatibility or performance reasons. These can be mistakenly flagged due to their resemblance to malicious activities.
+- Users may encounter false positives from software updates or installations that temporarily alter process names or paths, triggering the masquerading detection.
+- To manage these false positives, users can create exceptions for specific processes or paths that are consistently flagged but verified as non-threatening. This can be done by updating the rule to exclude these known benign patterns.
+- Regularly review and update the blocklist and exception list to ensure that new legitimate processes are not mistakenly flagged as threats.
+- Collaborate with IT and security teams to maintain a list of approved software and processes, which can be referenced when analyzing flagged events to quickly identify false positives.
+- Consider implementing additional context checks, such as verifying the digital signature of a process, to reduce the likelihood of false positives related to legitimate software masquerading as system processes.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malicious activity.
+- Conduct a thorough investigation of the flagged process to determine if it is indeed masquerading as a legitimate process.
+- Review system logs and security alerts to identify any additional indicators of compromise or related suspicious activities.
+- Utilize the MITRE ATT&CK framework to understand the adversary's tactics, techniques, and procedures, focusing on Defense Evasion and Masquerading.
+- If confirmed malicious, remove or quarantine the identified process and any associated files from the system.
+- Update antivirus and endpoint detection and response (EDR) solutions to block similar threats in the future.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
+- Integrate threat intelligence feeds and machine learning models with existing security information and event management (SIEM) systems for improved detection capabilities.
+- Restore the system to its operational state by applying necessary patches, updates, and security configurations to prevent reoccurrence."""
 
 
 [[rule.threat]]

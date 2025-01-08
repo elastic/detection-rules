@@ -2,7 +2,7 @@
 creation_date = "2020/04/17"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -75,6 +75,48 @@ process where host.os.type == "linux" and event.type == "start" and event.action
  and process.name in ("base16", "base32", "base32plain", "base32hex") and
 not process.args in ("--help", "--version")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Base16 or Base32 Encoding/Decoding Activity
+
+Base16 and Base32 are encoding schemes that convert binary data into text, making it easier to transmit over text-based protocols. Adversaries exploit these encodings to obfuscate data, evading detection by security systems. The detection rule identifies suspicious encoding activities by monitoring specific processes on Linux systems, excluding benign actions like help or version checks, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name involved is one of the specified encoding tools: "base16", "base32", "base32plain", or "base32hex".
+- Examine the process arguments to ensure they do not include benign actions like "--help" or "--version", which are excluded in the detection rule.
+- Check the user account associated with the process to determine if it is a known and trusted user or if it might be compromised.
+- Investigate the parent process of the encoding activity to understand the context in which the encoding tool was executed.
+- Use Osquery to gather additional context about the process. For example, run the following query to list all processes with their parent process IDs and command-line arguments: `SELECT pid, name, path, cmdline, parent FROM processes WHERE name IN ('base16', 'base32', 'base32plain', 'base32hex');`
+- Analyze recent command history for the user associated with the process to identify any suspicious commands or patterns leading up to the encoding activity.
+- Review system logs for any related events or anomalies around the time the encoding process was executed, such as unusual login attempts or file access patterns.
+- Check for any network connections initiated by the process to determine if data might be exfiltrated or communicated to an external host.
+- Investigate any file modifications or creations by the process to identify if encoded data was written to disk or if there are any suspicious files.
+- Correlate the encoding activity with other security alerts or indicators of compromise to assess if it is part of a larger attack campaign or isolated incident.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators may use Base16 or Base32 encoding/decoding for legitimate purposes such as data integrity checks or configuration management. These activities can be mistaken for malicious behavior.
+- Automated scripts: Some automated scripts or applications may use Base16 or Base32 encoding as part of their normal operation, leading to false positives if these processes are not excluded.
+- Development and testing: Developers might use encoding/decoding tools during software development or testing phases, which can trigger alerts if not properly accounted for.
+- To manage false positives, users can create exceptions for known benign processes by adding specific process names or arguments to an exclusion list. This can be done by updating the detection rule to ignore certain command-line arguments or by whitelisting processes that are verified as non-threatening.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further data exfiltration or lateral movement by the adversary.
+- Conduct a thorough investigation of the process execution logs to identify the source and scope of the encoding/decoding activity.
+- Analyze the command-line arguments and any associated scripts or files to determine if sensitive data was encoded or if malicious payloads were delivered.
+- Review user accounts and permissions on the affected system to identify any unauthorized access or privilege escalation attempts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the activity is part of a larger attack campaign.
+- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and user context, for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar encoding/decoding activities.
+- Restore the system to its operational state by removing any malicious files, applying security patches, and verifying the integrity of critical system files.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
+- Implement system hardening measures, such as disabling unnecessary services and enforcing strict access controls, to reduce the attack surface and prevent future incidents."""
 
 
 [[rule.threat]]

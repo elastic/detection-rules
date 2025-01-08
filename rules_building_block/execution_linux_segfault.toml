@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/26"
 integration = ["system"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -53,6 +53,48 @@ type = "query"
 query = '''
 host.os.type:linux and event.dataset:"system.syslog" and process.name:kernel and message:segfault
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Segfault Detected
+Segmentation faults occur when a program accesses restricted memory, often causing it to crash. While typically a sign of programming errors, adversaries can exploit these faults to execute unauthorized code, leveraging vulnerabilities like buffer overflows. The 'Segfault Detected' rule monitors Linux kernel logs for segfault messages, identifying potential exploitation attempts by correlating specific log patterns.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a segmentation fault by examining the `message` field for specific segfault patterns.
+- Verify the `host.os.type` field to ensure the alert pertains to a Linux system, as the rule is designed for Linux kernel logs.
+- Check the `event.dataset` field to confirm that the log source is `system.syslog`, ensuring the data is from the expected log source.
+- Identify the process that caused the segfault by examining the `process.name` field and gather additional context about this process.
+- Use Osquery to list recent processes that have experienced segmentation faults with a query like: `SELECT pid, name, path, cmdline FROM processes WHERE name = 'kernel' AND cmdline LIKE '%segfault%';`
+- Investigate the history of the process by reviewing logs or using Osquery to determine if this process has a history of segfaults or other anomalies.
+- Correlate the timing of the segfault with other system events to identify any preceding suspicious activities or changes in the system.
+- Examine the system for any recent updates or changes that might have introduced vulnerabilities, focusing on software related to the segfaulting process.
+- Analyze the system for signs of exploitation attempts, such as buffer overflow patterns, by reviewing logs and using tools like Osquery to check for unusual memory usage.
+- Gather additional context by checking for any related alerts or anomalies on the same host or network segment that might indicate a broader attack pattern.
+
+### False positive analysis
+
+- Routine software crashes: Some applications may crash frequently due to bugs or compatibility issues, leading to repeated segfault messages in the logs. These are not necessarily indicative of malicious activity but rather poor software stability.
+- Debugging activities: Developers often intentionally cause segfaults during debugging to test error handling or to identify vulnerabilities. These activities can generate false positives in the monitoring system.
+- Kernel module testing: Testing or development of kernel modules can result in segfaults as part of normal operations, especially when modules are being loaded or unloaded frequently.
+- Legacy software: Older software that is not fully compatible with current systems may cause segfaults due to outdated code practices, which are not necessarily security threats.
+- To manage these false positives, users can create exceptions or filters for known non-threatening processes or applications that frequently cause segfaults. This can be done by updating the monitoring rule to exclude specific process names or paths associated with benign activities. Additionally, maintaining an updated list of trusted applications and regularly reviewing and adjusting the exceptions can help minimize unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
+- Conduct a thorough investigation of the kernel logs and any associated application logs to identify the source and nature of the segfault.
+- Analyze recent changes or updates to the system that might have introduced vulnerabilities, focusing on software known for buffer overflow issues.
+- Utilize memory analysis tools to detect any unauthorized code execution or memory manipulation attempts.
+- If malicious activity is confirmed, escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Restore the system from a known good backup to ensure that any malicious code or corrupted data is removed.
+- Apply security patches and updates to the operating system and all installed software to mitigate known vulnerabilities.
+- Implement enhanced logging policies to capture detailed information on process execution and memory access patterns for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Conduct a post-incident review to identify gaps in security controls and update the incident response plan to address these weaknesses."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/09/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -163,6 +163,49 @@ process where host.os.type == "windows" and
     )
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Masquerading as Business App Installer
+
+In Windows environments, executables often mimic legitimate business apps to deceive users into executing malicious software. Adversaries exploit this by distributing fake installers via ads or forums. The detection rule identifies suspicious executables in user download directories that lack proper code signatures from trusted developers, flagging potential masquerading attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific executable name and path that triggered the alert, focusing on the `process.name` and `process.executable` fields.
+- Verify the `process.code_signature.subject_name` and `process.code_signature.trusted` fields to determine if the executable is indeed unsigned or signed by an untrusted entity.
+- Check the download source by examining browser history or download logs to identify how the executable was obtained, focusing on potential malicious ads or forum links.
+- Use Osquery to gather additional context about the executable. For example, run the following query to check the file's metadata and hash: `SELECT path, filename, md5, sha256, size FROM hash WHERE path = 'C:\\\\Users\\\\<username>\\\\Downloads\\\\<executable_name>'`.
+- Investigate the parent process that initiated the download or execution of the suspicious file by examining the `process.parent` field to understand the execution chain.
+- Cross-reference the executable's hash with known malware databases or threat intelligence platforms to check for any known malicious indicators.
+- Analyze the network activity associated with the executable using network logs or tools to identify any suspicious outbound connections or data exfiltration attempts.
+- Check for any persistence mechanisms that the executable might have established by reviewing startup items, scheduled tasks, or registry entries.
+- Review user activity logs around the time of the alert to identify any unusual behavior or actions that might indicate compromise.
+- Consult with the user who downloaded or executed the file to gather additional context and verify if they were expecting the download or if it was unsolicited.
+
+### False positive analysis
+
+- Legitimate software updates or beta versions may not have updated code signatures, leading to false positives. Users can verify the source and version of the software and create exceptions for these specific versions.
+- Custom or internally developed applications that mimic the naming conventions of popular business apps but are not signed by a recognized authority can trigger alerts. Organizations should ensure these applications are signed with a trusted internal certificate or add them to an exception list.
+- Some third-party tools or utilities that integrate with or enhance the functionality of legitimate business applications might not be signed by the original developer. Users should verify the legitimacy of these tools and consider adding them to an exception list if they are deemed safe.
+- In educational or testing environments, users might intentionally download unsigned versions of software for learning purposes. In such cases, exceptions can be made for specific user accounts or directories to prevent unnecessary alerts.
+- Users can manage false positives by regularly reviewing and updating the list of trusted code signatures and ensuring that any exceptions are documented and justified to maintain security integrity.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat.
+- Verify the legitimacy of the executable by checking its hash against known malware databases and consulting with the software vendor if necessary.
+- Terminate any suspicious processes associated with the masquerading executable to halt any ongoing malicious activity.
+- Conduct a thorough investigation of the system to identify any additional indicators of compromise or lateral movement.
+- Remove the malicious executable and any related files from the system to prevent re-execution.
+- Restore the system from a known good backup if the integrity of the system is compromised.
+- Update and patch all software and operating systems to mitigate vulnerabilities that could be exploited by similar threats.
+- Implement enhanced logging and monitoring policies to capture detailed process execution and network activity for future investigations.
+- Educate users on recognizing phishing attempts and the risks of downloading executables from untrusted sources.
+- Report the incident to relevant internal teams and, if necessary, escalate to external cybersecurity authorities for further analysis and threat intelligence sharing."""
 
 
 [[rule.threat]]

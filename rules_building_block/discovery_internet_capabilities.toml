@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -37,6 +37,49 @@ host.os.type:windows and event.category:process and event.type:start and
 process.name.caseless:("ping.exe" or "tracert.exe" or "pathping.exe") and
 not process.args:("127.0.0.1" or "0.0.0.0" or "localhost" or "::1")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Discovery of Internet Capabilities via Built-in Tools
+
+Built-in network diagnostic tools like ping, tracert, and pathping are essential for assessing connectivity and network paths. Adversaries exploit these tools to verify internet access and map network routes, aiding in C2 communication. The detection rule identifies suspicious use of these tools by monitoring process starts and filtering out benign local addresses, thus highlighting potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to understand which built-in tool (ping.exe, tracert.exe, or pathping.exe) was used and the specific arguments passed to the process.
+- Check the timestamp of the event to determine when the suspicious activity occurred and correlate it with other events around the same time.
+- Investigate the user account associated with the process start event to determine if it is a legitimate user or potentially compromised.
+- Examine the source IP address and destination IP addresses involved in the process arguments to identify any external or unusual network connections.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name IN ('ping.exe', 'tracert.exe', 'pathping.exe');` to list all instances of these processes and their command-line arguments.
+- Analyze the parent process of the suspicious activity to understand how the built-in tool was executed and if it was initiated by another suspicious process.
+- Check for any related network activity logs that might indicate data exfiltration or communication with known malicious IP addresses.
+- Investigate any recent changes to the system's network configuration that could have facilitated the use of these tools for malicious purposes.
+- Review historical data to determine if there have been previous instances of similar activity on the same host or by the same user account.
+- Cross-reference the identified IP addresses with threat intelligence sources to check for any known associations with malicious activity or C2 servers.
+
+### False positive analysis
+
+- Routine network diagnostics by IT personnel can trigger false positives, as they often use tools like ping, tracert, and pathping for legitimate troubleshooting. To manage this, create exceptions for known IT user accounts or specific IP addresses associated with IT operations.
+- Automated monitoring systems or scripts that regularly check network connectivity might also cause false positives. Exclude these processes by identifying their unique command-line arguments or execution patterns.
+- Scheduled tasks or maintenance scripts that include network diagnostics as part of their operation can be mistaken for malicious activity. Document and exclude these tasks by their scheduled times or specific hostnames.
+- Software updates or installations that perform network checks to verify connectivity can be flagged. Identify and exclude these processes by their parent process names or associated software update services.
+- Remote management tools that use these network diagnostic commands as part of their functionality can lead to false positives. Whitelist these tools by their process hashes or digital signatures to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further communication with potential C2 servers.
+- Conduct a thorough investigation of the process execution logs to identify any unauthorized use of network diagnostic tools and determine the scope of the compromise.
+- Review and analyze network traffic logs to identify any suspicious outbound connections that may indicate C2 communication.
+- Remove any malicious software or scripts identified during the investigation from the affected system.
+- Apply security patches and updates to the operating system and all installed software to mitigate known vulnerabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and network activity for future investigations.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs).
+- Restore the system to its operational state by reimaging the affected machine and restoring data from verified backups.
+- Implement network segmentation and access controls to limit the use of built-in network diagnostic tools to authorized personnel only."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,53 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Network Access Control List Creation"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EC2 Network Access Control List Creation
+
+AWS EC2 Network ACLs are stateless firewalls for controlling inbound and outbound traffic at the subnet level. Adversaries may exploit ACLs to establish persistence or enable unauthorized access by creating permissive rules. The detection rule monitors successful creation events of ACLs or entries, flagging potential misuse by identifying unusual or unauthorized configurations.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event dataset is `aws.cloudtrail` and the event provider is `ec2.amazonaws.com`, ensuring the alert is relevant to AWS EC2 Network ACL creation.
+- Verify the event action is either `CreateNetworkAcl` or `CreateNetworkAclEntry` and the event outcome is `success` to confirm the alert is triggered by a successful creation event.
+- Identify the AWS account and user or role that initiated the ACL creation by examining the `user.identity.arn` and `user.identity.accountId` fields.
+- Check the `sourceIPAddress` field to determine the IP address from which the request originated, which can help identify potential unauthorized access.
+- Investigate the `aws.region` field to understand the geographical location of the resource creation and assess if it aligns with expected operations.
+- Examine the `requestParameters` field to gather details about the specific ACL rules created, such as rule number, protocol, and port range, to identify any overly permissive configurations.
+- Cross-reference the `userAgent` field to determine the tool or service used to create the ACL, which may provide insights into whether the action was automated or manual.
+- Utilize AWS CloudTrail logs to search for any preceding or subsequent suspicious activities associated with the same user or IP address.
+- If using Osquery, execute a query to list all current network ACLs and their entries for the affected AWS account to compare against known configurations:
+  ```sql
+  SELECT * FROM aws_ec2_network_acls WHERE account_id = '<affected_account_id>';
+  ```
+- Review IAM policies and permissions associated with the user or role that created the ACL to ensure they align with the principle of least privilege.
+
+### False positive analysis
+
+- Routine administrative tasks: Regular updates or changes to network configurations by authorized personnel can trigger alerts. To manage this, users can create exceptions for known IP addresses or user accounts that frequently perform these tasks.
+- Automated scripts or tools: Organizations may use automated processes to manage network ACLs, which can result in multiple creation events. Users should identify and whitelist these scripts or tools to prevent unnecessary alerts.
+- Infrastructure as Code (IaC) deployments: Deployments using IaC tools like Terraform or CloudFormation can generate numerous ACL creation events. Users can exclude these events by filtering based on the source of the deployment or tagging conventions.
+- Testing and development environments: Frequent changes in non-production environments can lead to false positives. Users can exclude these environments by using environment-specific tags or identifiers in their monitoring rules.
+
+### Response and remediation
+
+- Immediately review the newly created Network ACLs and entries to verify if they align with the organization's security policies and intended configurations.
+- Contain potential threats by temporarily restricting or removing overly permissive ACL rules that could allow unauthorized access.
+- Investigate the source of the ACL creation by reviewing CloudTrail logs to identify the user or service account responsible for the action.
+- If unauthorized access is suspected, rotate credentials and access keys for affected accounts and services to prevent further exploitation.
+- Escalate the incident to the security operations team if the ACL creation is determined to be malicious or part of a larger attack pattern.
+- Implement additional logging and monitoring for Network ACL changes to ensure real-time detection of suspicious activities.
+- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system to enhance threat detection and response capabilities.
+- Restore the system to its operational state by reapplying the correct ACL configurations and ensuring all security policies are enforced.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Harden the environment by applying the principle of least privilege to IAM roles and ensuring that only authorized personnel can modify network configurations.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

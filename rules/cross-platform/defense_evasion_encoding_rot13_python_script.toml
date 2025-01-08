@@ -2,7 +2,7 @@
 creation_date = "2024/09/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -38,6 +38,54 @@ sequence by process.entity_id with maxspan=1m
  [file where host.os.type in ("windows", "macos") and
   event.action != "deletion" and process.name : "python*" and file.name : "rot_??.cpython-*.pyc*"]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating ROT Encoded Python Script Execution
+
+ROT encoding, a simple letter substitution cipher, is often used to obfuscate Python scripts, making them harder to analyze. Adversaries exploit this by embedding ROT-encoded scripts within legitimate Python packages to evade detection. The detection rule identifies such activities by monitoring the execution of Python scripts and the presence of ROT-encoded compiled files, signaling potential malicious obfuscation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process.entity_id associated with the suspicious activity to understand which process triggered the alert.
+- Examine the process.name field to confirm the execution of a Python interpreter, ensuring it matches the expected pattern "python*".
+- Investigate the file.name field to identify the presence of ROT-encoded compiled files, specifically looking for patterns like "rot_??.cpython-*.pyc*".
+- Check the event timestamps to determine the sequence and timing of the process start and file creation events, ensuring they fall within the maxspan=1m window.
+- Use Osquery to list all Python processes running on the host to identify any other potentially suspicious Python scripts:
+  ```sql
+  SELECT pid, name, path FROM processes WHERE name LIKE 'python%';
+  ```
+- Query the file system using Osquery to locate all files matching the ROT-encoded pattern to identify other potentially obfuscated scripts:
+  ```sql
+  SELECT path FROM file WHERE path LIKE '%rot_??.cpython-*.pyc%';
+  ```
+- Analyze the parent process of the suspicious Python execution to determine if it was launched by a legitimate application or a potentially malicious one.
+- Review the command-line arguments of the Python process to identify any additional scripts or modules being executed that may not be ROT-encoded but are still suspicious.
+- Investigate the user account associated with the process execution to determine if the activity aligns with expected behavior for that user.
+- Cross-reference the host.os.type field to ensure the investigation is tailored to the specific operating system, considering differences in file paths and process management between Windows and macOS.
+
+### False positive analysis
+
+- Legitimate software development activities: Developers may use ROT encoding during the development process for testing or educational purposes, leading to false positives. Users can manage this by creating exceptions for known development environments or specific developer machines.
+- Security research and educational tools: Security researchers and educators might use ROT encoding to demonstrate obfuscation techniques, which could trigger the detection rule. To handle this, users can whitelist specific research tools or educational scripts that are known to be non-malicious.
+- Automated code analysis tools: Some automated tools might use ROT encoding as part of their analysis or transformation processes, resulting in false positives. Users should identify and exclude these tools from the detection rule to prevent unnecessary alerts.
+- Custom scripts with ROT encoding: Organizations might have internal scripts that use ROT encoding for legitimate purposes, such as data transformation or encoding. Users should document these scripts and exclude them from the detection rule to avoid false alarms.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potentially malicious activity.
+- Conduct a thorough investigation to identify the source and scope of the ROT-encoded script execution, focusing on recent installations or updates of Python packages.
+- Analyze the ROT-encoded scripts to determine their functionality and potential impact, using deobfuscation techniques if necessary.
+- Remove any identified malicious scripts or packages from the system and ensure they are not present in any other systems within the network.
+- Restore the system from a known good backup prior to the execution of the ROT-encoded script to ensure no residual malicious code remains.
+- Implement enhanced logging policies to capture detailed execution logs of Python scripts, including command-line arguments and script contents.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection of obfuscation techniques like ROT encoding.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Educate users and developers on the risks of using obfuscated code and the importance of verifying the integrity of third-party packages.
+- Apply system hardening measures, such as restricting the execution of scripts from untrusted sources and enforcing strict access controls on sensitive systems."""
 
 
 [[rule.threat]]

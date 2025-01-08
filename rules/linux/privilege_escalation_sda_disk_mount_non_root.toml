@@ -2,7 +2,7 @@
 creation_date = "2023/08/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/30"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -64,6 +64,49 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 process.name == "debugfs" and process.args : "/dev/sd*" and not process.args == "-R" and 
 not user.Ext.real.id == "0" and not group.Ext.real.id == "0"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Suspicious DebugFS Root Device Access
+
+DebugFS is a Linux utility that provides low-level access to file systems, often used for debugging. Users in the "disk" group can exploit DebugFS to access sensitive files without root privileges, potentially leading to privilege escalation. The detection rule identifies non-root users executing DebugFS on disk devices, flagging potential unauthorized access attempts by monitoring specific process arguments and user group IDs.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of non-root user activity involving the DebugFS utility, focusing on the `process.name`, `process.args`, `user.Ext.real.id`, and `group.Ext.real.id` fields.
+- Verify the identity of the user by checking the `user.Ext.real.id` and cross-reference with the organization's user directory to determine if the user should have access to disk devices.
+- Investigate the user's group memberships, particularly the "disk" group, to understand if the user has legitimate reasons to be part of this group.
+- Examine the specific `process.args` used in the alert to identify which disk device was accessed and assess the potential impact of this access.
+- Use Osquery to gather more context about the process execution. For example, run the following query to list recent processes executed by the user: `SELECT * FROM processes WHERE uid = <user_id> AND name = 'debugfs';`
+- Check the system logs for any other suspicious activities or anomalies around the time of the alert, focusing on the same user and device.
+- Investigate any recent changes to the user's account or group memberships that might explain the activity.
+- Review the user's command history, if available, to identify any other potentially suspicious commands executed around the same time.
+- Analyze network logs to determine if there was any unusual outbound traffic from the host that might indicate data exfiltration.
+- Correlate this alert with any other security alerts or incidents involving the same user or host to identify patterns or repeated suspicious behavior.
+
+### False positive analysis
+
+- Users performing legitimate maintenance tasks: System administrators or maintenance scripts may use DebugFS for legitimate purposes, such as file system checks or repairs. To handle these, identify the specific users or scripts and create exceptions for their activities.
+- Automated backup processes: Some backup solutions might use DebugFS to access disk devices for data integrity checks. Review the backup processes and exclude these known benign activities by specifying the associated user accounts or process arguments.
+- Development and testing environments: Developers or testers might use DebugFS in non-production environments for debugging purposes. To prevent these from being flagged, consider excluding specific environments or user groups from the rule.
+- Educational or training sessions: In educational settings, DebugFS might be used as part of training exercises. Identify these sessions and exclude the relevant user accounts or time frames to avoid false positives.
+- Custom scripts or tools: Organizations may have custom scripts that utilize DebugFS for specific operational needs. Review these scripts and exclude their execution by defining exceptions based on process names or arguments.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Verify the identity and permissions of the user who executed DebugFS to determine if the access was legitimate or malicious.
+- Review system logs and DebugFS usage history to identify any sensitive files accessed or modified during the incident.
+- Change passwords and revoke any potentially compromised credentials, especially for accounts with elevated privileges.
+- Remove the user from the "disk" group if they do not require access to disk devices for their role.
+- Implement stricter access controls and audit policies for the "disk" group to prevent unauthorized use of DebugFS.
+- Escalate the incident to the security team for further investigation and to assess the potential impact on the organization.
+- Enhance logging and monitoring to include detailed tracking of file access and user activities, integrating with SIEM solutions for real-time alerts.
+- Restore the system from a known good backup if any unauthorized changes or data corruption are detected.
+- Apply system hardening measures, such as disabling unnecessary services and enforcing the principle of least privilege, to reduce the attack surface."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

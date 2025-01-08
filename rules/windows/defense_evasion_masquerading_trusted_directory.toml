@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/10/31"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -75,6 +75,49 @@ process where host.os.type == "windows" and event.type == "start" and
       )
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Program Files Directory Masquerading
+
+The Program Files directories in Windows are trusted locations typically reserved for legitimate software installations. Adversaries may exploit this trust by creating similarly named directories to execute malicious files, bypassing security measures that whitelist these paths. The detection rule identifies suspicious executions from directories mimicking these trusted paths, excluding known legitimate locations, to flag potential masquerading attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific executable path that triggered the rule, focusing on the `process.executable` field to understand the masquerading attempt.
+- Verify the legitimacy of the directory by checking for any typos or slight variations in the directory name compared to known trusted paths like `C:\\Program Files` or `C:\\Program Files (x86)`.
+- Use Osquery to list all executables in the suspicious directory. Example query: `SELECT path, name, sha256 FROM file WHERE directory LIKE 'C:\\\\%Program%Files%\\\\%' AND NOT directory LIKE 'C:\\\\Program Files%' AND NOT directory LIKE 'C:\\\\Program Files (x86)%';`
+- Investigate the file metadata, such as creation and modification dates, to determine if the executable was recently added or modified, which might indicate malicious activity.
+- Check the file's digital signature to verify its authenticity and identify the publisher. Unsigned or suspiciously signed files may warrant further investigation.
+- Correlate the process start event with other logs, such as user login events, to identify the user account associated with the execution and assess if the activity aligns with their typical behavior.
+- Analyze the parent process of the suspicious executable to understand how it was launched and if it was initiated by a legitimate process or another potentially malicious one.
+- Search for any network connections initiated by the process to external IP addresses, which could indicate data exfiltration or command and control communication.
+- Review any recent changes to the system, such as software installations or updates, that might explain the presence of the executable in the masquerading directory.
+- Consult threat intelligence sources to check if the file hash or any related indicators of compromise (IOCs) are associated with known malware or adversary campaigns.
+
+### False positive analysis
+
+- Known false positives may arise from legitimate software installations or updates that create temporary directories mimicking the Program Files path structure. These can include software development tools or custom applications that use non-standard installation paths.
+- Users can manage these false positives by creating exceptions for specific executable paths that are verified as legitimate. This can be done by adding these paths to the exclusion list in the detection rule.
+- Regularly review and update the exclusion list to ensure it reflects the current environment and includes any new legitimate software paths that may trigger the rule.
+- Consider implementing a process to verify the legitimacy of any new paths that trigger the rule before adding them to the exclusion list, ensuring that only trusted software is excluded.
+- Collaborate with IT and security teams to maintain an updated inventory of software installations and their expected paths, which can help in quickly identifying false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malware.
+- Conduct a thorough investigation to identify the source and scope of the masquerading attempt, focusing on the suspicious directories and executables.
+- Terminate any malicious processes identified during the investigation to prevent further execution.
+- Remove or quarantine any malicious files found in the masquerading directories to eliminate the threat.
+- Review and update allowlisting policies to ensure only legitimate software can execute from trusted directories.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed process execution data, focusing on directory paths and executable names.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs).
+- Restore the system to its operational state by reinstalling affected software from trusted sources and applying the latest security patches.
+- Conduct a security awareness training session for users to recognize and report suspicious activities, emphasizing the importance of directory integrity."""
 
 
 [[rule.threat]]

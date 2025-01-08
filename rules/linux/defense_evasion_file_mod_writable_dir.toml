@@ -2,7 +2,7 @@
 creation_date = "2020/04/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -76,6 +76,49 @@ host.os.type:linux and event.category:process and event.type:start and
 process.name:(chattr or chgrp or chmod or chown) and process.working_directory:(/dev/shm or /tmp or /var/tmp) and
 not process.parent.name:(apt-key or update-motd-updates-available or apt-get)
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating File Permission Modification in Writable Directory
+
+In Linux environments, file permissions control access to files and directories. Writable directories like /tmp are often targeted by adversaries to drop and execute malicious payloads. By modifying file permissions, attackers can ensure their payloads execute with the necessary privileges. The detection rule identifies suspicious permission changes by non-root users in these directories, excluding benign processes, to flag potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process name (chattr, chgrp, chmod, or chown) that triggered the alert and the associated user account.
+- Examine the process.working_directory field to confirm the directory involved (/dev/shm, /tmp, or /var/tmp) and assess if the directory is commonly used for legitimate purposes by the user.
+- Check the process.parent.name field to ensure the process was not initiated by a benign parent process like apt-key, update-motd-updates-available, or apt-get.
+- Investigate the history of the user account involved in the alert to determine if there have been any previous suspicious activities or alerts associated with this user.
+- Use Osquery to list recent file permission changes in the specified directory. Example query: `SELECT path, mode, uid, gid, atime, mtime FROM file WHERE directory IN ('/dev/shm', '/tmp', '/var/tmp') AND mode != '0755';`
+- Correlate the timestamp of the alert with other logs, such as authentication logs, to identify any unusual login activities or patterns around the time of the permission change.
+- Analyze the command-line arguments of the process to understand the specific permission changes made and assess if they align with typical user behavior.
+- Review any associated network activity from the host around the time of the alert to identify potential data exfiltration or communication with known malicious IP addresses.
+- Investigate other processes running on the host to identify any additional suspicious activities or processes that may have been spawned as a result of the permission change.
+- Check for any recent file modifications or new file creations in the involved directory to identify potential payloads or scripts that may have been dropped by the adversary.
+
+### False positive analysis
+
+- Routine administrative tasks by non-root users, such as developers or system administrators, may trigger the rule when they modify file permissions in writable directories for legitimate purposes. 
+- Automated scripts or applications that require temporary file permission changes in directories like /tmp for functionality or performance reasons can also result in false positives.
+- Development environments where non-root users frequently compile or test software may involve permission changes that are benign.
+- To manage these false positives, users can create exceptions for specific processes or users known to perform legitimate permission modifications by updating the detection rule to exclude these entities.
+- Regularly review and update the list of excluded processes or users to ensure that only non-threatening behaviors are ignored, maintaining the effectiveness of the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Verify the legitimacy of the process that modified file permissions by checking the process owner, command line arguments, and parent process.
+- If the process is deemed malicious, terminate it and any associated processes to stop further execution.
+- Conduct a thorough investigation to identify any additional files or payloads dropped by the adversary in writable directories.
+- Restore file permissions to their original state and remove any unauthorized files or payloads identified during the investigation.
+- Review and analyze system logs to trace the origin of the attack and identify any other potentially compromised systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed information on file permission changes and process executions in writable directories.
+- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to improve detection and response capabilities.
+- Apply system hardening measures, such as restricting write access to critical directories and implementing least privilege principles, to reduce the attack surface."""
 
 
 [[rule.threat]]

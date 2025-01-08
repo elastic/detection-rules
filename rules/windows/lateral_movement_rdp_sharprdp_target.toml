@@ -2,7 +2,7 @@
 creation_date = "2020/11/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -51,6 +51,48 @@ sequence by host.id with maxspan=1m
    not process.name : "conhost.exe"
    ]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential SharpRDP Behavior
+
+Remote Desktop Protocol (RDP) enables users to connect to and control remote systems, facilitating legitimate administrative tasks. However, adversaries can exploit RDP for lateral movement within a network, using tools like SharpRDP to execute commands on remote machines. The detection rule identifies suspicious RDP activity by monitoring for specific registry changes and process executions, indicating potential misuse of RDP for unauthorized access.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host.id where the suspicious activity was detected, as this will be the focal point of the investigation.
+- Examine the network event logs to confirm the presence of incoming RDP connections on port 3389, noting the source IP address and ensuring it is not a loopback address (127.0.0.1 or ::1).
+- Investigate the registry change event to verify the modification of the RunMRU registry key by the process explorer.exe, focusing on the presence of suspicious strings such as cmd.exe, powershell.exe, taskmgr, or \\\\tsclient\\\\*.exe.
+- Analyze the process execution logs to identify any processes started with parent processes cmd.exe, powershell.exe, or taskmgr.exe, and ensure that conhost.exe is not the process name.
+- Correlate the timestamps of the network, registry, and process events to confirm they occurred within the specified 1-minute window, indicating a sequence of potentially malicious actions.
+- Use Osquery to gather additional context on the affected host by running a query to list recent RDP sessions: `SELECT * FROM rdp_connections WHERE state = 'active';` to identify any unusual or unauthorized sessions.
+- Investigate the user account associated with the RDP session to determine if it is a legitimate user or potentially compromised, checking for any anomalies in login patterns or privileges.
+- Check for any additional registry changes or process executions on the host that might indicate further malicious activity or persistence mechanisms.
+- Review historical data for the source IP address to determine if it has been involved in previous suspicious activities or if it is known to be associated with malicious behavior.
+- Consult threat intelligence sources to gather information on SharpRDP and similar tools, assessing if there are any known indicators of compromise (IOCs) that match the observed activity.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators may use RDP for routine maintenance and troubleshooting, which can trigger the detection rule if they execute commands like cmd, powershell, or taskmgr. To manage this, users can create exceptions for known administrator accounts or specific IP addresses that regularly perform these tasks.
+- Automated scripts: Some organizations use automated scripts that remotely execute commands via RDP for software updates or system checks. These scripts might mimic SharpRDP behavior. Users can exclude these scripts by identifying their unique process names or command-line arguments and adding them to an exception list.
+- Remote support tools: Third-party remote support tools may use similar mechanisms to SharpRDP for legitimate remote assistance. Users should identify these tools and exclude their associated processes or network activities from the detection rule.
+- Testing environments: In environments where security testing or penetration testing is conducted, SharpRDP or similar tools might be used intentionally. Users can exclude specific testing IP ranges or hostnames to prevent false positives during these activities.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further lateral movement and unauthorized access.
+- Conduct a thorough investigation to confirm the presence of SharpRDP or similar tools by analyzing logs and system artifacts.
+- Terminate any suspicious processes identified during the investigation, particularly those related to cmd.exe, powershell.exe, taskmgr.exe, or tsclient.
+- Review and restore any altered registry settings to their original state to prevent unauthorized command execution.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the compromise.
+- Implement enhanced logging policies to capture detailed RDP session activities, registry changes, and process executions for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Apply security patches and updates to all systems to mitigate vulnerabilities that could be exploited for lateral movement.
+- Educate users and administrators on secure RDP practices and the risks associated with unauthorized remote access tools.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly."""
 
 
 [[rule.threat]]

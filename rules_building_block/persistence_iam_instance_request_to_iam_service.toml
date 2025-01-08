@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/07/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -63,6 +63,49 @@ any where event.dataset == "aws.cloudtrail"
             or startsWith(event.action, "Tag")
     )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EC2 Instance Interaction with IAM Service
+
+AWS EC2 instances can assume IAM roles to access resources securely, using their instance ID as a session identifier. While this is standard for legitimate operations, attackers may exploit this by assuming roles to manipulate IAM settings, such as creating users or altering permissions. The detection rule identifies unusual role assumptions by EC2 instances, focusing on actions like creating or modifying resources, which may indicate malicious activity.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs to identify the specific EC2 instance involved by examining the `user.id` field for the pattern ":i-" which indicates an assumed role session by an EC2 instance.
+- Check the `event.action` field to determine the specific IAM actions attempted by the EC2 instance, such as "CreateUser" or "AttachRolePolicy", to understand the potential impact.
+- Investigate the `aws.cloudtrail.user_identity.arn` field to identify the assumed role and verify if it aligns with expected roles for the EC2 instance.
+- Analyze the `event.time` field to establish a timeline of events and correlate with other activities in the environment to identify any patterns or anomalies.
+- Use Osquery to gather additional context on the EC2 instance by running a query like `SELECT * FROM ec2_instance_metadata WHERE instance_id = '<instance_id>';` to retrieve metadata about the instance.
+- Cross-reference the `aws.cloudtrail.source_ip_address` field to determine the origin of the request and verify if it matches known IP addresses associated with the EC2 instance.
+- Examine the `aws.cloudtrail.recipient_account_id` field to ensure the actions were performed within the expected AWS account and not across multiple accounts.
+- Check for any recent changes to IAM policies or roles that might have inadvertently allowed the EC2 instance to perform these actions.
+- Review the `aws.cloudtrail.error_code` field for any failed attempts that might indicate probing or unauthorized access attempts.
+- Correlate this event with other security alerts or logs to identify if this activity is part of a larger attack pattern or isolated incident.
+
+### False positive analysis
+
+- EC2 instances that are part of automated workflows or deployment pipelines may frequently assume roles to interact with IAM services for legitimate purposes, such as updating configurations or managing resources. These actions can trigger the rule but are not indicative of malicious activity.
+- Scheduled maintenance tasks or automated scripts that require role assumption to perform routine updates or resource management can also generate false positives. These tasks often involve actions like "Update" or "Create" that match the rule's criteria.
+- Users can manage these false positives by creating exceptions for known EC2 instance IDs or specific IAM roles that are part of regular operations. This can be done by maintaining a list of trusted instance IDs or roles and excluding them from the rule's scope.
+- Another approach is to refine the rule by adding additional context checks, such as verifying the source IP address or the time of the action, to differentiate between expected and unexpected behavior.
+- Regularly reviewing and updating the list of exceptions based on changes in the environment or operational requirements can help minimize false positives while maintaining effective threat detection.
+
+### Response and remediation
+
+- Immediately isolate the affected EC2 instance from the network to prevent further unauthorized actions.
+- Review CloudTrail logs to identify the scope of the activity, focusing on the specific actions taken by the assumed role.
+- Revoke any newly created IAM users or roles and remove any unauthorized permissions or policies that were added.
+- Conduct a thorough investigation to determine how the credentials were compromised, including checking for any other affected resources.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are compromised.
+- Implement enhanced logging and monitoring for IAM activities, ensuring that all role assumptions and privilege changes are logged and reviewed regularly.
+- Integrate AWS GuardDuty and AWS Config to provide continuous monitoring and compliance checks for IAM activities.
+- Restore the EC2 instance to its operational state by applying the latest security patches and ensuring that only necessary permissions are granted.
+- Harden the environment by enforcing the principle of least privilege, using IAM policies to restrict access based on roles and responsibilities.
+- Educate users and administrators on security best practices, including the importance of using strong, unique credentials and enabling multi-factor authentication (MFA) for all accounts."""
 
 [rule.investigation_fields]
 field_names = [

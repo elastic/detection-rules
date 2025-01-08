@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2024/06/18"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 50
@@ -83,6 +83,48 @@ tags = [
     "Tactic: Command and Control",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Web User Agent
+User agents identify applications making web requests, typically browsers. However, adversaries may exploit this by using non-standard user agents for malicious activities like persistence or data exfiltration. The 'Unusual Web User Agent' detection rule leverages machine learning to identify rare user agents, flagging potential threats from unexpected processes, thus aiding in uncovering malicious web activities.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific unusual user agent string and the process associated with it.
+- Check the source and destination IP addresses involved in the alert to determine if the traffic is internal or external.
+- Investigate the process that generated the unusual user agent by examining process creation logs and command-line arguments.
+- Use Osquery to gather more information about the process. Example query: `SELECT name, path, cmdline, pid FROM processes WHERE name = '<process_name>';`
+- Analyze network traffic logs to identify any patterns or anomalies associated with the unusual user agent, such as repeated access to specific domains or IPs.
+- Cross-reference the unusual user agent with known malicious user agents or those associated with legitimate applications to assess potential threats.
+- Check for any recent changes or updates on the system that might have introduced new software or scripts using the unusual user agent.
+- Investigate any related alerts or logs that might provide additional context, such as failed login attempts or other suspicious activities around the same time.
+- Consult threat intelligence sources to determine if the unusual user agent has been reported in recent attacks or campaigns.
+- Document findings and gather evidence to support further analysis or escalation if the unusual user agent is deemed suspicious or malicious.
+
+### False positive analysis
+
+- Uncommon user agents from legitimate applications such as weather monitoring or stock-trading programs can trigger false positives. Users should identify these applications and create exceptions to prevent unnecessary alerts.
+- Automated tools like web scrapers, bots, or scanners that are part of regular internet traffic may be flagged. Regularly review and whitelist known benign sources to reduce noise.
+- Internal network monitoring tools or scripts that use custom user agents for legitimate purposes might be detected. Ensure these are documented and excluded from the detection rule.
+- Software updates or patches that temporarily use unusual user agents can cause alerts. Monitor update schedules and adjust detection parameters accordingly.
+- Development or testing environments where custom user agents are used for simulation purposes may trigger false positives. Implement environment-specific exceptions to manage these alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further data exfiltration or command-and-control communication.
+- Conduct a thorough investigation to identify the process using the unusual user agent and determine if it is malicious or benign.
+- Review system and network logs to trace the origin and scope of the activity, focusing on any connections to known malicious IP addresses or domains.
+- If malware is detected, remove it using updated antivirus or anti-malware tools and ensure the system is clean.
+- Escalate the incident to the security operations center (SOC) or incident response team if the activity is confirmed as malicious or if it involves sensitive data.
+- Implement enhanced logging policies to capture detailed user agent strings and associated process information for future analysis.
+- Integrate threat intelligence feeds to correlate unusual user agents with known threat actor tools and techniques.
+- Restore the system to its operational state by applying necessary patches, updates, and verifying system integrity.
+- Conduct a post-incident review to identify gaps in detection and response, and update security policies and procedures accordingly.
+- Harden the system by disabling unnecessary services, applying least privilege principles, and ensuring all software is up to date."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

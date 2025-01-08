@@ -2,7 +2,7 @@
 creation_date = "2022/05/31"
 integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -52,6 +52,51 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.pe.original_file_name == "msdt.exe" and not process.executable : ("?:\\Windows\\system32\\msdt.exe", "?:\\Windows\\SysWOW64\\msdt.exe"))
     )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Microsoft Diagnostics Wizard Execution
+
+The Microsoft Diagnostics Troubleshooting Wizard (MSDT) is a legitimate tool used for diagnosing and resolving issues within Windows environments. However, adversaries can exploit MSDT to execute malicious commands by manipulating its process arguments. This detection rule identifies such abuse by monitoring for unusual execution patterns, such as atypical file paths, unexpected parent processes, and altered executable names, which may indicate an attempt to proxy malicious activities through MSDT.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of suspicious MSDT execution, focusing on the `process.name`, `process.args`, and `process.parent.name` fields to understand the context of the execution.
+- Examine the `process.args` field for any unusual or unexpected arguments, such as "IT_RebrowseForFile=*", "ms-msdt:/id", or "*FromBase64*", which may indicate malicious intent.
+- Check the `process.parent.name` field to identify the parent process that initiated the MSDT execution. Look for unusual parent processes that are not typically associated with MSDT, such as `cmd.exe`, `powershell.exe`, or `rundll32.exe`.
+- Investigate the `process.executable` path to ensure it matches the expected locations for MSDT, such as "?:\\\\Windows\\\\system32\\\\msdt.exe" or "?:\\\\Windows\\\\SysWOW64\\\\msdt.exe". Any deviation might suggest tampering or misuse.
+- Use Osquery to gather additional context about the suspicious process. For example, run the following query to list all processes with the name "msdt.exe" and their parent processes:
+  ```sql
+  SELECT pid, name, path, parent, cmdline FROM processes WHERE name = 'msdt.exe';
+  ```
+- Analyze the `process.pe.original_file_name` field to verify that the executable is indeed "msdt.exe". If the original file name does not match, it could indicate a masquerading attempt.
+- Correlate the suspicious MSDT execution with other logs or alerts from the same host to identify any related malicious activities or patterns.
+- Investigate the user account associated with the process execution to determine if it aligns with expected behavior or if it might be compromised.
+- Check for any recent file modifications or creations in directories specified in the `process.args`, such as "?:\\\\Users\\\\Public\\\\*" or "?:\\\\Windows\\\\Temp\\\\*", which could indicate payload delivery or staging.
+- Review historical data for similar MSDT execution patterns on the host to determine if this is an isolated incident or part of a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate troubleshooting activities: Users or IT administrators may legitimately use MSDT for diagnosing system issues, which can trigger the rule. To manage this, consider creating exceptions for known IT maintenance periods or specific user accounts frequently involved in troubleshooting.
+- Automated system diagnostics: Some automated scripts or system management tools might invoke MSDT as part of routine checks. Identify these tools and exclude their execution patterns from the rule to prevent unnecessary alerts.
+- Custom diagnostic tools: Organizations may develop custom diagnostic tools that leverage MSDT, leading to false positives. Review and whitelist these tools by their specific process arguments or parent processes.
+- Software updates or installations: Certain software installations or updates might use MSDT for compatibility checks. Monitor and exclude these processes by correlating them with known update schedules or software deployment activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation of the process tree to identify any additional malicious processes or scripts that may have been executed alongside MSDT.
+- Review the system's event logs and security logs to gather more context on the suspicious MSDT execution, including any associated user accounts and network connections.
+- Terminate any malicious processes identified during the investigation and remove any associated files or scripts from the system.
+- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals a broader compromise or if sensitive data may have been accessed.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure that the system's antivirus and endpoint protection software are up to date.
+- Implement enhanced logging policies to capture detailed process execution data and network activity, which can aid in future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to improve detection capabilities and correlate suspicious activities across the network.
+- Conduct a post-incident review to identify any gaps in security controls and update the organization's incident response plan accordingly.
+- Apply system hardening measures, such as disabling unnecessary services and features, to reduce the attack surface and prevent similar attacks in the future."""
 
 
 [[rule.threat]]

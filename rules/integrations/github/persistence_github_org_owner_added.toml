@@ -2,7 +2,7 @@
 creation_date = "2023/09/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/08"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -34,6 +34,48 @@ type = "eql"
 query = '''
 iam where event.dataset == "github.audit" and event.action == "org.add_member" and github.permission == "admin"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating New GitHub Owner Added
+
+GitHub organizations allow collaborative management of repositories, where the 'owner' role grants full administrative control. Adversaries may exploit this by adding unauthorized owners, gaining unrestricted access to sensitive data and settings. The detection rule monitors audit logs for new admin-level additions, flagging potential unauthorized access attempts for further investigation.
+
+### Possible investigation steps
+
+- Review the audit log entry details to confirm the event action is "org.add_member" and the permission level is "admin" to ensure the alert is valid.
+- Identify the user account that was added as an owner by examining the relevant fields in the audit log, such as `github.actor` and `github.target_user`.
+- Verify the identity and role of the user added as an owner by cross-referencing with internal HR or user management systems to determine if the addition was authorized.
+- Check the timestamp of the event to understand when the new owner was added and correlate this with any other suspicious activities around the same time.
+- Investigate the IP address and location from which the action was performed using the `source.ip` field to identify any anomalies or unexpected access patterns.
+- Review recent activity by the new owner account in the GitHub organization to identify any unauthorized changes or access to sensitive repositories.
+- Use Osquery to gather additional context on the system from which the action was performed. For example, run the following query to check for recent logins: `SELECT * FROM last WHERE username = '<new_owner_username>';`
+- Examine any recent changes to the organization's settings or repositories that could indicate malicious intent or unauthorized access.
+- Check for any other recent additions or changes to the organization's membership, especially those with elevated permissions, to identify potential patterns of compromise.
+- Collaborate with the organization's security team to gather additional context or insights from other security tools and logs that might indicate a broader security incident.
+
+### False positive analysis
+
+- Routine administrative actions: In some organizations, adding new owners may be a regular part of onboarding or restructuring processes. To manage this, users can create exceptions for specific accounts or time periods when these actions are expected.
+- Automated processes: Some organizations use automation tools that may add or modify owner roles as part of their workflow. Users should identify these tools and exclude their actions from triggering alerts by filtering based on known service accounts or automation identifiers.
+- Internal audits or security reviews: During internal audits or security reviews, additional owner roles might be temporarily assigned. Users can handle these by coordinating with the audit team and setting temporary exceptions for the duration of the review.
+- Organizational changes: Mergers, acquisitions, or departmental changes might necessitate the addition of new owners. Users should document these changes and adjust the detection rule to exclude known, legitimate changes during these periods.
+
+### Response and remediation
+
+- Immediately revoke the newly added owner's permissions to prevent further unauthorized access.
+- Conduct a thorough investigation to determine how the unauthorized addition occurred, reviewing audit logs and access patterns.
+- Verify the legitimacy of the new owner with the organization's management and confirm if the addition was intentional.
+- If a compromise is confirmed, reset credentials and review access permissions for all critical accounts within the organization.
+- Escalate the incident to the security team and relevant stakeholders to ensure awareness and coordinated response efforts.
+- Implement enhanced logging policies to capture detailed audit trails of administrative actions within the GitHub organization.
+- Integrate GitHub audit logs with a Security Information and Event Management (SIEM) system for real-time monitoring and alerting.
+- Educate team members on security best practices and the importance of monitoring for unauthorized access attempts.
+- Review and update the organization's incident response plan to include specific procedures for handling GitHub-related security incidents.
+- Apply hardening measures such as enabling two-factor authentication for all users and regularly reviewing and updating access controls."""
 
 
 [[rule.threat]]

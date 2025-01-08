@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/12/16"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -70,6 +70,52 @@ type = "new_terms"
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and process.env_vars:*
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Preload Environment Variable Process Execution
+
+In Linux environments, preload environment variables like `LD_PRELOAD` allow users to load shared libraries before others, altering process behavior. Adversaries exploit this by injecting malicious libraries to hijack execution flow. The detection rule identifies processes with uncommon environment variables, signaling potential misuse for defense evasion and execution hijacking.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process and environment variables involved, focusing on `process.env_vars` to understand which variables are uncommon.
+- Examine the process command line (`process.command_line`) to gather more context about the executed process and its intended function.
+- Check the parent process (`process.parent.name`) to determine if the process was spawned by a legitimate or suspicious parent, which might indicate a compromise.
+- Investigate the user account (`user.name`) associated with the process execution to assess if the account is legitimate and if it has been involved in any other suspicious activities.
+- Use Osquery to list all processes with their environment variables to identify any other processes with unusual preload variables:
+  ```sql
+  SELECT pid, name, path, cmdline, environ FROM processes WHERE environ LIKE '%LD_PRELOAD%';
+  ```
+- Analyze the loaded libraries (`process.loaded_libraries`) to identify any unfamiliar or suspicious libraries that could be injected for malicious purposes.
+- Cross-reference the hash of the suspicious libraries or binaries with threat intelligence databases to check for known malicious signatures.
+- Review recent login events and user activity (`event.category:authentication`) to identify any unauthorized access attempts that might correlate with the process execution.
+- Check for any recent changes to the system's shared libraries or binaries that could indicate tampering or unauthorized modifications.
+- Investigate network connections (`network.connection`) initiated by the process to identify any suspicious outbound connections that could suggest data exfiltration or command-and-control communication.
+
+### False positive analysis
+
+- Some legitimate applications may use uncommon environment variables for performance optimization or debugging purposes, which could trigger this rule. Users should identify these applications and consider them for exclusion if they are verified as non-threatening.
+- Development environments often set unique environment variables for testing and debugging, which might be flagged by this rule. Developers should document these variables and create exceptions for known safe processes.
+- System administrators might use custom scripts that set unusual environment variables for system maintenance tasks. These should be reviewed and, if deemed safe, added to an exception list to prevent false alerts.
+- Security tools and monitoring solutions sometimes use specific environment variables to function correctly. It's important to verify these tools and exclude their processes from the rule to avoid unnecessary alerts.
+- Users can manage false positives by maintaining a whitelist of known safe environment variables and associated processes, regularly updating this list as new legitimate use cases are identified.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the malicious library or binary loaded via the `LD_PRELOAD` or other unusual environment variables.
+- Review process execution logs and environment variables to determine the scope of the compromise and identify any other affected systems.
+- Terminate any suspicious processes identified during the investigation to halt ongoing malicious activities.
+- Remove or quarantine the identified malicious libraries or binaries from the system to prevent re-execution.
+- Restore the system from a known good backup if the integrity of the system is in question and ensure all patches and updates are applied.
+- Implement enhanced logging policies to capture detailed process execution and environment variable changes for future investigations.
+- Integrate security solutions such as Endpoint Detection and Response (EDR) tools to monitor and alert on unusual process behaviors and environment variable usage.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
+- Review and update security policies and hardening measures, such as restricting the use of environment variables like `LD_PRELOAD` to trusted users and applications only."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

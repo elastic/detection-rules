@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/10/31"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -55,6 +55,49 @@ process where host.os.type == "windows" and event.type == "start" and
     process.name : "robocopy.exe"
   ) and process.args : "*\\\\*\\*$*"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Remote File Copy to a Hidden Share
+
+In Windows environments, hidden network shares are often used for legitimate administrative tasks, allowing file transfers without user visibility. However, adversaries exploit these shares for lateral movement or data exfiltration by copying files remotely. The detection rule identifies suspicious activities by monitoring command-line tools like cmd.exe and powershell.exe for file operations targeting hidden shares, flagging potential unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process name (e.g., cmd.exe, powershell.exe, xcopy.exe, robocopy.exe) and arguments used, focusing on those that match the query criteria such as "copy*", "move*", "cp", "mv", and paths containing "*\\\\\\\\*\\\\*$*".
+- Check the timestamp of the event to determine when the suspicious activity occurred and correlate it with other events around the same time for additional context.
+- Identify the user account associated with the process execution to determine if it aligns with expected behavior or if it might be compromised.
+- Investigate the source and destination IP addresses involved in the file copy operation to assess if they are part of the organization's network or if they are external and potentially malicious.
+- Examine the parent process of the flagged process to understand how the suspicious process was initiated and if it was part of a larger chain of events.
+- Use Osquery to gather additional context about the system involved. For example, run the following query to list all network shares on the system: `SELECT * FROM shares WHERE name LIKE '%$';`
+- Check for any recent changes in user permissions or group memberships that might have allowed unauthorized access to hidden shares.
+- Review system logs for any other unusual activities or errors that coincide with the time of the alert, which might indicate a broader attack or misconfiguration.
+- Investigate any recent login attempts or authentication failures on the involved systems to identify potential unauthorized access attempts.
+- Cross-reference the event with known threat intelligence sources to determine if the IP addresses, file paths, or user accounts have been associated with known malicious activities.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators often use hidden shares for routine maintenance and file transfers, which can trigger the rule. To manage this, users can create exceptions for known administrative accounts or specific IP addresses that regularly perform these tasks.
+- Backup operations: Automated backup processes may use hidden shares to store data, leading to false positives. Users can exclude backup software processes or designate specific time windows when these operations are expected.
+- Software updates and deployments: IT departments might deploy software updates or patches using hidden shares. To handle these, users can whitelist certain deployment tools or scripts that are verified and regularly used.
+- Monitoring and security tools: Some security and monitoring tools might access hidden shares for log collection or system checks. Users should identify and exclude these tools from triggering the rule by specifying their process names or paths.
+- Development and testing environments: In environments where developers frequently test applications, file operations to hidden shares might be common. Users can create exceptions for specific development machines or user accounts to reduce noise.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement or data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the intrusion, focusing on recent file transfers and access logs.
+- Review and analyze the command-line history and process execution details to understand the adversary's actions and objectives.
+- Remove any unauthorized accounts or access permissions that may have been established during the intrusion.
+- Restore the system from a known good backup to ensure no malicious modifications persist.
+- Implement enhanced logging policies to capture detailed command-line activity and network share access for future monitoring.
+- Integrate security solutions with SIEM systems to correlate events and improve detection capabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Apply security patches and updates to all systems to mitigate known vulnerabilities that could be exploited for lateral movement.
+- Educate users and administrators on the risks associated with hidden shares and enforce strict access controls and monitoring."""
 
 
 [[rule.threat]]

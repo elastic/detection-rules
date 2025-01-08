@@ -2,7 +2,7 @@
 creation_date = "2021/06/29"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/06/20"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Austin Songer", "Elastic"]
@@ -46,6 +46,50 @@ any where event.dataset == "aws.cloudtrail"
     and event.action in ("RestoreDBInstanceFromDBSnapshot", "RestoreDBInstanceFromS3") 
     and event.outcome == "success"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS RDS DB Instance Restored
+
+Amazon RDS (Relational Database Service) allows users to set up, operate, and scale databases in the cloud. Adversaries may exploit this by restoring databases from snapshots or S3 to access sensitive data or bypass security controls. The detection rule identifies successful restoration attempts, flagging potential unauthorized activities by monitoring specific API calls and outcomes, thus aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event dataset is "aws.cloudtrail" and the event provider is "rds.amazonaws.com" to ensure the alert is relevant to AWS RDS activities.
+- Verify the event action is either "RestoreDBInstanceFromDBSnapshot" or "RestoreDBInstanceFromS3" and the event outcome is "success" to confirm the restoration activity was completed successfully.
+- Identify the user or role associated with the API call by examining the user identity fields in the event data to determine if the credentials used were legitimate or potentially compromised.
+- Check the source IP address and user agent string in the event data to identify any unusual access patterns or locations that could indicate unauthorized access.
+- Investigate the timing of the restoration event to see if it coincides with any other suspicious activities or alerts in the environment.
+- Review CloudTrail logs for any preceding or subsequent API calls made by the same user or role to identify any additional suspicious activities or patterns.
+- Examine the specific DB instance details, such as the DB instance identifier and snapshot or S3 bucket used, to understand what data may have been accessed or restored.
+- Use Osquery to further investigate the AWS environment. For example, run the following Osquery query to list recent RDS restoration activities: `SELECT * FROM aws_cloudtrail_events WHERE eventName IN ('RestoreDBInstanceFromDBSnapshot', 'RestoreDBInstanceFromS3') AND eventSource = 'rds.amazonaws.com' AND responseElements IS NOT NULL;`
+- Cross-reference the restored DB instance details with known business operations or maintenance activities to determine if the restoration was authorized or expected.
+- Collaborate with the database administration team to verify if the restoration aligns with any scheduled tasks or if it was an unexpected event requiring further investigation.
+
+### False positive analysis
+
+- Routine database maintenance or recovery operations by authorized personnel can trigger this rule, leading to false positives. These activities might include regular backups or disaster recovery tests.
+- Development or testing environments often involve frequent restoration of databases from snapshots or S3 for testing purposes, which can be mistaken for unauthorized activities.
+- Automated processes or scripts that restore databases as part of their workflow can also generate alerts. These should be reviewed and, if deemed non-threatening, excluded from triggering the rule.
+- To manage these false positives, users can create exceptions for known IP addresses or IAM roles associated with legitimate restoration activities.
+- Implement tagging or naming conventions for databases restored as part of regular operations, allowing for easy identification and exclusion from alerts.
+- Regularly review and update the list of exceptions to ensure that only non-threatening activities are excluded, maintaining the effectiveness of the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected RDS instance to prevent further unauthorized access or data exfiltration.
+- Review CloudTrail logs to identify the source of the compromised credentials and assess the scope of the incident.
+- Revoke any compromised credentials and rotate keys or passwords associated with the affected AWS account.
+- Conduct a thorough investigation to determine if any sensitive data was accessed or exfiltrated during the unauthorized restoration.
+- Escalate the incident to the security operations team and notify relevant stakeholders, including data protection officers if sensitive data is involved.
+- Implement additional logging and monitoring for RDS activities, ensuring that all API calls related to database restoration are captured and reviewed.
+- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system to enhance real-time threat detection and response capabilities.
+- Restore the RDS instance to its last known good state using backups or snapshots, ensuring data integrity and availability.
+- Apply security hardening measures such as enabling multi-factor authentication (MFA), enforcing least privilege access, and regularly reviewing IAM policies.
+- Educate users on security best practices and conduct regular security awareness training to prevent credential compromise in the future."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

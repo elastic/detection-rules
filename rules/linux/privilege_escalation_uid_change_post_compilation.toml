@@ -2,7 +2,7 @@
 creation_date = "2023/08/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -65,6 +65,48 @@ sequence by host.id with maxspan=1m
   [process where host.os.type == "linux" and event.action in ("uid_change", "guid_change") and event.type == "change" and 
    user.id == "0"] by process.name
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via Recently Compiled Executable
+
+In Linux environments, compiling and executing programs is routine, but adversaries can exploit this by compiling malicious code to escalate privileges. They may compile a program that, when executed, alters user permissions to gain root access. The detection rule identifies this threat by monitoring sequences of compilation, execution, and unauthorized UID changes, flagging potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host.id where the potential privilege escalation was detected.
+- Examine the process.args field from the initial compilation event to determine the source code or script being compiled, which may provide insight into the intent of the executable.
+- Investigate the file.name field from the file creation event to identify the newly created executable file and verify its legitimacy.
+- Analyze the process.name field from the execution event to understand which program was executed and assess if it aligns with typical user behavior.
+- Check the process.name field from the UID change event to identify the process responsible for altering user permissions and determine if it is a known privilege escalation tool or exploit.
+- Use Osquery to gather additional context on the host by running a query such as: `SELECT * FROM processes WHERE name = '<suspicious_process_name>';` to retrieve detailed information about the suspicious process, including its parent process and command line arguments.
+- Investigate the user.id field across all events to confirm whether the actions were performed by a non-root user initially and escalated to root privileges.
+- Correlate the timeline of events to verify if the sequence of compilation, execution, and UID change occurred within the specified maxspan of 1 minute, indicating a rapid privilege escalation attempt.
+- Review system logs and audit logs on the affected host for any additional suspicious activity or anomalies around the time of the alert.
+- Consult threat intelligence sources to check if the identified process names or file names are associated with known privilege escalation exploits or malware.
+
+### False positive analysis
+
+- Developers and system administrators frequently compile and execute programs as part of their routine tasks, which can trigger this rule. These activities are typically benign and not indicative of malicious behavior.
+- Automated build systems or continuous integration pipelines may compile and execute code, leading to false positives. These systems often run under specific user accounts that can be excluded from monitoring.
+- Educational environments where students compile and execute code as part of their learning process can also generate false positives. Identifying and excluding these user accounts or specific directories can help reduce noise.
+- To manage these false positives, users can create exceptions for known non-threatening behaviors by excluding specific user IDs, process names, or directories from the rule. This can be done by updating the detection rule to ignore certain patterns or by maintaining a whitelist of trusted users and processes.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the source of the malicious executable and determine if other systems are affected.
+- Review system logs and security alerts to gather evidence of the privilege escalation attempt and any subsequent actions taken by the adversary.
+- Revoke any unauthorized changes to user permissions and reset credentials for affected accounts to prevent further exploitation.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed process execution and user activity, ensuring future incidents can be detected more effectively.
+- Integrate additional security tools, such as endpoint detection and response (EDR) solutions, to improve visibility and response capabilities.
+- Restore the system to its operational state by reinstalling the operating system and applications from trusted sources, ensuring all security patches are applied.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent similar incidents.
+- Apply system hardening measures, such as disabling unnecessary services, enforcing least privilege access, and regularly updating software to mitigate future risks."""
 
 
 [[rule.threat]]

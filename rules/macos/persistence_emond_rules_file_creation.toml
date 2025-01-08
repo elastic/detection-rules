@@ -2,7 +2,7 @@
 creation_date = "2021/01/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,48 @@ query = '''
 file where host.os.type == "macos" and event.type != "deletion" and
  file.path : ("/private/etc/emond.d/rules/*.plist", "/etc/emon.d/rules/*.plist", "/private/var/db/emondClients/*")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Emond Rules Creation or Modification
+
+The Event Monitor Daemon (emond) on macOS is a service that executes commands based on specific events, such as system startup or user login. Adversaries can exploit emond by creating or altering rules to trigger malicious actions during these events. The detection rule monitors for non-deletion events involving emond rule files, identifying potential unauthorized modifications that could indicate abuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path involved in the rule creation or modification, focusing on paths like "/private/etc/emond.d/rules/*.plist" and "/private/var/db/emondClients/*".
+- Check the timestamp of the event to determine when the rule was created or modified, which can help correlate with other system activities or user actions.
+- Identify the user account associated with the event to determine if the action was performed by an authorized user or potentially compromised account.
+- Use Osquery to list all current emond rules and their contents to understand what actions are being triggered. Example query: `SELECT * FROM file WHERE path LIKE '/private/etc/emond.d/rules/%.plist' OR path LIKE '/private/var/db/emondClients/%';`
+- Investigate the contents of the modified or newly created plist file to identify any suspicious commands or scripts that may be executed.
+- Cross-reference the event with system logs to identify any related activities, such as user logins, system startups, or other event triggers around the same time.
+- Check for any recent changes in user permissions or group memberships that might have allowed unauthorized access to modify emond rules.
+- Look for other signs of compromise on the system, such as unusual network connections, unexpected processes, or other file modifications.
+- Review historical data to determine if similar emond rule modifications have occurred in the past, which could indicate a recurring pattern or persistent threat.
+- Consult threat intelligence sources to see if the identified modifications or commands match known attack patterns or indicators of compromise.
+
+### False positive analysis
+
+- Routine system updates or legitimate software installations may modify emond rule files, leading to false positives. Users should verify if the changes coincide with known update schedules or software installations.
+- Administrative tasks performed by IT personnel, such as configuring new system policies or security settings, might also trigger alerts. Organizations can maintain a whitelist of authorized personnel and their expected activities to reduce unnecessary alerts.
+- Automated scripts or management tools used for system maintenance could inadvertently modify emond rules. Users should document and review these tools' activities to distinguish between legitimate and suspicious modifications.
+- To manage these false positives, users can create exceptions for known benign activities by specifying trusted file paths or processes in their monitoring tools, ensuring that only unexpected changes trigger alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent potential lateral movement by the adversary.
+- Conduct a thorough investigation to identify any unauthorized emond rule files by comparing them against a known-good baseline of emond rules.
+- Review system logs and emond logs to trace any suspicious activities or commands executed as a result of the modified or newly created rules.
+- Remove any unauthorized or malicious emond rule files and restore the original rules from a secure backup.
+- Scan the system for additional signs of compromise, such as unauthorized user accounts or unexpected network connections.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed information about file modifications and system events related to emond.
+- Integrate with a security information and event management (SIEM) system to correlate emond rule changes with other security events for comprehensive threat detection.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure all security configurations are hardened.
+- Educate users and administrators about the risks associated with emond rule modifications and provide training on recognizing and reporting suspicious activities."""
 
 
 [[rule.threat]]

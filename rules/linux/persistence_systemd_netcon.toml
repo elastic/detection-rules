@@ -2,7 +2,7 @@
 creation_date = "2024/02/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -67,6 +67,52 @@ sequence by host.id with maxspan=5s
   [network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start" and
    not process.executable == "/tmp/newroot/bin/curl"] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Network Connection via systemd
+
+Systemd is integral to Linux, managing system processes and services. Adversaries exploit it by altering unit files or replacing binaries, ensuring malicious scripts run at startup. The detection rule identifies suspicious network activities initiated by systemd, focusing on unusual processes like scripting languages or network tools, which may indicate a backdoor or persistence mechanism.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific `process.entity_id` and `process.parent.entity_id` involved in the suspicious activity.
+- Examine the process command line and arguments for the suspicious process using the `process.name` field to understand what script or command was executed.
+- Check the parent process details using the `process.parent.name` field to confirm that the process was indeed initiated by systemd.
+- Investigate the network connection details, including the destination IP and port, using the `network` event data to determine if the connection is to a known malicious or unusual destination.
+- Use Osquery to list all systemd unit files and check for any unusual or recently modified files:
+  ```sql
+  SELECT * FROM systemd_units WHERE path LIKE '/etc/systemd/system/%' OR path LIKE '/lib/systemd/system/%';
+  ```
+- Cross-reference the `process.executable` path with known legitimate binaries to ensure it hasn't been replaced or tampered with.
+- Investigate the `/tmp/newroot/bin/curl` path to ensure it is not being used as a legitimate bypass for the detection rule.
+- Review system logs around the time of the alert to identify any other suspicious activities or related events.
+- Check for any recent changes to systemd configuration files or binaries using file integrity monitoring tools or by reviewing file modification timestamps.
+- Correlate the alert with other security events or alerts from the same host to identify potential patterns or additional indicators of compromise.
+
+### False positive analysis
+
+- System administrators or automated scripts may use scripting languages like Python, PHP, or Perl for legitimate maintenance tasks, leading to false positives. Users can create exceptions for known maintenance scripts by whitelisting specific script paths or process names.
+- Network tools such as netcat or telnet might be used for legitimate troubleshooting or monitoring purposes. To handle these, users can exclude specific network activities by defining exceptions for known IP addresses or ports associated with routine operations.
+- Development environments often use scripting languages and network tools for testing and debugging, which can trigger alerts. Users can manage these by excluding processes executed within designated development directories or by specific user accounts.
+- Some legitimate applications may use systemd to manage their network connections, appearing suspicious. Users should identify and whitelist these applications by their process names or executable paths to prevent false positives.
+- Regularly scheduled tasks or cron jobs that involve network communication might be flagged. Users can mitigate this by excluding processes associated with known cron jobs or by specifying time-based exceptions for expected network activities.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify any modified or newly created systemd unit files and verify their legitimacy.
+- Review and analyze the process tree to understand the scope of the compromise and identify any additional malicious processes or scripts.
+- Terminate any suspicious processes identified during the investigation to halt ongoing malicious activities.
+- Restore any modified or replaced systemd binaries from a trusted backup or reinstall the affected packages to ensure system integrity.
+- Implement enhanced logging for systemd activities and network connections to improve detection of similar threats in the future.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and analyze suspicious activities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited.
+- Review and update system hardening measures, such as disabling unnecessary services and enforcing strict access controls, to reduce the attack surface."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

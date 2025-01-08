@@ -2,7 +2,7 @@
 creation_date = "2023/01/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/06/20"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -47,6 +47,48 @@ sequence with maxspan=1m
 [process where host.os.type == "windows" and event.action == "start" and process.name : "OUTLOOK.EXE" and
   process.Ext.effective_parent.name != null] by process.Ext.effective_parent.entity_id
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Inter-Process Communication via Outlook
+
+Outlook's Component Object Model (COM) allows inter-process communication, enabling applications to automate tasks like email management. Adversaries exploit this by using unusual processes to interact with Outlook, potentially accessing sensitive emails or sending messages without user consent. The detection rule identifies such anomalies by monitoring unexpected processes initiating communication with Outlook, focusing on untrusted or newly created executables, thus highlighting potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process that initiated communication with Outlook, focusing on the `process.name` and `process.entity_id` fields.
+- Check the `process.code_signature.trusted` and `process.code_signature.exists` fields to determine if the initiating process is signed and trusted. Investigate any unsigned or untrusted processes further.
+- Analyze the `process.Ext.relative_file_creation_time` and `process.Ext.relative_file_name_modify_time` fields to assess if the process is newly created or recently modified, which could indicate suspicious activity.
+- Examine the `process.Ext.effective_parent.name` and `process.Ext.effective_parent.entity_id` fields to identify the parent process of Outlook and determine if it is expected or unusual.
+- Use Osquery to gather additional context about the suspicious process. For example, run the following query to list all processes and their parent processes: `SELECT pid, name, path, parent FROM processes WHERE name = '<suspicious_process_name>';`.
+- Investigate the network activity of the suspicious process using network monitoring tools to check for any unusual outbound connections that could indicate data exfiltration.
+- Review recent email activity in Outlook to identify any unauthorized access or email sending that aligns with the timeline of the suspicious process execution.
+- Check the system's event logs for any additional indicators of compromise or related suspicious activities around the time the alert was triggered.
+- Correlate the findings with other security alerts or incidents to determine if this activity is part of a broader attack campaign.
+- Document all findings and observations in a detailed report to provide context for further analysis or escalation if necessary.
+
+### False positive analysis
+
+- Legitimate administrative scripts or automation tools may trigger the rule if they interact with Outlook using COM, especially if they are newly created or lack a trusted code signature. Users should review these scripts and, if deemed safe, add them to an exception list to prevent future alerts.
+- Software updates or installations might temporarily create new executables that interact with Outlook, leading to false positives. Monitoring the frequency and context of these alerts can help determine if they are benign, and trusted software can be whitelisted.
+- Custom business applications that automate email tasks via Outlook may be flagged if they are not widely recognized or lack a valid code signature. Users should verify the legitimacy of these applications and consider excluding them from the rule if they are part of regular business operations.
+- In environments where developers frequently test new applications or scripts that interact with Outlook, these activities might be mistakenly identified as threats. Establishing a process to review and approve these activities can help in creating appropriate exceptions.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the source of the suspicious process and determine if any sensitive information was accessed or exfiltrated.
+- Terminate any malicious or suspicious processes identified during the investigation to prevent further malicious activity.
+- Review email logs and Outlook activity to identify any unauthorized access or email transmissions.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed process execution and inter-process communication events for future investigations.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs).
+- Restore the system to its operational state by applying necessary patches, updates, and security configurations.
+- Conduct a security audit of the affected system and network to identify and remediate any vulnerabilities or misconfigurations.
+- Implement hardening measures such as application whitelisting, endpoint detection and response (EDR) solutions, and user training to prevent similar incidents in the future."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/08/30"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -63,6 +63,48 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
  and process.name == "sudo" and process.args == "-u#-1"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Sudo Privilege Escalation via CVE-2019-14287
+
+Sudo is a critical utility in Linux environments, allowing users to execute commands with elevated privileges. CVE-2019-14287 exploits a flaw where specifying a user ID of -1 bypasses user validation, granting root access. Adversaries can leverage this to escalate privileges. The detection rule identifies suspicious sudo commands with specific arguments indicative of this exploit, helping to flag unauthorized privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the suspicious sudo command with the arguments `-u#-1` as indicated in the query.
+- Verify the version of sudo installed on the affected system to determine if it is prior to v1.28, which is vulnerable to CVE-2019-14287.
+- Check the process execution timeline to identify any preceding or subsequent suspicious activities that might indicate a broader attack pattern.
+- Investigate the user account associated with the process execution to determine if it has a history of legitimate sudo usage or if it appears compromised.
+- Examine the command history of the user involved to identify any other potentially malicious commands executed around the same time.
+- Use Osquery to gather additional context about the process. For example, run the following query to list all processes executed by the user in question: `SELECT * FROM processes WHERE uid = (SELECT uid FROM users WHERE username = '<username>');`
+- Analyze system logs, such as `/var/log/auth.log` or `/var/log/secure`, to identify any unauthorized access attempts or anomalies around the time of the alert.
+- Correlate the alert with network logs to check for any unusual outbound connections that might suggest data exfiltration or communication with a command-and-control server.
+- Investigate any file modifications or new file creations in critical directories that could indicate post-exploitation activities.
+- Cross-reference the alert with other security tools and logs to identify if this is part of a larger attack campaign targeting multiple systems.
+
+### False positive analysis
+
+- Legitimate administrative scripts or automation tools that use the "sudo -u#-1" command for testing or maintenance purposes may trigger this rule. Users should review such scripts and, if verified as non-threatening, create exceptions for these specific processes.
+- Development environments where developers have intentionally used the "sudo -u#-1" command for testing privilege escalation scenarios might cause false positives. In such cases, ensure that these activities are documented and consider excluding these environments from the rule.
+- Security testing or penetration testing activities that simulate the CVE-2019-14287 exploit could be flagged. Coordinate with security teams to whitelist these activities during scheduled testing periods.
+- Custom user applications that inadvertently use similar command patterns for legitimate reasons may also be flagged. Conduct a thorough review of these applications and, if deemed safe, add them to an exception list to prevent future alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Verify the version of sudo installed on the system and upgrade to a version later than v1.28 to mitigate the vulnerability.
+- Conduct a thorough investigation of the system to identify any unauthorized changes or additional malicious activity, focusing on logs and recent changes.
+- Review and analyze logs for any other instances of the exploit attempt, particularly looking for the "sudo -u#-1" command.
+- Reset passwords and review user accounts to ensure no unauthorized accounts have been created or existing accounts have been compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed sudo command usage and integrate with a centralized logging solution for real-time monitoring.
+- Develop and deploy a security patch management process to ensure all systems are regularly updated with the latest security patches.
+- Restore the system from a known good backup if unauthorized changes are detected and cannot be easily remediated.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent future occurrences."""
 
 
 [[rule.threat]]

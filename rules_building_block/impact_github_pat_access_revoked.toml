@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/08"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -33,6 +33,49 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "personal_access_token.access_revoked"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub PAT Access Revoked
+
+GitHub Personal Access Tokens (PATs) are used to authenticate API requests without a password, granting access to private resources. Adversaries may exploit compromised PATs to access sensitive data or disrupt operations. The detection rule monitors audit logs for revoked PAT access, signaling potential unauthorized use or security policy enforcement, aligning with MITRE ATT&CK's account access removal technique.
+
+### Possible investigation steps
+
+- Review the audit logs to identify the specific user associated with the revoked PAT by examining the `user.name` and `user.id` fields.
+- Check the `event.time` field to determine when the PAT access was revoked and correlate this with any other suspicious activities around the same time.
+- Investigate the `source.ip` field to identify the IP address from which the PAT was used before revocation, and assess if it is a known or trusted source.
+- Examine the `repository.name` and `organization.name` fields to understand which repositories and organizations were potentially accessed using the revoked PAT.
+- Use Osquery to gather additional context on the system from which the PAT was used. For example, run the following query to list recent network connections: `SELECT * FROM process_open_sockets WHERE remote_address = '<source.ip>';`
+- Analyze the `event.outcome` field to confirm whether the revocation was successful and if there were any failed attempts to use the PAT after revocation.
+- Cross-reference the `user.email` field with internal HR or user management systems to verify the user's current status and any recent changes in their role or access levels.
+- Investigate any recent changes to the user's account settings or permissions in GitHub that might indicate unauthorized access or privilege escalation.
+- Review any recent commits or changes made by the user in the repositories accessed by the PAT to identify any unauthorized or suspicious modifications.
+- Check for any other alerts or incidents related to the same user or IP address in your security information and event management (SIEM) system to identify potential patterns or broader threats.
+
+### False positive analysis
+
+- Routine administrative actions: Revocation of PATs as part of regular security audits or policy updates can trigger false positives. Users can manage this by creating exceptions for known administrative activities.
+- User-initiated revocations: Developers or team members may revoke their own PATs when rotating credentials or leaving a project. To handle these, users can exclude events associated with specific user actions that are documented and expected.
+- Automated security tools: Some security tools automatically revoke PATs if they detect potential security issues. Users should identify and exclude these tools' actions from the detection rule to prevent false alerts.
+- Organizational policy changes: Changes in organizational security policies that require revocation of all existing PATs can lead to multiple false positives. Users can temporarily adjust the detection rule to account for these policy-driven actions.
+- Test environments: PATs used in test or development environments may be revoked frequently as part of testing processes. Users can exclude these environments from the detection rule to reduce noise.
+
+### Response and remediation
+
+- Immediately revoke any remaining access for the compromised PAT to prevent further unauthorized access.
+- Conduct a thorough investigation to determine the scope of the breach, including identifying any accessed or modified resources.
+- Notify affected stakeholders and teams about the incident and potential data exposure.
+- Review audit logs and other security logs to trace the adversary's actions and identify any additional compromised accounts or tokens.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging and monitoring for GitHub activities to detect similar incidents in the future.
+- Integrate security tools with GitHub to automate the detection and revocation of compromised tokens.
+- Educate users on secure token management practices, including regular rotation and minimal permissions.
+- Restore any affected systems or data to their last known good state, ensuring integrity and availability.
+- Apply hardening measures such as enforcing multi-factor authentication (MFA) for all GitHub accounts and regularly reviewing access permissions."""
 
 
 [[rule.threat]]

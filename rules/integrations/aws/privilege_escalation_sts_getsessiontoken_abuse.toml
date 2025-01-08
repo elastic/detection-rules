@@ -2,7 +2,7 @@
 creation_date = "2021/05/17"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Austin Songer"]
@@ -21,7 +21,51 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS STS GetSessionToken Abuse"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS STS GetSessionToken Abuse
+
+AWS Security Token Service (STS) provides temporary credentials for AWS resources. Adversaries may exploit the GetSessionToken API to generate tokens, enabling lateral movement and privilege escalation within an environment. The detection rule identifies successful GetSessionToken requests by IAM users, signaling potential misuse by attackers to gain unauthorized access or elevate privileges.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of `event.dataset:aws.cloudtrail`, `event.provider:sts.amazonaws.com`, `event.action:GetSessionToken`, `aws.cloudtrail.user_identity.type:IAMUser`, and `event.outcome:success` to ensure the alert is valid and matches the detection rule criteria.
+- Identify the IAM user associated with the GetSessionToken request by examining the `aws.cloudtrail.user_identity.arn` field to determine if the user is expected to perform such actions.
+- Check the `aws.cloudtrail.sourceIPAddress` field to verify the source IP address of the request and determine if it is from a known or expected location.
+- Investigate the `aws.cloudtrail.user_agent` field to identify the client or tool used to make the request, which may provide insights into whether the request was automated or manual.
+- Analyze the `aws.cloudtrail.recipientAccountId` field to confirm the account targeted by the GetSessionToken request and assess if it aligns with normal operations.
+- Review historical CloudTrail logs for the identified IAM user to detect any unusual patterns or deviations in behavior leading up to the GetSessionToken request.
+- Use Osquery to gather additional context on the system from which the request originated. For example, run the following query to list recent AWS CLI commands executed on the host: `SELECT * FROM shell_history WHERE command LIKE '%aws%' ORDER BY time DESC LIMIT 10;`.
+- Cross-reference the GetSessionToken request with other AWS CloudTrail events to identify any subsequent actions taken using the temporary credentials, such as accessing sensitive resources or modifying configurations.
+- Investigate any recent changes to IAM policies or roles associated with the IAM user to determine if permissions were altered to facilitate the GetSessionToken request.
+- Collaborate with the account owner or relevant stakeholders to verify if the GetSessionToken request was authorized and part of legitimate activities, or if it indicates potential misuse.
+
+### False positive analysis
+
+- Routine administrative tasks: IAM users may frequently use GetSessionToken for legitimate purposes such as accessing AWS resources temporarily. These actions can be mistaken for malicious activity. To manage this, identify and document regular patterns of GetSessionToken usage by trusted users and exclude these from alerts.
+- Automated scripts and applications: Some applications or scripts might be configured to use GetSessionToken for temporary access. These should be reviewed and, if deemed non-threatening, added to an exception list to prevent false alerts.
+- Third-party integrations: External services integrated with AWS may use GetSessionToken as part of their normal operation. Verify these integrations and exclude their activity from detection rules if they are legitimate and secure.
+- Development and testing environments: Developers might use GetSessionToken during testing or development phases. Monitor these environments separately and consider excluding known development accounts from alerts to reduce noise.
+- Cross-account access: In environments with multiple AWS accounts, GetSessionToken might be used for cross-account access. Ensure that these actions are part of approved workflows and exclude them if they are verified as non-malicious.
+
+### Response and remediation
+
+- Immediately revoke the temporary credentials associated with the suspicious GetSessionToken request to prevent further unauthorized access.
+- Isolate the affected IAM user account by disabling it or applying a restrictive policy to limit its permissions until the investigation is complete.
+- Conduct a thorough review of CloudTrail logs to identify any anomalous activities or patterns associated with the compromised credentials, focusing on lateral movement and privilege escalation attempts.
+- Cross-reference the IAM user's activities with known MITRE ATT&CK techniques, such as T1548, to understand the potential impact and scope of the attack.
+- Notify the security operations team and relevant stakeholders about the incident and escalate to higher management if the threat level is deemed critical.
+- Implement enhanced logging and monitoring for AWS STS and IAM activities to detect similar suspicious behavior in the future, ensuring that logs are retained for an adequate period.
+- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system to automate the detection and alerting of suspicious GetSessionToken activities.
+- Review and update IAM policies to enforce the principle of least privilege, ensuring that users have only the permissions necessary for their roles.
+- Conduct a security awareness session for the team to highlight the risks associated with AWS STS and the importance of monitoring and securing temporary credentials.
+- After confirming the environment is secure, restore normal operations by re-enabling the IAM user account with appropriate permissions and continue to monitor for any further suspicious activities.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/STS/latest/APIReference/API_GetSessionToken.html"]

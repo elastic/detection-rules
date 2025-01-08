@@ -2,7 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 70
@@ -52,6 +52,49 @@ tags = [
     "Tactic: Lateral Movement",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Remote File Directory
+
+In enterprise environments, remote file transfers are common for legitimate operations. However, adversaries exploit this by targeting less monitored directories to evade detection. The 'Unusual Remote File Directory' detection rule identifies anomalies in file transfers to atypical directories, signaling potential lateral movement. By focusing on uncommon paths, it helps uncover stealthy exploitation attempts, aligning with MITRE ATT&CK's lateral movement tactics.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific unusual directory involved in the remote file transfer.
+- Check the source and destination IP addresses associated with the file transfer to determine if they are known or expected within the network.
+- Analyze the user account involved in the transfer to verify if the activity aligns with their typical behavior or job role.
+- Investigate the timestamp of the file transfer to see if it coincides with any other suspicious activities or known attack patterns.
+- Use Osquery to list recent file modifications in the unusual directory with a query like: `SELECT path, size, atime, mtime FROM file WHERE directory = '/path/to/unusual/directory';`
+- Examine the file types and names transferred to assess if they are commonly used in legitimate operations or if they appear suspicious.
+- Cross-reference the unusual directory with known directories used in previous incidents or documented attack techniques.
+- Check for any recent changes in permissions or ownership of the unusual directory that could indicate unauthorized access.
+- Look for any related alerts or logs that might provide additional context or corroborate the suspicious activity.
+- Consult threat intelligence sources to see if there are any known campaigns or threat actors that use similar tactics or target similar directories.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators may perform legitimate file transfers to less common directories for maintenance or configuration purposes. These activities can be excluded by identifying and whitelisting known administrative accounts and their typical operations.
+- Software updates and deployments: Automated processes for software updates or deployments might use non-standard directories temporarily. Users can manage these by creating exceptions for specific update tools or deployment scripts.
+- Backup operations: Backup solutions might store data in unusual directories to avoid interference with regular operations. To handle this, users should identify and exclude directories used by verified backup solutions.
+- Development and testing environments: Developers may transfer files to atypical directories during testing phases. Organizations can mitigate false positives by excluding directories associated with development and testing environments.
+- Third-party integrations: Some third-party applications may require file transfers to non-standard directories as part of their functionality. Users should document and exclude these directories after verifying the application's legitimacy.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further lateral movement and contain the threat.
+- Conduct a thorough investigation of the unusual directory to identify any unauthorized files or scripts that may have been transferred.
+- Analyze logs and network traffic to trace the source of the remote file transfer and identify any other potentially compromised systems.
+- Remove any malicious files or scripts found in the unusual directory and restore any altered system files from a known good backup.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to monitor file transfers to and from less common directories, ensuring comprehensive coverage of potential attack vectors.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
+- Apply security patches and updates to all systems to mitigate vulnerabilities that could be exploited for lateral movement.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Educate employees on recognizing and reporting suspicious activities to enhance the organization's overall security awareness and readiness."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

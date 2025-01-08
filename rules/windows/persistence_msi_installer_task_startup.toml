@@ -2,7 +2,7 @@
 creation_date = "2024/09/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/05"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -48,6 +48,52 @@ any where host.os.type == "windows" and
                     "H*\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\*"))
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via a Windows Installer
+
+Windows Installer, through msiexec.exe, facilitates software installation and configuration. Adversaries exploit this by creating persistence mechanisms, such as scheduled tasks or startup entries, to maintain access. The detection rule identifies suspicious activity by monitoring msiexec.exe for file creations in startup directories or registry modifications linked to auto-run keys, signaling potential persistence attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of `msiexec.exe` in the process name or effective process name fields, indicating the Windows Installer was involved.
+- Examine the event category and action fields to determine if the alert was triggered by a file creation or registry modification event.
+- If the alert is related to file creation, check the file path to see if it matches known startup directories such as `?:\\Windows\\System32\\Tasks\\*` or user-specific startup paths.
+- For registry modification alerts, verify the registry path to see if it aligns with auto-run keys like `HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\*`.
+- Use Osquery to list all scheduled tasks on the system to identify any suspicious or newly created tasks:
+  ```sql
+  SELECT * FROM scheduled_tasks WHERE path LIKE '%\\\\Windows\\\\System32\\\\Tasks\\\\%';
+  ```
+- Investigate the parent process of `msiexec.exe` to understand how it was initiated and whether it was triggered by a legitimate application or script.
+- Check the timestamp of the event to correlate with any known user activity or other suspicious events occurring around the same time.
+- Review the user context under which `msiexec.exe` was executed to determine if it aligns with expected user behavior or privileges.
+- Analyze any associated network activity from the host around the time of the alert to identify potential command and control communication.
+- Gather additional context by reviewing system logs and other security tools for any related alerts or anomalies that could indicate a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate software installations or updates: Many legitimate applications use msiexec.exe to install or update software, which may create entries in startup directories or modify registry auto-run keys. Users should verify if the activity corresponds to known software installations or updates.
+- System maintenance tasks: Some system maintenance tools or scripts may use msiexec.exe to schedule tasks or modify startup settings as part of their normal operation. Users can create exceptions for these known tools to prevent false alerts.
+- IT administrative actions: IT administrators might use msiexec.exe to deploy software across multiple systems, which can trigger the detection rule. Users should ensure that such activities are documented and create exceptions for these administrative actions.
+- Software deployment tools: Tools like SCCM or other deployment solutions might use msiexec.exe to manage software installations, leading to false positives. Users can exclude these tools from the detection rule by identifying their specific process names or paths.
+- Regular system updates: Windows updates or other system updates might involve msiexec.exe, resulting in registry or file changes. Users should correlate the timing of these updates with the detected events to determine if they are benign.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to confirm the persistence mechanism by reviewing logs and identifying any unauthorized scheduled tasks or startup entries created by msiexec.exe.
+- Remove any identified malicious scheduled tasks or startup entries and restore legitimate configurations.
+- Perform a comprehensive malware scan on the affected system to detect and remove any additional malicious software.
+- Review and modify user permissions to ensure that only authorized personnel have the ability to create or modify scheduled tasks and startup entries.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed process creation and registry modification events for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
+- Restore the system to its operational state by applying the latest security patches and updates, and verify the integrity of critical system files.
+- Harden the system by disabling unnecessary services, applying the principle of least privilege, and ensuring that security configurations align with best practices."""
 
 
 [[rule.threat]]

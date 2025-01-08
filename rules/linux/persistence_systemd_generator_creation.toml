@@ -2,7 +2,7 @@
 creation_date = "2024/06/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -83,6 +83,49 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
   process.executable == null
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Systemd Generator Created
+
+Systemd generators are scripts that systemd runs at boot or during configuration reloads to convert non-native configurations into unit files. While they streamline service management, adversaries can exploit them to execute unauthorized code, ensuring persistence. The detection rule identifies suspicious generator file activities, excluding benign processes and file types, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path where the systemd generator was created or renamed, focusing on paths like `/run/systemd/system-generators/*` and `/etc/systemd/system-generators/*`.
+- Check the process that triggered the alert by examining the `process.executable` field to determine if it is a known benign process or potentially malicious.
+- Investigate the user account associated with the process that created or renamed the generator file to assess if it has legitimate access or if it might be compromised.
+- Use Osquery to list all systemd generator files and their metadata to identify any unexpected or unauthorized files. Example query: `SELECT * FROM file WHERE path LIKE '/run/systemd/system-generators/%' OR path LIKE '/etc/systemd/system-generators/%';`
+- Examine the file creation or modification timestamps to determine if the activity aligns with expected system changes or updates.
+- Cross-reference the alert with recent system updates or package installations to rule out legitimate changes that might have triggered the alert.
+- Analyze the contents of the suspicious generator file to identify any embedded scripts or commands that could indicate malicious intent.
+- Check system logs for any related entries around the time of the alert to gather additional context on the activity.
+- Investigate any network connections or external communications initiated by the process that created or modified the generator file to identify potential command and control activity.
+- Review historical alerts and incidents involving the same host or user account to identify patterns or repeated suspicious behavior that might indicate a broader compromise.
+
+### False positive analysis
+
+- Known false positives for the Systemd Generator Created rule often arise from legitimate software installations or updates, where package managers like dpkg, rpm, or snapd create or modify generator files as part of their normal operations.
+- To manage these false positives, users can exclude specific processes known to perform legitimate generator file operations by adding them to the exception list in the detection rule. This includes processes like dpkg, rpm, and snapd, which are already accounted for in the rule.
+- Another source of false positives can be temporary files created by text editors or system processes, which may have extensions like "swp" or "dpkg-remove". These can be excluded by adding their extensions to the exception list.
+- Users should regularly review and update the exception list to include any new legitimate processes or file types that are identified as causing false positives, ensuring that the detection rule remains effective without generating unnecessary alerts.
+- It's important to maintain a balance between excluding known benign activities and ensuring that potentially malicious activities are still detected, so users should carefully evaluate each exception added to the rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the source of the unauthorized systemd generator file creation, examining logs and process histories.
+- Review the contents of the suspicious generator file to understand the potential impact and any malicious code it may contain.
+- Remove or disable the unauthorized systemd generator file to prevent it from executing during future boot processes.
+- Restore any modified or deleted legitimate systemd generator files from a known good backup to ensure system integrity.
+- Escalate the incident to the security operations team if the investigation reveals signs of a broader compromise or if the threat actor's identity is unknown.
+- Implement enhanced logging policies to capture detailed information on file creation and modification events, focusing on systemd generator directories.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
+- Apply system hardening measures, such as restricting write permissions to systemd generator directories and ensuring only trusted processes can create or modify files in these locations.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans to address any deficiencies discovered during the investigation."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

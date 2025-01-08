@@ -2,7 +2,7 @@
 creation_date = "2024/11/05"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/11/05"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -59,6 +59,49 @@ process where host.os.type == "windows" and event.type == "start" and
                  "?:\\Users\\*\\AppData\\Local\\Temp\\BNZ.*.rdp",
                  "C:\\Users\\*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\Content.Outlook\\*.rdp")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Remote Desktop File Opened from Suspicious Path
+
+Remote Desktop Protocol (RDP) enables users to connect to and control remote computers over a network. Adversaries exploit RDP files, which store connection settings, by placing them in suspicious directories to gain unauthorized access. The detection rule identifies when RDP files are opened from unusual paths, indicating potential phishing attempts or initial access tactics, by monitoring specific file locations and process activities.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the process `mstsc.exe` starting with arguments pointing to suspicious RDP file paths.
+- Verify the user account associated with the process to determine if it aligns with expected behavior or if it is an unusual account for RDP usage.
+- Check the file creation and modification timestamps of the suspicious RDP file to understand when it was placed in the directory.
+- Investigate the source of the RDP file by examining recent downloads or email attachments that may have been saved to the suspicious path.
+- Use Osquery to list all RDP files in the user's Downloads and Temp directories with the query: `SELECT path, size, atime, mtime FROM file WHERE path LIKE 'C:\\\\Users\\\\%\\\\Downloads\\\\%.rdp' OR path LIKE 'C:\\\\Users\\\\%\\\\AppData\\\\Local\\\\Temp\\\\%.rdp';`
+- Analyze the network connections made by `mstsc.exe` to identify any unusual or unauthorized remote IP addresses.
+- Correlate the event with other security logs to identify any additional suspicious activities around the same timeframe, such as failed login attempts or unusual file access patterns.
+- Check for any recent changes in user permissions or group memberships that could indicate privilege escalation attempts.
+- Review endpoint security logs for any alerts or detections related to the execution of `mstsc.exe` or the handling of RDP files.
+- Investigate the presence of any other suspicious processes or files on the host that could indicate a broader compromise or lateral movement attempts.
+
+### False positive analysis
+
+- Users may frequently download legitimate RDP files from trusted sources, such as corporate emails or internal portals, which could be flagged if stored in monitored directories like Downloads or Temp folders.
+- Automated scripts or software updates might temporarily store RDP files in these paths for legitimate purposes, triggering false alerts.
+- Employees working remotely might use RDP files sent via email or collaboration tools, which could be saved in the INetCache directory, leading to false positives.
+- To manage these false positives, consider creating exceptions for known safe sources or paths by whitelisting specific directories or file hashes associated with trusted RDP files.
+- Regularly review and update the list of exceptions to ensure that only non-threatening behaviors are excluded, maintaining a balance between security and usability.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access.
+- Conduct a thorough investigation to identify the source of the suspicious RDP file and determine if any other systems are compromised.
+- Analyze the RDP file and associated processes to understand the adversary's tactics and potential objectives.
+- Remove any unauthorized RDP files and terminate any suspicious processes related to the incident.
+- Reset credentials for any accounts that may have been compromised during the incident.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed process execution and file access events for future investigations.
+- Integrate threat intelligence feeds to identify and block known malicious RDP file signatures and related indicators of compromise (IOCs).
+- Restore the system to its operational state by applying the latest security patches and updates, and verifying system integrity.
+- Harden the system by enforcing strict access controls, disabling unnecessary services, and educating users on recognizing phishing attempts."""
 
 
 [[rule.threat]]

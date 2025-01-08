@@ -2,7 +2,7 @@
 creation_date = "2024/01/10"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -62,6 +62,49 @@ query = '''
 driver where host.os.type == "linux" and event.action == "loaded-kernel-module" and
 auditd.data.syscall in ("init_module", "finit_module") and user.id != "0"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kernel Driver Load by non-root User
+
+Kernel modules extend the functionality of the Linux kernel, often requiring root privileges to load. Adversaries exploit this by loading malicious modules, such as rootkits, to gain control and evade detection. The detection rule identifies non-root users attempting to load kernel modules via specific system calls, signaling potential unauthorized access or privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the non-root user involved in the kernel module loading attempt, focusing on the `user.id` field to determine the user account.
+- Examine the `auditd.data.syscall` field to confirm which system call was used (`init_module` or `finit_module`) and gather context on the specific action taken.
+- Check the timestamp of the event to correlate it with other system activities or logs that might provide additional context or indicate a pattern of suspicious behavior.
+- Investigate the source of the kernel module by reviewing the module's file path and name, if available, to determine if it is a known or legitimate module.
+- Use Osquery to list all currently loaded kernel modules and their details to identify any unfamiliar or suspicious modules. Example query: `SELECT name, size, used_by FROM kernel_modules;`
+- Cross-reference the non-root user's recent activities by reviewing system logs, such as `/var/log/auth.log` or `/var/log/secure`, to identify any unauthorized access or privilege escalation attempts.
+- Analyze the user's command history, if available, to check for any commands related to module loading or system modification that might indicate malicious intent.
+- Investigate the user's group memberships and permissions to assess whether they have been granted elevated privileges that could facilitate unauthorized module loading.
+- Review any recent changes to user accounts or group memberships in system logs to identify potential privilege escalation or account compromise.
+- Check for any related alerts or anomalies in the security monitoring system that might indicate a broader attack campaign or coordinated activity involving the same user or system.
+
+### False positive analysis
+
+- Non-root users with legitimate administrative privileges may load kernel modules as part of routine system maintenance or software installations, leading to false positives. 
+- Development environments where non-root users are testing kernel modules can trigger alerts; consider excluding specific users or processes associated with development activities.
+- Automated scripts or configuration management tools running under non-root accounts might load modules for legitimate purposes; identify and whitelist these processes to reduce noise.
+- Some security or monitoring tools may operate under non-root accounts and load kernel modules as part of their functionality; verify and exclude these tools to prevent unnecessary alerts.
+- To manage false positives, implement exceptions by creating a list of trusted users or processes that are known to load kernel modules for legitimate reasons, and adjust the detection rule to exclude these from triggering alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Verify the identity and privileges of the non-root user attempting to load the kernel module to assess if the action was legitimate or malicious.
+- Conduct a thorough investigation of the loaded kernel module to determine its origin and functionality, focusing on identifying any rootkit characteristics.
+- Utilize forensic tools to capture and analyze memory and disk images from the affected system to identify any additional malicious activities or artifacts.
+- Review system logs and audit trails to trace the sequence of events leading to the module loading, identifying any potential privilege escalation or exploitation attempts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat actor is part of a larger campaign.
+- Remove the malicious kernel module and any associated files or processes from the system, ensuring that all backdoors or persistence mechanisms are eradicated.
+- Restore the system to a known good state using verified backups, ensuring that all security patches and updates are applied to prevent future exploitation.
+- Implement enhanced logging and monitoring policies, such as enabling auditd with specific rules to track kernel module loading and other critical system activities.
+- Strengthen system hardening measures by enforcing the principle of least privilege, disabling unnecessary services, and regularly reviewing user access rights to minimize the attack surface."""
 
 
 [[rule.threat]]

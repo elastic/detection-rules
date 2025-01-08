@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -82,6 +82,47 @@ tags = [
     "Tactic: Persistence",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Windows Service
+Windows services are crucial for running background processes and applications. Adversaries exploit this by creating or modifying services to maintain persistence or execute unauthorized actions. The 'Unusual Windows Service' detection rule leverages machine learning to identify atypical services, flagging potential threats by comparing against known service baselines, thus aiding in early detection of malicious activities.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific service name, service path, and the host where the unusual service was detected.
+- Check the service's creation or modification timestamp to determine when the service was installed or altered.
+- Investigate the service's executable path to verify its legitimacy and check for any known malicious file signatures or hashes.
+- Use Osquery to gather additional information about the service with a query like: `SELECT name, display_name, path, start_type, status FROM services WHERE name = '<service_name>';` to confirm its current state and configuration.
+- Cross-reference the service name and executable path against known good baselines or whitelists to identify any deviations.
+- Examine the parent process that created or modified the service to understand the context of its creation.
+- Analyze the user account under which the service is running to determine if it has the necessary privileges and if the account has been compromised.
+- Review recent system and security logs on the affected host for any related suspicious activities or anomalies around the time the service was created or modified.
+- Check for any network connections initiated by the service to identify potential command and control communication or data exfiltration.
+- Consult threat intelligence sources to see if the service name, path, or associated file hashes have been reported in any recent threat campaigns or advisories.
+
+### False positive analysis
+
+- Known false positives for the Unusual Windows Service rule often include legitimate software updates or installations that create temporary services, as well as custom in-house applications that are not widely recognized by the machine learning model.
+- To manage these false positives, users can create exceptions for specific services that are known to be safe and frequently appear in their environment. This can be done by maintaining a whitelist of approved services or by configuring the detection rule to ignore certain service names or patterns.
+- It's important to regularly review and update the list of exceptions to ensure that new legitimate services are not mistakenly flagged as threats, while also ensuring that the list does not become overly permissive, which could allow actual threats to go undetected.
+- Users should also consider the context of the flagged service, such as the time of day it was created or modified, the user account associated with the change, and any related network activity, to better assess whether it is a false positive or a potential threat.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malware or unauthorized services.
+- Conduct a thorough investigation of the unusual service, including its origin, purpose, and any associated files or processes.
+- Review system logs and security alerts to identify any additional indicators of compromise or related suspicious activities.
+- Remove or disable the unauthorized service and any associated files or registry entries to eliminate the threat.
+- Restore the system from a known good backup if the integrity of the system is in question.
+- Escalate the incident to the security operations team or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed information on service creation and modification activities for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for unusual service activities.
+- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities that could be exploited by similar threats.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent recurrence."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

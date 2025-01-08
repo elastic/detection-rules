@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 maturity = "production"
 promotion = true
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -36,6 +36,48 @@ type = "query"
 query = '''
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:token_manipulation_event or endgame.event_subtype_full:token_manipulation_event)
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Credential Manipulation - Detected - Elastic Endgame
+
+Elastic Endgame is a security solution designed to detect and respond to threats in real-time. Credential manipulation involves adversaries altering authentication tokens to escalate privileges or maintain access. This detection rule identifies suspicious token activities by monitoring specific alert types and event actions, aligning with MITRE ATT&CK's Access Token Manipulation technique, thus helping to thwart unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the alert details in the Elastic Endgame console by clicking the Elastic Endgame icon in the event.module column or the link in the rule.reference column to gather initial context.
+- Examine the event.kind field to confirm that the alert is indeed an alert type and not a false positive or benign event.
+- Check the event.module field to ensure the alert originated from the endgame module, confirming the source of detection.
+- Investigate the endgame.metadata.type field to verify that the alert is categorized as a detection, which indicates a potential threat.
+- Analyze the event.action and endgame.event_subtype_full fields to identify the specific type of token manipulation event that triggered the alert.
+- Correlate the alert with other related events in the same timeframe to identify any patterns or additional suspicious activities.
+- Use Osquery to gather more information about the processes and users involved in the alert. For example, run the following query to list processes with suspicious token privileges: `SELECT pid, name, path, uid, gid FROM processes WHERE on_disk = 1 AND (name LIKE '%token%' OR path LIKE '%token%');`
+- Investigate the user account associated with the alert to determine if there have been any recent changes in privileges or unusual login activities.
+- Review system logs and security logs for any additional signs of credential manipulation or unauthorized access attempts around the time of the alert.
+- Cross-reference the alert with known MITRE ATT&CK techniques, specifically T1134, to understand the potential methods used by the adversary and gather insights into their tactics.
+
+### False positive analysis
+
+- Known false positives for the Credential Manipulation - Detected - Elastic Endgame rule may include legitimate administrative actions where tokens are altered as part of routine maintenance or software updates. These activities can trigger alerts due to their similarity to malicious token manipulation.
+- To manage these false positives, users can create exceptions for specific processes or user accounts that are known to perform legitimate token manipulations regularly. This can be done by identifying the event.action or endgame.event_subtype_full values associated with these benign activities and excluding them from triggering alerts.
+- Another approach is to monitor the frequency and context of the alerts. If certain alerts consistently correlate with non-threatening behaviors, users can adjust the detection rule to ignore these specific patterns while maintaining vigilance for truly suspicious activities.
+- It is also advisable to review and update the list of exceptions periodically to ensure that new legitimate activities are accounted for and that no malicious activities are inadvertently excluded.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the scope of the credential manipulation, including reviewing logs and correlating events to determine the source and method of attack.
+- Reset passwords and authentication tokens for affected accounts and any accounts that may have been accessed using manipulated credentials.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
+- Implement enhanced logging and monitoring policies to capture detailed authentication and access events, ensuring future incidents can be detected more efficiently.
+- Integrate additional security tools, such as endpoint detection and response (EDR) solutions, to improve visibility and response capabilities.
+- Restore the affected system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
+- Conduct a post-incident review to identify gaps in security controls and processes, and update incident response plans accordingly.
+- Educate users on recognizing phishing attempts and other social engineering tactics that could lead to credential manipulation.
+- Apply hardening measures such as enforcing multi-factor authentication (MFA) and implementing least privilege access controls to reduce the risk of future credential manipulation."""
 
 
 [[rule.threat]]

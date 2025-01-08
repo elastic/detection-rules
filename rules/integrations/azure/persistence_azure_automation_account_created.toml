@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,50 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Automation Account Created"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure Automation Account Created
+
+Azure Automation accounts facilitate the automation of management tasks and orchestration across cloud and on-premises environments. Adversaries may exploit these accounts to establish persistence by automating malicious activities. The detection rule identifies the creation of such accounts by monitoring specific Azure activity logs, focusing on successful operations that could indicate unauthorized account creation.
+
+### Possible investigation steps
+
+- Review the Azure activity logs to confirm the creation of the Automation account by filtering logs with `event.dataset:azure.activitylogs` and `azure.activitylogs.operation_name:"MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/WRITE"`.
+- Verify the `event.outcome` field to ensure the operation was successful, indicating the account was indeed created.
+- Identify the user or service principal responsible for the account creation by examining the `azure.activitylogs.caller` field.
+- Check the timestamp of the account creation event to determine when the activity occurred and correlate it with other suspicious activities.
+- Investigate the IP address and location associated with the `azure.activitylogs.callerIpAddress` field to assess if the activity originated from an expected or unusual source.
+- Review the `azure.activitylogs.correlationId` to trace related activities and operations that might provide additional context or indicate a broader attack.
+- Use Osquery to gather more information about the environment by running a query such as: `SELECT * FROM azure_automation_accounts WHERE account_name = '<AccountName>'` to retrieve details about the newly created account.
+- Examine the permissions and roles assigned to the new Automation account to determine if they are excessive or deviate from the norm.
+- Cross-reference the creation event with any recent changes in Azure policies or configurations that might have allowed unauthorized account creation.
+- Investigate any subsequent activities performed by the Automation account to identify potential malicious actions or scripts executed post-creation.
+
+### False positive analysis
+
+- Routine administrative tasks: Organizations often create Azure Automation accounts for legitimate purposes such as automating routine administrative tasks, patch management, or resource scaling. These activities can trigger the detection rule, leading to false positives.
+- Development and testing environments: In environments where developers frequently create and delete resources for testing purposes, the creation of Azure Automation accounts may be a common occurrence and not indicative of malicious activity.
+- Third-party integrations: Some third-party services and tools may automatically create Azure Automation accounts as part of their integration process, which can be mistaken for unauthorized activity.
+- To manage false positives, users can create exceptions for known and trusted sources by whitelisting specific user accounts or service principals that are authorized to create Azure Automation accounts. Additionally, users can implement tagging or naming conventions for automation accounts to easily identify legitimate accounts and exclude them from alerts. Regularly reviewing and updating these exceptions based on changes in the environment can help maintain the accuracy of the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the Azure Automation account to prevent further unauthorized activities by disabling the account or restricting its permissions.
+- Conduct a thorough investigation to determine the origin of the account creation, including reviewing the activity logs for the user or service principal responsible for the action.
+- Verify the legitimacy of the account creation with relevant stakeholders or system owners to confirm whether it was authorized or not.
+- If unauthorized, remove the Automation account and any associated resources or scripts that may have been deployed by the adversary.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems or accounts have been compromised.
+- Implement enhanced logging and monitoring for Azure Automation activities, ensuring that all account creations and modifications are logged and reviewed regularly.
+- Integrate Azure Security Center or other security information and event management (SIEM) solutions to provide real-time alerts and automated responses to suspicious activities.
+- Review and update access controls and permissions for Azure resources to ensure the principle of least privilege is enforced, reducing the risk of unauthorized account creation.
+- Conduct a post-incident review to identify gaps in security controls and processes, and implement necessary improvements to prevent future incidents.
+- Educate and train staff on recognizing and responding to suspicious activities related to Azure Automation accounts and other cloud resources, enhancing overall security awareness.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

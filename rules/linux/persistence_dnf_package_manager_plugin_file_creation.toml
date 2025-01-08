@@ -2,7 +2,7 @@
 creation_date = "2024/06/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -84,6 +84,50 @@ file.path : ("/usr/lib/python*/site-packages/dnf-plugins/*", "/etc/dnf/plugins/*
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating DNF Package Manager Plugin File Creation
+
+DNF, a package manager for Fedora-based systems, manages software installations and updates. Adversaries may exploit DNF by inserting malicious code into its plugins, ensuring persistent access whenever DNF is used. The detection rule identifies suspicious file creation or renaming in plugin directories, excluding benign processes and temporary files, to flag potential backdoor attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and event action (creation or rename) that triggered the alert. Focus on paths like `/usr/lib/python*/site-packages/dnf-plugins/*` and `/etc/dnf/plugins/*`.
+- Check the process executable that initiated the file creation or rename event. Ensure it is not one of the benign processes listed in the exclusion criteria, such as `/bin/dnf` or `/usr/bin/yum`.
+- Investigate the file extension of the newly created or renamed file to ensure it is not a temporary file with extensions like `swp`, `swpx`, or `swx`.
+- Use Osquery to gather more information about the file. For example, run the query: `SELECT * FROM file WHERE path = '/usr/lib/python*/site-packages/dnf-plugins/*' OR path = '/etc/dnf/plugins/*';` to get details about the file's metadata and attributes.
+- Examine the file's contents to identify any suspicious or unauthorized code that may have been injected. Look for unusual scripts or commands that do not align with typical plugin functionality.
+- Cross-reference the file creation or rename event with recent system logs to identify any correlated activities or anomalies around the time of the event.
+- Verify the integrity of the DNF package manager and its plugins by comparing the current state with known good baselines or checksums, if available.
+- Investigate the user account associated with the process that created or renamed the file to determine if it has the necessary permissions and if the activity aligns with expected behavior.
+- Check for any recent changes in user privileges or group memberships that could have facilitated unauthorized access to the plugin directories.
+- Review historical data to identify any previous similar alerts or patterns that could indicate a persistent threat or ongoing attack campaign targeting the DNF package manager.
+
+### False positive analysis
+
+- Routine system updates or administrative tasks may trigger file creation or renaming events in the DNF plugin directories, especially when legitimate software updates or configurations are applied. Users should verify if these events coincide with scheduled maintenance or updates.
+- Automated scripts or configuration management tools like Puppet or Chef might create or modify files in these directories as part of their normal operations. Users can exclude these processes by adding them to the exception list if they are verified as non-malicious.
+- Temporary files created by text editors or system processes, such as those with extensions like "swp", "swpx", or "swx", can be mistakenly flagged. Users should ensure these extensions are included in the exclusion criteria to prevent false alerts.
+- Processes running from specific directories like "/nix/store/*" or "/var/lib/dpkg/*" may be part of legitimate package management activities. Users can add these paths to the exclusion list if they are confirmed to be safe.
+- If the process executable is null, it might indicate a transient or incomplete event capture. Users should investigate these cases further to determine if they are benign or require additional context for exclusion.
+- Specific processes like "sed" or "perl" might create temporary files during their operations. Users can exclude these processes when they match known benign patterns, such as "sed*" or "e2scrub_all.tmp*", to reduce false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify any malicious code within the DNF plugin directories and determine the extent of the compromise.
+- Review recent file creation and modification events in the DNF plugin directories to identify unauthorized changes and potential backdoor installations.
+- Remove any identified malicious files or code from the DNF plugin directories and restore legitimate files from a known good backup.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging for DNF-related activities and file system changes to improve detection of future unauthorized modifications.
+- Integrate security tools with threat intelligence feeds to identify known malicious indicators related to DNF plugin tampering.
+- Apply security patches and updates to the DNF package manager and related software to mitigate known vulnerabilities.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent similar incidents.
+- Educate system administrators and users on recognizing signs of compromise and the importance of maintaining secure configurations."""
 
 
 [[rule.threat]]

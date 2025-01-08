@@ -2,7 +2,7 @@
 creation_date = "2023/08/21"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -44,6 +44,49 @@ process where host.os.type == "windows" and event.type == "start" and process.ar
         process.args : "*davclnt.dll,DavSetCookie*"
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Accessing Outlook Data Files
+
+Outlook data files, such as OST and PST, store emails and other data locally on Windows systems. Adversaries may target these files to collect sensitive information, bypassing email server security. The detection rule identifies suspicious processes accessing these files, excluding legitimate Outlook operations, to flag potential unauthorized access or data exfiltration attempts.
+
+### Possible investigation steps
+
+- Review the alert details to understand which process triggered the rule, focusing on the `process.name` and `process.args` fields to identify the suspicious activity.
+- Check the `host.os.type` to confirm the operating system is Windows, as the rule is specific to Windows systems.
+- Investigate the `event.type` to ensure it is a "start" event, indicating the initiation of a process that accessed the Outlook data files.
+- Examine the `process.args` field to identify the specific OST or PST files being accessed and determine if they contain sensitive or critical information.
+- Verify the legitimacy of the process by checking the `process.name` against known legitimate applications that might access Outlook data files, excluding "outlook.exe" and the specific "rundll32.exe" with "davclnt.dll,DavSetCookie" arguments.
+- Use Osquery to gather more context about the process by running a query such as: `SELECT * FROM processes WHERE name = '<suspicious_process_name>';` to retrieve details like process path, parent process, and user context.
+- Investigate the parent process of the suspicious activity to determine if it was spawned by a legitimate application or another potentially malicious process.
+- Check the user account associated with the process to determine if it aligns with expected behavior or if it might be compromised.
+- Review recent system logs and security events for any other suspicious activities or anomalies around the time the alert was triggered.
+- Correlate the findings with other alerts or incidents in the environment to identify any patterns or potential indicators of a broader attack campaign.
+
+### False positive analysis
+
+- Known false positives may include legitimate applications or scripts that access Outlook data files for backup or synchronization purposes, such as third-party email clients or backup software.
+- System administrators can handle these false positives by creating exceptions for known and trusted applications that regularly access OST and PST files, ensuring these are documented and reviewed periodically.
+- Users should monitor for any unusual patterns or unexpected applications accessing these files, as this could indicate a potential security risk despite being initially classified as a false positive.
+- Regularly update the list of exceptions to include new legitimate applications as they are identified, while ensuring that these exceptions do not inadvertently allow malicious activity.
+- Consider implementing additional monitoring or logging for processes that frequently trigger the rule to better understand their behavior and confirm their legitimacy.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any unauthorized access to OST and PST files.
+- Review system and security logs to trace the origin of the suspicious process and identify any other potentially compromised systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Remove any malicious software or unauthorized tools found on the system, ensuring that all traces of the threat actor's presence are eradicated.
+- Restore the system from a known good backup, ensuring that all security patches and updates are applied before reconnecting to the network.
+- Implement enhanced logging policies to capture detailed process execution and file access events for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Educate users on the importance of email security and the risks associated with unauthorized access to email data files.
+- Review and update access controls and permissions related to email data files, ensuring that only authorized personnel have access."""
 
 
 [[rule.threat]]

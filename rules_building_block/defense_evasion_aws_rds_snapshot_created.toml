@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/06/22"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/06/25"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -45,6 +45,48 @@ query = '''
 event.dataset: "aws.cloudtrail" and event.provider: "rds.amazonaws.com" 
     and event.action: ("CreateDBSnapshot" or "CreateDBClusterSnapshot") and event.outcome: "success" 
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS RDS DB Snapshot Created
+
+AWS RDS DB Snapshots are backups of databases that ensure data recovery and continuity. Adversaries may exploit this by creating snapshots to bypass access controls or revert changes, masking their activities. The detection rule monitors successful snapshot creation events in AWS CloudTrail, serving as a foundation for identifying potential misuse when correlated with other suspicious activities.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to identify the user or role associated with the `CreateDBSnapshot` or `CreateDBClusterSnapshot` event by examining the `userIdentity` field.
+- Check the `sourceIPAddress` field in the CloudTrail logs to determine the origin of the request and assess if it aligns with known IP addresses or locations for your organization.
+- Investigate the `eventTime` field to establish a timeline and correlate it with other activities or alerts that occurred around the same time.
+- Examine the `requestParameters` field to identify the specific database instance or cluster for which the snapshot was created, and assess its criticality or sensitivity.
+- Cross-reference the `userAgent` field to identify the tool or service used to initiate the snapshot creation and determine if it matches expected patterns.
+- Utilize Osquery to query AWS RDS instances and snapshots for additional context. For example, use the following Osquery query to list all RDS snapshots: `SELECT * FROM aws_rds_snapshots WHERE snapshot_create_time > 'YYYY-MM-DD HH:MM:SS';` replacing the timestamp with the relevant timeframe.
+- Investigate any recent changes to IAM policies or roles that might have granted new permissions related to RDS snapshot creation.
+- Check for any unusual or unauthorized access patterns in the AWS Management Console or API calls that could indicate compromised credentials.
+- Correlate the snapshot creation event with any recent alerts or anomalies in your security monitoring tools to identify potential patterns of malicious activity.
+- Review historical data to determine if there is a pattern of frequent snapshot creation by the same user or role, which could indicate an ongoing attempt to evade detection or maintain persistence.
+
+### False positive analysis
+
+- Routine database maintenance or backup operations by authorized personnel can trigger the AWS RDS DB Snapshot Created rule, leading to false positives. These activities are typically scheduled and documented, making them identifiable.
+- Automated backup solutions or scripts that create snapshots as part of a disaster recovery plan may also result in false positives. These should be reviewed and whitelisted if they align with organizational policies.
+- Development and testing environments often involve frequent snapshot creation for testing purposes. These environments should be monitored separately, and known non-threatening behaviors can be excluded by setting exceptions for specific user accounts or roles.
+- To manage false positives, users can create exceptions in the detection rule for specific AWS accounts, IAM roles, or IP addresses associated with legitimate snapshot creation activities. This helps in focusing on truly suspicious activities while reducing noise from expected operations.
+
+### Response and remediation
+
+- Immediately review the AWS CloudTrail logs to identify the source and context of the snapshot creation, including the user or service account involved.
+- Contain the potential threat by revoking access for the identified user or service account and reviewing their permissions to ensure least privilege.
+- Investigate any other suspicious activities associated with the same user or service account, such as unauthorized access attempts or changes to security groups.
+- If unauthorized snapshot creation is confirmed, delete the snapshot to prevent any rollback to a compromised state.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems or data have been affected.
+- Implement enhanced logging and monitoring for AWS RDS and related services to detect similar activities in the future, ensuring logs are retained for an appropriate period.
+- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system to correlate events and improve threat detection capabilities.
+- Restore the database to a known good state if any unauthorized changes were made, using verified snapshots or backups.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent recurrence.
+- Apply hardening measures such as enabling multi-factor authentication (MFA) for all users, regularly reviewing access permissions, and implementing network segmentation to limit access to critical resources."""
 
 
 [[rule.threat]]

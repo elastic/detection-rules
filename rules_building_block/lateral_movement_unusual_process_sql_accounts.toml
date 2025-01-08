@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -74,6 +74,49 @@ process where event.type == "start" and host.os.type == "windows" and
     (process.name : "cmd.exe" and process.parent.name : "forfiles.exe" and process.command_line : "/c echo *")
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Process For MSSQL Service Accounts
+
+MSSQL service accounts are integral to managing SQL Server operations, executing processes necessary for database management. Adversaries may exploit these accounts to execute unauthorized processes, gaining initial access or moving laterally within a network. The detection rule identifies atypical processes initiated by MSSQL service accounts, excluding known legitimate activities, to flag potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific MSSQL service account and process that triggered the alert, focusing on the `user.name` and `process.name` fields.
+- Verify the legitimacy of the process by checking the `process.executable` path and comparing it against known legitimate paths for MSSQL-related processes.
+- Examine the `process.code_signature` fields to determine if the process is signed by a trusted entity, such as "Microsoft Corporation," and if the signature is valid.
+- Investigate the parent process using the `process.parent.name` field to understand the process hierarchy and identify any unusual parent-child relationships.
+- Check the `process.command_line` field for any suspicious or unexpected command-line arguments that could indicate malicious activity.
+- Use Osquery to gather additional context about the process. For example, run the following query to list all processes started by the MSSQL service account: `SELECT pid, name, path, cmdline FROM processes WHERE uid = (SELECT uid FROM users WHERE username = 'MSSQLSERVER');`
+- Correlate the alert with other security events or logs from the same host to identify any related suspicious activities or patterns.
+- Investigate the network activity associated with the process to identify any unusual connections or data transfers that could indicate lateral movement or data exfiltration.
+- Review recent changes or updates to the SQL Server configuration or environment that could explain the unusual process execution.
+- Consult with the database administration team to verify if the process execution aligns with any recent maintenance tasks or legitimate administrative activities.
+
+### False positive analysis
+
+- Scheduled tasks or maintenance scripts that run under MSSQL service accounts may trigger false positives if they execute processes not typically associated with SQL operations. Users should review these tasks and consider excluding them if they are verified as legitimate.
+- Custom monitoring or backup solutions that interact with SQL Server and use service accounts might be flagged. Users can create exceptions for these processes by adding them to the exclusion list if they are confirmed to be safe.
+- Third-party applications that integrate with SQL Server and require execution of specific processes under MSSQL service accounts could be mistakenly identified as threats. Users should validate these applications and exclude their processes if they are deemed non-threatening.
+- In environments with custom SQL Server configurations or extensions, legitimate processes might not be recognized by the rule. Users should document these configurations and adjust the detection criteria to prevent unnecessary alerts.
+- Users can manage false positives by regularly reviewing the list of excluded processes and ensuring that only verified, non-malicious activities are exempted from detection.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement or data exfiltration.
+- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any unauthorized processes initiated by MSSQL service accounts.
+- Review and analyze logs from the affected system and related network devices to trace the attacker's activities and identify any additional compromised systems.
+- Terminate any unauthorized processes and remove any malicious files or scripts found on the system.
+- Reset credentials for all MSSQL service accounts and any other potentially compromised accounts to prevent further unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and user activity, ensuring that future anomalies can be detected more effectively.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities and correlate events across the network.
+- Restore the system to its operational state by applying the latest security patches, updating antivirus definitions, and ensuring all security configurations are in place.
+- Harden the environment by implementing network segmentation, restricting MSSQL service account permissions, and applying the principle of least privilege to minimize the attack surface."""
 
 
 [[rule.threat]]

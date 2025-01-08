@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -51,6 +51,49 @@ query = '''
 host.os.type:windows and event.category:process and event.type:start and process.parent.name:("MSBuild.exe" or "msbuild.exe") and
 process.name:("csc.exe" or "iexplore.exe" or "powershell.exe")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft Build Engine Started an Unusual Process
+
+The Microsoft Build Engine (MSBuild) is a platform for building applications, often used in software development environments. Adversaries exploit MSBuild to execute malicious scripts or compile code, bypassing security controls. This detection rule identifies unusual processes initiated by MSBuild, such as PowerShell or C# compiler, which may indicate an attempt to deploy obfuscated or malicious payloads, aligning with known evasion techniques.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of unusual processes initiated by MSBuild, focusing on the `process.parent.name` and `process.name` fields to identify the specific processes involved.
+- Examine the process command line arguments (`process.command_line`) for any suspicious or obfuscated scripts that may indicate malicious intent.
+- Check the user account (`user.name`) associated with the MSBuild process to determine if the activity aligns with expected behavior for that user.
+- Investigate the parent process tree to understand the context in which MSBuild was executed, looking for any preceding suspicious activities.
+- Utilize Osquery to gather additional context on the system by running a query such as: `SELECT * FROM processes WHERE name IN ('MSBuild.exe', 'csc.exe', 'powershell.exe');` to identify any related processes and their attributes.
+- Analyze the network connections (`network.connection`) established by the suspicious processes to identify any unusual or unauthorized external communications.
+- Review recent file modifications or creations (`file.path`) on the host to detect any potentially malicious payloads or scripts dropped by the processes.
+- Correlate the event timestamp with other security logs (e.g., firewall, intrusion detection systems) to identify any concurrent suspicious activities.
+- Check for any recent changes in system configurations or scheduled tasks that could be associated with the execution of the unusual processes.
+- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or indicators of compromise (IOCs) related to MSBuild exploitation.
+
+### False positive analysis
+
+- Developers and build servers often use MSBuild to automate the compilation of code, which may legitimately invoke processes like the C# compiler (csc.exe) or PowerShell scripts for build tasks, leading to false positives.
+- Continuous Integration/Continuous Deployment (CI/CD) pipelines might trigger these processes as part of their normal operation, especially in environments where automated testing or deployment scripts are executed.
+- To manage these false positives, users can create exceptions for specific build servers or developer workstations by excluding known, trusted sources or specific process command lines that are frequently observed and verified as non-threatening.
+- Monitoring the frequency and context of these events can help distinguish between legitimate development activities and potential threats, allowing for more informed decisions on exclusions.
+- Implementing a baseline of normal MSBuild activity within the environment can aid in identifying deviations that are more likely to be malicious, thus reducing the likelihood of overlooking genuine threats while managing false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of any potential malicious activity.
+- Conduct a thorough investigation to identify the scope of the incident, focusing on any unusual processes initiated by MSBuild, such as PowerShell or C# compiler executions.
+- Analyze the scripts or code executed by MSBuild for any signs of obfuscation or malicious intent, leveraging threat intelligence sources and MITRE ATT&CK framework for context.
+- Terminate any malicious processes identified during the investigation to halt ongoing threats.
+- Remove any malicious files or scripts from the system and ensure that any persistence mechanisms are disabled.
+- Restore the system from a known good backup to ensure that no remnants of the attack remain.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed process execution data, focusing on MSBuild and related processes, to aid in future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Review and update security policies and hardening measures, such as application whitelisting and script execution restrictions, to prevent exploitation of MSBuild in the future."""
 
 
 [[rule.threat]]

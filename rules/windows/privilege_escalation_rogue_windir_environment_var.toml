@@ -2,7 +2,7 @@
 creation_date = "2020/11/26"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -52,6 +52,49 @@ registry.path : (
     ) and
  not registry.data.strings : ("C:\\windows", "%SystemRoot%")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Privilege Escalation via Windir Environment Variable
+
+The Windir environment variable in Windows specifies the directory where system files reside. Adversaries may manipulate this variable to redirect processes to malicious directories, thereby gaining elevated privileges. The detection rule identifies changes to this variable in user registry paths, flagging deviations from expected values like "C:\\windows" to detect potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the registry path and value that triggered the alert, focusing on the `registry.path` and `registry.data.strings` fields to identify deviations from expected values like "C:\\windows" or "%SystemRoot%".
+- Check the user account associated with the registry change by examining the `HKEY_USERS` or `HKCU` path to determine if the change was made under a specific user profile.
+- Investigate recent login activity for the user account identified in the previous step to determine if there were any unusual or unauthorized access attempts.
+- Use Osquery to list all environment variables for the affected user to identify any other suspicious modifications. Example query: `SELECT * FROM registry WHERE path LIKE 'HKEY_USERS\\\\%\\\\Environment\\\\%' OR path LIKE 'HKCU\\\\%\\\\Environment\\\\%';`
+- Examine the process creation logs around the time of the registry change to identify any suspicious processes that might have been executed with elevated privileges.
+- Correlate the registry change event with any recent software installations or updates that might have altered environment variables, checking for legitimate changes.
+- Search for any other registry changes made by the same user or process to identify patterns or additional indicators of compromise.
+- Review system and security event logs for any anomalies or errors that coincide with the time of the registry change, which might provide additional context or evidence of exploitation.
+- Investigate network activity from the affected host to identify any unusual outbound connections that could indicate data exfiltration or command-and-control communication.
+- Consult threat intelligence sources to determine if the observed behavior matches any known tactics, techniques, or procedures (TTPs) associated with privilege escalation or other malicious activities.
+
+### False positive analysis
+
+- Changes to the Windir environment variable may occur during legitimate software installations or updates, where applications temporarily modify environment variables to point to custom directories. Users should verify if the change coincides with a known software update or installation.
+- Some enterprise environments may have custom scripts or administrative tools that modify the Windir variable for specific operational needs. Users should document and whitelist these known scripts or tools to prevent false positives.
+- Virtual environments or sandboxed applications might alter the Windir variable to redirect system calls within the virtualized context. Users should identify and exclude these environments from triggering alerts.
+- In development environments, developers might intentionally change the Windir variable for testing purposes. Users should establish a policy to track and approve such changes, allowing exceptions for known development activities.
+- To manage false positives, users can create exceptions in the detection rule for specific user accounts or systems where these changes are expected and verified as non-malicious.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify any unauthorized changes to the Windir environment variable and determine the source of the modification.
+- Review system logs and security events to identify any additional indicators of compromise or related suspicious activities.
+- Restore the Windir environment variable to its default value, typically "C:\\windows", and verify the integrity of system files.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to monitor changes to critical environment variables and registry paths, ensuring that all modifications are logged and reviewed.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and detect similar threats in the future.
+- Apply security patches and updates to address any vulnerabilities that may have been exploited in conjunction with the Windir manipulation.
+- Educate users and administrators on the risks associated with environment variable manipulation and provide training on recognizing potential security threats.
+- Consider implementing application whitelisting and endpoint protection solutions to prevent unauthorized changes to system configurations and environment variables."""
 
 
 [[rule.threat]]

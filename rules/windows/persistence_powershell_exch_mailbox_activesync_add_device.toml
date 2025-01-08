@@ -2,7 +2,7 @@
 creation_date = "2020/12/15"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/10/31"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -56,6 +56,48 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name: ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and process.args : "Set-CASMailbox*ActiveSyncAllowedDeviceIDs*"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating New ActiveSyncAllowedDeviceID Added via PowerShell
+
+ActiveSync is a protocol enabling mobile devices to synchronize with Exchange mailboxes. The Set-CASMailbox cmdlet can modify mailbox settings, including allowed devices. Adversaries may exploit this to add unauthorized devices, gaining persistent access to sensitive emails. The detection rule identifies suspicious PowerShell activity by monitoring for specific cmdlet usage, helping to flag potential account manipulation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific user account and device involved in the Set-CASMailbox cmdlet execution.
+- Check the timestamp of the event to determine when the suspicious activity occurred and correlate it with any other unusual activities around the same time.
+- Investigate the source IP address and host from which the PowerShell command was executed to determine if it is a known or trusted source.
+- Examine the user account's recent activity logs to identify any other unusual or unauthorized actions, such as login attempts from unfamiliar locations or devices.
+- Use Osquery to gather more information about the process execution. For example, run the following query to list recent PowerShell executions: `SELECT * FROM processes WHERE name IN ('powershell.exe', 'pwsh.exe', 'powershell_ise.exe') AND cmdline LIKE '%Set-CASMailbox%ActiveSyncAllowedDeviceIDs%';`
+- Check for any recent changes to the user's mailbox settings, including other cmdlets that may have been executed, to identify potential account manipulation.
+- Review the organization's change management records to verify if the addition of the ActiveSyncAllowedDeviceID was authorized or part of a legitimate change request.
+- Analyze the PowerShell script or command used to execute the Set-CASMailbox cmdlet to understand its intent and whether it contains any malicious or suspicious elements.
+- Investigate any other alerts or incidents related to the same user account or device to determine if this is part of a broader attack or compromise.
+- Consult with the user or their manager to confirm whether they recognize the device and if they authorized its addition to the ActiveSync allowed list.
+
+### False positive analysis
+
+- Routine administrative tasks: IT administrators may regularly use the Set-CASMailbox cmdlet to manage and update ActiveSyncAllowedDeviceIDs for legitimate purposes, such as onboarding new employees or updating device policies. To manage these, consider creating exceptions for known administrative accounts or specific time windows when these tasks are typically performed.
+- Automated scripts: Organizations might have automated scripts that run periodically to update mailbox settings, including ActiveSyncAllowedDeviceIDs. These scripts can trigger false positives. To handle this, identify and exclude these scripts by their unique process arguments or execution paths.
+- Device policy updates: Changes in organizational device policies may require bulk updates to ActiveSyncAllowedDeviceIDs, leading to multiple detections. In such cases, coordinate with the IT team to whitelist these activities during policy rollout periods.
+- Testing and development environments: In environments where Exchange settings are frequently tested or developed, the Set-CASMailbox cmdlet might be used often. Exclude these environments from the detection rule by filtering based on hostnames or IP ranges associated with testing and development.
+
+### Response and remediation
+
+- Immediately isolate the affected user account to prevent further unauthorized access to sensitive emails.
+- Review the PowerShell logs and audit logs to identify the source and scope of the unauthorized Set-CASMailbox cmdlet usage.
+- Verify the legitimacy of the newly added ActiveSyncAllowedDeviceID by contacting the user and checking device enrollment records.
+- Remove any unauthorized devices from the ActiveSyncAllowedDeviceID list to cut off adversary access.
+- Reset the credentials of the compromised account and enforce multi-factor authentication to enhance security.
+- Conduct a thorough investigation to determine if any other accounts or systems have been compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed PowerShell activity and integrate with a security information and event management (SIEM) system for real-time monitoring.
+- Educate users on recognizing phishing attempts and secure handling of credentials to prevent future account manipulation.
+- Apply security hardening measures such as restricting PowerShell usage to administrative accounts and using Just Enough Administration (JEA) to limit cmdlet access."""
 
 
 [[rule.threat]]

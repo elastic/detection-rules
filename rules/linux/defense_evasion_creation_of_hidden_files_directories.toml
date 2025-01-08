@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 min_stack_version = "8.13.0"
-updated_date = "2025/01/06"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -36,6 +36,49 @@ type = "eql"
 query = '''
 file where host.os.type == "linux" and event.type == "creation" and process.name == "chflags"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Hidden Files and Directories via Hidden Flag
+
+In Linux environments, the 'chflags' command can set file attributes, including the 'hidden' flag, to conceal files from standard directory listings. Adversaries exploit this to obscure malicious files, evading detection. The detection rule monitors file creation events where 'chflags' is used, identifying potential misuse by correlating these actions with known evasion tactics.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file creation event, focusing on the 'host.os.type', 'event.type', and 'process.name' fields to confirm the use of 'chflags' on a Linux system.
+- Examine the file path and name associated with the alert to determine if it matches known malicious patterns or locations commonly used for hiding files.
+- Check the user account associated with the 'chflags' process to assess if the activity aligns with expected behavior for that user or if it indicates potential compromise.
+- Investigate the parent process of 'chflags' to understand the context of how and why the hidden flag was applied, which may reveal additional suspicious activity.
+- Utilize Osquery to list all files with the hidden flag set on the system to identify any other potentially malicious files. Example query: `SELECT path FROM file WHERE flags LIKE '%hidden%';`
+- Cross-reference the timestamp of the file creation event with other logs, such as authentication or network activity, to identify any correlated suspicious behavior.
+- Analyze recent command history for the user associated with the 'chflags' process to uncover any manual commands that may indicate malicious intent.
+- Review system logs for any recent privilege escalation attempts that could have allowed an adversary to execute 'chflags' with elevated permissions.
+- Investigate any recent changes to system configurations or security settings that could facilitate the use of hidden files for evasion.
+- Consult threat intelligence sources to determine if the file path, name, or associated user account has been linked to known threat actors or campaigns.
+
+### False positive analysis
+
+- System administrators or automated scripts may use the 'chflags' command for legitimate purposes, such as managing system files or organizing directories, which can trigger false positives.
+- Backup or maintenance scripts that regularly modify file attributes to protect or hide system-critical files might also be flagged by this rule.
+- To manage these false positives, users can create exceptions for specific processes or scripts known to use 'chflags' legitimately by adding them to an allowlist.
+- Regularly review and update the allowlist to ensure it includes only trusted sources, minimizing the risk of overlooking genuine threats.
+- Consider implementing additional context checks, such as verifying the user or process context, to differentiate between benign and potentially malicious use of the 'chflags' command.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
+- Conduct a thorough investigation to identify all files and directories with the 'hidden' flag set using 'chflags', and determine if they are associated with known malicious activity.
+- Review system logs and security alerts to trace the origin of the 'chflags' command usage and identify any unauthorized access or suspicious user accounts.
+- Remove or quarantine any identified malicious files and directories, ensuring that legitimate files are not affected.
+- Restore any altered or deleted legitimate files from backups, ensuring that the backup is clean and free from any malicious modifications.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
+- Implement enhanced logging policies to capture detailed file attribute changes and process execution events for future monitoring and investigation.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar evasion tactics.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
+- Apply system hardening measures, such as restricting the use of 'chflags' to authorized users only and regularly auditing file permissions and attributes."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

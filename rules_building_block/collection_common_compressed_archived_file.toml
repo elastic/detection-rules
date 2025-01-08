@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = "endpoint"
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -110,6 +110,51 @@ file where host.os.type == "windows" and event.type in ("creation", "change") an
    )
  )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating File Compressed or Archived into Common Format
+
+File compression and archiving are essential for efficient data storage and transfer, using formats like ZIP, RAR, and 7-Zip. However, adversaries exploit these technologies to obfuscate malicious files or stage data for exfiltration. The detection rule identifies suspicious compression activities by monitoring file creation or modification events, excluding trusted processes, and analyzing file headers for known compression signatures.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file and process involved, focusing on fields like `file.name`, `file.path`, and `process.name`.
+- Verify the legitimacy of the process by checking the `process.code_signature.subject_name` and `process.code_signature.trusted` fields to ensure the process is signed and trusted.
+- Investigate the user context by examining the `user.id` field to determine if the activity was performed by a legitimate user or a system account.
+- Check the file header bytes (`file.Ext.header_bytes`) to confirm the type of compression or archive format used and cross-reference with known malicious signatures.
+- Use Osquery to gather additional context about the file and process. For example, run the following query to list recent file modifications by the process:
+  ```sql
+  SELECT path, size, atime, mtime FROM file WHERE path = 'C:\\\\Path\\\\To\\\\Suspicious\\\\File' OR path LIKE 'C:\\\\Path\\\\To\\\\Suspicious\\\\Directory\\\\%';
+  ```
+- Investigate the parent process of the suspicious activity by examining `process.parent.name` and `process.parent.executable` to understand the process lineage.
+- Analyze network activity associated with the process using network monitoring tools to identify any potential data exfiltration attempts.
+- Cross-reference the file path and process name with known indicators of compromise (IOCs) from threat intelligence sources.
+- Review system logs and security events around the time of the alert to identify any correlated suspicious activities or anomalies.
+- If applicable, check for any recent changes in the system or application configurations that might explain the compression activity, such as scheduled tasks or software updates.
+
+### False positive analysis
+
+- Trusted applications like Mozilla Firefox, Wazuh Agent, Microsoft Office Suite (Excel, Word, PowerPoint), OneDrive, Dropbox, Dell SupportAssist, and IIS may trigger false positives when they perform legitimate compression or archiving activities. These applications are often involved in routine operations that involve file compression, such as saving documents in compressed formats or creating temporary compressed files for performance optimization.
+- To manage these false positives, users can create exceptions for these trusted processes by verifying their code signatures and ensuring they are from recognized and trusted publishers. This can be done by adding specific conditions to exclude these processes from triggering alerts, as shown in the detection rule.
+- Users should regularly review and update the list of trusted applications and processes to ensure that new legitimate applications are not mistakenly flagged. This involves monitoring for any changes in application behavior or updates that might affect how files are compressed or archived.
+- It is important to maintain a balance between security and usability by carefully selecting which processes to exclude, ensuring that only well-known and verified applications are exempted from the rule to prevent potential security risks.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further data exfiltration or lateral movement.
+- Verify the legitimacy of the process that triggered the alert by checking its code signature and cross-referencing with known trusted applications.
+- Conduct a thorough investigation of the compressed or archived files to determine if they contain malicious content or sensitive data staged for exfiltration.
+- Review recent file creation and modification events on the system to identify any unauthorized or suspicious activities.
+- If malicious files are confirmed, remove them and any associated processes or services from the system.
+- Restore any affected files from a known good backup to ensure system integrity and operational continuity.
+- Escalate the incident to the security operations center (SOC) or incident response team if the threat is determined to be part of a larger attack campaign.
+- Implement enhanced logging policies to capture detailed file and process activities, aiding in future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and response times.
+- Apply system hardening measures, such as disabling unnecessary services and enforcing least privilege access, to reduce the attack surface and prevent similar incidents."""
 
 
 [[rule.threat]]

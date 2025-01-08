@@ -2,7 +2,7 @@
 creation_date = "2024/06/26"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -40,6 +40,48 @@ winlog.event_data.SubjectUserSid : "S-1-5-18" and
 /* DOMAIN_USERS and local groups */
 not group.id : "S-1-5-21-*-513"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Active Directory Group Modification by SYSTEM
+
+Active Directory (AD) is a critical component in many enterprise environments, managing user and group permissions. SYSTEM, a highly privileged account, should not typically modify AD groups. Adversaries gaining SYSTEM privileges on a domain controller can exploit this to escalate privileges by adding users to sensitive groups. The detection rule identifies such anomalies by monitoring specific event codes and user SIDs, flagging unauthorized group modifications by SYSTEM, thus alerting to potential security breaches.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event code "4728" and the SubjectUserSid "S-1-5-18" to ensure it matches the criteria for SYSTEM account modifications.
+- Check the specific group ID involved in the modification to determine if it is a sensitive group, excluding known safe groups like "S-1-5-21-*-513".
+- Correlate the timestamp of the event with other logs to identify any preceding or subsequent suspicious activities on the domain controller.
+- Investigate the source IP address and hostname from which the SYSTEM account modification was initiated to identify potential unauthorized access points.
+- Examine recent changes in user privileges or group memberships on the domain controller to identify any unusual patterns or unauthorized escalations.
+- Utilize Osquery to gather additional context on the domain controller. For example, run the following query to list recent group modifications: `SELECT * FROM ad_group_membership WHERE action = 'add' AND user_sid = 'S-1-5-18';`
+- Analyze the event logs for any signs of privilege escalation techniques, such as the exploitation of vulnerabilities or abuse of default group privileges.
+- Review the security patches and configurations on the domain controller to ensure they are up-to-date and not susceptible to known vulnerabilities.
+- Check for any recent changes in the domain controller's security policies or configurations that could have inadvertently allowed SYSTEM account modifications.
+- Consult with the IT team to verify if there were any legitimate administrative tasks performed that could explain the SYSTEM account's involvement in group modifications.
+
+### False positive analysis
+
+- Scheduled tasks or automated processes running under the SYSTEM account may legitimately modify AD groups, leading to false positives. Users can handle these by identifying and documenting such tasks, then creating exceptions in the detection rule to exclude these specific activities.
+- Certain security or management software might operate under the SYSTEM account and perform group modifications as part of their normal operations. Users should verify the legitimacy of these software actions and adjust the detection rule to exclude these known benign activities.
+- During system maintenance or updates, administrators might temporarily use SYSTEM privileges to modify groups. Users should ensure that such activities are logged and approved, and consider temporarily disabling the rule or adding exceptions during these periods to prevent false alerts.
+- In environments where SYSTEM account usage is more common due to legacy applications or configurations, users should conduct a thorough review to understand the context and adjust the detection rule to accommodate these specific scenarios without compromising security.
+
+### Response and remediation
+
+- Immediately isolate the affected domain controller from the network to prevent further unauthorized access or changes.
+- Verify the legitimacy of the group modification by reviewing recent changes in Active Directory and cross-referencing with authorized change requests.
+- Conduct a thorough investigation to identify how SYSTEM privileges were obtained, focusing on potential vulnerabilities or misconfigurations that could have been exploited.
+- Reset passwords and review permissions for any accounts added to sensitive groups to ensure they have not been compromised.
+- Escalate the incident to the security operations center (SOC) and relevant IT management teams for further analysis and decision-making.
+- Implement enhanced logging and monitoring for Active Directory, ensuring that all group modifications and privilege escalations are logged and reviewed regularly.
+- Integrate security information and event management (SIEM) solutions to correlate events and detect similar anomalies in the future.
+- Restore the domain controller to a known good state using backups, ensuring that all unauthorized changes are reverted.
+- Apply security patches and updates to the domain controller and related systems to mitigate known vulnerabilities.
+- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent recurrence, including hardening measures such as restricting SYSTEM account usage and reviewing group membership policies."""
 
 
 [[rule.threat]]

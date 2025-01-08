@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2024/09/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -49,6 +49,49 @@ query = '''
         flow_terminated or timeout or Reject or network_flow)
     and destination.port:23
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Accepted Default Telnet Port Connection
+
+Telnet, a protocol for remote command-line access, is often used in legacy systems. Its lack of encryption makes it vulnerable, allowing adversaries to intercept credentials or use it as a backdoor. The detection rule identifies unencrypted Telnet traffic on port 23, flagging connections that aren't blocked or terminated, which may indicate unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of Telnet traffic on port 23, focusing on the `destination.port` field to ensure it matches the expected port for Telnet.
+- Examine the `event.dataset` and `event.category` fields to understand the context of the network traffic and confirm it is related to network flow or traffic.
+- Check the `event.type` field to verify that the event is categorized as a connection, indicating an active Telnet session attempt.
+- Investigate the `event.action` field to ensure that the connection was not blocked or terminated, which could suggest a successful unauthorized access attempt.
+- Identify the source and destination IP addresses involved in the connection to determine if they are known or expected within the network environment.
+- Use Osquery to gather more information about the systems involved. For example, run the following query to list active network connections on the potentially compromised host: `SELECT * FROM process_open_sockets WHERE remote_port = 23;`
+- Analyze historical network traffic logs to identify any patterns or repeated attempts to connect via Telnet from the same source IP address.
+- Correlate the Telnet connection event with other security events or logs to identify any related suspicious activities, such as failed login attempts or unusual user account behavior.
+- Investigate the user accounts involved in the Telnet session to determine if they have been compromised or are being used in an unauthorized manner.
+- Review the configuration and patch status of the systems involved to assess their vulnerability to exploitation via Telnet and ensure they are not inadvertently exposed to the internet.
+
+### False positive analysis
+
+- **Legacy Systems and Devices**: Some organizations may still use legacy systems or network devices that rely on Telnet for management purposes. These systems can generate legitimate Telnet traffic that is mistakenly flagged as suspicious. Users should identify these systems and create exceptions for their IP addresses or hostnames to prevent false positives.
+- **Internal Network Management**: In certain environments, Telnet might be used internally for network management tasks. If these activities are verified as secure and necessary, users can exclude specific internal IP ranges from the detection rule to reduce false alerts.
+- **Testing and Development Environments**: Telnet might be used in controlled testing or development environments where security risks are mitigated. Users should document these environments and apply exceptions to avoid unnecessary alerts.
+- **Automated Scripts and Tools**: Some automated scripts or network management tools might use Telnet for legitimate purposes. Users should review these tools and, if deemed safe, whitelist their traffic to minimize false positives.
+- **Vendor-Specific Implementations**: Certain vendors may implement Telnet in a way that is secure within a closed network. Users should assess these implementations and, if they meet security standards, exclude them from the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the Telnet connection, including reviewing logs and network traffic for any suspicious activity.
+- Change all passwords associated with the affected system and any other systems that may have been accessed using the same credentials.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
+- Implement network segmentation to limit the exposure of legacy systems and ensure Telnet is not accessible from the internet.
+- Disable Telnet services on all systems where it is not absolutely necessary, and replace it with secure alternatives like SSH.
+- Enhance logging policies to ensure all network traffic, especially on critical ports like 23, is monitored and logged for future analysis.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
+- Restore the affected system from a known good backup to ensure no malicious code remains.
+- Apply system hardening measures, such as disabling unnecessary services and applying the latest security patches, to reduce the risk of future exploitation."""
 
 
 [[rule.threat]]

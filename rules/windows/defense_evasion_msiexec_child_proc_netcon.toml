@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -48,6 +48,49 @@ sequence by process.entity_id with maxspan=1m
  not (process.name : ("rundll32.exe", "regsvr32.exe") and process.args : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*"))]
 [any where host.os.type == "windows" and event.category in ("network", "dns") and process.name != null]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating MsiExec Service Child Process With Network Connection
+
+MsiExec is a Windows utility for installing, modifying, and removing applications. Adversaries exploit it to execute malicious payloads by spawning child processes that initiate network connections, often bypassing security controls. The detection rule identifies suspicious child processes of MsiExec that engage in network or DNS activities, flagging potential misuse for further investigation.
+
+### Possible investigation steps
+
+- Review the alert details to understand the specific process entity ID and timestamp of the suspicious activity.
+- Verify the parent process by checking if the parent process name is "msiexec.exe" and confirm the presence of the "/v" argument, which may indicate verbose logging or specific installation actions.
+- Examine the child process executable path to ensure it does not match known legitimate paths such as "?:\\\\Windows\\\\System32\\\\msiexec.exe" or "?:\\\\Program Files\\\\*.exe".
+- Investigate the child process name and arguments to identify any unusual or unexpected executables or scripts being executed.
+- Check for any network or DNS activity associated with the child process to identify potential command and control communication or data exfiltration attempts.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE pid = <child_process_id>;` to retrieve detailed information about the process.
+- Analyze the process creation time and compare it with known legitimate software installation or update schedules to rule out false positives.
+- Investigate the user account under which the process was executed to determine if it aligns with expected user behavior or if it indicates potential compromise.
+- Review historical data for similar alerts or patterns involving the same process or user to identify any recurring suspicious activity.
+- Correlate the findings with threat intelligence sources to determine if the activity matches known adversary techniques or campaigns.
+
+### False positive analysis
+
+- Legitimate software installations or updates may trigger the rule if they involve network connections, as some installers use MsiExec to download additional components or updates from the internet.
+- System administrators or IT personnel performing routine software maintenance or deployment might inadvertently cause alerts when using MsiExec for legitimate purposes.
+- Some enterprise environments use custom scripts or automation tools that leverage MsiExec for software management, which could be mistaken for malicious activity.
+- To manage these false positives, users can create exceptions for known and trusted software installations by excluding specific process names or paths that are frequently involved in legitimate activities.
+- Regularly review and update the exclusion list to ensure it reflects the current software landscape and organizational practices, minimizing unnecessary alerts while maintaining security vigilance.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation of the child process spawned by MsiExec to determine if it is part of a legitimate installation or a malicious payload.
+- Review network logs and DNS queries associated with the suspicious process to identify any external connections or data exfiltration attempts.
+- If malicious activity is confirmed, remove any unauthorized software or malware from the system using trusted antivirus or endpoint detection and response (EDR) tools.
+- Restore the system from a known good backup if the integrity of the system is compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed process creation, network activity, and command-line arguments for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to correlate and detect similar threats in real-time.
+- Apply system hardening measures, such as restricting the use of MsiExec to authorized users and applications, and implementing application whitelisting.
+- Educate users on recognizing phishing attempts and the risks of executing unknown installers to reduce the likelihood of initial access through social engineering."""
 
 
 [[rule.threat]]

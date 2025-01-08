@@ -2,7 +2,7 @@
 creation_date = "2023/06/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -66,6 +66,49 @@ sequence by host.id, user.name, process.parent.entity_id with maxspan=5s
     /* excluding base64 encoding options and including encryption password or key params */
     not process.args in ("-d", "-a", "-A", "-base64", "-none", "-nosalt") ] with runs=10
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Data Encryption via OpenSSL Utility
+
+OpenSSL is a robust tool for secure data encryption, widely used to protect sensitive information. However, adversaries can exploit it to encrypt files maliciously, disrupting data availability and demanding ransom. The detection rule identifies rapid, repeated encryption attempts using OpenSSL, focusing on specific command patterns and arguments, signaling potential misuse for data impact.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the host.id and user.name associated with the suspicious OpenSSL activity to understand which system and user account are involved.
+- Examine the process.parent.entity_id to identify the parent process that initiated the OpenSSL command, which can provide context on how the encryption was triggered.
+- Check the process.args used in the OpenSSL command to verify the presence of encryption-specific arguments like "-k", "-K", "-kfile", "-pass", "-iv", and "-md", and ensure that no base64 encoding options were used.
+- Analyze the sequence of events within the maxspan=5s to determine if there are multiple rapid encryption attempts, indicating potential malicious activity.
+- Investigate the process.parent.name to see if the OpenSSL command was executed from a common shell or scripting language, which might suggest automated or scripted execution.
+- Use Osquery to gather additional context on the processes running on the host. For example, run the following query to list recent OpenSSL processes: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE name = 'openssl';`
+- Check system logs and audit logs for any unusual login attempts or privilege escalations around the time of the OpenSSL activity to identify potential unauthorized access.
+- Review file access logs to determine which files were targeted for encryption and assess the potential impact on data availability.
+- Correlate the OpenSSL activity with network logs to identify any outbound connections that might indicate data exfiltration or communication with a command and control server.
+- Investigate the user account associated with the activity for any signs of compromise, such as changes in user behavior, unexpected privilege changes, or recent password resets.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators may use OpenSSL for legitimate encryption tasks, such as securing backups or transferring sensitive files, which could trigger the rule. To manage this, users can create exceptions for specific user accounts or scripts known to perform these tasks regularly.
+- Automated scripts: Some automated processes or cron jobs might use OpenSSL to encrypt data as part of their normal operation. Users should identify these scripts and exclude them from the rule by specifying the script names or paths.
+- Development and testing environments: Developers might frequently use OpenSSL for testing encryption functionalities, leading to false positives. Users can exclude specific development environments or user accounts from the rule to prevent unnecessary alerts.
+- Backup operations: Backup software or scripts that utilize OpenSSL for encrypting data during backup processes can be mistaken for malicious activity. Users should whitelist these operations by identifying the associated processes or user accounts.
+- Data transfer processes: Organizations that regularly encrypt data for secure transfer might trigger the rule. Users can handle this by excluding known data transfer processes or specific network paths associated with these operations.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further encryption or lateral movement.
+- Identify and terminate the malicious OpenSSL processes to stop ongoing encryption activities.
+- Conduct a thorough investigation to determine the scope of the attack, including identifying all affected files and systems.
+- Preserve forensic evidence by collecting relevant logs and snapshots of the system for further analysis.
+- Restore encrypted files from the most recent clean backups to ensure data availability and integrity.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging and monitoring for OpenSSL usage and other encryption tools to detect similar activities in the future.
+- Review and update access controls and permissions to limit the use of encryption tools to authorized personnel only.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate employees on recognizing phishing attempts and other common attack vectors to reduce the risk of future incidents."""
 
 
 [[rule.threat]]

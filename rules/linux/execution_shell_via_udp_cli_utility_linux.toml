@@ -2,7 +2,7 @@
 creation_date = "2023/07/04"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -87,6 +87,52 @@ sample by host.id, process.pid, process.parent.pid
     ) and network.direction == "egress" and destination.ip != null and
    not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Reverse Shell via UDP
+
+Reverse shells over UDP exploit the stateless nature of UDP to bypass firewalls, allowing attackers to execute commands remotely. Adversaries may use scripting languages or network tools to initiate these connections. The detection rule identifies such activity by monitoring for specific process executions, UDP socket creation, and unusual outbound connections, flagging potential misuse of these technologies.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host and process involved using `host.id`, `process.pid`, and `process.parent.pid`.
+- Verify the process name and command line arguments to confirm if it matches known reverse shell patterns, focusing on `process.name` and `event.action`.
+- Check the `auditd.data.syscall` for the "socket" call and ensure `auditd.data.a1` indicates a UDP connection (value "2").
+- Analyze the network connection details, particularly `network.direction` and `destination.ip`, to identify unusual or unauthorized egress connections.
+- Use Osquery to list all active network connections on the host to identify any other suspicious UDP connections:
+  ```sql
+  SELECT pid, local_address, local_port, remote_address, remote_port, protocol FROM process_open_sockets WHERE protocol = 'udp';
+  ```
+- Investigate the parent process (`process.parent.pid`) to determine if it was spawned by a legitimate or suspicious process.
+- Cross-reference the destination IP address with threat intelligence sources to check for known malicious indicators.
+- Examine historical logs for the host to identify any previous similar activities or patterns that might indicate a persistent threat.
+- Review user activity on the host around the time of the alert to identify any unauthorized access or actions.
+- Check for any recent changes to the system's firewall or security configurations that might have allowed the reverse shell to bypass protections.
+
+### False positive analysis
+
+- Legitimate administrative scripts or tools that use UDP for network diagnostics or configuration may trigger this rule. Users can handle these by identifying and excluding specific scripts or processes that are known to be safe.
+- Automated backup or monitoring systems that utilize UDP for communication might be flagged. To manage this, users should create exceptions for these systems by specifying their process names or network patterns.
+- Development or testing environments where developers frequently use scripting languages or network tools for legitimate purposes may cause false positives. Users can mitigate this by excluding specific user accounts or IP ranges associated with these environments.
+- Custom applications that use UDP for legitimate data transfer could be mistakenly identified as reverse shells. Users should document and exclude these applications by their process names or network behavior.
+- Security tools that perform network scans or penetration testing using UDP might be detected. Users can address this by excluding known security tools and their associated processes from the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the processes and network connections flagged by the detection rule.
+- Terminate any suspicious processes identified as part of the reverse shell activity to halt ongoing malicious actions.
+- Review and analyze system logs, including auditd and network logs, to gather evidence and understand the attack vector and timeline.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Apply patches and updates to the operating system and any vulnerable applications to mitigate known vulnerabilities exploited by the attacker.
+- Implement enhanced logging and monitoring policies to capture detailed process execution and network activity, aiding in future detection and investigation efforts.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
+- Restore the system from a known good backup to ensure the removal of any persistent threats or backdoors installed by the attacker.
+- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as restricting outbound UDP traffic and enforcing least privilege access controls."""
 
 
 [[rule.threat]]

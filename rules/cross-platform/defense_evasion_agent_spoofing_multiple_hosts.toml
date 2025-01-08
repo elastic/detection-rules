@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/07/14"
 maturity = "production"
-updated_date = "2024/06/14"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -31,6 +31,49 @@ type = "threshold"
 query = '''
 event.agent_id_status:* and not tags:forwarded
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Agent Spoofing - Multiple Hosts Using Same Agent
+
+In network environments, agents are deployed on hosts to monitor and report activities. Each agent has a unique ID to ensure accurate tracking. Adversaries may exploit this by using a single agent ID across multiple hosts to inject false data, masking their actions. The detection rule identifies such anomalies by flagging instances where the same agent ID appears on different hosts, indicating potential spoofing attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific agent ID that has been flagged for appearing on multiple hosts.
+- Cross-reference the `event.agent_id_status` field in the alert to determine the status and any additional context provided by the event.
+- Check the network logs to identify all hosts associated with the flagged agent ID and note any unusual patterns or discrepancies in their activities.
+- Use Osquery to gather more information about the hosts involved. For example, run the following query to list all processes associated with the agent ID on each host: `SELECT pid, name, path FROM processes WHERE name = 'agent_name';`
+- Investigate the timeline of events to determine when the agent ID first appeared on each host and identify any correlating events or changes in the network environment.
+- Examine the `tags` field in the alert to ensure that the events are not legitimate forwarded events, which could explain the presence of the same agent ID on multiple hosts.
+- Analyze the configuration and deployment logs of the agent to check for any unauthorized changes or anomalies that could indicate tampering.
+- Review user access logs and permissions to identify any unauthorized access or privilege escalation that might have facilitated the spoofing.
+- Correlate the findings with other security alerts or incidents to identify any patterns or connections that could indicate a broader attack campaign.
+- Document all findings and observations to build a comprehensive understanding of the incident, which will aid in further investigation and eventual remediation.
+
+### False positive analysis
+
+- Legitimate load balancing or failover scenarios where an agent ID is intentionally used across multiple hosts for redundancy can trigger false positives. Users can handle this by creating exceptions for known load-balanced systems.
+- Virtualized environments where snapshots or clones of a host are created might result in the same agent ID appearing on multiple hosts. Users should identify and exclude these virtualized instances from the rule.
+- During system migrations or upgrades, an agent ID might temporarily appear on multiple hosts. Users can manage this by setting temporary exceptions during the migration period.
+- In environments with shared or pooled resources, such as VDI (Virtual Desktop Infrastructure), the same agent ID might be used across different sessions. Users should configure the rule to recognize and exclude these shared resource scenarios.
+- Testing or development environments where agents are duplicated for testing purposes can also lead to false positives. Users should ensure these environments are excluded from the rule or tagged appropriately to prevent alerts.
+
+### Response and remediation
+
+- Immediately isolate affected hosts to prevent further spread of the spoofed agent ID across the network.
+- Conduct a thorough investigation to identify all hosts using the compromised agent ID and assess the scope of the intrusion.
+- Validate the integrity of the agent software on affected hosts and reinstall or update agents as necessary to ensure they are not compromised.
+- Review and analyze logs to identify any unauthorized activities or data injections associated with the spoofed agent ID.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement stricter access controls and authentication mechanisms for agent deployment and management to prevent unauthorized use.
+- Enhance logging policies to capture detailed agent activity and host interactions for improved monitoring and future investigations.
+- Integrate threat intelligence feeds to correlate detected spoofing attempts with known adversary tactics, techniques, and procedures (TTPs).
+- Restore affected systems to their operational state by applying necessary patches, updates, and configuration changes.
+- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as network segmentation and endpoint protection, to mitigate future risks."""
 
 
 [[rule.threat]]

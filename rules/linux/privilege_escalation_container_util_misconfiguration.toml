@@ -2,7 +2,7 @@
 creation_date = "2023/07/31"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -77,6 +77,49 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 ) and not user.Ext.real.id == "0" and not group.Ext.real.id == "0" and 
 process.interactive == true and process.parent.interactive == true
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via Container Misconfiguration
+
+Containers, managed by tools like runc and ctr, isolate applications for security and efficiency. Misconfigurations can allow non-root users to exploit these tools, creating privileged containers or mounting sensitive directories, potentially leading to host system access. The detection rule identifies such misuse by monitoring non-root interactive shell executions of these utilities, flagging potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process name and arguments that triggered the alert, focusing on `process.name` and `process.args` fields.
+- Verify the user context by examining `user.Ext.real.id` and `group.Ext.real.id` to confirm that the process was executed by a non-root user.
+- Check the `process.interactive` and `process.parent.interactive` fields to ensure the process was initiated through an interactive shell, which might indicate direct user involvement.
+- Investigate the parent process to understand the context of execution by examining `process.parent.name` and `process.parent.args`.
+- Use Osquery to list all running containers and their configurations to identify any suspicious or misconfigured containers. Example query: `SELECT * FROM docker_containers WHERE privileged = 1 OR mount_label LIKE '%root%';`
+- Examine the system logs for any recent changes to container configurations or permissions that might have led to the misconfiguration.
+- Review the user's command history, if available, to identify any previous commands that might indicate attempts to exploit container misconfigurations.
+- Check for any recent user account changes or privilege escalations that could have facilitated unauthorized access to container management utilities.
+- Investigate network activity from the host to identify any unusual outbound connections that might suggest data exfiltration or communication with a command and control server.
+- Correlate the alert with other security events or alerts in the environment to determine if this is part of a broader attack campaign.
+
+### False positive analysis
+
+- Non-root users with legitimate administrative tasks may trigger the rule if they are required to run container management commands interactively. This can occur in development environments where developers have elevated permissions to manage containers without root access.
+- Automated scripts or CI/CD pipelines that execute container commands as non-root users might be flagged if they are designed to run interactively for debugging purposes.
+- Security tools or monitoring solutions that simulate container operations to test system defenses could inadvertently match the rule's criteria if they operate under non-root accounts.
+- To manage these false positives, users can create exceptions by identifying specific user accounts or groups that are known to perform legitimate container operations. This can be done by modifying the detection rule to exclude these users or groups from triggering alerts.
+- Another approach is to refine the rule by adding conditions that check for additional context, such as specific working directories or command-line arguments that are typical of benign operations, to reduce unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further unauthorized access or potential spread to other containers or the host system.
+- Conduct a thorough investigation of the container's configuration and logs to identify the misconfiguration that allowed privilege escalation.
+- Review and analyze the command history and process execution logs to determine the extent of the attack and identify any additional compromised components.
+- Revoke any unauthorized access and reset credentials for any accounts that may have been compromised during the incident.
+- Escalate the incident to the security operations team if the investigation reveals a broader compromise or if sensitive data may have been accessed.
+- Implement enhanced logging policies to capture detailed container activity, including process execution, network connections, and file access, to aid in future investigations.
+- Integrate security monitoring tools with container orchestration platforms to provide real-time alerts on suspicious activities and potential misconfigurations.
+- Restore the affected container to its operational state by redeploying it from a known good image and ensuring all security patches and configurations are up to date.
+- Harden container security by enforcing the principle of least privilege, ensuring that containers run with the minimum necessary permissions and that sensitive directories are not mounted.
+- Regularly review and update container security policies and configurations to align with best practices and mitigate the risk of privilege escalation and container escape attacks."""
 
 
 [[rule.threat]]

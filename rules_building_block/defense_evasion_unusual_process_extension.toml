@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -59,6 +59,48 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.name: "AGSRunner.bin" and process.code_signature.subject_name: "Intel Corporation")
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Process Extension
+
+In Windows environments, processes typically run with standard executable extensions like .exe or .com. Adversaries may exploit this by using non-standard extensions to disguise malicious executables, evading detection. The 'Unusual Process Extension' rule identifies such anomalies by flagging processes with atypical extensions, excluding known legitimate cases, thus highlighting potential masquerading attempts.
+
+### Possible investigation steps
+
+- Review the process name and executable path to determine if the extension is indeed unusual and not a false positive by checking against known legitimate cases.
+- Verify the process's code signature details, such as the subject name, to confirm if the process is signed by a trusted entity or if it lacks a valid signature.
+- Cross-reference the process name and executable path with threat intelligence sources to identify if they are associated with known malicious activities.
+- Use Osquery to gather additional context about the process. For example, run the following query to list all processes with unusual extensions: `SELECT pid, name, path, cmdline, cwd, uid, gid FROM processes WHERE path LIKE '%.%' AND path NOT LIKE '%.exe' AND path NOT LIKE '%.com' AND path NOT LIKE '%.scr' AND path NOT LIKE '%.tmp' AND path NOT LIKE '%.dat';`
+- Investigate the parent process of the flagged process to understand how it was spawned and if the parent process is legitimate.
+- Check the process's command line arguments for any suspicious or unexpected parameters that could indicate malicious behavior.
+- Analyze the process's network activity to identify any unusual or unauthorized connections that could suggest data exfiltration or command and control communication.
+- Examine the process's file creation and modification activities to detect any unauthorized changes to critical system files or directories.
+- Review system logs and security events around the time the process was started to identify any correlated suspicious activities or anomalies.
+- Consult with other team members or departments to gather additional insights or context about the process, especially if it is related to a specific application or business function.
+
+### False positive analysis
+
+- Certain legitimate processes may run with unusual extensions due to specific software requirements or configurations, such as those from Dell, Bloomberg LP, Adobe Inc., McAfee, LLC, The Document Foundation, Veeam Software Group GmbH, LLC 1C-Soft, and Intel Corporation. These are already accounted for in the rule's exceptions.
+- Users may encounter false positives from custom or proprietary software that uses non-standard extensions for executable files. In such cases, users should verify the legitimacy of the process and consider adding it to the exclusion list if it is deemed safe.
+- Processes related to software development or testing environments might also trigger false positives due to the use of unique or temporary extensions. Users should assess the context and, if necessary, exclude these processes to reduce noise.
+- To manage false positives, users can update the rule's exclusion list by adding specific process names or paths that are verified as non-threatening, ensuring that these are regularly reviewed and updated to maintain security integrity.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malware.
+- Conduct a thorough investigation of the flagged process to determine if it is indeed malicious, using tools like antivirus scans and behavioral analysis.
+- Review the process's parent-child relationship to identify any other potentially malicious processes or scripts that may have initiated the unusual process.
+- If confirmed malicious, terminate the process and delete any associated files or registry entries to prevent re-execution.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if this is part of a larger attack.
+- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent process information, to aid in future investigations.
+- Integrate threat intelligence feeds to correlate the unusual process with known threat actor tactics, techniques, and procedures (TTPs) for better context and response.
+- Restore the system to its operational state by applying the latest security patches and updates, and ensure that all security software is up to date.
+- Conduct a post-incident review to identify gaps in the current security posture and update security policies and procedures accordingly.
+- Implement hardening measures such as application whitelisting, disabling unnecessary services, and enforcing least privilege access to reduce the attack surface."""
 
 
 [[rule.threat]]

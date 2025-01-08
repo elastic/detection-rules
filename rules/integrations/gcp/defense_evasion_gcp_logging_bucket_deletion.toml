@@ -2,7 +2,7 @@
 creation_date = "2020/09/21"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,51 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Logging Bucket Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP Logging Bucket Deletion
+
+In GCP, log buckets are crucial for storing and managing log data, ensuring visibility into system activities. Adversaries may delete these buckets to obscure their tracks and evade detection. The detection rule identifies successful deletion actions by monitoring specific audit logs, helping security teams quickly respond to potential defense evasion attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of `event.dataset:gcp.audit`, `event.action:google.logging.v*.ConfigServiceV*.DeleteBucket`, and `event.outcome:success` to ensure the alert is triggered by a successful bucket deletion.
+- Check the timestamp of the deletion event to determine when the bucket was deleted and correlate it with other security events or anomalies around the same time.
+- Identify the user or service account associated with the deletion action by examining the `actor` field in the audit log to determine if the action was authorized or potentially malicious.
+- Investigate the source IP address and location from which the deletion request was made to identify any unusual access patterns or locations.
+- Review the project and resource details in the audit log to understand the scope and impact of the deletion, including which logs were being stored in the deleted bucket.
+- Examine the `request` and `response` fields in the audit log for additional context on the deletion request, such as any parameters or configurations that were specified.
+- Use Osquery to gather more information about the GCP environment. For example, run the following query to list all current log sinks and their destinations: `SELECT * FROM gcp_logging_sinks;`
+- Check for any recent changes to IAM policies or permissions that might have allowed unauthorized users to delete the log bucket.
+- Investigate any other recent audit logs for suspicious activities involving the same user or service account to identify potential patterns of malicious behavior.
+- Collaborate with the GCP admin team to verify if the deletion was part of a legitimate maintenance activity or if it requires further investigation.
+
+### False positive analysis
+
+- Routine maintenance or administrative tasks may trigger the GCP Logging Bucket Deletion rule, as legitimate users might delete log buckets for reorganization or storage management purposes.
+- Automated scripts or tools used for managing GCP resources could inadvertently delete log buckets as part of their operations, leading to false positives.
+- To manage these false positives, users can create exceptions for known maintenance activities by excluding specific user accounts or service accounts from the detection rule.
+- Implementing a whitelist of IP addresses or user roles associated with regular administrative tasks can help reduce noise from non-threatening deletions.
+- Regularly review and update the detection rule's filters to exclude actions from trusted sources or during scheduled maintenance windows, ensuring that only suspicious deletions are flagged.
+
+### Response and remediation
+
+- Immediately verify the deletion event by cross-referencing with other logs and alerts to confirm unauthorized activity.
+- Contain the incident by disabling any compromised accounts or credentials that may have been used to delete the log bucket.
+- Investigate the scope of the incident by reviewing access logs and identifying any other suspicious activities or changes in the environment.
+- Remediate by restoring the deleted log bucket from backup if available, or reconfigure log sinks to redirect logs to an alternative bucket.
+- Escalate the incident to the security operations team and relevant stakeholders for further analysis and response.
+- Implement enhanced logging policies to ensure all critical actions are logged and monitored, including changes to logging configurations.
+- Integrate additional security tools and services, such as SIEM or cloud-native security solutions, to improve detection and response capabilities.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Harden the environment by applying the principle of least privilege to all accounts and regularly reviewing permissions and access controls.
+- Educate and train staff on security best practices and the importance of monitoring and protecting log data to prevent future incidents.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/logging/docs/buckets", "https://cloud.google.com/logging/docs/storage"]

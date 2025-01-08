@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/10/31"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -61,6 +61,50 @@ process where host.os.type == "windows" and event.type == "start" and
   )
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Attempt to Install Kali Linux via WSL
+
+Windows Subsystem for Linux (WSL) allows users to run Linux distributions on Windows, providing a seamless integration of Linux tools. Adversaries may exploit WSL to install distributions like Kali Linux, leveraging its capabilities for stealthy operations and evading traditional Windows security measures. The detection rule identifies suspicious activities by monitoring specific process executions and arguments related to Kali Linux installation, helping to uncover potential misuse of WSL for malicious purposes.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of suspicious process executions related to Kali Linux installation via WSL, focusing on the `process.name` and `process.args` fields.
+- Check the `process.executable` path to verify if it matches known paths for Kali Linux installations, such as those in `AppData` or `Program Files`.
+- Use Osquery to list all installed WSL distributions on the host to confirm the presence of Kali Linux. Example query: `SELECT name FROM wsl_distributions;`
+- Investigate the parent process of `wsl.exe` to determine how the installation was initiated and identify any associated user accounts.
+- Examine the user account associated with the suspicious process to determine if it aligns with expected usage patterns or if it indicates potential compromise.
+- Review recent login events for the user account to identify any unusual access patterns or times that could suggest unauthorized activity.
+- Analyze network activity from the host around the time of the alert to detect any connections to known malicious IPs or domains associated with Kali Linux usage.
+- Check for any additional processes or scripts executed by the user that could indicate further malicious activity or attempts to leverage Kali Linux tools.
+- Investigate any file modifications or creations in the directories associated with the Kali Linux installation paths to identify potential tampering or unauthorized changes.
+- Correlate the findings with other security alerts or logs from the same host to build a comprehensive picture of the potential threat and its scope.
+
+### False positive analysis
+
+- Users or administrators may intentionally install Kali Linux via WSL for legitimate purposes such as development, testing, or educational activities, which can trigger the detection rule.
+- Automated scripts or deployment tools that configure development environments might include steps to install Kali Linux on WSL, leading to benign alerts.
+- Security researchers or IT professionals might use Kali Linux on WSL for vulnerability assessments or penetration testing within a controlled environment, which should be considered non-threatening.
+- To manage these false positives, users can create exceptions for known and authorized users or systems that regularly perform these installations.
+- Implementing a whitelist of approved processes or users who are allowed to install Kali Linux via WSL can help reduce unnecessary alerts.
+- Regularly review and update the list of exceptions to ensure that only legitimate activities are excluded from detection, maintaining a balance between security and operational needs.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Verify the legitimacy of the WSL installation by checking with the user or system owner and reviewing recent changes or installations.
+- Conduct a thorough investigation of the system to identify any additional malicious activities or unauthorized access, focusing on processes and files related to Kali Linux.
+- Remove any unauthorized or suspicious WSL distributions, particularly Kali Linux, and ensure that WSL is configured according to organizational policies.
+- Review and update security policies to restrict the installation of unauthorized WSL distributions and enforce application whitelisting where possible.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the activity is part of a larger attack campaign.
+- Implement enhanced logging and monitoring for WSL activities, including process execution and network connections, to improve detection of similar threats in the future.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate WSL-related alerts with other security events.
+- Restore the system to its operational state by reinstalling necessary software and applying security patches, ensuring that no unauthorized changes remain.
+- Apply system hardening measures, such as disabling WSL if not needed, enforcing least privilege access, and regularly reviewing user permissions and installed software."""
 
 
 [[rule.threat]]

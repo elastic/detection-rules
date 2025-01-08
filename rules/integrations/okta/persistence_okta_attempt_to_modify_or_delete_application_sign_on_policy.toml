@@ -2,7 +2,7 @@
 creation_date = "2020/07/01"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2024/12/09"
+updated_date = "2025/01/08"
 min_stack_version = "8.15.0"
 min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
 
@@ -22,7 +22,53 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Modification or Removal of an Okta Application Sign-On Policy"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Modification or Removal of an Okta Application Sign-On Policy
+
+Okta's sign-on policies are crucial for enforcing authentication controls within applications, ensuring secure access. Adversaries may target these policies to weaken security, potentially allowing unauthorized access. The detection rule monitors system events for policy updates or deletions, identifying suspicious activities that could indicate attempts to bypass or compromise authentication processes.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific `event.action` that triggered the alert, focusing on `application.policy.sign_on.update` or `application.policy.sign_on.rule.delete`.
+- Examine the `event.dataset` field to confirm that the event is from `okta.system`, ensuring the alert is relevant to Okta system events.
+- Identify the user account associated with the event by reviewing the `user.name` or `actor.id` fields to determine if the action was performed by a legitimate user or a potential adversary.
+- Check the `event.time` field to establish a timeline of when the modification or deletion occurred, which can help correlate with other suspicious activities.
+- Investigate the `source.ip` field to determine the origin of the request, identifying if it came from a known or suspicious IP address.
+- Use Osquery to gather additional context on the system from which the modification was made. For example, run the following query to check for recent changes in Okta policies:
+  ```sql
+  SELECT * FROM okta_system_events WHERE action IN ('application.policy.sign_on.update', 'application.policy.sign_on.rule.delete') AND time > (SELECT MAX(time) - INTERVAL '1 DAY' FROM okta_system_events);
+  ```
+- Review recent login activities for the identified user account to check for any unusual patterns or anomalies, such as logins from unfamiliar locations or devices.
+- Analyze the `application.id` or `application.name` fields to determine which specific application’s sign-on policy was modified or deleted, assessing the potential impact on the organization.
+- Cross-reference the event with other security logs and alerts to identify any related suspicious activities or patterns that could indicate a broader attack.
+- Consult with the application owner or relevant stakeholders to verify if the policy change was authorized and documented, providing additional context for the investigation.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate updates or deletions of sign-on policies by IT administrators during regular maintenance or policy updates can trigger this rule. To manage this, organizations can create exceptions for known administrative accounts or schedule maintenance windows where such activities are expected.
+- Policy testing and development: During the development or testing of new security policies, changes to sign-on policies may occur frequently. To handle these, organizations can exclude events from test environments or specific development accounts from triggering alerts.
+- Automated policy management tools: Some organizations use automated tools to manage and update security policies, which might result in frequent policy changes. Users can whitelist these tools or their associated accounts to prevent false positives.
+- Mergers or acquisitions: During organizational changes like mergers or acquisitions, policy modifications might be necessary to integrate systems. In such cases, temporary exceptions can be applied to accounts involved in the integration process to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate affected systems or accounts to prevent further unauthorized access.
+- Review Okta system logs to identify the source and scope of the policy modification or deletion.
+- Verify the integrity of other sign-on policies to ensure no additional unauthorized changes have been made.
+- Restore the original sign-on policy from backups or recreate it based on documented security requirements.
+- Conduct a thorough investigation to determine if any unauthorized access occurred during the policy modification period.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging and monitoring for Okta policy changes to detect future unauthorized modifications promptly.
+- Integrate Okta with a Security Information and Event Management (SIEM) system for centralized monitoring and alerting.
+- Educate users and administrators on the importance of maintaining strong authentication policies and recognizing potential security threats.
+- Review and update security policies and procedures to incorporate lessons learned from the incident and improve overall security posture.
+
+## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -64,6 +64,51 @@ query = '''
 process where host.os.type == "linux" and event.action == "session_id_change" and process.name : "kworker*" and
 user.id == "0"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Kworker UID Elevation
+
+Kworker processes are integral to Linux, handling tasks like interrupts and background activities in kernel space. Adversaries may exploit these by masquerading as kworker processes to gain root access, often using rootkits to hijack execution flow. The detection rule identifies such abuse by monitoring for kworker processes that change session IDs and elevate user permissions to root, signaling potential privilege escalation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name matches "kworker*" and the user ID is "0", indicating a potential privilege escalation.
+- Check the session ID change event to determine the previous and new session IDs, which can provide context on the session transition.
+- Investigate the parent process of the kworker process to identify if it was spawned by a legitimate kernel process or an unexpected user-space process.
+- Use Osquery to list all running kworker processes and their associated user IDs to identify any discrepancies or anomalies:
+  ```sql
+  SELECT pid, name, uid, parent FROM processes WHERE name LIKE 'kworker%';
+  ```
+- Examine the process tree to trace the lineage of the suspicious kworker process and identify any unusual parent-child relationships.
+- Analyze recent system logs for any unusual activities or errors around the time of the session ID change event to gather additional context.
+- Check for any recent modifications to kernel modules or system binaries that could indicate the presence of a rootkit.
+- Review user login and authentication logs to identify any unauthorized access attempts or successful logins around the time of the alert.
+- Investigate network activity from the host to detect any suspicious outbound connections that could indicate data exfiltration or command-and-control communication.
+- Correlate the alert with other security events or alerts from the same host to identify patterns or additional indicators of compromise.
+
+### False positive analysis
+
+- Legitimate system maintenance tasks or updates may trigger session ID changes in kworker processes, leading to false positives. Users can monitor the timing of these alerts to correlate with scheduled maintenance activities and create exceptions for these periods.
+- Custom kernel modules or drivers that interact with kworker processes might inadvertently cause session ID changes. Users should review and whitelist known safe modules or drivers that are part of their standard operating environment.
+- Certain security tools or monitoring solutions may interact with kworker processes for legitimate reasons, causing session ID changes. Users should identify these tools and configure the detection rule to exclude their activity by specifying process names or user IDs associated with these tools.
+- In environments with automated scripts or cron jobs that require elevated permissions, kworker processes might be used as part of the execution flow. Users should document these scripts and create exceptions for their associated kworker activities to prevent false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to confirm the presence of a rootkit by analyzing system logs, process trees, and any anomalous behavior associated with kworker processes.
+- Utilize forensic tools to capture memory and disk images for detailed analysis and evidence preservation.
+- If a rootkit is confirmed, perform a full system scan using updated antivirus and anti-malware tools to identify and remove malicious components.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
+- Restore the system from a known good backup to ensure all malicious modifications are removed, and verify the integrity of the restored system.
+- Implement enhanced logging policies to capture detailed process execution and user activity, focusing on session ID changes and privilege escalations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
+- Review and update access controls and user permissions to minimize the risk of privilege escalation, ensuring the principle of least privilege is enforced.
+- Conduct a post-incident review to identify gaps in the current security posture and apply hardening measures, such as kernel module signing and regular integrity checks, to prevent future exploitation."""
 
 
 [[rule.threat]]

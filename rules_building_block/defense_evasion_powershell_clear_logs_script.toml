@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,48 @@ event.category:process and host.os.type:windows and
   ) and
   not file.directory : "C:\Program Files\WindowsAdminCenter\PowerShellModules\Microsoft.WindowsAdminCenter.Configuration"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PowerShell Script with Log Clear Capabilities
+
+PowerShell, a powerful scripting language in Windows, enables automation and configuration management. Adversaries exploit its capabilities to clear event logs, erasing traces of their activities to evade detection. The detection rule identifies suspicious PowerShell commands linked to log deletion, excluding benign scripts and known directories, thus highlighting potential malicious actions.
+
+### Possible investigation steps
+
+- Review the alert details to understand which specific PowerShell command or method triggered the detection, focusing on the `powershell.file.script_block_text` field.
+- Examine the `event.category:process` field to identify the process that executed the suspicious PowerShell command, noting the process ID and parent process ID for further context.
+- Check the `host.os.type:windows` field to confirm the operating system and ensure the alert pertains to a Windows environment.
+- Investigate the user account associated with the execution of the PowerShell script to determine if it aligns with expected behavior or if it indicates potential compromise.
+- Analyze the execution context by reviewing the `file.directory` field to verify if the script was executed from a known or suspicious directory, excluding benign directories like "C:\\Program Files\\WindowsAdminCenter\\PowerShellModules\\Microsoft.WindowsAdminCenter.Configuration".
+- Use Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE pid = <process_id>;` to retrieve details about the process that executed the PowerShell command.
+- Investigate recent login events for the user account involved to identify any unusual login patterns or anomalies that could suggest unauthorized access.
+- Review other security logs and alerts around the same timeframe to identify any correlated activities or additional indicators of compromise.
+- Check for any recent changes to system configurations or scheduled tasks that might have been used to facilitate the execution of the PowerShell script.
+- Document all findings and maintain a timeline of events to assist in understanding the scope and potential impact of the activity.
+
+### False positive analysis
+
+- Known false positives may arise from legitimate administrative tasks where system administrators use PowerShell scripts to manage event logs as part of routine maintenance or troubleshooting. These activities might include clearing logs to free up space or reset logs after resolving issues.
+- Scripts executed from trusted directories, such as those used by Windows Admin Center, may trigger alerts if not properly excluded. Ensure that directories like "C:\\Program Files\\WindowsAdminCenter\\PowerShellModules\\Microsoft.WindowsAdminCenter.Configuration" are added to exclusion lists to prevent unnecessary alerts.
+- To manage false positives, users can create exceptions for specific scripts or directories known to perform legitimate log management tasks. This can be done by updating the detection rule to exclude these benign activities, ensuring that only suspicious or unknown scripts trigger alerts.
+- Regularly review and update exclusion lists to reflect changes in administrative practices or new trusted scripts, maintaining a balance between security and operational efficiency.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the source and scope of the attack, focusing on recent PowerShell activities and event log modifications.
+- Review and analyze other systems for similar PowerShell script executions to determine if the attack has spread.
+- Restore cleared event logs from backups if available to aid in forensic analysis and understanding of the attack timeline.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed PowerShell execution data, including script block logging and module logging.
+- Integrate with a security information and event management (SIEM) system to correlate and analyze PowerShell activities across the network.
+- Apply security patches and updates to the affected system to mitigate vulnerabilities exploited by the attacker.
+- Educate users and administrators on the risks of PowerShell misuse and enforce the principle of least privilege to limit script execution capabilities.
+- Consider deploying application whitelisting or PowerShell Constrained Language Mode to restrict unauthorized script execution."""
 
 [[rule.filters]]
 [rule.filters.meta]

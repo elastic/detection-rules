@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/08"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -36,6 +36,48 @@ github.repo:* and github.hashed_token:* and
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token") and 
 github.repository_public:false
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Occurrence of Private Repo Event from Specific GitHub Personal Access Token (PAT)
+
+GitHub Personal Access Tokens (PATs) enable programmatic access to repositories, facilitating automation and integration. However, adversaries can exploit compromised PATs to access private repositories, potentially exfiltrating sensitive data. This detection rule identifies unusual private repo interactions by monitoring for PAT activity not observed in the past 14 days, signaling potential unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific GitHub Personal Access Token (PAT) involved, using the `github.hashed_token` field for reference.
+- Check the `event.dataset` and `event.category` fields to confirm the event is related to GitHub audit logs and configuration changes, ensuring the alert is valid.
+- Investigate the `github.repo` field to determine which private repository was accessed and assess the sensitivity of the data within.
+- Verify the `github.programmatic_access_type` to understand the type of access token used, distinguishing between "OAuth access token" and "Fine-grained personal access token."
+- Examine the user or service account associated with the PAT to determine if the access was expected or authorized.
+- Cross-reference the PAT activity with recent user activity logs to identify any anomalies or patterns that could indicate unauthorized access.
+- Utilize Osquery to gather additional context on the system where the PAT might have been used. Example query: `SELECT * FROM processes WHERE name LIKE '%git%' AND cmdline LIKE '%<hashed_token_value>%';` to find processes using the token.
+- Check for any recent changes in the repository's access permissions or settings that could have facilitated unauthorized access.
+- Investigate any other recent alerts or incidents involving the same PAT or repository to identify potential patterns or related threats.
+- Collaborate with the repository owner or relevant stakeholders to verify if the access was legitimate and gather additional context on the PAT's intended use.
+
+### False positive analysis
+
+- Regularly scheduled automated tasks or scripts using GitHub PATs may trigger this rule if they interact with private repositories infrequently, such as once a month. Users can manage this by creating exceptions for known, trusted scripts or automation tools that are expected to access private repositories periodically.
+- Developers or team members who rotate their PATs for security reasons might cause false positives when accessing private repositories with a new token. To handle this, maintain a list of authorized personnel and their expected access patterns, and update the monitoring system to recognize these changes as non-threatening.
+- Integration tools or third-party services that use PATs for legitimate access to private repositories might be flagged if they have not interacted with the repository in the past 14 days. Users should document and whitelist these services to prevent unnecessary alerts.
+- Temporary access granted to contractors or external collaborators using PATs could be misidentified as unauthorized access. Ensure that any temporary access is logged and that exceptions are in place for the duration of their engagement to avoid false positives.
+
+### Response and remediation
+
+- Immediately revoke the compromised GitHub Personal Access Token (PAT) to prevent further unauthorized access.
+- Conduct a thorough review of recent activities associated with the compromised PAT to identify any unauthorized changes or data exfiltration.
+- Notify the affected repository owners and stakeholders about the potential breach and advise them to review their repositories for any suspicious activity.
+- Escalate the incident to the security team for a comprehensive investigation and to determine the scope of the breach.
+- Implement enhanced logging and monitoring for all PAT activities to detect unusual patterns and potential threats in the future.
+- Integrate security tools with GitHub to automate the detection of anomalous activities and improve response times.
+- Review and update access controls and permissions for all repositories to ensure the principle of least privilege is enforced.
+- Conduct a security awareness session for developers and repository managers on the importance of securing PATs and recognizing phishing attempts.
+- Restore any affected systems or repositories to their last known good state, ensuring that all unauthorized changes are reverted.
+- Implement additional security measures such as multi-factor authentication (MFA) for accessing sensitive repositories and resources."""
 
 
 [[rule.threat]]

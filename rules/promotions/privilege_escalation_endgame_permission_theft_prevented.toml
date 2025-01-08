@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 maturity = "production"
 promotion = true
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -36,6 +36,48 @@ type = "query"
 query = '''
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:token_protection_event or endgame.event_subtype_full:token_protection_event)
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Permission Theft - Prevented - Elastic Endgame
+
+Elastic Endgame is a security solution that prevents unauthorized access by monitoring and blocking attempts to manipulate access tokens, a common method for privilege escalation. Adversaries exploit token manipulation to gain elevated permissions illicitly. The detection rule identifies and alerts on such attempts by focusing on specific event types and actions related to token protection, ensuring swift response to potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to understand the context, focusing on the `event.kind:alert`, `event.module:endgame`, and `endgame.metadata.type:prevention` fields to confirm the alert is related to a prevention event.
+- Examine the `event.action:token_protection_event` or `endgame.event_subtype_full:token_protection_event` fields to identify the specific type of token manipulation attempt that was prevented.
+- Check the timestamp of the alert to determine when the unauthorized access attempt occurred and correlate it with other events in the same timeframe.
+- Investigate the source and destination IP addresses associated with the alert to identify potential malicious actors or compromised systems.
+- Analyze the user account involved in the alert to determine if it has been used in other suspicious activities or if it has been compromised.
+- Use Osquery to gather additional context about the system involved. For example, run the following query to list recent processes that might have been involved in token manipulation: `SELECT pid, name, path, cmdline FROM processes WHERE start_time > (SELECT datetime('now', '-1 hour'));`
+- Review system logs and security logs for any other unusual activities or anomalies around the time of the alert to identify potential patterns or related incidents.
+- Investigate any recent changes to user permissions or access rights that could have facilitated the token manipulation attempt.
+- Check for any known vulnerabilities or exploits that might have been used in conjunction with the token manipulation attempt to gain unauthorized access.
+- Collaborate with other security teams or stakeholders to gather additional insights or context that might aid in understanding the scope and impact of the attempted permission theft.
+
+### False positive analysis
+
+- Known false positives for the Permission Theft - Prevented - Elastic Endgame rule may include legitimate administrative actions where access tokens are manipulated as part of routine system maintenance or software updates. These actions can trigger alerts if they mimic the behavior of token manipulation used in privilege escalation.
+- To manage these false positives, users can create exceptions for specific processes or users that are known to perform legitimate token manipulations. This can be done by identifying the event.action or endgame.event_subtype_full values associated with these benign activities and excluding them from triggering alerts.
+- Another approach is to monitor the frequency and context of the alerts. If certain actions consistently trigger alerts but are verified as non-threatening, users can adjust the detection rule to exclude these specific scenarios, ensuring that only genuine threats are flagged.
+- It is important to regularly review and update the list of exceptions to ensure that new legitimate behaviors are accounted for while maintaining the integrity of the security monitoring system.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify the source and method of the token manipulation attempt, utilizing logs and alerts from Elastic Endgame.
+- Review user accounts and permissions to ensure no unauthorized changes have been made; reset credentials if necessary.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed information on access token usage and manipulation attempts for future investigations.
+- Integrate Elastic Endgame with other security tools such as SIEMs to improve threat detection and response capabilities.
+- Restore the system to its operational state by applying patches, updates, and verifying the integrity of critical system files.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
+- Educate users on the importance of secure credential management and the risks associated with token manipulation.
+- Implement hardening measures such as enforcing multi-factor authentication and least privilege access to reduce the risk of future privilege escalation attempts."""
 
 
 [[rule.threat]]

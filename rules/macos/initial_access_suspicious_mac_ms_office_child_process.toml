@@ -2,7 +2,7 @@
 creation_date = "2021/01/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -124,6 +124,51 @@ process where event.action == "exec" and host.os.type == "macos" and
         "/usr/sbin/networksetup"
       )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious macOS MS Office Child Process
+
+Microsoft Office applications on macOS, like Word and Excel, can execute child processes, a feature often exploited by adversaries through malicious macros or document exploits. Attackers may launch scripts or utilities to gain unauthorized access or execute malicious payloads. The detection rule identifies unusual child processes spawned by Office apps, filtering out benign activities and known false positives, to pinpoint potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific Microsoft Office application and child process involved, focusing on the `process.parent.name` and `process.name` fields.
+- Examine the `process.command_line` to understand the exact command executed by the child process, which may provide insights into the intent and potential malicious activity.
+- Check the `process.args` field to identify any arguments passed to the child process that could indicate suspicious behavior or attempts to evade detection.
+- Investigate the `process.parent.executable` and `process.Ext.effective_parent.executable` fields to verify the legitimacy of the parent process and ensure it is not a known false positive.
+- Use Osquery to gather additional context about the parent and child processes. For example, run the following Osquery query to list recent processes executed by Microsoft Office applications:
+  ```sql
+  SELECT pid, name, path, cmdline, parent FROM processes WHERE parent IN (SELECT pid FROM processes WHERE name IN ('Microsoft Word', 'Microsoft Excel', 'Microsoft PowerPoint', 'Microsoft Outlook', 'Microsoft OneNote'));
+  ```
+- Analyze the network activity associated with the suspicious process using network monitoring tools or logs to identify any unusual outbound connections or data exfiltration attempts.
+- Cross-reference the `process.name` with known malicious scripts or utilities to determine if the child process is commonly associated with malware or exploitation techniques.
+- Review system logs and security events around the time of the alert to identify any other suspicious activities or anomalies that may correlate with the alert.
+- Investigate the user account associated with the process execution to determine if there are any signs of account compromise or unauthorized access.
+- Consult threat intelligence sources to check if the observed behavior or process names are linked to known threat actors or campaigns targeting macOS systems.
+
+### False positive analysis
+
+- Known false positives include processes related to product version discovery and Office error reporting behavior, such as commands involving "ProductVersion", "hw.model", "ioreg", and paths like "/Library/Application Support/Microsoft/MERP*/Microsoft Error Reporting.app/Contents/MacOS/Microsoft Error Reporting".
+- False positives may also arise from legitimate applications and services like ToDesk, Privacy-i, Addigy, Elastic Agent, and JumpCloud Agent, which are filtered out by excluding their executables from detection.
+- Users can manage these false positives by adding exceptions for specific process arguments and parent executables that are known to be benign, ensuring that frequent non-threatening behaviors do not trigger alerts.
+- It is important to regularly review and update the list of exceptions to adapt to changes in legitimate software behavior and maintain effective threat detection.
+
+### Response and remediation
+
+- Isolate the affected macOS device from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation of the suspicious child process to determine the scope and impact of the potential compromise.
+- Review the parent Office document for any embedded macros or scripts that may have triggered the malicious activity.
+- Remove any identified malicious files or scripts from the system and ensure that all Office applications are updated to the latest security patches.
+- Escalate the incident to the security operations team if the investigation reveals a broader threat or if multiple systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and network activity for future investigations.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actors and techniques.
+- Restore the system to its operational state by reinstalling affected applications and verifying system integrity.
+- Educate users on recognizing phishing attempts and the risks associated with enabling macros in Office documents.
+- Apply hardening measures such as disabling macros by default and enforcing strict application whitelisting policies."""
 
 
 [[rule.threat]]

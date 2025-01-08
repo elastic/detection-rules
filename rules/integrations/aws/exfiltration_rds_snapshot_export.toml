@@ -2,7 +2,7 @@
 creation_date = "2021/06/06"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -20,7 +20,52 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS RDS Snapshot Export"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS RDS Snapshot Export
+
+Amazon RDS allows users to create snapshots of their databases, which can be exported for backup or migration. Adversaries may exploit this feature to exfiltrate sensitive data by exporting snapshots to external locations. The detection rule monitors successful initiation of snapshot export tasks, flagging potential unauthorized data transfers by correlating specific CloudTrail events related to RDS operations.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs to confirm the `event.action:StartExportTask` and `event.outcome:success` to ensure the snapshot export task was successfully initiated.
+- Identify the `userIdentity` field in the CloudTrail event to determine which IAM user or role initiated the snapshot export.
+- Check the `sourceIPAddress` field to verify the IP address from which the export task was initiated, and assess if it aligns with known and expected IP addresses.
+- Examine the `eventTime` field to establish the timeline of the export task and correlate it with other activities in the environment.
+- Investigate the `requestParameters` field to gather details about the specific RDS snapshot being exported, including the database identifier and snapshot name.
+- Analyze the `responseElements` field to confirm the destination of the exported snapshot and ensure it aligns with authorized S3 buckets or external locations.
+- Use Osquery to query AWS RDS configurations and permissions, for example: `SELECT * FROM aws_rds_instances WHERE instance_id = '<instance_id>'` to verify the instance details and associated permissions.
+- Cross-reference the IAM user or role with AWS IAM policies to ensure that the permissions granted are appropriate and do not allow unauthorized export actions.
+- Review recent changes in IAM policies or roles that might have inadvertently allowed the snapshot export, focusing on the `eventName:PutRolePolicy` or `eventName:AttachRolePolicy` in CloudTrail logs.
+- Investigate any other related CloudTrail events around the same `eventTime` to identify potential lateral movement or other suspicious activities that could indicate a broader security incident.
+
+### False positive analysis
+
+- Routine database maintenance or migration activities by authorized personnel can trigger the AWS RDS Snapshot Export rule, leading to false positives. 
+- Scheduled exports for backup purposes, especially in organizations with automated backup policies, may also be flagged as suspicious.
+- Development and testing environments often involve frequent snapshot exports, which can be mistaken for unauthorized activities.
+- To manage these false positives, users can create exceptions for known and scheduled export tasks by whitelisting specific IAM roles or user accounts responsible for legitimate exports.
+- Implementing tagging strategies for RDS instances and snapshots can help differentiate between routine operations and potential threats, allowing for more precise filtering in detection rules.
+- Regularly review and update the list of approved export tasks and associated personnel to ensure that only legitimate activities are excluded from alerts.
+
+### Response and remediation
+
+- Immediately verify the legitimacy of the snapshot export by contacting the database owner or relevant stakeholders to confirm if the action was authorized.
+- If unauthorized, revoke any temporary credentials or access keys that may have been used to initiate the export task.
+- Isolate the affected RDS instance by restricting network access and applying security groups to prevent further unauthorized actions.
+- Review CloudTrail logs and other relevant logs to identify any suspicious activities or patterns leading up to the export task.
+- Conduct a thorough investigation to determine the scope of the data exfiltration, including identifying any other compromised resources or accounts.
+- Escalate the incident to the security operations team and, if necessary, involve legal and compliance teams to assess potential data breach implications.
+- Restore the database from a known good snapshot or backup if data integrity is suspected to be compromised.
+- Implement enhanced logging and monitoring policies, such as enabling AWS Config and GuardDuty, to detect and alert on similar activities in the future.
+- Review and update IAM policies to enforce the principle of least privilege, ensuring only authorized users have the necessary permissions to export snapshots.
+- Conduct a post-incident review to identify gaps in the current security posture and apply hardening measures, such as multi-factor authentication and regular security training for users.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_StartExportTask.html"]

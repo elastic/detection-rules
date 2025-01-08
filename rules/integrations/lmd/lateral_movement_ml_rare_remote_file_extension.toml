@@ -2,7 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 70
@@ -51,6 +51,49 @@ tags = [
     "Tactic: Lateral Movement",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Remote File Extension
+In enterprise environments, remote file transfers are common for legitimate operations. However, adversaries may exploit this by transferring files with rare or unusual extensions to facilitate lateral movement, often bypassing standard security measures. The 'Unusual Remote File Extension' detection rule identifies anomalies in file extensions during remote transfers, flagging potential exploitation of remote services, aligning with MITRE ATT&CK's lateral movement tactics.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file extension and the source and destination of the remote file transfer.
+- Check the historical data for the identified file extension to determine if it has been used previously in legitimate operations.
+- Analyze the user account associated with the file transfer to verify if the activity aligns with their typical behavior and access patterns.
+- Investigate the source and destination IP addresses to determine if they are known and trusted within the organization.
+- Use Osquery to gather additional context on the host involved in the transfer. For example, run the following query to list recent file modifications: `SELECT path, size, atime, mtime FROM file WHERE path LIKE '/path/to/directory/%' ORDER BY mtime DESC LIMIT 10;`
+- Examine the process tree on the source host to identify any unusual or unexpected processes that may have initiated the file transfer.
+- Cross-reference the file hash with threat intelligence databases to check for any known malicious indicators.
+- Review network logs to identify any other unusual or suspicious activities associated with the source or destination IP addresses.
+- Check for any recent changes in user permissions or configurations that could have facilitated the unusual file transfer.
+- Consult with the user or department associated with the file transfer to verify if the activity was authorized and legitimate.
+
+### False positive analysis
+
+- Known false positives for the Unusual Remote File Extension rule often include legitimate software updates or patches that use uncommon file extensions during remote transfers. These can be mistakenly flagged as suspicious.
+- Internal development teams may transfer files with custom extensions for testing or deployment purposes, which can trigger the rule despite being non-threatening.
+- Automated backup systems might use unique file extensions to differentiate between versions or types of data, leading to false positives.
+- To manage these false positives, users can create exceptions for specific file extensions that are regularly used in legitimate operations by trusted applications or systems.
+- Implementing a whitelist of known and verified file extensions associated with routine business processes can help reduce unnecessary alerts.
+- Regularly reviewing and updating the list of exceptions based on changes in business operations or software updates can ensure that the detection rule remains effective without generating excessive false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further lateral movement and potential data exfiltration.
+- Conduct a thorough investigation of the unusual file extension to determine its origin, purpose, and any associated processes or network connections.
+- Review recent remote file transfer logs to identify any other instances of unusual file extensions or suspicious activity.
+- Utilize endpoint detection and response (EDR) tools to scan the affected host for known indicators of compromise (IOCs) related to the identified threat.
+- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals signs of compromise or if the threat level is beyond initial containment capabilities.
+- Remove any malicious files or software identified during the investigation and apply security patches to address any exploited vulnerabilities.
+- Restore the system to its operational state by ensuring all malicious artifacts are removed and verifying system integrity.
+- Implement enhanced logging policies to capture detailed information on remote file transfers and unusual file extensions for future investigations.
+- Integrate threat intelligence feeds and automated alerting systems to improve detection of similar threats in the future.
+- Conduct a post-incident review to identify gaps in security controls and apply hardening measures, such as restricting remote file transfer capabilities to trusted sources and implementing strict access controls."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

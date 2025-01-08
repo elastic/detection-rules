@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/09/01"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -49,6 +49,49 @@ network where host.os.type == "windows" and
     ) and process.code_signature.trusted == true
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Outgoing RDP Connection by Unusual Process
+
+Remote Desktop Protocol (RDP) enables users to connect to other systems over a network, facilitating remote management and troubleshooting. However, adversaries can exploit RDP for lateral movement within a network, often bypassing detection by using non-standard processes. The detection rule identifies unusual processes attempting RDP connections, excluding known legitimate applications, to flag potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the unusual process attempting the RDP connection, focusing on the `process.executable` field to determine the exact path and name of the executable.
+- Verify the `process.code_signature.trusted` field to check if the process is signed and trusted, which might indicate a false positive if the signature is valid.
+- Examine the `destination.ip` field to identify the target of the RDP connection and determine if it is an internal or external IP address, which can provide context on the potential risk.
+- Investigate the `host.os.type` field to confirm the operating system is Windows, as the rule is specifically designed for Windows environments.
+- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE path = '<path_to_unusual_process>';` to retrieve details like process ID, parent process, and command line arguments.
+- Check the process's parent process to understand the process hierarchy and determine if the parent process is legitimate or potentially malicious.
+- Analyze network logs to identify any other unusual network activity originating from the same host, focusing on other connection attempts or data transfers.
+- Review recent system logs and security events on the host to identify any other suspicious activities or anomalies that coincide with the RDP connection attempt.
+- Investigate the user account associated with the process to determine if it is a legitimate user or if there are signs of account compromise.
+- Correlate the findings with threat intelligence sources to check if the unusual process or IP address is associated with known malicious activity or campaigns.
+
+### False positive analysis
+
+- Known false positives may include legitimate applications or scripts that are not part of the predefined exclusion list but are used for remote management or monitoring purposes. These could be custom IT management tools or scripts developed in-house.
+- Users can handle these false positives by identifying and documenting any legitimate processes that frequently trigger the rule. Once identified, these processes can be added to the exclusion list, ensuring they are signed and trusted.
+- Another potential false positive source is automated tasks or scheduled jobs that use RDP for legitimate purposes. Users should review scheduled tasks and automation scripts to determine if they are causing alerts and consider excluding them if they are verified as non-threatening.
+- It's important to regularly review and update the exclusion list to accommodate changes in the organization's software landscape, ensuring that new legitimate tools are not mistakenly flagged.
+- Users should also consider the context of the network environment, such as known IP addresses or subnets that are part of regular operations, and adjust the rule to exclude these from triggering alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further lateral movement by the adversary.
+- Verify the legitimacy of the process attempting the RDP connection by checking its executable path and code signature.
+- Conduct a thorough investigation of the system to identify any additional signs of compromise, such as unauthorized user accounts or scheduled tasks.
+- Review recent RDP connection logs to identify any other unusual or unauthorized access attempts.
+- If malicious activity is confirmed, remove any identified malware or unauthorized software from the system.
+- Reset credentials for any accounts that may have been compromised during the incident.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed process execution and network connection events for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities.
+- Apply system hardening measures, such as disabling RDP if not needed, enforcing strong password policies, and ensuring all systems are up to date with security patches."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["ded", "endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 75
@@ -52,6 +52,49 @@ tags = [
     "Tactic: Exfiltration",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Data Exfiltration Activity to an Unusual IP Address
+
+Machine learning models analyze network traffic patterns to identify anomalies, such as data transfers to atypical geo-locations. Adversaries exploit command and control (C2) channels to exfiltrate data to these unusual IP addresses. The detection rule leverages this analysis to flag potential exfiltration activities, aligning with MITRE ATT&CK's exfiltration tactics and techniques.
+
+### Possible investigation steps
+
+- Review the alert details to identify the unusual IP address and geo-location involved in the potential exfiltration activity.
+- Cross-reference the unusual IP address with threat intelligence databases to determine if it is associated with known malicious activities or threat actors.
+- Analyze historical network traffic logs to identify any previous communications with the unusual IP address, noting the frequency and volume of data transferred.
+- Examine the specific machine or endpoint involved in the alert to gather information on recent activities, user logins, and running processes.
+- Use Osquery to investigate the endpoint further. For example, run the following query to list recent network connections: `SELECT * FROM process_open_sockets WHERE remote_address = '<unusual_ip_address>';`
+- Check for any recent changes or anomalies in the system configurations or installed software on the affected endpoint.
+- Investigate user activity logs to determine if any unauthorized access or unusual user behavior occurred around the time of the alert.
+- Correlate the alert with other security events or alerts to identify potential patterns or related incidents.
+- Review data transfer logs to assess the type and sensitivity of the data that may have been exfiltrated to the unusual IP address.
+- Consult with relevant stakeholders or departments to verify if the data transfer to the unusual IP address was authorized or part of legitimate business operations.
+
+### False positive analysis
+
+- Legitimate business operations may involve data transfers to geo-locations that are atypical but necessary, such as international offices or third-party service providers. These should be reviewed and, if verified as non-threatening, added to an exception list.
+- Automated system updates or cloud service interactions might trigger alerts if they involve IP addresses outside the usual geographic range. Users can manage these by identifying and excluding known update servers or cloud service IPs.
+- Remote work scenarios where employees connect from various global locations can result in false positives. Organizations should maintain an updated list of employee travel plans or remote work locations to adjust the detection parameters accordingly.
+- Partner or vendor integrations that require data exchange with external IPs might be flagged. Establishing a whitelist of trusted partner IP addresses can help mitigate these false positives.
+- Temporary projects or collaborations with international teams may necessitate data transfers to unusual IP addresses. Users should document these activities and adjust the detection rules to accommodate such temporary changes.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further data exfiltration.
+- Conduct a thorough investigation to identify the scope of the exfiltration, including the data types and volumes transferred.
+- Analyze network logs and endpoint data to trace the source of the command and control channel and identify any other potentially compromised systems.
+- Escalate the incident to the security operations center (SOC) and relevant stakeholders, providing them with detailed findings and potential impacts.
+- Implement enhanced logging policies to capture detailed network traffic and endpoint activities for future investigations.
+- Integrate threat intelligence feeds and anomaly detection tools to improve the detection of unusual network patterns and potential C2 channels.
+- Restore the affected system by removing any malicious software, applying security patches, and verifying the integrity of critical files.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Implement network segmentation and access controls to limit the potential impact of future exfiltration attempts.
+- Educate employees on recognizing phishing attempts and other social engineering tactics that adversaries might use to establish C2 channels."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

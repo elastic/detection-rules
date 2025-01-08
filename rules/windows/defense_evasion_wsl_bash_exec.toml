@@ -2,7 +2,7 @@
 creation_date = "2023/01/13"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -66,6 +66,52 @@ process where host.os.type == "windows" and event.type : "start" and
   ) and 
     not process.parent.executable : ("?:\\Program Files\\Docker\\*.exe", "?:\\Program Files (x86)\\Docker\\*.exe")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Execution via Windows Subsystem for Linux
+
+Windows Subsystem for Linux (WSL) allows users to run Linux binaries on Windows, providing a seamless integration of Linux tools. Adversaries may exploit WSL to execute Linux commands stealthily, bypassing traditional Windows security measures. The detection rule identifies unusual WSL activity by monitoring specific executable paths, command-line arguments, and parent-child process relationships, flagging deviations from typical usage patterns.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process executable path and command-line arguments that triggered the alert, focusing on paths like `?:\\Windows\\System32\\bash.exe` and command-line deviations from typical usage.
+- Examine the parent-child process relationship, particularly if the parent process is `wsl.exe` and the child process is not `wslhost.exe`, to understand the context of the execution.
+- Investigate the command-line arguments used with `wsl.exe`, especially if they include suspicious commands like `curl`, `cat`, or access to sensitive files such as `/etc/shadow` or `/etc/passwd`.
+- Check for any exclusions in the command-line arguments that might indicate legitimate use, such as `wsl-bootstrap`, `docker-desktop-data`, or `*.vscode-server*`.
+- Verify the parent process executable path to ensure it is not a known legitimate application like Docker, which might indicate a false positive.
+- Use Osquery to gather additional context about the processes involved. For example, run the following query to list all processes related to WSL:
+  ```sql
+  SELECT pid, name, path, cmdline, parent FROM processes WHERE path LIKE '%\\\\Windows\\\\System32\\\\bash.exe%' OR path LIKE '%\\\\Users\\\\%\\\\AppData\\\\Local\\\\Packages\\\\%\\\\rootfs\\\\usr\\\\bin\\\\bash%';
+  ```
+- Analyze the network activity associated with the suspicious process to identify any unusual outbound connections or data exfiltration attempts.
+- Review the user account context under which the suspicious process was executed to determine if it aligns with expected behavior or if it indicates potential compromise.
+- Check the system's security logs for any related events or anomalies around the time of the alert to gather additional context.
+- Correlate the findings with other security tools and logs to determine if this activity is part of a broader attack pattern or an isolated incident.
+
+### False positive analysis
+
+- **Development Tools Usage**: Developers using WSL for legitimate purposes, such as running development environments or testing scripts, may trigger alerts. To manage this, users can create exceptions for specific user accounts or processes frequently involved in development activities.
+- **System Administration Tasks**: System administrators might use WSL for routine maintenance tasks, which could be flagged as suspicious. Excluding known administrative scripts or commands from the detection rule can help reduce false positives.
+- **Docker Integration**: Docker Desktop for Windows uses WSL 2 as its backend, which might generate alerts. Users can exclude Docker-related processes by adding exceptions for Docker executable paths or specific command-line arguments associated with Docker operations.
+- **VSCode Remote Development**: Visual Studio Code's remote development feature may utilize WSL, leading to potential false positives. Users can exclude processes or command-line arguments related to VSCode's remote server operations to mitigate this.
+- **Custom Scripts**: Organizations may have custom scripts that run via WSL for automation or integration purposes. Identifying and excluding these scripts from the detection rule can help prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation of the alert by reviewing the process execution details, including command-line arguments and parent-child process relationships, to confirm malicious activity.
+- Capture and preserve relevant logs and artifacts, such as WSL execution logs, system event logs, and network traffic, for further analysis and evidence collection.
+- Terminate any suspicious processes identified during the investigation to halt ongoing malicious activities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the compromise.
+- Implement enhanced logging policies to monitor WSL activity, including command execution and file access, to improve detection capabilities.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to identify and respond to similar threats in the future.
+- Restore the system to its operational state by applying security patches, updating antivirus definitions, and conducting a full system scan to ensure no residual threats remain.
+- Harden the system by disabling WSL if not required, or by configuring strict access controls and monitoring for WSL usage.
+- Review and update security policies and procedures to address gaps identified during the incident and to prevent future occurrences."""
 
 
 [[rule.threat]]

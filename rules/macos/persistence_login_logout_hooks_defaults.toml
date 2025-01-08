@@ -2,7 +2,7 @@
 creation_date = "2020/12/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -68,6 +68,49 @@ process where host.os.type == "macos" and event.type == "start" and
          "/Library/Application Support/JAMF/ManagementFrameworkScripts/loginhook.sh"
        )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via Login or Logout Hook
+
+In macOS environments, login and logout hooks are scripts that execute automatically during user login or logout, respectively. Adversaries exploit this by inserting malicious scripts to maintain persistence. The detection rule identifies suspicious use of the 'defaults' command to set these hooks, excluding known legitimate scripts, thus highlighting potential unauthorized persistence attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the 'defaults' command with 'write' arguments targeting 'LoginHook' or 'LogoutHook', ensuring it matches the query criteria.
+- Check the process execution context, including the user account under which the 'defaults' command was executed, to determine if it aligns with expected administrative activity.
+- Investigate the parent process of the 'defaults' command to understand how it was initiated and whether it was part of a legitimate workflow or a suspicious chain of processes.
+- Examine the command line arguments used with the 'defaults' command to identify the specific script or executable being set as a login or logout hook.
+- Cross-reference the script paths against known legitimate scripts to verify if they are indeed unauthorized or potentially malicious.
+- Utilize Osquery to list all current login and logout hooks on the system with a query like: `SELECT * FROM preferences WHERE domain = 'com.apple.loginwindow' AND key IN ('LoginHook', 'LogoutHook');` to gather more context.
+- Analyze the content of the identified scripts or executables to determine their purpose and whether they contain any malicious or unexpected code.
+- Review system logs around the time of the 'defaults' command execution for any additional suspicious activity or related events that could provide further context.
+- Check for any recent changes to user accounts or permissions that might indicate an adversary's attempt to gain or maintain access.
+- Correlate this activity with other alerts or indicators of compromise within the environment to assess if this is part of a broader attack campaign.
+
+### False positive analysis
+
+- Known false positives for the Persistence via Login or Logout Hook rule primarily involve legitimate scripts used by system management tools like JAMF, which utilize login and logout hooks for administrative tasks.
+- Users can manage these false positives by creating exceptions for known legitimate scripts, such as those located in "/Library/Application Support/JAMF/ManagementFrameworkScripts/".
+- To handle frequent non-threatening behaviors, users should maintain an updated list of trusted scripts and directories that are commonly used in their environment, ensuring these are excluded from detection.
+- Regularly review and update the exclusion list to accommodate any changes in legitimate administrative scripts or tools, minimizing the risk of overlooking genuine threats while reducing false positives.
+- Collaborate with IT and security teams to identify and document any new legitimate scripts that may trigger the rule, ensuring they are promptly added to the exclusion list.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further malicious activity and lateral movement.
+- Review the process execution logs to confirm the unauthorized use of the 'defaults' command and identify any associated scripts or payloads.
+- Terminate any suspicious processes that are linked to the unauthorized login or logout hooks to halt potential malicious actions.
+- Remove the unauthorized login or logout hooks by resetting them to their default state or replacing them with legitimate scripts if necessary.
+- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malware or persistence mechanisms.
+- Review user accounts and privileges on the affected system to ensure no unauthorized accounts or privilege escalations have occurred.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
+- Integrate threat intelligence feeds and MITRE ATT&CK framework mappings into security monitoring tools to improve detection of similar threats.
+- Apply system hardening measures, such as disabling unused services and enforcing strong authentication mechanisms, to reduce the attack surface and prevent future persistence attempts."""
 
 
 [[rule.threat]]

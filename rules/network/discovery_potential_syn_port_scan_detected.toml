@@ -2,7 +2,7 @@
 creation_date = "2023/05/17"
 integration = ["endpoint", "network_traffic", "panw"]
 maturity = "production"
-updated_date = "2024/09/18"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -37,6 +37,49 @@ type = "threshold"
 query = '''
 destination.port : * and network.packets <= 2 and source.ip : (10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential SYN-Based Network Scan Detected
+
+SYN-based network scans exploit the TCP handshake process to identify open ports on a target system, which adversaries can use to find vulnerable services. By sending SYN packets to multiple ports and analyzing responses, attackers map network services without completing connections. The detection rule identifies such scans by flagging connection attempts from internal IPs to numerous ports with minimal packets, indicating potential reconnaissance activity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the source IP address involved in the potential SYN-based network scan and verify if it falls within the internal IP ranges specified in the query (10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16).
+- Check historical logs to determine if the source IP has been involved in similar scanning activities or other suspicious behavior in the past.
+- Analyze the destination ports targeted by the scan to identify any patterns or specific services that may be of interest to the attacker.
+- Correlate the source IP with known user accounts or devices to determine if the activity is expected or if it could be indicative of a compromised system.
+- Use network flow data to assess the volume and frequency of SYN packets sent from the source IP to the destination ports, confirming the threshold logic of 2 or fewer packets per port.
+- Investigate any recent changes or anomalies in the network environment that could explain the scanning activity, such as new devices or software installations.
+- Utilize Osquery to gather additional context on the source system. For example, run the following Osquery query to list active network connections and identify any unusual or unauthorized connections: `SELECT * FROM process_open_sockets WHERE remote_address != '' AND local_address = '<source_ip>';`
+- Check for any related alerts or incidents that might provide additional context or indicate a broader attack campaign.
+- Review endpoint security logs and alerts from the source system to identify any signs of compromise or malicious software that could be responsible for the scanning activity.
+- Consult threat intelligence sources to determine if the observed scanning behavior matches any known attack patterns or threat actor tactics.
+
+### False positive analysis
+
+- **Automated Network Monitoring Tools**: Some network monitoring or management tools may periodically send SYN packets to check the status of network services. These legitimate activities can trigger the rule as false positives. Users can handle this by identifying the IP addresses of these tools and creating exceptions for them in the detection rule.
+- **Load Balancers and Health Checks**: Load balancers and health check services often perform SYN scans to ensure that backend services are operational. These scans are benign and necessary for maintaining service availability. Users should identify the IP addresses of these devices and exclude them from triggering the rule.
+- **Internal Security Scans**: Organizations may conduct regular security assessments or vulnerability scans that mimic SYN-based scanning techniques. These scans are typically scheduled and known to the IT department. Users can manage these false positives by scheduling exceptions during known scan windows or excluding the IP addresses of internal scanning tools.
+- **Network Troubleshooting Activities**: IT personnel may perform network troubleshooting that involves sending SYN packets to diagnose connectivity issues. These activities can be mistaken for malicious scans. Users should document and exclude the IP addresses of devices used for troubleshooting from the detection rule.
+- **Dynamic IP Addressing**: In environments with dynamic IP addressing, legitimate devices may occasionally trigger the rule due to IP address changes. Users should monitor and adjust exceptions as needed to account for these changes, ensuring that legitimate devices are not flagged as threats.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further reconnaissance or potential exploitation by the attacker.
+- Conduct a thorough investigation of the source IP to determine if the activity is legitimate or malicious, checking for any known vulnerabilities or misconfigurations.
+- Review firewall and intrusion detection/prevention system (IDS/IPS) logs to identify any other suspicious activities or patterns associated with the source IP.
+- Escalate the incident to the security operations center (SOC) or incident response team if the activity is confirmed to be malicious, providing them with all relevant logs and findings.
+- Implement network segmentation to limit the exposure of critical systems and services, reducing the attack surface available to potential adversaries.
+- Enhance logging policies to ensure comprehensive monitoring of network traffic, focusing on unusual patterns or behaviors that may indicate reconnaissance activities.
+- Integrate threat intelligence feeds to improve detection capabilities and provide context on known malicious IPs or scanning techniques.
+- Apply security patches and updates to all systems and services to mitigate vulnerabilities that could be exploited by attackers.
+- Conduct a post-incident review to identify gaps in detection and response processes, using insights to improve future incident handling and prevention strategies.
+- Educate employees on recognizing and reporting suspicious network activities, reinforcing the importance of security awareness in preventing potential threats."""
 
 
 [[rule.threat]]

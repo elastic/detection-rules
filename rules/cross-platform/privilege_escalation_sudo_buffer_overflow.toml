@@ -2,7 +2,7 @@
 creation_date = "2021/02/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -48,6 +48,51 @@ event.category:process and event.type:start and
   process.name:(sudo or sudoedit) and
   process.args:(*\\ and ("-i" or "-s"))
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Sudo Heap-Based Buffer Overflow Attempt
+
+Sudo is a critical utility in Unix-like systems, allowing users to execute commands with elevated privileges. A heap-based buffer overflow vulnerability (CVE-2021-3156) in Sudo can be exploited by attackers to gain root access. Adversaries may craft specific command arguments to trigger this overflow. The detection rule identifies suspicious Sudo or Sudoedit process starts with particular argument patterns, signaling potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of suspicious Sudo or Sudoedit process starts with arguments matching the pattern `*\\\\` and either `"-i"` or `"-s"`.
+- Examine the process execution context by checking the `event.category:process` and `event.type:start` fields to understand the timing and frequency of the suspicious activity.
+- Investigate the user account associated with the process execution to determine if it is a legitimate user or potentially compromised.
+- Analyze the command line arguments (`process.args`) used in the suspicious Sudo or Sudoedit process to identify any unusual or unexpected patterns.
+- Check the system logs for any other related activities around the same timestamp to identify potential lateral movement or further exploitation attempts.
+- Use Osquery to gather additional context about the system state and running processes. For example, run the following Osquery query to list recent Sudo command executions:
+  ```sql
+  SELECT * FROM sudo_log WHERE time > (SELECT MAX(time) - 3600 FROM sudo_log);
+  ```
+- Correlate the findings with any known indicators of compromise (IOCs) related to CVE-2021-3156 to assess the likelihood of a successful exploitation attempt.
+- Investigate any network connections initiated by the affected system around the time of the alert to identify potential data exfiltration or command-and-control communication.
+- Review historical data for similar patterns of Sudo or Sudoedit process starts to determine if this is an isolated incident or part of a broader attack campaign.
+- Document all findings and observations to support further analysis and potential escalation to the incident response team.
+
+### False positive analysis
+
+- Legitimate administrative tasks: System administrators often use `sudo` or `sudoedit` with arguments like `-i` or `-s` for legitimate purposes, such as performing routine maintenance or executing scripts that require elevated privileges. These actions can trigger the detection rule, leading to false positives.
+- Automated scripts: Some automated scripts or cron jobs may use `sudo` with specific arguments to perform scheduled tasks. These scripts, if not properly documented or excluded, can cause repeated false positives.
+- Development and testing environments: In environments where developers or testers frequently use `sudo` to simulate production scenarios or test new configurations, the detection rule might flag these activities as suspicious.
+- To manage false positives, users can create exceptions for known benign processes by whitelisting specific command patterns or user accounts that are verified to perform legitimate actions. Additionally, monitoring and logging can be adjusted to focus on unusual patterns or deviations from normal behavior, reducing noise from expected activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement.
+- Verify the alert by checking process logs and command history for suspicious Sudo or Sudoedit usage patterns that match the detection rule.
+- Conduct a thorough investigation to determine if the vulnerability was successfully exploited and assess the extent of any unauthorized access or changes.
+- If exploitation is confirmed, reset all potentially compromised credentials, especially those with elevated privileges.
+- Apply the latest security patches and updates to the Sudo utility to mitigate the CVE-2021-3156 vulnerability.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response coordination.
+- Enhance logging policies to capture detailed process execution data, including command-line arguments, to improve future detection capabilities.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to identify and respond to similar threats more effectively.
+- Restore the system to its operational state by verifying the integrity of critical system files and configurations, and ensure all security patches are applied.
+- Implement system hardening measures, such as restricting Sudo access to only necessary users and regularly reviewing user permissions, to reduce the attack surface."""
 
 
 [[rule.threat]]

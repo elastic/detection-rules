@@ -2,7 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -68,6 +68,48 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 process.name == "rlwrap" and process.args in ("nc", "ncat", "netcat", "nc.openbsd", "socat") and
 process.args : "*l*" and process.args_count >= 4
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Netcat Listener Established via rlwrap
+
+Netcat, a versatile networking tool, can establish connections for data transfer or remote shell access. When combined with rlwrap, which enhances command-line input, it can create a more stable reverse shell environment. Adversaries exploit this to maintain persistent access. The detection rule identifies such misuse by monitoring for rlwrap executing netcat with specific arguments, indicating a potential reverse shell setup.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of rlwrap executing netcat with the specified arguments, focusing on the process name and arguments fields.
+- Verify the user account associated with the process execution to determine if it aligns with expected behavior or if it is potentially compromised.
+- Check the parent process of rlwrap to understand how it was initiated and if it was part of a legitimate workflow or script.
+- Investigate the command-line arguments used with netcat to identify the intended target and port, which can provide insight into the potential reverse shell setup.
+- Use Osquery to list all active network connections and identify any unusual or unauthorized connections that may correlate with the netcat listener. Example query: `SELECT pid, local_address, local_port, remote_address, remote_port FROM process_open_sockets WHERE pid = (SELECT pid FROM processes WHERE name = 'nc' OR name = 'ncat' OR name = 'netcat' OR name = 'nc.openbsd' OR name = 'socat');`
+- Examine the process execution timeline to identify any preceding or subsequent suspicious activities that may indicate a broader attack chain.
+- Check system logs for any failed login attempts or other anomalies around the time of the alert to assess if there was an attempt to gain unauthorized access.
+- Review the system's bash history or other shell histories for the user to identify any manual commands that may have been executed leading up to the alert.
+- Investigate any file modifications or new file creations in the user's home directory or other sensitive directories that could indicate malicious activity.
+- Correlate the alert with other security events or alerts from the same host or user to determine if this is part of a larger attack pattern or isolated incident.
+
+### False positive analysis
+
+- Development and testing environments: In environments where developers or system administrators frequently use rlwrap with netcat for legitimate testing or debugging purposes, this rule may trigger false positives. Users can manage these by creating exceptions for specific user accounts or IP addresses known to be involved in such activities.
+- Automated scripts and tools: Some automated scripts or tools may use rlwrap and netcat for legitimate purposes, such as network diagnostics or performance testing. To handle these, users can exclude specific scripts or processes by identifying their unique command-line arguments or execution paths.
+- Security training exercises: In scenarios where security teams conduct training exercises or penetration testing, rlwrap and netcat might be used intentionally. Users should coordinate with security teams to whitelist these activities during specific time frames or for particular user groups.
+- System maintenance tasks: Certain system maintenance tasks might involve the use of rlwrap and netcat for remote management or troubleshooting. Users can address these false positives by setting up exceptions for maintenance windows or specific maintenance scripts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on logs and network traffic related to the execution of rlwrap and netcat.
+- Terminate any unauthorized processes associated with rlwrap and netcat to disrupt the adversary's access.
+- Review user accounts and privileges on the affected system to ensure no unauthorized accounts or privilege escalations have occurred.
+- Apply patches and updates to the operating system and any vulnerable applications to mitigate known vulnerabilities.
+- Implement enhanced logging policies to capture detailed process execution and network activity, ensuring future incidents can be detected more effectively.
+- Integrate security solutions such as intrusion detection systems (IDS) and endpoint detection and response (EDR) tools to monitor for similar activities.
+- Restore the system from a known good backup to ensure the integrity of the operating environment.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate users and administrators on the risks associated with tools like netcat and rlwrap, emphasizing the importance of secure configurations and monitoring."""
 
 
 [[rule.threat]]

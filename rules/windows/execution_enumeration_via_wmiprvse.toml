@@ -2,7 +2,7 @@
 creation_date = "2021/01/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/10/31"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -61,6 +61,56 @@ process where host.os.type == "windows" and event.type == "start" and process.co
   ) and
   not process.args : "tenable_mw_scan"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Enumeration Command Spawned via WMIPrvSE
+
+Windows Management Instrumentation (WMI) is a powerful framework for managing data and operations on Windows systems. Adversaries exploit WMI to execute enumeration commands stealthily, leveraging the WMI Provider Service (WMIPrvSE) to gather system and network information. The detection rule identifies suspicious processes initiated by WMIPrvSE, focusing on common enumeration tools, while excluding benign operations, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name and command line arguments that triggered the alert, focusing on the `process.name` and `process.command_line` fields.
+- Verify the parent process by examining the `process.parent.name` field to ensure it is indeed `wmiprvse.exe`, confirming the use of WMI for process execution.
+- Check the timestamp of the event to determine when the suspicious process was started, which can help correlate with other activities on the system.
+- Investigate the user context under which the process was executed by reviewing the `user.name` field to identify if it was run under a privileged account.
+- Examine the network connections and activities around the time of the alert to identify any unusual outbound connections or data exfiltration attempts.
+- Use Osquery to gather additional context about the process and its parent. For example, run the following query to list processes with their parent process details:
+  ```sql
+  SELECT p.pid, p.name, p.cmdline, p.parent, pp.name AS parent_name, pp.cmdline AS parent_cmdline 
+  FROM processes p 
+  JOIN processes pp ON p.parent = pp.pid 
+  WHERE p.name IN ("arp.exe", "dsquery.exe", "dsget.exe", "gpresult.exe", "hostname.exe", "ipconfig.exe", "nbtstat.exe", "net.exe", "net1.exe", "netsh.exe", "netstat.exe", "nltest.exe", "ping.exe", "qprocess.exe", "quser.exe", "qwinsta.exe", "reg.exe", "sc.exe", "systeminfo.exe", "tasklist.exe", "tracert.exe", "whoami.exe") 
+  AND pp.name = "wmiprvse.exe";
+  ```
+- Correlate the event with other security logs, such as Windows Event Logs, to identify any related suspicious activities or anomalies.
+- Investigate the system's recent changes or configurations that might have allowed the execution, such as new software installations or changes in WMI settings.
+- Check for any known vulnerabilities or exploits related to WMI that might have been used by adversaries to execute the command.
+- Document all findings and observations to build a comprehensive understanding of the incident, which can aid in further analysis and reporting.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators often use WMI to execute legitimate enumeration commands for system management and troubleshooting, which can trigger this rule. To manage this, users can create exceptions for known administrative accounts or specific command patterns that are regularly used in their environment.
+- Monitoring and management software: Some security and network management tools use WMI to gather system information, which may appear as suspicious activity. Users should identify these tools and exclude their processes or command lines from the rule to prevent false positives.
+- Automated scripts and scheduled tasks: Scripts or scheduled tasks that perform regular system checks or updates might use WMI for enumeration. Users can handle these by excluding specific scripts or task names that are verified as non-threatening.
+- Software updates and installations: Certain software installations or updates might use WMI to check system compatibility or network settings. Users should monitor these activities and exclude known update processes to avoid unnecessary alerts.
+- Security scans: Security tools like vulnerability scanners may use WMI to collect data, which can be mistaken for malicious activity. Users should whitelist these tools by excluding their specific command lines or process names from the detection rule.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further lateral movement by the adversary.
+- Conduct a thorough investigation to identify the scope of the compromise, focusing on processes initiated by WMIPrvSE and any suspicious enumeration activity.
+- Terminate any malicious processes identified during the investigation to halt ongoing adversary actions.
+- Review and analyze logs from the affected system and related network devices to trace the adversary's activities and identify any additional compromised systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
+- Implement enhanced logging policies to capture detailed process creation events and WMI activity for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
+- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
+- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
+- Implement hardening measures such as restricting WMI access to authorized users only and disabling unnecessary WMI components to reduce the attack surface."""
 
 
 [[rule.threat]]

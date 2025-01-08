@@ -2,7 +2,7 @@
 creation_date = "2021/01/20"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -48,6 +48,48 @@ registry where host.os.type == "windows" and event.type == "change" and registry
   not (process.name : "msiexec.exe" and registry.data.strings : "mso.dll") and
   not (process.name : "regsvr32.exe" and registry.data.strings == "WINTRUST.DLL")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SIP Provider Modification
+
+Subject Interface Package (SIP) providers are integral to Windows' cryptographic system, ensuring file signature validation. Adversaries may alter these providers to bypass security checks or inject malicious code. The detection rule identifies suspicious registry changes linked to SIP providers, excluding benign processes, to flag potential subversion of trust controls, aligning with MITRE ATT&CK's defense evasion tactics.
+
+### Possible investigation steps
+
+- Review the alert details to understand which registry path was modified, focusing on the `registry.path` field to identify the specific SIP provider affected.
+- Examine the `registry.value` and `registry.data.strings` fields to determine the DLL involved in the modification and assess if it is a known or suspicious file.
+- Check the `process.name` field to identify the process responsible for the registry change, and verify if it is a legitimate process or potentially malicious.
+- Investigate the process execution history using endpoint detection and response (EDR) tools to trace the origin and behavior of the process that made the registry change.
+- Use Osquery to list all current SIP providers and their associated DLLs to identify any unauthorized or unexpected entries. Example query: `SELECT * FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\SOFTWARE\\\\Microsoft\\\\Cryptography\\\\OID\\\\EncodingType 0\\\\CryptSIPDllPutSignedDataMsg\\\\%\\\\Dll';`
+- Cross-reference the modified DLL with known good DLLs or a threat intelligence database to determine if it is associated with known malware or suspicious activity.
+- Analyze recent system logs and security events around the time of the registry change to identify any correlated suspicious activities or anomalies.
+- Investigate the user account context under which the registry change was made to determine if it aligns with expected behavior or if it indicates potential compromise.
+- Review any recent software installations or updates that might have legitimately modified the SIP provider settings to rule out false positives.
+- Conduct a file integrity check on the modified DLL and other critical system files to ensure they have not been tampered with or replaced by malicious versions.
+
+### False positive analysis
+
+- Known false positives may occur when legitimate software installations or updates modify SIP provider registry entries. For example, the installation of Microsoft Office or other trusted software might trigger changes in the registry paths monitored by the rule.
+- To manage these false positives, users can create exceptions for specific processes known to perform legitimate modifications. For instance, excluding `msiexec.exe` when it modifies `mso.dll` or `regsvr32.exe` when it interacts with `WINTRUST.DLL` can reduce noise from trusted activities.
+- Regularly review and update the list of excluded processes and registry paths to ensure that only benign activities are filtered out, maintaining the effectiveness of the detection rule against genuine threats.
+- Consider implementing a monitoring period to observe the behavior of newly installed or updated software, allowing for the identification of any additional benign processes that may need to be excluded.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or spread of potential malware.
+- Conduct a thorough investigation to identify the source of the registry modification, focusing on recent changes and associated processes.
+- Verify the legitimacy of the modified SIP provider DLLs by comparing them against known good versions or using a trusted source.
+- If malicious activity is confirmed, remove or replace the compromised DLLs with clean versions from a trusted backup or installation media.
+- Review and analyze system logs, including security and application logs, to identify any additional indicators of compromise or related suspicious activities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
+- Implement enhanced logging policies to capture detailed registry changes and process execution events for future investigations.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
+- Restore the system to its operational state by applying security patches, updating antivirus definitions, and conducting a full system scan.
+- Harden the system by implementing least privilege access controls, enabling secure boot, and regularly auditing critical system configurations to prevent future attacks."""
 
 
 [[rule.threat]]

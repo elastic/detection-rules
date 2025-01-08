@@ -2,7 +2,7 @@
 creation_date = "2024/11/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/01"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -72,6 +72,49 @@ process.name == "mkdir" and process.parent.executable like (
   )
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Hidden Directory Creation via Unusual Parent
+
+In Linux environments, hidden directories, often prefixed with a dot, are typically used for configuration files. Adversaries exploit this feature to conceal malicious files by creating hidden directories using uncommon parent processes. The detection rule identifies such activities by monitoring directory creation commands executed by unexpected parent executables in sensitive directories, filtering out known benign patterns to reduce false positives.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific parent executable and the directory path where the hidden directory was created. Pay attention to the `process.parent.executable` and `process.args` fields.
+- Check the process tree to understand the context of the `mkdir` command execution. Determine if the parent process is part of a known application or script.
+- Use Osquery to list all processes running under the parent executable identified in the alert. Example query: `SELECT pid, name, path, cmdline FROM processes WHERE path LIKE '/dev/shm/%' OR path LIKE '/tmp/%' OR path LIKE '/var/tmp/%' OR path LIKE '/var/run/%' OR path LIKE '/root/%' OR path LIKE '/boot/%' OR path LIKE '/var/www/html/%' OR path LIKE '/opt/%';`
+- Investigate the parent executable's origin and integrity. Check if it matches known hashes or if it has been modified recently.
+- Examine the contents of the newly created hidden directory to identify any suspicious files or scripts. Look for known malicious file signatures or unusual file types.
+- Cross-reference the timestamp of the directory creation with other logs (e.g., authentication, network, or application logs) to identify any correlated suspicious activities.
+- Check for any recent changes in user accounts or permissions that could have facilitated the creation of the hidden directory.
+- Investigate the user account associated with the process execution to determine if it has been compromised or is behaving unusually.
+- Review historical data to see if similar hidden directory creation events have occurred in the past, indicating a potential pattern or ongoing campaign.
+- Consult threat intelligence sources to determine if the parent executable or directory path is associated with known attack techniques or threat actors.
+
+### False positive analysis
+
+- Known false positives may arise from legitimate administrative scripts or applications that create hidden directories for configuration or temporary storage purposes. These can include package managers, build systems, or development tools that operate in directories like `/tmp` or `/var/tmp`.
+- Users can handle these false positives by creating exceptions for specific parent executables or command patterns that are known to be benign. For instance, adding exceptions for processes like `/tmp/newroot/*` or `/run/containerd/*` can help reduce noise.
+- Another method to manage false positives is to refine the rule by excluding command lines that match known safe patterns, such as `mkdir -p .` or `mkdir ./*`, which are commonly used in legitimate operations.
+- Regularly reviewing and updating the list of exceptions based on the environment's typical behavior can help maintain the balance between detection accuracy and minimizing false positives.
+- It's important to consider the context of the environment and the typical behavior of applications and scripts to ensure that legitimate activities are not inadvertently flagged as suspicious.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the scope of the compromise, focusing on the unusual parent process and any associated hidden directories.
+- Review and analyze logs from the system and network to trace the origin and timeline of the attack, leveraging MITRE ATT&CK T1564 for context on hiding artifacts.
+- Remove any identified malicious files or directories and terminate any suspicious processes related to the alert.
+- Restore the system from a known good backup if the integrity of the system is in question.
+- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities.
+- Implement enhanced logging policies to capture detailed process creation events and file system changes for future investigations.
+- Integrate security tools such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to improve monitoring and detection capabilities.
+- Conduct a security review and harden the system by disabling unnecessary services, enforcing least privilege access, and implementing strong authentication mechanisms.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

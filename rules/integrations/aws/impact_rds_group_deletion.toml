@@ -2,7 +2,7 @@
 creation_date = "2021/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -21,7 +21,54 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS RDS Security Group Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS RDS Security Group Deletion
+
+Amazon RDS Security Groups control access to RDS instances, acting as a firewall to manage inbound traffic. Adversaries may delete these groups to disrupt database security, potentially leading to unauthorized access or data breaches. The detection rule monitors successful deletion events in AWS CloudTrail logs, identifying potential misuse by correlating specific actions and outcomes, thus alerting analysts to investigate further.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to confirm the `event.action:DeleteDBSecurityGroup` and `event.outcome:success` fields to ensure the alert is valid and corresponds to a successful deletion event.
+- Identify the `userIdentity` field in the CloudTrail logs to determine which IAM user or role performed the deletion action.
+- Check the `sourceIPAddress` field to verify the IP address from which the deletion request originated, and assess if it aligns with known or expected IP addresses.
+- Investigate the `eventTime` field to establish the exact time of the deletion and correlate it with any other suspicious activities or alerts around the same timeframe.
+- Examine the `requestParameters` field to identify which specific RDS Security Group was deleted and assess its importance and impact on the environment.
+- Utilize Osquery to gather additional context on the AWS environment. For example, run a query to list all current RDS instances and their associated security groups to understand the current security posture:
+  ```sql
+  SELECT * FROM aws_rds_instances;
+  ```
+- Cross-reference the IAM user or role identified with recent IAM activity logs to check for any unusual or unauthorized access patterns or privilege escalations.
+- Review AWS CloudTrail logs for any recent `CreateDBSecurityGroup` or `ModifyDBSecurityGroup` actions to determine if there were any recent changes or creations that might relate to the deletion.
+- Investigate any recent changes to IAM policies or roles that might have inadvertently granted permissions to delete RDS Security Groups.
+- Check for any other alerts or anomalies in the AWS environment that might indicate a broader security incident or compromise.
+
+### False positive analysis
+
+- Routine maintenance or infrastructure changes by authorized personnel can trigger the AWS RDS Security Group Deletion rule, leading to false positives. 
+- Automated scripts or tools used for managing RDS instances might delete security groups as part of their normal operation, which could be misinterpreted as malicious activity.
+- To manage these false positives, users can create exceptions for specific IAM roles or users known to perform regular maintenance tasks, ensuring that alerts are only generated for unexpected deletions.
+- Implementing a whitelist of known, non-threatening actions or users can help reduce noise and focus on genuine threats.
+- Regularly review and update the list of exceptions to ensure it reflects current operational practices and does not inadvertently exclude suspicious activities.
+
+### Response and remediation
+
+- Immediately isolate the affected RDS instance by modifying its security group to restrict all inbound and outbound traffic.
+- Review AWS CloudTrail logs to identify the source of the deletion request, including the IAM user or role involved, and assess if it was authorized.
+- Revoke any suspicious or unauthorized IAM credentials and rotate keys for affected accounts to prevent further unauthorized actions.
+- Restore the deleted RDS security group from a backup or recreate it with the same rules to ensure continued protection of the database.
+- Conduct a thorough investigation to determine if any unauthorized access or data exfiltration occurred during the period of exposure.
+- Escalate the incident to the security operations team and notify relevant stakeholders, including data protection officers, if sensitive data is involved.
+- Implement enhanced logging and monitoring policies to capture detailed access and modification events for RDS security groups.
+- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system for real-time alerting and correlation with other security events.
+- Review and update IAM policies to enforce the principle of least privilege, ensuring only authorized personnel can modify RDS security groups.
+- Conduct a post-incident review to identify gaps in security controls and apply hardening measures, such as enabling multi-factor authentication (MFA) for all administrative access.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DeleteDBSecurityGroup.html"]

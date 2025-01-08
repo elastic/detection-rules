@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -41,6 +41,49 @@ file where host.os.type == "windows" and event.type == "creation" and
   not file.path : "?:\\$RECYCLE.BIN\\*\\*" and
   not file.name : "desktop.ini"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating File Staged in Root Folder of Recycle Bin
+
+The Recycle Bin in Windows is designed to temporarily store deleted files, allowing users to recover them if needed. Adversaries may exploit this by placing files directly in the root of the Recycle Bin to prepare for data exfiltration or to bypass security measures. The detection rule identifies such suspicious activity by monitoring file creation events in the root directory, excluding typical system files, to flag potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the file creation event in the root of the Recycle Bin, focusing on the `file.path` and `file.name` fields to identify the suspicious file.
+- Verify the timestamp of the file creation event to determine when the activity occurred and correlate it with other events on the system.
+- Check the user account associated with the file creation event to identify who might have created or moved the file to the Recycle Bin.
+- Investigate the file's origin by examining recent file access and modification events on the system to trace back its source.
+- Use Osquery to list all files in the Recycle Bin, including their metadata, to gather more context about the file. Example query: `SELECT path, filename, size, atime, mtime FROM file WHERE directory LIKE 'C:\\\\$RECYCLE.BIN\\\\%' AND NOT directory LIKE 'C:\\\\$RECYCLE.BIN\\\\%\\\\%';`
+- Analyze the file's content and metadata to determine its nature and potential sensitivity, using file hashing and comparison against known malicious signatures if necessary.
+- Cross-reference the file's hash with threat intelligence databases to check for known malicious files.
+- Review system logs and security events around the time of the file creation for any signs of suspicious activity or anomalies.
+- Investigate any network connections or data transfers initiated by the host around the time of the file creation to identify potential exfiltration attempts.
+- Consult with the user or system owner to verify if the file placement was intentional or authorized, and gather any additional context they might provide.
+
+### False positive analysis
+
+- System or application updates may temporarily create files in the root of the Recycle Bin, leading to false positives. Users can monitor update schedules and correlate these events to rule out threats.
+- Certain backup or recovery software might use the Recycle Bin for temporary storage, triggering the detection rule. Identifying and excluding these specific software behaviors can reduce false alerts.
+- User actions such as manually moving files to the Recycle Bin root for organizational purposes can be mistaken for malicious activity. Educating users on proper file management practices can help minimize these occurrences.
+- Automated scripts or maintenance tasks that interact with the Recycle Bin might inadvertently place files in the root directory. Reviewing and adjusting these scripts to use subdirectories can prevent false positives.
+- To manage these false positives, users can create exceptions in the detection rule for known benign file paths or processes, ensuring that only genuinely suspicious activities are flagged.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential data exfiltration.
+- Verify the legitimacy of the file by checking its origin, creation time, and associated user account.
+- Conduct a thorough investigation to determine if the file is part of a larger attack, using endpoint detection and response (EDR) tools.
+- Remove the suspicious file from the Recycle Bin and perform a full system scan using updated antivirus and anti-malware software.
+- Review recent user activity and access logs to identify any unauthorized access or anomalies.
+- Escalate the incident to the security operations center (SOC) or incident response team if the file is confirmed to be malicious or part of a targeted attack.
+- Implement enhanced logging policies to capture detailed file creation and modification events, especially in sensitive directories.
+- Integrate threat intelligence feeds to improve detection capabilities and correlate with known indicators of compromise (IOCs).
+- Restore the system to its operational state by ensuring all security patches are applied and verifying system integrity.
+- Harden the system by enforcing least privilege access, disabling unnecessary services, and regularly reviewing security configurations."""
 
 
 [[rule.threat]]

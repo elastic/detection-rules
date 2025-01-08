@@ -2,7 +2,7 @@
 creation_date = "2020/09/24"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,50 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Global Administrator Role Addition to PIM User"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure Global Administrator Role Addition to PIM User
+
+Azure AD's Global Administrator role grants extensive access, allowing users to modify any administrative setting. Privileged Identity Management (PIM) helps manage and monitor such roles. Adversaries may exploit this by adding themselves or others to this role to maintain persistent access. The detection rule identifies suspicious role additions by monitoring specific audit logs, focusing on successful role assignments to detect potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to understand the context, including the timestamp, user involved, and the specific operation name from the query: "Add eligible member to role in PIM completed (permanent)" or "Add member to role in PIM completed (timebound)".
+- Verify the identity of the user who was added to the Global Administrator role by checking the `azure.auditlogs.properties.target_resources.*.display_name` field for "Global Administrator".
+- Examine the `event.dataset` and `azure.auditlogs.properties.category` fields to confirm the event is related to Role Management and originated from Azure audit logs.
+- Check the `event.outcome` field to ensure the operation was successful, as the query filters for "Success" or "success".
+- Investigate the user account that performed the role addition by reviewing their recent activities and login history in Azure AD logs to identify any unusual behavior or patterns.
+- Use Osquery to gather additional context on the system from which the role addition was performed. Example query: `SELECT * FROM users WHERE username = '<username_of_actor>';` to gather information about the user account on the system.
+- Cross-reference the timestamp of the role addition with other security logs and alerts to identify any correlated suspicious activities or anomalies.
+- Review the organization's change management records or tickets to determine if the role addition was authorized or part of a legitimate administrative task.
+- Investigate any recent changes to Privileged Identity Management (PIM) settings or configurations that could have facilitated unauthorized role additions.
+- Consult with the user or their manager to verify if the role addition was expected and authorized, and gather any additional context or explanations for the activity.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate IT administrators may frequently add users to the Global Administrator role for maintenance or operational purposes. To manage this, organizations can create exceptions for known administrative accounts or specific timeframes when such activities are expected.
+- Automated processes: Some organizations use automated scripts or tools to manage role assignments in Azure AD. These processes might trigger the detection rule. To handle this, users can whitelist specific service accounts or scripts that are known to perform these actions regularly.
+- Temporary role assignments: In some cases, users may be temporarily assigned the Global Administrator role for specific projects or tasks. These assignments can be excluded by setting up alerts only for permanent role additions or by monitoring the duration of the role assignment.
+- Training and testing environments: Activities in non-production environments might mimic suspicious behavior. Users can exclude these environments from monitoring or adjust the sensitivity of alerts to reduce noise from test scenarios.
+
+### Response and remediation
+
+- Immediately revoke the Global Administrator role from any unauthorized users identified in the alert to contain potential misuse.
+- Conduct a thorough investigation to determine how the unauthorized role assignment occurred, reviewing audit logs and any related security alerts.
+- Verify the identity and intent of the user who performed the role assignment to assess if it was a legitimate action or a potential compromise.
+- Escalate the incident to the security operations team for further analysis and to determine if additional accounts or systems have been compromised.
+- Implement conditional access policies to enforce multi-factor authentication (MFA) for all privileged role assignments to enhance security.
+- Review and update Privileged Identity Management (PIM) settings to ensure that only authorized personnel can assign or approve Global Administrator roles.
+- Enable and configure Azure AD logging to capture detailed audit logs for all role assignments and changes, ensuring logs are retained for an appropriate period.
+- Integrate Azure AD logs with a Security Information and Event Management (SIEM) system to enhance monitoring and alerting capabilities.
+- Restore any affected systems or configurations to their original state prior to the unauthorized role assignment, ensuring no residual access remains.
+- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as least privilege access and regular role review processes.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

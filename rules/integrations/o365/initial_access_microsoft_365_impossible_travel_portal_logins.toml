@@ -2,7 +2,7 @@
 creation_date = "2024/09/04"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/09/25"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -39,6 +39,50 @@ event.dataset: "o365.audit"
     and not o365.audit.UserId: "Not Available"
     and o365.audit.Target.Type: ("0" or "2" or "3" or "5" or "6" or "10")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Portal Logins from Impossible Travel Locations
+
+Microsoft 365's cloud-based services enable global access, but this can be exploited by adversaries who log in from disparate locations within short timeframes, indicating potential account compromise. The detection rule identifies such anomalies by analyzing login events for successful access from different countries, flagging suspicious activity that aligns with known threat tactics like using valid accounts for unauthorized access.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific user account involved by examining the `o365.audit.UserId` field.
+- Verify the login locations by checking the IP addresses associated with the login events and cross-reference them with known locations for the user.
+- Analyze the timestamps of the login events to determine the time difference between the logins from different countries.
+- Check for any recent changes in the user's account settings or permissions that could indicate unauthorized access.
+- Investigate the `event.provider` and `event.action` fields to confirm the source and nature of the login events.
+- Use Osquery to gather additional context on the user's activity. For example, run a query to list recent login events: `SELECT * FROM o365_audit WHERE event_action = 'UserLoggedIn' AND user_id = '<UserId>' ORDER BY timestamp DESC LIMIT 10;`
+- Examine the `event.outcome` field to ensure that the logins were indeed successful and not failed attempts.
+- Look for any other suspicious activities associated with the user account, such as unusual file access or email forwarding rules.
+- Cross-reference the login events with known threat intelligence sources to identify any IP addresses or locations associated with malicious activity.
+- Collaborate with the user to verify if they were traveling or using a VPN service that could explain the login from an unexpected location.
+
+### False positive analysis
+
+- Frequent travelers or employees using VPNs may trigger false positives as they can appear to log in from different countries within a short timeframe. 
+- Users accessing Microsoft 365 services through corporate VPNs that route traffic through different countries can also be flagged as impossible travel.
+- To manage these false positives, organizations can create exceptions for known frequent travelers by maintaining a list of users who regularly travel and excluding their login events from the rule.
+- Implementing geolocation-based VPN detection can help differentiate between legitimate VPN use and suspicious activity.
+- Regularly updating the list of trusted IP addresses and locations can reduce false positives by allowing logins from these sources without triggering alerts.
+- Monitoring and correlating login events with travel itineraries or VPN usage logs can provide additional context to determine if an alert is a false positive.
+
+### Response and remediation
+
+- Immediately isolate the affected user account by disabling it to prevent further unauthorized access.
+- Initiate a password reset for the compromised account and enforce multi-factor authentication (MFA) for additional security.
+- Conduct a thorough investigation of the login events to identify the source IP addresses and geolocations involved in the suspicious activity.
+- Review audit logs for any unauthorized changes or access to sensitive data during the period of compromise.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement conditional access policies to restrict access based on geographic location and risk level.
+- Enhance logging policies to ensure comprehensive capture of authentication events and integrate with a security information and event management (SIEM) system for real-time monitoring.
+- Educate users on recognizing phishing attempts and the importance of using strong, unique passwords.
+- Restore any affected systems or data to their last known good state, ensuring no malicious artifacts remain.
+- Regularly review and update security policies and configurations to align with best practices and mitigate similar threats in the future."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2024/06/18"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 50
@@ -85,6 +85,49 @@ tags = [
     "Tactic: Command and Control",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Web Request
+The 'Unusual Web Request' detection leverages machine learning to identify rare URLs that deviate from normal web activity, potentially signaling malicious actions like initial access or data exfiltration. Adversaries exploit trusted sites by embedding uncommon URLs to deliver payloads or establish command-and-control channels. This rule detects anomalies by flagging atypical URL requests, aiding in early threat identification.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific unusual URL and the associated host or IP address that made the request.
+- Check historical logs to determine if the unusual URL has been accessed previously and identify any patterns or trends in access times.
+- Correlate the unusual URL with known threat intelligence sources to determine if it is associated with any known malicious activity or campaigns.
+- Analyze the user agent string and other HTTP headers in the request to identify any anomalies or indicators of automated tools or scripts.
+- Investigate the source IP address to determine its geolocation and check if it is associated with any known malicious activity or blacklists.
+- Use Osquery to gather additional context from the affected host. For example, run the following query to list recent network connections: `SELECT * FROM process_open_sockets WHERE remote_address = '<source IP>';`
+- Examine DNS logs to see if there are any other unusual domain resolutions around the same time as the alert.
+- Check for any related alerts or events in the same timeframe that might indicate a broader attack or compromise.
+- Review endpoint security logs on the affected host to identify any suspicious processes or file modifications that coincide with the unusual web request.
+- Consult with the user or system owner to verify if the unusual URL request was legitimate or if they noticed any unusual behavior on their system.
+
+### False positive analysis
+
+- Known false positives for the Unusual Web Request rule can include legitimate business applications or services that use uncommon URLs for regular operations, such as software updates or API calls.
+- Web crawlers and bots that are part of normal internet traffic may trigger alerts due to their access patterns, which can appear as unusual but are non-threatening.
+- Internal development or testing environments might generate rare URL requests that are benign but flagged by the detection system.
+- To manage these false positives, users can create exceptions for specific URLs or domains that are verified as safe and part of routine operations.
+- Implementing a whitelist for known and trusted services that frequently generate uncommon URLs can help reduce unnecessary alerts.
+- Regularly reviewing and updating the list of exceptions based on changes in business processes or new legitimate services can maintain the effectiveness of the detection system while minimizing false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further communication with potentially malicious URLs.
+- Conduct a thorough investigation of the unusual URL request to determine if it is part of a known attack pattern, referencing MITRE ATT&CK techniques such as T1071 for context.
+- Analyze network traffic logs and web server logs to identify any additional suspicious activity or related requests.
+- Remove any identified malware or unauthorized software from the affected system using updated antivirus or endpoint detection and response tools.
+- Restore the system from a clean backup if malware removal is not feasible or if the system's integrity is compromised.
+- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals a targeted attack or data exfiltration attempt.
+- Implement enhanced logging policies to capture detailed web request data, including URL parameters and referrer information, for future investigations.
+- Integrate threat intelligence feeds and anomaly detection systems to improve the detection of unusual web requests and related threats.
+- Conduct a security review of web server configurations and apply hardening measures, such as disabling unnecessary services and applying the latest security patches.
+- Educate users on recognizing phishing attempts and suspicious URLs to reduce the risk of initial access through social engineering tactics."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

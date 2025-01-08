@@ -2,7 +2,7 @@
 creation_date = "2021/07/19"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Austin Songer"]
@@ -21,7 +21,50 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS ElastiCache Security Group Created"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS ElastiCache Security Group Created
+
+AWS ElastiCache security groups control access to cache clusters, ensuring only authorized traffic can interact with them. Adversaries might create new security groups to bypass existing restrictions, facilitating unauthorized access or data exfiltration. The detection rule monitors for successful creation events of these groups, signaling potential misuse aligned with defense evasion tactics.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event dataset is `aws.cloudtrail` and the event provider is `elasticache.amazonaws.com` to ensure the alert is relevant to ElastiCache security group creation.
+- Verify the event action is "Create Cache Security Group" and the event outcome is "success" to confirm the security group was successfully created.
+- Identify the AWS account and user or role that initiated the creation of the security group by examining the `user.identity.arn` and `aws.account.id` fields.
+- Check the time of the event to determine if the creation occurred during normal business hours or if it was an unusual time, which might indicate suspicious activity.
+- Investigate the IP addresses and locations associated with the request using the `source.ip` field to identify any anomalies or unexpected geolocations.
+- Review the CloudTrail logs for any preceding or subsequent actions by the same user or role to identify potential patterns of suspicious behavior.
+- Examine the configuration of the newly created security group, including any inbound or outbound rules, to assess if it allows overly permissive access.
+- Use Osquery to query the AWS environment for additional context on the security group. Example query: `SELECT * FROM aws_elasticache_security_groups WHERE name = '<security_group_name>';`
+- Cross-reference the security group creation with any recent changes in IAM policies or roles that might have granted new permissions to the user or role involved.
+- Consult with the relevant team or individual responsible for AWS ElastiCache management to verify if the security group creation was authorized and aligns with expected changes or deployments.
+
+### False positive analysis
+
+- Routine administrative tasks: Regular maintenance or configuration changes by authorized personnel can trigger the creation of new ElastiCache security groups. These actions are typically non-threatening and can be verified by cross-referencing with change management logs or authorized user activity.
+- Automated deployment scripts: Organizations using infrastructure as code (IaC) tools like Terraform or AWS CloudFormation may automatically create security groups as part of their deployment processes. These should be reviewed and, if deemed non-threatening, can be excluded by identifying specific user agents or IAM roles associated with these tools.
+- Testing environments: Development or testing environments often mimic production setups, including the creation of security groups. These environments can be excluded by tagging resources appropriately and filtering alerts based on these tags.
+- Third-party integrations: Some third-party services or applications may require the creation of security groups for integration purposes. It's important to verify these integrations and, if legitimate, exclude them by identifying specific service accounts or API calls associated with these services.
+
+### Response and remediation
+
+- Immediately review the AWS CloudTrail logs to identify the source and context of the ElastiCache security group creation event.
+- Verify the identity and access management (IAM) permissions of the user or role that created the security group to ensure it aligns with expected behavior.
+- Temporarily revoke or restrict permissions for the identified user or role to prevent further unauthorized actions.
+- Assess the configuration of the newly created security group to determine if it allows overly permissive access and adjust the rules to align with the principle of least privilege.
+- Conduct a thorough investigation to determine if any unauthorized access or data exfiltration has occurred using the new security group.
+- Escalate the incident to the security operations center (SOC) or incident response team if malicious intent is suspected, providing them with all relevant logs and findings.
+- Implement enhanced logging and monitoring for ElastiCache and related AWS services to detect similar activities in the future.
+- Integrate AWS CloudTrail with a security information and event management (SIEM) system to enable real-time alerting and correlation with other security events.
+- Restore any affected systems or data to their last known good state if unauthorized changes or access were detected.
+- Review and update security group policies and IAM roles to harden the environment against similar threats, ensuring alignment with best practices and compliance requirements.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

@@ -2,7 +2,7 @@
 creation_date = "2023/08/21"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -44,6 +44,49 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and process.name : "at.exe" and process.args : "\\\\*"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating At.exe Command Lateral Movement
+
+The `at.exe` utility is a legacy Windows command-line tool used to schedule tasks on local or remote systems. Adversaries may exploit this tool to execute tasks on remote hosts, facilitating lateral movement within a network. The detection rule identifies suspicious use of `at.exe` by monitoring for its execution with network paths, which may indicate attempts to schedule tasks on remote systems, a common tactic in lateral movement.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of `at.exe` execution with network paths in the `process.args` field, indicating potential remote task scheduling.
+- Verify the `host.os.type` field to ensure the event occurred on a Windows system, as `at.exe` is specific to Windows environments.
+- Examine the `event.type` field to confirm the process start event, ensuring that the alert is triggered by the execution of `at.exe`.
+- Investigate the source host by checking the hostname or IP address to determine if it is a known or trusted system within the network.
+- Analyze the destination network path in the `process.args` field to identify the target host and assess if it is a legitimate target for task scheduling.
+- Check the user account associated with the `at.exe` execution to determine if it is a privileged account and if the activity aligns with the user's typical behavior.
+- Use Osquery to gather additional context on the source host by running a query such as: `SELECT * FROM processes WHERE name = 'at.exe';` to identify any related processes or anomalies.
+- Review historical logs and previous alerts for similar `at.exe` executions to identify patterns or repeated attempts of lateral movement.
+- Correlate the `at.exe` activity with other network or host-based alerts to determine if it is part of a larger attack campaign or isolated incident.
+- Consult with system administrators or the user associated with the alert to verify if the `at.exe` execution was authorized or part of a legitimate task scheduling activity.
+
+### False positive analysis
+
+- Scheduled administrative tasks: Legitimate IT operations may use `at.exe` to schedule routine maintenance or updates on remote systems, which can trigger the detection rule. Users should identify and document these tasks to differentiate them from malicious activity.
+- Backup operations: Some backup solutions might use `at.exe` to initiate backup processes on remote machines. Users can create exceptions for known backup operations by specifying the associated network paths or process arguments.
+- Software deployment: Organizations deploying software across multiple systems might use `at.exe` for task scheduling. Users should maintain a list of authorized deployment activities and exclude these from alerts.
+- Testing and development: Developers or IT staff might use `at.exe` in test environments to simulate task scheduling. Users can exclude specific test environments or user accounts from triggering alerts.
+- To manage false positives, users can implement exceptions by creating allowlists for known benign network paths or specific user accounts frequently associated with non-threatening `at.exe` usage. This helps in reducing noise and focusing on genuine threats.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
+- Verify the legitimacy of the scheduled tasks created by at.exe by reviewing the task details and the user account that initiated them.
+- Terminate any unauthorized or suspicious tasks that were scheduled using at.exe to halt potential malicious activities.
+- Conduct a thorough investigation to identify any other systems that may have been targeted or compromised using similar tactics.
+- Review and analyze logs from the affected system and any connected systems to trace the adversary's actions and identify their entry point.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging policies to capture detailed process execution and network activity, focusing on remote task scheduling attempts.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
+- Restore the affected system to its operational state by removing any malicious artifacts and applying necessary security patches and updates.
+- Harden the environment by disabling legacy tools like at.exe if not needed, and enforce strict access controls and network segmentation to limit lateral movement opportunities."""
 
 
 [[rule.threat]]

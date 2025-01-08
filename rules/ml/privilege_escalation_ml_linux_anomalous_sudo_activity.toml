@@ -2,7 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2024/06/18"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 75
@@ -84,6 +84,52 @@ tags = [
     "Tactic: Privilege Escalation",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Sudo Activity
+
+Sudo allows users to execute commands with elevated privileges, essential for system administration. However, adversaries may exploit this by using compromised credentials to gain unauthorized access. The 'Unusual Sudo Activity' detection rule identifies anomalies in sudo usage patterns, flagging potential misuse by comparing current activity against typical user behavior, thus aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the alert details to identify the user account involved in the unusual sudo activity and the specific command executed.
+- Check the timestamp of the activity to determine if it aligns with the user's typical working hours or if it occurred at an unusual time.
+- Analyze the user's historical sudo usage patterns to assess whether this activity deviates from their normal behavior.
+- Verify the source IP address and hostname from which the sudo command was executed to ensure it matches the user's known devices and locations.
+- Cross-reference the user's recent login history to identify any suspicious logins or anomalies around the time of the sudo activity.
+- Use Osquery to gather additional context on the system where the sudo command was executed. For example, run the following query to list recent sudo commands:
+  ```sql
+  SELECT uid, user, command, time FROM sudo_log WHERE user = '<username>';
+  ```
+- Investigate any recent changes to the user's account, such as password resets or modifications to group memberships, that could indicate account compromise.
+- Check for any other security alerts or logs related to the user or system around the same timeframe to identify potential correlated activities.
+- Review the system's audit logs for any unauthorized changes or suspicious activities that occurred before or after the unusual sudo command.
+- Consult with the user, if possible, to verify whether they performed the action and to gather additional context about the necessity and legitimacy of the command.
+
+### False positive analysis
+
+- Known false positives for the Unusual Sudo Activity rule often arise from legitimate administrative tasks performed by users who do not typically require elevated privileges, such as developers or support staff temporarily granted sudo access for troubleshooting.
+- Another common false positive occurs when system updates or maintenance scripts are executed by service accounts that do not usually perform such actions, leading to flagged activity.
+- To manage these false positives, users can create exceptions for specific user accounts or groups that are known to perform these tasks regularly, ensuring that their activity is not flagged as unusual.
+- Implementing a baseline of normal sudo activity for each user or role can help in distinguishing between legitimate and suspicious actions, reducing the likelihood of false positives.
+- Regularly reviewing and updating the list of exceptions and baselines is crucial, as user roles and responsibilities may change over time, potentially altering what constitutes normal sudo activity.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Verify the legitimacy of the sudo activity by contacting the user involved and reviewing their recent activities and access needs.
+- Conduct a thorough investigation of the system logs to identify any unauthorized changes or additional suspicious activities, focusing on the time frame of the unusual sudo activity.
+- Reset passwords for the affected user account and any other accounts that may have been compromised, ensuring the use of strong, unique passwords.
+- Escalate the incident to the security operations team if evidence of a broader compromise is found, such as multiple accounts affected or signs of data exfiltration.
+- Implement enhanced logging policies to capture detailed sudo command usage and user activity, ensuring logs are stored securely and retained for an appropriate period.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate unusual sudo activity with known threat indicators and patterns.
+- Restore the system to its operational state by verifying the integrity of critical system files and configurations, and applying any necessary patches or updates.
+- Conduct a post-incident review to identify gaps in security controls and processes, and update incident response plans accordingly.
+- Implement hardening measures such as enforcing the principle of least privilege, using multi-factor authentication, and regularly reviewing user access rights to minimize the risk of future incidents."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

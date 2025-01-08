@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_version = "8.16.0"
 min_stack_comments = "Breaking change at 8.16.0 for the Endpoint Integration with respect to ecs field process.group.id"
-updated_date = "2024/12/10"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -65,6 +65,48 @@ sequence by host.id, process.session_leader.entity_id with maxspan=15s
 [ process where host.os.type == "linux" and event.action == "uid_change" and event.type == "change" and 
   process.name == "sudo" and process.user.id == "0" and process.group.id == "0" ]
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Sudo Token Manipulation via Process Injection
+
+In Linux environments, process injection can be exploited by adversaries to manipulate sudo tokens, allowing unauthorized privilege escalation. Attackers may use debugging tools like gdb to inject code into processes with valid sudo tokens, leveraging ptrace capabilities. The detection rule identifies this threat by monitoring for gdb execution followed by a uid change in the sudo process, indicating potential token manipulation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the host.id and process.session_leader.entity_id involved in the sequence to ensure the correct context is being investigated.
+- Verify the execution of the gdb process by checking the process.name field and ensure it matches "gdb" with a non-root user and group id, as indicated by process.user.id != "0" and process.group.id != "0".
+- Investigate the timing and sequence of events by examining the maxspan=15s condition to determine if the gdb execution and sudo uid change occurred within this short timeframe.
+- Check the process tree and parent-child relationships for the gdb process to identify any suspicious parent processes or anomalies in the process hierarchy.
+- Analyze the sudo process event where the uid_change occurred, ensuring the process.name is "sudo" and the user and group ids are root (process.user.id == "0" and process.group.id == "0").
+- Use Osquery to gather additional context on the processes involved. For example, run the following query to list processes with their parent processes and command lines: `SELECT pid, parent, name, path, cmdline FROM processes WHERE pid IN (SELECT pid FROM processes WHERE name = 'gdb' OR name = 'sudo');`
+- Investigate the ptrace settings on the host to determine if ptrace is enabled, which is necessary for process injection. This can be done by checking the value of `/proc/sys/kernel/yama/ptrace_scope`.
+- Review system logs and audit logs for any additional context or anomalies around the time of the alert, focusing on user activity and any other privilege escalation attempts.
+- Examine the user account associated with the gdb process to determine if there are any signs of compromise or unusual activity, such as recent logins from unexpected locations or times.
+- Correlate the findings with any other alerts or incidents involving the same host or user to identify potential patterns or broader attack campaigns.
+
+### False positive analysis
+
+- Debugging activities by developers or system administrators using gdb on processes with valid sudo tokens can trigger false positives. To manage this, users can create exceptions for specific user IDs or process names that are known to be involved in legitimate debugging activities.
+- Automated scripts or maintenance tasks that involve gdb and result in uid changes in the sudo process may also cause false positives. Users can handle these by identifying and excluding specific scripts or cron jobs from the detection rule.
+- Security tools or monitoring solutions that utilize gdb for legitimate process analysis might be mistakenly flagged. Users should whitelist these tools by specifying their process names or user IDs in the exception list.
+- Training or testing environments where gdb is frequently used for educational purposes can lead to false positives. Users can exclude these environments by filtering based on host identifiers or specific session leader entity IDs.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Use forensic tools to capture memory and disk images of the affected system for further analysis and evidence preservation.
+- Investigate the process tree and logs to identify the source of the gdb execution and any associated processes that may have been injected.
+- Check for unauthorized changes in user privileges and revert any unauthorized uid changes detected in the sudo process.
+- Review and update ptrace settings to restrict debugging capabilities to trusted users only, reducing the risk of process injection.
+- Implement enhanced logging for sudo and gdb activities, ensuring that all execution and privilege changes are recorded and monitored.
+- Integrate security information and event management (SIEM) solutions to correlate and analyze logs for suspicious activities related to process injection.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and threat intelligence correlation.
+- Restore the system to its operational state by applying clean backups and verifying the integrity of critical system files and configurations.
+- Conduct a security review and harden the system by applying the principle of least privilege, ensuring that only necessary users have sudo access, and regularly updating all software and security patches."""
 
 
 [[rule.threat]]

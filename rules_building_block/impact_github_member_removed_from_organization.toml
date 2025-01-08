@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/08"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -33,6 +33,49 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "org.remove_member"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Member Removed From GitHub Organization
+
+GitHub Organizations manage collaborative projects, controlling member access to repositories. Adversaries might exploit this by removing members to disrupt operations or conceal unauthorized changes. The detection rule monitors audit logs for member removal actions, identifying potential misuse by correlating these events with known threat tactics, ensuring timely alerts for security teams.
+
+### Possible investigation steps
+
+- Review the audit logs to confirm the event details, focusing on the `event.dataset` and `event.action` fields to ensure the alert corresponds to a member removal action.
+- Identify the user who performed the removal by examining the `actor` field in the audit logs to determine if the action was authorized or suspicious.
+- Check the `target` field to identify the member who was removed and assess their role and access level within the organization.
+- Investigate the timing of the removal by analyzing the `timestamp` field to see if it coincides with any other suspicious activities or known threat patterns.
+- Correlate the removal event with other recent audit log entries to identify any unusual patterns or sequences of actions that might indicate malicious intent.
+- Use Osquery to gather additional context on the system from which the removal action was performed. Example query: `SELECT * FROM processes WHERE name = 'git' AND user = '<actor_username>';`
+- Examine any recent changes to critical repositories or settings that the removed member had access to, ensuring no unauthorized modifications were made.
+- Cross-reference the removal event with any recent security alerts or incidents to determine if it is part of a broader attack or compromise.
+- Verify if there were any recent changes to the organization's membership policies or permissions that could explain the removal action.
+- Consult with the organization's team members or administrators to validate the legitimacy of the removal and gather any additional context or insights.
+
+### False positive analysis
+
+- Routine administrative actions: Regular maintenance or restructuring of a GitHub Organization may involve removing members who no longer need access. These actions are typically non-threatening and can be identified by correlating with scheduled administrative tasks.
+- Employee offboarding: When employees leave a company, their access to the GitHub Organization is often removed as part of the offboarding process. This is a standard security practice and can be excluded by verifying against HR records.
+- Temporary project access: Members might be removed after completing their work on a temporary project. These removals can be considered non-threatening if they align with project timelines and deliverables.
+- Automated account management: Some organizations use automated tools to manage GitHub access, which might include removing inactive or unnecessary accounts. These actions can be excluded by identifying and trusting the automation tools in use.
+- To manage false positives, users can create exceptions for known non-threatening behaviors by maintaining a whitelist of expected member removal actions, such as those associated with specific administrative or HR processes.
+
+### Response and remediation
+
+- Immediately verify the legitimacy of the member removal by contacting the organization owner or admin to confirm if the action was authorized.
+- Review the audit logs for any suspicious activities or patterns around the time of the member removal to identify potential unauthorized access or changes.
+- If unauthorized removal is confirmed, temporarily restrict access to critical repositories and resources to prevent further unauthorized actions.
+- Restore the removed member's access if the removal was unauthorized and ensure they are informed of the incident.
+- Escalate the incident to the security team for a thorough investigation and to determine if any sensitive data or systems were compromised.
+- Implement additional logging and monitoring to capture detailed events related to member access and changes within the organization.
+- Integrate alerts with a Security Information and Event Management (SIEM) system to enhance real-time monitoring and correlation with other security events.
+- Conduct a review of current access policies and permissions to ensure they follow the principle of least privilege and adjust as necessary.
+- Educate organization members on security best practices and the importance of reporting suspicious activities promptly.
+- Consider implementing multi-factor authentication (MFA) and regular access reviews to strengthen account security and prevent unauthorized access."""
 
 
 [[rule.threat]]

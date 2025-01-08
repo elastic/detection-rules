@@ -2,7 +2,7 @@
 creation_date = "2024/08/01"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -49,6 +49,48 @@ registry where host.os.type == "windows" and event.action != "deletion" and regi
         "USER\\*\\SOFTWARE\\Microsoft\\Office\\*\\Outlook\\Webview\\Inbox\\URL"
     ) and registry.data.strings : "*http*"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Outlook Home Page Registry Modification
+
+The Outlook Home Page feature allows users to set a webpage as the default view for folders, enhancing productivity. However, adversaries can exploit this by modifying registry keys to redirect to malicious URLs, enabling command and control or persistence. The detection rule identifies suspicious registry changes by monitoring specific paths and URL patterns, alerting analysts to potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific registry path and URL involved in the modification, focusing on the `registry.path` and `registry.data.strings` fields.
+- Verify the legitimacy of the URL by checking if it is a known or trusted domain, and assess its reputation using threat intelligence sources.
+- Examine the user account associated with the registry modification to determine if it aligns with expected behavior or if it appears suspicious.
+- Check the modification timestamp to correlate with any known user activity or scheduled tasks that might explain the change.
+- Investigate the host machine for any other signs of compromise, such as unusual network connections or processes, using endpoint detection tools.
+- Utilize Osquery to further inspect the registry changes with a query like: `SELECT * FROM registry WHERE path LIKE 'HKCU\\\\%\\\\SOFTWARE\\\\Microsoft\\\\Office\\\\%\\\\Outlook\\\\Webview\\\\Inbox\\\\URL';` to gather more context on the modification.
+- Cross-reference the registry modification with recent email activity in Outlook to identify any potential phishing attempts or malicious emails that could have led to the change.
+- Analyze system logs for any other registry changes or suspicious activities around the same time frame to identify potential patterns or related incidents.
+- Investigate any recent software installations or updates on the host that might have inadvertently caused the registry modification.
+- Consult with the user or IT support to verify if the change was intentional or part of a legitimate configuration change.
+
+### False positive analysis
+
+- Legitimate software updates or installations may modify the Outlook Home Page registry keys, leading to false positives. Users should verify if recent updates or installations correspond with the detected changes.
+- Custom organizational policies or scripts that configure Outlook settings for productivity purposes might trigger alerts. Analysts should review these policies and consider excluding known safe configurations.
+- Users who frequently change their Outlook Home Page settings for personalization might inadvertently cause alerts. Monitoring user behavior patterns can help distinguish between benign and suspicious activities.
+- To manage false positives, users can create exceptions for known safe registry paths or URL patterns that are frequently modified by trusted applications or processes. This can be done by updating the detection rule to exclude these specific cases.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further command and control communication.
+- Conduct a thorough investigation to identify any additional compromised systems by reviewing logs and alerts related to the registry modification.
+- Verify the legitimacy of the URL set in the registry and remove or correct any unauthorized or malicious entries.
+- Restore the registry settings to their default state using a known good backup or by manually resetting the affected keys.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the compromise.
+- Implement enhanced logging policies to capture detailed registry changes and network traffic for future investigations.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs).
+- Apply security patches and updates to the operating system and Outlook to mitigate known vulnerabilities.
+- Educate users on recognizing phishing attempts and suspicious activities that could lead to registry modifications.
+- Consider deploying application whitelisting and endpoint detection and response (EDR) solutions to prevent unauthorized changes and enhance system hardening."""
 
 
 [[rule.threat]]

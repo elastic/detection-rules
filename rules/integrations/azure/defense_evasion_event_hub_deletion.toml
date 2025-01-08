@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,51 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Event Hub Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure Event Hub Deletion
+
+Azure Event Hubs is a scalable data streaming platform and event ingestion service, crucial for processing large volumes of data in real-time. Adversaries may delete Event Hubs to disrupt monitoring and evade detection. The detection rule identifies such deletions by monitoring Azure activity logs for specific deletion operations, flagging successful attempts to impair defenses.
+
+### Possible investigation steps
+
+- Review the Azure activity logs to confirm the deletion event by checking the `event.dataset` and `azure.activitylogs.operation_name` fields for "MICROSOFT.EVENTHUB/NAMESPACES/EVENTHUBS/DELETE".
+- Verify the `event.outcome` field to ensure the deletion was successful, as indicated by "Success" or "success".
+- Identify the user or service principal responsible for the deletion by examining the `azure.activitylogs.caller` field.
+- Check the `azure.activitylogs.correlation_id` to trace related activities and understand the sequence of events leading to the deletion.
+- Investigate the `azure.activitylogs.resource_id` to determine which specific Event Hub was deleted and assess its importance and impact on operations.
+- Analyze the `azure.activitylogs.timestamp` to establish the exact time of the deletion and correlate it with other security events or anomalies.
+- Use Osquery to gather additional context on the system from which the deletion was initiated. Example query: `SELECT * FROM azure_event_hubs WHERE operation_name = 'MICROSOFT.EVENTHUB/NAMESPACES/EVENTHUBS/DELETE' AND outcome = 'Success';`
+- Review any recent changes in Azure IAM roles and permissions that might have allowed unauthorized users to delete Event Hubs.
+- Cross-reference the deletion event with network logs to identify any unusual access patterns or connections from suspicious IP addresses around the time of the event.
+- Consult with relevant stakeholders or teams to verify if the deletion was part of a planned activity or if it was unauthorized, gathering any additional context or documentation.
+
+### False positive analysis
+
+- Routine maintenance or administrative tasks may trigger the Azure Event Hub Deletion rule, as legitimate users might delete Event Hubs during regular operations or resource management activities.
+- Automated scripts or deployment tools that manage Azure resources could also lead to false positives if they include Event Hub deletion as part of their workflow.
+- To manage these false positives, users can create exceptions for known maintenance windows or specific user accounts that regularly perform these operations.
+- Implementing a whitelist of trusted IP addresses or service accounts that are authorized to delete Event Hubs can help reduce false positives.
+- Regularly review and update the list of exceptions to ensure that only non-threatening behaviors are excluded, maintaining the integrity of the detection rule.
+
+### Response and remediation
+
+- Immediately isolate affected systems to prevent further unauthorized access or data loss.
+- Conduct a thorough investigation to confirm the deletion was unauthorized, reviewing Azure activity logs and correlating with other security events.
+- Restore the deleted Event Hub from backups or snapshots to resume normal operations and minimize data loss.
+- Escalate the incident to the security operations center (SOC) and relevant stakeholders for further analysis and response coordination.
+- Implement enhanced logging and monitoring policies to capture detailed activity logs for all critical Azure resources, including Event Hubs.
+- Integrate Azure Security Center and other security tools to provide real-time alerts and automated responses to suspicious activities.
+- Review and update access controls and permissions for Azure resources to ensure the principle of least privilege is enforced.
+- Conduct a post-incident review to identify gaps in security controls and processes, and implement necessary improvements.
+- Educate and train staff on recognizing and responding to potential security incidents, emphasizing the importance of timely reporting.
+- Regularly test and update incident response plans to ensure readiness for future threats, incorporating lessons learned from the current incident.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

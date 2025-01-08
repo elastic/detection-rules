@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,50 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Exchange Safe Link Policy Disabled"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Exchange Safe Link Policy Disabled
+
+Microsoft 365's Safe Link policies enhance security by scanning hyperlinks in documents for phishing threats. Disabling these policies can expose users to malicious links, often used in phishing attacks to gain unauthorized access. The detection rule identifies successful attempts to disable Safe Link policies, signaling potential security breaches by monitoring specific audit events in the Exchange environment.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the event.action:"Disable-SafeLinksRule" and event.outcome:success fields, ensuring the alert is valid and corresponds to a successful policy disablement.
+- Check the event.dataset:o365.audit and event.provider:Exchange fields to verify the source and context of the event, confirming it originated from the Microsoft 365 Exchange environment.
+- Identify the user or account associated with the action by examining the user information in the audit logs, focusing on any unusual or unauthorized accounts.
+- Investigate the timestamp of the event to determine when the policy was disabled and correlate it with other security events or anomalies around the same time.
+- Analyze the IP address and location data associated with the event to identify any suspicious or unexpected access patterns.
+- Review recent changes in the Microsoft 365 environment, including any new or modified user accounts, to identify potential unauthorized access or privilege escalation.
+- Utilize Osquery to gather additional context on the system where the action was initiated. Example query: `SELECT * FROM users WHERE username = 'suspicious_user';` to check for any unusual user accounts or activity.
+- Examine email logs and communication patterns of the involved user to identify any phishing attempts or suspicious emails that may have led to the policy being disabled.
+- Cross-reference the event with other security tools and logs, such as endpoint protection or network monitoring systems, to gather a comprehensive view of the incident.
+- Document all findings and maintain a timeline of events to assist in understanding the scope and potential impact of the policy disablement.
+
+### False positive analysis
+
+- Routine administrative tasks: IT administrators may disable Safe Link policies temporarily for testing or troubleshooting purposes, which can trigger false positives. To manage this, organizations can create exceptions for known administrative accounts or specific time frames when such activities are expected.
+- Policy updates or changes: During policy updates or configuration changes, Safe Link policies might be disabled as part of the process. To handle these, organizations can document and schedule these changes, allowing for temporary exclusions during maintenance windows.
+- Third-party integrations: Some third-party applications or services may require Safe Link policies to be disabled for compatibility reasons. In such cases, organizations should assess the risk and, if deemed safe, create exceptions for these specific applications or services.
+- User training sessions: Training sessions that involve demonstrating the disabling of Safe Link policies can also result in false positives. Organizations can mitigate this by scheduling these sessions and excluding them from monitoring during the training period.
+
+### Response and remediation
+
+- Immediately re-enable the Safe Link policy to restore phishing protection for users and prevent further exposure to malicious links.
+- Conduct a thorough investigation to identify the user or system account responsible for disabling the Safe Link policy by reviewing audit logs and correlating with other security events.
+- Isolate any affected systems or accounts to prevent further unauthorized access or potential spread of malicious activity.
+- Notify the security team and relevant stakeholders about the incident and provide them with details of the investigation and current status.
+- Review and update access controls and permissions to ensure that only authorized personnel can modify security policies such as Safe Links.
+- Implement enhanced logging and monitoring for Microsoft 365 and Exchange environments to detect similar activities in the future, ensuring that audit logs are retained for an appropriate duration.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities for phishing and other related threats.
+- Conduct a security awareness training session for users to reinforce the importance of recognizing phishing attempts and reporting suspicious activities.
+- Restore any affected systems to their operational state by applying necessary patches, updates, and security configurations.
+- Implement hardening measures such as multi-factor authentication (MFA) and conditional access policies to reduce the risk of unauthorized access and enhance overall security posture.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

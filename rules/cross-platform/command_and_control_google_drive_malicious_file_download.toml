@@ -2,7 +2,7 @@
 creation_date = "2023/06/19"
 integration = ["endpoint", "system"]
 maturity = "production"
-updated_date = "2024/08/09"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -49,6 +49,52 @@ process where
     /* Look for Google Drive download URL with AV flag skipping */
     (process.command_line : "*drive.google.com*" and process.command_line : "*export=download*" and process.command_line : "*confirm=no_antivirus*")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious File Downloaded from Google Drive
+
+Google Drive is a widely used cloud storage service that allows users to store and share files. Adversaries may exploit its trusted nature to deliver malicious payloads by crafting URLs that bypass antivirus checks. The detection rule identifies unusual download activities from Google Drive by monitoring browser processes and specific URL patterns, flagging potential threats for further investigation.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the suspicious Google Drive URL pattern, specifically checking for the `*drive.google.com*`, `*export=download*`, and `*confirm=no_antivirus*` strings in the `process.command_line`.
+- Identify the user account associated with the process that triggered the alert to determine if the activity aligns with their typical behavior.
+- Examine the process tree to understand the parent and child processes of the suspicious download activity, which can provide context on how the download was initiated.
+- Check the timestamp of the event to correlate with other security events or logs that might indicate related suspicious activities.
+- Investigate the network connections made by the process using the suspicious URL to identify any unusual or unauthorized data transfers.
+- Use Osquery to gather additional context about the process. For example, run the following query to list all processes with command lines containing the suspicious Google Drive URL pattern:
+  ```sql
+  SELECT pid, name, path, cmdline, start_time FROM processes WHERE cmdline LIKE '%drive.google.com%' AND cmdline LIKE '%export=download%' AND cmdline LIKE '%confirm=no_antivirus%';
+  ```
+- Analyze browser history and cache files to determine if the user visited any other suspicious or related URLs around the time of the alert.
+- Review any downloaded files for malicious content using a sandbox environment or antivirus tools to assess potential threats.
+- Check for any recent changes in browser extensions or plugins that might have facilitated the download of the suspicious file.
+- Consult threat intelligence sources to see if the specific Google Drive URL or file hash has been reported in any known phishing or malware campaigns.
+
+### False positive analysis
+
+- Legitimate business operations may involve downloading files from Google Drive using automated scripts or tools like curl or wget, which could trigger the rule. Users can create exceptions for specific IP addresses or user accounts known to perform these tasks regularly.
+- Educational institutions often share large volumes of files via Google Drive for academic purposes. If these activities are flagged, users can whitelist domains or email addresses associated with the institution to prevent false positives.
+- Software developers and IT teams might use Google Drive to distribute software updates or patches. To manage these, users can exclude specific file types or known update URLs from triggering the rule.
+- Marketing teams frequently share media files and assets through Google Drive links. Users can handle these by setting up exceptions for recognized marketing team members or specific project-related URLs.
+- Collaborative projects often involve sharing documents and resources via Google Drive. Users can mitigate false positives by excluding known project-related Google Drive URLs or user accounts from the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation of the downloaded file to determine its nature and potential impact, using sandboxing and static analysis tools.
+- Review browser and system logs to identify any other suspicious activities or downloads that may have occurred around the same time.
+- Remove the malicious file and any associated processes or registry entries from the affected system.
+- Restore the system from a known good backup if the integrity of the system is compromised.
+- Update antivirus and endpoint protection solutions to ensure they can detect and block similar threats in the future.
+- Implement enhanced logging policies to capture detailed information on file downloads and process executions for future investigations.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities.
+- Educate users on the risks of downloading files from untrusted sources and the importance of verifying URLs before clicking.
+- Report the incident to relevant internal teams and, if necessary, escalate to external cybersecurity authorities for further assistance."""
 
 
 [[rule.threat]]

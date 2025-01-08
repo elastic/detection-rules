@@ -2,7 +2,7 @@
 creation_date = "2020/12/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -61,6 +61,48 @@ sequence by host.id with maxspan=5s
  [process where host.os.type == "macos" and event.type in ("start", "process_started", "info") and process.name == "osascript" and process.args : "-e"] by process.entity_id
  [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name : ("sh", "bash", "zsh") and process.args == "-c" and process.args : ("*curl*", "*pbcopy*", "*http*", "*chmod*")] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Shell Execution via Apple Scripting
+
+AppleScript and JXA are scripting languages used in macOS to automate tasks by executing system commands. Adversaries exploit these by using functions like `doShellScript` to run shell commands, potentially for malicious activities. The detection rule identifies such abuse by monitoring for shell processes initiated by `osascript` with specific arguments, indicating possible unauthorized command execution.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of `osascript` execution with the `-e` argument, indicating potential AppleScript or JXA usage.
+- Examine the parent process of `osascript` to determine if it was initiated by a legitimate application or user action.
+- Investigate the specific shell command executed by `sh`, `bash`, or `zsh` with the `-c` argument, focusing on suspicious patterns like `curl`, `pbcopy`, `http`, or `chmod`.
+- Correlate the process entity IDs between `osascript` and the shell process to confirm the sequence of execution and identify any anomalies.
+- Check the user account associated with the process execution to determine if it aligns with expected behavior or if it might be compromised.
+- Utilize Osquery to gather additional context on the processes involved. For example, run the following query to list recent `osascript` executions: `SELECT * FROM processes WHERE name = 'osascript' AND cmdline LIKE '%-e%';`
+- Investigate network connections made by the system around the time of the alert to identify any suspicious outbound traffic, especially related to `curl` or `http`.
+- Review system logs for any additional indicators of compromise or related suspicious activity around the time of the alert.
+- Analyze any files or scripts referenced in the command arguments for malicious content or unexpected modifications.
+- Cross-reference the alert with other security tools or logs to identify if this activity is part of a broader attack pattern or isolated incident.
+
+### False positive analysis
+
+- Legitimate automation scripts: Users may have legitimate AppleScripts or JXA scripts that automate tasks using `doShellScript` or `do shell script` to execute shell commands. These scripts might trigger the detection rule if they include commands like `curl`, `pbcopy`, `http`, or `chmod`. To manage this, users can create exceptions for known scripts by whitelisting specific script paths or process hashes.
+- System maintenance tools: Some system maintenance or monitoring tools might use AppleScript to execute shell commands for legitimate purposes. These tools can be identified and excluded from the detection rule by specifying their process names or command patterns in the exception list.
+- Developer environments: Developers often use scripting to automate build processes or other development tasks, which might involve shell command execution. Users can handle these false positives by excluding processes associated with known development environments or by setting up alerts only for non-development systems.
+- User-initiated scripts: Users might manually run scripts that include shell commands for personal productivity or customization. To reduce false positives, users can configure the detection rule to ignore scripts executed from specific user directories or by certain user accounts known to perform such activities.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough investigation to identify the scope of the compromise by reviewing logs and identifying any additional systems that may have been affected.
+- Terminate any suspicious processes initiated by 'osascript' and any associated shell processes to stop ongoing malicious activities.
+- Analyze the command history and scripts executed via 'osascript' to understand the adversary's actions and objectives.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
+- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
+- Restore the system to its operational state by applying the latest security patches, removing any unauthorized software, and ensuring all security configurations are up to date.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Implement hardening measures such as disabling unnecessary scripting capabilities, enforcing least privilege access, and using application whitelisting to prevent unauthorized script execution."""
 
 
 [[rule.threat]]

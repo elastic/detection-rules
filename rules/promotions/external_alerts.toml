@@ -2,7 +2,7 @@
 creation_date = "2020/07/08"
 maturity = "production"
 promotion = true
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -43,6 +43,48 @@ type = "query"
 query = '''
 event.kind:alert and not event.module:(endgame or endpoint or cloud_defend)
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating External Alerts
+
+External alerts are crucial for identifying potential threats from outside sources, leveraging logs and signals from various security tools. Adversaries may exploit these technologies by triggering false alerts or bypassing detection systems. The 'External Alerts' rule filters alerts, excluding specific modules, to focus on genuine threats, enabling analysts to swiftly investigate and mitigate risks.
+
+### Possible investigation steps
+
+- Review the alert details to understand the context, focusing on the `event.kind:alert` field to confirm the nature of the alert.
+- Check the `event.module` field to ensure the alert is not from excluded modules such as endgame, endpoint, or cloud_defend, which are filtered out by the rule.
+- Correlate the alert with other logs and alerts from the same timeframe to identify any patterns or related activities.
+- Investigate the source IP address or domain associated with the alert to determine if it is known for malicious activity.
+- Use threat intelligence sources to gather additional context on the external alert, such as known indicators of compromise (IOCs) or threat actor profiles.
+- Examine user activity logs to identify any unusual behavior or access patterns that coincide with the alert.
+- Utilize Osquery to gather more information from affected systems. For example, run the following Osquery query to list recent network connections: `SELECT * FROM process_open_sockets WHERE remote_address = '<suspicious IP>';`
+- Analyze any file hashes or URLs associated with the alert using online malware analysis tools to assess their threat level.
+- Check for any recent changes in system configurations or security settings that could have contributed to the alert.
+- Document all findings and observations in a centralized investigation report to maintain a clear record of the investigation process.
+
+### False positive analysis
+
+- Known false positives for the External Alerts rule may include benign activities from trusted sources that inadvertently trigger alerts, such as routine network scans by authorized security tools or regular updates from trusted software vendors.
+- Users can manage these false positives by creating exceptions for specific event sources or modules that are consistently identified as non-threatening, ensuring that these are well-documented and reviewed regularly to maintain security integrity.
+- It is important to analyze the context of each alert to determine if it aligns with known benign behaviors or if it requires further investigation, thereby reducing unnecessary alert fatigue and focusing on genuine threats.
+- Implementing a feedback loop where analysts can flag and document false positives will help refine the rule over time, improving its accuracy and reducing the likelihood of overlooking real threats due to alert desensitization.
+
+### Response and remediation
+
+- Immediately isolate affected systems from the network to prevent further spread of the threat.
+- Conduct a thorough investigation of the alert to determine the scope and impact, utilizing available logs and security tools.
+- Validate the alert to confirm it is not a false positive by cross-referencing with other security data sources.
+- If malicious activity is confirmed, remove any identified malware or unauthorized access points from the affected systems.
+- Escalate the incident to the appropriate internal teams or external partners if the threat level is beyond current handling capabilities.
+- Implement additional logging and monitoring policies to capture more detailed information for future investigations.
+- Integrate threat intelligence feeds to enhance detection capabilities and provide context for similar threats.
+- Restore affected systems to their operational state by applying clean backups and ensuring all security patches are up to date.
+- Conduct a post-incident review to identify gaps in the current security posture and update response plans accordingly.
+- Apply system hardening measures, such as disabling unnecessary services and enforcing strong authentication mechanisms, to reduce the risk of future incidents."""
 
 
 [[rule.risk_score_mapping]]

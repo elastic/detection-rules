@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,50 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Firewall Policy Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure Firewall Policy Deletion
+
+Azure Firewall policies are crucial for managing and enforcing network security rules across Azure environments. Adversaries may target these policies to disable security measures, facilitating unauthorized access or data exfiltration. The detection rule monitors Azure activity logs for successful deletion operations of firewall policies, signaling potential defense evasion attempts by identifying specific operation names and outcomes.
+
+### Possible investigation steps
+
+- Review the Azure activity logs to confirm the deletion event by filtering for `event.dataset:azure.activitylogs` and `azure.activitylogs.operation_name:"MICROSOFT.NETWORK/FIREWALLPOLICIES/DELETE"` with `event.outcome:Success`.
+- Identify the user or service principal responsible for the deletion by examining the `azure.activitylogs.caller` field.
+- Check the timestamp of the deletion event to determine when the policy was deleted and correlate it with other security events around the same time.
+- Investigate the IP address and location associated with the deletion event using the `azure.activitylogs.callerIpAddress` field to identify any anomalies or suspicious access patterns.
+- Review the Azure AD sign-in logs for the identified user or service principal to check for any unusual login activities or failed login attempts.
+- Examine the change history of the deleted firewall policy to understand its previous configuration and assess the potential impact of its deletion.
+- Use Osquery to query the Azure environment for any recent changes to network security configurations. Example query: `SELECT * FROM azure_firewall_policies WHERE operation_name = 'DELETE' AND outcome = 'Success';`
+- Investigate any other related Azure resources that might have been affected by the deletion, such as virtual networks or subnets, to assess the broader impact.
+- Check for any other recent deletions or modifications of security policies in the Azure environment to identify potential patterns or coordinated attacks.
+- Collaborate with the incident response team to gather additional context from other security tools and logs, such as SIEM or endpoint detection systems, to build a comprehensive picture of the incident.
+
+### False positive analysis
+
+- Routine administrative tasks: Legitimate IT operations may involve the deletion of Azure Firewall policies as part of regular maintenance or updates. These actions can be identified by correlating the deletion event with scheduled maintenance windows or change management records.
+- Automated scripts or tools: Some organizations use automated scripts or third-party tools to manage Azure resources, including the deletion of firewall policies. These can be identified by reviewing the source of the operation and verifying if it aligns with known automation processes.
+- Testing environments: In development or testing environments, frequent creation and deletion of firewall policies may occur as part of testing procedures. These can be excluded by filtering events from specific resource groups or subscriptions designated for testing.
+- To manage false positives, users can create exceptions by excluding specific user accounts, service principals, or IP addresses associated with known non-threatening activities. Additionally, integrating with change management systems can help validate whether a deletion event is authorized.
+
+### Response and remediation
+
+- Immediately isolate affected systems to prevent further unauthorized access or data exfiltration.
+- Review Azure activity logs to confirm the deletion of the firewall policy and identify any associated suspicious activities or accounts.
+- Recreate the deleted firewall policy using backup configurations or documented rules to restore network security controls.
+- Conduct a thorough investigation to determine the scope of the breach, including identifying compromised accounts and systems.
+- Escalate the incident to the security operations center (SOC) and relevant stakeholders for further analysis and response.
+- Implement enhanced logging and monitoring for Azure activity logs to detect similar unauthorized actions in the future.
+- Integrate Azure Security Center and other security tools to provide comprehensive visibility and automated alerts for policy changes.
+- Review and update access controls and permissions to ensure only authorized personnel can modify or delete firewall policies.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Educate and train staff on security best practices and the importance of maintaining robust firewall policies to prevent future incidents.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.microsoft.com/en-us/azure/firewall-manager/policy-overview"]

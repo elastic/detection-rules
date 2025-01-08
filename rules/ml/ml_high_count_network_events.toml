@@ -2,7 +2,7 @@
 creation_date = "2021/04/05"
 integration = ["endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2024/06/18"
+updated_date = "2025/01/08"
 
 [rule]
 anomaly_threshold = 75
@@ -75,4 +75,48 @@ rule_id = "b240bfb8-26b7-4e5e-924e-218144a3fa71"
 severity = "low"
 tags = ["Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning"]
 type = "machine_learning"
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in Network Traffic
+
+Machine learning models monitor network traffic patterns to identify anomalies, such as unexpected spikes. These spikes may indicate malicious activities like data exfiltration, reconnaissance, or denial-of-service attacks. Adversaries exploit network vulnerabilities to flood traffic or extract data. The detection rule leverages these models to flag unusual traffic surges, prompting further investigation into potential threats.
+
+### Possible investigation steps
+
+- Review the timestamp of the spike to correlate with any scheduled business activities or known events that could justify the increase in traffic.
+- Analyze the source and destination IP addresses involved in the spike to identify any known malicious actors or unusual patterns.
+- Examine the network protocols and ports used during the spike to determine if they align with typical business operations or if they suggest suspicious activity.
+- Check for any recent changes in network configurations or firewall rules that could have inadvertently caused the spike.
+- Utilize Osquery to gather additional context on the systems involved. For example, run the following query to list active network connections: `SELECT * FROM process_open_sockets WHERE remote_address IS NOT NULL;`
+- Investigate the volume and type of data being transferred during the spike to assess if it aligns with potential data exfiltration activities.
+- Cross-reference the spike with any other security alerts or logs from intrusion detection systems to identify potential correlations.
+- Review user activity logs to determine if any unauthorized access or unusual user behavior coincides with the spike.
+- Check for any recent vulnerabilities or exploits that could have been leveraged to cause the spike in traffic.
+- Consult threat intelligence sources to see if there are any reports of similar traffic patterns or attacks targeting your industry or organization.
+
+### False positive analysis
+
+- Legitimate business activities such as scheduled data backups or software updates can cause spikes in network traffic, which may be mistakenly flagged as suspicious. 
+- High-volume data transfers during peak business hours or due to seasonal business demands can also trigger false positives.
+- Network performance testing or stress testing activities might generate traffic patterns similar to those of a denial-of-service attack.
+- Users can manage these false positives by creating exceptions for known, recurring activities that are verified as non-threatening.
+- Implementing a whitelist for IP addresses or domains associated with trusted business operations can help reduce false alerts.
+- Regularly updating the machine learning model with feedback on false positives can improve its accuracy over time.
+
+### Response and remediation
+
+- Immediately isolate affected systems from the network to prevent further data exfiltration or damage.
+- Conduct a thorough investigation to identify the source and nature of the traffic spike, using network logs and monitoring tools.
+- Analyze the traffic patterns to determine if the spike correlates with known malicious activities, referencing MITRE ATT&CK for potential tactics and techniques.
+- If malicious activity is confirmed, remove any identified malware or unauthorized access points from the affected systems.
+- Escalate the incident to the appropriate internal teams and, if necessary, external cybersecurity experts for further analysis and response.
+- Implement enhanced logging policies to capture detailed network traffic data for future analysis and early detection of anomalies.
+- Integrate additional security tools, such as intrusion detection systems (IDS) or endpoint detection and response (EDR) solutions, to improve monitoring capabilities.
+- Restore affected systems to their operational state by applying necessary patches, updates, and configurations to close any exploited vulnerabilities.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Implement network hardening measures, such as segmenting the network, applying strict access controls, and regularly updating firewall rules, to prevent future incidents."""
 

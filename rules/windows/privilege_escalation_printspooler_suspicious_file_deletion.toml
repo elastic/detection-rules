@@ -2,7 +2,7 @@
 creation_date = "2021/07/06"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -47,6 +47,49 @@ file where host.os.type == "windows" and event.type == "deletion" and
   file.extension : "dll" and file.path : "?:\\Windows\\System32\\spool\\drivers\\x64\\3\\*.dll" and
   not process.name : ("spoolsv.exe", "dllhost.exe", "explorer.exe")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Print Spooler File Deletion
+
+The Print Spooler service manages print jobs in Windows environments, crucial for handling print requests. Adversaries exploit vulnerabilities in this service to escalate privileges, often deleting driver files to cover tracks post-exploitation. The detection rule identifies unusual deletions of these files by monitoring for non-standard processes performing such actions, signaling potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the file path and extension match the suspicious criteria: `?:\\\\Windows\\\\System32\\\\spool\\\\drivers\\\\x64\\\\3\\\\*.dll`.
+- Identify the process responsible for the deletion by examining the `process.name` field and verify it is not one of the expected processes: `spoolsv.exe`, `dllhost.exe`, or `explorer.exe`.
+- Check the `host.os.type` to ensure the event occurred on a Windows system, as the rule is specific to Windows environments.
+- Investigate the parent process of the suspicious process to understand the context of how it was initiated.
+- Use Osquery to gather more information about the suspicious process. Example query: `SELECT * FROM processes WHERE name = '<suspicious_process_name>';`.
+- Examine recent login events on the affected host to identify any unusual or unauthorized access patterns around the time of the file deletion.
+- Review the system's event logs for any related security events or anomalies that coincide with the time of the file deletion.
+- Check for any recent changes or updates to the Print Spooler service or related drivers that could explain the file deletion.
+- Investigate network activity from the affected host to identify any suspicious outbound connections or data exfiltration attempts.
+- Correlate the event with other alerts or incidents in the environment to determine if this is part of a larger attack campaign.
+
+### False positive analysis
+
+- Routine administrative tasks or software updates may trigger the deletion of print driver files by legitimate processes not included in the exclusion list, such as custom scripts or third-party management tools.
+- Security software or system optimization tools might delete or modify these files as part of their regular operations, leading to false positives.
+- Users can manage these false positives by identifying and documenting legitimate processes that interact with print driver files and adding them to the exclusion list in the detection rule.
+- Regularly review and update the exclusion list to include any new legitimate processes that are introduced into the environment, ensuring that only non-threatening behaviors are excluded.
+- Collaborate with IT and security teams to understand the context of each alert, verifying whether the process involved is part of a known and safe operation.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Conduct a thorough investigation to identify the process responsible for the deletion, using endpoint detection and response (EDR) tools to trace the process lineage and gather forensic evidence.
+- Verify the integrity of the Print Spooler service and associated files by comparing them against known good baselines or using file integrity monitoring tools.
+- Restore any deleted or altered print driver files from a trusted backup to ensure the Print Spooler service can function correctly.
+- Apply the latest security patches and updates to the Windows operating system and specifically to the Print Spooler service to mitigate known vulnerabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals signs of privilege escalation or further compromise.
+- Implement enhanced logging and monitoring for the Print Spooler service and related processes to detect future anomalies, ensuring logs are sent to a centralized logging solution for analysis.
+- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs) to enhance detection capabilities.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly, focusing on improving detection and response times.
+- Harden the system by disabling unnecessary services, enforcing least privilege access, and implementing application whitelisting to reduce the attack surface."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/04/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -47,6 +47,48 @@ event.action in ("fork", "exec") and event.action != "end"
 process.args: "*/*sh"
 )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Interactive Shell Spawned From Inside A Container
+
+Containers are lightweight, portable units that encapsulate applications and their dependencies, often used to ensure consistent environments across development and production. Adversaries may exploit interactive shells within containers to execute unauthorized commands, potentially leading to container breakout and host compromise. The detection rule identifies such threats by monitoring for shell processes initiated with interactive flags, indicating potential misuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of an interactive shell spawned inside a container by checking the `process.executable` and `process.args` fields for shell indicators like `*/*sh` and flags `-i` or `-it`.
+- Verify the `container.id` to identify the specific container involved and gather context about its purpose and the application it is running.
+- Check the `event.type` and `event.action` fields to ensure the process is indeed in a "start" state and initiated by "fork" or "exec" actions, confirming it is an ongoing process.
+- Investigate the `process.entry_leader.same_as_process` field to determine if the shell process is a new entry point, which could indicate an unauthorized access attempt.
+- Use Osquery to list all running processes within the container to identify any other suspicious activities. Example query: `SELECT * FROM processes WHERE container_id = '<container.id>' AND name LIKE '%sh%';`
+- Examine the container's logs for any unusual activities or commands executed around the time the shell was spawned.
+- Check the user context under which the shell was spawned to determine if it aligns with expected user behavior or if it indicates a potential compromise.
+- Investigate network connections from the container using Osquery to identify any suspicious outbound connections. Example query: `SELECT * FROM socket_events WHERE container_id = '<container.id>';`
+- Review the container's image and configuration to ensure it has not been tampered with or altered to allow unauthorized shell access.
+- Correlate the findings with other security alerts or logs from the host system to identify any patterns or additional indicators of compromise.
+
+### False positive analysis
+
+- Developers or system administrators may intentionally spawn interactive shells within containers for debugging or maintenance purposes, which can trigger the rule. To manage this, users can create exceptions for specific user accounts or container IDs known to perform these actions regularly.
+- Automated scripts or orchestration tools might initiate interactive shells as part of their normal operation, leading to false positives. Users can handle these by identifying and excluding specific process names or arguments associated with these tools.
+- Some containerized applications might inherently require interactive shell access for legitimate functionality, such as certain development environments. Users should document these cases and configure the rule to exclude these specific applications or container images.
+- Continuous integration/continuous deployment (CI/CD) pipelines may execute interactive shells during build or deployment processes. Users can mitigate false positives by setting exceptions for known pipeline processes or by scheduling rule suppression during expected pipeline activity times.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further unauthorized access or potential breakout to the host system.
+- Investigate the container's logs and process history to identify the source and nature of the unauthorized shell access.
+- Terminate any suspicious processes running within the container that are not part of the expected application workflow.
+- Review and update access controls and permissions for the container to ensure only authorized users and processes can initiate interactive shells.
+- Escalate the incident to the security operations team if evidence of a container breakout or host compromise is found.
+- Implement enhanced logging policies to capture detailed process execution and network activity within containers for future investigations.
+- Integrate container security tools with SIEM systems to improve real-time monitoring and alerting capabilities.
+- Restore the container from a known good backup or image to ensure the system is free from any unauthorized modifications.
+- Conduct a post-incident review to identify gaps in security controls and update container hardening measures, such as disabling unnecessary interactive shell access.
+- Educate development and operations teams on secure container practices and the importance of monitoring for suspicious activities."""
 
 
 [[rule.threat]]

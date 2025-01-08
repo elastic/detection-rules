@@ -2,7 +2,7 @@
 creation_date = "2020/08/17"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,51 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Resource Group Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Azure Resource Group Deletion
+
+Azure Resource Groups are containers that hold related resources for an Azure solution, enabling streamlined management and organization. Adversaries may exploit this by deleting entire groups to disrupt services or erase data, causing significant impact. The detection rule monitors Azure activity logs for successful deletion operations, alerting analysts to potential malicious actions aimed at data destruction.
+
+### Possible investigation steps
+
+- Review the Azure activity logs to confirm the deletion event by checking the `event.dataset` and `azure.activitylogs.operation_name` fields for "MICROSOFT.RESOURCES/SUBSCRIPTIONS/RESOURCEGROUPS/DELETE" and ensure the `event.outcome` is marked as Success.
+- Identify the user or service principal responsible for the deletion by examining the `azure.activitylogs.caller` field in the logs.
+- Check the timestamp of the deletion event to determine when the resource group was deleted and correlate it with any other suspicious activities around the same time.
+- Investigate the IP address and location from which the deletion request was made using the `azure.activitylogs.caller_ip_address` field to identify any anomalies or unauthorized access.
+- Review the audit logs for any preceding activities by the same user or IP address to identify potential reconnaissance or privilege escalation attempts.
+- Examine the `azure.activitylogs.correlation_id` to trace related operations and understand the broader context of the deletion event.
+- Use Osquery to query the Azure environment for any recent changes in user roles or permissions that could have facilitated the deletion. Example query: `SELECT * FROM azure_role_assignments WHERE principal_id = '<user_id>' AND timestamp > '<deletion_time>';`
+- Check for any alerts or incidents in the security information and event management (SIEM) system that might be related to the same user or resource group.
+- Investigate any recent changes to the Azure subscription or resource group policies that might have allowed the deletion to occur without proper authorization.
+- Collaborate with the affected teams to gather additional context about the resource group, such as its importance, the data it contained, and any potential impact of its deletion.
+
+### False positive analysis
+
+- Routine maintenance or administrative tasks can trigger the Azure Resource Group Deletion alert, especially during scheduled clean-up operations or when decommissioning resources. 
+- Automated scripts or tools used for resource management might also delete resource groups as part of their normal operation, leading to false positives.
+- To manage these false positives, users can create exceptions for known maintenance windows or specific administrative accounts that regularly perform these tasks.
+- Implementing a whitelist of trusted IP addresses or service accounts that are authorized to delete resource groups can help reduce unnecessary alerts.
+- Regularly reviewing and updating the list of exceptions based on changes in administrative practices or personnel can further minimize false positives.
+
+### Response and remediation
+
+- Immediately isolate affected Azure subscriptions to prevent further unauthorized actions and assess the scope of the deletion.
+- Review Azure activity logs to identify the source of the deletion request, including user accounts, IP addresses, and timestamps.
+- Verify if the deletion was authorized by contacting the responsible team or individual; if unauthorized, escalate to the security incident response team.
+- Restore deleted resources from backups if available, prioritizing critical services to minimize downtime and operational impact.
+- Implement Azure Role-Based Access Control (RBAC) to restrict permissions, ensuring only authorized personnel can delete resource groups.
+- Enable Azure Multi-Factor Authentication (MFA) for all accounts with permissions to delete resources to add an additional layer of security.
+- Configure Azure Monitor and Security Center to alert on suspicious activities, such as unexpected deletions or changes in resource configurations.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
+- Integrate Azure activity logs with a Security Information and Event Management (SIEM) system for enhanced monitoring and correlation with other security events.
+- Educate and train staff on security best practices and the importance of monitoring and protecting critical resources against data destruction threats.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

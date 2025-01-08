@@ -2,7 +2,7 @@
 creation_date = "2021/01/21"
 integration = ["endpoint", "m365_defender"]
 maturity = "production"
-updated_date = "2024/10/10"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -40,6 +40,49 @@ registry where host.os.type == "windows" and event.type == "change" and
   /* exclude SYSTEM SID - look for changes by non-SYSTEM user */
   not user.id : "S-1-5-18"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential LSA Authentication Package Abuse
+
+The Local Security Authority (LSA) in Windows manages authentication and security policies. Adversaries may exploit LSA by modifying registry paths to load malicious binaries during system authentication, gaining elevated privileges or persistence. The detection rule identifies unauthorized registry changes to LSA authentication packages by non-SYSTEM users, signaling potential abuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the registry path involved is "HKLM\\\\SYSTEM\\\\*ControlSet*\\\\Control\\\\Lsa\\\\Authentication Packages" or "\\\\REGISTRY\\\\MACHINE\\\\SYSTEM\\\\*ControlSet*\\\\Control\\\\Lsa\\\\Authentication Packages".
+- Verify the user ID associated with the registry change to ensure it is not "S-1-5-18" (SYSTEM), indicating a non-SYSTEM user made the change.
+- Check the timestamp of the registry change event to determine when the modification occurred and correlate it with other suspicious activities.
+- Investigate the user account that made the change to assess if it has a history of unusual behavior or if it has been compromised.
+- Use Osquery to list all current LSA authentication packages by running: `SELECT name, data FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\%ControlSet%\\\\Control\\\\Lsa\\\\Authentication Packages';` to identify any unauthorized binaries.
+- Examine the binary referenced in the registry change for known malicious signatures or unusual characteristics using a threat intelligence platform or antivirus tools.
+- Review system logs around the time of the registry change for any related events, such as process creation logs, to identify potential execution of the malicious binary.
+- Check for any recent privilege escalation attempts or successful escalations on the host to determine if the registry change was part of a broader attack.
+- Investigate network activity from the host around the time of the registry change to identify any suspicious outbound connections or data exfiltration attempts.
+- Consult with other security tools or logs, such as endpoint detection and response (EDR) solutions, to gather additional context and corroborate findings related to the suspicious registry change.
+
+### False positive analysis
+
+- Legitimate software installations or updates may modify the LSA authentication packages registry path, leading to false positives. Users should verify if the change coincides with a known software update or installation.
+- Security software or system management tools might alter the registry path as part of their normal operations. Users can create exceptions for these trusted applications by identifying their specific user IDs or process names.
+- System administrators performing maintenance or configuration changes might trigger the rule. To manage this, users can exclude specific administrator accounts or scheduled maintenance windows from the detection rule.
+- In environments with custom authentication solutions, legitimate changes to the LSA authentication packages might occur. Users should document these solutions and adjust the rule to exclude known benign modifications.
+- Regular audits and baselining of the registry path can help identify expected changes, allowing users to refine the detection rule to focus on truly anomalous activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Conduct a thorough investigation to identify any unauthorized registry changes and determine the scope of the compromise, focusing on the LSA authentication packages registry path.
+- Review recent user activity and system logs to identify the non-SYSTEM user responsible for the registry modification and assess their access level and actions.
+- Remove any unauthorized binaries referenced in the LSA authentication packages registry path to prevent malicious execution during system authentication.
+- Restore the registry to its previous state using backups or system restore points, ensuring that only legitimate authentication packages are loaded.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement enhanced logging policies to capture detailed registry changes and user activities, ensuring that future unauthorized modifications are detected promptly.
+- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
+- Conduct a security review of user permissions and access controls, ensuring that only authorized personnel have the ability to modify critical registry paths.
+- Apply system hardening measures, such as enabling Windows Defender Credential Guard, to protect LSA processes and prevent unauthorized access to sensitive authentication data."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/12/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -62,6 +62,49 @@ event.category:file and host.os.type:macos and event.action:modification and
  not process.name:(xpcproxy or cfprefsd or plutil or jamf or PlistBuddy or InstallerRemotePluginService) and
  not process.executable:(/Library/Addigy/download-cache/* or "/Library/Kandji/Kandji Agent.app/Contents/MacOS/kandji-library-manager")
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via Docker Shortcut Modification
+
+In macOS environments, the Dock is a user interface feature that provides quick access to applications. It relies on property list files to manage its configuration. Adversaries may exploit this by altering these files to redirect shortcuts to malicious applications, thus achieving persistence. The detection rule identifies unauthorized modifications to these property lists, excluding legitimate processes, to flag potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path and process name involved in the modification of the `com.apple.dock.plist` file.
+- Verify the legitimacy of the process that triggered the alert by checking its hash and comparing it against known malicious or benign hashes.
+- Use Osquery to list recent modifications to the `com.apple.dock.plist` file with a query like: `SELECT * FROM file WHERE path = '/Users/*/Library/Preferences/com.apple.dock.plist' ORDER BY atime DESC LIMIT 5;` to gather context on recent changes.
+- Investigate the user account associated with the modification by checking the file path for the specific user directory and correlating it with recent login activities.
+- Examine the process tree to understand the parent process and any child processes spawned by the suspicious process to identify potential lateral movement or further persistence mechanisms.
+- Check system logs for any unusual activity around the time of the modification, focusing on `event.category:file` and `event.action:modification` to correlate with other suspicious events.
+- Investigate the network activity of the process involved in the modification to identify any suspicious outbound connections that could indicate data exfiltration or command and control communication.
+- Review the system's installed applications and recent installations to identify any unauthorized or suspicious software that could be related to the persistence mechanism.
+- Cross-reference the process executable path against known legitimate paths to ensure it is not masquerading as a legitimate application.
+- Consult threat intelligence sources to determine if the process name or executable path has been associated with known threats or campaigns, providing additional context for the investigation.
+
+### False positive analysis
+
+- Known false positives may arise from legitimate applications or system processes that modify the Dock property list for valid reasons, such as user preference changes or application updates.
+- Common non-threatening processes that could trigger false positives include system utilities or management tools that adjust Dock settings as part of their normal operation.
+- Users can manage these false positives by creating exceptions for specific processes or executable paths that are known to be safe, ensuring they are excluded from triggering alerts.
+- Regularly review and update the list of excluded processes to adapt to changes in legitimate software behavior and minimize unnecessary alerts.
+- Consider monitoring the frequency and context of modifications to the Dock property list to distinguish between routine changes and potential threats, allowing for more informed decision-making regarding exclusions.
+
+### Response and remediation
+
+- Immediately isolate the affected macOS system from the network to prevent further spread of the potential threat.
+- Conduct a thorough investigation to confirm unauthorized modifications by reviewing the specific changes in the com.apple.dock.plist file.
+- Identify and terminate any malicious processes that may have been initiated as a result of the dock modification.
+- Restore the original com.apple.dock.plist file from a known good backup to ensure the Dock shortcuts are pointing to legitimate applications.
+- Review system logs and security alerts to identify any other signs of compromise or related suspicious activities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat actor has established other persistence mechanisms.
+- Implement enhanced logging policies to capture detailed file modification events and process execution details for future investigations.
+- Integrate with endpoint detection and response (EDR) tools to improve visibility and automate detection of similar threats.
+- Educate users on recognizing suspicious activities and the importance of reporting unexpected behavior in their applications.
+- Apply security hardening measures such as restricting write permissions to critical configuration files and regularly updating macOS and installed applications to mitigate vulnerabilities."""
 
 
 [[rule.threat]]

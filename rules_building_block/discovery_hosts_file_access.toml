@@ -2,7 +2,7 @@
 creation_date = "2023/07/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -38,6 +38,52 @@ query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
 process.name in ("vi", "nano", "cat", "more", "less") and process.args == "/etc/hosts"
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating System Hosts File Access
+
+The system hosts file maps hostnames to IP addresses, facilitating local network navigation. Adversaries exploit this by accessing the file to identify potential targets for lateral movement. The detection rule monitors the initiation of processes like 'vi', 'nano', or 'cat' accessing '/etc/hosts', signaling potential reconnaissance activities by unauthorized users.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the process name and arguments, ensuring they match the query criteria: process.name in ("vi", "nano", "cat", "more", "less") and process.args == "/etc/hosts".
+- Check the user account associated with the process initiation to determine if it is a known and authorized user.
+- Investigate the timestamp of the event to correlate with any other suspicious activities or anomalies in the system logs around the same time.
+- Examine the parent process of the alerted process to understand how the process was initiated and if it was part of a legitimate workflow.
+- Use Osquery to list recent processes executed by the user to identify any other potentially suspicious activities:
+  ```sql
+  SELECT pid, name, path, cmdline, start_time FROM processes WHERE uid = (SELECT uid FROM users WHERE username = 'suspicious_user');
+  ```
+- Analyze network logs to identify any unusual outbound connections or data transfers that might indicate lateral movement attempts following the hosts file access.
+- Review system access logs to check for any unauthorized login attempts or successful logins around the time of the alert.
+- Investigate any recent changes to the /etc/hosts file by checking file modification times and comparing with known baselines or backups.
+- Cross-reference the alert with any other security alerts or incidents involving the same user or system to identify patterns or coordinated attacks.
+- Consult threat intelligence sources to determine if there are any known campaigns or adversaries that use similar tactics, techniques, and procedures (TTPs) as identified in the alert.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators often access the '/etc/hosts' file using tools like 'vi', 'nano', or 'cat' for legitimate purposes such as updating host entries or troubleshooting network issues. These activities can trigger false positives.
+- Automated scripts: Some automated maintenance or monitoring scripts may read the '/etc/hosts' file to verify or log network configurations, leading to benign alerts.
+- Software installations or updates: Certain software installations or updates may access the '/etc/hosts' file to configure network settings, which can be mistaken for suspicious activity.
+- User education: Educate users about the importance of the '/etc/hosts' file and encourage them to report any legitimate access they perform, which can help in distinguishing between normal and suspicious activities.
+- Exception handling: Implement exceptions for known administrative accounts or specific scripts that regularly access the '/etc/hosts' file, reducing unnecessary alerts while maintaining security oversight.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
+- Conduct a thorough investigation to determine if unauthorized access to the '/etc/hosts' file was part of a larger attack, checking for other signs of compromise.
+- Review system logs and process execution history to identify any additional suspicious activities or processes initiated by unauthorized users.
+- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals a broader threat or if sensitive data may have been accessed.
+- Restore the system to its operational state by reverting any unauthorized changes to the '/etc/hosts' file and ensuring all system configurations are secure.
+- Implement enhanced logging policies to capture detailed process execution and file access events, ensuring future incidents can be detected and analyzed more effectively.
+- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and identify potential threats in real-time.
+- Apply system hardening measures, such as restricting access to critical files like '/etc/hosts' to only authorized users and processes.
+- Educate users and administrators on the importance of maintaining secure configurations and recognizing signs of potential reconnaissance activities.
+- Regularly review and update security policies and procedures to align with the latest MITRE ATT&CK framework tactics and techniques, ensuring comprehensive threat coverage."""
 
 
 [[rule.threat]]

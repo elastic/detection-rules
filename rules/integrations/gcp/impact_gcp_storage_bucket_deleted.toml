@@ -2,7 +2,7 @@
 creation_date = "2020/09/21"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,50 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Storage Bucket Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP Storage Bucket Deletion
+
+Google Cloud Platform (GCP) storage buckets are essential for storing and managing data in cloud environments. Adversaries may target these buckets to delete critical data, causing operational disruptions. The detection rule monitors audit logs for deletion actions, identifying potential malicious activity by flagging unauthorized or suspicious bucket deletions, thus enabling timely incident response.
+
+### Possible investigation steps
+
+- Review the audit logs to confirm the deletion event by filtering for `event.dataset:gcp.audit` and `event.action:"storage.buckets.delete"`.
+- Identify the user or service account associated with the deletion by examining the `principalEmail` field in the audit logs.
+- Check the `resourceName` field to determine the specific storage bucket that was deleted.
+- Investigate the `requestMetadata.callerIp` field to identify the source IP address from which the deletion request originated.
+- Analyze the `timestamp` field to establish the exact time of the deletion and correlate it with other events or activities in the environment.
+- Verify if there are any other suspicious activities associated with the same user or service account around the time of the deletion.
+- Use Osquery to gather additional context on the system from which the deletion was initiated. Example query: `SELECT * FROM process_events WHERE cmdline LIKE '%gcloud%' AND time >= 'timestamp_of_deletion'`.
+- Check for any recent changes in IAM policies or permissions that might have allowed unauthorized access to the storage bucket.
+- Review any alerts or logs from other security tools that might indicate a broader attack or compromise.
+- Consult with relevant stakeholders or teams to gather additional context or insights regarding the deleted storage bucket and its importance to business operations.
+
+### False positive analysis
+
+- Routine maintenance or administrative tasks may lead to legitimate bucket deletions, such as when a project is being decommissioned or data is being migrated to a different storage solution. Users should verify if the deletion aligns with scheduled maintenance activities.
+- Automated scripts or tools that manage cloud resources might delete buckets as part of their normal operation. Users can create exceptions for these actions by identifying and excluding specific service accounts or automation tools from the detection rule.
+- Development and testing environments often involve frequent creation and deletion of storage buckets. Users should consider excluding these environments from the detection rule to avoid unnecessary alerts.
+- Temporary buckets used for data processing or analysis might be deleted once the task is completed. Users can manage these false positives by tagging such buckets and configuring the detection rule to ignore deletions of tagged resources.
+
+### Response and remediation
+
+- Immediately isolate affected systems and accounts to prevent further unauthorized access or data loss.
+- Verify the deletion event by cross-referencing with internal change management records to confirm if it was authorized.
+- Conduct a thorough investigation to identify the source of the deletion, including reviewing access logs and identifying any compromised credentials.
+- Restore the deleted storage bucket from the most recent backup to minimize operational disruption.
+- Escalate the incident to the security operations center (SOC) and relevant stakeholders for further analysis and response.
+- Implement enhanced logging and monitoring policies to capture detailed access and modification events for storage buckets.
+- Integrate with a security information and event management (SIEM) system to correlate events and detect similar threats in the future.
+- Review and update access controls and permissions for storage buckets to ensure the principle of least privilege is enforced.
+- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
+- Educate and train staff on recognizing and responding to potential security threats, emphasizing the importance of reporting suspicious activities.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/storage/docs/key-terms#buckets"]

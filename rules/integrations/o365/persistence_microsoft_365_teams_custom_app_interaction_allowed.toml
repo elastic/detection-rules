@@ -2,7 +2,7 @@
 creation_date = "2020/11/30"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,52 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Teams Custom Application Interaction Allowed"
-note = """## Setup
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Teams Custom Application Interaction Allowed
+
+Microsoft Teams allows organizations to enhance functionality by integrating custom applications, which can be developed and uploaded if the default app store offerings are insufficient. However, this flexibility can be exploited by adversaries to maintain persistence within a network. The detection rule monitors changes in tenant settings that permit custom app interactions, flagging successful modifications as potential security threats.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event dataset is `o365.audit` and the event provider is `MicrosoftTeams`, ensuring the alert is relevant to Microsoft Teams settings.
+- Verify the event category is `web` and the action is `TeamsTenantSettingChanged` to confirm that the alert pertains to a change in tenant settings.
+- Check the `o365.audit.Name` field for "Allow sideloading and interaction of custom apps" to ensure the alert is specifically about enabling custom app interactions.
+- Confirm the `o365.audit.NewValue` is `True` and the `event.outcome` is `success` to validate that the change was successfully applied.
+- Investigate the user account associated with the change to determine if the account has a history of making administrative changes or if it appears suspicious.
+- Review recent activity logs for the user account to identify any unusual behavior or patterns that could indicate compromise or misuse.
+- Examine the IP address and location associated with the change to assess if it aligns with expected user activity or if it appears anomalous.
+- Use Osquery to gather additional context on the system from which the change was made. For example, run the following query to list recent administrative actions: `SELECT * FROM osquery_events WHERE event_type = 'admin_action' AND user = '<user_account>' ORDER BY timestamp DESC LIMIT 10;`
+- Check for any recent uploads or installations of custom applications in Microsoft Teams to identify potential unauthorized or malicious apps.
+- Collaborate with the IT or security team to gather more context on the organization's policy regarding custom applications and verify if the change aligns with any recent business needs or projects.
+
+### False positive analysis
+
+- Organizations frequently enabling custom applications for legitimate business needs may trigger this rule, leading to false positives.
+- Regular updates or changes in tenant settings by IT administrators for maintenance or feature enhancements can be mistaken for suspicious activity.
+- To manage these false positives, users can create exceptions for known and trusted administrative actions by whitelisting specific user accounts or IP addresses.
+- Implementing a review process for changes in tenant settings can help differentiate between legitimate and suspicious modifications.
+- Monitoring the context of changes, such as correlating with scheduled maintenance windows or approved change requests, can reduce false positives.
+- Regularly updating the list of approved custom applications and their developers can help in distinguishing between legitimate and potentially malicious activities.
+
+### Response and remediation
+
+- Immediately disable the setting that allows sideloading and interaction of custom apps in Microsoft Teams to prevent further unauthorized access.
+- Conduct a thorough investigation to identify any custom applications that have been uploaded recently and verify their legitimacy.
+- Review audit logs and user activity to identify any suspicious behavior or unauthorized access attempts related to the custom applications.
+- Isolate any compromised accounts or systems identified during the investigation to prevent lateral movement within the network.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
+- Implement enhanced logging and monitoring for Microsoft Teams and related services to detect similar activities in the future.
+- Review and update security policies to restrict permissions for uploading and interacting with custom applications to only trusted users.
+- Educate users on the risks associated with custom applications and provide training on recognizing potential security threats.
+- Restore any affected systems to a known good state by removing unauthorized applications and applying necessary security patches.
+- Consider implementing additional security measures such as multi-factor authentication and conditional access policies to harden the environment against future threats.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.microsoft.com/en-us/microsoftteams/platform/concepts/deploy-and-publish/apps-upload"]

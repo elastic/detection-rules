@@ -2,7 +2,7 @@
 creation_date = "2024/03/14"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/08"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -50,6 +50,49 @@ any where host.os.type == "windows" and event.category in ("file", "process") an
     (event.type == "start" and process.executable regex~ """[A-Z]:\\:.+""")
   )
 '''
+note = """## Triage and analysis
+
+### Disclaimer
+
+This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Alternate Data Stream Creation/Execution at Volume Root Directory
+
+Alternate Data Streams (ADS) in Windows allow files to contain multiple streams of data, which can be used to hide information. Adversaries exploit ADS at the volume root to conceal malicious tools, as these streams are not visible through standard file utilities. The detection rule identifies suspicious ADS activity by monitoring file creation and process execution patterns at the root directory, flagging potential attempts to evade defenses.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file path or process executable that triggered the alert, focusing on the `file.path` and `process.executable` fields.
+- Verify the legitimacy of the file or process by checking its digital signature and comparing it against known good software lists.
+- Use Osquery to list all alternate data streams on the system with a query like: `SELECT path, name FROM file WHERE path LIKE 'C:\\\\%' AND name LIKE '%:%';` to identify any suspicious streams.
+- Investigate the parent process of the suspicious executable using the `process.parent` field to determine if it was spawned by a legitimate application or a known malicious process.
+- Check the file creation time and compare it with recent user activity logs to identify any correlation with user actions or scheduled tasks.
+- Examine the file or process hash against threat intelligence databases to see if it matches known malware signatures.
+- Review recent system logs for any other unusual activities around the time of the alert, such as unexpected network connections or privilege escalations.
+- Analyze the user account associated with the process or file creation to determine if it has been compromised or is exhibiting unusual behavior.
+- Investigate the system for any other indicators of compromise, such as unauthorized registry changes or new services, that might suggest a broader attack.
+- Consult with other security tools and logs, such as endpoint detection and response (EDR) solutions, to gather additional context and corroborate findings.
+
+### False positive analysis
+
+- Legitimate software installations or updates may create Alternate Data Streams at the volume root directory as part of their normal operations, which can trigger false positives. Users can handle these by identifying the specific software responsible and creating exceptions for these known processes or file paths.
+- System maintenance tools or backup software might use ADS for storing metadata or additional information, leading to false positives. To manage this, users should monitor and document regular maintenance activities and exclude these from the detection rule.
+- Some antivirus or security tools may utilize ADS for storing signatures or logs, which could be misinterpreted as malicious activity. Users should verify the source of the ADS and whitelist these tools if they are confirmed to be legitimate.
+- Developers or IT administrators might use ADS for testing or configuration purposes, which can be mistaken for suspicious activity. Users should ensure that these activities are documented and create exceptions for known development or administrative tasks.
+- Certain file system operations or scripts executed by system administrators might inadvertently create ADS, resulting in false positives. Users should review these operations and exclude them from monitoring if they are part of routine administrative tasks.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malware or unauthorized access.
+- Use forensic tools to capture a memory dump and collect relevant logs for further analysis of the suspicious ADS activity.
+- Identify and terminate any malicious processes associated with the ADS by analyzing process execution patterns and correlating with known threat indicators.
+- Remove the identified ADS and any associated malicious files from the system to eliminate the immediate threat.
+- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to ensure no other threats are present.
+- Review and enhance logging policies to ensure comprehensive monitoring of file and process activities, particularly at the volume root directory.
+- Implement additional security measures such as application whitelisting and endpoint detection and response (EDR) solutions to detect and prevent future ADS exploitation.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the attack is part of a larger campaign.
+- Restore the system from a known good backup if necessary, ensuring that all security patches and updates are applied before reconnecting to the network.
+- Educate users on the risks associated with ADS and provide training on recognizing and reporting suspicious activities to enhance overall security awareness."""
 
 
 [[rule.threat]]
