@@ -57,7 +57,7 @@ from .utils import dict_hash, get_etc_path, get_path, load_dump
 from .version_lock import VersionLockFile, loaded_version_lock
 
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
-NAVIGATOR_GIST_ID = '1a3f65224822a30a8228a8ed20289a89'
+NAVIGATOR_GIST_ID = '0443cfb5016bed103f1940b2f336e45a'
 NAVIGATOR_URL = 'https://ela.st/detection-rules-navigator'
 NAVIGATOR_BADGE = (
     f'[![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)]({NAVIGATOR_URL})'
