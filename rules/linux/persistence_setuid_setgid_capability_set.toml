@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2023/09/05"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/17"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/08"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +41,7 @@ file owner or group. Threat actors can exploit these attributes to achieve persi
 allowing them to maintain control over a compromised system with elevated permissions.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Setcap setuid/setgid Capability Set"
@@ -138,15 +140,18 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
-process.name == "setcap" and process.args : "cap_set?id+ep" and not (
-  process.parent.name in ("jem", "vzctl") or
-  process.args like "/usr/bin/new?idmap"
-)
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and 
+  process.name == "setcap" and process.args : "cap_set?id+ep" and not (
+    process.parent.name in ("jem", "vzctl") or
+    process.args like "/usr/bin/new?idmap"
+  )
 '''
 
 [[rule.threat]]
