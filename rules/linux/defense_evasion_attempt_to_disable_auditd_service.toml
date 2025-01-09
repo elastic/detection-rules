@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/08/28"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/08/28"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ provides system auditing and logging. Disabling the Auditd service can prevent t
 security events, which can be used to detect malicious activity.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "endgame-*"]
+index = ["logs-endpoint.events.process*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Disable Auditd Service"
@@ -51,11 +53,13 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and (
   (process.name == "service" and process.args == "stop") or
   (process.name == "chkconfig" and process.args == "off") or
   (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))
