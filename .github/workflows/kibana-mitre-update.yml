@@ -2,7 +2,7 @@ name: Check MITRE ATT&CK Version Updates Are Synced
 
 on:
   pull_request:
-    types: 
+    types:
       - opened
     paths:
       - 'detection_rules/etc/attack-v*.json.gz'
@@ -18,8 +18,8 @@ jobs:
         id: changed-attack-files
         uses: tj-actions/changed-files@v44
         with:
-          files: detection_rules/etc/attack-v*.json.gz 
- 
+          files: detection_rules/etc/attack-v*.json.gz
+
       - name: Extract version from file name
         id: extract_version
         if: steps.changed-attack-files.outputs.any_changed == 'true'
@@ -33,9 +33,9 @@ jobs:
         run: |
           ISSUE_TITLE="[Security Solution] Update MITRE ATT&CK to ${{ steps.extract_version.outputs.version }}"
           ISSUE_BODY="The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }} Please update the MITRE ATT&CK version in Kibana accordingly."
-          
+
           curl -X POST \
-            -H "Authorization: token ${{ secrets.READ_WRITE_KIBANA_TOKEN }}" \
+            -H "Authorization: token ${{ secrets.WRITE_DETECTION_RULES_KIBANA_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/elastic/kibana/issues \
             -d '{
@@ -44,4 +44,4 @@ jobs:
             }'
 
         env:
-          GITHUB_TOKEN: ${{ secrets.READ_WRITE_KIBANA_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.WRITE_DETECTION_RULES_KIBANA_TOKEN }}
