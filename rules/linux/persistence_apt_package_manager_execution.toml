@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/02/01"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/09/23"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +16,7 @@ repositories. Attackers can backdoor APT to gain persistence by injecting malici
 thereby ensuring continued unauthorized access or control each time APT is used for package management.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious APT Package Manager Execution"
@@ -56,17 +58,18 @@ tags = [
     "Tactic: Execution",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 type = "eql"
 
 query = '''
 sequence by host.id with maxspan=5s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
    process.parent.name == "apt" and process.args == "-c" and process.name in (
      "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
    )
   ] by process.entity_id
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name : (
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and process.name : (
      "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "php*",
      "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk"
    )
