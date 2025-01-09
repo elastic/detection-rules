@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2023/06/26"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +15,7 @@ output from tail can be piped to funzip in order to decompress malicious code be
 consistent with malware families such as Bundlore.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Content Extracted or Decompressed via Funzip"
@@ -53,12 +55,13 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.action in ("exec", "exec_event") and
+process where host.os.type == "linux" and event.action in ("exec", "exec_event", "start") and
 ((process.args == "tail" and process.args == "-c" and process.args == "funzip")) and
 not process.args : "/var/log/messages" and 
 not process.parent.executable : ("/usr/bin/dracut", "/sbin/dracut", "/usr/bin/xargs") and
