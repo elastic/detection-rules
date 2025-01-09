@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2023/03/07"
-integration = ["endpoint", "auditd_manager"]
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/09/23"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/08"
 
 [transform]
 [[transform.osquery]]
@@ -36,7 +38,7 @@ Identifies the attempt to create a new backdoor user by setting the user's UID t
 0 to establish persistence on a system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Linux Backdoor User Account Creation"
@@ -125,12 +127,15 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
+process where host.os.type == "linux" and event.type == "start" and
+ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started")
  and process.name == "usermod" and process.args : "-u" and process.args : "0" and process.args : "-o"
 '''
 
