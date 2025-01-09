@@ -9,7 +9,7 @@
 
 - **UUID:** `aa759db0-4499-42f2-9f2f-be3e00fdebfa`
 - **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
-- **Language:** `[SQL]`
+- **Language:** `[ES|QL, SQL]`
 - **Source File:** [Persistence via SSH Configurations and/or Keys](../queries/persistence_via_ssh_configurations_and_keys.toml)
 
 ## Query
@@ -54,9 +54,21 @@ WHERE
     OR f.path LIKE "/etc/ssh/ssh_config.d/%"
 ```
 
+```sql
+from logs-endpoint.events.process-*
+| where @timestamp > now() - 30 day
+| where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == "true"
+| stats cc = count(), host_count = count_distinct(host.name) by user.name
+// Alter this threshold to make sense for your environment
+| where cc <= 50 and host_count <= 3
+| sort cc asc
+| limit 100
+```
+
 ## Notes
 
 - Monitors SSH keys, authorized_keys files, and SSH configuration files using OSQuery to detect potential unauthorized access or persistence techniques.
+- Monitor for interactive processes by unusual users to detect potential unauthorized access or persistence techniques.
 - Lists detailed information about SSH files, including paths, owners, and permissions.
 - Requires additional data analysis and investigation into results to identify malicious or unauthorized SSH configurations and keys.
 
