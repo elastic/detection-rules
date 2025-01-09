@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/01/15"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ within a container is capable of mounting the root file system of the host, and 
 containarized environment. This behavior pattern is very uncommon and should be investigated.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Chroot Container Escape via Mount"
@@ -64,15 +66,16 @@ tags = [
     "Tactic: Privilege Escalation",
     "Domain: Container",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 type = "eql"
 
 query = '''
 sequence by host.id, process.parent.entity_id with maxspan=5m
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
    process.name == "mount" and process.args : "/dev/sd*" and process.args_count >= 3 and
    process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")]
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
    process.name == "chroot"]
 '''
 
