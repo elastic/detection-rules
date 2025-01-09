@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/06/25"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/09/23"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +16,7 @@ persistence by injecting malicious code into plugins that DNF runs, thereby ensu
 control each time DNF is used for package management.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
+index = ["logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "DNF Package Manager Plugin File Creation"
@@ -58,6 +60,8 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
