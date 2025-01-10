@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2023/09/20"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 updated_date = "2025/01/08"
 
 [rule]
@@ -12,7 +14,7 @@ simple reverse shell to a fully interactive tty after obtaining initial access t
 stable connection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Upgrade of Non-interactive Shell"
@@ -51,59 +53,21 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
-  (process.name == "stty" and process.args == "raw" and process.args == "-echo" and process.args_count >= 3) or
-  (process.name == "script" and process.args in ("-qc", "-c") and process.args == "/dev/null" and 
-   process.args_count == 4)
-)
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  (
+    (process.name == "stty" and process.args == "raw" and process.args == "-echo" and process.args_count >= 3) or
+    (process.name == "script" and process.args in ("-qc", "-c") and process.args == "/dev/null" and
+    process.args_count == 4)
+  )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Upgrade of Non-interactive Shell
-
-In Linux environments, attackers often seek to enhance a basic reverse shell to a fully interactive shell to gain a more robust foothold. This involves using tools like `stty` or `script` to manipulate terminal settings, enabling features like command history and job control. The detection rule identifies such activities by monitoring specific process executions and arguments, flagging attempts to upgrade non-interactive sessions to interactive ones, thus alerting security teams to potential intrusions.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name and arguments match those specified in the detection rule, focusing on `stty` or `script` with the relevant arguments.
-- Check the `process.args_count` to ensure it aligns with the expected number of arguments for the detected process execution.
-- Investigate the parent process of the flagged process to understand how the shell was initiated and identify any potential malicious scripts or commands.
-- Use Osquery to list all active processes and their command-line arguments to identify any other suspicious activities. Example query: `SELECT pid, name, cmdline FROM processes WHERE name IN ('stty', 'script');`
-- Examine the user account associated with the process execution to determine if it is a legitimate user or potentially compromised.
-- Review recent login events and authentication logs to identify any unusual or unauthorized access attempts around the time of the alert.
-- Analyze network connections from the host to identify any suspicious outbound connections that may indicate a reverse shell.
-- Check for any recent file modifications or new files in common directories used for persistence or staging, such as `/tmp` or `/var/tmp`.
-- Correlate the alert with other security events or logs from the same host to identify any patterns or additional indicators of compromise.
-- Investigate any other alerts or anomalies from the same timeframe to determine if this activity is part of a larger attack campaign.
-
-### False positive analysis
-
-- System administrators or legitimate users may use `stty` or `script` commands for valid purposes such as configuring terminal settings or logging terminal sessions, which can trigger the rule. 
-- Automated scripts or maintenance tasks that involve terminal manipulation might also match the rule's criteria, leading to false positives.
-- To manage these false positives, users can create exceptions for known benign processes or users by adding specific conditions to the detection rule, such as excluding certain user accounts or process paths.
-- Regularly review and update the list of exceptions to ensure that only legitimate activities are excluded, maintaining the balance between security and operational needs.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the intrusion, focusing on logs and alerts related to the execution of `stty` and `script` commands.
-- Terminate any unauthorized processes or sessions that have been identified as part of the attack.
-- Review and analyze system logs, including shell history and process execution logs, to understand the attacker's actions and objectives.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed command execution and process creation events for future detection and analysis.
-- Integrate threat intelligence feeds and MITRE ATT&CK framework data to improve detection capabilities and contextual understanding of similar threats.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
-- Conduct a post-incident review to identify gaps in security controls and processes, and implement hardening measures such as disabling unnecessary services and enforcing least privilege access.
-- Educate and train staff on recognizing and responding to similar threats, emphasizing the importance of maintaining vigilance and reporting suspicious activities."""
 
 
 [[rule.threat]]

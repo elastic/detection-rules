@@ -2,7 +2,7 @@
 creation_date = "2021/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -20,51 +20,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS RDS Security Group Creation"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS RDS Security Group Creation
-
-Amazon RDS Security Groups control access to RDS instances, acting as virtual firewalls. Adversaries may exploit this by creating unauthorized security groups to maintain persistence or exfiltrate data. The detection rule monitors AWS CloudTrail logs for successful creation events of RDS security groups, signaling potential misuse by identifying unexpected or suspicious activity.
-
-### Possible investigation steps
-
-- Review the CloudTrail logs to confirm the `event.action:CreateDBSecurityGroup` and `event.outcome:success` to ensure the alert is valid and not a false positive.
-- Identify the `userIdentity` field in the CloudTrail logs to determine which IAM user or role initiated the creation of the RDS security group.
-- Check the `sourceIPAddress` field to identify the IP address from which the request originated, and assess if it aligns with known or expected IP addresses.
-- Examine the `eventTime` field to understand when the security group was created and correlate it with other activities or alerts around the same time.
-- Investigate the `requestParameters` field to gather details about the security group, such as its name and description, to assess if it matches known naming conventions or appears suspicious.
-- Use Osquery to query AWS API logs for additional context on the IAM user or role involved. Example query: `SELECT * FROM aws_cloudtrail_events WHERE eventName = 'CreateDBSecurityGroup' AND userIdentity.arn = '<IAM User ARN>';`
-- Cross-reference the IAM user or role with recent changes in IAM policies or permissions to determine if there have been any unauthorized modifications.
-- Analyze the `responseElements` field to verify the configuration of the newly created security group, including any inbound or outbound rules that may pose a security risk.
-- Check for any other recent `CreateDBSecurityGroup` events in the logs to identify patterns or repeated unauthorized activities.
-- Review the organization's change management records or ticketing system to verify if the creation of the security group was part of an approved change request.
-
-### False positive analysis
-
-- Routine administrative tasks: Regular maintenance or configuration changes by authorized personnel can trigger the creation of RDS security groups. Users should review the context of the event, such as the user identity and associated project, to determine if the activity is expected.
-- Automated deployment tools: Continuous integration and deployment pipelines may automatically create RDS security groups as part of their operations. Users can manage these by identifying and excluding specific IAM roles or user accounts associated with these tools from the detection rule.
-- Infrastructure as Code (IaC) practices: Tools like Terraform or AWS CloudFormation might create security groups as part of infrastructure provisioning. Users should document and exclude these known IaC processes to reduce noise in alerts.
-- Testing environments: Security groups created in non-production environments for testing purposes can be mistaken for suspicious activity. Users should differentiate between production and non-production environments and apply exceptions accordingly.
-- Frequent changes in dynamic environments: In environments where resources are frequently scaled or modified, security group creation might be a common occurrence. Users should establish a baseline of normal activity and adjust the detection rule to focus on deviations from this baseline.
-
-### Response and remediation
-
-- Immediately review the AWS CloudTrail logs to confirm the unauthorized creation of the RDS security group and identify the source IP and user account involved.
-- Contain the threat by revoking access for the identified user account and removing the unauthorized RDS security group.
-- Investigate the extent of the compromise by checking for any other unauthorized changes or access patterns in the AWS environment.
-- Escalate the incident to the security operations team for a deeper investigation and to determine if any data exfiltration occurred.
-- Remediate by rotating credentials and implementing multi-factor authentication for all AWS accounts to prevent further unauthorized access.
-- Restore the system by ensuring all security groups are configured according to the organization's security policies and best practices.
-- Enhance future investigations by enabling detailed logging for all AWS services and integrating with a Security Information and Event Management (SIEM) system for real-time monitoring.
-- Implement a policy to regularly review and audit security group configurations and access logs to detect any anomalies promptly.
-- Educate and train staff on recognizing and reporting suspicious activities to improve the organization's security posture.
-- Apply hardening measures by restricting security group creation permissions to a limited number of trusted administrators and using AWS Identity and Access Management (IAM) roles with the principle of least privilege.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBSecurityGroup.html"]

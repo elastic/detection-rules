@@ -2,7 +2,7 @@
 creation_date = "2020/06/16"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -20,51 +20,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Configuration Recorder Stopped"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS Configuration Recorder Stopped
-
-AWS Config is a service that tracks AWS resource configurations, enabling compliance auditing and security analysis. Adversaries may stop the configuration recorder to evade detection and impair defenses, aligning with MITRE ATT&CK's Defense Evasion tactics. The detection rule identifies successful attempts to halt this recording, signaling potential malicious activity by monitoring specific AWS CloudTrail events.
-
-### Possible investigation steps
-
-- Review the CloudTrail logs to identify the user or role associated with the `StopConfigurationRecorder` event by examining the `userIdentity` field.
-- Check the `sourceIPAddress` field in the CloudTrail logs to determine the origin of the request and assess if it aligns with known IP addresses or locations.
-- Investigate the `eventTime` field to establish a timeline and correlate with other events or activities that occurred around the same time.
-- Analyze the `userAgent` field to understand the tool or method used to stop the configuration recorder, which may provide insights into whether it was a scripted or manual action.
-- Examine the AWS IAM policies and permissions associated with the user or role to determine if they have legitimate access to stop the configuration recorder.
-- Utilize Osquery to gather additional context on the AWS environment by running a query such as: `SELECT * FROM aws_config_recorders WHERE status = 'STOPPED';` to verify the current state of configuration recorders.
-- Cross-reference the `eventID` field with other CloudTrail events to identify any related or sequential actions that might indicate a broader attack pattern.
-- Review any recent changes in the AWS environment, such as new IAM roles or policy modifications, that could have facilitated the stopping of the configuration recorder.
-- Investigate any alerts or logs from other security tools that might indicate concurrent suspicious activities or anomalies in the AWS environment.
-- Consult with relevant stakeholders or teams to verify if the action was authorized or part of a planned maintenance activity, ensuring alignment with organizational policies.
-
-### False positive analysis
-
-- Routine maintenance or administrative tasks may trigger the AWS Configuration Recorder Stopped rule, as administrators might stop the recorder temporarily for configuration updates or troubleshooting.
-- Automated scripts or third-party tools used for AWS resource management might stop the configuration recorder as part of their normal operation, leading to false positives.
-- To manage these false positives, users can create exceptions for known administrative actions by excluding specific IAM roles or user accounts frequently involved in legitimate configuration changes.
-- Implement tagging or naming conventions for resources and actions that are part of regular maintenance, allowing for easier identification and exclusion from alerts.
-- Regularly review and update the list of exceptions to ensure that only non-threatening behaviors are excluded, maintaining the integrity of the detection rule.
-
-### Response and remediation
-
-- Immediately re-enable the AWS Configuration Recorder to ensure continuous monitoring of AWS resource configurations.
-- Conduct a thorough investigation to identify the IAM user or role responsible for stopping the configuration recorder and review their recent activities for any other suspicious actions.
-- Isolate the affected AWS account or resources if malicious activity is confirmed to prevent further unauthorized changes.
-- Review and update IAM policies to enforce the principle of least privilege, ensuring only authorized personnel can stop the configuration recorder.
-- Implement AWS CloudTrail logging and enable AWS Config rules to monitor and alert on changes to critical configurations in real-time.
-- Escalate the incident to the security operations team for a detailed analysis and to determine if the incident is part of a larger attack pattern.
-- Restore any altered configurations to their last known good state using AWS Config's configuration history and snapshots.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Enhance security monitoring by integrating AWS Config with a Security Information and Event Management (SIEM) system for centralized alerting and analysis.
-- Educate and train staff on security best practices and the importance of maintaining AWS Config to prevent future incidents.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

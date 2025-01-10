@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2022/08/30"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 updated_date = "2025/01/08"
 
 [rule]
@@ -12,7 +14,7 @@ or escape container security boundaries. Threat actors have utilized this binary
 host and access other resources or escalate privileges.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Namespace Manipulation Using Unshare"
@@ -67,59 +69,17 @@ tags = [
     "Tactic: Privilege Escalation",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action : ("exec", "exec_event") and
+process where host.os.type == "linux" and event.type == "start" and event.action : ("exec", "exec_event", "start") and
 process.executable: "/usr/bin/unshare" and
 not process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") and
 not process.args == "/usr/bin/snap" and not process.parent.name in ("zz-proxmox-boot", "java")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Namespace Manipulation Using Unshare
-
-Unshare is a Linux utility that allows processes to run with a new set of namespaces, effectively isolating them from the rest of the system. While useful for containerization and sandboxing, adversaries can exploit unshare to bypass security boundaries, escalate privileges, or access unauthorized resources. The detection rule identifies suspicious unshare executions by filtering out benign parent processes and specific arguments, focusing on potential misuse indicative of malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process executable is "/usr/bin/unshare" and verify the absence of benign parent processes such as "/usr/bin/udevadm" or "*/lib/systemd/systemd-udevd".
-- Check the process arguments to ensure they do not match "/usr/bin/snap", which is considered benign in this context.
-- Investigate the parent process name to ensure it is not "zz-proxmox-boot" or "java", as these are excluded from the rule.
-- Use process lineage analysis to trace the ancestry of the unshare process and identify any potentially malicious parent processes.
-- Examine the user account associated with the unshare process to determine if it has a history of suspicious activity or if it is a privileged account.
-- Utilize Osquery to gather additional context about the process. For example, run the query: `SELECT * FROM processes WHERE name = 'unshare';` to gather details about the process state and associated metadata.
-- Investigate any network connections or file system changes initiated by the unshare process to identify potential lateral movement or data exfiltration.
-- Review system logs for any other suspicious activities or anomalies around the time the unshare process was executed.
-- Correlate the unshare activity with other security alerts or incidents to determine if it is part of a larger attack campaign.
-- Consult threat intelligence sources to check for any known threat actors or campaigns that utilize unshare for privilege escalation or container escape techniques.
-
-### False positive analysis
-
-- System management tools: Certain system management tools and scripts may legitimately use unshare for routine operations, such as system updates or configuration changes. Users can handle these by identifying the specific tools and adding their parent processes to the exclusion list.
-- Development environments: Developers might use unshare during software development and testing to create isolated environments. To manage these, users can exclude processes initiated by known development tools or scripts.
-- Container orchestration: Some container orchestration platforms may use unshare as part of their normal operations. Users should identify these platforms and exclude their associated processes to prevent false positives.
-- Automated scripts: Automated scripts that perform system maintenance or monitoring might invoke unshare. Users can manage these by reviewing the scripts and excluding their parent processes if they are deemed non-threatening.
-- Custom administrative tasks: Administrators may use unshare for custom tasks that require namespace isolation. Users should document these tasks and exclude the relevant processes to avoid false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the scope of the compromise, focusing on process trees and any unauthorized use of the unshare command.
-- Review system logs and security alerts to determine if privilege escalation or container escape attempts were successful.
-- Terminate any suspicious processes that were initiated using the unshare command and assess the integrity of the system.
-- Escalate the incident to the security operations team if evidence of privilege escalation or data exfiltration is found.
-- Restore the system from a known good backup if unauthorized changes or persistent threats are detected.
-- Implement enhanced logging policies to capture detailed process execution and namespace changes for future investigations.
-- Integrate security tools with SIEM solutions to improve detection capabilities for namespace manipulation and privilege escalation attempts.
-- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities.
-- Educate users and administrators on the risks associated with namespace manipulation and enforce the principle of least privilege to reduce attack surfaces."""
 
 
 [[rule.threat]]

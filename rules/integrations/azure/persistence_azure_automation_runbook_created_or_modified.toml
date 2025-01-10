@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -15,50 +15,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Automation Runbook Created or Modified"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Azure Automation Runbook Created or Modified
-
-Azure Automation Runbooks are scripts that automate tasks in cloud environments, enhancing operational efficiency. However, adversaries can exploit them to execute unauthorized code, ensuring persistence and control. The detection rule monitors specific operations indicating runbook creation or modification, flagging successful events to identify potential misuse and safeguard against malicious activities.
-
-### Possible investigation steps
-
-- Review the alert details to understand the specific operation that triggered the alert, focusing on the `azure.activitylogs.operation_name` field to determine if it was a draft write, a write, or a publish action.
-- Examine the `event.outcome` field to confirm the success of the operation, ensuring that the alert is based on a successful event.
-- Identify the user or service principal that performed the operation by reviewing the relevant fields in the activity logs, such as `azure.activitylogs.caller`.
-- Check the timestamp of the event to determine when the runbook was created or modified, which can help correlate with other activities in the environment.
-- Investigate the runbook's content and changes by accessing the Azure Automation account and reviewing the runbook's version history and code.
-- Cross-reference the user or service principal with recent login activities and other actions in Azure AD logs to identify any unusual or unauthorized access patterns.
-- Use Osquery to gather additional context on the system where the runbook might be executed. For example, run an Osquery query to list all scheduled tasks or cron jobs that might be related to the runbook execution.
-- Query Azure Resource Graph or Azure Monitor logs to identify any other recent changes or deployments in the same Azure Automation account or resource group.
-- Investigate any network or system logs for unusual outbound connections or data transfers that might be associated with the runbook's execution.
-- Collaborate with the application or system owner to verify the legitimacy of the runbook changes and gather additional context on its intended use and any recent operational changes.
-
-### False positive analysis
-
-- Routine administrative tasks: Regular updates or maintenance activities by authorized personnel can trigger the rule. To manage this, users can create exceptions for known administrative accounts or specific time windows when these tasks are expected.
-- Automated deployment processes: Continuous integration and deployment pipelines might create or modify runbooks as part of their normal operation. Users should identify and exclude these processes by filtering based on the service accounts or automation tools involved.
-- Third-party integrations: Some third-party services may interact with Azure Automation to enhance functionality, leading to benign runbook modifications. Users can handle these by whitelisting specific application IDs or service principals associated with trusted integrations.
-- Testing and development activities: Developers may frequently create or modify runbooks in non-production environments. Users can reduce false positives by excluding specific environments or resource groups dedicated to development and testing.
-
-### Response and remediation
-
-- Immediately isolate the affected Azure Automation account to prevent further unauthorized runbook executions.
-- Review the activity logs to identify the source and scope of the unauthorized runbook creation or modification.
-- Verify the integrity of all runbooks within the affected Automation account to ensure no other scripts have been tampered with.
-- Revoke any suspicious or unauthorized access permissions to the Azure Automation account and associated resources.
-- Restore any modified or deleted runbooks from backups to ensure the system returns to its intended operational state.
-- Implement Azure Monitor alerts for any future runbook creation or modification activities to ensure timely detection of unauthorized changes.
-- Conduct a thorough investigation to determine if the unauthorized runbook activity is part of a larger attack, leveraging MITRE ATT&CK framework for threat context.
-- Escalate the incident to the security operations team if the activity is linked to known threat actors or if the scope of the attack is beyond initial containment.
-- Enhance logging policies to include detailed audit logs for all Azure Automation activities and integrate with a Security Information and Event Management (SIEM) system for continuous monitoring.
-- Review and update security policies and access controls for Azure Automation accounts to adhere to the principle of least privilege, reducing the risk of future unauthorized access.
-
-## Setup
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

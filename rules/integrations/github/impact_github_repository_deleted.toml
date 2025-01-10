@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -35,48 +35,6 @@ type = "eql"
 query = '''
 configuration where event.module == "github" and event.dataset == "github.audit" and event.action == "repo.destroy"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GitHub Repository Deleted
-
-GitHub repositories are vital for managing code and collaboration within organizations. Adversaries may exploit this by deleting repositories to disrupt operations or erase evidence of unauthorized access, leading to data loss. The detection rule monitors GitHub audit logs for repository deletion events, flagging potential unauthorized actions for further investigation.
-
-### Possible investigation steps
-
-- Review the GitHub audit logs to confirm the repository deletion event by checking the `event.action` field for "repo.destroy".
-- Identify the user associated with the deletion by examining the `actor` field in the audit logs to determine if the action was performed by an authorized individual.
-- Check the `repository.name` field to understand which repository was deleted and assess its importance and sensitivity to the organization.
-- Investigate the `event.created` timestamp to establish the exact time of the deletion and correlate it with other activities or anomalies in the system.
-- Analyze the `actor.ip` field to verify the IP address from which the deletion was initiated and determine if it matches known IP addresses associated with the user.
-- Use Osquery to gather additional context on the user's recent activities. For example, run the following query to list recent GitHub actions by the same user: `SELECT * FROM github_events WHERE actor = '<actor_name>' ORDER BY created_at DESC LIMIT 10;`.
-- Cross-reference the deletion event with recent access logs to see if there were any unusual login attempts or access patterns around the time of the deletion.
-- Check for any recent changes in user permissions or roles that might have inadvertently allowed unauthorized access to delete the repository.
-- Review any recent communications or tickets related to the repository to determine if there was a legitimate reason for its deletion.
-- Consult with the repository's owner or key stakeholders to verify if the deletion was planned or if they have any insights into the event.
-
-### False positive analysis
-
-- Routine maintenance or cleanup activities by authorized personnel can trigger false positives when repositories are intentionally deleted as part of organizational housekeeping. Users can manage these by creating exceptions for known maintenance periods or specific user accounts responsible for such tasks.
-- Automated scripts or bots that manage repository lifecycles might delete repositories as part of their normal operation. To handle these, users can exclude actions performed by these scripts by identifying their unique user agents or tokens in the audit logs.
-- Deletion of test or temporary repositories that are frequently created and removed during development cycles can also result in false positives. Users can mitigate this by setting up filters to ignore deletions of repositories with specific naming conventions or tags that indicate their temporary nature.
-- Organizational restructuring or project completion may lead to legitimate repository deletions. Users should ensure that such actions are documented and communicated within the team, allowing for the creation of temporary exceptions during these periods.
-
-### Response and remediation
-
-- Immediately contain the incident by revoking access to the affected GitHub account and any associated API tokens to prevent further unauthorized actions.
-- Investigate the audit logs to identify the user or process responsible for the deletion and determine if it was an authorized action or a potential compromise.
-- If unauthorized access is confirmed, conduct a thorough review of all access logs and permissions to identify other potential security breaches or compromised accounts.
-- Restore the deleted repository from backups, if available, to minimize operational disruption and data loss.
-- Escalate the incident to the security team and relevant stakeholders, providing them with detailed findings and any indicators of compromise.
-- Implement enhanced logging and monitoring policies to capture detailed audit trails of all repository actions, ensuring future incidents can be detected and investigated promptly.
-- Integrate GitHub with a Security Information and Event Management (SIEM) system to automate the detection and alerting of suspicious activities.
-- Review and update access controls and permissions for all GitHub repositories to ensure the principle of least privilege is enforced.
-- Conduct a security awareness training session for all users to reinforce the importance of secure practices and recognizing potential phishing or social engineering attacks.
-- Regularly test and update the incident response plan to ensure readiness for future incidents, incorporating lessons learned from this event."""
 
 
 [[rule.threat]]

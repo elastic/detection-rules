@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -44,50 +44,6 @@ file where host.os.type == "windows" and event.type != "deletion" and file.exten
     (process.name : "APPServerClient.exe" and process.code_signature.status: "trusted" and file.name : "Parallels Client.lnk")
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Shortcut File Written or Modified on Startup Folder
-
-In Windows environments, the Startup folder is used to launch programs automatically when a user logs in. Adversaries exploit this by placing or altering shortcut files (.lnk) in this folder to achieve persistence. The detection rule identifies such activities by monitoring for non-deletion events involving .lnk files in the Startup folder, excluding trusted processes, thus highlighting potential unauthorized persistence attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific .lnk file path and name that triggered the alert, focusing on the `file.path` and `file.name` fields.
-- Check the `process.name` field to determine which process was responsible for writing or modifying the shortcut file, and verify if it is a known or trusted application.
-- Investigate the `process.code_signature.status` to confirm whether the process is signed and trusted, which might indicate a false positive if the process is legitimate.
-- Use Osquery to list all .lnk files in the Startup folder to identify any other potentially unauthorized shortcuts:
-  ```sql
-  SELECT path, filename FROM file WHERE path LIKE 'C:\\\\Users\\\\%\\\\AppData\\\\Roaming\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\%' OR path LIKE 'C:\\\\ProgramData\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\StartUp\\\\%';
-  ```
-- Examine the file creation and modification timestamps to determine when the shortcut was created or altered, which can provide context on the timing of the suspicious activity.
-- Cross-reference the user account associated with the `file.path` to determine if the activity aligns with the user's normal behavior or if it appears suspicious.
-- Check the system's event logs for any related login or process execution events around the time the shortcut was modified to gather additional context.
-- Investigate the parent process of the process that created or modified the shortcut to understand the origin of the activity and whether it was initiated by a legitimate application or script.
-- Review any recent changes or installations on the system that might explain the presence of the new or modified shortcut, such as software updates or new applications.
-- If applicable, correlate the findings with network activity logs to identify any external connections or data transfers that coincide with the shortcut file modification, which might indicate a broader compromise.
-
-### False positive analysis
-
-- Known false positives for the Shortcut File Written or Modified on Startup Folder rule include legitimate software installations or updates that create or modify shortcut files in the Startup folder. These can include applications like OneNote, Okta Verify, OneLaunch, and Parallels Client, which are often trusted and not indicative of malicious activity.
-- To manage these false positives, users can create exceptions in the detection rule for processes with verified code signatures that are known to create shortcuts in the Startup folder. This can be done by adding specific conditions to exclude these trusted processes and their associated shortcut files, as demonstrated in the existing rule with exceptions for ONENOTE.EXE, OktaVerifySetup.exe, OneLaunch.exe, and APPServerClient.exe.
-- Regularly review and update the list of trusted processes and their associated shortcut files to ensure that new legitimate applications are not flagged as potential threats. This helps maintain the balance between security and usability by reducing unnecessary alerts while still monitoring for unauthorized persistence attempts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or persistence.
-- Investigate the source of the .lnk file creation or modification by reviewing process execution logs and identifying the responsible process.
-- Verify the legitimacy of the process that created or modified the .lnk file by checking its code signature and cross-referencing with known trusted applications.
-- Remove any unauthorized .lnk files from the Startup folder to eliminate persistence mechanisms.
-- Conduct a full antivirus and anti-malware scan on the affected system to identify and remove any additional malicious software.
-- Restore the system to a known good state using backups or system restore points if available and necessary.
-- Implement logging policies to capture detailed file and process activity, focusing on the Startup folder and related processes.
-- Integrate security solutions such as Endpoint Detection and Response (EDR) tools to enhance monitoring and detection capabilities.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is part of a larger attack campaign or if further expertise is required.
-- Review and update security policies and user awareness training to prevent similar incidents in the future, emphasizing the risks of unauthorized software installations and persistence mechanisms."""
 
 
 [[rule.threat]]

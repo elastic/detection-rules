@@ -2,7 +2,7 @@
 creation_date = "2024/05/31"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -79,50 +79,6 @@ event.action in ("rename", "creation") and file.path : "/var/spool/cron/atjobs/*
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating At Job Created or Modified
-
-The 'at' command in Linux schedules tasks for future execution, aiding system administrators in automating routine jobs. However, attackers can exploit this by creating or altering 'at' jobs to maintain persistence, escalate privileges, or execute unauthorized commands. The detection rule identifies suspicious 'at' job activities by monitoring file changes in specific directories, excluding benign processes and extensions, thus highlighting potential malicious actions.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file path and process executable involved in the 'at' job creation or modification, focusing on the `file.path` and `process.executable` fields.
-- Verify the legitimacy of the process executable by checking its hash against known good hashes or using threat intelligence sources to determine if it is associated with known malicious activity.
-- Use Osquery to list all scheduled 'at' jobs on the system to identify any unexpected or unauthorized entries. Example query: `SELECT * FROM at_jobs;`
-- Investigate the user account associated with the process that created or modified the 'at' job to determine if it has been compromised or is being misused.
-- Check the process tree to understand the parent process and any child processes spawned by the suspicious executable, which can provide context on how the 'at' job was created or modified.
-- Examine system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any unusual login attempts or privilege escalation activities around the time the 'at' job was created or modified.
-- Analyze the contents of the 'at' job script or command to determine its purpose and whether it contains any malicious or unauthorized actions.
-- Cross-reference the timing of the 'at' job creation or modification with other security alerts or incidents to identify potential correlations or patterns of attack.
-- Investigate any network connections initiated by the process executable to external IP addresses, which may indicate data exfiltration or command-and-control communication.
-- Review the system's history of software installations and updates to ensure that the process executable is not part of a legitimate software update or installation process.
-
-### False positive analysis
-
-- System updates and package management activities can trigger false positives as they often involve creating or modifying files in the `/var/spool/cron/atjobs/` directory. Processes like `dpkg`, `rpm`, `yum`, and `dnf` are commonly involved in these activities and should be excluded to prevent unnecessary alerts.
-- Container management tools such as `dockerd` and `podman` may also modify files in the monitored directory during normal operations. Excluding these processes can help reduce false positives.
-- Automated system maintenance scripts, such as those run by `puppet` or `chef-client`, might create or modify at jobs as part of their configuration management tasks. These should be considered for exclusion if they are part of regular, authorized operations.
-- Temporary files created by text editors (e.g., with extensions like `.swp`, `.swpx`, `.swx`) can be mistaken for suspicious activity. Excluding these file extensions can help in minimizing false alerts.
-- Processes running from specific directories like `/nix/store/`, `/var/lib/dpkg/`, or `/snap/` are often part of legitimate system operations and can be safely excluded if verified as non-threatening.
-- Users can manage false positives by regularly reviewing and updating the exclusion list to include any new benign processes or file patterns that are identified during routine system operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or execution of malicious tasks.
-- Review the 'at' job entries in the /var/spool/cron/atjobs/ directory to identify any unauthorized or suspicious jobs and remove them.
-- Investigate the process that created or modified the 'at' job by examining logs and process details to determine if it was a legitimate action or part of a malicious activity.
-- Check for other signs of compromise on the system, such as unexpected user accounts, unauthorized software installations, or unusual network activity.
-- Restore the system from a known good backup if the investigation confirms a compromise, ensuring that all malicious changes are removed.
-- Update and patch the system to the latest security standards to mitigate any vulnerabilities that may have been exploited.
-- Implement enhanced logging policies to capture detailed information about process executions and file modifications, aiding in future investigations.
-- Integrate security solutions such as intrusion detection systems (IDS) and endpoint detection and response (EDR) tools to monitor for similar activities in the future.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Educate users and administrators about the risks associated with scheduled tasks and the importance of monitoring and securing these configurations."""
 
 
 [[rule.threat]]

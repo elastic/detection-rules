@@ -2,7 +2,7 @@
 creation_date = "2023/11/07"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/19"
 min_stack_version = "8.15.0"
 min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
 
@@ -20,51 +20,7 @@ interval = "30m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Multiple Okta Sessions Detected for a Single User"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Multiple Okta Sessions Detected for a Single User
-
-Okta is a widely used identity management service that facilitates secure user authentication across various applications. Adversaries may exploit session cookies to hijack user accounts, initiating unauthorized sessions from different locations. The detection rule identifies anomalies by flagging multiple active sessions with distinct IDs for a single user, excluding legitimate Okta system actors, thus highlighting potential session hijacking attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the user account involved and the specific session IDs that triggered the alert.
-- Verify the legitimacy of the user by checking recent login activities and patterns for any anomalies or deviations from the norm.
-- Use the `okta.authentication_context.external_session_id` field to correlate and identify all active sessions associated with the user account.
-- Investigate the `okta.actor.id` and `okta.actor.display_name` fields to ensure that the sessions are not initiated by legitimate Okta system actors.
-- Examine the geographical locations and IP addresses associated with each session to identify any unusual or unexpected access points.
-- Check for any recent changes in the user's account settings or permissions that could indicate unauthorized access.
-- Utilize Osquery to gather additional context on the user's device by running a query such as: `SELECT * FROM logged_in_users WHERE user = '<username>';` to identify any suspicious logins or processes.
-- Review any recent Okta system logs for failed login attempts or other suspicious activities that could be related to the session hijacking.
-- Cross-reference the session data with other security logs (e.g., firewall, VPN) to identify any correlated suspicious activities or access patterns.
-- Engage with the user to confirm whether they recognize the sessions and if they have recently accessed their account from multiple devices or locations.
-
-### False positive analysis
-
-- Legitimate use of multiple devices: Users may legitimately access their accounts from multiple devices, such as a laptop and a smartphone, leading to multiple session IDs. To manage this, organizations can create exceptions for users who frequently use multiple devices.
-- Frequent travel or remote work: Users who travel often or work remotely may trigger this rule due to accessing their accounts from various locations. Implementing geolocation-based exceptions for known travel patterns can help reduce false positives.
-- Shared accounts: In environments where account sharing is common, multiple sessions may be expected. Organizations should consider policy adjustments or exceptions for shared accounts to prevent unnecessary alerts.
-- Use of VPNs or proxy services: Users employing VPNs or proxy services may appear to have sessions from different locations. Identifying and excluding known VPN or proxy IP addresses can help mitigate these false positives.
-- Automated scripts or integrations: Some users may have automated scripts or integrations that initiate multiple sessions. Reviewing and excluding these known scripts or integrations can prevent false alerts.
-
-### Response and remediation
-
-- Immediately terminate all active sessions for the affected user account to prevent further unauthorized access.
-- Notify the user of the suspicious activity and instruct them to change their password and review their account activity for any unauthorized actions.
-- Conduct a thorough investigation to determine the source of the session hijacking, including reviewing logs for unusual IP addresses or user-agent strings.
-- Escalate the incident to the security operations team if evidence of a broader compromise or lateral movement is detected.
-- Implement multi-factor authentication (MFA) for all user accounts to add an additional layer of security against session hijacking.
-- Review and enhance logging policies to ensure comprehensive capture of authentication events and session activities for future investigations.
-- Integrate Okta logs with a Security Information and Event Management (SIEM) system to enable real-time monitoring and alerting of suspicious activities.
-- Apply network segmentation and access controls to limit the potential impact of compromised accounts and restrict lateral movement.
-- Educate users on recognizing phishing attempts and the importance of safeguarding session cookies and credentials.
-- Regularly review and update security policies and procedures to incorporate lessons learned from the incident and align with best practices.
-
-## Setup
+note = """## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -35,48 +35,6 @@ event.dataset:"github.audit" and event.category:"configuration" and
 github.repo:* and user.name:* and 
 github.repository_public:false
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating First Occurrence of GitHub User Interaction with Private Repo
-
-GitHub is a platform for version control and collaboration, often hosting private repositories for sensitive projects. Adversaries may exploit unauthorized access to these private repos to exfiltrate data or inject malicious code. The detection rule identifies unusual user interactions with private repos by flagging users who haven't accessed them in the past 14 days, helping to spot potential breaches early.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific user (`user.name`) and repository (`github.repo`) involved in the interaction.
-- Verify the user's access history to confirm that this is indeed the first interaction with the private repository in the last 14 days.
-- Check the user's recent activity logs on GitHub to identify any other unusual behavior or access patterns.
-- Investigate the repository's access logs to determine if there have been any other unusual access attempts or changes.
-- Cross-reference the user's access with known project timelines or team assignments to assess if the access is legitimate.
-- Use Osquery to gather additional context on the user's machine. For example, run the following query to check for recent GitHub-related processes: `SELECT * FROM processes WHERE name LIKE '%git%' OR path LIKE '%github%';`
-- Examine any recent changes or commits made to the repository to identify if any unauthorized modifications have occurred.
-- Check for any recent changes in the repository's access permissions or settings that might explain the new interaction.
-- Review the organization's GitHub audit logs for any other anomalies or patterns that coincide with the user's access.
-- Consult with the repository owner or project manager to verify if the user was expected to access the repository and if any recent changes in team roles might explain the access.
-
-### False positive analysis
-
-- Users who are part of a rotating team or have roles that require infrequent but legitimate access to private repositories may trigger false positives. These users can be added to an exception list to prevent unnecessary alerts.
-- Automated systems or scripts that interact with private repositories on a schedule longer than 14 days might be flagged. Identifying these systems and excluding them from the rule can reduce false positives.
-- Temporary contractors or consultants who have legitimate access for specific projects may appear as new interactions. Their access patterns should be reviewed and, if deemed non-threatening, can be excluded from the detection rule.
-- Users returning from extended leave or vacation might trigger alerts upon their first interaction with a private repo. These cases can be managed by temporarily adjusting the rule parameters or adding exceptions for known absences.
-
-### Response and remediation
-
-- Immediately isolate the affected user account by revoking access to the private repository to prevent further unauthorized actions.
-- Conduct a thorough investigation to determine the scope of the breach, including identifying any data exfiltrated or malicious code injected.
-- Review the user's recent activity logs to identify any other suspicious actions or access to additional repositories.
-- Escalate the incident to the security operations team for a deeper analysis and to determine if the breach is part of a larger attack.
-- Notify the repository owner and relevant stakeholders about the incident and the steps being taken to address it.
-- Implement enhanced logging policies to capture detailed user activity on private repositories for future monitoring and investigations.
-- Integrate security tools with GitHub, such as anomaly detection systems, to automatically flag unusual user behavior.
-- Restore the system to its operational state by ensuring all unauthorized changes are reverted and verifying the integrity of the repository.
-- Conduct a post-incident review to identify gaps in security controls and update policies to prevent similar incidents.
-- Apply hardening measures such as enforcing multi-factor authentication, regular access reviews, and least privilege principles for repository access."""
 
 
 [[rule.threat]]

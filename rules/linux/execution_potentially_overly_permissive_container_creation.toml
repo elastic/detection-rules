@@ -2,7 +2,7 @@
 creation_date = "2024/07/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -55,48 +55,6 @@ query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.name:docker and
 process.args:(run and --privileged)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Privileged Docker Container Creation
-
-Docker containers are lightweight, portable units that package applications and their dependencies. The `--privileged` flag grants containers extensive host access, posing security risks. Adversaries exploit this to escalate privileges or escape containers. The detection rule identifies unusual privileged container creation by monitoring specific process actions and arguments, flagging potential misuse for further investigation.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the `--privileged` flag in the `process.args` field, indicating a privileged container creation attempt.
-- Examine the `process.name` field to ensure the process involved is indeed `docker`, confirming the context of the alert.
-- Investigate the `event.category` and `event.type` fields to verify that the event is categorized as a process start, which aligns with the creation of a new container.
-- Analyze the `event.action` field to ensure it reflects an execution action, which is critical for understanding the nature of the process activity.
-- Identify the parent process of the Docker command using the `process.parent.name` field to determine if it originates from an unusual or suspicious source.
-- Use Osquery to gather additional context about the Docker process. For example, run the query: `SELECT * FROM processes WHERE name = 'docker';` to retrieve detailed information about the Docker process and its attributes.
-- Check the user context under which the Docker process was executed by examining the `user.name` field to assess if it aligns with expected administrative activities.
-- Investigate the timeline of events leading up to the alert by reviewing related logs and events to identify any preceding suspicious activities.
-- Correlate the alert with other security events or alerts in the environment to determine if this is part of a broader attack pattern or isolated incident.
-- Document findings and gather evidence, including logs and process details, to support further analysis and potential escalation to the incident response team.
-
-### False positive analysis
-
-- Known false positives for the Privileged Docker Container Creation rule may include legitimate administrative tasks where privileged containers are intentionally created for maintenance or testing purposes. These activities might be performed by system administrators or developers who require elevated access for specific operations.
-- To manage these false positives, users can create exceptions for known and trusted parent processes or specific user accounts that regularly perform these actions. This can be done by updating the detection rule to exclude certain process parent names or user identifiers that are recognized as non-threatening.
-- Another approach is to implement a whitelist of specific container images or commands that are known to be safe and necessary for regular operations. This helps in reducing noise from expected and benign privileged container creations.
-- Regularly reviewing and updating the list of exceptions is crucial to ensure that new legitimate use cases are accounted for while maintaining security against potential threats.
-
-### Response and remediation
-
-- Immediately isolate the affected container to prevent further unauthorized access or potential lateral movement within the network.
-- Investigate the parent process that initiated the privileged container creation to determine if it was a legitimate action or part of a malicious activity.
-- Review logs and process histories to identify any other suspicious activities or commands executed around the time of the alert.
-- If malicious activity is confirmed, terminate the unauthorized container and any associated processes to halt the attack.
-- Escalate the incident to the security operations team for a deeper forensic analysis and to assess the scope of the compromise.
-- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
-- Integrate with SIEM solutions to correlate events and improve detection capabilities for similar threats in the future.
-- Restore the system to its operational state by redeploying clean container images and ensuring no residual malicious artifacts remain.
-- Apply security hardening measures such as restricting the use of the --privileged flag and enforcing least privilege principles for container operations.
-- Educate and train staff on secure container management practices and the risks associated with privileged container operations."""
 
 
 [[rule.threat]]

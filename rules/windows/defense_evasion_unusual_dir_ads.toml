@@ -2,7 +2,7 @@
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -39,49 +39,6 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.args : "?:\\*:*" and process.args_count == 1
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Process Execution Path - Alternate Data Stream
-
-Alternate Data Streams (ADS) in Windows allow files to contain multiple data streams, which can be used to store metadata or additional information. Adversaries exploit ADS to conceal malicious code, making it harder to detect. The detection rule identifies processes initiated from ADS by monitoring specific execution patterns, such as unique argument structures, which are atypical for legitimate processes.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a process execution from an Alternate Data Stream (ADS) by checking the `process.args` field for the pattern `?:\\\\*:*`.
-- Verify the `process.args_count` field to ensure it equals 1, indicating the process was initiated with a single argument, which is atypical and may suggest malicious intent.
-- Identify the parent process using the `process.parent.name` and `process.parent.pid` fields to understand the origin of the suspicious process execution.
-- Examine the `process.executable` field to determine the exact executable file path and verify its legitimacy by checking its digital signature and hash against known good values.
-- Use Osquery to list all processes running from ADS by executing a query such as: `SELECT pid, name, path FROM processes WHERE path LIKE '%:%';` to identify any other potentially suspicious processes.
-- Investigate the user context under which the process was executed by reviewing the `user.name` field to determine if it aligns with expected user behavior.
-- Check the `host.name` and `host.ip` fields to identify the affected system and correlate with any other alerts or logs from the same host for additional context.
-- Analyze recent file modifications on the host by querying file creation and modification times to identify any unusual changes that coincide with the process execution.
-- Review network activity associated with the process by examining logs for any unusual outbound connections or data transfers that could indicate exfiltration or command-and-control communication.
-- Cross-reference the process and host information with threat intelligence sources to determine if the behavior matches any known malware or adversary techniques.
-
-### False positive analysis
-
-- Legitimate software installations or updates may use Alternate Data Streams to store metadata or additional information, leading to false positives. Users can create exceptions for known software paths or processes that frequently trigger alerts.
-- Some backup or file synchronization tools might utilize ADS to manage file versions or metadata, which can be mistaken for malicious activity. Identifying these tools and excluding their processes from monitoring can reduce false positives.
-- Certain system utilities or administrative scripts may leverage ADS for legitimate purposes, such as storing configuration data. Users should review and whitelist these utilities if they are known and trusted within their environment.
-- Developers or IT personnel might use ADS for testing or development purposes, which could trigger alerts. Establishing a policy to document and approve such activities can help in creating appropriate exceptions.
-- Security software or forensic tools might interact with ADS as part of their scanning or analysis processes. Users should verify these interactions and exclude them if they are part of routine security operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malware.
-- Conduct a thorough investigation to confirm the presence of malicious code within the Alternate Data Stream by analyzing the process execution path and associated files.
-- Utilize endpoint detection and response (EDR) tools to scan for additional indicators of compromise (IOCs) across the network.
-- If malware is confirmed, remove the malicious files and any associated ADS using trusted antivirus or anti-malware software.
-- Restore the system from a known good backup if the integrity of the system is compromised.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
-- Implement enhanced logging policies to capture detailed process execution data and monitor for similar suspicious activities in the future.
-- Integrate threat intelligence feeds to update detection rules and improve the identification of tactics, techniques, and procedures (TTPs) associated with Defense Evasion and Hide Artifacts.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Apply system hardening measures, such as disabling unnecessary services and features, to reduce the attack surface and prevent future exploitation of Alternate Data Streams."""
 
 
 [[rule.threat]]

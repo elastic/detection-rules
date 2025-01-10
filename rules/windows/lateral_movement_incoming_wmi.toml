@@ -2,7 +2,7 @@
 creation_date = "2020/11/15"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -59,50 +59,6 @@ sequence by host.id with maxspan = 2s
    not (process.executable : "?:\\Windows\\System32\\inetsrv\\appcmd.exe" and process.args : "uninstall")
    ]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating WMI Incoming Lateral Movement
-
-Windows Management Instrumentation (WMI) is a powerful framework for managing data and operations on Windows systems. Adversaries exploit WMI for lateral movement by executing processes remotely, often bypassing traditional security controls. The detection rule identifies suspicious WMI activity by monitoring specific network connections and process executions, while filtering out common false positives, to flag potential unauthorized lateral movements.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific host.id and timestamp of the suspicious activity to establish a timeline.
-- Examine the network connection details, focusing on the source.ip and destination.port, to determine if the connection originated from a known or trusted source.
-- Check the process.name and process.parent.name fields to verify if the svchost.exe and WmiPrvSE.exe processes are behaving as expected or if they are associated with any known malicious activity.
-- Investigate the user.id associated with the process execution to determine if it aligns with expected administrative activity or if it could indicate unauthorized access.
-- Analyze the process.executable path to identify any unusual or unexpected executables being launched, especially those not excluded by the rule.
-- Utilize Osquery to gather additional context on the host by running a query such as: `SELECT * FROM processes WHERE name = 'WmiPrvSE.exe' OR name = 'svchost.exe';` to list all instances and their command-line arguments.
-- Cross-reference the source.ip with known threat intelligence feeds to check for any history of malicious activity associated with the IP address.
-- Review recent security logs and events on the affected host to identify any other suspicious activities or anomalies around the time of the alert.
-- Check for any recent changes in user permissions or group memberships that could explain the unexpected WMI activity.
-- Consult with system administrators to confirm if the detected WMI activity aligns with any legitimate remote management tasks or scheduled maintenance activities.
-
-### False positive analysis
-
-- Known false positives for the WMI Incoming Lateral Movement rule include legitimate administrative activities where WMI is used for remote management, such as software deployment or system configuration tasks.
-- Common tools that may trigger false positives include Nessus and SCCM, which are often used for network scanning and system management, respectively.
-- To manage these false positives, users can create exceptions for specific processes or user accounts that are known to perform legitimate WMI activities. This can be done by excluding certain process executables or user IDs from the detection rule.
-- Users should regularly review and update their exclusion lists to ensure that only non-threatening behaviors are excluded, maintaining a balance between security and operational efficiency.
-- It is important to monitor the integrity level of processes, as legitimate administrative tasks typically run with higher integrity levels, which can be used as a criterion for exclusion.
-- By understanding the context of WMI usage within their environment, users can better distinguish between legitimate and suspicious activities, reducing the likelihood of false positives.
-
-### Response and remediation
-
-- Isolate the affected host from the network to prevent further lateral movement and contain the threat.
-- Verify the legitimacy of the WMI activity by checking if it aligns with known administrative tasks or scheduled jobs.
-- Conduct a thorough investigation of the affected host to identify any unauthorized changes or additional malicious activity.
-- Review and analyze network logs and WMI logs to trace the source of the lateral movement and identify other potentially compromised systems.
-- Escalate the incident to the security operations center (SOC) or incident response team if the activity is confirmed to be malicious.
-- Remove any unauthorized accounts or processes identified during the investigation and reset credentials for affected accounts.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
-- Implement enhanced logging policies to capture detailed WMI activity and network connections for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities.
-- Apply hardening measures such as restricting WMI access to only necessary accounts and implementing network segmentation to limit lateral movement opportunities."""
 
 
 [[rule.threat]]

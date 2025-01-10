@@ -2,7 +2,7 @@
 creation_date = "2022/08/30"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -46,49 +46,6 @@ sequence by winlog.computer_name with maxspan=1m
 
 [process where event.type == "start"] by winlog.event_data.TargetLogonId
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Process Creation via Secondary Logon
-
-The Secondary Logon service allows users to run processes with different credentials, facilitating legitimate administrative tasks. However, adversaries can exploit this to escalate privileges by creating processes with alternate tokens, bypassing access controls. The detection rule identifies such abuse by monitoring successful logins via the Secondary Logon service and subsequent process initiations, linking them through unique logon identifiers.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, focusing on the `winlog.computer_name` and `winlog.event_data.TargetLogonId` to identify the affected system and session.
-- Verify the `user.id` involved in the event to determine if the account is known and if it has legitimate reasons to use the Secondary Logon service.
-- Check the `source.ip` field to confirm if the login originated from a local source (`::1`) and assess if this is expected behavior for the user or system.
-- Investigate the `process.name` to ensure it is indeed `svchost.exe` and not a masquerading process, which could indicate malicious activity.
-- Correlate the `winlog.event_data.LogonProcessName` with "seclogo*" to confirm the use of the Secondary Logon service.
-- Use Osquery to list all processes started by the identified `winlog.event_data.TargetLogonId` to gather more context on what actions were taken post-login. Example query: `SELECT pid, name, path, cmdline FROM processes WHERE uid = (SELECT uid FROM users WHERE username = '<username>');`
-- Examine the timeline of events around the alert to identify any unusual patterns or sequences of actions that deviate from normal user behavior.
-- Cross-reference the `event.action` and `event.outcome` fields with other authentication logs to identify any anomalies or repeated patterns of successful logins using alternate credentials.
-- Investigate any other security alerts or logs related to the same `winlog.computer_name` or `user.id` to determine if this event is part of a larger attack pattern.
-- Consult with the user or system owner to verify if the use of the Secondary Logon service was authorized and necessary, and gather any additional context that may explain the activity.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators often use the Secondary Logon service to perform tasks requiring elevated privileges, which can trigger the detection rule. To manage this, users can create exceptions for known administrative accounts or specific tasks that are regularly performed.
-- Scheduled tasks and maintenance scripts: Automated scripts or scheduled tasks that require elevated privileges might also use the Secondary Logon service. Users can handle these by identifying and excluding specific scripts or task names that are part of routine maintenance.
-- Software updates and installations: Some software updates or installations may use alternate credentials to execute necessary processes. Users should monitor and whitelist known update processes or installation packages to prevent false positives.
-- Internal security tools: Certain security tools may use the Secondary Logon service for legitimate monitoring or scanning activities. Users can exclude these tools by identifying their process names or associated logon identifiers.
-- Testing and development environments: In environments where frequent testing or development occurs, processes may be created with alternate credentials for testing purposes. Users can manage these by excluding specific environments or user accounts associated with development activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Verify the legitimacy of the user account involved in the alert by checking recent activity and cross-referencing with known user behavior.
-- Investigate the process tree associated with the suspicious process creation to identify any malicious or unauthorized processes.
-- Terminate any malicious processes identified during the investigation to prevent further execution of unauthorized actions.
-- Reset the credentials of the compromised user account and any other accounts that may have been affected.
-- Conduct a thorough review of system and security logs to identify any additional indicators of compromise or related suspicious activities.
-- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals a broader compromise or if assistance is needed.
-- Implement enhanced logging policies to capture detailed authentication and process creation events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Apply system hardening measures, such as disabling unnecessary services and enforcing least privilege access controls, to reduce the attack surface and prevent future exploitation."""
 
 
 [[rule.threat]]

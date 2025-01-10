@@ -2,7 +2,7 @@
 creation_date = "2022/10/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -56,49 +56,6 @@ sequence by process.entity_id with maxspan=1m
    )
   ]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Non-Standard Port SSH connection
-
-SSH is a protocol used for secure remote access and data transfer. Adversaries may exploit non-standard ports to evade detection and bypass network filters. The detection rule identifies unusual SSH activity by monitoring processes and network connections on ports other than the default 22, excluding common legitimate uses, to flag potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to identify the process.entity_id and the specific non-standard port being used for the SSH connection.
-- Verify the process name and parent process name to ensure it is not part of a legitimate application or service, as listed in the exclusion list (e.g., "rsync", "git").
-- Check the destination IP address to determine if it falls outside the excluded IP ranges and assess if it is a known or trusted entity.
-- Use Osquery to gather more information about the process by running a query such as: `SELECT * FROM processes WHERE pid = <process_id>;` to obtain details like the command line, user, and start time.
-- Investigate the network activity associated with the process by examining logs or using network monitoring tools to identify any unusual patterns or data transfers.
-- Correlate the process start time with user login events to determine if the SSH connection aligns with expected user activity.
-- Analyze historical data to see if the same non-standard port has been used previously and if it correlates with any known malicious activity.
-- Check for any recent changes in the system configuration or firewall rules that might explain the use of a non-standard port for SSH.
-- Investigate any related alerts or incidents that might provide additional context or indicate a broader attack campaign.
-- Consult threat intelligence sources to see if the destination IP or non-standard port is associated with known threat actors or campaigns.
-
-### False positive analysis
-
-- Legitimate applications or services that use SSH on non-standard ports for operational purposes, such as custom backup solutions or internal tools, may trigger false positives. Users should identify these applications and add them to the exclusion list in the detection rule.
-- Development environments or testing scenarios where SSH is configured to use non-standard ports for convenience or isolation can also result in false positives. Users can manage these by documenting and excluding these specific environments from the rule.
-- Automated scripts or deployment tools that utilize SSH on non-standard ports for configuration management or software deployment might be flagged. Users should ensure these tools are recognized and excluded by adding their parent process names to the exception list.
-- In some network architectures, non-standard ports might be used for SSH to avoid conflicts or due to specific firewall configurations. Users should review their network policies and adjust the detection rule to accommodate these legitimate configurations.
-- Users can handle false positives by regularly reviewing the logs and identifying patterns of benign activity, then updating the rule to exclude these patterns while ensuring that security is not compromised.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation of the process and network logs to identify the source and scope of the unauthorized SSH connection.
-- Verify the integrity of critical system files and configurations to ensure no unauthorized changes have been made.
-- Change all credentials associated with the compromised system and any other systems that may have been accessed using the same credentials.
-- Apply patches and updates to the operating system and all installed software to mitigate known vulnerabilities.
-- Implement network segmentation to limit the ability of adversaries to move laterally within the network.
-- Enhance logging policies to include detailed SSH connection attempts and process execution logs for better future detection.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
-- Restore the system from a known good backup if any unauthorized changes or malware are detected.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

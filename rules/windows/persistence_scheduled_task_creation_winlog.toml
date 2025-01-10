@@ -2,7 +2,7 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -44,48 +44,6 @@ iam where event.action == "scheduled-task-created" and
               "\\OneDrive Standalone Update Task-S-1-12-1-*"
  )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating A scheduled task was created
-
-Scheduled tasks in Windows automate routine tasks, but adversaries exploit them for persistence, lateral movement, and privilege escalation. Malicious actors may create tasks to execute harmful scripts or programs at specific times. The detection rule identifies suspicious task creation by filtering out benign tasks and those initiated by system accounts, focusing on potential threats that align with known attack techniques.
-
-### Possible investigation steps
-
-- Review the event logs to confirm the creation of the scheduled task by checking the `event.action` field for "scheduled-task-created".
-- Verify the `user.name` field to identify the user account that created the task, ensuring it is not a system account or a known service account.
-- Examine the `winlog.event_data.TaskName` field to determine the name of the scheduled task and check if it matches any known malicious patterns or unusual naming conventions.
-- Cross-reference the `winlog.event_data.TaskName` with a list of known benign tasks to ensure it is not mistakenly flagged.
-- Use Osquery to list all scheduled tasks on the system and identify any discrepancies or unknown tasks. Example query: `SELECT * FROM scheduled_tasks WHERE name = '<TaskName>';`.
-- Investigate the `winlog.event_data.TaskContent` if available, to understand the script or program that the task is set to execute.
-- Check the creation time of the task to determine if it aligns with any known suspicious activity or outside of normal business hours.
-- Analyze the system's recent login events to correlate the task creation with any unusual login activity or unauthorized access attempts.
-- Review any associated network activity around the time of task creation to identify potential lateral movement or data exfiltration attempts.
-- Consult threat intelligence sources to see if the task name or associated user account has been linked to any known attack campaigns or threat actors.
-
-### False positive analysis
-
-- Scheduled tasks created by legitimate software updates or system maintenance can trigger false positives. For example, tasks related to HP device checks or Microsoft Visual Studio updates are common and benign.
-- Tasks initiated by OneDrive updates are also frequent and typically non-threatening, as they are part of regular software maintenance.
-- To manage these false positives, users can exclude specific task names from the detection rule, as shown in the provided query. This involves adding known benign task names to the exclusion list to prevent unnecessary alerts.
-- Regularly review and update the exclusion list to include any new benign tasks that are identified over time, ensuring that the detection rule remains effective without generating excessive false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
-- Review the details of the scheduled task creation event, including the user account involved and the task's payload, to assess the potential impact and scope of the compromise.
-- Terminate any malicious processes associated with the scheduled task and delete the task itself to prevent further execution.
-- Conduct a thorough investigation of the affected system and related systems to identify any additional indicators of compromise or persistence mechanisms.
-- Escalate the incident to the security operations center (SOC) or incident response team if the task is linked to known advanced persistent threat (APT) groups or if the scope of the attack is beyond initial containment efforts.
-- Implement enhanced logging policies to capture detailed information on scheduled task creation and execution, including command-line arguments and user context.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Implement hardening measures such as restricting scheduled task creation to authorized users only and using application whitelisting to prevent unauthorized script execution."""
 
 
 [[rule.threat]]

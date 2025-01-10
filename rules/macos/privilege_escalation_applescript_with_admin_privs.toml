@@ -2,7 +2,7 @@
 creation_date = "2020/12/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -62,47 +62,6 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
   not process.Ext.effective_parent.executable : ("/Applications/Visual Studio Code.app/Contents/MacOS/Electron",
                                                  "/Applications/OpenVPN Connect/Uninstall OpenVPN Connect.app/Contents/MacOS/uninstaller")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Apple Scripting Execution with Administrator Privileges
-
-AppleScript, a scripting language for macOS, automates tasks by controlling applications and system functions. Adversaries may exploit it to execute scripts with elevated privileges, bypassing password prompts. The detection rule identifies such misuse by monitoring the execution of the Apple script interpreter, excluding benign parent processes like Electron, to flag unauthorized privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the `osascript` process execution with administrator privileges and without a password prompt.
-- Verify the `process.command_line` field to understand the exact command executed and assess if it aligns with known malicious patterns or scripts.
-- Check the `process.parent.name` field to identify the parent process of `osascript` and ensure it is not a benign process like Electron.
-- Investigate the `process.Ext.effective_parent.executable` field to confirm the parent executable is not a known safe application such as Visual Studio Code or OpenVPN Connect.
-- Use Osquery to list recent processes executed by the same user to identify any other suspicious activities. Example query: `SELECT * FROM processes WHERE user = (SELECT user FROM processes WHERE name = 'osascript' LIMIT 1);`
-- Examine system logs for any other unusual activities or errors around the time of the `osascript` execution to gather additional context.
-- Check for any recent changes in user accounts or permissions that could indicate unauthorized privilege escalation attempts.
-- Investigate network connections initiated by the system around the time of the alert to identify any potential data exfiltration or command and control activities.
-- Review the system's installed applications and scripts to identify any unauthorized or suspicious software that could have triggered the `osascript` execution.
-- Correlate the findings with other security alerts or incidents in the environment to determine if this is part of a broader attack campaign.
-
-### False positive analysis
-
-- Known false positives for the Apple Scripting Execution with Administrator Privileges rule may include legitimate applications that use AppleScript for automation purposes without malicious intent. Applications like Visual Studio Code and OpenVPN Connect have been identified as benign processes that may trigger this rule due to their use of Electron as a parent process.
-- Users can manage these false positives by creating exceptions for specific applications that are known to use AppleScript legitimately. This can be done by excluding the parent processes or executables of these applications in the detection rule, as demonstrated with the exclusion of Electron and specific paths for Visual Studio Code and OpenVPN Connect.
-- It is important to regularly review and update the list of exceptions to ensure that only trusted applications are excluded, minimizing the risk of overlooking genuine threats while reducing noise from false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Verify the legitimacy of the osascript execution by checking user activity logs and correlating with known user behavior.
-- Terminate any suspicious processes related to osascript that are running with elevated privileges without a password prompt.
-- Conduct a thorough investigation to identify how the script was executed with elevated privileges, focusing on potential vulnerabilities or misconfigurations.
-- Review and update user account permissions to ensure that only authorized personnel have the ability to execute scripts with administrator privileges.
-- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
-- Integrate security solutions such as Endpoint Detection and Response (EDR) tools to monitor and alert on suspicious script executions in real-time.
-- Restore the system to its operational state by applying necessary patches, updating software, and ensuring all security configurations are correctly set.
-- Educate users on the risks associated with script execution and the importance of adhering to security policies.
-- Report the incident to relevant internal teams and, if necessary, escalate to external cybersecurity authorities for further analysis and support."""
 
 
 [[rule.threat]]

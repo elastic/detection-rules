@@ -2,7 +2,7 @@
 creation_date = "2020/01/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -66,48 +66,6 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
     (process.name : "osascript" and process.command_line : "osascript*set VPN to service*")
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Virtual Private Network Connection Attempt
-
-Virtual Private Networks (VPNs) are crucial for secure remote access, encrypting data between a user and the network. However, adversaries can exploit VPNs to move laterally within a network, gaining unauthorized access to remote systems. The detection rule identifies suspicious VPN connection attempts on macOS by monitoring specific command executions, helping to flag potential misuse by adversaries.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name and arguments that triggered the rule, focusing on `process.name` and `process.args` fields.
-- Check the `process.command_line` field for any unusual or unexpected command executions that might indicate malicious intent.
-- Investigate the user account associated with the process to determine if the activity aligns with their typical behavior or if it appears suspicious.
-- Examine the timestamp of the event to correlate with any other suspicious activities or alerts that occurred around the same time.
-- Use Osquery to list all active VPN connections on the system with a query like: `SELECT * FROM vpn_connections;` to identify any unauthorized or unexpected connections.
-- Cross-reference the IP addresses associated with the VPN connections against known malicious IP databases or threat intelligence feeds.
-- Analyze the parent process of the suspicious VPN connection attempt to understand how the process was initiated and if it was part of a larger attack chain.
-- Review system logs for any failed VPN connection attempts that might indicate brute force or unauthorized access attempts.
-- Investigate any recent changes to VPN configurations or settings on the system that could have been altered to facilitate unauthorized access.
-- Check for any other alerts or indicators of compromise on the same host that might suggest a broader compromise or lateral movement attempt.
-
-### False positive analysis
-
-- Routine administrative tasks: Legitimate network administrators may frequently use macOS built-in commands like `networksetup`, `scutil`, or `osascript` to manage VPN connections as part of their regular duties. These actions, while flagged by the detection rule, are not necessarily malicious.
-- Automated scripts: Organizations may deploy scripts that automate VPN connections for users, especially in environments where remote work is common. These scripts can trigger the detection rule but are typically benign.
-- User-initiated connections: Employees might manually connect to VPNs using the same commands for legitimate purposes, such as accessing company resources remotely, which can result in false positives.
-- To manage these false positives, users can create exceptions for known, non-threatening behaviors by whitelisting specific processes or command patterns that are verified as safe. This can be done by maintaining a list of trusted scripts or administrative actions and excluding them from triggering alerts. Regularly reviewing and updating this list ensures that only genuine threats are flagged.
-
-### Response and remediation
-
-- Immediately isolate the affected macOS system from the network to prevent further lateral movement by the adversary.
-- Review the VPN connection logs and process execution details to identify unauthorized access attempts and determine the scope of the intrusion.
-- Terminate any suspicious VPN sessions and change credentials associated with the compromised VPN accounts to prevent further unauthorized access.
-- Conduct a thorough investigation to identify any additional compromised systems or accounts within the network, leveraging MITRE ATT&CK framework for guidance on potential lateral movement techniques.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
-- Implement enhanced logging policies to capture detailed VPN connection attempts and process execution data for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
-- Restore the affected system to its operational state by reimaging the device and applying the latest security patches and updates.
-- Conduct a security review to identify and address any vulnerabilities or misconfigurations that may have facilitated the attack, such as weak VPN configurations or insufficient access controls.
-- Educate users on secure VPN usage practices and the importance of reporting suspicious activities to help prevent future incidents."""
 
 
 [[rule.threat]]

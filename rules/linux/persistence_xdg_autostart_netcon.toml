@@ -2,7 +2,7 @@
 creation_date = "2024/06/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -97,53 +97,6 @@ sequence by host.id, process.entity_id with maxspan=1s
      )
   ]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Network Connections Initiated Through XDG Autostart Entry
-
-XDG Autostart entries are used in Linux environments like GNOME and XFCE to automatically execute scripts or applications upon user login, facilitating user convenience. However, adversaries can exploit this feature to maintain persistence by modifying these entries to initiate unauthorized network connections. The detection rule identifies such malicious activity by monitoring processes linked to XDG autostart and subsequent suspicious network connections, excluding known benign applications and local IP ranges.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific `host.id` and `process.entity_id` associated with the suspicious activity.
-- Examine the `process.executable` and `process.args` fields to determine the exact command or script executed through the XDG autostart entry.
-- Check the `process.parent.executable` to confirm if the process was initiated by a legitimate session manager like `/usr/bin/xfce4-session`.
-- Investigate the `destination.ip` field in the network event to identify the external IP address the system attempted to connect to, ensuring it is not within the excluded local IP ranges.
-- Cross-reference the `destination.ip` with threat intelligence sources to determine if it is associated with known malicious activity.
-- Use Osquery to list all XDG autostart entries on the affected host to identify any unauthorized or suspicious entries:
-  ```sql
-  SELECT * FROM xdg_autostart WHERE path LIKE '/etc/xdg/autostart/%' OR path LIKE '~/.config/autostart/%';
-  ```
-- Analyze the contents of any suspicious XDG autostart files identified in the previous step to understand their purpose and potential impact.
-- Review system logs around the time of the alert to identify any other unusual activities or related events that might provide additional context.
-- Check for any recent changes to the XDG autostart files by reviewing file modification timestamps and comparing them with known good baselines.
-- Investigate the user account associated with the login session to determine if it has been compromised or if there are any signs of unauthorized access.
-
-### False positive analysis
-
-- Known false positives may include legitimate applications that initiate network connections upon user login, such as desktop environments or productivity tools that check for updates or sync data.
-- Applications like web browsers or VPN clients that are not included in the exclusion list may trigger alerts if they are set to start automatically and establish network connections.
-- Users can manage these false positives by updating the exclusion list to include additional known benign applications that frequently initiate network connections upon startup.
-- Consider monitoring the frequency and context of the alerts to identify patterns that suggest non-malicious behavior, allowing for more informed decisions on exclusions.
-- Regularly review and update the list of excluded IP ranges and applications to ensure it reflects the current network environment and application usage.
-- Collaborate with IT and security teams to identify any new applications or services that should be added to the exclusion list to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify any unauthorized modifications to XDG autostart entries and associated scripts.
-- Review and analyze network logs to trace the origin and destination of suspicious network connections.
-- Remove or revert any unauthorized changes to XDG autostart entries and scripts to eliminate persistence mechanisms.
-- Update and patch the system to the latest security standards to mitigate known vulnerabilities.
-- Implement enhanced logging policies to capture detailed process execution and network activity for future investigations.
-- Integrate threat intelligence feeds to correlate detected activities with known threat actors and tactics.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Restore the system to its operational state by verifying the integrity of critical system files and configurations.
-- Apply hardening measures such as restricting user permissions, disabling unnecessary services, and implementing application whitelisting."""
 
 
 [[rule.threat]]

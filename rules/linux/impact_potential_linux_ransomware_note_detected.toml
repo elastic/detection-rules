@@ -2,7 +2,7 @@
 creation_date = "2023/03/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -71,49 +71,6 @@ sequence by process.entity_id, host.id with maxspan=1s
    file.name : ("*restore*", "*lock*", "*recovery*", "*read*", "*instruction*", "*how_to*", "*ransom*")
   ]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Linux Ransomware Note Creation Detected
-
-Ransomware exploits file encryption to extort victims, often leaving a note with payment instructions. This detection rule identifies suspicious mass file renaming and the creation of text files with keywords like "ransom" or "recovery" within a second. By monitoring these patterns, it helps detect ransomware activity, focusing on unusual file operations in critical directories while excluding benign processes.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process.entity_id and host.id involved in the suspicious activity.
-- Examine the process.executable path to determine if it is located in unusual directories such as /tmp, /var/tmp, or /dev/shm, which are often used by malicious actors.
-- Check the file paths involved in the renaming and creation events to see if they are in critical directories like /home/*/Documents, /root, or /var/www, which could indicate a targeted attack.
-- Investigate the process.name to ensure it is not one of the benign processes listed in the exclusion criteria, such as dpkg, yum, or python*.
-- Use Osquery to gather more information about the process by running a query like: `SELECT * FROM processes WHERE pid = <process_id>;` to retrieve details about the process, including its parent process and command line arguments.
-- Analyze the timing of the events to confirm that the mass file renaming and text file creation occurred within the 1-second timespan, as specified in the detection rule.
-- Look for additional file creation events on the host with names containing keywords like "restore", "lock", or "ransom" to identify other potential ransom notes.
-- Check the system logs for any unusual activity or errors around the time of the alert to gather more context about the system's state.
-- Investigate any network connections made by the suspicious process to external IP addresses, which could indicate communication with a command and control server.
-- Review any recent changes or installations on the host that could have introduced the suspicious process, such as new software installations or updates.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger the rule due to mass file renaming or creation of temporary files with suspicious keywords. Users can handle this by excluding known update processes like "dpkg", "yum", "dnf", and "rpm" from the detection rule.
-- Development environments or scripts that frequently create or rename files in monitored directories might be flagged. Excluding processes such as "go", "java", "python*", and "node" can reduce false positives in these scenarios.
-- Backup or recovery operations that generate files with names containing keywords like "restore" or "recovery" could be mistakenly identified as ransomware activity. Users should consider excluding backup software processes from the rule.
-- Automated system maintenance tasks that involve file renaming or creation in critical directories may also be misinterpreted. Adding exceptions for known maintenance processes can help mitigate these false positives.
-- Users can refine the detection rule by adjusting the monitored directories or file name patterns to better align with their specific environment and reduce unnecessary alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network immediately to prevent further spread of the ransomware.
-- Identify and terminate the malicious process responsible for the mass file encryption and note creation using process monitoring tools.
-- Conduct a thorough investigation to determine the scope of the attack, including identifying all affected files and systems.
-- Restore encrypted files from the most recent clean backup to ensure data integrity and minimize data loss.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response coordination.
-- Implement enhanced logging policies to capture detailed file and process activity, focusing on critical directories and suspicious file operations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide real-time alerts.
-- Review and update firewall and intrusion detection/prevention system (IDS/IPS) rules to block known ransomware indicators and prevent future attacks.
-- Educate employees on recognizing phishing attempts and other common ransomware delivery methods to reduce the risk of initial infection.
-- Apply system hardening measures, such as disabling unnecessary services, applying security patches, and enforcing least privilege access controls, to reduce the attack surface."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

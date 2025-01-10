@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2024/07/15"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 updated_date = "2025/01/08"
 
 [rule]
@@ -12,7 +14,7 @@ executes before or after events such as: commit, push, and receive. An attacker 
 commands on the system and establish persistence.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Git Hook Command Execution"
@@ -56,61 +58,19 @@ tags = [
     "Tactic: Execution",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 type = "eql"
 
 query = '''
 sequence by host.id with maxspan=3s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
    process.parent.name == "git" and process.args : ".git/hooks/*" and
    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
   ] by process.entity_id
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
    process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")] by process.parent.entity_id
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Git Hook Command Execution
-
-Git hooks are scripts that automate tasks during Git operations like commits or pushes. While useful for developers, adversaries can exploit them to run unauthorized commands, gaining persistence on a system. The detection rule identifies suspicious activity by monitoring for shell processes initiated by Git hooks, flagging potential misuse when these processes execute commands, indicating possible malicious intent.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific Git hook script that triggered the alert by examining the `process.args` field for the path pattern ".git/hooks/*".
-- Verify the parent process by checking the `process.parent.name` field to confirm it is a Git process, ensuring the alert is related to Git hook execution.
-- Investigate the child process initiated by the Git hook by examining the `process.name` field to determine which shell was used (e.g., bash, zsh).
-- Check the `process.entity_id` and `process.parent.entity_id` fields to trace the process lineage and understand the sequence of execution.
-- Use Osquery to list all Git hooks present in the repository by running: `SELECT path, content FROM file WHERE directory LIKE '%.git/hooks%' AND type = 'file';` to identify any unauthorized or suspicious scripts.
-- Examine the content of the suspicious Git hook script identified in the alert to understand its purpose and any commands it executes.
-- Cross-reference the execution time of the suspicious process with user activity logs to determine if the execution aligns with legitimate user actions.
-- Review system logs for any additional context around the time of the alert, focusing on any unusual or unexpected system changes or network activity.
-- Investigate the user account associated with the process execution to determine if it has been compromised or is exhibiting unusual behavior.
-- Check for any recent changes to the Git repository, including new commits or branches, that might indicate tampering or unauthorized access.
-
-### False positive analysis
-
-- Developers often use Git hooks for legitimate automation tasks, such as running tests or formatting code before commits, which can trigger the detection rule. These activities, while benign, may appear suspicious if they involve shell processes.
-- Continuous Integration/Continuous Deployment (CI/CD) systems might execute Git hooks as part of their automated workflows, leading to false positives. These systems often use shell scripts to manage build and deployment processes.
-- To manage these false positives, users can create exceptions for known and trusted scripts or processes by whitelisting specific Git hook paths or process names that are frequently used in their development environment.
-- Users should regularly review and update their exception lists to ensure that only legitimate activities are excluded, maintaining a balance between security and operational efficiency.
-- It's important to monitor the context of the detected activity, such as the timing and frequency of the hook execution, to differentiate between normal development operations and potential malicious behavior.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Investigate the Git repository and its hooks to identify any unauthorized modifications or scripts that may have been added by an attacker.
-- Review recent commits and changes in the repository to trace back any suspicious activities or unauthorized access.
-- Terminate any suspicious processes identified as being executed from Git hooks to stop potential malicious activities.
-- Restore the affected system from a known good backup to ensure that any malicious changes are removed.
-- Implement strict access controls and permissions for Git repositories to limit who can modify hooks and other critical files.
-- Enhance logging and monitoring by enabling detailed audit logs for Git operations and shell command executions to detect future anomalies.
-- Integrate security tools such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to improve threat detection capabilities.
-- Conduct a thorough review of user accounts and credentials to ensure no unauthorized access has been granted, and reset passwords if necessary.
-- Educate developers and system administrators on secure coding practices and the risks associated with Git hooks to prevent future exploitation."""
 
 
 [[rule.threat]]

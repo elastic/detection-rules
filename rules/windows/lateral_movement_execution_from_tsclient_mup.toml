@@ -2,7 +2,7 @@
 creation_date = "2020/11/11"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -53,48 +53,6 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and process.executable : "\\Device\\Mup\\tsclient\\*.exe"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Execution via TSClient Mountpoint
-
-The TSClient mountpoint is a feature of the Remote Desktop Protocol (RDP) that allows users to access local drives from a remote session. Adversaries can exploit this by executing malicious binaries from the shared mountpoint, facilitating lateral movement within a network. The detection rule identifies such activities by monitoring for process executions originating from the TSClient path, indicating potential unauthorized access attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process execution path matches the pattern `\\\\Device\\\\Mup\\\\tsclient\\\\*.exe`, indicating execution from the TSClient mountpoint.
-- Identify the user account associated with the process execution to determine if it aligns with expected user behavior or if it might be compromised.
-- Check the timestamp of the process execution to correlate with any other suspicious activities or anomalies in the network around the same time.
-- Investigate the parent process of the executed binary to understand how the execution was initiated and if it was part of a legitimate workflow.
-- Use Osquery to list all processes executed from the TSClient mountpoint with a query like: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE path LIKE '\\\\Device\\\\Mup\\\\tsclient\\\\%';` to gather more context on the execution.
-- Examine the network connections from the host at the time of the alert to identify any unusual outbound connections that might indicate data exfiltration or further lateral movement.
-- Review the security logs on the host for any failed login attempts or other authentication anomalies that could suggest unauthorized access.
-- Check for any recent changes to user permissions or group memberships that might have facilitated the execution from the TSClient mountpoint.
-- Analyze any related file modifications or creations on the host to identify if the executed binary made any unauthorized changes to the system.
-- Correlate the findings with other security tools and logs, such as endpoint detection and response (EDR) solutions, to build a comprehensive picture of the potential threat.
-
-### False positive analysis
-
-- Legitimate administrative activities: System administrators may use the TSClient mountpoint to execute scripts or administrative tools for maintenance and troubleshooting purposes. These activities can be mistaken for malicious behavior.
-- Software updates and installations: IT personnel might deploy software updates or install applications via the TSClient path, triggering the detection rule.
-- Automated backup or synchronization tools: Some organizations use automated tools that access local drives through RDP for backup or file synchronization, which could be flagged as suspicious.
-- To manage these false positives, users can create exceptions for known and verified administrative accounts or specific executable paths that are frequently used for legitimate purposes. This can be done by updating the detection rule to exclude certain user accounts or executable names that are identified as non-threatening.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
-- Verify the execution of any suspicious binaries from the TSClient path and terminate any malicious processes identified.
-- Conduct a thorough investigation of the affected system to identify any additional indicators of compromise or persistence mechanisms.
-- Review RDP access logs to identify unauthorized access attempts and determine the source of the intrusion.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed RDP session activities and process execution events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system to its operational state by removing any malicious files, applying security patches, and ensuring system integrity.
-- Harden RDP configurations by enforcing strong authentication methods, limiting access to trusted IP addresses, and disabling unnecessary features.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans based on lessons learned."""
 
 
 [[rule.threat]]

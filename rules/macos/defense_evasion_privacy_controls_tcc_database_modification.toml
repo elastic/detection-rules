@@ -2,7 +2,7 @@
 creation_date = "2020/12/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -64,48 +64,6 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
  process.args : "/*/Application Support/com.apple.TCC/TCC.db" and
  not process.parent.executable : "/Library/Bitdefender/AVP/product/bin/*"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Privacy Control Bypass via TCCDB Modification
-
-The Transparency, Consent, and Control (TCC) database in macOS manages app permissions for accessing sensitive resources. Adversaries may exploit this by using tools like sqlite3 to alter the TCC database, bypassing privacy controls to access resources like the camera or microphone. The detection rule identifies such attempts by monitoring for suspicious sqlite3 activity targeting the TCC database, excluding legitimate processes.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of sqlite3 activity targeting the TCC database, specifically checking the process name and arguments for "sqlite*" and "/*/Application Support/com.apple.TCC/TCC.db".
-- Verify the parent process of the sqlite3 activity to ensure it is not a legitimate process, such as those from "/Library/Bitdefender/AVP/product/bin/*".
-- Check the timestamp of the event to determine when the suspicious activity occurred and correlate it with any other unusual activities on the system.
-- Investigate the user account associated with the process to determine if it is a legitimate user or if the account may have been compromised.
-- Use Osquery to gather additional context about the process by running a query like: `SELECT * FROM processes WHERE name LIKE 'sqlite%' AND path LIKE '%/Application Support/com.apple.TCC/TCC.db%';`
-- Examine system logs around the time of the event for any other anomalies or related activities that could provide further context.
-- Investigate any recent changes to the TCC database by querying for recent modifications: `SELECT * FROM file WHERE path = '/Application Support/com.apple.TCC/TCC.db' AND mtime > (SELECT datetime('now', '-1 day'));`
-- Check for any other processes or scripts that may have been executed around the same time as the sqlite3 activity to identify potential automation or scripts used by an adversary.
-- Review network activity logs to identify any outbound connections that may indicate data exfiltration or communication with a command and control server.
-- Consult with the user or system owner to verify if any legitimate maintenance or software updates were performed that could explain the sqlite3 activity.
-
-### False positive analysis
-
-- Legitimate software updates or system maintenance tasks may trigger the rule if they involve sqlite3 operations on the TCC database. Users can handle these by identifying the specific update or maintenance process and adding it to an exclusion list.
-- Security software or system monitoring tools that perform regular checks on the TCC database might also be flagged. To manage this, users should verify the legitimacy of these tools and exclude their processes from the detection rule.
-- Developers or IT administrators conducting authorized testing or debugging on macOS systems may inadvertently trigger the rule. In such cases, users should document these activities and create exceptions for the specific processes involved.
-- Automated backup or synchronization applications that access the TCC database for legitimate reasons could be misidentified as threats. Users should confirm the application's purpose and add it to the exclusion list if deemed safe.
-
-### Response and remediation
-
-- Immediately isolate the affected macOS system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to confirm the unauthorized modification of the TCC database by reviewing system logs and identifying any suspicious sqlite3 activity.
-- Terminate any unauthorized processes that are currently accessing or modifying the TCC database.
-- Restore the TCC database from a known good backup to ensure that all privacy settings are reverted to their original state.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to monitor for future unauthorized access attempts, focusing on sqlite3 activity and changes to the TCC database.
-- Integrate with security information and event management (SIEM) systems to correlate events and improve detection capabilities.
-- Apply macOS security updates and patches to address any vulnerabilities that may have been exploited.
-- Educate users on the importance of maintaining application permissions and the risks associated with unauthorized modifications.
-- Review and update security policies to include specific measures for protecting the TCC database and other critical system components."""
 
 
 [[rule.threat]]

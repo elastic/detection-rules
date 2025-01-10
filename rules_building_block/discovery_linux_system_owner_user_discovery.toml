@@ -2,7 +2,7 @@
 creation_date = "2023/07/10"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -37,49 +37,6 @@ query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and 
 process.name : ("whoami", "w", "who", "users", "id")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating System Owner/User Discovery Linux
-
-In Linux environments, commands like `whoami`, `w`, `who`, `users`, and `id` are used to identify the current user and other logged-in users. Adversaries exploit these tools to gather information about system ownership and user activity, aiding in privilege escalation and lateral movement. The detection rule monitors the execution of these commands, flagging potential misuse by correlating process start events with specific command executions, thus alerting analysts to suspicious user enumeration activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the specific command that triggered the alert by examining the `process.name` field.
-- Check the `user.name` field to identify the user account that executed the command and determine if it aligns with expected user behavior.
-- Investigate the `process.parent.name` field to understand the parent process that initiated the command, which may provide context on whether the execution was part of a legitimate workflow or potentially malicious activity.
-- Analyze the `host.name` field to determine if the activity occurred on a critical or sensitive system, which may elevate the priority of the investigation.
-- Examine the `process.command_line` field to see the full command executed, which can provide additional context or reveal if the command was part of a script or automated task.
-- Utilize Osquery to gather more information about the user and system context by running a query such as: `SELECT * FROM logged_in_users WHERE user = '<suspicious_user>';` to identify all sessions associated with the user.
-- Cross-reference the `event.timestamp` with other security logs (e.g., authentication logs, network logs) to identify any correlated suspicious activities around the same time.
-- Check for any recent changes in user privileges or group memberships that might indicate privilege escalation attempts.
-- Review historical data for similar command executions by the same user or on the same host to identify patterns or repeated suspicious behavior.
-- Consult threat intelligence sources to determine if the observed behavior matches known tactics, techniques, and procedures (TTPs) associated with specific threat actors or campaigns.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators often use commands like `whoami`, `w`, `who`, `users`, and `id` as part of their regular system management activities. These legitimate uses can trigger false positives. To manage this, create exceptions for known administrator accounts or specific times when these tasks are typically performed.
-- Automated scripts: Some automated scripts or monitoring tools may execute these commands to gather system information for performance monitoring or auditing purposes. Identify and whitelist these scripts or processes to prevent unnecessary alerts.
-- Scheduled jobs: Cron jobs or other scheduled tasks might run these commands for reporting or maintenance purposes. Review and exclude these scheduled tasks from triggering alerts by specifying the exact command patterns and associated user accounts.
-- Development and testing environments: In environments where frequent testing and development occur, developers might use these commands to verify user permissions or system states. Consider excluding specific user groups or environments from the detection rule to reduce noise.
-- Security tools: Some security tools or agents might use these commands as part of their normal operation to collect user and system data. Verify the legitimacy of these tools and exclude their processes from the detection criteria.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
-- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any unauthorized access or privilege escalation attempts.
-- Review system logs and security alerts to correlate the execution of user discovery commands with other suspicious activities.
-- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals signs of a broader attack or advanced persistent threat (APT) activity.
-- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and user context, to aid in future investigations.
-- Integrate threat intelligence feeds and MITRE ATT&CK framework data to enrich alerts with context about known adversary tactics and techniques.
-- Restore the system to its operational state by applying security patches, updating antivirus definitions, and ensuring all security controls are functioning correctly.
-- Conduct a post-incident review to identify gaps in security controls and processes, and implement hardening measures such as disabling unnecessary services and enforcing least privilege access.
-- Educate users on recognizing and reporting suspicious activities to improve the organization's overall security posture.
-- Continuously monitor for any signs of re-infection or further malicious activity, adjusting detection rules and response strategies as necessary."""
 
 
 [[rule.threat]]

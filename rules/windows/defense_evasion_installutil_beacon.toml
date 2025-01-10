@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -42,49 +42,6 @@ sequence by process.entity_id
   [process where host.os.type == "windows" and event.type == "start" and process.name : "installutil.exe"]
   [network where host.os.type == "windows" and process.name : "installutil.exe" and network.direction : ("outgoing", "egress")]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating InstallUtil Process Making Network Connections
-
-InstallUtil.exe is a legitimate Windows utility used for installing and uninstalling server resources by executing installer components. Adversaries exploit it to execute malicious code under the guise of legitimate operations, often to bypass security measures. The detection rule identifies suspicious activity by monitoring for outbound network connections initiated by InstallUtil.exe, which is atypical behavior for this utility, thus signaling potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name is "installutil.exe" and verify the network connection direction is "outgoing" or "egress" as specified in the detection rule.
-- Check the process entity ID to identify the specific instance of InstallUtil.exe that initiated the network connection.
-- Investigate the parent process of InstallUtil.exe to determine how it was launched and assess if this is part of a legitimate operation or potentially malicious activity.
-- Examine the command line arguments used with InstallUtil.exe to identify any unusual or suspicious parameters that could indicate malicious intent.
-- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name = 'installutil.exe';` to retrieve details like process start time, user, and parent process.
-- Analyze the destination IP address and port of the network connection to determine if it is associated with known malicious infrastructure or if it is an expected destination for legitimate operations.
-- Cross-reference the network connection details with threat intelligence sources to identify any known indicators of compromise (IOCs) related to the destination.
-- Review recent system logs and security events for any other suspicious activities or anomalies that occurred around the same time as the InstallUtil.exe network connection.
-- Investigate the user account under which InstallUtil.exe was executed to determine if it has been compromised or if there are any signs of unauthorized access.
-- Check for any recent changes or installations on the system that could explain the use of InstallUtil.exe, such as legitimate software updates or installations, to rule out false positives.
-
-### False positive analysis
-
-- Legitimate software installations or updates: Some legitimate applications may use InstallUtil.exe to perform necessary installations or updates, which could trigger the detection rule. Users should verify if the network connection is associated with a known and trusted software installation or update process.
-- Internal network connections: InstallUtil.exe might be used within an organization's internal network for legitimate administrative tasks. If the network connections are directed towards internal IP addresses or known internal servers, these can be considered for exclusion.
-- Automated deployment tools: Organizations using automated deployment tools or scripts that leverage InstallUtil.exe for legitimate purposes might trigger false positives. Users should identify these tools and consider creating exceptions for known benign activities.
-- Exclude known benign processes: Users can create exceptions for specific processes or scripts that are verified to use InstallUtil.exe for legitimate purposes, ensuring these are documented and regularly reviewed to prevent abuse.
-- Regular monitoring and review: Continuously monitor and review alerts to distinguish between legitimate and suspicious activities, updating exceptions as necessary to minimize false positives while maintaining security vigilance.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to confirm the malicious use of InstallUtil.exe by reviewing process execution logs and network connection details.
-- Terminate any suspicious processes associated with InstallUtil.exe to halt ongoing malicious activities.
-- Analyze the network traffic logs to identify any external IP addresses or domains contacted by InstallUtil.exe and block them at the firewall.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Restore the system to a known good state by reimaging the affected machine and applying the latest security patches and updates.
-- Implement enhanced logging policies to capture detailed process execution and network activity for future investigations.
-- Integrate endpoint detection and response (EDR) solutions to monitor and alert on suspicious use of system binaries like InstallUtil.exe.
-- Educate users and administrators on the risks associated with misuse of legitimate utilities and encourage reporting of unusual system behavior.
-- Review and update security policies to include specific measures against system binary proxy execution techniques as outlined in MITRE ATT&CK T1218."""
 
 
 [[rule.threat]]

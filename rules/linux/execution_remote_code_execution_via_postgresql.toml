@@ -2,7 +2,7 @@
 creation_date = "2022/06/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -68,49 +68,6 @@ event.action in ("exec", "exec_event", "fork", "fork_event") and user.name == "p
   process.parent.command_line like "*BECOME-SUCCESS-*"
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Code Execution via Postgresql
-
-PostgreSQL, a robust open-source database system, is often targeted by attackers seeking to execute arbitrary code. Adversaries exploit vulnerabilities like SQL injection or gain unauthorized access to execute shell commands, potentially leading to system compromise. The detection rule identifies suspicious processes initiated by the PostgreSQL user, focusing on shell executions with specific patterns, while excluding legitimate operations, to flag potential malicious activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the triggering conditions, focusing on the `user.name` field to ensure the process was initiated by the "postgres" user.
-- Examine the `process.parent.args` and `process.args` fields to identify the specific shell commands executed, looking for patterns that match "*sh" and "echo*".
-- Check the `process.parent.name` and `process.command_line` fields to rule out any false positives by verifying that the process is not associated with known legitimate operations like "puppet" or commands containing "BECOME-SUCCESS".
-- Investigate the `event.type` and `event.action` fields to understand the nature of the process start event, ensuring it aligns with suspicious activities such as "exec" or "fork".
-- Use Osquery to gather additional context about the process by running a query like: `SELECT * FROM processes WHERE name = 'sh' AND uid = (SELECT uid FROM users WHERE username = 'postgres');` to identify any other related processes initiated by the postgres user.
-- Analyze the network activity associated with the PostgreSQL server during the time of the alert to identify any unusual connections or data transfers.
-- Review the PostgreSQL logs for any signs of unauthorized access or SQL injection attempts that could have led to the execution of arbitrary code.
-- Correlate the alert with other security events or logs from the same timeframe to identify any related suspicious activities or patterns.
-- Investigate the system's history for any recent changes or updates that could have introduced vulnerabilities or been exploited by attackers.
-- Consult threat intelligence sources to determine if there are any known exploits or attack patterns targeting PostgreSQL that match the observed behavior.
-
-### False positive analysis
-
-- Legitimate administrative scripts: Routine maintenance or administrative scripts executed by the PostgreSQL user might match the rule's criteria, especially if they involve shell commands for database management or system updates. Users can handle these by identifying and excluding specific scripts or command patterns that are known to be safe.
-- Automation tools: Tools like Puppet, Ansible, or other configuration management systems may execute shell commands as part of their normal operations. These can be excluded by adding exceptions for known automation tool processes or command lines.
-- Backup and monitoring processes: Scheduled backup scripts or monitoring tools that interact with the PostgreSQL database might trigger the rule. Users should review these processes and exclude them if they are verified to be non-threatening.
-- Custom user scripts: Organizations may have custom scripts developed for specific tasks that inadvertently match the rule's criteria. These should be reviewed, and if deemed safe, added to the exclusion list to prevent false positives.
-- Development and testing environments: In environments where developers frequently test new scripts or commands, the rule might generate false positives. Users can manage this by creating separate rules or exceptions for development and testing environments to reduce noise.
-
-### Response and remediation
-
-- Immediately isolate the affected PostgreSQL server from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the source and method of the attack, focusing on logs and any suspicious activity around the time of the alert.
-- Review PostgreSQL logs and system logs for any unauthorized access attempts or anomalies that align with the MITRE ATT&CK T1059 technique.
-- If unauthorized access is confirmed, reset credentials for the PostgreSQL user and any other potentially compromised accounts.
-- Apply the latest security patches and updates to PostgreSQL and the underlying operating system to mitigate known vulnerabilities.
-- Implement enhanced logging and monitoring for PostgreSQL activities, ensuring that all command executions and access attempts are logged and reviewed regularly.
-- Integrate security tools such as intrusion detection systems (IDS) and security information and event management (SIEM) solutions to improve threat detection capabilities.
-- Develop and enforce a strict access control policy, limiting PostgreSQL access to only necessary users and services.
-- Conduct a post-incident review to identify gaps in security posture and update incident response plans accordingly.
-- Educate and train staff on recognizing and responding to potential security threats, emphasizing the importance of maintaining a secure database environment."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

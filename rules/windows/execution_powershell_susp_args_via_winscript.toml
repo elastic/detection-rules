@@ -4,7 +4,7 @@ integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender"
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 
 [rule]
 author = ["Elastic"]
@@ -98,50 +98,6 @@ process where host.os.type == "windows" and event.action == "start" and
    not (process.parent.name : "wscript.exe" and
         ?process.parent.args : "C:\\Program Files (x86)\\Telivy\\Telivy Agent\\telivy.js")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious PowerShell Execution via Windows Scripts
-
-Windows Script Host (WSH) allows scripts to be executed directly on Windows systems, often using cscript or wscript. Adversaries exploit this by launching PowerShell scripts from WSH to execute malicious payloads, leveraging PowerShell's powerful capabilities. The detection rule identifies such abuse by monitoring PowerShell processes initiated by WSH, focusing on suspicious command patterns and excluding known legitimate activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and parent process name, focusing on `powershell.exe`, `pwsh.exe`, `wscript.exe`, `cscript.exe`, and `mshta.exe`.
-- Examine the `process.command_line` field for suspicious patterns such as encoded commands, use of `Invoke-Expression`, or downloading scripts from external sources.
-- Check the `process.args_count` to determine if the command line arguments are unusually minimal, which might indicate obfuscation.
-- Investigate the parent process's command line (`process.parent.command_line`) to understand the context in which the PowerShell script was executed.
-- Use Osquery to gather additional context about the processes involved. For example, run the following query to list all processes with their parent processes: `SELECT pid, name, path, parent, cmdline FROM processes WHERE name IN ('powershell.exe', 'pwsh.exe') AND parent IN (SELECT pid FROM processes WHERE name IN ('wscript.exe', 'cscript.exe', 'mshta.exe'));`
-- Cross-reference the `process.args` with known legitimate activities to rule out false positives, especially those excluded in the detection rule.
-- Investigate network connections initiated by the suspicious PowerShell process to identify any external communications, using tools like Osquery: `SELECT * FROM process_open_sockets WHERE pid IN (SELECT pid FROM processes WHERE name IN ('powershell.exe', 'pwsh.exe'));`
-- Check for any file modifications or creations by the PowerShell process, which might indicate payload delivery or execution.
-- Review the system's event logs for any additional context or related activities around the time of the alert, focusing on security and application logs.
-- Correlate the findings with other alerts or logs from the same host or user to identify potential patterns or repeated suspicious behavior.
-
-### False positive analysis
-
-- Legitimate PowerShell commands often use non-shortened execution flags, which can trigger false positives. Users can manage these by excluding specific command patterns, such as those involving "-EncodedCommand" and "Import-Module", while ensuring they are paired with "-ExecutionPolicy" to filter out benign activities.
-- Third-party installation scripts, like those related to Microsoft System Center or WebLogic, may inadvertently match suspicious patterns. Users should identify and exclude these specific scripts by adding exceptions for known file paths or command line arguments.
-- Some enterprise applications, such as those involving network information gathering or ICMP probes, may execute PowerShell scripts in a manner that appears suspicious. Users can handle these by excluding the specific parent script names or arguments associated with these applications.
-- Scripts related to software updates or system management, such as those for Microsoft Office or AppxPackage management, might trigger alerts. Users should create exceptions for these known processes by specifying the exact command line patterns or arguments used.
-- Custom scripts or tools, like those for speed tests or KMS activation, may also be flagged. Users can manage these by excluding the specific URLs or script names involved, ensuring that only recognized and trusted scripts are allowed.
-- In cases where specific applications, such as Telivy Agent, use PowerShell in a controlled manner, users should exclude these by identifying the parent script or application path, ensuring that only legitimate instances are permitted.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation of the PowerShell script execution to determine the scope and intent of the activity, focusing on the command patterns identified in the detection rule.
-- Review and analyze logs from Windows Event Viewer, especially PowerShell and Script Block Logging, to gather more context on the execution and any related activities.
-- If malicious activity is confirmed, remove any identified malicious scripts or payloads from the system and ensure no persistence mechanisms are in place.
-- Restore the system from a known good backup if the integrity of the system is compromised and cannot be assured.
-- Escalate the incident to the security operations center (SOC) or incident response team if the activity is part of a larger attack campaign or if sensitive data is at risk.
-- Implement or enhance logging policies to include detailed PowerShell logging and Windows Script Host activity to improve future detection and investigation capabilities.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to enhance visibility and detection of similar threats in the future.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities that could be exploited by similar threats.
-- Educate users on the risks of executing unknown scripts and reinforce the importance of reporting suspicious activities to the IT department."""
 
 
 [[rule.threat]]

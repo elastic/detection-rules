@@ -2,7 +2,7 @@
 creation_date = "2021/01/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -75,49 +75,6 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
                                                  "/Applications/NoMAD.app/Contents/MacOS/NoMAD",
                                                  "/Applications/ESET Management Agent.app/Contents/MacOS/ERAAgent")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Enumeration of Users or Groups via Built-in Commands
-
-Built-in commands on macOS, such as `ldapsearch`, `dsmemberutil`, and `dscl`, are essential for managing and querying user and group information. Adversaries exploit these to gather insights into user accounts and group memberships, aiding in privilege escalation or lateral movement. The detection rule identifies suspicious use of these commands by monitoring their execution patterns and excluding known legitimate applications, thus highlighting potential malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific command executed, focusing on `process.name` and `process.args` fields to understand the nature of the enumeration attempt.
-- Examine the `process.parent.executable` and `process.Ext.effective_parent.executable` fields to determine the parent process that initiated the command, which can provide context on whether the execution was part of a legitimate application or potentially malicious activity.
-- Check the `process.parent.name` and `process.Ext.effective_parent.name` fields to identify any unusual or suspicious parent process names that might indicate unauthorized use.
-- Investigate the user account associated with the process execution to determine if the account has a history of similar activities or if it has been compromised.
-- Utilize Osquery to gather additional context on the system. For example, run the following query to list recent processes executed by the same user: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE uid = (SELECT uid FROM users WHERE username = '<username>') ORDER BY start_time DESC LIMIT 10;`
-- Cross-reference the execution time of the command with other security events or logs to identify any correlated activities that might suggest a broader attack pattern.
-- Analyze network logs to check for any outbound connections made by the system around the time of the command execution, which could indicate data exfiltration attempts.
-- Review system logs for any recent changes to user accounts or group memberships that could be related to the enumeration activity.
-- Check for any other alerts or incidents involving the same host or user account to assess if this is part of a larger attack campaign.
-- Consult threat intelligence sources to determine if there are any known campaigns or threat actors that use similar enumeration techniques, which could provide additional context for the investigation.
-
-### False positive analysis
-
-- Legitimate applications such as security tools, system management software, or network monitoring solutions may trigger this rule due to their need to query user and group information for legitimate purposes. Examples include QualysCloudAgent, Kaspersky Anti-Virus, and ESET Endpoint Security.
-- System administrators or IT support personnel may use these commands during routine maintenance or troubleshooting, leading to benign alerts.
-- To manage these false positives, users can create exceptions for known legitimate applications by excluding their executable paths from the detection rule. This can be done by adding the application's executable path to the exclusion list in the detection query.
-- Regularly review and update the exclusion list to ensure it reflects the current environment and includes any new legitimate applications that may trigger the rule.
-- Consider implementing additional context-based checks, such as verifying the user account executing the command or correlating with other suspicious activities, to reduce false positives while maintaining security vigilance.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to determine the scope of the activity, including reviewing logs for any unauthorized access or changes to user accounts and groups.
-- Utilize endpoint detection and response (EDR) tools to analyze the execution patterns of the identified commands and correlate them with known malicious behaviors.
-- If unauthorized enumeration is confirmed, reset passwords for affected accounts and review group memberships to ensure no unauthorized changes have been made.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed command execution and user activity, ensuring that logs are stored securely and retained for an appropriate period.
-- Integrate threat intelligence feeds to identify known indicators of compromise (IOCs) related to the detected activity and update detection rules accordingly.
-- Restore the system to its operational state by applying the latest security patches and updates, and ensure that all security configurations are in line with best practices.
-- Conduct a post-incident review to identify gaps in security controls and processes, and implement measures to prevent similar incidents in the future.
-- Educate users on security best practices and the importance of reporting suspicious activity to help prevent social engineering attacks that could lead to unauthorized access."""
 
 
 [[rule.threat]]

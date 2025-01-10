@@ -2,7 +2,7 @@
 creation_date = "2023/11/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -69,49 +69,6 @@ sequence by host.id, process.entity_id with maxspan=5s
        (process.args : ("-i", "-l")) or (process.parent.name == "socat" and process.parent.args : "*exec*")
    )]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Reverse Shell via Child
-
-Reverse shells are a common technique used by attackers to gain remote access to a system by initiating a connection from the target back to the attacker's machine. This detection rule identifies such activity by monitoring for network events followed by suspicious shell process creation. It flags unusual command-line arguments or parent processes, indicating potential exploitation of shell interpreters for unauthorized access.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific host and process entity IDs involved in the suspicious activity.
-- Examine the network event details, focusing on the destination IP address to determine if it is known or associated with malicious activity. Check if the IP is external and not within the specified internal ranges.
-- Analyze the process creation event, paying close attention to the command-line arguments used, such as "-i" or "-l", which may indicate interactive shell usage.
-- Investigate the parent process of the shell, especially if it is "socat" with arguments containing "exec", to understand the context of the shell execution.
-- Use Osquery to gather additional context on the process by running a query like: `SELECT * FROM processes WHERE pid = <process_id>;` to retrieve detailed information about the process, including its parent process and command-line arguments.
-- Check the process execution timeline to see if there are any other related processes or network connections that occurred around the same time.
-- Review the user's activity associated with the process to determine if the actions align with their typical behavior or if they appear suspicious.
-- Investigate any other network connections from the host around the time of the alert to identify potential lateral movement or data exfiltration attempts.
-- Correlate the alert with other security events or logs from the same host to identify any patterns or additional indicators of compromise.
-- Consult threat intelligence sources to see if the destination IP or any other indicators from the alert are associated with known threat actors or campaigns.
-
-### False positive analysis
-
-- Legitimate administrative scripts or automation tools may trigger this rule if they establish network connections and spawn shell processes with similar command-line arguments. Users should review the context of these scripts and consider excluding them if they are verified as non-threatening.
-- System maintenance tasks or monitoring tools that use shell scripts to perform network diagnostics or configuration changes might be flagged. Users can create exceptions for these processes by identifying their unique command-line patterns or parent processes.
-- Development or testing environments where developers frequently use shell scripts to connect to remote systems for debugging or deployment purposes may generate false positives. Users should document these activities and exclude them from detection if they are part of regular operations.
-- Security tools or network utilities like 'socat' that are used for legitimate purposes, such as port forwarding or network testing, can mimic reverse shell behavior. Users should ensure these tools are configured securely and exclude them based on their typical usage patterns.
-- To manage false positives, users can implement a whitelist of known safe IP addresses or process names that are commonly involved in legitimate activities, ensuring these are not flagged by the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the network events and processes flagged by the detection rule.
-- Terminate any suspicious processes identified as part of the reverse shell activity to stop the attacker's access.
-- Review and analyze logs from network devices and the affected system to gather evidence and understand the attack vector.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Apply patches and updates to the affected system and any other vulnerable systems to mitigate the exploited vulnerabilities.
-- Implement enhanced logging and monitoring policies to capture detailed process and network activity, aiding in future detection and investigation.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities and correlate events.
-- Restore the system to its operational state by reinstalling the operating system and applications from trusted sources, ensuring all data is clean.
-- Harden the system by disabling unnecessary services, enforcing strong authentication mechanisms, and applying least privilege principles to reduce the attack surface."""
 
 
 [[rule.threat]]

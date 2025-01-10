@@ -2,7 +2,7 @@
 creation_date = "2023/07/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -75,49 +75,6 @@ sequence by host.id with maxspan=5s
      "/usr/lib64/NetExtender.jar", "/usr/lib/jenkins/jenkins.war"
    )] by process.parent.entity_id
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Reverse Shell via Java
-
-Java applications, often run on Linux systems, can be exploited by adversaries to establish reverse shells, allowing remote control over a compromised system. Attackers may execute shell commands via Java processes post-network connection. The detection rule identifies suspicious Java activity by monitoring for shell executions following network connections, excluding benign processes, to flag potential reverse shell attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific `host.id` and `process.entity_id` involved in the suspicious activity.
-- Examine the network connection details, focusing on the `destination.ip` to determine if it is an external or potentially malicious IP address.
-- Check the `process.executable` path to confirm if the Java process is running from a legitimate location or if it appears suspicious.
-- Investigate the `process.parent.args` to verify if the Java application was executed with the `-jar` argument, which could indicate the execution of a JAR file.
-- Cross-reference the `process.name` with known shell processes (e.g., bash, sh, zsh) to confirm if a shell was indeed spawned by the Java process.
-- Utilize Osquery to gather more information about the Java process and its parent process. Example query: `SELECT pid, name, path, cmdline FROM processes WHERE pid = <process.entity_id>;`
-- Analyze the process tree to understand the parent-child relationship and identify any other processes spawned by the suspicious Java process.
-- Check for any recent modifications or unusual files in the directories associated with the Java process using file integrity monitoring tools or Osquery.
-- Review system logs and network logs for any additional indicators of compromise or related suspicious activities around the time of the alert.
-- Correlate the findings with threat intelligence sources to determine if the IP addresses, file hashes, or other indicators are associated with known threats or campaigns.
-
-### False positive analysis
-
-- Known false positives may arise from legitimate Java applications that execute shell processes as part of their normal operation, such as Jenkins or remote IoT services.
-- Users can handle these false positives by adding exceptions for specific Java applications that are known to execute shell commands, such as excluding processes with parent arguments like "/usr/share/java/jenkins.war" or "/etc/remote-iot/services/remoteiot.jar".
-- Regularly review and update the list of excluded processes to ensure that only trusted applications are exempted, minimizing the risk of overlooking genuine threats.
-- Consider monitoring the frequency and context of these events to distinguish between benign and potentially malicious activities, focusing on unusual patterns or deviations from normal behavior.
-- Collaborate with application owners to understand the expected behavior of Java applications within the environment, ensuring that legitimate activities are not mistakenly flagged as threats.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to confirm the presence of a reverse shell by analyzing network logs, process execution details, and any suspicious Java activity.
-- Terminate any malicious Java processes and associated shell processes to stop the attacker's access.
-- Review and analyze the system's security logs to identify the initial access vector and any other potentially compromised systems.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
-- Restore the system from a known good backup to ensure all malicious changes are removed, and verify the integrity of the restored system.
-- Implement enhanced logging policies to capture detailed process execution and network connection data for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities and correlate suspicious activities.
-- Apply system hardening measures, such as disabling unnecessary Java features, applying security patches, and enforcing least privilege access controls.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans to improve future response efforts."""
 
 
 [[rule.threat]]

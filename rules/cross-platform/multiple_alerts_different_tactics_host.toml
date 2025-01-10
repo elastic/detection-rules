@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/11/16"
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -31,49 +31,6 @@ type = "threshold"
 query = '''
 signal.rule.name:* and kibana.alert.rule.threat.tactic.id:*
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Multiple Alerts in Different ATT&CK Tactics on a Single Host
-
-In cybersecurity, detecting multiple alerts across different ATT&CK tactics on a single host is crucial for identifying potential compromises. Adversaries often exploit various tactics to infiltrate and persist within a network, such as initial access, execution, and exfiltration. The detection rule leverages alert data to identify hosts triggering alerts in multiple attack phases, indicating a higher likelihood of compromise. This prioritizes these hosts for triage, enabling analysts to respond swiftly to potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to understand which specific ATT&CK tactics and techniques were triggered, focusing on the `kibana.alert.rule.threat.tactic.id` field for context.
-- Correlate the alert timestamps to identify the sequence of events and determine if there is a pattern or timeline of activities on the host.
-- Examine the host's network traffic logs to identify any unusual outbound connections that may indicate data exfiltration or command and control communication.
-- Check for any recent changes in user accounts or privileges on the host that could suggest lateral movement or privilege escalation.
-- Use Osquery to gather detailed information about the host's current state. For example, run the following query to list all running processes: `SELECT pid, name, path, cmdline FROM processes;`.
-- Investigate any newly installed or modified software on the host that could be related to the alerts, using file integrity monitoring logs or software inventory records.
-- Analyze the host's event logs for any failed login attempts, unusual login times, or logins from unexpected locations.
-- Review any recent email activity associated with the host's user account to identify potential phishing attempts or suspicious attachments.
-- Check for any scheduled tasks or cron jobs on the host that could be used for persistence or automated malicious activities.
-- Cross-reference the host's alert data with threat intelligence feeds to identify any known indicators of compromise (IOCs) that match the observed activities.
-
-### False positive analysis
-
-- Routine administrative tasks or software updates can trigger alerts across multiple ATT&CK tactics, leading to false positives. For example, legitimate software installations might involve execution and persistence tactics.
-- Security tools or scripts running on a host for monitoring or maintenance purposes may generate alerts in different tactics, such as execution and discovery, without indicating a compromise.
-- Users can manage these false positives by creating exceptions for known benign activities, such as scheduled software updates or specific administrative scripts, ensuring these do not trigger unnecessary alerts.
-- Implementing a baseline of normal behavior for hosts can help distinguish between legitimate activities and potential threats, reducing the likelihood of false positives.
-- Regularly reviewing and updating the list of exceptions based on changes in the network environment or operational procedures can help maintain the accuracy of the detection rule.
-
-### Response and remediation
-
-- Isolate the affected host from the network to prevent further lateral movement by the adversary.
-- Conduct a thorough investigation to identify the specific ATT&CK tactics and techniques involved, using available threat intelligence and alert data.
-- Analyze logs and network traffic to determine the scope of the compromise and identify any additional affected systems.
-- Remove any identified malicious software or unauthorized access tools from the host.
-- Apply security patches and updates to the affected host to address any exploited vulnerabilities.
-- Restore the host from a known good backup if necessary, ensuring that the backup is free from compromise.
-- Implement enhanced logging and monitoring policies to capture detailed activity on critical systems for future investigations.
-- Integrate additional security tools and threat intelligence feeds to improve detection capabilities and reduce response times.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate users and staff on security best practices and the specific tactics used in the attack to prevent future incidents."""
 
 
 

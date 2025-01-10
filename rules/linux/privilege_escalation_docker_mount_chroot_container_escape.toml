@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2024/01/15"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 updated_date = "2025/01/08"
 
 [rule]
@@ -12,7 +14,7 @@ within a container is capable of mounting the root file system of the host, and 
 containarized environment. This behavior pattern is very uncommon and should be investigated.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Chroot Container Escape via Mount"
@@ -64,61 +66,18 @@ tags = [
     "Tactic: Privilege Escalation",
     "Domain: Container",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 type = "eql"
 
 query = '''
 sequence by host.id, process.parent.entity_id with maxspan=5m
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
    process.name == "mount" and process.args : "/dev/sd*" and process.args_count >= 3 and
    process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")]
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
    process.name == "chroot"]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Chroot Container Escape via Mount
-
-Chroot and mount are Linux utilities that can isolate processes and manage file systems, respectively. Adversaries may exploit these to escape containerized environments by mounting the host's root file system and using chroot to change the root directory, gaining unauthorized access. The detection rule identifies this rare sequence by monitoring for a mount command followed by a chroot execution, indicating a potential escape attempt.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the sequence of events, focusing on the `host.id` and `process.parent.entity_id` to ensure the events are related and occurred within the specified `maxspan=5m`.
-- Examine the `process.args` field of the mount command to identify the specific device or file system being mounted, especially looking for `/dev/sd*` patterns that suggest host file system access.
-- Check the `process.parent.name` to determine the shell used to execute the mount command, which can provide context on how the command was initiated.
-- Investigate the user account associated with the processes to determine if the user had legitimate reasons to perform these actions and if they have the necessary permissions.
-- Use Osquery to gather additional context about the processes involved. For example, run the following query to list all processes executed by the same user within a short time frame: `SELECT pid, name, path, cmdline FROM processes WHERE uid = (SELECT uid FROM processes WHERE pid = <chroot_process_id>);`
-- Analyze the system logs around the time of the alert to identify any other suspicious activities or anomalies that might correlate with the escape attempt.
-- Check for any recent changes in user permissions or group memberships that might have inadvertently granted the necessary privileges for such an escape attempt.
-- Review the container's configuration and security settings to assess if there are any misconfigurations that could have facilitated the escape attempt.
-- Investigate any network connections initiated by the container around the time of the alert to identify potential data exfiltration or communication with external systems.
-- Correlate the findings with other security tools and logs to determine if this is an isolated incident or part of a broader attack pattern.
-
-### False positive analysis
-
-- System administrators or automated scripts may perform legitimate maintenance tasks that involve mounting file systems and using chroot, such as during system recovery or software installation, which could trigger this rule.
-- Backup or recovery operations that require mounting and chrooting into different file systems for data retrieval or restoration purposes might be flagged as false positives.
-- Developers or DevOps engineers working on containerized applications might use mount and chroot commands during testing or debugging processes, leading to benign alerts.
-- To manage these false positives, users can create exceptions for known maintenance scripts or processes by excluding specific parent process names or command arguments that are regularly used in non-threatening operations.
-- Implementing a whitelist of trusted users or processes that are known to perform these actions as part of their routine tasks can help reduce unnecessary alerts.
-- Regularly reviewing and updating the detection rule to align with the organization's operational patterns and known safe behaviors can help minimize false positives while maintaining security vigilance.
-
-### Response and remediation
-
-- Immediately isolate the affected container to prevent further unauthorized access or potential lateral movement within the network.
-- Investigate the container's logs and process history to identify the source and method of the escape attempt, focusing on the sequence of mount and chroot commands.
-- Verify the permissions and roles assigned to the user or process that attempted the escape to ensure they are appropriate and not overly permissive.
-- Escalate the incident to the security operations team if unauthorized access to the host system is confirmed, as this may indicate a broader security breach.
-- Remediate by removing any unauthorized changes made to the host system and restoring the container to a known good state from a secure backup.
-- Implement enhanced logging policies to capture detailed command execution and file system changes within containers for future investigations.
-- Integrate security monitoring tools with SIEM systems to correlate events and detect similar escape attempts across the environment.
-- Review and update container security policies to enforce stricter isolation and limit the use of potentially dangerous commands like mount and chroot.
-- Conduct a post-incident review to identify gaps in the current security posture and develop a plan to address them, including user training and awareness.
-- Apply hardening measures such as using read-only file systems for containers, employing namespaces, and leveraging security modules like SELinux or AppArmor to restrict container capabilities."""
 
 
 [[rule.threat]]

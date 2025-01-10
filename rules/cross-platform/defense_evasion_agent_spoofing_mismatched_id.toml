@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/07/14"
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/31"
 
 [rule]
 author = ["Elastic"]
@@ -31,49 +31,6 @@ type = "query"
 query = '''
 event.agent_id_status:(agent_id_mismatch or mismatch)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Agent Spoofing - Mismatched Agent ID
-
-In security environments, agent IDs are crucial for authenticating and tracking events from various sources. Adversaries may exploit this by spoofing agent IDs to disguise malicious activities as legitimate, thereby evading detection. The detection rule identifies discrepancies between expected and actual agent IDs, signaling potential spoofing attempts and helping analysts pinpoint suspicious activities.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, including the specific event and agent IDs involved in the mismatch.
-- Verify the legitimacy of the API key associated with the expected agent ID to ensure it hasn't been compromised or misused.
-- Cross-reference the actual agent ID with known legitimate agents in your environment to determine if it is recognized or expected.
-- Analyze the event logs surrounding the alert for any unusual or suspicious activities that might indicate malicious intent.
-- Use Osquery to gather additional information about the system associated with the actual agent ID. Example query: `SELECT * FROM osquery_info WHERE uuid = '<actual_agent_id>';`
-- Check for any recent changes or updates in the system configurations or software that might explain the agent ID mismatch.
-- Investigate the network traffic from the source IP address associated with the actual agent ID to identify any anomalies or unauthorized access attempts.
-- Correlate the alert with other security events or alerts to identify patterns or related incidents that might indicate a broader attack.
-- Consult with system administrators or relevant personnel to verify if there have been any legitimate changes or deployments that could account for the mismatch.
-- Document all findings and observations during the investigation to maintain a comprehensive record for future reference and analysis.
-
-### False positive analysis
-
-- Legitimate software updates or configuration changes can cause agent ID mismatches if the agent ID is regenerated or altered during the process. Users should verify if recent updates or changes align with the timing of the mismatched events.
-- Network issues or temporary disconnections might lead to agent ID mismatches when agents reconnect with a new ID. Users can monitor network stability and correlate with the timing of mismatches to identify such cases.
-- Virtual machine snapshots or clones can result in agent ID mismatches if the agent ID is not updated or synchronized properly. Users should ensure that virtual environments are configured to handle agent ID updates correctly.
-- Testing environments where agent IDs are frequently changed or reused can trigger false positives. Users can create exceptions for known testing environments to prevent unnecessary alerts.
-- In environments with shared API keys, mismatches may occur if multiple agents use the same key but have different IDs. Users should consider assigning unique API keys to each agent to reduce the likelihood of mismatches.
-
-### Response and remediation
-
-- Immediately isolate affected systems to prevent further malicious activity and contain the threat.
-- Verify the legitimacy of the agent ID by cross-referencing with known good configurations and records.
-- Conduct a thorough investigation to identify the source and scope of the spoofing attempt, utilizing logs and network traffic analysis.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and action.
-- Revoke and reissue API keys associated with the compromised agent IDs to prevent unauthorized access.
-- Implement enhanced logging policies to capture detailed information on agent ID usage and anomalies for future investigations.
-- Integrate threat intelligence feeds to correlate detected spoofing attempts with known threat actor tactics and techniques.
-- Restore affected systems by reimaging or applying clean backups, ensuring all malicious artifacts are removed.
-- Apply system hardening measures, such as enforcing strict authentication mechanisms and regular agent ID audits.
-- Conduct a post-incident review to identify gaps in detection and response, and update security policies and procedures accordingly."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

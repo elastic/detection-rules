@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 
 [rule]
 author = ["Elastic"]
@@ -45,48 +45,6 @@ process where host.os.type == "windows" and event.type == "start" and
   process.args : "tunnel" and (process.args : "--accept-server-license-terms" or process.name : "code*.exe") and 
   not (process.name == "code-tunnel.exe" and process.args == "status" and process.parent.name == "Code.exe")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Attempt to Establish VScode Remote Tunnel
-
-Visual Studio Code (VSCode) offers a feature to establish remote tunnels, enabling developers to connect to remote environments seamlessly. This functionality, while beneficial for legitimate remote development, can be exploited by adversaries to gain unauthorized access or control over systems. The detection rule identifies suspicious attempts by monitoring the execution of VSCode binaries with specific command-line arguments indicative of tunnel creation, excluding benign processes, thus helping to flag potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the "tunnel" command-line argument in the process execution, as this is a key indicator of a potential remote tunnel attempt.
-- Verify the process name to ensure it matches "code*.exe" and check if the process arguments include "--accept-server-license-terms," which could indicate an attempt to establish a remote connection.
-- Examine the parent process name to determine if it is "Code.exe," as this could help differentiate between legitimate and suspicious activity.
-- Check the process execution time and correlate it with user activity logs to determine if the execution aligns with expected user behavior or work hours.
-- Investigate the user account associated with the process execution to verify if the user has a legitimate reason to establish a remote tunnel.
-- Use Osquery to gather additional context about the process. For example, run the following query to list all processes with the "tunnel" argument: `SELECT pid, name, path, cmdline, parent FROM processes WHERE cmdline LIKE '%tunnel%';`
-- Analyze network logs to identify any unusual outbound connections initiated by the process, focusing on connections to known VSCode or GitHub endpoints.
-- Review system logs for any recent changes or installations that might explain the presence of the VSCode remote tunnel feature.
-- Check for any recent alerts or incidents involving the same user or system to identify patterns or repeated suspicious behavior.
-- Consult with the user or system owner to gather additional context about the necessity and legitimacy of the remote tunnel attempt, if possible.
-
-### False positive analysis
-
-- Developers frequently using VSCode for legitimate remote development may trigger this rule when establishing remote tunnels for valid purposes, such as connecting to a remote development environment or a GitHub Codespace.
-- Automated scripts or CI/CD pipelines that utilize VSCode's remote capabilities for deployment or testing can also generate false positives if they include the tunnel command-line arguments.
-- To manage these false positives, users can create exceptions for specific processes or users known to regularly perform legitimate remote development activities. This can be done by excluding certain process names or command-line arguments that are consistently associated with non-threatening behavior.
-- Monitoring the frequency and context of alerts can help distinguish between legitimate use and potential threats. Users can adjust the detection rule to ignore processes initiated by trusted users or systems, reducing unnecessary alerts while maintaining security vigilance.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to determine the scope of the intrusion, including identifying any other systems that may have been compromised.
-- Review system logs and VSCode activity to trace the origin of the tunnel creation attempt and gather evidence for further analysis.
-- Terminate any unauthorized VSCode remote tunnel sessions and remove any malicious binaries or scripts found on the system.
-- Change all credentials and access tokens that may have been exposed or compromised during the incident.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional actions are required.
-- Implement enhanced logging policies to capture detailed process execution and network activity related to VSCode and other remote access tools.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
-- Restore the system to its operational state by reinstalling affected software and applying the latest security patches and updates.
-- Harden the system by disabling unnecessary remote access features, enforcing strong authentication mechanisms, and conducting regular security audits."""
 
 
 [[rule.threat]]

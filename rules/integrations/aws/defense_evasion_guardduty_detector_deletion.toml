@@ -2,7 +2,7 @@
 creation_date = "2020/05/28"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -23,50 +23,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS GuardDuty Detector Deletion"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS GuardDuty Detector Deletion
-
-AWS GuardDuty is a threat detection service that continuously monitors for malicious activity and unauthorized behavior. Deleting a GuardDuty detector halts this monitoring, potentially concealing malicious actions. Adversaries may exploit this by deleting detectors to evade detection. The detection rule identifies successful deletion events, signaling potential defense evasion attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event dataset is `aws.cloudtrail`, the event provider is `guardduty.amazonaws.com`, and the event action is `DeleteDetector` with an outcome of `success`.
-- Identify the AWS account and region where the detector deletion occurred to understand the scope of the potential impact.
-- Check the CloudTrail logs for the user identity or role that performed the `DeleteDetector` action to determine if it was an authorized user or a potential compromise.
-- Investigate the timing of the deletion event to see if it coincides with any other suspicious activities or alerts in the environment.
-- Examine the IAM policies and permissions associated with the user or role to assess if they have legitimate access to delete GuardDuty detectors.
-- Use Osquery to query the AWS environment for any recent changes in IAM roles or policies that might have allowed unauthorized access. Example query: `SELECT * FROM aws_iam_roles WHERE role_name = 'SuspiciousRole';`
-- Review any recent GuardDuty findings prior to the deletion to identify potential threats that might have prompted the deletion.
-- Analyze network traffic and logs around the time of the deletion for any unusual patterns or connections that could indicate malicious activity.
-- Cross-reference the deletion event with other security tools and logs to gather additional context and corroborate findings.
-- Document all findings and observations to build a comprehensive timeline and context for the deletion event, aiding in further analysis and potential escalation.
-
-### False positive analysis
-
-- Routine maintenance or administrative actions by authorized personnel can trigger false positives when a GuardDuty detector is intentionally deleted for legitimate reasons, such as reconfiguring the service or migrating to a different AWS account.
-- Automated scripts or cloud management tools that manage AWS resources might delete detectors as part of their normal operation, leading to false positives if these actions are not properly documented or communicated.
-- To manage these false positives, users can create exceptions for known and documented maintenance windows or authorized personnel actions by using tags or specific IAM roles associated with legitimate detector deletions.
-- Implementing a review process for detector deletion events can help distinguish between legitimate administrative actions and potential malicious activities, reducing the likelihood of false positives impacting security operations.
-
-### Response and remediation
-
-- Immediately verify the deletion event by cross-referencing with CloudTrail logs to confirm the identity and location of the user or service account responsible for the action.
-- Contain the potential threat by temporarily revoking access for the identified user or service account and reviewing their recent activity for any other suspicious actions.
-- Initiate a comprehensive investigation to determine if the deletion was authorized and assess the potential impact on the environment, including any missed detections during the downtime.
-- Restore the GuardDuty detector by re-enabling it and ensuring that all configurations are correctly set to resume monitoring and threat detection.
-- Review and update IAM policies to enforce the principle of least privilege, ensuring only authorized personnel can delete or modify GuardDuty detectors.
-- Implement enhanced logging and monitoring policies to capture detailed audit trails of all security-related actions, including detector deletions.
-- Integrate GuardDuty with a Security Information and Event Management (SIEM) system to centralize alerts and facilitate real-time monitoring and response.
-- Escalate the incident to the security operations team if unauthorized activity is confirmed, and consider involving legal or compliance teams if sensitive data may have been compromised.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Apply hardening measures by enabling multi-factor authentication (MFA) for all accounts with permissions to modify security settings and regularly review and update security configurations.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/08/06"
 
 [rule]
 author = ["Elastic"]
@@ -32,48 +32,6 @@ query = '''
 file where host.os.type == "windows" and event.type == "creation" and file.extension == "url"
    and file.Ext.windows.zone_identifier > 1 and not process.name : "explorer.exe"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Downloaded URL Files
-URL shortcut files, typically used to link to web resources, can be exploited by adversaries in phishing attacks to execute malicious content. These files, when downloaded from external sources, may bypass traditional security measures. The detection rule identifies such files created on Windows systems, excluding those initiated by the Explorer process, and flags them if they originate from non-local zones, indicating potential malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the file extension is ".url" and verify the event type is "creation" on a Windows host.
-- Check the file.Ext.windows.zone_identifier field to determine the zone from which the file was downloaded, ensuring it is greater than 1, indicating a non-local source.
-- Investigate the process that created the .url file by examining the process.name field, ensuring it is not "explorer.exe" to rule out legitimate user activity.
-- Use Osquery to list all .url files on the system with the following query: `SELECT path, filename, size, atime, mtime FROM file WHERE path LIKE 'C:\\\\Users\\\\%\\\\Downloads\\\\%.url';` to identify any other potentially suspicious files.
-- Correlate the creation time of the .url file with user activity logs to determine if the file was created during normal working hours or during unusual times.
-- Analyze network logs to identify any outbound connections made by the system around the time the .url file was created, focusing on connections to unfamiliar or suspicious domains.
-- Check the file's metadata and properties to gather additional context, such as the target URL and any embedded scripts or commands.
-- Investigate the user account associated with the creation of the .url file to determine if there are any signs of compromise or unusual behavior.
-- Review email logs or web browsing history to identify potential phishing emails or websites that could have led to the download of the .url file.
-- Cross-reference the identified URL with threat intelligence sources to determine if it is associated with known malicious activity or campaigns.
-
-### False positive analysis
-
-- Legitimate software updates or installations may download .url files as part of their process, which could trigger the rule. Users should verify the source and context of these files to determine if they are part of a trusted application.
-- Corporate environments might use .url files for internal shortcuts or links to intranet resources. These should be reviewed and, if deemed safe, added to an exception list to prevent future alerts.
-- Some web browsers or download managers may create .url files as part of their download process. Users can monitor these applications and exclude them if they consistently generate non-malicious .url files.
-- Automated scripts or tools that interact with web resources might inadvertently create .url files. Users should assess these scripts and, if they are part of routine operations, consider excluding them from the detection rule.
-- To manage false positives, users can create exceptions based on file paths, specific processes, or known safe sources, ensuring that only unexpected or suspicious .url file creations are flagged.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Analyze the .url file to determine its origin and the URL it points to, checking for known malicious domains or IP addresses.
-- Review user activity logs to identify any execution of the .url file and any subsequent suspicious behavior.
-- Remove the .url file and any associated malicious files or processes from the system.
-- Conduct a full antivirus and anti-malware scan on the affected system to ensure no additional threats are present.
-- Restore the system from a known good backup if any critical system files or configurations have been altered.
-- Report the incident to the security team and escalate to management if the threat is part of a larger campaign or if sensitive data may have been compromised.
-- Implement enhanced logging policies to capture detailed file creation and process execution events for future investigations.
-- Integrate threat intelligence feeds to automatically update detection rules with known malicious URLs and domains.
-- Educate users on recognizing phishing attempts and the risks associated with downloading and executing files from untrusted sources."""
 
 
 [[rule.threat]]

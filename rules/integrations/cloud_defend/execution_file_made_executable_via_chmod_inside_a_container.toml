@@ -2,7 +2,7 @@
 creation_date = "2023/04/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -38,48 +38,6 @@ file where container.id: "*" and event.type in ("change", "creation") and
 (process.name : "chmod" or process.args : "chmod") and 
 process.args : ("*x*", "777", "755", "754", "700") and not process.args: "-x"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File Made Executable via Chmod Inside A Container
-
-Containers isolate applications, ensuring consistent environments. However, adversaries may exploit this by using `chmod` to make files executable, potentially running unauthorized code. The detection rule identifies such actions by monitoring for `chmod` usage that alters file permissions to executable states, flagging suspicious changes that could indicate malicious intent.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific container ID (`container.id`) where the `chmod` command was executed. This will help in narrowing down the scope of the investigation to the affected container.
-- Examine the `process.name` and `process.args` fields to confirm that the `chmod` command was indeed used and to understand the exact permissions that were set. Look for patterns such as `777`, `755`, `754`, or `700` that indicate executable permissions.
-- Check the `event.type` field to determine whether the file was newly created or if its permissions were changed. This can provide context on whether the file is new or if an existing file was modified.
-- Investigate the parent process of the `chmod` command to understand the context in which it was executed. This can be done by examining the process tree to see if there are any suspicious parent processes.
-- Use Osquery to gather more information about the file that was made executable. For example, run the following Osquery query to list details about the file: `SELECT * FROM file WHERE path = '/path/to/suspicious/file';` Replace `/path/to/suspicious/file` with the actual file path.
-- Check the container's logs for any other suspicious activities around the time the `chmod` command was executed. Look for unusual commands or access patterns that might indicate malicious behavior.
-- Investigate the user account associated with the `chmod` command execution. Determine if the user has a legitimate reason to modify file permissions within the container.
-- Review network activity logs for the container to identify any unusual outbound connections that might suggest data exfiltration or command-and-control communication.
-- Analyze the file that was made executable for any signs of malicious code or scripts. This can involve using static analysis tools or sandboxing the file in a controlled environment.
-- Correlate this event with other security alerts or logs from the same container or user to identify any patterns or repeated attempts to execute unauthorized code.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators or automated scripts may use `chmod` to modify file permissions as part of regular maintenance or deployment processes. These actions, while legitimate, can trigger the rule. To manage this, users can create exceptions for known scripts or administrative accounts that frequently perform these tasks.
-- Software installations and updates: During the installation or update of software within a container, `chmod` may be used to set executable permissions on necessary files. Users can handle these false positives by excluding specific installation or update processes from the rule.
-- Development and testing activities: Developers working within containers might use `chmod` to test scripts or applications, leading to false positives. To address this, users can exclude specific development environments or user accounts from the rule.
-- Container orchestration tools: Tools like Kubernetes or Docker Compose might use `chmod` as part of their operations to ensure proper file permissions. Users can manage these false positives by identifying and excluding the specific processes or tools involved in these operations.
-
-### Response and remediation
-
-- Immediately isolate the affected container to prevent further unauthorized execution and potential lateral movement within the environment.
-- Conduct a thorough investigation to identify the source and scope of the unauthorized `chmod` command, reviewing logs and process trees for suspicious activity.
-- Verify the integrity of the files that were made executable and check for any unauthorized or malicious code that may have been introduced.
-- Revert any unauthorized changes to file permissions and remove any malicious files or processes identified during the investigation.
-- Escalate the incident to the security operations team if the investigation reveals a broader compromise or if the attack vector is unclear.
-- Implement enhanced logging policies to capture detailed process execution and file permission changes within containers for future investigations.
-- Integrate container security tools that provide real-time monitoring and alerting for suspicious activities, such as unauthorized permission changes.
-- Restore the container to its operational state by redeploying from a known good image and ensuring all security patches and updates are applied.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Apply hardening measures such as restricting the use of `chmod` within containers, implementing least privilege access controls, and using container runtime security policies."""
 
 
 [[rule.threat]]

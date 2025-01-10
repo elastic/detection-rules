@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2023/08/30"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ the invoking user. Attackers may execute this command to enumerate commands allo
 permissions, potentially allowing to escalate privileges to root.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Sudo Command Enumeration Detected"
@@ -50,58 +52,18 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
-process.name == "sudo" and process.args == "-l" and process.args_count == 2 and
-process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
-not process.args == "dpkg"
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and process.name == "sudo" and process.args == "-l" and
+  process.args_count == 2 and process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
+  not process.args == "dpkg"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Sudo Command Enumeration Detected
-
-The sudo command in Linux environments allows users to execute commands with elevated privileges. Attackers may exploit this by using `sudo -l` to list permissible commands, seeking privilege escalation opportunities. The detection rule identifies this activity by monitoring for the execution of `sudo -l` from common shell environments, excluding benign cases like package management, to flag potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of `sudo -l` execution, focusing on the `process.name`, `process.args`, and `process.parent.name` fields to ensure the command was executed from a common shell environment.
-- Check the `host.os.type` and `event.type` fields to verify that the event occurred on a Linux system and was a process start event.
-- Investigate the user account associated with the `sudo -l` command execution to determine if the activity aligns with their typical behavior or if it appears suspicious.
-- Examine the `process.parent.name` to understand the context in which the `sudo -l` command was executed, identifying if it was part of a script or an interactive session.
-- Use Osquery to gather additional context about the user and process. For example, run the following query to list recent commands executed by the user: `SELECT * FROM shell_history WHERE uid = (SELECT uid FROM users WHERE username = 'suspicious_user');`
-- Analyze the `process.args_count` field to ensure that the command was executed with the expected number of arguments, which can help identify any anomalies or deviations from typical usage.
-- Cross-reference the `process.args` field with known benign cases, such as package management activities, to rule out false positives.
-- Investigate any other processes or network connections initiated by the same user around the time of the `sudo -l` execution to identify potential lateral movement or data exfiltration attempts.
-- Review system logs and audit logs for any additional suspicious activity or failed login attempts that may correlate with the `sudo -l` execution.
-- Consult threat intelligence sources to determine if there are any known campaigns or threat actors that commonly use `sudo -l` enumeration as part of their attack techniques.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators may frequently use `sudo -l` to verify their own permissions or to troubleshoot user access issues. These legitimate uses can be excluded by creating exceptions for specific user accounts or roles known to perform these tasks regularly.
-- Automated scripts: Some automated scripts or monitoring tools might use `sudo -l` to check permissions as part of their normal operation. Identifying these scripts and excluding their execution paths or parent processes can help reduce false positives.
-- Package management: Although the rule already excludes `dpkg`, other package management tools or scripts might invoke `sudo -l` as part of their operations. Users can extend the exclusion list to include these specific cases by analyzing the context in which `sudo -l` is executed.
-- Development environments: Developers might use `sudo -l` in development or testing environments to ensure their applications have the necessary permissions. Excluding specific development environments or user accounts can help manage these false positives.
-- User training: Educating users about the implications of using `sudo -l` and encouraging them to limit its use to necessary situations can help reduce unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or potential lateral movement.
-- Review the sudoers file to identify any unauthorized or suspicious entries that may have been added or modified.
-- Conduct a thorough investigation of the user's activity logs to determine if any unauthorized commands were executed using elevated privileges.
-- Check for any additional signs of compromise, such as unexpected new user accounts, changes in system configurations, or unusual network traffic.
-- If unauthorized changes are detected, revert the system to a known good state using backups or system snapshots.
-- Escalate the incident to the security operations team for further analysis and to determine if the activity is part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed command execution and user activity, ensuring that logs are securely stored and regularly reviewed.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and analyze data for early detection of similar threats.
-- Apply system hardening measures, such as restricting sudo access to only necessary users, using multi-factor authentication, and regularly updating and patching the system.
-- Educate users on security best practices and the importance of reporting suspicious activities to help prevent future incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

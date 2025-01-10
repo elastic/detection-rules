@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 maturity = "production"
 promotion = true
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -36,52 +36,6 @@ type = "query"
 query = '''
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:token_manipulation_event or endgame.event_subtype_full:token_manipulation_event)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Credential Manipulation - Prevented - Elastic Endgame
-
-Elastic Endgame is a security solution designed to prevent unauthorized credential manipulation, a common tactic used by adversaries to escalate privileges within a system. Attackers often exploit access token manipulation to impersonate legitimate users and gain elevated access. The detection rule leverages event alerts from the Endgame module, specifically targeting prevention events related to token manipulation. By monitoring these events, the rule effectively identifies and thwarts attempts at credential abuse, aligning with the MITRE ATT&CK framework's focus on privilege escalation techniques.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, focusing on the `event.kind`, `event.module`, and `endgame.metadata.type` fields to confirm it is a prevention event related to token manipulation.
-- Examine the `event.action` and `endgame.event_subtype_full` fields to identify the specific type of token manipulation event that was prevented.
-- Check the timestamp of the alert to determine when the credential manipulation attempt occurred and correlate it with other events in the same timeframe.
-- Investigate the source and destination IP addresses associated with the alert to identify the origin of the attack and any potential targets within the network.
-- Analyze the user account involved in the alert to determine if it is a legitimate user or a potential compromised account by reviewing recent login activities and changes.
-- Utilize Osquery to gather additional context on the affected system. For example, run the following query to list recent processes that might have been involved in token manipulation:
-  ```sql
-  SELECT pid, name, path, cmdline, start_time FROM processes WHERE start_time > (SELECT datetime('now', '-1 hour'));
-  ```
-- Review the system logs and security logs on the affected host for any suspicious activities or anomalies around the time of the alert.
-- Investigate any related alerts or events in the security information and event management (SIEM) system that might indicate a broader attack pattern or campaign.
-- Check for any recent changes in user privileges or group memberships that could be related to the attempted credential manipulation.
-- Collaborate with other security teams to gather intelligence on similar incidents or known threats that might be targeting the organization.
-
-### False positive analysis
-
-- Known false positives for the Credential Manipulation - Prevented - Elastic Endgame rule may include legitimate administrative actions where authorized users perform token manipulation as part of routine system maintenance or software updates. 
-- Another potential false positive scenario could involve automated scripts or security tools that perform token manipulation for legitimate security testing or monitoring purposes.
-- To manage these false positives, users can create exceptions for specific user accounts or processes that are known to perform legitimate token manipulation. This can be done by adding these accounts or processes to an allowlist within the Elastic Endgame configuration.
-- Users should regularly review and update the allowlist to ensure that only verified and non-threatening behaviors are excluded, maintaining a balance between security and operational efficiency.
-- It is also recommended to conduct periodic audits of the exceptions to confirm that no unauthorized or suspicious activities are being inadvertently allowed.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the attacker.
-- Conduct a thorough investigation to determine the scope of the attack, focusing on identifying compromised accounts and any unauthorized changes made to the system.
-- Reset passwords for all affected accounts and implement multi-factor authentication to enhance security and prevent future unauthorized access.
-- Review and analyze logs from Elastic Endgame and other security tools to identify any additional indicators of compromise or related suspicious activities.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to ensure comprehensive remediation efforts.
-- Restore the system to its operational state by removing any malicious artifacts, applying necessary patches, and verifying the integrity of critical system files.
-- Implement enhanced logging policies to capture detailed information on access token usage and other relevant security events for future investigations.
-- Integrate additional security solutions, such as endpoint detection and response (EDR) tools, to improve visibility and detection capabilities for similar threats.
-- Conduct a post-incident review to identify gaps in the current security posture and update security policies and procedures accordingly.
-- Educate users on recognizing phishing attempts and other common attack vectors to reduce the risk of credential manipulation in the future."""
 
 
 [[rule.threat]]

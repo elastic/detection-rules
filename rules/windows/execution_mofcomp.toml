@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 
 [rule]
 author = ["Elastic"]
@@ -47,48 +47,6 @@ process where host.os.type == "windows" and event.type == "start" and
     )
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Mofcomp Activity
-
-Mofcomp.exe is a tool used to compile Managed Object Format (MOF) files, which define classes and instances for Windows Management Instrumentation (WMI). Adversaries exploit this by creating malicious MOF files to manipulate WMI for persistence or execution. The detection rule identifies suspicious mofcomp.exe executions, excluding legitimate system processes, to flag potential misuse by attackers.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name is "mofcomp.exe" and verify the presence of suspicious arguments matching "*.mof".
-- Check the user ID associated with the process execution to ensure it is not "S-1-5-18", which corresponds to the Local System account, indicating potential misuse by a non-system user.
-- Investigate the parent process of "mofcomp.exe" to determine if it is "ScenarioEngine.exe" and verify if the arguments match any of the known legitimate paths, such as "*\\\\MSSQL\\\\Binn\\\\*.mof", to rule out false positives.
-- Examine the timeline of events leading up to the mofcomp.exe execution to identify any preceding suspicious activities or processes.
-- Utilize Osquery to gather additional context on the mofcomp.exe process by running a query such as: `SELECT * FROM processes WHERE name = 'mofcomp.exe';` to retrieve details like process ID, parent process ID, and command line arguments.
-- Cross-reference the mofcomp.exe execution with recent changes in the WMI repository to identify any new or modified namespaces and classes.
-- Analyze the network activity of the host around the time of the mofcomp.exe execution to detect any unusual outbound connections that might indicate data exfiltration or command and control communication.
-- Review the security logs for any recent login attempts or privilege escalation activities that could be related to the mofcomp.exe execution.
-- Check for any scheduled tasks or WMI Event Subscriptions that might have been created or modified around the time of the alert to establish persistence.
-- Investigate other hosts within the same network segment for similar mofcomp.exe activity to determine if the threat is isolated or part of a broader attack campaign.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators may use mofcomp.exe for legitimate purposes, such as compiling MOF files for system management or configuration tasks. These activities can be mistaken for malicious behavior.
-- SQL Server installations: During the installation or maintenance of Microsoft SQL Server, mofcomp.exe may be executed to compile MOF files related to SQL Server components. This is a common and expected behavior.
-- ScenarioEngine.exe interactions: Processes initiated by ScenarioEngine.exe that involve MOF files in specific directories related to SQL Server or OLAP services are typically benign and should be excluded from alerts.
-- To manage false positives, users can create exceptions in the detection rule by specifying known benign parent processes or directories associated with legitimate MOF file compilations. This helps in reducing noise and focusing on truly suspicious activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify any malicious MOF files and determine the scope of the compromise, focusing on WMI namespaces and classes.
-- Terminate any suspicious processes related to mofcomp.exe that are not part of legitimate system operations.
-- Remove any unauthorized MOF files and restore the WMI repository to a known good state using backups or system restore points.
-- Review and update security policies to restrict the execution of mofcomp.exe to only trusted administrators and processes.
-- Implement enhanced logging for WMI activities and mofcomp.exe executions to improve detection of future suspicious activities.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and analyze related threat indicators.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited by similar threats.
-- Conduct a post-incident review to identify gaps in security controls and update the incident response plan to improve future response efforts."""
 
 
 [[rule.threat]]

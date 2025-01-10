@@ -2,7 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 anomaly_threshold = 70
@@ -51,49 +51,6 @@ tags = [
     "Tactic: Lateral Movement",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Spike in Number of Processes in an RDP Session
-
-Remote Desktop Protocol (RDP) allows users to connect to and control remote systems, facilitating legitimate administrative tasks. However, adversaries can exploit RDP for lateral movement by executing numerous processes on a target machine, indicating potential exploitation of remote services. The detection rule leverages machine learning to identify anomalies in process activity within RDP sessions, flagging unusual spikes that may suggest malicious behavior.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific RDP session and the user account involved in the spike of processes.
-- Examine the timestamp of the alert to correlate with any known scheduled tasks or legitimate administrative activities.
-- Check the source and destination IP addresses of the RDP session to determine if they are within expected ranges or if they are unusual for the user or organization.
-- Analyze the list of processes that were started during the RDP session to identify any known malicious or suspicious executables.
-- Investigate the parent-child relationship of the processes to understand the execution flow and identify any anomalies.
-- Use Osquery to gather additional context on the processes. For example, run the following query to list processes started by the user during the session: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE user = '<username>' AND start_time BETWEEN '<start_time>' AND '<end_time>';`
-- Check for any recent changes in user permissions or group memberships that might have facilitated the execution of multiple processes.
-- Review the event logs on the target machine for any additional indicators of compromise or related suspicious activities.
-- Investigate any network connections initiated by the processes to identify potential data exfiltration or communication with command and control servers.
-- Correlate the findings with other security alerts or logs to determine if this activity is part of a larger attack campaign or isolated incident.
-
-### False positive analysis
-
-- Routine administrative tasks: High process activity can occur during legitimate administrative operations, such as software updates or system maintenance, which may trigger false positives. Users can manage these by creating exceptions for known maintenance windows or specific administrative accounts.
-- Automated scripts: Scheduled tasks or automated scripts that execute multiple processes in a short time frame can also lead to false positives. To handle this, users can whitelist specific scripts or processes that are known to be safe and frequently executed.
-- Software installations: Installing or updating software often involves starting numerous processes, which might be flagged as suspicious. Users should consider excluding these activities by identifying and allowing specific installation processes or packages.
-- Testing environments: In environments where testing and development occur, there may be legitimate reasons for high process activity. Users can exclude these environments from monitoring or adjust the sensitivity of the detection rule for these specific contexts.
-- High user activity: During periods of high user activity, such as training sessions or workshops, there may be a legitimate increase in process activity. Users can temporarily adjust thresholds or create exceptions for these events to prevent false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement and potential data exfiltration.
-- Conduct a thorough investigation of the processes executed during the RDP session to identify any malicious or unauthorized activities.
-- Review user account activity and permissions associated with the RDP session to ensure no unauthorized access or privilege escalation has occurred.
-- Terminate any suspicious processes identified during the investigation to halt any ongoing malicious activities.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
-- Implement enhanced logging policies to capture detailed RDP session activities, including process creation, user logins, and network connections.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
-- Restore the affected system from a known good backup to ensure it is free from any malicious modifications.
-- Apply security patches and updates to the affected system and any other vulnerable systems to mitigate exploitation of known vulnerabilities.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent recurrence."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

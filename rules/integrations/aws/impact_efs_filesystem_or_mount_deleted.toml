@@ -2,7 +2,7 @@
 creation_date = "2021/08/27"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Austin Songer"]
@@ -24,50 +24,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EFS File System or Mount Deleted"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS EFS File System or Mount Deleted
-
-Amazon Elastic File System (EFS) provides scalable file storage for use with AWS cloud services and on-premises resources. Adversaries may exploit EFS by deleting file systems or mount targets, disrupting applications reliant on these resources. The detection rule identifies successful deletion events, signaling potential malicious activity by monitoring specific AWS CloudTrail logs for actions like DeleteMountTarget or DeleteFileSystem.
-
-### Possible investigation steps
-
-- Review the AWS CloudTrail logs to confirm the event details, focusing on the `event.dataset:aws.cloudtrail` and `event.provider:elasticfilesystem.amazonaws.com` fields to ensure the alert is valid and not a false positive.
-- Examine the `event.action` field to determine whether the action was `DeleteMountTarget` or `DeleteFileSystem`, as this will help identify the specific resource affected.
-- Check the `event.outcome:success` field to verify that the deletion action was completed successfully, confirming the potential impact on resources.
-- Identify the AWS account and user or role responsible for the deletion by reviewing the `userIdentity` field in the CloudTrail logs to determine if the action was authorized or potentially malicious.
-- Investigate the `sourceIPAddress` field to trace the origin of the request, which can help identify if the action was performed from a known or suspicious location.
-- Use Osquery to gather additional context on the affected EFS resources by running a query such as: `SELECT * FROM aws_efs_file_systems WHERE file_system_id = '<affected_file_system_id>';` to retrieve details about the deleted file system.
-- Cross-reference the deletion event with recent IAM policy changes or access logs to identify any unusual modifications that might have enabled unauthorized access.
-- Review recent activity logs for the affected EFS resources to identify any preceding actions or patterns that could indicate a broader attack or misconfiguration.
-- Check for any associated alerts or incidents in your security information and event management (SIEM) system that might correlate with the EFS deletion event, providing additional context or evidence of malicious activity.
-- Consult with relevant stakeholders or application owners to assess the impact of the deletion on business operations and gather any additional insights or suspicions they might have regarding the event.
-
-### False positive analysis
-
-- Routine maintenance activities: Scheduled maintenance or updates by system administrators may involve deleting and recreating EFS file systems or mount targets. Users can handle these by creating exceptions for known maintenance windows or specific administrator actions.
-- Automated scaling operations: In environments with automated scaling, EFS resources might be programmatically deleted and recreated to optimize resource usage. Users should identify and exclude these automated processes from triggering alerts by using tags or specific identifiers.
-- Development and testing environments: In non-production environments, frequent creation and deletion of EFS resources for testing purposes can trigger false positives. Users can manage this by excluding specific accounts or environments dedicated to development and testing.
-- CloudFormation or other infrastructure as code tools: When using tools like AWS CloudFormation, EFS resources might be deleted as part of stack updates or deletions. Users should consider excluding actions initiated by these tools by filtering based on user agents or specific IAM roles associated with these operations.
-
-### Response and remediation
-
-- Immediately isolate affected systems to prevent further damage or data loss.
-- Verify the deletion event by cross-referencing with AWS CloudTrail logs to confirm unauthorized activity.
-- Conduct a thorough investigation to identify the source and method of the attack, focusing on compromised credentials or misconfigurations.
-- Restore the deleted EFS file system or mount from the most recent backup to minimize downtime and data loss.
-- Implement AWS Identity and Access Management (IAM) policies to restrict permissions, ensuring only authorized users can delete EFS resources.
-- Enable detailed logging and monitoring for AWS EFS and related services to detect and respond to future unauthorized activities promptly.
-- Integrate AWS CloudTrail logs with a Security Information and Event Management (SIEM) system for enhanced threat detection and analysis.
-- Escalate the incident to the security team and relevant stakeholders, providing them with detailed findings and impact assessments.
-- Review and update the incident response plan to incorporate lessons learned and improve future response efforts.
-- Apply hardening measures such as multi-factor authentication (MFA) and regular security audits to reduce the risk of similar incidents.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

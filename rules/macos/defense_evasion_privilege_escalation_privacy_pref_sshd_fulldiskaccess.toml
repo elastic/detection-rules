@@ -2,7 +2,7 @@
 creation_date = "2020/01/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -65,49 +65,6 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
  process.command_line:("scp *localhost:/*", "scp *127.0.0.1:/*") and
  not process.args:"vagrant@*127.0.0.1*"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Privacy Control Bypass via Localhost Secure Copy
-
-Secure Copy Protocol (SCP) is used for secure file transfers over SSH. On macOS, SSHD can gain Full Disk Access, potentially allowing unauthorized file access. Adversaries might exploit this by copying files locally, bypassing privacy controls. The detection rule identifies such activity by monitoring SCP commands targeting localhost, excluding benign uses like Vagrant, to flag potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of SCP commands targeting localhost or 127.0.0.1, as indicated by the `process.command_line` field.
-- Verify the `process.args` field to ensure that the SCP command includes `StrictHostKeyChecking=no`, which might indicate an attempt to bypass SSH security checks.
-- Check the `process.name` field to confirm that the process involved is indeed `scp`, ensuring the alert is not a false positive.
-- Investigate the user account associated with the SCP command to determine if it is a legitimate user or potentially compromised.
-- Examine the timing and frequency of the SCP commands to identify patterns or anomalies that could suggest malicious activity.
-- Use Osquery to gather additional context about the process. For example, run the following query to list recent SCP processes: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE name = 'scp';`
-- Cross-reference the SCP activity with other logs, such as SSH authentication logs, to identify any unauthorized access attempts or anomalies.
-- Investigate the source and destination paths involved in the SCP command to determine if sensitive files were targeted.
-- Check for any other suspicious activities on the host around the same time, such as unusual network connections or file modifications.
-- Review the system's Full Disk Access settings to ensure that only authorized applications have the necessary permissions, and verify if SSHD has been improperly added.
-
-### False positive analysis
-
-- **Vagrant Usage**: The rule excludes SCP commands involving Vagrant, as it commonly uses localhost for virtual machine management. Users should ensure that any Vagrant-related SCP activity is correctly excluded by verifying the exclusion pattern matches their specific Vagrant configurations.
-- **Local Development and Testing**: Developers may use SCP to transfer files between local environments for testing purposes. Users can manage these false positives by identifying and excluding specific user accounts or directories frequently involved in legitimate development activities.
-- **Automated Backup Scripts**: Some backup solutions might use SCP to copy files locally as part of their routine operations. Users should review and whitelist known backup scripts or processes to prevent them from being flagged.
-- **System Maintenance Tasks**: IT administrators might perform maintenance tasks that involve SCP commands targeting localhost. Users can handle these by creating exceptions for specific maintenance scripts or by scheduling these tasks during known maintenance windows to reduce false alerts.
-- **Custom Applications**: Organizations may have custom applications that use SCP for legitimate local file transfers. Users should document these applications and create specific exclusions based on process names or command-line patterns to avoid false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected macOS system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify any unauthorized SCP activities by reviewing system logs and correlating them with the detection rule triggers.
-- Verify the integrity of sensitive files and check for any unauthorized modifications or access, focusing on files that may have been targeted by the SCP command.
-- Remove SSHD from the Full Disk Access list if it was added without proper authorization, and review the list for any other unauthorized applications.
-- Escalate the incident to the security operations team if evidence of data exfiltration or further compromise is found, and consider involving legal or compliance teams if sensitive data is involved.
-- Implement enhanced logging policies to capture detailed command-line activities and file access events, ensuring that future incidents can be detected and investigated more effectively.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Restore the system to its operational state by applying any necessary patches, updating security configurations, and ensuring that all security controls are functioning correctly.
-- Conduct a post-incident review to identify gaps in security controls and processes, and implement hardening measures such as disabling unnecessary services and enforcing strict access controls.
-- Educate users and administrators on the risks associated with improper use of SCP and SSH, and provide training on recognizing and reporting suspicious activities."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/09/22"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,50 +22,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Virtual Private Cloud Network Deletion"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GCP Virtual Private Cloud Network Deletion
-
-Google Cloud Platform's Virtual Private Cloud (VPC) networks are essential for managing isolated network environments within a project, encompassing subnets, routes, and firewalls. Adversaries may target VPC deletions to disrupt operations and evade defenses. The detection rule monitors audit logs for successful VPC deletions, identifying potential malicious activities by correlating specific event actions and outcomes.
-
-### Possible investigation steps
-
-- Review the audit logs to confirm the event by filtering for `event.dataset:gcp.audit` and `event.action:v*.compute.networks.delete` with `event.outcome:success` to ensure the alert is not a false positive.
-- Identify the user or service account responsible for the deletion by examining the `user.name` and `user.email` fields in the audit logs.
-- Check the timestamp of the deletion event to determine when the VPC network was deleted and correlate it with other activities in the environment.
-- Investigate the source IP address and location from which the deletion request was made to identify any anomalies or suspicious access patterns.
-- Review the project and organization context by examining the `project.id` and `project.name` fields to understand the scope and potential impact of the deletion.
-- Analyze related events in the audit logs around the same timeframe to identify any preceding or subsequent suspicious activities, such as changes to IAM roles or permissions.
-- Use Osquery to gather additional context on the affected GCP environment. For example, run the following Osquery query to list recent changes in the GCP project: `SELECT * FROM gcp_audit_logs WHERE action = 'v*.compute.networks.delete' AND outcome = 'success';`
-- Check for any recent changes to IAM policies or roles that might have granted the necessary permissions for the VPC deletion.
-- Investigate whether there were any alerts or incidents reported by other security tools around the same time, which might indicate a broader attack campaign.
-- Consult with the project owner or relevant stakeholders to verify if the VPC deletion was authorized and gather any additional context or insights they might have.
-
-### False positive analysis
-
-- Routine maintenance or infrastructure changes: Organizations may regularly delete and recreate VPC networks as part of their infrastructure management or during scheduled maintenance. These actions, while legitimate, can trigger the detection rule. To manage this, users can create exceptions for specific projects or time frames where such activities are expected.
-- Automated deployment tools: Tools like Terraform or Google Cloud Deployment Manager might delete and recreate VPC networks as part of their automated workflows. Users should identify these tools and exclude their actions from triggering alerts by filtering based on service accounts or specific project IDs associated with these tools.
-- Testing environments: In development or testing environments, VPC networks may be frequently created and deleted as part of testing processes. Users can exclude these environments from the detection rule by using tags or labels that identify non-production environments.
-- User error: Accidental deletions by authorized users can occur, especially in environments with less stringent access controls. Implementing role-based access controls and monitoring for patterns of behavior can help distinguish between malicious and non-malicious deletions.
-
-### Response and remediation
-
-- Immediately isolate affected systems to prevent further unauthorized access or damage.
-- Review audit logs to confirm the deletion event and identify any associated suspicious activities or accounts.
-- Verify the identity and access permissions of users involved in the deletion to ensure they are legitimate and authorized.
-- Restore the deleted VPC network from backups or recreate it using documented configurations to resume normal operations.
-- Implement additional logging and monitoring for VPC network changes to detect and respond to future unauthorized deletions.
-- Escalate the incident to the security operations team for further investigation and to determine the full scope of the breach.
-- Conduct a root cause analysis to understand how the adversary gained access and deleted the VPC network.
-- Update access controls and permissions to follow the principle of least privilege, reducing the risk of unauthorized deletions.
-- Integrate threat intelligence feeds to enhance detection capabilities and stay informed about emerging threats related to VPC deletions.
-- Educate and train staff on security best practices and the importance of reporting suspicious activities promptly.
-
-## Setup
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/vpc/docs/vpc"]

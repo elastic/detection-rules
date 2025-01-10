@@ -2,7 +2,7 @@
 creation_date = "2020/10/27"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -46,50 +46,6 @@ file where host.os.type == "windows" and event.type : "change" and process.name 
   /* has no impact on rule logic just to avoid OS install related FPs */
   not file.path : ("C:\\Windows\\SoftwareDistribution\\*", "C:\\Windows\\WinSxS\\*")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating UAC Bypass Attempt via Privileged IFileOperation COM Interface
-
-The IFileOperation COM interface is a Windows component that facilitates file operations with elevated privileges. Adversaries exploit this by side-loading malicious DLLs into processes like dllhost.exe, which run with high integrity levels, to bypass User Account Control (UAC). The detection rule identifies such attempts by monitoring changes in specific DLLs known for side-loading, excluding benign paths to reduce false positives.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a UAC bypass attempt by checking if the process name is "dllhost.exe" and the file name matches any of the known side-loaded modules such as "wow64log.dll", "comctl32.dll", "DismCore.dll", "OskSupport.dll", "duser.dll", or "Accessibility.ni.dll".
-- Verify the file path to ensure it does not match benign paths like "C:\\\\Windows\\\\SoftwareDistribution\\\\*" or "C:\\\\Windows\\\\WinSxS\\\\*" to rule out false positives related to OS installations.
-- Use process monitoring tools to trace the parent process of "dllhost.exe" to identify how it was initiated and whether it was spawned by a legitimate process or a suspicious one.
-- Check the integrity level of the "dllhost.exe" process to confirm it is running with high or system integrity, which is necessary for a successful UAC bypass.
-- Investigate recent file modifications or creations in the directories where the suspicious DLLs were detected to identify any unauthorized changes or additions.
-- Utilize Osquery to gather more context about the system state and running processes. For example, run the following Osquery query to list all processes with high integrity levels: `SELECT pid, name, path, uid, gid FROM processes WHERE integrity_level = 'high';`
-- Examine the system's event logs, particularly the Security and Application logs, for any unusual activity or errors around the time the alert was triggered.
-- Check for any network connections initiated by "dllhost.exe" to external IP addresses, which could indicate data exfiltration or command and control communication.
-- Review the system's scheduled tasks and startup items to identify any persistent mechanisms that could be used to reinitiate the UAC bypass.
-- Correlate the findings with other security alerts or incidents in the environment to determine if this is part of a broader attack campaign.
-
-### False positive analysis
-
-- Known false positives may arise from legitimate software updates or installations that modify DLLs in monitored paths, such as Windows updates or third-party software installations.
-- System maintenance tasks, like disk cleanup or system restore operations, might also trigger alerts due to changes in DLLs, especially in directories like `C:\\Windows\\SoftwareDistribution\\` or `C:\\Windows\\WinSxS\\`.
-- To manage these false positives, users can create exceptions for specific file paths or processes known to perform legitimate operations, ensuring these are well-documented and reviewed regularly.
-- Implementing a whitelist for trusted software that frequently updates or modifies DLLs can help reduce unnecessary alerts while maintaining security.
-- Regularly updating the detection rule to include new benign paths or processes identified during routine monitoring can further minimize false positives.
-- Users should ensure that any exclusions do not inadvertently allow malicious activity by carefully analyzing the context and behavior of the processes involved.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to confirm the UAC bypass attempt by reviewing security logs and identifying any unauthorized changes or suspicious activities associated with the identified DLLs.
-- Terminate any suspicious processes, particularly those involving dllhost.exe with the identified side-loaded DLLs, to stop the execution of potentially malicious code.
-- Remove any unauthorized or malicious DLLs from the system and restore legitimate versions from a trusted source or backup.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed file and process activity, focusing on high-integrity processes and known side-loading DLLs.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar UAC bypass attempts in the future.
-- Review and update user account control (UAC) settings and policies to ensure they are configured to the highest security level appropriate for the environment.
-- Conduct a security audit of the system to identify and address any other vulnerabilities or misconfigurations that could be exploited for privilege escalation.
-- Educate users and administrators on the risks of UAC bypass techniques and the importance of maintaining secure configurations and practices."""
 
 
 [[rule.threat]]

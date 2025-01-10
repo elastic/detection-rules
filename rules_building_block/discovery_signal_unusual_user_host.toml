@@ -2,7 +2,7 @@
 bypass_bbr_timing = true
 creation_date = "2023/10/10"
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/01"
 
 [rule]
 author = ["Elastic"]
@@ -39,48 +39,6 @@ host.os.type:windows and event.kind:signal and kibana.alert.rule.rule_id:(
   "1d72d014-e2ab-4707-b056-9b96abe7b511"
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Discovery Activity by User
-
-The 'Unusual Discovery Activity by User' detection rule identifies atypical behavior by monitoring alert data for unique host and user identifiers. This technology is crucial in environments to detect when adversaries exploit discovery techniques to gather system information. By correlating signals from multiple sources, the rule flags potential reconnaissance activities, helping analysts preemptively address threats.
-
-### Possible investigation steps
-
-- Review the alert details to understand the specific host.id and user.id involved in the unusual activity.
-- Cross-reference the host.os.type field to confirm the operating system is Windows, as specified in the query.
-- Examine the event.kind field to ensure the alert is based on a signal, indicating potential reconnaissance activity.
-- Investigate the specific Discovery building block rule IDs (e.g., "d68e95ad-1c82-4074-a12a-125fe10ac8ba") that triggered the alert to understand the context and type of discovery technique used.
-- Check historical data for the same host.id and user.id to determine if this activity is part of a pattern or a one-time occurrence.
-- Use Osquery to gather additional system information. For example, run the query: `SELECT * FROM processes WHERE user = '<user.id>' AND host = '<host.id>';` to identify any unusual processes initiated by the user on the host.
-- Analyze network logs for any unusual outbound connections from the host that might indicate data exfiltration or further reconnaissance.
-- Review user activity logs to identify any recent changes in behavior or access patterns that could correlate with the alert.
-- Correlate the alert with other security events or alerts from the same timeframe to identify potential lateral movement or coordinated attacks.
-- Consult threat intelligence sources to determine if the observed activity matches known tactics, techniques, and procedures (TTPs) associated with specific threat actors.
-
-### False positive analysis
-
-- Known false positives for the 'Unusual Discovery Activity by User' rule often arise from legitimate administrative tasks or automated scripts that perform system discovery operations. These activities can mimic reconnaissance techniques but are non-threatening.
-- Frequent system scans by IT management tools or security software can trigger alerts. These should be reviewed and, if deemed safe, excluded from future alerts by adding them to an exception list.
-- Users can manage false positives by identifying and documenting regular maintenance activities that align with the rule's detection criteria. Once identified, these activities can be excluded by creating exceptions based on specific host.id and user.id combinations.
-- It's important to regularly review and update exception lists to ensure that new legitimate activities are accounted for while maintaining the rule's effectiveness in detecting genuine threats.
-
-### Response and remediation
-
-- Immediately isolate the affected host from the network to prevent further reconnaissance or lateral movement by the adversary.
-- Conduct a thorough investigation of the alert by reviewing the associated host.id and user.id to determine the scope and impact of the unusual activity.
-- Analyze logs and signals from the identified host to identify any unauthorized access or data exfiltration attempts.
-- Escalate the incident to the security operations center (SOC) or incident response team if the activity is confirmed to be malicious or if it involves sensitive systems or data.
-- Remediate the affected system by removing any discovered malware or unauthorized tools and patching any vulnerabilities that may have been exploited.
-- Restore the system to its operational state by verifying the integrity of system files and configurations, and ensuring all security controls are re-enabled.
-- Implement enhanced logging policies to capture detailed information on user and host activities, focusing on discovery and reconnaissance techniques.
-- Integrate additional security tools and threat intelligence feeds to improve detection capabilities and provide context for future investigations.
-- Review and update access controls and user permissions to minimize the risk of unauthorized discovery activities.
-- Conduct a post-incident review to identify gaps in the current security posture and implement hardening measures, such as disabling unnecessary services and enforcing least privilege principles."""
 
 
 [[rule.threat]]

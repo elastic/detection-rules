@@ -2,7 +2,7 @@
 creation_date = "2024/03/13"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -61,52 +61,6 @@ sample by host.id, process.pid, process.name
   [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and
    not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Network Connection from Binary with RWX Memory Region
-
-In Linux environments, the `mprotect()` system call adjusts memory permissions, potentially enabling read, write, and execute (RWX) access. Adversaries exploit this to execute malicious code in memory, often followed by network activity. The detection rule identifies such behavior by monitoring for RWX memory changes and subsequent network connections, excluding benign processes like `httpd`.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific `host.id`, `process.pid`, and `process.name` involved in the suspicious activity.
-- Verify the legitimacy of the process by checking its path and hash against known good software or malware databases.
-- Use `ps` or `top` commands to gather more information about the process, such as its parent process, command-line arguments, and current status.
-- Investigate the network connection details, including `destination.ip` and `destination.port`, to determine if the connection is to a known malicious or suspicious IP address.
-- Check the process's history of network connections to see if it has made similar connections in the past.
-- Use Osquery to gather more context about the process and its network activity. For example, run the following query to list all network connections made by the process:
-  ```sql
-  SELECT pid, local_address, local_port, remote_address, remote_port, state FROM process_open_sockets WHERE pid = <process.pid>;
-  ```
-- Examine the system logs for any other suspicious activities or anomalies around the time of the alert, such as unusual login attempts or file modifications.
-- Investigate the memory region changes by reviewing the `mprotect` syscall logs to understand why the process required RWX permissions.
-- Check for any recent changes to the system, such as software installations or updates, that might explain the behavior.
-- Consult threat intelligence sources to see if there are any known campaigns or malware that match the observed behavior.
-
-### False positive analysis
-
-- Certain legitimate applications may use `mprotect()` to change memory permissions for performance optimization or legitimate functionality, leading to false positives. Users should identify these applications and consider excluding them from the rule.
-- Development tools and environments, such as compilers or interpreters, might exhibit this behavior during normal operation. Users can create exceptions for these processes if they are verified as non-malicious.
-- Security software or monitoring tools may also trigger this rule due to their nature of scanning and analyzing memory. Users should verify these tools and exclude them if they are confirmed to be safe.
-- Some system utilities or services might temporarily use RWX memory regions for legitimate purposes. Users should monitor these utilities and exclude them if they consistently trigger false positives without any associated threat.
-- To manage false positives, users can refine the rule by adding specific process names or paths to an exclusion list, ensuring that only verified non-threatening behaviors are excluded.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the process that initiated the RWX memory change and network connection, focusing on the process name, PID, and associated binaries.
-- Analyze the network traffic logs to determine the destination of the network connection and assess if any data exfiltration occurred.
-- Terminate any suspicious processes identified during the investigation to halt potential malicious activity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat is part of a larger attack campaign.
-- Restore the system to a known good state using backups or system snapshots, ensuring that any malicious changes are removed.
-- Implement enhanced logging policies to capture detailed process execution and network activity, aiding in future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Apply system hardening measures, such as disabling unnecessary services and enforcing strict memory protection policies, to reduce the attack surface.
-- Review and update security policies and procedures to incorporate lessons learned from the incident, ensuring better preparedness for future threats."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,7 +2,7 @@
 creation_date = "2023/08/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -63,48 +63,6 @@ sequence by host.id with maxspan=1m
      process.name in ("simpleX", "conftest", "ssh", "python", "ispnull", "pvtui")
    )] by process.name
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Network Connection via Recently Compiled Executable
-
-In Linux environments, compiling and executing programs is routine, but adversaries can exploit this by compiling malicious code to establish unauthorized network connections, such as reverse shells, to control systems remotely. The detection rule identifies this threat by monitoring a sequence of events: program compilation, file creation, execution, and suspicious network activity, flagging potential command-and-control setups.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific host.id and process.args associated with the compilation event to understand the context of the executable creation.
-- Examine the file.name of the recently created executable to determine if it matches known malicious binaries or if it appears suspicious based on naming conventions.
-- Investigate the process.name of the executed file to verify if it aligns with legitimate software or if it is an unexpected or unauthorized application.
-- Analyze the network connection details, focusing on the destination.ip to identify if the connection was attempted to a known malicious IP or an unusual external address.
-- Use Osquery to gather additional context on the host by running a query to list all processes executed by the user who initiated the compilation, such as: `SELECT pid, name, path, cmdline FROM processes WHERE uid = (SELECT uid FROM users WHERE username = '<username>');`
-- Check the process tree for the executed file to trace its parent processes and understand the sequence of events leading to its execution.
-- Correlate the timing of the compilation, file creation, and network connection events to determine if they occurred in quick succession, indicating potential malicious activity.
-- Investigate any other network connections from the same host around the time of the alert to identify additional suspicious activity or patterns.
-- Review system logs and audit logs on the host for any other anomalies or indicators of compromise that coincide with the alert.
-- Consult threat intelligence sources to check if the destination IP or any other indicators from the alert are associated with known threat actors or campaigns.
-
-### False positive analysis
-
-- Developers frequently compile and test new code, which can trigger this rule. To manage this, users can create exceptions for specific user accounts or directories commonly used for development activities.
-- Automated build systems or continuous integration pipelines may compile and execute code as part of their normal operation. Users can exclude these systems by identifying and whitelisting their specific process names or host identifiers.
-- Some legitimate applications may compile code at runtime for performance optimization or other reasons. Users should identify these applications and add them to an exception list to prevent false alerts.
-- Network monitoring tools or security applications might establish connections that appear suspicious but are benign. Users can exclude these processes by adding their names to the exception list, ensuring they are not flagged by the rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the source of the malicious executable, including reviewing recent file changes and user activity logs.
-- Terminate any suspicious processes identified during the investigation, especially those related to the compiled executable and unauthorized network connections.
-- Remove the malicious executable and any associated files from the system to prevent re-execution.
-- Review and update firewall rules to block outbound connections to known malicious IP addresses and domains.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and network connection events for future investigations.
-- Integrate threat intelligence feeds to automatically update detection rules with known indicators of compromise (IOCs) related to command-and-control activities.
-- Restore the system from a known good backup to ensure all traces of the compromise are removed and the system is returned to a secure operational state.
-- Apply system hardening measures, such as disabling unnecessary services, enforcing least privilege access, and regularly updating software to mitigate future risks."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

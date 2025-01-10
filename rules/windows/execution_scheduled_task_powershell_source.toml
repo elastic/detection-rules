@@ -2,7 +2,7 @@
 creation_date = "2020/12/15"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -46,49 +46,6 @@ sequence by host.id, process.entity_id with maxspan = 5s
   (?dll.name : "taskschd.dll" or file.name : "taskschd.dll") and process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe")]
  [network where host.os.type == "windows" and process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and destination.port == 135 and not destination.address in ("127.0.0.1", "::1")]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Outbound Scheduled Task Activity via PowerShell
-
-PowerShell is a powerful scripting language and automation framework in Windows environments, often used for task automation and configuration management. Adversaries may exploit PowerShell to create scheduled tasks for executing malicious payloads or conducting lateral movement. The detection rule identifies suspicious activity by monitoring PowerShell processes that load the Task Scheduler DLL and initiate outbound RPC connections, which may indicate unauthorized task scheduling for malicious purposes.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the host.id and process.entity_id associated with the suspicious PowerShell activity.
-- Check the timestamp of the alert to determine the exact time window of the activity and correlate it with any other suspicious events on the same host.
-- Investigate the specific PowerShell process (powershell.exe, pwsh.exe, or powershell_ise.exe) that loaded the taskschd.dll by examining the process command line arguments and parent process to understand the context of execution.
-- Analyze the network connection details, focusing on the destination port 135, to identify the target system of the outbound RPC connection and verify if it is a legitimate communication.
-- Use Osquery to list all scheduled tasks on the host to identify any newly created or modified tasks around the time of the alert. Example query: `SELECT * FROM scheduled_tasks WHERE name LIKE '%task%' AND last_run_time > 'YYYY-MM-DD HH:MM:SS';`
-- Cross-reference the destination.address with known internal IP addresses to determine if the connection was made to a trusted or expected endpoint.
-- Examine the user account under which the PowerShell process was executed to assess if it has the necessary privileges to create scheduled tasks and if the activity aligns with the user's typical behavior.
-- Review recent login events on the host to identify any unusual or unauthorized access that might have preceded the PowerShell activity.
-- Check for any other alerts or logs related to the same host or user account to identify patterns or additional indicators of compromise.
-- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or campaigns, particularly those involving scheduled tasks and PowerShell exploitation.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators often use PowerShell to automate routine tasks, which may involve loading the Task Scheduler DLL and making outbound RPC connections. To manage this, users can create exceptions for known administrative scripts or processes by whitelisting specific script paths or process hashes.
-- Software updates and installations: Some software update mechanisms or installation processes may use PowerShell to schedule tasks for updates, triggering the detection rule. Users can handle these by identifying and excluding specific update processes or trusted software vendors from the rule.
-- Monitoring and management tools: Certain IT management or monitoring tools may use PowerShell to schedule tasks for system checks or data collection. Users should review and whitelist these tools by verifying their legitimacy and adding them to an exclusion list based on process names or network addresses.
-- Development and testing environments: Developers may use PowerShell scripts to test scheduled tasks or network connections in a controlled environment. To prevent false positives, users can exclude specific development machines or IP ranges from the detection rule.
-- Backup and recovery operations: Backup solutions might use PowerShell to schedule tasks for regular data backups, which could be mistaken for suspicious activity. Users can manage this by identifying backup processes and excluding them from the rule based on known backup software signatures or network patterns.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement or data exfiltration.
-- Conduct a thorough investigation to identify the scope of the compromise, focusing on recent scheduled tasks and PowerShell activity.
-- Terminate any suspicious PowerShell processes and remove unauthorized scheduled tasks identified during the investigation.
-- Review and analyze logs from the affected system and any connected systems to trace the origin and timeline of the attack.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
-- Implement enhanced logging policies to capture detailed PowerShell activity and scheduled task creation events for future monitoring.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system from a known good backup to ensure all malicious changes are removed and the system is returned to a secure operational state.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities exploited by the adversary.
-- Harden the system by disabling unnecessary services, enforcing least privilege access, and implementing application whitelisting to prevent unauthorized PowerShell execution."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/07/18"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -67,53 +67,6 @@ event.category:process and host.os.type:windows and
     )
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating PowerShell Script with Webcam Video Capture Capabilities
-
-PowerShell, a powerful scripting language in Windows, can interface with system components like webcams. Adversaries exploit this by scripting webcam access to capture video, potentially for espionage or extortion. The detection rule identifies scripts using specific webcam-related functions and libraries, flagging suspicious activity indicative of video capture attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific PowerShell script block text that triggered the detection, focusing on keywords like "NewFrameEventHandler" or "VideoCaptureDevice".
-- Examine the process execution details, including the parent process, to understand the context in which the PowerShell script was executed.
-- Check the user account associated with the process to determine if it aligns with expected behavior or if it indicates potential compromise.
-- Investigate the source and integrity of the PowerShell script by reviewing its file path and hash values, if available, to identify any known malicious scripts.
-- Use Osquery to list all running PowerShell processes and their command-line arguments to identify any other suspicious activity:
-  ```sql
-  SELECT pid, name, path, cmdline FROM processes WHERE name = 'powershell.exe';
-  ```
-- Analyze recent login events and user activity on the host to identify any unauthorized access attempts that could correlate with the script execution.
-- Review network connections initiated by the host around the time of the alert to detect any suspicious outbound traffic that might indicate data exfiltration.
-- Check for any recent changes to webcam-related system settings or drivers that could suggest tampering or unauthorized access attempts.
-- Investigate any other alerts or logs from the same host or user account to identify patterns or additional indicators of compromise.
-- Correlate the findings with threat intelligence sources to determine if the activity matches known attack patterns or threat actor behaviors.
-
-### False positive analysis
-
-- Legitimate software or administrative scripts that utilize webcam functionalities for valid purposes, such as video conferencing applications or security monitoring tools, may trigger this detection rule. 
-- Developers or IT administrators testing webcam integration or functionality in a controlled environment might inadvertently match the rule's criteria.
-- Automated system health checks or diagnostics that access webcam components to verify hardware status could be flagged as suspicious.
-- To manage these false positives, users can create exceptions for known and trusted scripts or applications by whitelisting specific script hashes or paths.
-- Regularly review and update the exclusion list to ensure that only verified non-threatening activities are exempted, maintaining a balance between security and operational needs.
-- Implement logging and monitoring to track the behavior of excluded scripts, ensuring they do not deviate from expected patterns or access unauthorized resources.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to confirm the presence of malicious PowerShell scripts by reviewing script block logs and process execution details.
-- Terminate any suspicious PowerShell processes identified during the investigation to halt ongoing malicious activities.
-- Remove or quarantine any identified malicious scripts or files from the system to prevent re-execution.
-- Reset credentials and review user account permissions on the affected system to ensure no unauthorized access persists.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
-- Implement enhanced logging policies to capture detailed PowerShell activity and integrate with a security information and event management (SIEM) system for real-time monitoring.
-- Restore the system from a known good backup to ensure the removal of any persistent threats and return the system to its operational state.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities that could be exploited by similar threats.
-- Educate users on recognizing phishing attempts and suspicious activities to reduce the risk of future incidents involving unauthorized script execution."""
 
 
 [[rule.threat]]

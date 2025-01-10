@@ -2,7 +2,7 @@
 creation_date = "2024/06/21"
 integration = ["system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -56,47 +56,6 @@ query = '''
 host.os.type:linux and event.dataset:system.syslog and process.name:rc.local and
 message:("Connection refused" or "No such file or directory" or "command not found")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious rc.local Error Message
-
-The rc.local script is crucial in Linux systems, executing commands at boot. Adversaries may exploit this by inserting malicious scripts to gain persistence. The detection rule monitors syslog for specific error messages linked to rc.local, such as "Connection refused," indicating potential tampering. This helps identify unauthorized modifications, aligning with MITRE ATT&CK's persistence tactics.
-
-### Possible investigation steps
-
-- Review the syslog entries around the time of the alert to gather more context about the suspicious error message and identify any other related log entries.
-- Verify the integrity of the rc.local file by comparing its current state with a known good backup or using a file integrity monitoring tool to check for unauthorized changes.
-- Use Osquery to list the current contents of the rc.local file with the query: `SELECT * FROM file WHERE path='/etc/rc.local';` to identify any suspicious or unexpected entries.
-- Investigate the process tree to identify any parent or child processes related to rc.local using the query fields `process.name:rc.local` and `host.os.type:linux` to trace the execution flow.
-- Check for recent modifications to the rc.local file by examining the file's metadata, such as the last modified timestamp, using `ls -l /etc/rc.local` or an equivalent command.
-- Search for any recent user account activity or privilege escalations around the time of the alert that could indicate unauthorized access or changes to the rc.local file.
-- Analyze network logs for any unusual outbound connections or failed connection attempts that coincide with the "Connection refused" error message.
-- Review the system's boot logs to identify any anomalies or errors during the startup process that could be related to the rc.local script execution.
-- Investigate other system logs for any additional error messages like "No such file or directory" or "command not found" that might provide further context on the issue.
-- Correlate the findings with known MITRE ATT&CK techniques, specifically focusing on persistence tactics, to determine if the activity aligns with known adversary behaviors.
-
-### False positive analysis
-
-- Routine administrative tasks or legitimate software updates may trigger error messages like "No such file or directory" if certain expected files are temporarily unavailable during the update process. Users can handle these by creating exceptions for known maintenance windows or specific update processes.
-- Custom scripts or applications that are intentionally executed at boot but occasionally fail due to misconfigurations might generate "command not found" errors. Users should review these scripts and, if deemed non-threatening, exclude them from triggering alerts by specifying the script names or paths in the exception list.
-- Network-related services that are not yet fully initialized during the boot process might cause "Connection refused" errors. Users can mitigate these false positives by adjusting the timing of service startups or excluding specific network services from the rule if they are known to cause such errors without security implications.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or spread of malicious activity.
-- Conduct a thorough investigation of the rc.local file to identify any unauthorized modifications or suspicious entries.
-- Review system logs, particularly syslog, to trace the origin of the suspicious activity and identify any other affected systems or files.
-- Restore the rc.local file from a known good backup if available, ensuring that it is free from any unauthorized changes.
-- Update and patch the system to the latest security standards to mitigate any known vulnerabilities that could have been exploited.
-- Implement strict access controls and permissions for critical system files like rc.local to prevent unauthorized modifications.
-- Enhance logging policies to ensure comprehensive monitoring of system changes and potential security incidents, integrating with SIEM solutions for real-time alerts.
-- Conduct a security audit of the system to identify and address any other potential security weaknesses or misconfigurations.
-- Escalate the incident to the security operations team or relevant authorities if the investigation reveals a broader threat or compliance breach.
-- Educate and train staff on recognizing and responding to security incidents, emphasizing the importance of maintaining system integrity and vigilance against persistence tactics."""
 
 
 [[rule.threat]]

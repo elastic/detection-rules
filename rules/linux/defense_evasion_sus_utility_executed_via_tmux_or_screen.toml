@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2023/09/04"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ directly, the commands will be executed in the background via its parent process
 to execute commands while attempting to evade detection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potentially Suspicious Process Started via tmux or screen"
@@ -26,59 +28,19 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
-process.parent.name in ("screen", "tmux") and process.name like (
-  "nmap", "nc", "ncat", "netcat", "socat", "nc.openbsd", "ngrok", "ping", "java", "php*", "perl", "ruby", "lua*",
-  "openssl", "telnet", "wget", "curl", "id"
-)
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and 
+  process.parent.name in ("screen", "tmux") and process.name like (
+    "nmap", "nc", "ncat", "netcat", "socat", "nc.openbsd", "ngrok", "ping", "java", "php*", "perl", "ruby", "lua*",
+    "openssl", "telnet", "wget", "curl", "id"
+  )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potentially Suspicious Process Started via tmux or screen
-
-Tmux and screen are terminal multiplexers that allow users to manage multiple terminal sessions from a single window, enhancing productivity in Linux environments. However, adversaries can exploit these tools to execute commands stealthily, detaching sessions to run processes in the background. The detection rule identifies suspicious activity by monitoring for specific command executions initiated by tmux or screen, focusing on processes often associated with malicious behavior.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and parent process involved, focusing on the `process.name` and `process.parent.name` fields.
-- Check the timestamp of the event to determine when the suspicious process was started, using the `event.start` field.
-- Investigate the user account associated with the process execution to determine if it aligns with expected behavior, using the `user.name` field.
-- Examine the command line arguments used in the process execution to identify any potentially malicious or unusual commands, using the `process.command_line` field.
-- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name = 'nmap' OR name = 'nc' OR name = 'curl';` to identify any related processes running on the system.
-- Check the network connections established by the suspicious process to identify any unusual or unauthorized connections, using the `process.network` field.
-- Review the process's parent-child relationship to understand the process hierarchy and identify any other potentially suspicious processes, using the `process.parent_pid` and `process.pid` fields.
-- Investigate the system logs for any other suspicious activities or anomalies around the time of the alert to gather additional context.
-- Analyze the file system for any new or modified files that may be associated with the suspicious process, using file integrity monitoring tools.
-- Correlate the findings with other security alerts or incidents to determine if this activity is part of a larger attack campaign.
-
-### False positive analysis
-
-- System administrators and developers often use tmux or screen to run legitimate processes in the background for maintenance or development purposes, such as running scripts or monitoring tools, which may trigger the rule.
-- Automated scripts or cron jobs that utilize tmux or screen to execute routine tasks like backups, updates, or network monitoring can be mistakenly flagged as suspicious.
-- Security tools or network diagnostic utilities that are legitimately used for troubleshooting or performance testing, such as nmap or curl, may be executed via tmux or screen, leading to false positives.
-- To manage these false positives, users can create exceptions for known benign processes by adding specific command patterns or user accounts to an allowlist, ensuring that routine administrative tasks are not flagged.
-- Implementing a review process for flagged events can help differentiate between legitimate and suspicious activities, allowing security teams to refine detection rules and reduce false positives over time.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the scope of the compromise, focusing on the processes initiated by tmux or screen and any associated suspicious commands.
-- Terminate any malicious processes identified during the investigation to stop ongoing threats.
-- Review system logs and command histories to gather evidence and understand the attack vector and timeline.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed command execution and process creation events, ensuring future suspicious activities are detected promptly.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and correlate alerts with known threat actors or tactics.
-- Restore the system to its operational state by applying patches, updating software, and ensuring all security configurations are in place.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Implement hardening measures such as restricting the use of terminal multiplexers to authorized users only and employing least privilege principles to minimize potential attack surfaces."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

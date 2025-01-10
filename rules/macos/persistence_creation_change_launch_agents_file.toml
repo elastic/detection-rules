@@ -2,7 +2,7 @@
 creation_date = "2020/12/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -63,49 +63,6 @@ sequence by host.id with maxspan=1m
  ]
  [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "launchctl" and process.args == "load"]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Launch Agent Creation or Modification and Immediate Loading
-
-Launch Agents in macOS are used to run scripts or applications automatically at user login, providing a mechanism for persistence. Adversaries exploit this by creating or modifying Launch Agents to execute malicious code. The detection rule identifies such abuse by monitoring for new or altered Launch Agent files and their immediate loading via `launchctl`, indicating potential unauthorized persistence attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file path of the Launch Agent that was created or modified, focusing on paths like `/System/Library/LaunchAgents/*`, `/Library/LaunchAgents/*`, and `/Users/*/Library/LaunchAgents/*`.
-- Check the timestamp of the file creation or modification event to correlate it with any known user activity or scheduled tasks.
-- Investigate the user account associated with the creation or modification of the Launch Agent to determine if the activity aligns with expected behavior.
-- Examine the contents of the Launch Agent plist file to identify any suspicious or unexpected scripts or executables being launched.
-- Use Osquery to list all Launch Agents on the system and compare them against known good configurations. Example query: `SELECT * FROM launchd WHERE path LIKE '/Users/%/Library/LaunchAgents/%';`
-- Analyze the process execution details of `launchctl` to verify the arguments used and ensure they match legitimate use cases.
-- Cross-reference the process start time of `launchctl` with the file modification time to confirm immediate loading, which may indicate malicious intent.
-- Investigate any network connections or external communications initiated by the processes or scripts specified in the Launch Agent.
-- Review system logs around the time of the event for any additional indicators of compromise or related suspicious activity.
-- Check for any other recent alerts or anomalies on the host that might suggest a broader compromise or coordinated attack.
-
-### False positive analysis
-
-- Routine software updates or legitimate application installations may create or modify Launch Agents, triggering the detection rule. Users can manage these by maintaining a list of trusted applications and their expected behaviors.
-- System maintenance tools or user-installed utilities that automate tasks at login might also create or modify Launch Agents. Users should verify the legitimacy of these tools and consider excluding them from monitoring if they are deemed safe.
-- Developers or power users who frequently create or modify Launch Agents for testing or automation purposes may inadvertently trigger the rule. These users can be excluded from monitoring by creating exceptions based on user accounts or specific directories.
-- Some enterprise management tools may deploy configuration profiles that include Launch Agents, which could be mistaken for malicious activity. Organizations should document and whitelist these tools to prevent false positives.
-- Users can implement a baseline of known good Launch Agents and compare new or modified entries against this baseline to identify legitimate changes, reducing the likelihood of false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected macOS system from the network to prevent further malicious activity and lateral movement.
-- Investigate the newly created or modified Launch Agent file to determine its origin and purpose, checking for any known malicious signatures or unusual behavior.
-- Use endpoint detection and response (EDR) tools to analyze the process tree and identify any additional malicious processes or files associated with the Launch Agent.
-- Remove the unauthorized Launch Agent file and any associated malicious files or processes from the system.
-- Review user accounts and permissions to ensure no unauthorized changes have been made, and reset passwords if necessary.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
-- Implement enhanced logging policies to capture detailed information on file creation, modification, and process execution, focusing on Launch Agents and launchctl activities.
-- Integrate threat intelligence feeds to correlate the detected activity with known threat actor tactics, techniques, and procedures (TTPs) from the MITRE ATT&CK framework.
-- Restore the system to its operational state by verifying the integrity of system files and configurations, and applying any necessary security patches or updates.
-- Harden the system by restricting write access to Launch Agent directories, implementing application whitelisting, and educating users on recognizing phishing attempts and other common attack vectors."""
 
 
 [[rule.threat]]

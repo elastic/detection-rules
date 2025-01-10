@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -42,51 +42,6 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : ("pcalua.exe", "forfiles.exe")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Indirect Command Execution via Forfiles/Pcalua
-
-Forfiles and pcalua.exe are legitimate Windows utilities. Forfiles is used for batch processing files, while pcalua.exe is part of the Program Compatibility Assistant, aiding in application compatibility. Adversaries exploit these tools to execute commands indirectly, bypassing security controls. The detection rule identifies suspicious activity by monitoring process initiations with these utilities as parents, flagging potential misuse for further investigation.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of "pcalua.exe" or "forfiles.exe" as the parent process in the event logs.
-- Examine the command line arguments used with "pcalua.exe" or "forfiles.exe" to identify any suspicious or unexpected commands being executed.
-- Check the user account associated with the process initiation to determine if it aligns with expected behavior or if it might be compromised.
-- Investigate the child processes spawned by "pcalua.exe" or "forfiles.exe" to identify any potentially malicious activities or anomalies.
-- Utilize Osquery to gather additional context on the processes. For example, run the following query to list processes with "pcalua.exe" or "forfiles.exe" as the parent:
-  ```sql
-  SELECT pid, name, path, cmdline, parent FROM processes WHERE parent IN (SELECT pid FROM processes WHERE name IN ('pcalua.exe', 'forfiles.exe'));
-  ```
-- Analyze the file paths and locations associated with the executed commands to determine if they are legitimate or potentially harmful.
-- Cross-reference the event timestamp with other security logs (e.g., network, authentication) to identify any correlated suspicious activities.
-- Investigate any recent changes to the system or software installations that might have triggered the use of these utilities.
-- Check for any known vulnerabilities or exploits related to the applications or scripts executed via "pcalua.exe" or "forfiles.exe".
-- Document findings and gather evidence to support further analysis or escalation if necessary.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators often use forfiles.exe for legitimate batch processing tasks, such as file cleanup or automated maintenance scripts. These activities can trigger the detection rule but are typically non-threatening.
-- Software installations and updates: pcalua.exe is frequently invoked during legitimate software installations or updates to ensure compatibility, which can be mistakenly flagged as suspicious activity.
-- Automated scripts: Some organizations use automated scripts that leverage forfiles.exe for file management across multiple systems, which can lead to false positives if these scripts are not accounted for in the detection logic.
-- To manage false positives, users can create exceptions for known benign activities by whitelisting specific scripts or processes that regularly use forfiles.exe or pcalua.exe. This can be done by adding conditions to the detection rule to exclude these known processes or by using a centralized management system to maintain a list of approved activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to determine the scope of the incident, focusing on identifying any additional compromised systems or accounts.
-- Review the process execution logs to confirm the misuse of forfiles.exe or pcalua.exe and identify any commands executed indirectly.
-- Terminate any malicious processes identified during the investigation to halt ongoing threats.
-- Remove any unauthorized or malicious files and restore any altered system configurations to their original state.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities exploited by the adversary.
-- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities and correlate related events.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional actions are required.
-- Educate users on recognizing and reporting suspicious activities to prevent future incidents and reinforce security awareness."""
 
 
 [[rule.threat]]

@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2024/07/30"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 updated_date = "2025/01/08"
 
 [rule]
@@ -12,7 +14,7 @@ establish a secure connection to a remote server or to create a secure server to
 may be used to exfiltrate data or establish a command and control channel.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Openssl Client or Server Activity"
@@ -51,60 +53,19 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame"
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
-process.name == "openssl" and (
-  (process.args == "s_client" and process.args : ("-connect", "*:*") and not process.args == "-showcerts") or
-  (process.args == "s_server" and process.args == "-port")
-) and
-not process.parent.executable in ("/pro/xymon/client/ext/awsXymonCheck.sh", "/opt/antidot-svc/nrpe/plugins/check_cert")
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
+  process.name == "openssl" and (
+    (process.args == "s_client" and process.args : ("-connect", "*:*") and not process.args == "-showcerts") or
+    (process.args == "s_server" and process.args == "-port")
+  ) and
+  not process.parent.executable in ("/pro/xymon/client/ext/awsXymonCheck.sh", "/opt/antidot-svc/nrpe/plugins/check_cert")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Openssl Client or Server Activity
-
-OpenSSL is a widely-used toolkit for implementing secure communication via SSL/TLS protocols. In Linux environments, it can function as a client or server to establish encrypted connections. Adversaries may exploit OpenSSL to create secure channels for data exfiltration or command and control. The detection rule identifies suspicious OpenSSL usage by monitoring process execution patterns, specifically targeting client or server activities that deviate from typical operations, while excluding known benign processes.
-
-### Possible investigation steps
-
-- Review the alert details to understand the specific process execution that triggered the rule, focusing on the `process.name`, `process.args`, and `process.parent.executable` fields.
-- Verify the legitimacy of the `openssl` process by checking the `process.parent.executable` to determine if it originates from a known benign source or a suspicious one.
-- Examine the `process.args` to identify whether the `openssl` command is being used as a client (`s_client`) or server (`s_server`) and note any unusual arguments or patterns.
-- Investigate the network connections associated with the `openssl` process using tools like `netstat` or `ss` to identify any suspicious remote IP addresses or ports.
-- Use Osquery to gather additional context about the `openssl` process. For example, run the following query to list all processes with their network connections: `SELECT pid, name, path, cmdline, remote_address, remote_port FROM processes JOIN process_open_sockets ON processes.pid = process_open_sockets.pid WHERE name = 'openssl';`
-- Check system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any related authentication attempts or anomalies around the time the `openssl` process was executed.
-- Review user activity logs to determine if the `openssl` process was initiated by a legitimate user or if there are signs of compromised credentials.
-- Investigate any file transfers or data exfiltration attempts by examining file access logs and monitoring tools for unusual data movement.
-- Correlate the `openssl` activity with other security alerts or logs to identify potential patterns or coordinated actions indicative of a larger attack.
-- Consult threat intelligence sources to determine if the IP addresses or domains associated with the `openssl` connections are known to be malicious or part of a threat actor's infrastructure.
-
-### False positive analysis
-
-- Known false positives for the Openssl Client or Server Activity rule may include legitimate administrative tasks where OpenSSL is used for secure communications, such as system administrators testing SSL/TLS connections or setting up secure servers for internal use.
-- Automated scripts or monitoring tools that use OpenSSL for regular checks, such as certificate validation or network diagnostics, can trigger this rule. These processes often have predictable patterns and can be excluded by identifying their parent processes or specific command-line arguments.
-- To manage these false positives, users can create exceptions by adding known benign parent processes to the exclusion list, as seen with "/pro/xymon/client/ext/awsXymonCheck.sh" and "/opt/antidot-svc/nrpe/plugins/check_cert" in the rule. This helps in reducing noise and focusing on truly suspicious activities.
-- Regularly review and update the exclusion list to accommodate new legitimate processes that may arise in the environment, ensuring that the detection rule remains effective without generating excessive false alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further data exfiltration or command and control activities.
-- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any unauthorized connections established using OpenSSL.
-- Review system logs and network traffic to identify any additional indicators of compromise or related suspicious activities.
-- Terminate any unauthorized OpenSSL processes and remove any malicious scripts or binaries found on the system.
-- Change all credentials and keys that may have been exposed during the incident to prevent further unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
-- Implement enhanced logging policies to capture detailed process execution and network connection data for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system to its operational state by applying the latest security patches and updates, and ensure all security configurations are hardened.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans to address any deficiencies."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

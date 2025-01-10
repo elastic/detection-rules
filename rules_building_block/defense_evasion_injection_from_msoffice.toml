@@ -2,7 +2,7 @@
 creation_date = "2023/09/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -48,49 +48,6 @@ process where host.os.type == "windows" and event.action == "start" and
     "?:\\Windows\\Sys*\\ctfmon.exe",
     "?:\\Windows\\System32\\notepad.exe")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Process Injection from Malicious Document
-
-Microsoft Office applications are often targeted by adversaries who exploit vulnerabilities or use malicious macros to execute unauthorized code. This can lead to process injection, where malicious code is executed within legitimate processes, evading detection. The detection rule identifies unusual child processes spawned by Office apps, focusing on atypical arguments and paths, to flag potential injection attempts. By monitoring these anomalies, the rule helps in identifying and mitigating threats associated with process injection tactics.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the parent process is one of the targeted Microsoft Office applications: excel.exe, powerpnt.exe, or winword.exe.
-- Examine the child process executable path to verify if it matches the suspicious paths: "?:\\\\Windows\\\\SysWOW64\\\\*.exe" or "?:\\\\Windows\\\\system32\\\\*.exe".
-- Check the process arguments count to ensure it is exactly one, as specified in the detection rule.
-- Investigate the process code signature to determine if it is untrusted or if the subject name does not start with "Microsoft".
-- Cross-reference the child process executable against known legitimate processes to rule out false positives, focusing on exclusions like Taskmgr.exe, ctfmon.exe, and notepad.exe.
-- Use Osquery to gather additional context about the suspicious process. Example query: `SELECT * FROM processes WHERE name = '<suspicious_process_name>' AND path LIKE 'C:\\\\Windows\\\\SysWOW64\\\\%' OR path LIKE 'C:\\\\Windows\\\\system32\\\\%';`
-- Analyze the parent process's recent activity, including any network connections or file modifications, to identify potential malicious behavior.
-- Review the document or macro that initiated the Office application to identify any embedded scripts or suspicious content.
-- Check for any recent patches or vulnerabilities related to the Office application version in use, which might have been exploited.
-- Correlate the alert with other security events or logs from the same host to identify any patterns or additional indicators of compromise.
-
-### False positive analysis
-
-- Known false positives may include legitimate applications or scripts that are executed with minimal arguments from Office applications, such as internal automation tools or scripts used by IT departments for maintenance tasks.
-- System administrators might run diagnostic or monitoring tools that match the rule's criteria, especially if these tools are executed from common system directories like SysWOW64 or system32.
-- Users can handle these false positives by creating exceptions for specific processes that are known to be safe and frequently triggered, such as internal scripts or tools that have been verified and are necessary for business operations.
-- To manage false positives, users can refine the detection rule by adding exclusions for specific executable paths or process names that are consistently identified as non-threatening, ensuring these are well-documented and reviewed regularly to maintain security integrity.
-- It is important to monitor the frequency and context of these alerts to distinguish between benign and potentially malicious activities, adjusting the rule's parameters as needed to reduce noise without compromising detection capabilities.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Analyze the suspicious process and its parent Office application to confirm if it is indeed a malicious activity.
-- Terminate any identified malicious processes and remove any associated files or executables from the system.
-- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to ensure no other threats are present.
-- Review and collect relevant logs, including process creation and network activity, to understand the scope and impact of the incident.
-- Escalate the incident to the security operations team for further investigation and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and network connections for future incidents.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities.
-- Restore the system from a known good backup if necessary, ensuring that all security patches and updates are applied.
-- Apply hardening measures such as disabling macros by default in Office applications and enforcing strict application whitelisting policies."""
 
 
 [[rule.threat]]

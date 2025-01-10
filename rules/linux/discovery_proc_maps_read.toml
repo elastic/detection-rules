@@ -2,7 +2,7 @@
 creation_date = "2024/01/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -62,49 +62,6 @@ process.name in ("cat", "grep") and process.args : "/proc/*/maps" and process.en
   "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious /proc/maps Discovery
-
-In Linux environments, the `/proc/*/maps` file reveals a process's memory layout, including segment permissions and file mappings. Adversaries exploit this to locate memory addresses for injecting malicious code or hijacking processes. The detection rule identifies suspicious reads of this file by monitoring specific command executions, such as `cat` or `grep`, initiated from common shell environments, signaling potential reconnaissance activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name and arguments, ensuring they match the suspicious pattern of reading `/proc/*/maps` using `cat` or `grep`.
-- Check the `process.entry_leader.name` to identify the shell environment from which the command was executed, as this can provide context on the user's activity.
-- Investigate the user account associated with the process to determine if the activity aligns with their typical behavior or if it appears anomalous.
-- Examine the parent process of the suspicious command to understand the sequence of events leading to the execution of the `/proc/*/maps` read.
-- Use Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE pid = <suspicious_process_id>;` to retrieve detailed information about the process.
-- Analyze the command history of the user associated with the shell session to identify any preceding commands that might indicate reconnaissance or preparatory actions.
-- Check for any recent logins or session initiations by the user to determine if the activity coincides with a new or unexpected session.
-- Review system logs for any other suspicious activities or anomalies around the time of the alert to identify potential related events.
-- Investigate network connections established by the process or user to detect any unusual outbound connections that might suggest data exfiltration or command-and-control activity.
-- Correlate the findings with other security alerts or incidents to determine if this activity is part of a broader attack pattern or campaign.
-
-### False positive analysis
-
-- System administrators or developers may legitimately access `/proc/*/maps` for debugging or performance monitoring purposes, leading to false positives. Users can handle these by creating exceptions for known administrative scripts or tools that require such access.
-- Automated monitoring tools or security software might read `/proc/*/maps` as part of their regular operations. To manage these, users should identify and whitelist these tools to prevent unnecessary alerts.
-- Some legitimate applications may access their own memory maps for optimization or self-checking routines. Users can exclude these applications by adding them to an exception list based on their process names or specific command patterns.
-- During software development, developers might use commands like `cat` or `grep` on `/proc/*/maps` to troubleshoot or test applications. Users should consider excluding development environments or specific user accounts from triggering alerts.
-- Security audits or compliance checks might involve reading `/proc/*/maps` to verify system integrity. Users can manage these by scheduling such activities during known maintenance windows and temporarily disabling the rule or by excluding specific audit tools.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to determine the source and intent of the suspicious /proc/maps access, including reviewing logs and correlating with other security events.
-- Capture and preserve relevant forensic data, such as memory dumps and disk images, to support a detailed analysis and potential legal actions.
-- Identify and terminate any unauthorized processes or sessions that may have been initiated by the adversary.
-- Apply patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited for similar attacks.
-- Review and enhance logging policies to ensure comprehensive monitoring of process executions and file access, particularly for sensitive files like /proc/maps.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and correlation of suspicious activities.
-- Escalate the incident to the appropriate internal teams and, if necessary, external cybersecurity experts for advanced threat analysis and response.
-- Restore the system to its operational state by reinstalling the operating system and applications from trusted sources, ensuring all security configurations are applied.
-- Implement hardening measures, such as disabling unnecessary services, enforcing least privilege access, and using security tools like intrusion detection systems (IDS) to prevent future attacks."""
 
 
 [[rule.threat]]

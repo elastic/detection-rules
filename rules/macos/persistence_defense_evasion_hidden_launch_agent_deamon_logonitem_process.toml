@@ -2,7 +2,7 @@
 creation_date = "2020/01/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -63,55 +63,6 @@ query = '''
 event.category:process and host.os.type:macos and event.type:(start or process_started) and
  process.name:.* and process.parent.executable:/sbin/launchd
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Hidden Child Process of Launchd
-
-Launchd is a key macOS system process responsible for managing system and user services. Adversaries may exploit it to gain persistence by creating hidden processes that execute at login. The detection rule identifies such hidden child processes initiated by launchd, focusing on process start events and their parent executable paths, thus highlighting potential unauthorized modifications to system processes.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a hidden child process initiated by launchd, focusing on the `process.name` and `process.parent.executable` fields.
-- Verify the legitimacy of the child process by checking its file path and hash against known good files and threat intelligence databases.
-- Use Osquery to list all current processes and their parent processes to identify any other suspicious child processes of launchd:
-  ```sql
-  SELECT pid, name, path, parent FROM processes WHERE parent = (SELECT pid FROM processes WHERE path = '/sbin/launchd');
-  ```
-- Investigate the file attributes of the suspicious process using Osquery to check for hidden or unusual file properties:
-  ```sql
-  SELECT * FROM file WHERE path = '<path_to_suspicious_process>';
-  ```
-- Examine the creation and modification timestamps of the suspicious process file to determine if it aligns with known legitimate updates or installations.
-- Check the system logs for any unusual activity or errors around the time the suspicious process was started, focusing on `event.category:process` and `event.type:start`.
-- Investigate the user account context under which the suspicious process was executed to determine if it aligns with expected user behavior.
-- Review recent changes to launch agents and daemons by listing files in `/Library/LaunchAgents`, `/Library/LaunchDaemons`, and `~/Library/LaunchAgents` for any unauthorized modifications.
-- Analyze network connections initiated by the suspicious process to identify any unusual or unauthorized external communications.
-- Correlate the findings with other security alerts or incidents to determine if this activity is part of a broader attack campaign.
-
-### False positive analysis
-
-- Some legitimate applications may create hidden child processes of launchd as part of their normal operation, such as system utilities or software updates. These processes might be flagged as suspicious but are benign.
-- Developers and advanced users might run scripts or applications that intentionally create hidden processes for testing or automation purposes, which could trigger the detection rule.
-- Security software or system management tools may also generate hidden processes to perform background tasks, leading to false positives.
-- To manage these false positives, users can create exceptions for known and trusted applications by specifying their process names or paths in the detection rule.
-- Regularly review and update the list of exceptions to ensure that only verified non-threatening behaviors are excluded, maintaining the integrity of the detection system.
-
-### Response and remediation
-
-- Immediately isolate the affected macOS system from the network to prevent further unauthorized access or lateral movement.
-- Use endpoint detection and response (EDR) tools to perform a detailed analysis of the suspicious process and its parent-child relationship to confirm malicious activity.
-- Terminate the hidden child process and any other suspicious processes spawned by launchd to stop potential malicious actions.
-- Review and remove any unauthorized launch agents, daemons, or logon items that may have been installed to ensure persistence.
-- Conduct a thorough audit of user accounts and permissions to identify any unauthorized changes or accounts that may have been created by the adversary.
-- Restore the system from a known good backup if the integrity of the system is compromised and cannot be assured through manual remediation.
-- Implement enhanced logging policies to capture detailed process execution events, including command-line arguments and parent-child process relationships, to improve future detection capabilities.
-- Integrate threat intelligence feeds and MITRE ATT&CK framework mappings into security monitoring tools to enhance detection and response strategies.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems are affected.
-- Apply system hardening measures, such as disabling unnecessary services, enforcing strong authentication mechanisms, and regularly updating software to mitigate future risks."""
 
 
 [[rule.threat]]

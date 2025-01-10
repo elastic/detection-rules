@@ -2,7 +2,7 @@
 creation_date = "2024/08/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/08/21"
 
 [rule]
 author = ["Elastic"]
@@ -32,49 +32,6 @@ timestamp_override = "event.ingested"
 query = '''
 host.os.type: "linux" and event.category: "process" and process.name: "aws" and process.args:  "--endpoint-url"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS CLI Command with Custom Endpoint URL
-
-The AWS CLI allows users to interact with AWS services via command-line, offering flexibility in managing cloud resources. The `--endpoint-url` option lets users specify alternative endpoints, which can be exploited by adversaries to reroute requests to malicious servers, bypassing security measures. The detection rule identifies such misuse by monitoring Linux processes for AWS CLI commands using this option, flagging potential unauthorized activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the `--endpoint-url` argument in the AWS CLI command and identify the specific custom endpoint URL used.
-- Examine the process execution context by checking the `host.os.type`, `event.category`, and `process.name` fields to ensure the alert is relevant and correctly triggered.
-- Investigate the user account associated with the process to determine if the activity aligns with their typical behavior or if it appears suspicious.
-- Check the command history for the user to identify any other unusual or unauthorized AWS CLI commands executed around the same time.
-- Use Osquery to gather more information about the process by running a query such as: `SELECT * FROM processes WHERE name = 'aws' AND cmdline LIKE '%--endpoint-url%'`.
-- Analyze network logs to trace any outbound connections to the custom endpoint URL and determine if the destination is known or potentially malicious.
-- Review AWS CloudTrail logs for any corresponding API calls made using the custom endpoint to assess the scope and impact of the activity.
-- Investigate any related IAM roles or credentials used in the AWS CLI command to ensure they have not been compromised or misused.
-- Correlate the alert with other security events or anomalies on the host to identify any patterns or indicators of a broader attack.
-- Consult threat intelligence sources to check if the custom endpoint URL or associated IP addresses are linked to known malicious activities or actors.
-
-### False positive analysis
-
-- Legitimate use of the `--endpoint-url` option may occur in development or testing environments where developers use local or custom endpoints to simulate AWS services, which can trigger false positives.
-- Organizations using AWS-compatible services from third-party providers might configure the AWS CLI with custom endpoints, leading to benign alerts.
-- Automated scripts or CI/CD pipelines that interact with mock services for testing purposes may also use custom endpoints, resulting in false positives.
-- To manage these false positives, users can create exceptions or whitelist specific processes or environments known to use custom endpoints legitimately, ensuring that only unexpected or unauthorized uses are flagged.
-- Regularly review and update the list of approved custom endpoints and associated processes to minimize false positives while maintaining security vigilance.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Review AWS CloudTrail logs and other relevant logs to identify any unauthorized API calls or data access attempts associated with the custom endpoint URL.
-- Conduct a thorough investigation to determine the scope of the compromise, including identifying any other systems or accounts that may have been affected.
-- Revoke any potentially compromised AWS credentials and rotate access keys and passwords for affected accounts.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging and monitoring for AWS CLI usage, focusing on the detection of the `--endpoint-url` argument in future commands.
-- Integrate threat intelligence feeds to identify known malicious endpoints and update security controls to block them.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are applied.
-- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent similar incidents.
-- Educate users on the risks associated with using custom endpoint URLs and provide training on secure AWS CLI usage practices."""
 
 
 [[rule.threat]]

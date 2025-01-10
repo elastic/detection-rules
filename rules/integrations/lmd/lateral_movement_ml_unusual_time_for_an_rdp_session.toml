@@ -2,7 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 anomaly_threshold = 70
@@ -52,49 +52,6 @@ tags = [
     "Tactic: Lateral Movement",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Time or Day for an RDP Session
-
-Remote Desktop Protocol (RDP) enables remote access to systems, crucial for IT management but also a target for adversaries seeking unauthorized access. Attackers exploit RDP by initiating sessions at odd hours to avoid detection. The detection rule leverages machine learning to identify RDP sessions occurring at atypical times, flagging potential lateral movement or exploitation attempts, thus aiding in early threat identification.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific user account and source IP address involved in the unusual RDP session.
-- Check the timestamp of the RDP session to determine the exact time and day it occurred, comparing it with the user's typical access patterns.
-- Correlate the unusual RDP session with other security events around the same time, such as failed login attempts or changes in user permissions, to identify potential indicators of compromise.
-- Investigate the source IP address to determine if it is associated with known malicious activity or if it originates from an unexpected location for the user.
-- Use Osquery to gather additional context on the system accessed via RDP. For example, run the following query to list recent RDP sessions: `SELECT * FROM rdp_connections WHERE timestamp > (SELECT MAX(timestamp) - 86400 FROM rdp_connections);`
-- Examine the system's security logs for any anomalies or suspicious activities that occurred before or after the RDP session, such as new software installations or changes to system configurations.
-- Verify the legitimacy of the user account involved by checking recent account activity and any changes to account settings or privileges.
-- Consult with the user or their manager to confirm whether the RDP session was authorized and if there were any legitimate reasons for accessing the system at that time.
-- Investigate any other systems accessed by the same user account or from the same source IP address to identify potential lateral movement within the network.
-- Document all findings and observations during the investigation to provide a comprehensive overview of the incident and support further analysis if needed.
-
-### False positive analysis
-
-- Known false positives for the Unusual Time or Day for an RDP Session rule may include legitimate administrative tasks performed by IT staff during off-hours or scheduled maintenance activities that occur outside of typical business hours.
-- Users can manage these false positives by creating exceptions for specific user accounts or IP addresses that are known to perform legitimate RDP sessions at unusual times, ensuring these are documented and reviewed regularly.
-- Another method to handle false positives is to analyze historical data to identify patterns of legitimate access during atypical hours, allowing for the adjustment of the machine learning model's sensitivity or thresholds.
-- It's important to consider the context of the organization, such as global operations or remote work policies, which may naturally lead to RDP sessions at odd hours, and adjust the detection criteria accordingly.
-- Regularly updating the list of known exceptions and reviewing them in the context of any changes in the organization's operations or IT policies can help minimize false positives while maintaining security vigilance.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Verify the legitimacy of the RDP session by contacting the user or system owner to confirm if the session was authorized.
-- Conduct a thorough investigation of the system for any signs of compromise, such as unusual processes, unauthorized user accounts, or unexpected network connections.
-- Review system and security logs to identify any other suspicious activities that may have occurred before or after the unusual RDP session.
-- Reset credentials for any accounts that were accessed during the suspicious RDP session to prevent further unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team if evidence of compromise is found, providing them with all relevant logs and findings.
-- Implement enhanced logging policies to capture detailed RDP session information, including timestamps, user accounts, and source IP addresses.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate RDP session data with known threat indicators.
-- Restore the system to its operational state by applying necessary patches, updates, and security configurations to prevent exploitation of known vulnerabilities.
-- Harden the system by enforcing strong authentication mechanisms, such as multi-factor authentication (MFA), and restricting RDP access to only trusted IP addresses."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

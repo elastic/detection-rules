@@ -2,7 +2,7 @@
 creation_date = "2023/09/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -34,50 +34,6 @@ type = "eql"
 query = '''
 iam where event.dataset == "github.audit" and event.action == "org.update_member" and github.permission == "admin"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GitHub Owner Role Granted To User
-
-In GitHub organizations, the owner role grants comprehensive administrative privileges, enabling full control over repositories, settings, and data. Adversaries may exploit this by elevating their privileges to maintain persistence or exfiltrate sensitive information. The detection rule identifies suspicious privilege escalations by monitoring audit logs for changes in member roles to 'admin', signaling potential unauthorized access.
-
-### Possible investigation steps
-
-- Review the audit log entry to confirm the event details, focusing on the `event.dataset`, `event.action`, and `github.permission` fields to ensure the alert is valid and corresponds to a role change to 'admin'.
-- Identify the user who was granted the owner role by examining the `user.name` and `user.id` fields in the audit log entry.
-- Determine the initiator of the role change by checking the `actor.name` and `actor.id` fields to see if the change was made by an authorized individual.
-- Cross-reference the timestamp of the event with other logs to identify any concurrent suspicious activities, such as failed login attempts or unusual repository access.
-- Check the user's recent activity in the organization to identify any anomalies or actions that could indicate malicious intent.
-- Investigate the user's account history for any previous suspicious activities or privilege escalations.
-- Use Osquery to gather additional context on the user's machine, such as running the query: `SELECT * FROM processes WHERE user = '<user.name>';` to identify any unusual processes or connections.
-- Review the organization's member list and permissions to ensure no other unauthorized changes have been made.
-- Consult with the organization's administrators to verify if the role change was expected or authorized.
-- Document all findings and observations to provide a comprehensive overview of the investigation for further analysis or escalation if needed.
-
-### False positive analysis
-
-- Legitimate role changes: In some organizations, it is common for certain users to be granted the owner role temporarily for administrative tasks. These changes can be considered false positives if they are part of regular operations.
-- Automated processes: Some organizations use automated scripts or bots to manage user roles, which might trigger the detection rule. These should be reviewed to ensure they are authorized and documented.
-- Organizational restructuring: During periods of restructuring or mergers, role changes might occur frequently and could be mistaken for unauthorized access.
-- To manage these false positives, users can create exceptions for known and documented role changes by maintaining a list of authorized personnel who can be granted the owner role.
-- Implementing a review process for role changes can help in quickly identifying and excluding non-threatening behaviors from triggering alerts.
-- Regularly update and audit the list of exceptions to ensure it reflects current organizational policies and personnel changes.
-
-### Response and remediation
-
-- Immediately revoke the unauthorized owner role to prevent further access and potential damage.
-- Conduct a thorough investigation to determine how the privilege escalation occurred, reviewing audit logs and access patterns.
-- Verify the integrity of critical repositories and settings to ensure no unauthorized changes have been made.
-- Notify the security team and relevant stakeholders about the incident for awareness and further action.
-- Escalate the incident to higher management if the breach is confirmed to be part of a larger attack or if sensitive data has been compromised.
-- Implement additional logging and monitoring to capture detailed access and modification events for future investigations.
-- Integrate with security information and event management (SIEM) systems to enhance real-time detection and response capabilities.
-- Review and update access control policies to enforce the principle of least privilege and reduce the risk of future privilege escalations.
-- Conduct a security awareness session for organization members to educate them on recognizing and reporting suspicious activities.
-- Apply hardening measures such as enabling two-factor authentication for all users and regularly reviewing and updating security configurations."""
 
 
 [[rule.threat]]

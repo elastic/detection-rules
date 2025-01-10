@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -53,48 +53,6 @@ process where host.os.type == "windows" and event.type == "start" and
     "wmiprvse.exe"
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Process Execution on WBEM Path
-
-The Windows Management Instrumentation (WMI) is a core component for managing data and operations on Windows systems. It typically runs processes from the WBEM directory. Adversaries may exploit WMI to execute malicious processes under the guise of legitimate WMI activity, evading detection. The detection rule identifies non-standard processes executing from the WBEM path, flagging potential misuse by excluding known legitimate WMI executables.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process executable path and name that triggered the alert, focusing on the `process.executable` and `process.name` fields.
-- Verify the legitimacy of the process by checking the file hash against known good hashes or threat intelligence databases to identify any known malicious files.
-- Investigate the parent process using the `process.parent.name` and `process.parent.executable` fields to determine if the process was spawned by a legitimate or suspicious parent.
-- Examine the user context under which the process was executed using the `user.name` field to assess if the execution aligns with typical user behavior.
-- Check the process command line arguments with the `process.command_line` field to identify any suspicious or unusual parameters that may indicate malicious intent.
-- Utilize Osquery to gather additional context about the process. For example, run the following query to list all processes running from the WBEM directory: `SELECT pid, name, path, cmdline, parent FROM processes WHERE path LIKE 'C:\\\\Windows\\\\System32\\\\wbem\\\\%' OR path LIKE 'C:\\\\Windows\\\\SysWow64\\\\wbem\\\\%';`
-- Investigate recent file modifications in the WBEM directory to identify any unauthorized changes or additions that could be related to the suspicious process.
-- Analyze network connections initiated by the process using network monitoring tools or logs to detect any unusual outbound connections that may indicate data exfiltration or command and control activity.
-- Review system logs for any related events or anomalies around the time of the process execution to gather additional context or identify other potentially related suspicious activities.
-- Consult with other security team members or stakeholders to determine if there are any ongoing investigations or incidents that might be related to the alert, ensuring a coordinated response.
-
-### False positive analysis
-
-- Some legitimate third-party applications may occasionally execute processes from the WBEM path for monitoring or management purposes, which could be flagged as unusual. Users should verify the legitimacy of these applications and consider adding them to an exclusion list if they are deemed safe.
-- System administrators might run custom scripts or tools that interact with WMI for system management tasks. These scripts could trigger the detection rule if they execute processes from the WBEM directory. To handle this, administrators can document and exclude these known scripts from the detection rule.
-- During software updates or installations, certain applications might temporarily execute processes from the WBEM path. Users should monitor these activities and, if they are part of a legitimate update process, add them to the exclusion list to prevent future false positives.
-- Security tools or monitoring solutions that integrate with WMI might also execute processes from the WBEM path as part of their normal operation. Users should identify these tools and exclude them from the detection rule to avoid unnecessary alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Verify the legitimacy of the process by checking the process hash against known malware databases and reviewing the process's parent-child relationship.
-- Terminate any suspicious processes identified as running from the WBEM path that are not part of the known legitimate WMI executables.
-- Conduct a thorough investigation of the system to identify any additional indicators of compromise, such as unusual network connections or file modifications.
-- Review system and security logs to trace the origin of the malicious process execution and identify any potential persistence mechanisms.
-- Restore the system to a known good state using backups or system restore points, ensuring that all malicious artifacts are removed.
-- Implement enhanced logging policies to capture detailed process execution and WMI activity for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for alerts.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is part of a larger attack campaign or if additional expertise is required.
-- Apply system hardening measures, such as restricting WMI access to authorized users and processes, and regularly updating and patching systems to mitigate vulnerabilities."""
 
 
 [[rule.threat]]

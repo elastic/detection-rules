@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "auditd_manager"]
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Hping Process Activity"
@@ -70,57 +72,17 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
- and process.name in ("hping", "hping2", "hping3")
+process where host.os.type == "linux" and event.type == "start" and
+ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+ process.name in ("hping", "hping2", "hping3")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Hping Process Activity
-
-Hping is a versatile command-line tool used for crafting and analyzing network packets, often employed in network security testing. Adversaries may exploit Hping to perform reconnaissance, such as scanning networks or probing firewalls, to gather system information. The detection rule identifies the initiation of Hping processes on Linux systems, flagging potential misuse by monitoring specific process events and names associated with Hping.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name matches "hping", "hping2", or "hping3" and verify the event type is "start" with actions like "exec", "exec_event", "executed", or "process_started".
-- Check the timestamp of the event to determine when the Hping process was initiated and correlate it with any other suspicious activities around the same time.
-- Identify the user account under which the Hping process was executed to assess if it aligns with expected behavior or if it indicates potential misuse.
-- Investigate the parent process of the Hping activity to understand how it was initiated and if it was spawned by a legitimate or suspicious process.
-- Examine the command-line arguments used with the Hping process to determine the specific actions it was attempting to perform, such as network scanning or probing.
-- Utilize Osquery to gather additional context about the Hping process by running a query like: `SELECT * FROM processes WHERE name IN ('hping', 'hping2', 'hping3');` to retrieve detailed process information.
-- Analyze network logs to identify any unusual outbound or inbound traffic patterns that coincide with the Hping process execution, indicating potential reconnaissance activity.
-- Cross-reference the host's recent login history and user activity to identify any unauthorized access attempts or anomalies that could be related to the Hping execution.
-- Review system logs for any error messages or warnings that occurred around the time of the Hping process start, which might provide additional context or indicators of compromise.
-- Investigate any other alerts or detections from the same host or user account to determine if the Hping activity is part of a broader attack pattern or isolated incident.
-
-### False positive analysis
-
-- Legitimate network administrators and security professionals may use Hping for authorized network testing and diagnostics, leading to false positives when these activities are part of routine security assessments or troubleshooting.
-- Automated scripts or scheduled tasks that include Hping for regular network health checks or performance monitoring can trigger alerts, even though they are non-malicious in nature.
-- To manage these false positives, users can create exceptions or exclusions in the detection rule for specific users, IP addresses, or time frames that are known to perform legitimate Hping activities.
-- Implementing a whitelist of trusted processes or users who are authorized to use Hping can help reduce unnecessary alerts while maintaining security oversight.
-- Regularly review and update the list of exceptions to ensure that only verified and necessary activities are excluded from triggering alerts, maintaining a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Immediately isolate the affected Linux host from the network to prevent further reconnaissance or potential lateral movement by the adversary.
-- Conduct a thorough investigation to determine the scope of the activity, including reviewing logs and process trees to identify any additional suspicious behavior or related processes.
-- Terminate any unauthorized Hping processes running on the system to halt any ongoing reconnaissance activities.
-- Analyze network traffic logs to identify any unusual outbound connections or data exfiltration attempts that may have occurred during the Hping activity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the activity is part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed process execution and network activity, ensuring that future Hping or similar activities are detected promptly.
-- Integrate threat intelligence feeds and MITRE ATT&CK framework mappings into security monitoring tools to improve detection capabilities for reconnaissance and discovery tactics.
-- Restore the system to its operational state by applying any necessary patches, updates, and security configurations to prevent exploitation of known vulnerabilities.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans to address any deficiencies discovered during the investigation.
-- Implement system hardening measures, such as disabling unnecessary services and enforcing strict access controls, to reduce the attack surface and mitigate the risk of future misuse of tools like Hping."""
 
 
 [[rule.threat]]

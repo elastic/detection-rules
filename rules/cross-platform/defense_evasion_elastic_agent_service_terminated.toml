@@ -2,7 +2,7 @@
 creation_date = "2022/05/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -61,49 +61,6 @@ or
     process.args : "com.apple.iokit.EndpointSecurity" and
     event.action : "end"))
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Elastic Agent Service Terminated
-
-The Elastic Agent is a critical component for monitoring and securing systems across various environments, including Windows, Linux, and MacOS. It collects and sends data to the Elastic Stack for analysis. Adversaries may attempt to stop or disable this service to evade detection, impairing defense mechanisms. The detection rule identifies suspicious processes and commands that attempt to terminate or disable the Elastic Agent, signaling potential malicious activity. By monitoring these actions, security analysts can quickly respond to threats and ensure continuous protection.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and arguments that triggered the alert, focusing on the `process.name` and `process.args` fields.
-- Check the event type (`event.type`) to determine if the process was starting or ending, which can provide context on whether the service was being stopped or disabled.
-- Investigate the user account associated with the process execution to determine if it was an authorized user or potentially compromised.
-- Examine the host's recent activity logs to identify any other suspicious behavior or anomalies around the time the Elastic Agent service was terminated.
-- Use Osquery to gather additional context on the host. For example, run the following query to check for recent process executions: `SELECT * FROM processes WHERE name IN ('net.exe', 'sc.exe', 'wmic.exe', 'powershell.exe', 'taskkill.exe', 'PsKill.exe', 'ProcessHacker.exe');`
-- Verify the integrity and configuration of the Elastic Agent on the affected host to ensure it has not been tampered with or misconfigured.
-- Cross-reference the alert with any recent changes or updates to the system that might have inadvertently caused the service to stop.
-- Check for any network connections or communications from the host that might indicate data exfiltration or command-and-control activity.
-- Review any related alerts or incidents in the security information and event management (SIEM) system to identify potential patterns or correlations with other malicious activities.
-- Consult threat intelligence sources to determine if there are any known campaigns or adversaries that use similar tactics to disable security services.
-
-### False positive analysis
-
-- Routine maintenance or updates: Scheduled system maintenance or software updates may involve stopping services, including the Elastic Agent, leading to false positives. To manage this, create exceptions for known maintenance windows or update processes.
-- System administrators' actions: Legitimate actions by system administrators, such as troubleshooting or reconfiguring systems, might trigger the rule. To handle this, whitelist specific administrator accounts or processes that are known to perform these actions regularly.
-- Automated scripts: Some automated scripts or deployment tools may stop the Elastic Agent as part of their workflow. Identify these scripts and exclude them from triggering alerts by specifying their process names or arguments in the exception list.
-- Testing environments: In testing or development environments, the Elastic Agent might be stopped frequently for testing purposes. Consider excluding these environments from monitoring or creating specific rules that account for their unique behavior.
-- Non-malicious software conflicts: Certain non-malicious software might inadvertently stop the Elastic Agent due to conflicts or misconfigurations. Investigate and resolve these conflicts, and if necessary, exclude the specific software from triggering alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected host from the network to prevent further spread or communication with potential threat actors.
-- Verify the termination of the Elastic Agent service by checking system logs and process status to confirm unauthorized stoppage.
-- Conduct a thorough investigation to identify any unauthorized access or changes made to the system, focusing on the processes and commands listed in the detection query.
-- Review user accounts and permissions on the affected system to ensure no unauthorized accounts or privilege escalations have occurred.
-- Re-enable and restart the Elastic Agent service to restore monitoring capabilities, ensuring it is configured to start automatically on boot.
-- Apply patches and updates to the Elastic Agent and related software to mitigate any known vulnerabilities that could be exploited.
-- Implement enhanced logging policies to capture detailed process execution and service management activities for future analysis.
-- Integrate additional security tools, such as endpoint detection and response (EDR) solutions, to improve visibility and response capabilities.
-- Escalate the incident to the security operations center (SOC) or incident response team if evidence of a broader intrusion or advanced threat is detected.
-- Conduct a post-incident review to identify gaps in security controls and update hardening measures, such as disabling unnecessary services and enforcing strict access controls."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

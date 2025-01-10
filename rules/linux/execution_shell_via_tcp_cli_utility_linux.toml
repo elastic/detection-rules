@@ -2,7 +2,7 @@
 creation_date = "2023/07/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -67,49 +67,6 @@ sequence by host.id with maxspan=5s
        (process.args : ("-i", "-l")) or (process.parent.name == "socat" and process.parent.args : "*exec*")
    )] by process.parent.entity_id
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Reverse Shell
-
-Reverse shells are tools that adversaries use to gain remote access to a system by initiating a connection from the target back to the attacker's machine. This is often achieved by exploiting vulnerabilities or misconfigurations. The detection rule identifies suspicious activity by monitoring for network events followed by shell process creation, focusing on unusual parent-child process relationships and specific command-line arguments, which are indicative of reverse shell attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the host.id and process.entity_id involved in the suspicious activity, ensuring you have the correct context for the investigation.
-- Examine the network event details, focusing on the destination.ip to identify if the connection was made to an external or potentially malicious IP address. Cross-reference this IP with threat intelligence sources.
-- Investigate the process.name and process.args fields to determine the shell type and any arguments used, which may indicate the nature of the reverse shell attempt.
-- Check the process.parent.name and process.parent.args to understand the parent process that initiated the shell, especially if it involves socat, which is commonly used in reverse shell scenarios.
-- Use Osquery to gather additional context on the involved processes. For example, run the following query to list all processes with their parent processes on the affected host: `SELECT pid, name, path, parent, cmdline FROM processes WHERE pid = <process.entity_id>;`
-- Analyze the timeline of events by correlating the network event and process creation timestamps to understand the sequence and duration of the activity.
-- Investigate any other network connections from the same host around the time of the alert to identify additional suspicious activity or patterns.
-- Review system logs on the affected host for any anomalies or related events that coincide with the alert, such as unusual login attempts or privilege escalation.
-- Check for any recent changes or anomalies in user accounts or permissions on the host that could indicate compromise or unauthorized access.
-- Assess the host's security posture by reviewing installed software and configurations to identify potential vulnerabilities or misconfigurations that could have been exploited.
-
-### False positive analysis
-
-- Legitimate administrative scripts or automation tools that initiate network connections followed by shell processes can trigger false positives. These might include backup scripts, configuration management tools, or system monitoring agents that use shells for executing commands remotely.
-- Developers or system administrators using secure shell (SSH) or other remote management tools might inadvertently match the rule's criteria, especially if they use non-standard ports or configurations that mimic reverse shell behavior.
-- Network scanning or security testing tools that simulate attack patterns for vulnerability assessments can also be mistaken for reverse shell attempts.
-- To manage these false positives, users can create exceptions by identifying and excluding specific process names, parent-child process relationships, or network patterns that are known to be benign in their environment. This can be done by adjusting the detection rule to whitelist certain IP addresses, process names, or command-line arguments that are part of regular operations.
-- Regularly review and update the exclusion list to ensure it reflects the current operational environment and does not inadvertently allow malicious activity.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to confirm the reverse shell activity by analyzing network logs, process creation events, and command-line arguments.
-- Terminate any suspicious processes identified as part of the reverse shell activity to stop the attacker's access.
-- Review and analyze the system's security logs to identify any additional indicators of compromise or lateral movement attempts.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
-- Restore the system to a known good state by reinstalling the operating system and applications from trusted sources, ensuring all security patches are applied.
-- Implement enhanced logging policies to capture detailed network and process activity, including command-line arguments and parent-child process relationships.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats in the future.
-- Apply system hardening measures, such as disabling unnecessary services, enforcing least privilege access, and using application whitelisting to prevent unauthorized software execution.
-- Educate users and administrators on recognizing phishing attempts and other common attack vectors used to establish reverse shells, reinforcing the importance of security awareness."""
 
 
 [[rule.threat]]

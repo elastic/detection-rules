@@ -2,7 +2,7 @@
 creation_date = "2020/04/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -35,47 +35,6 @@ event.category:file and event.type:change and file.path:(/etc/sudoers* or /priva
 not process.name:(dpkg or platform-python or puppet or yum or dnf) and 
 not process.executable:(/opt/chef/embedded/bin/ruby or /opt/puppetlabs/puppet/bin/ruby or /usr/bin/dockerd)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Sudoers File Modification
-The sudoers file is crucial in Unix-like systems, defining which users can execute commands with elevated privileges. Adversaries may exploit this by altering the file to gain unauthorized access or escalate privileges. The detection rule identifies suspicious changes to the sudoers file, excluding legitimate processes, to flag potential privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the file path involved is indeed `/etc/sudoers` or `/private/etc/sudoers*`, as specified in the query.
-- Check the `event.category` and `event.type` fields to ensure the event is categorized as a file change, confirming the nature of the alert.
-- Identify the `process.name` and `process.executable` fields to determine which process attempted to modify the sudoers file, ensuring it is not one of the excluded legitimate processes.
-- Investigate the user account associated with the process by examining the `user.name` field to determine if the account has a history of suspicious activity or if it is a known administrative account.
-- Use Osquery to list recent changes to the sudoers file with a query like: `SELECT * FROM file WHERE path = '/etc/sudoers' OR path LIKE '/private/etc/sudoers%' ORDER BY atime DESC LIMIT 5;` to gather more context on recent access times.
-- Cross-reference the timestamp of the alert with system logs to identify any concurrent suspicious activities or anomalies that might correlate with the sudoers file modification.
-- Examine the `host.name` or `host.ip` fields to determine if the alert originated from a critical or high-risk system within the network.
-- Review historical alerts or logs for similar sudoers file modification attempts to identify patterns or repeated unauthorized access attempts.
-- Check for any recent privilege escalation attempts or successful escalations on the system by reviewing related security logs or alerts.
-- Investigate any network connections or external communications initiated by the process that modified the sudoers file to identify potential data exfiltration or command-and-control activities.
-
-### False positive analysis
-
-- System updates or package installations may trigger changes to the sudoers file, especially when using package managers like dpkg, yum, or dnf, which are typically legitimate and non-threatening.
-- Configuration management tools such as Puppet or Chef might modify the sudoers file as part of their routine operations, which can be safely excluded if these tools are known to be in use.
-- Docker daemon processes might also interact with the sudoers file during container operations, which can be considered benign if Docker is part of the system's infrastructure.
-- To manage these false positives, users can create exceptions in the detection rule by excluding known legitimate processes and executables, such as those associated with system updates or configuration management tools, ensuring that only suspicious modifications are flagged.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or privilege escalation.
-- Conduct a thorough investigation to identify the source of the modification, reviewing logs for any unauthorized access or changes to the sudoers file.
-- Verify the integrity of the sudoers file by comparing it with a known good backup and restore it if necessary.
-- Check for any unauthorized accounts or changes in user privileges and revert them to their original state.
-- Escalate the incident to the security team if the modification appears to be part of a broader attack or if multiple systems are affected.
-- Implement enhanced logging for sudoers file changes and monitor for any future unauthorized modifications.
-- Integrate with a Security Information and Event Management (SIEM) system to correlate events and improve detection capabilities.
-- Review and update access controls and permissions to ensure that only authorized personnel can modify the sudoers file.
-- Conduct a post-incident review to identify gaps in security controls and update policies and procedures accordingly.
-- Apply hardening measures such as using sudoers.d for granular control and regularly auditing user privileges to minimize the risk of privilege escalation."""
 
 
 [[rule.threat]]

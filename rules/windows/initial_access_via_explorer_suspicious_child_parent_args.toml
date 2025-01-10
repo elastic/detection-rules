@@ -2,7 +2,7 @@
 creation_date = "2020/10/29"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -51,50 +51,6 @@ process where host.os.type == "windows" and event.type == "start" and
             "/factory,{ceff45ee-c862-41de-aee2-a022c81eda92}"
           )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Explorer Child Process
-
-Windows Explorer, a core component of the Windows operating system, manages file and folder navigation. Adversaries exploit its trusted status to launch malicious scripts or executables, often using it as a parent process to execute harmful payloads via child processes like PowerShell or cmd.exe. The detection rule identifies such anomalies by monitoring for specific child processes initiated by Explorer, excluding benign operations, thus highlighting potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a suspicious child process initiated by explorer.exe, focusing on the process names and original file names such as "powershell.exe", "cmd.exe", and others listed in the query.
-- Check the process command line arguments for any unusual or suspicious patterns, especially those not matching the excluded COM Class IDs.
-- Investigate the parent process explorer.exe to determine if it was started with the "-Embedding" argument, which may indicate an attempt to exploit DCOM for malicious purposes.
-- Correlate the event with user activity logs to identify the user account associated with the suspicious process execution and determine if the activity aligns with their typical behavior.
-- Use Osquery to gather additional context about the suspicious process. For example, run the following query to list all processes with their parent process IDs and command line arguments: `SELECT pid, name, path, cmdline, parent FROM processes WHERE name IN ('cscript.exe', 'wscript.exe', 'powershell.exe', 'rundll32.exe', 'cmd.exe', 'mshta.exe', 'regsvr32.exe');`
-- Examine the network connections established by the suspicious process using network monitoring tools or logs to identify any unusual or unauthorized external communications.
-- Check for any recent file modifications or creations in directories commonly used by the suspicious process, which may indicate payload delivery or execution.
-- Analyze the system's security logs for any other related events or anomalies around the time of the suspicious process execution, such as failed login attempts or privilege escalation activities.
-- Investigate the system for any known vulnerabilities or misconfigurations that could have been exploited to launch the suspicious process.
-- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or campaigns, providing additional context for the investigation.
-
-### False positive analysis
-
-- Legitimate software installations or updates may trigger the rule as they often use scripts or command-line tools like PowerShell or cmd.exe, which are flagged by the detection rule.
-- System administrators or IT personnel executing scripts for maintenance or configuration purposes might inadvertently match the rule criteria, especially if using remote management tools.
-- Some enterprise applications may use explorer.exe to launch necessary components or scripts, which could be misidentified as suspicious activity.
-- Users can manage these false positives by creating exceptions for known and verified processes or scripts that are frequently executed in their environment.
-- Implementing a whitelist of trusted applications or scripts that are known to use explorer.exe as a parent process can help reduce noise.
-- Regularly review and update the exclusion list to ensure it reflects the current operational environment and any new legitimate software deployments.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Conduct a thorough investigation of the suspicious child process to determine if it is indeed malicious, using endpoint detection and response (EDR) tools.
-- Terminate any malicious processes identified during the investigation to stop ongoing malicious activity.
-- Analyze the parent process (explorer.exe) and its command-line arguments to understand how the malicious process was initiated.
-- Review and collect relevant logs, such as Windows Event Logs and security logs, to gather evidence and understand the scope of the incident.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is confirmed to be part of a larger attack campaign.
-- Implement or enhance logging policies to ensure detailed process creation logs are captured for future investigations.
-- Integrate threat intelligence feeds to correlate detected threats with known attack patterns and adversary tactics, techniques, and procedures (TTPs).
-- Restore the system to its operational state by removing any malicious files, registry entries, or scheduled tasks, and apply security patches and updates.
-- Harden the system by implementing application whitelisting, disabling unnecessary scripting engines, and enforcing least privilege access controls to reduce the attack surface."""
 
 
 [[rule.threat]]

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/01/24"
 integration = ["windows", "endpoint", "system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -52,48 +52,6 @@ process where host.os.type == "windows" and event.type == "start" and
   (process.name : "psservice.exe" or process.pe.original_file_name == "psservice.exe")
   ) and not user.id : "S-1-5-18"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating System Service Discovery through built-in Windows Utilities
-
-System service discovery is a technique used to enumerate services running on a Windows system, often leveraging built-in utilities like `net.exe`, `sc.exe`, and `tasklist.exe`. Adversaries exploit these tools to gather information about the system's services, which can aid in privilege escalation or lateral movement. The detection rule identifies suspicious use of these utilities by monitoring specific command-line arguments and process behaviors, excluding known benign system accounts, to flag potential reconnaissance activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and arguments that triggered the detection, focusing on `process.name` and `process.args`.
-- Check the `user.id` associated with the process to determine if it is a known or unknown user, and verify if it deviates from normal behavior.
-- Investigate the parent process of the suspicious activity using `process.parent.name` to understand the context in which the utility was executed.
-- Examine the `host.os.type` and `event.type` fields to confirm the environment and nature of the event, ensuring it aligns with the detection criteria.
-- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name IN ('net.exe', 'sc.exe', 'tasklist.exe', 'psservice.exe');`
-- Analyze recent login events and user activity on the host to identify any unusual patterns or unauthorized access attempts.
-- Correlate the event with other logs, such as network or authentication logs, to identify any related suspicious activities or lateral movement attempts.
-- Check for any recent changes in system services or configurations that could indicate tampering or unauthorized modifications.
-- Investigate the timeline of events leading up to and following the alert to identify any potential precursor or follow-up activities.
-- Review historical data for similar alerts on the same host or user to determine if this is part of a recurring pattern or isolated incident.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators often use utilities like `net.exe`, `sc.exe`, and `tasklist.exe` for legitimate purposes such as service management and system monitoring. These activities can trigger false positives. To manage this, create exceptions for known administrative accounts or specific command-line patterns that are part of regular maintenance activities.
-- Automated scripts and management tools: Organizations may deploy scripts or third-party management tools that utilize these utilities for system checks and reporting. Identify and whitelist these scripts or tools by their process names or specific command-line arguments to reduce false positives.
-- Software updates and installations: Some software installations or updates may invoke these utilities to configure or verify services. Monitor installation logs and correlate with detection events to identify benign activities, then exclude these specific processes or arguments from triggering alerts.
-- Security software operations: Certain security solutions might use these utilities as part of their scanning or monitoring processes. Verify with the security software vendor and exclude these operations by process name or user account to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement or data exfiltration.
-- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any unauthorized access or changes to system services.
-- Review the command-line arguments and process behaviors flagged by the detection rule to confirm malicious activity and gather intelligence on the adversary's tactics.
-- Escalate the incident to the security operations center (SOC) or incident response team if the activity is confirmed as malicious, providing them with all relevant logs and findings.
-- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations, ensuring that all relevant data is retained for analysis.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats in the future.
-- Restore the system to its operational state by removing any unauthorized services or changes made by the adversary, and apply security patches to address any vulnerabilities exploited during the attack.
-- Conduct a post-incident review to identify gaps in security controls and processes, and update security policies and procedures accordingly.
-- Implement hardening measures such as disabling unnecessary services, enforcing least privilege access, and using application whitelisting to reduce the attack surface.
-- Educate users and administrators on recognizing and reporting suspicious activities, emphasizing the importance of adhering to security best practices."""
 
 
 [[rule.threat]]

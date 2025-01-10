@@ -2,7 +2,7 @@
 creation_date = "2023/05/17"
 integration = ["endpoint", "network_traffic", "panw"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -37,47 +37,6 @@ type = "threshold"
 query = '''
 destination.port : * and event.action : "network_flow" and source.ip : (10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Network Scan Detected
-Network scanning is a technique used to identify open ports and services on a network, often as a precursor to an attack. Adversaries exploit this by mapping network vulnerabilities to plan intrusions. The detection rule identifies suspicious activity by monitoring for numerous connection attempts from a single source to multiple ports, indicating a potential scan. This helps in early detection and mitigation of unauthorized network probing.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the source IP address involved in the potential network scan, focusing on the private IP ranges specified in the query (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16).
-- Check the event logs for the specific event.action "network_flow" to gather more context about the network activity and verify the number of destination ports targeted.
-- Correlate the source IP address with internal asset inventories to identify the device or user associated with the IP address.
-- Analyze historical network traffic data to determine if the source IP has exhibited similar scanning behavior in the past.
-- Use Osquery to investigate the source host for any suspicious processes or network connections. Example query: `SELECT pid, name, path FROM processes WHERE pid IN (SELECT pid FROM process_open_sockets WHERE remote_address IN ('<list of destination IPs>'));`
-- Investigate the destination ports that were targeted to identify if they correspond to critical services or known vulnerabilities.
-- Check for any other alerts or incidents involving the same source IP address to assess if this is part of a larger pattern of suspicious activity.
-- Review firewall and intrusion detection/prevention system logs to see if any blocks or alerts were triggered by the same source IP.
-- Consult threat intelligence sources to determine if the source IP or similar scanning patterns have been associated with known threat actors or campaigns.
-- Document findings and gather evidence to support further analysis or escalation if the activity is deemed malicious or part of a coordinated attack.
-
-### False positive analysis
-
-- Legitimate network monitoring tools or vulnerability scanners used by IT departments can trigger this rule as they often perform network scans to assess security posture. Users can handle these by creating exceptions for known IP addresses of authorized tools.
-- Automated backup systems or network management software that routinely check network connectivity and service availability might be flagged. To manage this, users should identify and whitelist these systems to prevent false alerts.
-- Internal network devices, such as printers or IoT devices, that periodically scan for available services or updates can also cause false positives. Users should document and exclude these devices from triggering the rule.
-- Security testing or penetration testing activities conducted by authorized personnel may mimic malicious scanning behavior. Users should coordinate with security teams to schedule these activities and temporarily adjust the rule or add exceptions for the duration of the tests.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to confirm the nature of the network scan and identify any potential breaches or compromised systems.
-- Review firewall and intrusion detection/prevention system (IDS/IPS) logs to identify the source of the scan and any other suspicious activities.
-- Block the source IP address of the scan at the network perimeter to prevent further scanning attempts.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed network traffic and connection attempts for future investigations.
-- Integrate threat intelligence feeds to correlate detected activities with known threat actors and tactics, techniques, and procedures (TTPs).
-- Restore affected systems to a known good state by applying patches, updating configurations, and ensuring all security controls are active.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Implement network hardening measures, such as disabling unused ports and services, to reduce the attack surface and prevent future scans."""
 
 
 [[rule.threat]]

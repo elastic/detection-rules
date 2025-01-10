@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -115,49 +115,6 @@ registry where host.os.type == "windows" and event.type == "change" and
       )
      )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Uncommon Registry Persistence Change
-
-Windows Registry is a critical system database that stores configuration settings. Adversaries exploit registry keys for persistence by adding or modifying entries to execute malicious code during system events like startup or user logon. The detection rule identifies unusual changes in specific registry paths often targeted for stealthy persistence, filtering out common legitimate modifications to highlight potential threats.
-
-### Possible investigation steps
-
-- Review the specific registry path and value that triggered the alert to understand the context of the change. Focus on paths listed in the query, such as `HKLM\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Winlogon\\\\Userinit`.
-- Check the `registry.data.strings` field to identify the new or modified data associated with the registry change. This can provide clues about the potential payload or command being executed.
-- Investigate the process that made the registry change by examining the `process.name` and `process.executable` fields. Determine if the process is legitimate or potentially malicious.
-- Use Osquery to gather additional context about the process that made the change. For example, run the following query to list processes with their command-line arguments: `SELECT pid, name, path, cmdline FROM processes WHERE name = '<process_name>';`.
-- Cross-reference the process information with known good and bad processes to assess the likelihood of malicious activity. Utilize threat intelligence sources if available.
-- Examine the system's event logs around the time of the registry change for any related events, such as user logons or other system changes, to build a timeline of activity.
-- Check for any network connections initiated by the process that made the registry change. This can help identify potential command and control communication.
-- Investigate the user account context under which the registry change was made. Determine if the account has a history of suspicious activity or if it was compromised.
-- Review any recent software installations or updates that might have legitimately modified the registry. This can help rule out false positives.
-- If the registry change is associated with a known persistence technique, research the specific technique to understand its implications and how it might be leveraged by an adversary.
-
-### False positive analysis
-
-- Legitimate software installations or updates may modify registry keys for legitimate persistence purposes, such as adding entries to the Run or RunOnce keys. Users can handle these by monitoring installation activities and correlating them with registry changes.
-- System administrators might use scripts or group policies that modify registry keys for configuration management. These should be documented and excluded from alerts by creating exceptions for known administrative processes.
-- Security software, like antivirus or endpoint protection solutions, may alter registry settings as part of their normal operation. Users should identify these processes and exclude them from detection by specifying their executable paths in the exception list.
-- Windows system processes, such as `msiexec.exe` or `svchost.exe`, may trigger registry changes during normal operations like updates or system maintenance. Users can manage these by excluding these processes from detection when they are associated with known benign registry paths or values.
-- Custom scripts or applications developed in-house that require registry modifications for functionality might trigger false positives. Users should document these applications and create specific exceptions based on their known behaviors and registry paths.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential threats.
-- Conduct a thorough investigation of the registry changes to identify any unauthorized or malicious entries.
-- Utilize endpoint detection and response (EDR) tools to analyze the processes and executables associated with the registry changes.
-- Remove or revert any unauthorized registry modifications to their original state to restore system integrity.
-- Scan the system with updated antivirus and anti-malware tools to detect and remove any associated threats.
-- Review and enhance logging policies to ensure comprehensive monitoring of registry changes and related system activities.
-- Implement additional security measures such as application whitelisting and user access controls to prevent unauthorized registry modifications.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is determined to be part of a larger attack campaign.
-- Document the incident, including the root cause analysis and remediation steps, to improve future response efforts.
-- Consider deploying threat intelligence integrations to stay informed about emerging threats and tactics related to registry persistence."""
 
 
 [[rule.threat]]

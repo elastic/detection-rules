@@ -2,7 +2,7 @@
 creation_date = "2023/09/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -39,49 +39,6 @@ sequence by process.entity_id with maxspan=5m
   not process.code_signature.status : ("errorExpired", "errorCode_endpoint*")]
  [network where host.os.type == "windows" and event.action == "connection_attempted"]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Execution from a Removable Media with Network Connection
-
-Removable media, like USB drives, facilitate data transfer but can be exploited by adversaries to introduce malware into isolated systems. Attackers may leverage autorun features to execute malicious code upon media insertion. The detection rule identifies suspicious process executions from USBs, especially those lacking valid code signatures, and correlates them with network connection attempts, signaling potential unauthorized access or data exfiltration efforts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process entity ID and timestamp of the suspicious execution from the removable media.
-- Verify the process details, including the process name, path, and command line arguments, to determine if it aligns with known legitimate applications or if it appears suspicious.
-- Check the code signature status of the process to confirm if it is indeed untrusted or unsigned, as indicated by the alert.
-- Investigate the USB device details, such as the device bus type and product ID, to identify the specific removable media used and its history of usage on the system.
-- Correlate the process execution with network connection attempts by examining the network event details, including the destination IP addresses and ports, to identify any unusual or unauthorized connections.
-- Use Osquery to gather additional context on the process and USB device. For example, run the following query to list processes executed from USB devices: `SELECT * FROM processes WHERE path LIKE 'E:\\\\%' OR path LIKE 'F:\\\\%';`
-- Analyze the user account associated with the process execution to determine if it aligns with expected user behavior or if it indicates potential compromise.
-- Review system logs and security events around the time of the alert to identify any other suspicious activities or anomalies that may be related.
-- Investigate the history of the USB device on the system by checking for previous insertions and any other processes executed from it.
-- Cross-reference the alert with threat intelligence sources to determine if the process or network activity matches known indicators of compromise or attack patterns.
-
-### False positive analysis
-
-- Legitimate software installations or updates from USB drives may trigger the rule if the software lacks a valid code signature. Users can create exceptions for known software vendors or specific USB devices used for updates.
-- IT personnel using USB drives for system maintenance or diagnostics might cause false positives. To manage this, organizations can whitelist specific USB devices or processes associated with IT operations.
-- Educational or training environments where software is frequently distributed via USB may also generate alerts. In such cases, users can exclude specific processes or devices commonly used in these settings.
-- Developers or testers using unsigned applications from USB drives for testing purposes might inadvertently trigger the rule. Exceptions can be made for specific development environments or devices.
-- In environments where USB devices are used for legitimate data transfer between isolated systems, users can establish a list of trusted devices or processes to reduce false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the source and scope of the intrusion, focusing on the processes executed from the removable media and any network connections attempted.
-- Quarantine the removable media to prevent further use and analyze it for malware or unauthorized files.
-- Remove any identified malicious software from the affected system using trusted antivirus or anti-malware tools.
-- Review and update the system's autorun settings to disable automatic execution of programs from removable media.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems may be affected.
-- Implement enhanced logging policies to capture detailed information on process executions and network connections, particularly those involving removable media.
-- Integrate threat intelligence feeds to correlate detected activities with known threat actors or campaigns, leveraging MITRE ATT&CK framework for context.
-- Restore the system to its operational state by applying the latest security patches and updates, and verify the integrity of critical system files.
-- Strengthen security measures by enforcing strict access controls, conducting regular security awareness training, and implementing endpoint protection solutions."""
 
 
 [[rule.threat]]

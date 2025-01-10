@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -38,48 +38,6 @@ query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
 process.name == "trap" and process.args : "SIG*"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Trap Signals Execution
-Trap signals in Unix-like systems allow processes to execute specific commands when receiving interrupt signals, such as SIGINT or SIGTERM. Adversaries exploit this by embedding malicious commands in trap handlers, enabling unauthorized actions upon signal reception. The detection rule identifies such abuse by monitoring process initiation events where the 'trap' command is executed with signal-related arguments, indicating potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the 'trap' command execution with signal-related arguments, focusing on the fields `process.name` and `process.args`.
-- Examine the `event.type` and `event.action` fields to verify that the process initiation aligns with suspicious activity, such as "exec" or "process_started".
-- Identify the parent process of the 'trap' command using process lineage data to understand the context in which the trap was set.
-- Check the user account associated with the process to determine if it aligns with expected behavior or if it indicates potential privilege escalation.
-- Investigate the command history of the user associated with the process to identify any unusual or unauthorized commands executed prior to the trap setup.
-- Use Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE name = 'trap';` to retrieve detailed information about the process.
-- Analyze the system logs for any preceding or subsequent signals (e.g., SIGINT, SIGTERM) that may have triggered the trap, indicating potential misuse.
-- Correlate the event with other security alerts or logs to identify if this activity is part of a broader attack pattern or campaign.
-- Review network activity logs to detect any outbound connections or data exfiltration attempts following the trap execution.
-- Consult threat intelligence sources to determine if similar trap execution techniques have been reported in recent attacks, providing additional context for the investigation.
-
-### False positive analysis
-
-- Routine administrative scripts: System administrators often use trap commands in scripts to handle signals gracefully during maintenance tasks. These scripts may trigger the detection rule but are typically benign.
-- Development and testing environments: Developers might use trap commands to test signal handling in applications, leading to false positives in environments where such activities are common.
-- Backup and cleanup scripts: Automated scripts for backups or cleanup operations may include trap commands to ensure proper termination and resource release, which can be mistaken for malicious activity.
-- To manage these false positives, users can create exceptions for known scripts or processes by whitelisting specific command paths or user accounts associated with legitimate activities.
-- Implementing a baseline of normal behavior for processes using trap commands can help distinguish between expected and suspicious activities, reducing the likelihood of false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized actions and lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the trap signal abuse, focusing on recent changes to trap handlers and associated processes.
-- Review and analyze logs from the affected system to identify any unauthorized commands executed via trap signals, correlating with known MITRE ATT&CK techniques.
-- Remove or disable any malicious trap handlers identified during the investigation to prevent further exploitation.
-- Restore the system to a known good state using backups or system snapshots, ensuring that all malicious modifications are removed.
-- Implement enhanced logging policies to capture detailed process execution events, including command-line arguments and signal handling activities.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and correlation of similar threats in the future.
-- Conduct a post-incident review to identify gaps in security controls and processes, using insights from the MITRE ATT&CK framework to strengthen defenses against event-triggered execution techniques.
-- Escalate the incident to relevant internal teams and, if necessary, external partners or authorities, providing detailed findings and context for further action.
-- Apply system hardening measures, such as restricting the use of trap commands to trusted users and processes, and regularly updating security patches to mitigate vulnerabilities."""
 
 
 [[rule.threat]]

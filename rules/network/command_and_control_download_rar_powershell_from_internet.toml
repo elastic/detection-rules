@@ -2,7 +2,7 @@
 creation_date = "2020/07/02"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -23,54 +23,7 @@ index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*", 
 language = "kuery"
 license = "Elastic License v2"
 name = "Roshal Archive (RAR) or PowerShell File Downloaded from the Internet"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Roshal Archive (RAR) or PowerShell File Downloaded from the Internet
-
-RAR files and PowerShell scripts are powerful tools in IT environments, used for compression and automation, respectively. However, adversaries exploit these by downloading them from the internet to deploy malicious payloads or scripts. The detection rule identifies such downloads by monitoring network traffic for specific file extensions and filtering out internal IP addresses, flagging potential threats for further investigation.
-
-### Possible investigation steps
-
-- Review the alert details to identify the source IP address and destination IP address involved in the download event. Verify if the source IP is within the internal network ranges specified in the query.
-- Check the URL extension or path to confirm whether the downloaded file is a RAR or PowerShell script, as indicated by the extensions `.ps1` or `.rar`.
-- Analyze network traffic logs to determine the volume and frequency of similar download events from the same source IP. This can help identify patterns or repeated behavior.
-- Investigate the destination IP address to determine if it is associated with known malicious activity or if it is an unusual destination for the internal network.
-- Use Osquery to gather more information about the host that initiated the download. For example, run the following query to list recent files downloaded to the system:
-  ```sql
-  SELECT * FROM file WHERE path LIKE '/path/to/downloads/%' AND (path LIKE '%.ps1' OR path LIKE '%.rar');
-  ```
-- Examine the process tree on the source host to identify the parent process that initiated the download. This can provide context on whether the download was user-initiated or automated by a script or application.
-- Check for any recent changes in the system's scheduled tasks or startup items that might indicate persistence mechanisms related to the downloaded file.
-- Review endpoint security logs for any alerts or detections related to the downloaded file, such as antivirus or EDR alerts, which might provide additional context or confirm malicious intent.
-- Correlate the event with other security alerts or incidents in the same timeframe to identify potential lateral movement or coordinated attacks.
-- Consult threat intelligence sources to gather information on the file hash or URL, if available, to determine if it is associated with known threats or campaigns.
-
-### False positive analysis
-
-- Legitimate software updates: Many software applications use RAR files or PowerShell scripts for updates or installations, which can trigger false positives. Users can create exceptions for known software update servers or domains to reduce these alerts.
-- Internal IT automation: IT departments often use PowerShell scripts for legitimate automation tasks. Monitoring and documenting these scripts can help differentiate between benign and malicious activity, allowing for specific exceptions to be made.
-- Backup and archival processes: Organizations may use RAR files for backup or archival purposes. Identifying and excluding these routine operations from the detection rule can help minimize false positives.
-- Development and testing environments: Developers might download RAR files or use PowerShell scripts for testing purposes. Establishing a list of trusted IP addresses or domains associated with development activities can help in excluding these from alerts.
-- Security tools and penetration testing: Security teams may use RAR files or PowerShell scripts as part of penetration testing or security assessments. Whitelisting known security tools and their associated IP addresses can prevent these activities from being flagged as threats.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malware or unauthorized access.
-- Conduct a thorough investigation of the downloaded RAR or PowerShell file to determine its origin and intent, using sandboxing or static analysis tools.
-- Review network logs and endpoint security alerts to identify any lateral movement or additional compromised systems.
-- Remove any malicious files or scripts identified during the investigation from the affected system.
-- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities.
-- Restore the system from a clean backup if the integrity of the system is compromised beyond repair.
-- Implement enhanced logging policies to capture detailed network traffic and endpoint activity for future incidents.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities.
-- Educate users on the risks of downloading files from untrusted sources and enforce stricter download policies.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is part of a larger attack campaign, referencing MITRE ATT&CK T1105 for context on ingress tool transfer tactics.
-
-## Threat intel
+note = """## Threat intel
 
 This activity has been observed in FIN7 campaigns."""
 references = [

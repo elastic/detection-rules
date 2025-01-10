@@ -2,7 +2,7 @@
 creation_date = "2020/08/17"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/02"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -58,49 +58,6 @@ process where host.os.type == "windows" and event.type == "start" and
                       "rundll32.exe",
                       "powershell.exe")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Persistence via TelemetryController Scheduled Task Hijack
-
-The Microsoft Compatibility Appraiser, part of Windows telemetry, uses scheduled tasks to assess system compatibility. Adversaries may hijack these tasks to gain persistent, high-integrity access by executing unauthorized processes. The detection rule identifies anomalies by monitoring process executions initiated by the telemetry task, excluding known legitimate processes, to flag potential hijacks.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name and arguments that triggered the detection, focusing on the `process.parent.name` and `process.args` fields.
-- Verify the legitimacy of the process by checking the process hash against known good hashes or threat intelligence databases.
-- Investigate the parent process `CompatTelRunner.exe` to determine if it has been tampered with or replaced by a malicious version.
-- Examine the command line arguments (`process.args`) used by the suspicious process to understand its intended actions and potential impact.
-- Use Osquery to list all scheduled tasks on the system and identify any modifications or unusual entries related to the Microsoft Compatibility Appraiser. Example query: `SELECT * FROM scheduled_tasks WHERE name LIKE '%CompatTelRunner%';`
-- Check the system's event logs for any recent changes to scheduled tasks, especially those involving `CompatTelRunner.exe`, to identify potential unauthorized modifications.
-- Analyze the timeline of events leading up to the alert to identify any preceding suspicious activities or related alerts that might indicate a broader attack campaign.
-- Investigate the user account context under which the suspicious process was executed to determine if it has been compromised or misused.
-- Review network connections initiated by the suspicious process to identify any unusual or unauthorized external communications.
-- Correlate the findings with other security tools and logs, such as endpoint detection and response (EDR) solutions, to gather additional context and confirm the scope of the potential compromise.
-
-### False positive analysis
-
-- Known false positives may include legitimate processes that are not part of the predefined exclusion list but are still initiated by the Microsoft Compatibility Appraiser task. These could be custom scripts or applications that organizations have integrated into their system maintenance routines.
-- Users can handle these false positives by reviewing the flagged processes to determine if they are part of legitimate operations. If confirmed as non-threatening, these processes can be added to the exclusion list to prevent future alerts.
-- Another potential false positive scenario involves system administrators using custom tools or scripts that mimic the behavior of excluded processes for maintenance or monitoring purposes. These should be documented and excluded accordingly.
-- Regularly updating the exclusion list to reflect changes in legitimate system processes or newly introduced applications can help minimize false positives.
-- It is important to maintain a balance between security and operational efficiency by ensuring that only verified non-threatening processes are excluded, thus maintaining the integrity of the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to confirm the hijack by reviewing the process execution logs and identifying any unauthorized processes initiated by the telemetry task.
-- Terminate any malicious processes identified during the investigation to halt any ongoing unauthorized activities.
-- Restore the scheduled task to its original state by reconfiguring it to execute only legitimate processes, ensuring the integrity of the Microsoft Compatibility Appraiser.
-- Perform a comprehensive scan of the system using updated antivirus and anti-malware tools to detect and remove any additional threats or malware.
-- Review and update the system's scheduled tasks and permissions to ensure only authorized users and processes can modify them.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed telemetry task execution data, including command-line arguments and parent-child process relationships.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities and correlate similar events across the network.
-- Apply system hardening measures, such as disabling unnecessary services and applying the principle of least privilege, to reduce the attack surface and prevent future hijacks."""
 
 
 [[rule.threat]]

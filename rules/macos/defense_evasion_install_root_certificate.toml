@@ -2,7 +2,7 @@
 creation_date = "2021/01/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -63,49 +63,6 @@ event.category:process and host.os.type:macos and event.type:(start or process_s
   not process.parent.executable:("/Library/Bitdefender/AVP/product/bin/BDCoreIssues" or "/Applications/Bitdefender/SecurityNetworkInstallerApp.app/Contents/MacOS/SecurityNetworkInstallerApp"
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Attempt to Install Root Certificate
-
-Root certificates are pivotal in establishing trust within public key infrastructures, enabling secure communications by validating identities. Adversaries exploit this by installing rogue root certificates on compromised macOS systems, bypassing security warnings to stealthily connect to malicious servers. The detection rule identifies such attempts by monitoring specific process activities related to certificate installation, excluding known legitimate processes, thus highlighting potential security breaches.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the `process.name:security` and `process.args:"add-trusted-cert"` fields, which indicate an attempt to add a trusted certificate.
-- Verify the `event.category:process` and `event.type:(start or process_started)` fields to ensure the alert is related to a process initiation event on a macOS system.
-- Check the `host.os.type:macos` field to confirm the operating system is macOS, as the rule is specifically designed for this environment.
-- Investigate the `process.parent.executable` field to determine if the parent process is one of the known legitimate processes excluded in the rule, such as Bitdefender applications.
-- Use Osquery to list all installed root certificates on the system to identify any recent or suspicious additions. Example query: `SELECT * FROM certificates WHERE common_name LIKE '%root%' AND issuer LIKE '%root%';`
-- Examine system logs for any other unusual activities or errors around the time of the alert to gather additional context.
-- Cross-reference the process execution details with known threat intelligence sources to identify if the certificate or process is associated with known malicious activity.
-- Analyze network logs to identify any connections made by the system to external servers around the time of the alert, focusing on any untrusted or suspicious IP addresses.
-- Review user activity logs to determine if the certificate installation was initiated by a legitimate user or if it was potentially automated or unauthorized.
-- Check for any recent changes in system configurations or installed applications that might explain the certificate installation, ensuring to rule out legitimate administrative actions.
-
-### False positive analysis
-
-- Known false positives for the Attempt to Install Root Certificate rule may include legitimate software installations or updates that require adding trusted certificates, such as security software or enterprise applications.
-- Users can manage these false positives by creating exceptions for known legitimate processes that frequently trigger the rule, such as those associated with trusted security software like Bitdefender.
-- To handle these exceptions, users should identify the parent executable paths of legitimate processes and add them to the exclusion list in the detection rule, ensuring that only non-threatening behaviors are excluded.
-- Regularly review and update the list of exceptions to accommodate new legitimate software that may require root certificate installation, maintaining a balance between security and operational efficiency.
-- It's crucial to monitor the environment for any changes in software behavior that could indicate a shift from legitimate to potentially malicious activity, adjusting the exceptions as necessary to maintain robust security controls.
-
-### Response and remediation
-
-- Immediately isolate the affected macOS system from the network to prevent further communication with potential malicious servers.
-- Verify the presence of unauthorized root certificates by checking the system's keychain and remove any suspicious certificates that are not recognized or expected.
-- Conduct a thorough investigation of the process activity logs to identify the source and timeline of the root certificate installation attempt.
-- Cross-reference the process parent executable with known legitimate applications to ensure no false positives are present.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
-- Restore the system to its operational state by reinstalling the operating system or restoring from a clean backup, ensuring all unauthorized changes are reverted.
-- Apply security hardening measures such as disabling unnecessary services, enforcing strong authentication mechanisms, and regularly updating software and security patches.
-- Educate users on the risks of unauthorized certificate installations and the importance of reporting suspicious activities to the IT department promptly."""
 
 
 [[rule.threat]]

@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/11/01"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ files that are required for the system to function properly. The creation of dir
 attempt to hide malicious files or executables, as these /bin directories usually just contain binaries.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Directory Creation in /bin directory"
@@ -51,56 +53,18 @@ tags = [
     "Tactic: Defense Evasion",
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "mkdir" and
-process.args like ("/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*") and
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "start", "ProcessRollup2", "exec_event") and process.name == "mkdir" and
+  process.args like ("/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*") and
 not process.args in ("/bin/mkdir", "/usr/bin/mkdir", "/usr/local/bin/mkdir")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Directory Creation in /bin directory
-
-The /bin directory is crucial for system operations, housing essential binaries. Adversaries may exploit this by creating directories here to conceal malicious files, leveraging the directory's trusted status. The detection rule monitors for directory creation commands targeting /bin and similar paths, excluding legitimate uses, to identify potential threats linked to defense evasion tactics.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the directory creation event, focusing on the `process.name` and `process.args` fields to verify the use of the `mkdir` command in sensitive directories.
-- Check the `host.os.type` field to ensure the event occurred on a Linux system, as the rule is designed for Linux environments.
-- Investigate the `event.type` and `event.action` fields to confirm the event was a process start and execution, indicating an active directory creation attempt.
-- Examine the `process.args` field to identify the exact directory path targeted for creation, ensuring it matches the monitored paths like `/bin/*`, `/usr/bin/*`, etc.
-- Cross-reference the `process.args` with known legitimate directory creation commands to rule out false positives, as specified in the exclusion list (e.g., `/bin/mkdir`).
-- Use Osquery to gather additional context about the process that triggered the alert. For example, run the query: `SELECT * FROM processes WHERE name = 'mkdir' AND path LIKE '/bin/%';` to identify any suspicious `mkdir` processes.
-- Investigate the parent process of the `mkdir` command to determine if it was initiated by a legitimate user or process, which can provide insights into potential compromise.
-- Check system logs and user activity around the time of the alert to identify any unusual behavior or unauthorized access attempts that could correlate with the directory creation.
-- Review recent changes to the system's environment, such as software installations or updates, that might explain the directory creation in a legitimate context.
-- Consult threat intelligence sources to determine if there are any known campaigns or malware that utilize directory creation in the `/bin` directory as part of their tactics, techniques, and procedures (TTPs).
-
-### False positive analysis
-
-- System administrators or automated scripts may create directories in the /bin directory for legitimate purposes, such as organizing custom scripts or binaries that are not part of the default system installation. These actions can trigger false positives.
-- Software installations or updates might temporarily create directories in these paths as part of their setup or configuration processes, leading to benign alerts.
-- To manage these false positives, users can create exceptions for known and trusted processes or scripts that regularly perform directory creation in these paths. This can be done by adding specific process names or command patterns to an exclusion list.
-- Regularly review and update the exclusion list to ensure it reflects current legitimate activities, minimizing the risk of overlooking genuine threats while reducing unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify any unauthorized directories and files within the /bin and similar directories, using forensic tools if necessary.
-- Review system logs and process execution history to determine the origin and timeline of the directory creation, identifying any associated malicious processes or users.
-- Remove any unauthorized directories and files identified during the investigation, ensuring that no malicious binaries remain in the system.
-- Restore any affected binaries or system files from a known good backup to ensure system integrity and functionality.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
-- Implement enhanced logging policies to capture detailed process execution and file system changes, ensuring future incidents can be detected and analyzed more effectively.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide real-time alerts for suspicious activities.
-- Apply system hardening measures, such as restricting write permissions in critical directories and implementing application whitelisting to prevent unauthorized software execution.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans, incorporating lessons learned to improve future response efforts."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

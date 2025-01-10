@@ -2,7 +2,7 @@
 creation_date = "2020/11/24"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -52,52 +52,6 @@ sequence by host.id with maxspan = 30s
    [process where host.os.type == "windows" and 
     event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.executable : "?:\\Windows\\System32\\conhost.exe"]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Incoming Execution via PowerShell Remoting
-
-PowerShell Remoting enables administrators to execute commands on remote Windows systems, facilitating efficient management. However, adversaries can exploit this for lateral movement by executing commands on compromised machines. The detection rule identifies such abuse by monitoring network traffic on specific ports and correlating it with suspicious process activities, indicating potential unauthorized remote command execution.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific host.id and timestamp of the suspicious activity to focus the investigation on the relevant system and timeframe.
-- Examine network logs to verify the presence of incoming network traffic on ports 5985 or 5986, which are used for PowerShell Remoting, and confirm the source IP address is external and not a known or trusted internal IP.
-- Check for any recent process start events on the affected host where the parent process is "wsmprovhost.exe" and the child process is not "conhost.exe", indicating potential unauthorized command execution.
-- Use Osquery to list all processes on the affected host that have "wsmprovhost.exe" as a parent process to identify any unusual or unexpected child processes:
-  ```sql
-  SELECT pid, name, path, parent FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'wsmprovhost.exe');
-  ```
-- Investigate the source IP address by checking if it is associated with any known malicious activity or if it belongs to an external network that should not have access to the internal systems.
-- Correlate the timing of the network activity with any user logins or scheduled tasks on the affected host to determine if the activity aligns with legitimate administrative actions.
-- Review Windows Event Logs on the affected host for any additional context around the time of the alert, focusing on security and system logs for any anomalies or related events.
-- Check for any recent changes in user accounts or permissions on the affected host that could indicate unauthorized access or privilege escalation.
-- Analyze any command-line arguments or scripts executed by the suspicious processes to understand the intent and potential impact of the activity.
-- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or campaigns, which could provide additional context for the investigation.
-
-### False positive analysis
-
-- Scheduled administrative tasks: Regularly scheduled tasks by IT administrators using PowerShell Remoting for legitimate system management can trigger this rule. Users can handle these by creating exceptions for known administrative IP addresses or specific time windows when these tasks are expected to occur.
-- Automated scripts: Automated scripts that use PowerShell Remoting for system monitoring or maintenance might be flagged. To manage this, users can whitelist specific scripts or processes that are verified as non-threatening.
-- Internal security tools: Some security tools use PowerShell Remoting for scanning or compliance checks. Users should identify these tools and exclude their activities from triggering alerts by specifying their process names or executable paths.
-- Development and testing environments: In environments where developers frequently use PowerShell Remoting for testing purposes, these activities might be mistaken for lateral movement. Users can exclude specific development machines or user accounts from the rule to reduce false positives.
-- Remote management software: Software that relies on PowerShell Remoting for remote management might be misinterpreted as suspicious activity. Users should identify such software and configure exceptions based on the software's known network behavior or process characteristics.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
-- Verify the legitimacy of the PowerShell remoting activity by contacting the system owner or administrator to confirm if the activity was authorized.
-- Conduct a thorough investigation of the affected system to identify any additional signs of compromise, such as unauthorized user accounts or scheduled tasks.
-- Review network logs and endpoint detection logs to trace the source of the unauthorized access and identify any other potentially compromised systems.
-- If unauthorized access is confirmed, reset credentials for affected accounts and implement multi-factor authentication to prevent future unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the full scope of the breach.
-- Restore the affected system from a known good backup to ensure that any malicious changes are removed.
-- Implement enhanced logging policies to capture detailed PowerShell activity and network traffic for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Apply system hardening measures, such as disabling unnecessary services and ports, to reduce the attack surface and prevent exploitation of remote services."""
 
 
 [[rule.threat]]

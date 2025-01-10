@@ -2,7 +2,7 @@
 creation_date = "2020/07/25"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -49,48 +49,6 @@ query = '''
 event.dataset:aws.cloudtrail and event.provider:cloudformation.amazonaws.com and
     event.action: (CreateStack or CreateStackSet) and event.outcome:success
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating First Time AWS Cloudformation Stack Creation by User
-
-AWS CloudFormation automates the setup of cloud resources using templates, streamlining infrastructure management. Adversaries with access can exploit this to deploy malicious resources, escalating their control. The detection rule identifies unusual activity by flagging the initial use of stack creation APIs by a user, helping to spot potential unauthorized actions early.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific IAM user or role that triggered the alert by calling the `CreateStack` or `CreateStackSet` API.
-- Check the AWS CloudTrail logs for additional context around the event, focusing on the `event.dataset:aws.cloudtrail` and `event.provider:cloudformation.amazonaws.com` fields to confirm the legitimacy of the action.
-- Investigate the `event.outcome:success` field to ensure the stack creation was successful and determine if any errors or anomalies were logged during the process.
-- Analyze the IAM policies and permissions associated with the user or role to verify if they have the necessary privileges to perform stack creation and assess if these permissions are excessive.
-- Examine the stack template used in the `CreateStack` or `CreateStackSet` action to identify the resources being provisioned and assess if they align with expected or authorized configurations.
-- Cross-reference the timing of the stack creation event with other logs and alerts to identify any correlated suspicious activities, such as unusual login attempts or privilege escalations.
-- Utilize Osquery to gather additional system-level information. For example, run an Osquery query to list recent AWS API calls made by the user: `SELECT * FROM aws_cloudtrail_events WHERE user_identity_arn = '<user_arn>' AND event_name IN ('CreateStack', 'CreateStackSet') ORDER BY event_time DESC LIMIT 10;`.
-- Investigate the geographical location and IP address from which the API call was made to determine if it aligns with known user activity patterns.
-- Review any recent changes to the AWS environment, such as modifications to security groups or network configurations, that could be related to the stack creation.
-- Consult with the user or team responsible for the account to verify if the stack creation was an expected action and gather any additional context or documentation related to the event.
-
-### False positive analysis
-
-- New legitimate projects or services: When a new project or service is initiated, legitimate users may create CloudFormation stacks for the first time, triggering the rule. To manage this, users can create exceptions for known projects or services by tagging these activities and excluding them from the rule.
-- Onboarding of new team members: New team members with appropriate permissions may trigger the rule when they first use CloudFormation. To handle this, maintain a list of new users and temporarily exclude their activities from the rule until their behavior is established as non-threatening.
-- Automated deployment tools: Some automated tools or scripts may use CloudFormation to deploy resources, appearing as a first-time use by a user. Users can identify these tools and exclude their activities by recognizing specific patterns or tags associated with the tool.
-- Testing and development environments: Activities in testing or development environments may trigger the rule. Users can exclude these environments by filtering based on environment-specific tags or account IDs to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected AWS account to prevent further unauthorized access or resource creation.
-- Review CloudTrail logs to identify the source and scope of the unauthorized stack creation, focusing on the user or role involved.
-- Revoke or adjust IAM permissions for the user or role that initiated the stack creation to prevent further misuse.
-- Investigate the created resources for any malicious configurations or data exfiltration mechanisms and remove them if necessary.
-- Escalate the incident to the security operations team for a deeper investigation and to assess potential impacts on other systems.
-- Implement enhanced logging and monitoring for AWS CloudFormation and related services to detect similar activities in the future.
-- Integrate AWS GuardDuty or similar threat detection services to provide real-time alerts on suspicious activities.
-- Conduct a post-incident review to identify gaps in security controls and update IAM policies to enforce the principle of least privilege.
-- Restore any affected systems or data from backups, ensuring that the restored state is free from unauthorized changes.
-- Educate users and administrators on secure AWS practices and the importance of monitoring for unusual activities, leveraging MITRE ATT&CK framework insights for threat awareness."""
 
 
 [[rule.threat]]

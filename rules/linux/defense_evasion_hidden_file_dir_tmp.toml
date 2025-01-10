@@ -2,7 +2,7 @@
 creation_date = "2020/04/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -84,49 +84,6 @@ not process.name in (
   "command-not-found"
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Creation of Hidden Files and Directories via CommandLine
-
-In Linux environments, files and directories prefixed with a dot (.) are hidden by default, a feature often exploited by adversaries to conceal malicious activities. Attackers may create hidden files in writable directories like /tmp or /var/tmp to evade detection. The detection rule identifies suspicious processes creating such hidden files, excluding benign commands like 'ls' or 'git', thus highlighting potential threats while minimizing false positives.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process that triggered the rule, focusing on the `process.name` and `process.args` fields to understand what command was executed.
-- Examine the `process.working_directory` field to determine the directory where the hidden file or directory was created, ensuring it matches one of the common writable directories like `/tmp`, `/var/tmp`, or `/dev/shm`.
-- Check the `host.os.type` field to confirm the operating system is Linux, as the rule is specifically designed for Linux environments.
-- Investigate the parent process of the suspicious process using the `process.parent.name` and `process.parent.args` fields to understand the context in which the hidden file creation was initiated.
-- Use Osquery to list all hidden files in the directory where the alert was triggered. Example query: `SELECT * FROM file WHERE directory = '/tmp' AND filename LIKE '.%'`.
-- Analyze the contents of the hidden file or directory, if accessible, to determine if it contains malicious code or scripts.
-- Review recent system logs and command history for the user associated with the process to identify any unusual or unauthorized activities leading up to the alert.
-- Check for any network connections or data exfiltration attempts associated with the process using network monitoring tools or logs.
-- Investigate other processes executed by the same user or from the same working directory to identify any additional suspicious activities.
-- Correlate the alert with other security events or alerts in the environment to determine if this is part of a larger attack or campaign.
-
-### False positive analysis
-
-- Known false positives for the Creation of Hidden Files and Directories via CommandLine rule include legitimate system and user activities that create hidden files for configuration or temporary purposes. Common examples are software installations or updates that generate hidden files in directories like /tmp or /var/tmp.
-- Users can manage these false positives by adding exceptions for specific processes or commands that are known to create hidden files as part of their normal operation. This can be done by updating the exclusion list in the detection rule to include additional benign processes that are identified during routine monitoring.
-- Regularly review and update the exclusion list to reflect changes in system behavior or new software deployments that may introduce new benign processes creating hidden files.
-- Consider the context of the process creating the hidden file, such as the user account under which the process is running and the typical behavior of that account, to determine if an activity is likely to be a false positive.
-- Implement logging and alerting mechanisms to track the frequency and context of hidden file creation events, which can help in distinguishing between legitimate and suspicious activities over time.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the hidden files and directories created, analyzing their contents and associated processes for malicious indicators.
-- Terminate any suspicious processes identified during the investigation that are associated with the creation of hidden files.
-- Remove or quarantine the hidden files and directories after confirming they are not legitimate or required for system operations.
-- Review and analyze system logs, including process execution and file access logs, to trace the origin and timeline of the malicious activity.
-- Escalate the incident to the security operations center (SOC) or incident response team if the activity is part of a broader attack campaign or if advanced persistent threat (APT) involvement is suspected.
-- Implement enhanced logging policies to capture detailed process execution and file creation events, ensuring future incidents can be detected and investigated more effectively.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Restore the system to its operational state by applying necessary patches, updating security configurations, and ensuring all malicious artifacts are removed.
-- Harden the system by implementing least privilege access controls, disabling unnecessary services, and regularly auditing writable directories for unauthorized changes."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

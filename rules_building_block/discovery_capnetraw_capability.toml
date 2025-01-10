@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/01/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -65,48 +65,6 @@ event.category:"process" and host.os.type:"linux" and event.type:"start" and eve
 (process.thread.capabilities.effective:"CAP_NET_RAW" or process.thread.capabilities.permitted:"CAP_NET_RAW") and
 not user.id:"0"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Network Traffic Capture via CAP_NET_RAW
-
-CAP_NET_RAW is a Linux capability that allows processes to create raw sockets, enabling them to capture and manipulate network traffic. While useful for legitimate network diagnostics, adversaries can exploit it to intercept data, bypass controls, or tamper with communications. The detection rule identifies non-root processes with this capability, flagging potential unauthorized network sniffing activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and user ID associated with the CAP_NET_RAW capability, focusing on the `process.name` and `user.id` fields.
-- Verify the legitimacy of the process by checking the process's path and hash against known good software inventories or threat intelligence databases.
-- Investigate the user account (`user.id`) that initiated the process to determine if it is a legitimate user or potentially compromised.
-- Use Osquery to list all processes with CAP_NET_RAW capabilities by executing: `SELECT pid, name, path FROM processes WHERE capabilities LIKE '%CAP_NET_RAW%';` to identify any other suspicious processes.
-- Examine the command line arguments (`process.command_line`) used to start the process for any unusual or suspicious parameters that might indicate malicious intent.
-- Check the parent process (`process.parent.name`) to understand the process hierarchy and determine if the process was spawned by a legitimate application or a potentially malicious one.
-- Analyze recent login events for the user account in question to identify any unusual login times or sources that could indicate unauthorized access.
-- Review network connections initiated by the process using tools like `netstat` or `ss` to identify any suspicious external communications.
-- Correlate the event with other security logs, such as firewall or intrusion detection system logs, to identify any related suspicious activities or anomalies.
-- Investigate the host's network configuration and firewall settings to ensure that they are properly configured to prevent unauthorized network traffic capture and manipulation.
-
-### False positive analysis
-
-- Legitimate network diagnostic tools: Some network diagnostic tools used by system administrators or network engineers may require CAP_NET_RAW capabilities to function correctly. These tools, while non-root, are not malicious and should be reviewed to determine if they are part of regular network maintenance activities. Users can handle these by creating exceptions for known diagnostic tools that are frequently used in their environment.
-- Containerized applications: In environments using containerization, certain applications may be granted CAP_NET_RAW capabilities to manage network traffic within the container. These applications should be verified to ensure they are part of the expected container setup. Users can exclude these applications by identifying and documenting the containers that require such capabilities for legitimate purposes.
-- Security monitoring tools: Some security tools designed to monitor network traffic for anomalies may also require CAP_NET_RAW capabilities. These tools should be assessed to confirm they are part of the organization's security infrastructure. Users can manage these by maintaining an updated list of approved security tools and excluding them from the detection rule.
-- Development and testing environments: Developers may use CAP_NET_RAW capabilities in non-production environments for testing network-related features. These activities should be monitored to ensure they do not inadvertently transition to production environments. Users can handle these by setting up separate rules or exceptions for development and testing environments, ensuring they are clearly distinguished from production systems.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the process and user associated with the CAP_NET_RAW capability, focusing on non-root users.
-- Review system logs and network traffic to determine the scope of the activity and identify any other potentially compromised systems.
-- Terminate any unauthorized processes identified during the investigation that are using CAP_NET_RAW capabilities.
-- Change credentials and review user permissions for any accounts involved in the incident to prevent further misuse.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the activity is part of a larger attack.
-- Implement enhanced logging and monitoring for network traffic and process execution to detect similar activities in the future.
-- Integrate threat intelligence feeds and MITRE ATT&CK framework data to improve detection and response capabilities for network sniffing and related tactics.
-- Restore the system to its operational state by applying patches, updating configurations, and ensuring all security controls are in place.
-- Harden the system by reviewing and restricting capabilities like CAP_NET_RAW to only trusted processes and users, and ensure firewalls are configured to limit packet types and contents."""
 
 
 [[rule.threat]]

@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/08"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -84,49 +84,6 @@ file.extension == null and process.executable != null and not (
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Git Hook Created or Modified
-
-Git hooks are scripts that automate tasks by executing before or after Git events like commits or pushes. While beneficial for workflow customization, adversaries can exploit them to maintain persistence by embedding malicious scripts. The detection rule identifies suspicious hook file changes on Linux systems, excluding benign processes, to flag potential unauthorized modifications.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific Git hook file path that was created or modified, as indicated by the `file.path` field.
-- Verify the `process.executable` field to determine which process was responsible for the creation or modification of the Git hook file, and assess whether it is a known and trusted application.
-- Check the `event.type` field to confirm whether the event was a creation or modification, as this can provide context on whether a new hook was added or an existing one was altered.
-- Investigate the user account associated with the process by examining the process owner and any related user activity around the time of the event.
-- Use Osquery to gather additional context about the file and process. For example, run the following query to list all files in the `.git/hooks` directory and their metadata: `SELECT * FROM file WHERE path LIKE '/path/to/repo/.git/hooks/%';`
-- Examine the contents of the modified or newly created Git hook file to identify any potentially malicious or unexpected scripts or commands.
-- Cross-reference the `process.name` field with known benign processes to ensure that the process responsible for the change is not typically associated with legitimate Git operations.
-- Review system logs and other security tools for any related suspicious activity or anomalies around the time of the Git hook modification.
-- Investigate any recent changes to the repository or system configuration that might explain the legitimate creation or modification of the Git hook.
-- Consult with the development or operations team to verify if the change was authorized and aligns with any recent updates or deployments.
-
-### False positive analysis
-
-- System package managers like `dpkg`, `rpm`, `yum`, and `dnf` may trigger false positives when they update or install packages that include Git hooks. These processes are typically benign and can be excluded by adding them to the exception list in the detection rule.
-- Container management tools such as `dockerd`, `podman`, and `microdnf` might modify Git hooks during container operations. These are generally safe and can be excluded by specifying their executables in the rule's exception criteria.
-- Automated system maintenance scripts or tools like `puppet`, `chef-client`, and `autossl_check` may create or modify Git hooks as part of their routine operations. Users can handle these by adding the specific process names or paths to the exclusion list.
-- Development tools and scripts, including `git`, `gitea`, and `git-lfs`, may modify hooks during normal development activities. These should be considered for exclusion if they are part of the regular development workflow.
-- Custom scripts or processes that are known and trusted within the organization might also trigger this rule. Users should review these cases and, if deemed safe, add them to the exception list to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the source of the unauthorized Git hook modification, examining recent changes and user activity logs.
-- Review the contents of the modified or newly created Git hook files to determine if malicious code is present and assess the potential impact.
-- Remove any unauthorized or malicious scripts found in the Git hook files and restore them to their original state if possible.
-- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging for Git operations and file modifications on critical systems to improve future detection capabilities.
-- Integrate security tools with version control systems to monitor and alert on suspicious activities related to Git hooks.
-- Apply system hardening measures, such as restricting write permissions to the .git/hooks directory to trusted users only.
-- Educate developers and system administrators on the risks associated with Git hooks and best practices for securing them.
-- Review and update incident response plans to include specific procedures for handling Git hook-related security incidents, leveraging MITRE ATT&CK framework details for persistence and system process modification."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,7 +2,7 @@
 creation_date = "2021/07/15"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Austin Songer"]
@@ -13,51 +13,7 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Unusual Volume of File Deletion"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft 365 Unusual Volume of File Deletion
-
-Microsoft 365's cloud services facilitate collaboration and data management, but adversaries can exploit these features to delete large volumes of files, causing data loss. This detection rule leverages Microsoft Cloud App Security to identify and alert on such unusual file deletion activities, which may indicate malicious intent, aligning with MITRE ATT&CK's data destruction techniques.
-
-### Possible investigation steps
-
-- Review the alert details in Microsoft Cloud App Security to understand the scope and context of the unusual file deletion event.
-- Verify the user account involved in the deletion by examining the `event.dataset` and `event.provider` fields to ensure the activity is associated with Microsoft 365 and the Security Compliance Center.
-- Check the `event.category` and `event.action` fields to confirm that the activity is categorized as web-based and specifically flagged as "Unusual volume of file deletion."
-- Analyze the `event.outcome` field to ensure the deletion activity was successful, which may indicate a higher risk of data loss.
-- Investigate the user's recent activity logs in Microsoft 365 to identify any other suspicious actions or patterns that could suggest malicious intent.
-- Correlate the user's activity with any recent changes in permissions or access levels that might have facilitated the unusual file deletion.
-- Use Osquery to gather additional context on the user's device, such as running processes or network connections, to identify any signs of compromise. Example query: `SELECT * FROM processes WHERE user = 'username';`
-- Examine the user's login history and IP addresses to detect any anomalies or unauthorized access attempts that could be related to the file deletion.
-- Cross-reference the alert with other security tools and logs to identify any concurrent alerts or incidents that might be linked to the same user or activity.
-- Consult with the user or their manager to verify if the file deletion was intentional and authorized, or if it was unexpected and potentially malicious.
-
-### False positive analysis
-
-- Routine administrative tasks: Large file deletions may occur during regular maintenance or data management activities by IT administrators. To manage this, create exceptions for known administrative accounts or scheduled maintenance windows.
-- User-initiated cleanups: Users may delete large volumes of files as part of personal data organization or cleanup efforts. Implement user education and awareness programs to ensure such activities are reported or logged appropriately.
-- Automated processes: Some automated workflows or third-party applications may perform bulk deletions as part of their normal operation. Identify and whitelist these processes to prevent unnecessary alerts.
-- Migration activities: During data migration projects, significant file deletions might occur as data is moved or reorganized. Coordinate with project teams to anticipate these events and adjust monitoring rules accordingly.
-- Shared drive management: In environments with shared drives, users may delete large numbers of files to manage storage space. Establish policies for shared drive management and incorporate them into exception handling procedures.
-
-### Response and remediation
-
-- Immediately isolate the affected user account to prevent further unauthorized deletions and assess if the account has been compromised.
-- Conduct a thorough investigation to determine the scope of the deletion, including identifying the files deleted, the time frame, and any associated user activities.
-- Review audit logs and Microsoft Cloud App Security alerts to identify any other suspicious activities or patterns that may indicate a broader compromise.
-- Restore deleted files from backups or version history, ensuring data integrity and availability are maintained.
-- Escalate the incident to the security operations team if the deletion is determined to be part of a larger attack or if sensitive data is involved.
-- Implement stricter access controls and multi-factor authentication for users with permissions to delete large volumes of files.
-- Enhance logging and monitoring policies to ensure detailed tracking of file operations and user activities within Microsoft 365.
-- Integrate Microsoft 365 with a Security Information and Event Management (SIEM) system for real-time alerting and correlation with other security events.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate users on recognizing phishing attempts and secure handling of credentials to prevent account compromise.
-
-## Setup
+note = """## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 """

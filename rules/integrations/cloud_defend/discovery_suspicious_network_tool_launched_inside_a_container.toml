@@ -2,7 +2,7 @@
 creation_date = "2023/04/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -48,49 +48,6 @@ process where container.id: "*" and event.type== "start" and
 (process.args: ("nc", "ncat", "nmap", "dig", "nslookup", "tcpdump", "tshark", "ngrep", "telnet", "mitmproxy", "socat", "zmap", "masscan", "zgrab"))
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Network Tool Launched Inside A Container
-
-Containers are lightweight, portable environments that encapsulate applications and their dependencies. Adversaries exploit network tools within containers for reconnaissance or data exfiltration. The detection rule identifies the initiation of known network utilities, either as primary processes or subprocess arguments, signaling potential misuse for malicious network activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific network utility that triggered the rule, using the `process.name` and `process.args` fields to understand which tool was executed.
-- Check the `container.id` field to determine which container the suspicious process was running in, and gather additional context about the container's purpose and the application it hosts.
-- Investigate the `event.type` field to confirm the process start event and ensure that the alert corresponds to a new process initiation.
-- Use Osquery to list all running processes within the container to identify any other potentially suspicious activities. Example query: `SELECT * FROM processes WHERE pid IN (SELECT pid FROM process_open_sockets WHERE container_id = '<container.id>');`
-- Examine the container's creation and start times to determine if the suspicious activity aligns with any recent changes or deployments.
-- Review the container's network connections using Osquery to identify any unusual or unauthorized external communications. Example query: `SELECT * FROM process_open_sockets WHERE container_id = '<container.id>';`
-- Analyze the container's logs for any anomalies or errors around the time the suspicious process was executed, which might provide additional context or indicators of compromise.
-- Check for any recent changes to the container's configuration or image that could have introduced the network tool, such as updates or new deployments.
-- Investigate the user context under which the suspicious process was executed to determine if it aligns with expected behavior or if it indicates potential privilege misuse.
-- Correlate the alert with other security events or alerts in the environment to identify if this activity is part of a broader attack pattern or campaign.
-
-### False positive analysis
-
-- Legitimate administrative tasks: Network utilities like `nmap` or `tcpdump` may be used by system administrators for legitimate network diagnostics or monitoring within containers. Users can handle these by creating exceptions for specific user accounts or container IDs known to perform regular maintenance.
-- Automated testing environments: Continuous integration/continuous deployment (CI/CD) pipelines might use tools like `nc` or `telnet` for testing network connectivity or service availability. Users should consider excluding these processes when they originate from known testing containers or environments.
-- Development and debugging: Developers might use network tools such as `dig` or `nslookup` for debugging DNS issues within development containers. To manage these, users can exclude processes initiated by specific development containers or during known development timeframes.
-- Security tools: Security teams might deploy tools like `masscan` or `zmap` for vulnerability assessments or penetration testing. Users can exclude these activities by whitelisting processes executed by security team accounts or during scheduled security assessments.
-- Monitoring solutions: Some monitoring solutions might use utilities like `tshark` or `ngrep` to capture and analyze network traffic. Users should identify and exclude these processes when they are part of recognized monitoring solutions or services.
-
-### Response and remediation
-
-- Immediately isolate the affected container to prevent further network activity and potential lateral movement within the environment.
-- Conduct a thorough investigation of the container's logs and network traffic to identify any unauthorized access or data exfiltration attempts.
-- Review the process tree and command-line arguments to understand the context in which the suspicious network tool was executed.
-- If malicious activity is confirmed, remove the compromised container and redeploy a clean version from a trusted image.
-- Escalate the incident to the security operations team for further analysis and to determine if the threat extends beyond the container.
-- Implement enhanced logging policies to capture detailed process execution and network activity within containers for future investigations.
-- Integrate container security solutions that provide real-time monitoring and alerting for suspicious activities.
-- Apply security patches and updates to the container images and underlying host systems to mitigate known vulnerabilities.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate development and operations teams on secure container practices, emphasizing the importance of using minimal and verified images."""
 
 
 [[rule.threat]]

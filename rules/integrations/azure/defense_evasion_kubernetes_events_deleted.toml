@@ -2,7 +2,7 @@
 creation_date = "2021/06/24"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Austin Songer"]
@@ -23,51 +23,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Kubernetes Events Deleted"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Azure Kubernetes Events Deleted
-
-Azure Kubernetes Service (AKS) logs events to track state changes like container creation or pod scheduling. These logs are crucial for monitoring and troubleshooting. Adversaries may delete these events to hide their tracks and evade detection. The detection rule identifies such deletions by monitoring specific Azure activity logs for successful event deletion operations, signaling potential malicious activity.
-
-### Possible investigation steps
-
-- Review the Azure activity logs to confirm the deletion event by filtering logs with `event.dataset:azure.activitylogs` and `azure.activitylogs.operation_name:"MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/EVENTS.K8S.IO/EVENTS/DELETE"`.
-- Verify the `event.outcome` field to ensure the deletion operation was successful, as indicated by values "Success" or "success".
-- Identify the user or service principal responsible for the deletion by examining the `azure.activitylogs.caller` field.
-- Check the timestamp of the deletion event to determine when the activity occurred and correlate it with other suspicious activities.
-- Investigate the source IP address and location associated with the deletion event to identify any anomalies or unauthorized access.
-- Review the Kubernetes audit logs for any related activities around the same time to identify potential unauthorized actions or patterns.
-- Use Osquery to gather additional context on the affected Kubernetes cluster. For example, run the query: `SELECT * FROM kubernetes_events WHERE event_name = 'delete' AND cluster_name = '<cluster_name>';` to list all deletion events in the cluster.
-- Analyze the Kubernetes RBAC (Role-Based Access Control) settings to ensure that permissions are appropriately configured and no excessive privileges are granted.
-- Cross-reference the deletion event with any recent changes in the cluster configuration or deployments to identify potential causes or related activities.
-- Consult with the team responsible for the Kubernetes environment to verify if the deletion was part of a legitimate maintenance activity or if it requires further investigation.
-
-### False positive analysis
-
-- Routine maintenance or administrative tasks may trigger event deletions, such as clearing old or irrelevant logs to manage storage space. These actions are typically benign and can be identified by correlating with scheduled maintenance windows or known administrative activities.
-- Automated scripts or tools used for log management might delete events as part of their normal operation. Users should review the source and purpose of these scripts to determine if they are legitimate.
-- Certain third-party applications integrated with Azure Kubernetes might perform event deletions as part of their functionality. Users should verify the application's behavior and consider excluding these operations if they are confirmed to be non-threatening.
-- To manage false positives, users can create exceptions for specific user accounts or service principals known to perform legitimate event deletions. This can be done by adding conditions to the detection rule to exclude these entities.
-- Regularly review and update the list of exceptions to ensure that only verified non-malicious activities are excluded, maintaining the balance between security and operational efficiency.
-
-### Response and remediation
-
-- Immediately isolate the affected Kubernetes cluster to prevent further unauthorized access or changes.
-- Conduct a thorough investigation to identify the source and scope of the event deletions, focusing on recent access logs and user activities.
-- Review Azure activity logs to determine if any other suspicious activities occurred around the time of the event deletions.
-- Restore deleted Kubernetes events from backups if available, to ensure continuity in monitoring and troubleshooting.
-- Escalate the incident to the security operations team for a deeper analysis and to determine if the attack is part of a larger campaign.
-- Implement stricter access controls and audit policies on Kubernetes clusters to limit who can delete events and perform other critical operations.
-- Enhance logging and monitoring by integrating Azure Security Center and other security tools to provide real-time alerts on suspicious activities.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Apply security patches and updates to the Kubernetes environment to mitigate any known vulnerabilities that could have been exploited.
-- Educate and train staff on recognizing and responding to similar threats, emphasizing the importance of maintaining robust security practices.
-
-## Setup
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

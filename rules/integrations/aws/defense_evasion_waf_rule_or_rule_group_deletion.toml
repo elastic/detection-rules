@@ -2,7 +2,7 @@
 creation_date = "2020/06/09"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -20,52 +20,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS WAF Rule or Rule Group Deletion"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS WAF Rule or Rule Group Deletion
-
-AWS Web Application Firewall (WAF) protects web applications by filtering and monitoring HTTP requests. Adversaries may delete WAF rules or groups to disable security measures, facilitating attacks like data exfiltration. The detection rule monitors AWS CloudTrail logs for successful deletion actions, identifying potential defense evasion attempts by tracking specific API calls related to rule deletions.
-
-### Possible investigation steps
-
-- Review the CloudTrail logs to confirm the deletion event by filtering for `event.dataset:aws.cloudtrail` and `event.action:(DeleteRule or DeleteRuleGroup)` to ensure the alert is not a false positive.
-- Identify the `event.provider` field to determine which AWS WAF service (waf.amazonaws.com, waf-regional.amazonaws.com, or wafv2.amazonaws.com) was involved in the deletion.
-- Examine the `userIdentity` field in the CloudTrail logs to identify the IAM user or role that performed the deletion action.
-- Check the `sourceIPAddress` field to determine the IP address from which the deletion request originated, which can help identify if the action was performed from an unusual location.
-- Investigate the `eventTime` field to establish a timeline of events and correlate with other activities in the AWS environment around the same time.
-- Use the `requestParameters` field to identify which specific WAF rule or rule group was deleted, providing context on what protections were removed.
-- Cross-reference the `userAgent` field to understand the tool or service used to perform the deletion, which might indicate if it was done through the AWS Management Console, CLI, or another method.
-- Utilize Osquery to gather additional context on the AWS environment by running a query such as: `SELECT * FROM aws_cloudtrail_events WHERE eventName IN ('DeleteRule', 'DeleteRuleGroup') AND eventSource IN ('waf.amazonaws.com', 'waf-regional.amazonaws.com', 'wafv2.amazonaws.com') AND outcome = 'success';`
-- Review IAM policies and permissions associated with the identified user or role to determine if they have legitimate access to delete WAF rules or groups.
-- Investigate any recent changes to IAM policies or roles that might have inadvertently granted excessive permissions, potentially leading to unauthorized deletions.
-
-### False positive analysis
-
-- Routine maintenance or updates by authorized personnel can trigger false positives when legitimate changes are made to AWS WAF rules or rule groups. 
-- Automated scripts or tools used for infrastructure management might delete and recreate rules as part of their normal operation, leading to false positives.
-- Scheduled policy updates or deployments that involve rule deletions can also be mistaken for malicious activity.
-- To manage these false positives, users can create exceptions for known maintenance windows or specific IAM roles that are authorized to perform such actions.
-- Implementing tagging or naming conventions for rules and rule groups can help in identifying legitimate deletions and excluding them from alerts.
-- Regularly review and update the list of trusted IP addresses or user agents that are allowed to perform these actions to minimize unnecessary alerts.
-
-### Response and remediation
-
-- Immediately review AWS CloudTrail logs to confirm the deletion of the WAF rule or rule group and identify the user or service account responsible for the action.
-- Contain the potential threat by temporarily revoking access for the identified user or service account and reviewing their recent activity for any other suspicious actions.
-- Investigate the context of the deletion by checking for any related alerts or anomalies in network traffic or application logs that might indicate an ongoing attack.
-- Restore the deleted WAF rule or rule group from backups or recreate them based on documented configurations to ensure continued protection of web applications.
-- Escalate the incident to the security operations team if the deletion appears to be part of a larger attack or if unauthorized access is suspected.
-- Implement stricter access controls and multi-factor authentication for accounts with permissions to modify WAF configurations to prevent unauthorized changes.
-- Enhance logging and monitoring by ensuring that all AWS WAF-related actions are logged in CloudTrail and integrated with a Security Information and Event Management (SIEM) system for real-time analysis.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans to address similar threats in the future.
-- Educate relevant personnel on the importance of WAF configurations and the potential impact of unauthorized deletions to raise awareness and prevent recurrence.
-- Consider implementing additional AWS security services, such as AWS Config, to continuously monitor and enforce compliance with security policies related to WAF configurations.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

@@ -2,7 +2,7 @@
 creation_date = "2023/04/05"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -37,47 +37,4 @@ type = "query"
 query = '''
 event.kind:alert and event.module:cloud_defend
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Container Workload Protection
-
-Container Workload Protection is crucial for securing containerized environments by monitoring and defending against threats. Adversaries may exploit vulnerabilities in container orchestration or misconfigurations to gain unauthorized access or execute malicious code. The detection rule identifies suspicious activities by generating alerts when specific cloud defense events are triggered, enabling swift investigation and response.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, focusing on the `event.kind:alert` and `event.module:cloud_defend` fields to confirm the alert's origin and type.
-- Check the timestamp of the alert to determine when the suspicious activity occurred and correlate it with any known changes or events in the environment.
-- Identify the container and host involved in the alert by examining metadata such as container ID, image name, and host IP address.
-- Investigate recent changes or deployments in the container orchestration platform that might have introduced vulnerabilities or misconfigurations.
-- Use Osquery to gather additional information about the container environment. For example, run the following query to list all running containers and their associated images: `SELECT id, name, image FROM docker_containers;`
-- Analyze logs from the container orchestration system (e.g., Kubernetes, Docker) to identify any unusual activities or errors around the time of the alert.
-- Cross-reference the alert with other security tools and logs to identify any related alerts or indicators of compromise.
-- Investigate the user accounts and roles involved in the alert to ensure they have appropriate permissions and have not been compromised.
-- Examine network traffic logs to detect any unusual or unauthorized connections to or from the container.
-- Review historical data for similar alerts to identify patterns or recurring issues that might indicate a broader security concern.
-
-### False positive analysis
-
-- Alerts may be triggered by routine administrative tasks or benign activities within the container environment, such as regular updates or maintenance operations, which are not indicative of malicious behavior.
-- Automated deployment processes or continuous integration/continuous deployment (CI/CD) pipelines might generate alerts due to frequent changes and updates, which can be mistaken for suspicious activity.
-- Misconfigured security tools or overly sensitive alert thresholds can lead to false positives by flagging normal container orchestration activities as threats.
-- To manage these false positives, users can create exceptions for known non-threatening behaviors by adjusting alert thresholds or excluding specific event types that are consistently identified as benign.
-- Regularly review and update the list of exceptions to ensure that new legitimate activities are not mistakenly flagged as threats, while maintaining vigilance against potential new attack vectors.
-
-### Response and remediation
-
-- Immediately isolate the affected container or node to prevent further unauthorized access or execution of malicious code.
-- Conduct a thorough investigation of the alert by reviewing logs and events associated with the container workload to identify the source and nature of the threat.
-- Remediate identified vulnerabilities or misconfigurations in the container orchestration environment to prevent similar incidents in the future.
-- Escalate the incident to the security operations team if the threat is determined to be part of a larger attack or if it involves sensitive data.
-- Implement enhanced logging policies to capture detailed information about container activities and network communications for future investigations.
-- Integrate additional security tools and services, such as intrusion detection systems or threat intelligence platforms, to improve threat detection capabilities.
-- Restore the affected container or node to its operational state by redeploying from a known good image and verifying the integrity of the application and data.
-- Apply security patches and updates to the container orchestration platform and underlying infrastructure to address known vulnerabilities.
-- Conduct a post-incident review to analyze the response process and identify areas for improvement in detection and response strategies.
-- Implement hardening measures, such as network segmentation and least privilege access controls, to reduce the attack surface of the containerized environment."""
 

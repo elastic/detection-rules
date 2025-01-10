@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2023/08/30"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ leverage the which command to enumerate the system for useful installed utilitie
 system to escalate privileges or move latteraly across the network.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious which Enumeration"
@@ -26,67 +28,24 @@ tags = [
     "Tactic: Discovery",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
-process.name == "which" and process.args_count >= 10 and not (
-  process.parent.name == "jem" or
-  process.parent.executable like ("/vz/root/*", "/var/lib/docker/*") or
-  process.args == "--tty-only"
-)
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start") and 
+  process.name == "which" and process.args_count >= 10 and not (
+    process.parent.name == "jem" or
+    process.parent.executable like ("/vz/root/*", "/var/lib/docker/*") or
+    process.args == "--tty-only"
+  )
 
 /* potential tuning if rule would turn out to be noisy
 and process.args in ("nmap", "nc", "ncat", "netcat", nc.traditional", "gcc", "g++", "socat") and 
 process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 */
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious which Enumeration
-
-The 'which' command in Linux environments is typically used to locate the executable path of a command. Adversaries may exploit this utility to identify installed software that can aid in privilege escalation or lateral movement. The detection rule identifies unusual usage patterns, such as an excessive number of arguments, which may indicate malicious intent. It filters out benign scenarios, like specific parent processes or known safe paths, to reduce false positives.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name is "which" and the process.args_count is 10 or more, indicating an unusual number of arguments.
-- Check the parent process name and executable path to ensure it is not "jem" or within the specified benign paths ("/vz/root/*", "/var/lib/docker/*").
-- Examine the full command line (process.command_line) used in the suspicious "which" execution to understand the context and intent of the command.
-- Investigate the user account (user.name) associated with the process to determine if the activity aligns with their typical behavior or role.
-- Analyze the process start time (event.start) to correlate with other suspicious activities or known attack timelines.
-- Use Osquery to list all processes started by the same user around the time of the alert to identify any other potentially malicious activities:
-  ```sql
-  SELECT pid, name, path, cmdline FROM processes WHERE uid = (SELECT uid FROM users WHERE username = '<user.name>');
-  ```
-- Check for any network connections or file modifications made by the user or process around the time of the alert to identify lateral movement or data exfiltration attempts.
-- Review system logs for any failed or successful authentication attempts that could indicate privilege escalation efforts.
-- Investigate any recent changes to user permissions or group memberships that could facilitate unauthorized access or privilege escalation.
-- Correlate the alert with other security events or alerts from the same host or network segment to identify potential coordinated attack patterns.
-
-### False positive analysis
-
-- Known false positives may occur when legitimate scripts or applications use the 'which' command with a high number of arguments for system checks or configuration validation. Users can handle these by identifying and excluding specific parent processes or paths that are known to be safe.
-- Frequent non-threatening behaviors can be managed by adding exceptions for specific parent processes like 'jem' or known safe paths such as those under '/vz/root/*' or '/var/lib/docker/*'.
-- If the rule is noisy, consider tuning it by excluding common command-line utilities like 'nmap', 'nc', 'ncat', 'netcat', 'nc.traditional', 'gcc', 'g++', and 'socat' when executed from standard shell environments like 'bash', 'dash', 'ash', 'sh', 'tcsh', 'csh', 'zsh', 'ksh', and 'fish'.
-- Users should regularly review and update the list of exceptions to ensure that new legitimate use cases are not flagged as suspicious, maintaining a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
-- Conduct a thorough investigation of the process tree to identify the parent process and any child processes spawned by the suspicious 'which' command execution.
-- Review system logs and command history to determine the scope of the enumeration and identify any other suspicious activities or commands executed around the same time.
-- If malicious activity is confirmed, perform a full malware scan and remove any identified threats from the system.
-- Change all passwords and credentials that may have been exposed or compromised during the incident.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed command execution and process creation events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Restore the system from a known good backup if the integrity of the system is in question, ensuring that all security patches and updates are applied.
-- Harden the system by disabling unnecessary services, enforcing the principle of least privilege, and regularly auditing installed software and user permissions."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,7 +2,7 @@
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -24,49 +24,6 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and github.category == "integration_installation" and event.type == "deletion"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GitHub App Deleted
-
-GitHub Apps enhance automation and integration within repositories and organizations, facilitating seamless workflows. However, adversaries may exploit this by deleting apps to disrupt services or erase audit trails, potentially executing unauthorized actions. The detection rule monitors audit logs for app deletions, identifying suspicious activities linked to serverless execution tactics, thus safeguarding against such malicious interventions.
-
-### Possible investigation steps
-
-- Review the audit logs to confirm the deletion event by checking the `event.dataset` field for "github.audit" and `event.type` for "deletion".
-- Identify the specific GitHub app that was deleted by examining the `github.category` field for "integration_installation".
-- Determine the user or account responsible for the deletion by reviewing the `user.name` and `user.id` fields in the audit logs.
-- Check the timestamp of the deletion event to understand when the action took place and correlate it with other activities in the logs.
-- Investigate the IP address and location associated with the deletion event using the `source.ip` field to identify any unusual access patterns.
-- Review recent changes or activities in the affected repository or organization to assess any potential impact or unauthorized actions.
-- Cross-reference the deletion event with other security alerts or incidents around the same time to identify any related suspicious activities.
-- Use Osquery to gather additional context on the system where the deletion was initiated. Example query: `SELECT * FROM processes WHERE name LIKE '%git%' AND start_time > 'timestamp_of_deletion';`
-- Analyze the permissions and roles of the user who deleted the app to determine if they had the necessary authorization and if any privilege escalation occurred.
-- Consult with the repository or organization owners to verify if the deletion was authorized and gather any additional context or concerns they might have.
-
-### False positive analysis
-
-- Routine maintenance or updates by authorized personnel may trigger the GitHub App Deleted rule, as legitimate app deletions can occur during these processes.
-- Organizational policy changes or restructuring might lead to the removal of certain GitHub apps, which could be mistakenly flagged as suspicious activity.
-- Users can manage these false positives by creating exceptions for known maintenance periods or authorized personnel actions, ensuring that only unexpected deletions are flagged.
-- Implementing a whitelist of trusted apps and users can help reduce false positives by allowing deletions from these sources without triggering alerts.
-- Regularly reviewing and updating the list of exceptions based on organizational changes can help maintain the accuracy of the detection rule.
-
-### Response and remediation
-
-- Immediately review the audit logs to confirm the deletion of the GitHub app and identify the user or process responsible for the action.
-- Contain the incident by revoking access tokens and permissions associated with the deleted app to prevent further unauthorized actions.
-- Investigate the scope of the incident by checking for any unauthorized changes or actions performed by the app prior to its deletion.
-- Restore the deleted GitHub app from a backup or reconfigure it to ensure continuity of services and workflows.
-- Escalate the incident to the security team if malicious intent is suspected, providing them with all relevant logs and findings.
-- Implement enhanced logging policies to capture detailed events related to app installations, deletions, and modifications for future investigations.
-- Integrate with a Security Information and Event Management (SIEM) system to automate the detection and alerting of suspicious activities related to GitHub apps.
-- Review and update access controls and permissions for GitHub apps to ensure they follow the principle of least privilege.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Educate and train users on recognizing and reporting suspicious activities related to GitHub apps to prevent future incidents."""
 
 
 [[rule.threat]]

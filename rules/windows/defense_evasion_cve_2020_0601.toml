@@ -2,7 +2,7 @@
 creation_date = "2020/03/19"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -34,48 +34,6 @@ type = "query"
 query = '''
 event.provider:"Microsoft-Windows-Audit-CVE" and message:"[CVE-2020-0601]" and host.os.type:windows
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Windows CryptoAPI Spoofing Vulnerability (CVE-2020-0601 - CurveBall)
-
-The Windows CryptoAPI is crucial for validating ECC certificates, ensuring secure communications and software authenticity. CVE-2020-0601, known as CurveBall, allows attackers to exploit this by crafting fake certificates, making malicious files appear legitimate. The detection rule identifies such exploits by monitoring specific event logs and messages related to this vulnerability, focusing on defense evasion tactics.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the event.provider field as "Microsoft-Windows-Audit-CVE" and ensure the message contains "[CVE-2020-0601]" to verify the alert's relevance to the CurveBall vulnerability.
-- Check the host.os.type field to confirm the affected system is running Windows, as this vulnerability specifically targets Windows CryptoAPI.
-- Examine the event logs for any recent entries related to certificate validation failures or anomalies, focusing on the time frame around the alert.
-- Investigate the source of the potentially spoofed certificate by identifying the issuer and subject fields in the certificate details, if available.
-- Use Osquery to gather more information about the affected system. For example, run the following query to list all certificates in the system's certificate store: `SELECT * FROM certificates WHERE common_name LIKE '%CVE-2020-0601%';`
-- Analyze network traffic logs to identify any unusual outbound connections that may have been initiated by the potentially malicious executable.
-- Cross-reference the hash of the suspicious executable with known malware databases to determine if it has been previously identified as malicious.
-- Review recent software installations or updates on the affected system to identify any unauthorized or unexpected changes that could be related to the spoofed certificate.
-- Check for any other alerts or indicators of compromise on the same host that might suggest a broader attack campaign or additional tactics being used.
-- Collaborate with other security teams to gather intelligence on any similar incidents or patterns observed in the network, which could provide additional context or indicators for the investigation.
-
-### False positive analysis
-
-- Legitimate software updates or installations might trigger the detection rule if they use ECC certificates that resemble the characteristics of those exploited in CVE-2020-0601. Users should verify the source of the software and, if confirmed safe, create an exception for these specific certificates.
-- Internal testing environments that utilize self-signed ECC certificates for development purposes may also be flagged. To manage this, users can whitelist these certificates or exclude specific test environments from monitoring.
-- Security tools or applications that perform certificate validation testing might generate alerts. Users should identify these tools and configure the detection rule to ignore their activities by adding them to an exception list.
-- Some enterprise environments may have custom applications that use non-standard ECC certificates, which could be mistaken for malicious activity. In such cases, users should document these applications and adjust the detection parameters to prevent false positives.
-
-### Response and remediation
-
-- Immediately isolate affected systems from the network to prevent further exploitation and lateral movement.
-- Validate the presence of the spoofed certificate by checking the event logs for entries matching the detection query.
-- Revoke any identified malicious certificates and update the certificate trust list to prevent future misuse.
-- Apply the latest security patches from Microsoft to address CVE-2020-0601 and ensure all systems are up to date.
-- Conduct a thorough investigation to identify any additional compromised systems or accounts using the MITRE ATT&CK framework, focusing on Defense Evasion and Subvert Trust Controls.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response coordination.
-- Implement enhanced logging policies to capture detailed cryptographic operations and certificate validation processes.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats.
-- Restore affected systems from clean backups and verify the integrity of critical files and applications before reconnecting to the network.
-- Strengthen system hardening measures by enforcing strict certificate validation policies and regularly reviewing and updating security configurations."""
 
 
 [[rule.threat]]

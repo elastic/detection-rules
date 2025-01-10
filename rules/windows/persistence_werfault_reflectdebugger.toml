@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -43,48 +43,6 @@ registry where host.os.type == "windows" and event.type == "change" and
     "MACHINE\\Software\\Microsoft\\Windows\\Windows Error Reporting\\Hangs\\ReflectDebugger"
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Werfault ReflectDebugger Persistence
-
-Werfault, the Windows Error Reporting service, aids in diagnosing application crashes. Attackers can exploit its ReflectDebugger registry key to persistently execute malicious code by configuring it to trigger on error reports. The detection rule monitors changes to specific registry paths, identifying unauthorized modifications that suggest adversaries are setting up persistence mechanisms through this method.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the registry path involved matches one of the specified paths in the detection rule: "HKLM\\\\Software\\\\Microsoft\\\\Windows\\\\Windows Error Reporting\\\\Hangs\\\\ReflectDebugger", "\\\\REGISTRY\\\\MACHINE\\\\Software\\\\Microsoft\\\\Windows\\\\Windows Error Reporting\\\\Hangs\\\\ReflectDebugger", or "MACHINE\\\\Software\\\\Microsoft\\\\Windows\\\\Windows Error Reporting\\\\Hangs\\\\ReflectDebugger".
-- Check the timestamp of the registry change event to determine when the modification occurred and correlate it with other events or activities on the system around the same time.
-- Identify the user account or process that made the registry change by examining the event logs for user or process information associated with the change event.
-- Investigate the system for any recent application crashes or error reports that could have triggered the Werfault service, potentially executing the malicious payload.
-- Use Osquery to list all current registry keys under the Windows Error Reporting path to identify any other suspicious entries: `SELECT * FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\Software\\\\Microsoft\\\\Windows\\\\Windows Error Reporting\\\\%';`
-- Examine the system for any unusual or unauthorized processes running, especially those that may have been initiated around the time of the registry change.
-- Review network logs for any suspicious outbound connections from the host that could indicate data exfiltration or command and control activity.
-- Check for any recent software installations or updates that could have introduced the registry change, focusing on software that interacts with error reporting or debugging.
-- Analyze the system for any additional persistence mechanisms that may have been established, such as scheduled tasks or startup items, which could indicate a broader compromise.
-- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or campaigns, providing additional context for the investigation.
-
-### False positive analysis
-
-- Legitimate software installations or updates may modify the ReflectDebugger registry key as part of their error reporting configuration, leading to false positives. Users should verify the source of the change and consider excluding known trusted software from triggering alerts.
-- System administrators or IT management tools might intentionally configure the ReflectDebugger key for monitoring or debugging purposes. In such cases, document these changes and create exceptions for these specific registry modifications to prevent unnecessary alerts.
-- Some security or diagnostic tools may interact with the ReflectDebugger registry key as part of their normal operation. Users should identify these tools and whitelist their activities to avoid false positives.
-- Regular audits of registry changes by authorized personnel might trigger alerts. Ensure that these activities are logged and recognized as non-threatening, and adjust the detection rule to exclude these known activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to confirm unauthorized modifications to the ReflectDebugger registry key and identify any associated malicious payloads.
-- Review recent system and application logs to trace the origin of the unauthorized changes and gather additional context on the attack vector.
-- Remove or revert any unauthorized changes to the ReflectDebugger registry key to eliminate the persistence mechanism.
-- Perform a comprehensive malware scan on the affected system to detect and remove any additional malicious software.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to monitor registry changes and other critical system activities for early detection of similar threats in the future.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and response times.
-- Restore the system to its operational state by applying verified clean backups and ensuring all security patches and updates are installed.
-- Harden the system by disabling unnecessary services, applying least privilege principles, and conducting regular security audits to reduce the attack surface."""
 
 
 [[rule.threat]]

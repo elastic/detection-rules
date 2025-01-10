@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funne
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 
 [rule]
 author = ["Elastic"]
@@ -49,46 +49,6 @@ type = "new_terms"
 query = '''
 event.category:"registry" and host.os.type:"windows" and registry.value:"FriendlyName" and registry.path:*USBSTOR*
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating First Time Seen Removable Device
-
-Removable devices, like USB drives, are commonly used for data transfer. However, adversaries can exploit them for unauthorized data exfiltration or malware distribution. The detection rule monitors registry changes related to new removable devices on Windows systems, focusing on the device's friendly name. By identifying first-time-seen devices, analysts can spot potential threats linked to unauthorized access or data replication activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a new removable device by checking the `registry.value` field for the "FriendlyName" of the device.
-- Verify the `registry.path` field to ensure it includes "USBSTOR," indicating the device is a USB storage device.
-- Cross-reference the `host.os.type` field to confirm the operating system is Windows, as the rule is specific to Windows systems.
-- Check the event timestamp to determine when the device was first seen and correlate it with any other suspicious activities around the same time.
-- Investigate the user account associated with the event to determine if the user has a history of using removable devices or if this is unusual behavior.
-- Use Osquery to gather more information about the device. For example, run the following query to list all USB devices connected to the system: `SELECT * FROM usb_devices WHERE serial NOT IN (SELECT serial FROM usb_devices WHERE last_seen < (SELECT MAX(last_seen) FROM usb_devices) - 86400);`
-- Examine the system's recent file access logs to identify any files that may have been copied to or from the removable device.
-- Check for any other registry changes or system modifications that occurred around the same time as the device connection to identify potential malicious activity.
-- Review network logs for any unusual outbound traffic that might indicate data exfiltration attempts following the device's connection.
-- Consult with the user or system owner to verify if the device usage was authorized and legitimate, and gather any additional context about the device's purpose.
-
-### False positive analysis
-
-- Known false positives for the First Time Seen Removable Device rule include legitimate use cases such as employees using personal USB drives for work purposes, IT staff deploying new hardware, or routine backups involving external drives. These activities can trigger alerts despite being non-threatening.
-- To manage these false positives, users can create exceptions for specific devices by whitelisting their friendly names or serial numbers if they are frequently used and verified as safe. Additionally, implementing a policy to register and approve certain removable devices can help reduce unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent potential data exfiltration or further spread of malware.
-- Conduct a thorough investigation to identify the source and intent of the removable device usage, checking for any unauthorized data transfers or suspicious files.
-- Review and analyze registry modification events to confirm the presence of unauthorized or malicious activity linked to the newly seen removable device.
-- If malicious activity is confirmed, remove any identified malware or unauthorized software from the system using trusted antivirus or anti-malware tools.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat level is beyond initial containment capabilities or if it involves sensitive data.
-- Implement enhanced logging policies to capture detailed events related to removable device usage, including file transfers and registry changes, for future investigations.
-- Integrate security solutions such as Data Loss Prevention (DLP) and Endpoint Detection and Response (EDR) to monitor and control data transfers to removable devices.
-- Restore the system to its operational state by applying the latest security patches and updates, and ensure that all security configurations are correctly set.
-- Educate users on the risks associated with removable devices and enforce policies that restrict their use to authorized personnel only.
-- Apply hardening measures such as disabling USB ports where possible, or using endpoint management tools to control device access, in line with the MITRE ATT&CK framework's guidance on mitigating replication through removable media (T1091)."""
 
 
 [[rule.threat]]

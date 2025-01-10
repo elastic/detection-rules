@@ -2,7 +2,7 @@
 creation_date = "2020/08/20"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,50 +22,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Blob Container Access Level Modification"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Azure Blob Container Access Level Modification
-
-Azure Blob Storage allows for scalable data storage, where access levels can be set to control data visibility. Adversaries may exploit this by altering access levels to expose sensitive data publicly. The detection rule monitors for changes in container access settings, focusing on successful operations, to identify potential unauthorized modifications that could lead to data exposure.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event dataset is `azure.activitylogs` and the operation name is `MICROSOFT.STORAGE/STORAGEACCOUNTS/BLOBSERVICES/CONTAINERS/WRITE` with a successful outcome.
-- Identify the specific storage account and container involved in the access level modification by examining the relevant fields in the alert.
-- Check the timestamp of the modification to determine when the change occurred and correlate it with any other suspicious activities around the same time.
-- Investigate the identity of the user or service principal that performed the modification by reviewing the `azure.activitylogs.caller` field.
-- Verify if the user or service principal has a legitimate reason to modify the container access level by checking their role and permissions in Azure Active Directory.
-- Examine the previous access level settings of the container to understand the extent of the change and potential exposure.
-- Use Osquery to gather additional context on the system from which the modification was made, for example: `SELECT * FROM azure_blob_containers WHERE account_name = 'your_storage_account' AND container_name = 'your_container';`
-- Review any related logs or alerts that might indicate lateral movement or privilege escalation attempts leading up to the modification.
-- Check for any recent changes in the organization's policies or configurations that might have inadvertently allowed the modification.
-- Document all findings and maintain a timeline of events to assist in understanding the scope and impact of the access level change.
-
-### False positive analysis
-
-- Routine administrative tasks: Changes to container access levels may be part of regular maintenance or configuration updates by authorized personnel. To manage these, users can create exceptions for known administrative accounts or scheduled maintenance windows.
-- Automated processes: Some organizations use automated scripts or tools to manage storage configurations, which might trigger the detection rule. Users can exclude these processes by identifying and whitelisting the specific service accounts or automation tools involved.
-- Development and testing environments: Access level modifications in non-production environments might be frequent and benign. Users can exclude these environments by filtering out specific storage accounts or resource groups associated with development and testing.
-- Third-party integrations: Certain third-party applications or services may require changes to access levels for functionality. Users should review and whitelist these integrations after ensuring they do not pose a security risk.
-
-### Response and remediation
-
-- Immediately revoke public access to the affected Azure Blob container to prevent further unauthorized data exposure.
-- Conduct a thorough investigation to identify the source and intent of the access level modification, reviewing logs and access patterns.
-- Verify the integrity and confidentiality of the data within the container to assess any potential data breach.
-- Escalate the incident to the security operations team if malicious intent is suspected, providing them with detailed logs and findings.
-- Implement Azure Monitor and Azure Security Center to enhance logging and alerting for future unauthorized access level changes.
-- Review and update access control policies to ensure that only authorized personnel can modify container access levels.
-- Conduct a security audit of all Azure Blob containers to identify and rectify any other instances of misconfigured access levels.
-- Restore the container's access level to its original state, ensuring compliance with organizational security policies.
-- Educate relevant staff on the importance of secure access configurations and the risks associated with public data exposure.
-- Consider implementing Azure Policy to enforce compliance with access level configurations and prevent unauthorized changes.
-
-## Setup
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.microsoft.com/en-us/azure/storage/blobs/anonymous-read-access-prevent"]

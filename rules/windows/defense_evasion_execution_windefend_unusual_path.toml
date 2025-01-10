@@ -2,7 +2,7 @@
 creation_date = "2021/07/07"
 integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -59,48 +59,6 @@ process where host.os.type == "windows" and event.type == "start" and
                               "?:\\Program Files (x86)\\Microsoft Security Client\\*.exe"))
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential DLL Side-Loading via Microsoft Antimalware Service Executable
-
-The Microsoft Antimalware Service Executable is a core component of Windows Defender, responsible for real-time protection against malware. Adversaries may exploit its DLL search order vulnerability by renaming or relocating the executable to load malicious DLLs, bypassing security measures. The detection rule identifies anomalies in the executable's path or name, signaling potential side-loading attempts, thus aiding in early threat detection.
-
-### Possible investigation steps
-
-- Verify the alert by checking the process details, focusing on the `process.name` and `process.executable` fields to confirm if the executable is running from a non-standard path or has been renamed.
-- Review the `process.pe.original_file_name` field to ensure it matches the expected original file name "MsMpEng.exe" and investigate any discrepancies.
-- Examine the parent process information to determine how the suspicious process was initiated, which might provide insights into potential exploitation methods.
-- Check for any recent file modifications or creations in the directories where the suspicious executable is located, which could indicate tampering or preparation for side-loading.
-- Use Osquery to list all DLLs loaded by the suspicious process to identify any unexpected or malicious DLLs. Example query: `SELECT * FROM process_open_sockets WHERE pid = (SELECT pid FROM processes WHERE name = 'MsMpEng.exe');`
-- Investigate the system's event logs for any related security events or anomalies around the time the suspicious process started, focusing on logs that might indicate privilege escalation or lateral movement.
-- Analyze network connections initiated by the suspicious process to identify any unusual or unauthorized external communications.
-- Cross-reference the hash of the suspicious executable with known malware databases to check for any known malicious signatures.
-- Review user activity and access logs to determine if any unauthorized users or accounts were active around the time of the alert.
-- Conduct a historical search for similar alerts or patterns on the host or across the network to assess if this is an isolated incident or part of a broader attack campaign.
-
-### False positive analysis
-
-- Legitimate software updates or system maintenance tasks may temporarily alter the path or name of the Microsoft Antimalware Service Executable, triggering false positives. Users should verify if any updates or maintenance activities coincide with the detection.
-- Some third-party security or system optimization tools might interact with Windows Defender in a way that changes the executable's path or name. Users should review the list of installed software to identify any such tools and consider excluding their activities if deemed safe.
-- In enterprise environments, custom scripts or deployment tools might relocate or rename the executable for legitimate reasons. Users should consult with IT administrators to confirm if such practices are in place and create exceptions for these known activities.
-- To manage false positives, users can create exceptions in their security monitoring tools for specific paths or names that are verified as non-threatening. This involves updating the detection rule to exclude these known benign behaviors while ensuring that the core detection capabilities remain intact.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Verify the legitimacy of the Microsoft Antimalware Service Executable by checking its path and name against known safe locations and names.
-- Conduct a thorough investigation to identify any malicious DLLs loaded by the renamed or relocated executable.
-- Utilize endpoint detection and response (EDR) tools to analyze the process tree and identify any suspicious child processes or network connections.
-- Remove any identified malicious DLLs and restore the Microsoft Antimalware Service Executable to its original state and location.
-- Escalate the incident to the security operations center (SOC) for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and DLL loading events for future investigations.
-- Integrate threat intelligence feeds to correlate the detected activity with known threat actor tactics, techniques, and procedures (TTPs).
-- Restore the system to its operational state by applying the latest security patches and updates to Windows Defender and the operating system.
-- Harden the system by configuring application whitelisting and ensuring that only trusted executables and DLLs are allowed to run."""
 
 
 [[rule.threat]]

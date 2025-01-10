@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2023/02/22"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +13,7 @@ Adversaries may attempt to disable the iptables or firewall service in an attemp
 receive or send network traffic.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Disable IPTables or Firewall"
@@ -51,12 +53,13 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
   (
    /* disable FW */
    (
@@ -74,48 +77,6 @@ process where host.os.type == "linux" and event.type == "start" and event.action
     )
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Attempt to Disable IPTables or Firewall
-
-Firewalls like IPTables on Linux systems are crucial for controlling network traffic and protecting against unauthorized access. Adversaries may attempt to disable these defenses to facilitate malicious activities, such as data exfiltration or lateral movement. The detection rule identifies suspicious processes that aim to disable or stop firewall services, signaling potential defense evasion attempts by monitoring specific command executions and arguments.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and arguments that triggered the rule, focusing on fields like `process.name` and `process.args`.
-- Check the `event.type` and `event.action` fields to confirm the nature of the process execution and ensure it aligns with the suspicious activity described in the rule.
-- Investigate the parent process using `process.parent.args` to understand the context in which the suspicious process was executed, which might reveal if it was part of a larger script or command sequence.
-- Examine the user account associated with the process execution to determine if it was initiated by a legitimate user or potentially compromised account.
-- Use Osquery to gather additional context about the process and its parent. For example, run the following query to list recent processes executed by the same user: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE uid = (SELECT uid FROM processes WHERE pid = <suspicious_pid>);`
-- Check system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any authentication events or anomalies around the time of the alert to identify potential unauthorized access.
-- Investigate any recent changes to firewall configurations by reviewing the history of commands executed by the user, which can be found in shell history files like `.bash_history`.
-- Correlate the alert with other security events or alerts from the same host to identify if this is part of a broader attack pattern, such as lateral movement or privilege escalation attempts.
-- Analyze network traffic logs to detect any unusual outbound connections or data exfiltration attempts that might have occurred after the firewall was disabled.
-- Review any recent system updates or patches applied to the host to rule out the possibility of legitimate maintenance activities that might have triggered the alert.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators may frequently execute commands to disable or stop firewall services during maintenance or troubleshooting. These actions, while legitimate, can trigger the detection rule. To manage this, users can create exceptions for known administrative accounts or specific maintenance windows.
-- Automated scripts: Some automated scripts or configuration management tools may include commands to disable or modify firewall settings as part of their normal operation. Users should review these scripts and, if deemed non-threatening, exclude them from triggering alerts by specifying the script names or paths in the exception list.
-- Testing environments: In testing or development environments, firewall services might be intentionally disabled to facilitate testing. Users can handle these false positives by excluding specific hosts or environments from the detection rule.
-- Legacy systems: Older systems might use different methods or commands to manage firewall settings, which could be flagged by the rule. Users should identify these systems and adjust the detection criteria or add exceptions accordingly.
-
-### Response and remediation
-
-- Immediately isolate the affected host from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify any unauthorized changes or suspicious activities on the host, focusing on recent process executions and network connections.
-- Review system logs and security alerts to determine the scope of the incident and identify any other potentially compromised systems.
-- Restore the firewall settings to their original state using backup configurations or by manually re-enabling the firewall services.
-- Apply patches and updates to the operating system and firewall software to address any known vulnerabilities.
-- Implement enhanced logging policies to capture detailed information on process executions and network activities, ensuring that logs are stored securely and monitored regularly.
-- Integrate security tools such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to improve threat detection and response capabilities.
-- Conduct a post-incident review to analyze the attack vector and update security policies and procedures to prevent similar incidents in the future.
-- Educate and train staff on recognizing and responding to potential security threats, emphasizing the importance of maintaining firewall integrity.
-- Consider implementing additional hardening measures, such as disabling unnecessary services, enforcing strong access controls, and using multi-factor authentication to enhance system security."""
 
 
 [[rule.threat]]

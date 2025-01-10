@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -74,52 +74,6 @@ and process.parent.name:("bash" or "dash" or "sh" or "tcsh" or "csh" or "zsh" or
   process.args:/usr/bin/python*
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating UID Elevation from Previously Unknown Executable
-
-In Linux environments, user ID (UID) elevation is a critical function allowing users to gain root privileges. Adversaries exploit this by using unknown executables to hijack execution flows, often via rootkits, to stealthily gain root access. The detection rule identifies such anomalies by monitoring UID changes initiated by non-standard executables, excluding known safe paths and processes, thus highlighting potential privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific unknown executable that triggered the UID elevation event.
-- Cross-reference the process executable path with known safe paths to confirm it is indeed unknown or suspicious.
-- Examine the parent process name and its command-line arguments to understand the context in which the executable was run.
-- Use Osquery to list all processes running on the host and identify any other instances of the suspicious executable:
-  ```sql
-  SELECT pid, name, path, cmdline FROM processes WHERE path = '<suspicious_executable_path>';
-  ```
-- Investigate the file attributes and metadata of the unknown executable, such as creation and modification times, to determine if it was recently introduced.
-- Check the system logs for any recent changes or installations that might correlate with the appearance of the unknown executable.
-- Analyze the network activity from the host to identify any unusual outbound connections that might indicate data exfiltration or command-and-control communication.
-- Review user activity logs to determine if any legitimate user actions could have inadvertently triggered the UID elevation.
-- Investigate other security alerts or anomalies on the host that might be related to the same timeframe as the UID elevation event.
-- Consult threat intelligence sources to see if the unknown executable or its hash is associated with known malicious activity or campaigns.
-
-### False positive analysis
-
-- Known false positives may occur when legitimate software updates or installations introduce new executables that are not yet recognized by the detection rule. These can include software from trusted vendors that temporarily reside in non-standard directories.
-- System administrators might execute scripts or binaries from custom paths for maintenance or monitoring purposes, which could trigger the rule if these paths are not included in the exceptions.
-- Developers and IT staff often compile and run custom applications or scripts in development environments, which may not be accounted for in the predefined safe paths.
-- To manage these false positives, users can update the detection rule to include exceptions for specific paths or executables that are verified as safe. This can be done by adding these paths to the `process.executable` exclusion list or by specifying known safe process names in the `process.name` exclusion list.
-- Regularly review and update the list of exceptions to ensure that new legitimate software and processes are accounted for, reducing unnecessary alerts while maintaining security vigilance.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the unknown executable and determine how it was introduced into the system.
-- Review system logs and use forensic tools to trace the execution flow and identify any rootkits or malicious modifications.
-- Remove any identified malicious executables and rootkits from the system, ensuring all traces are eradicated.
-- Restore the system from a known good backup if the integrity of the system is compromised beyond repair.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and UID changes for future monitoring.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities.
-- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities.
-- Conduct a security review and harden the system by implementing least privilege access, disabling unnecessary services, and using security tools like SELinux or AppArmor."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

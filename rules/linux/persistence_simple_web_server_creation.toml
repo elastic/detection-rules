@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2024/12/17"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 updated_date = "2025/01/08"
 
 [rule]
@@ -12,7 +14,7 @@ simple HTTP web servers to establish persistence on a compromised system by uplo
 to the server web root, allowing them to regain remote access to the system if lost. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Simple HTTP Web Server Creation"
@@ -52,57 +54,20 @@ tags = [
     "Tactic: Execution",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  (process.name regex~ """php?[0-9]?\.?[0-9]{0,2}""" and process.args == "-S") or
-  (process.name like "python*" and process.args in ("--cgi", "CGIHTTPServer"))
-)
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  (
+    (process.name regex~ """php?[0-9]?\.?[0-9]{0,2}""" and process.args == "-S") or
+    (process.name like "python*" and process.args in ("--cgi", "CGIHTTPServer"))
+  )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Simple HTTP Web Server Creation
-
-Simple HTTP web servers, often created using PHP or Python, are lightweight and easy to deploy, making them ideal for quick file sharing or testing. However, adversaries exploit this simplicity to establish persistence on compromised systems by hosting malicious payloads. The detection rule identifies suspicious server creation by monitoring process executions that match patterns indicative of PHP or Python web server initiation, flagging potential misuse for further investigation.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name and arguments match the patterns specified in the detection rule, focusing on `process.name` and `process.args`.
-- Check the timestamp of the event to determine when the suspicious server was initiated and correlate it with other events around the same time.
-- Investigate the parent process of the suspicious server creation to understand how the process was initiated and identify any potential malicious scripts or commands.
-- Examine the user account under which the process was executed to determine if it aligns with expected behavior or if it indicates potential compromise.
-- Use Osquery to list all active network connections and identify any unusual or unauthorized connections that may be related to the web server. Example query: `SELECT * FROM listening_ports WHERE port = 80 OR port = 8000;`
-- Investigate the file system for any newly created or modified files in the web server's root directory that could contain malicious payloads.
-- Review system logs for any additional context or anomalies around the time of the server creation, such as failed login attempts or privilege escalation activities.
-- Check for any scheduled tasks or cron jobs that might be used to restart the web server or maintain persistence.
-- Analyze network traffic logs to identify any external IP addresses communicating with the server, which could indicate an adversary's control server.
-- Cross-reference the detected activity with threat intelligence sources to determine if the observed behavior matches known attack patterns or indicators of compromise.
-
-### False positive analysis
-
-- Development and testing environments: In many organizations, developers and testers frequently use simple HTTP web servers for legitimate purposes such as testing web applications or sharing files temporarily. These activities can trigger the detection rule, leading to false positives.
-- Automated scripts and tools: Some automated scripts or tools may use PHP or Python to start simple HTTP servers for tasks like data collection or internal service hosting, which are benign but may be flagged by the rule.
-- Educational and training sessions: In educational settings, instructors or students might use simple HTTP servers as part of learning exercises, which can be mistakenly identified as suspicious activity.
-- To manage these false positives, users can create exceptions for known and trusted processes or users by whitelisting specific command patterns or user accounts that frequently initiate these servers for legitimate purposes. Additionally, monitoring the context of server creation, such as the associated user or network activity, can help differentiate between benign and malicious use.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify any malicious payloads or scripts hosted on the simple HTTP web server and remove them.
-- Review system logs and process execution history to determine the initial access vector and scope of the compromise.
-- Utilize MITRE ATT&CK framework details to understand the adversary's tactics, techniques, and procedures (TTPs) and assess potential persistence mechanisms.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging and monitoring policies to capture detailed process execution and network activity for future detection and analysis.
-- Restore the system to a known good state by reinstalling the operating system and applications, ensuring all security patches are applied.
-- Change all credentials and keys that may have been exposed or compromised during the incident.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Implement hardening measures such as disabling unnecessary services, enforcing least privilege access, and deploying endpoint protection solutions to prevent future incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

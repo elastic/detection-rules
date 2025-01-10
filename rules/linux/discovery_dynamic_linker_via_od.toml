@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/02/01"
-integration = ["endpoint", "auditd_manager"]
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +15,7 @@ for examining and debugging binary files or data streams. Attackers can leverage
 identifying injection points and craft exploits based on the observed behaviors and structures within these files.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Dynamic Linker Discovery via od"
@@ -55,61 +57,19 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
     "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started")
  and process.name == "od" and process.args in (
   "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload", "/lib64/ld-linux-x86-64.so.2",
   "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/usr/lib64/ld-linux-x86-64.so.2"
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Dynamic Linker Discovery via od
-
-The dynamic linker in Linux environments is crucial for loading shared libraries needed by programs. Adversaries may exploit the `od` utility to inspect these linkers, seeking vulnerabilities for code injection. The detection rule identifies suspicious use of `od` targeting specific linker paths, flagging potential reconnaissance activities aimed at exploiting dynamic linker mechanisms.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name is "od" and verify the specific arguments used, such as "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" or other linker paths listed in the query.
-- Check the timestamp of the event to determine when the suspicious activity occurred and correlate it with other events around the same time.
-- Identify the user account associated with the process execution to determine if it aligns with expected behavior or if it might be a compromised account.
-- Investigate the parent process of "od" to understand how it was initiated and whether it was part of a legitimate workflow or a potential attack chain.
-- Use Osquery to gather additional context about the process. For example, run the following query to list recent processes executed by the same user: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE uid = (SELECT uid FROM processes WHERE name = 'od' LIMIT 1);`
-- Examine system logs for any unusual activity or errors around the time of the alert that might indicate tampering or exploitation attempts.
-- Check for any recent changes to the dynamic linker files or related configuration files, such as "/etc/ld.so.preload", to identify unauthorized modifications.
-- Review network activity logs to detect any outbound connections or data exfiltration attempts that might coincide with the suspicious process execution.
-- Investigate other alerts or anomalies involving the same host to determine if this is part of a broader attack pattern or isolated incident.
-- Consult threat intelligence sources to see if there are any known campaigns or adversaries that use similar techniques, which could provide additional context for the investigation.
-
-### False positive analysis
-
-- System administrators or developers may use the `od` utility to legitimately inspect dynamic linker files for debugging or system maintenance purposes, leading to false positives. 
-- Automated scripts or monitoring tools that perform regular checks on system files, including dynamic linkers, might trigger the rule unintentionally.
-- Security audits or compliance checks that involve examining system binaries and linkers could also result in false positives.
-- To manage these false positives, users can create exceptions for known benign activities by whitelisting specific user accounts or processes that regularly perform these actions.
-- Implementing a baseline of normal system behavior can help differentiate between legitimate use and potential threats, allowing for more accurate filtering of alerts.
-- Regularly review and update the list of exceptions to ensure that only verified non-threatening activities are excluded from triggering the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
-- Conduct a thorough investigation to confirm the presence of malicious activity by reviewing logs and correlating with other security events.
-- Analyze the process tree and command-line arguments to understand the scope and intent of the suspicious `od` usage.
-- If confirmed malicious, terminate any unauthorized processes and remove any malicious files or scripts identified during the investigation.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging for process execution and file access, focusing on critical system paths and binaries.
-- Integrate threat intelligence feeds to correlate with known indicators of compromise related to dynamic linker exploitation.
-- Restore the system to a known good state using backups or system snapshots, ensuring all patches and updates are applied.
-- Conduct a post-incident review to identify gaps in detection and response, updating security policies and procedures accordingly.
-- Implement hardening measures such as restricting access to critical system files, enforcing least privilege, and using application whitelisting."""
 
 
 [[rule.threat]]

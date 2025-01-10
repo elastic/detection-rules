@@ -2,7 +2,7 @@
 creation_date = "2020/08/31"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -23,51 +23,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Network Watcher Deletion"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Azure Network Watcher Deletion
-
-Azure Network Watcher is a vital tool for monitoring and diagnosing network issues within Azure environments, providing insights and enabling logging for virtual network resources. Adversaries may delete Network Watchers to evade detection and impair defenses. The detection rule identifies such deletions by monitoring Azure activity logs for specific deletion operations, flagging successful attempts to ensure timely investigation and response.
-
-### Possible investigation steps
-
-- Review the Azure activity logs to confirm the deletion event by filtering for `event.dataset:azure.activitylogs` and `azure.activitylogs.operation_name:"MICROSOFT.NETWORK/NETWORKWATCHERS/DELETE"` with `event.outcome:Success`.
-- Identify the user or service principal responsible for the deletion by examining the `azure.activitylogs.caller` field in the logs.
-- Check the timestamp of the deletion event to determine when the Network Watcher was deleted and correlate it with other security events around the same time.
-- Investigate the source IP address and location from which the deletion request was made using the `azure.activitylogs.caller_ip_address` field.
-- Analyze the context of the deletion by reviewing any preceding or subsequent operations in the Azure activity logs that involve the same user or resource group.
-- Use Osquery to query the Azure environment for any recent changes to network configurations or security settings that might indicate further malicious activity. Example query: `SELECT * FROM azure_network_watcher WHERE operation_name = 'MICROSOFT.NETWORK/NETWORKWATCHERS/DELETE';`
-- Check for any alerts or anomalies in other security tools that might correlate with the deletion event, such as unusual login attempts or privilege escalations.
-- Review the audit logs for any changes to user roles or permissions that could have allowed unauthorized deletion of the Network Watcher.
-- Investigate whether there are any other Network Watchers in the environment and assess their current status and configuration for signs of tampering.
-- Consult with the team responsible for network security to verify if the deletion was authorized and documented as part of a legitimate change management process.
-
-### False positive analysis
-
-- Routine maintenance or administrative tasks may lead to the deletion of Network Watchers, which can trigger false positives. These tasks are often scheduled and documented, making them identifiable.
-- Automated scripts or deployment tools that manage Azure resources might delete and recreate Network Watchers as part of their normal operation, leading to benign alerts.
-- Users can manage these false positives by creating exceptions for known maintenance windows or specific administrative accounts that perform these tasks regularly.
-- Implementing a tagging system for resources involved in routine operations can help in distinguishing between legitimate and suspicious deletions.
-- Regularly reviewing and updating the list of exceptions based on changes in administrative practices or automation scripts can minimize unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected Azure environment to prevent further unauthorized actions and assess the scope of the deletion.
-- Review Azure activity logs to identify the source of the deletion request, including user accounts, IP addresses, and timestamps.
-- Verify if the deletion was authorized by cross-referencing with change management records and contacting relevant personnel.
-- Restore the deleted Network Watcher by redeploying it from a known good configuration or backup to resume monitoring and diagnostics.
-- Implement Azure Role-Based Access Control (RBAC) to restrict permissions for deleting critical resources like Network Watchers to only essential personnel.
-- Enable and configure Azure Security Center and Azure Monitor to enhance visibility and alerting on suspicious activities related to network resources.
-- Conduct a thorough investigation to determine if other resources were affected or if there are signs of further compromise.
-- Escalate the incident to the security operations team and, if necessary, involve legal or compliance departments for potential breaches.
-- Update incident response plans and playbooks to include specific procedures for handling Network Watcher deletions and similar threats.
-- Review and enhance logging policies to ensure comprehensive coverage and retention of activity logs, integrating with SIEM solutions for improved threat detection and analysis.
-
-## Setup
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.microsoft.com/en-us/azure/network-watcher/network-watcher-monitoring-overview"]

@@ -2,7 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -23,52 +23,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Deletion of RDS Instance or Cluster"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS Deletion of RDS Instance or Cluster
-
-Amazon RDS is a managed service that simplifies database setup, operation, and scaling. Adversaries may exploit this by deleting RDS instances or clusters to disrupt services or destroy data, aligning with data destruction tactics. The detection rule monitors AWS CloudTrail logs for successful deletion actions, alerting security teams to potential malicious activity targeting RDS resources.
-
-### Possible investigation steps
-
-- Review the AWS CloudTrail logs to confirm the event details, focusing on the `event.dataset`, `event.provider`, `event.action`, and `event.outcome` fields to ensure the alert is valid and corresponds to a successful deletion action.
-- Identify the user or role responsible for the deletion by examining the `userIdentity` field in the CloudTrail logs to determine if the action was performed by an authorized entity or potentially compromised credentials.
-- Check the `sourceIPAddress` and `userAgent` fields in the CloudTrail logs to gather information about the origin of the request, which can help identify if the action was performed from an unusual location or device.
-- Investigate the `requestParameters` field to understand the specific RDS instance or cluster that was deleted, including its name and any associated tags, to assess the impact of the deletion.
-- Cross-reference the deletion event with recent IAM activity logs to identify any unusual permission changes or role assignments that could have facilitated unauthorized access.
-- Utilize Osquery to query the AWS environment for recent changes in IAM policies or roles that might have allowed the deletion. Example query: `SELECT * FROM aws_iam_policies WHERE action = 'rds:DeleteDBInstance' OR action = 'rds:DeleteDBCluster';`
-- Examine the AWS Config history for the deleted RDS instance or cluster to gather information on its configuration and any recent changes that might indicate a precursor to the deletion.
-- Review any recent AWS CloudWatch alarms or logs for anomalies or alerts related to the RDS instance or cluster prior to its deletion, which might provide context or indicate a broader attack.
-- Check for any correlated events in the AWS environment, such as EC2 instance terminations or S3 bucket deletions, that might suggest a coordinated attack or broader impact.
-- Consult with the database and application teams to verify if the deletion was part of a planned maintenance or decommissioning activity, ensuring alignment with organizational processes and avoiding false positives.
-
-### False positive analysis
-
-- Routine maintenance or infrastructure updates by authorized personnel can trigger alerts when RDS instances or clusters are intentionally deleted as part of scheduled tasks. 
-- Automated scripts or cloud management tools that manage database lifecycles might delete RDS resources as part of their normal operation, leading to false positives.
-- Development or testing environments often involve frequent creation and deletion of RDS instances, which can be mistaken for malicious activity.
-- To manage these false positives, users can create exceptions for specific IAM roles or users known to perform regular maintenance or development tasks.
-- Implementing tagging policies for RDS resources can help differentiate between production and non-production environments, allowing for more precise alerting and exclusion rules.
-- Regularly review and update the list of known benign activities and authorized personnel to ensure that the detection rule remains effective without generating unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate affected systems to prevent further unauthorized access or data loss.
-- Verify the deletion event by cross-referencing with internal change management records to confirm if it was authorized.
-- Conduct a thorough investigation using AWS CloudTrail logs to identify the source and method of the deletion action.
-- Restore the deleted RDS instance or cluster from the latest backup to minimize data loss and service disruption.
-- Review and update IAM policies to ensure least privilege access, reducing the risk of unauthorized deletions.
-- Implement enhanced logging and monitoring for RDS activities, ensuring all actions are captured and reviewed regularly.
-- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system for real-time alerting and analysis.
-- Escalate the incident to the security team and relevant stakeholders if malicious intent is suspected, following the organization's incident response plan.
-- Conduct a post-incident review to identify gaps in security controls and update incident response procedures accordingly.
-- Apply hardening measures such as enabling Multi-Factor Authentication (MFA) for all users with access to RDS resources and regularly reviewing access logs for suspicious activities.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

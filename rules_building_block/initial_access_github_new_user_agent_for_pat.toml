@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -35,48 +35,6 @@ event.dataset:"github.audit" and event.category:"configuration" and
 github.user_agent:* and github.hashed_token:* and
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating First Occurrence of User Agent For a GitHub Personal Access Token (PAT)
-
-GitHub Personal Access Tokens (PATs) facilitate programmatic access to repositories, enabling automation and integration. Adversaries may exploit PATs to gain unauthorized access, leveraging new user agents to mask their activities. This detection rule identifies anomalies by flagging unfamiliar user agents associated with PATs, indicating potential misuse or compromise, thus aiding in early threat detection and response.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific user agent and GitHub Personal Access Token (PAT) involved in the anomaly.
-- Cross-reference the user agent with known legitimate user agents used within the organization to determine if it is expected or potentially malicious.
-- Examine the `event.dataset` and `event.category` fields to confirm the event is related to GitHub audit and configuration changes, ensuring the context of the alert is accurate.
-- Investigate the `github.user_agent` field to gather more information about the new user agent, including its origin and any associated IP addresses.
-- Check the `github.hashed_token` field to identify the specific PAT involved and determine its owner or associated user account.
-- Analyze the `github.programmatic_access_type` field to understand the type of access granted by the PAT, focusing on whether it is an OAuth access token or a fine-grained personal access token.
-- Use Osquery to gather additional context on the system or environment where the new user agent was first observed. Example query: `SELECT * FROM processes WHERE name = 'github' AND user_agent = '<new_user_agent>';`
-- Review recent activity logs for the associated user account to identify any unusual or unauthorized actions that may correlate with the new user agent usage.
-- Investigate any recent changes in repository access or permissions that might have been made using the PAT, focusing on any unauthorized modifications.
-- Collaborate with the user or team associated with the PAT to verify if the new user agent usage was intentional and authorized, or if it indicates a potential compromise.
-
-### False positive analysis
-
-- Frequent updates or changes in legitimate automation tools or scripts may introduce new user agents, triggering false positives. Users should maintain an updated list of known and trusted user agents associated with their automation tools to minimize these alerts.
-- Developers or teams using multiple environments or devices for testing and development might inadvertently cause new user agents to appear. It's advisable to document and whitelist user agents from these environments if they are verified as non-threatening.
-- Integration of third-party services or plugins that access GitHub repositories using PATs can result in new user agents. Users should verify the legitimacy of these services and consider adding them to an exception list if they are deemed safe.
-- Regularly rotating or regenerating PATs as part of security best practices can lead to new user agents being flagged. Users should ensure that any new user agents resulting from such practices are reviewed and, if necessary, added to a whitelist to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately revoke the compromised GitHub Personal Access Token (PAT) to prevent further unauthorized access.
-- Investigate the source of the new user agent by reviewing logs to determine if it aligns with known or expected activity.
-- Conduct a thorough review of recent repository changes and access logs to identify any unauthorized actions or data exfiltration.
-- Notify the affected user and relevant security teams about the potential compromise and provide guidance on securing their accounts.
-- Escalate the incident to the security operations center (SOC) if unauthorized access or data breach is confirmed.
-- Implement enhanced logging and monitoring for GitHub activities, focusing on user agent changes and PAT usage.
-- Integrate security information and event management (SIEM) tools to correlate GitHub events with other security data for comprehensive threat detection.
-- Educate users on the importance of using strong, unique PATs and regularly rotating them to minimize the risk of compromise.
-- Restore any affected repositories or systems to their last known good state, ensuring that all unauthorized changes are reverted.
-- Apply security hardening measures, such as enforcing multi-factor authentication (MFA) for all GitHub accounts and restricting PAT scopes to the minimum necessary permissions."""
 
 
 [[rule.threat]]

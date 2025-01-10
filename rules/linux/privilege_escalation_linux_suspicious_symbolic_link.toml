@@ -2,7 +2,7 @@
 creation_date = "2023/07/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/07/30"
 
 [rule]
 author = ["Elastic"]
@@ -77,49 +77,6 @@ process.name == "ln" and process.args in ("-s", "-sf") and
   process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
   not user.Ext.real.id == "0" and not group.Ext.real.id == "0"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Symbolic Link Created
-Symbolic links in Linux are shortcuts that point to files or directories, facilitating easy access. Adversaries exploit them to redirect privileged processes to sensitive files, potentially escalating privileges. The detection rule identifies such abuse by monitoring the creation of symbolic links to critical files or directories, especially when executed by non-root users, indicating possible malicious intent.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific symbolic link creation event, focusing on the `process.name`, `process.args`, and `process.working_directory` fields to understand the context of the command executed.
-- Verify the user context by examining the `user.Ext.real.id` and `group.Ext.real.id` fields to confirm that the action was performed by a non-root user, which could indicate potential privilege escalation attempts.
-- Check the parent process information using the `process.parent.name` field to determine if the symbolic link creation was initiated from a shell, which might suggest a script or manual command execution.
-- Investigate the target of the symbolic link by reviewing the `process.args` field to identify if it points to any critical files or directories, such as `/etc/shadow` or `/bin/bash`.
-- Use Osquery to list all symbolic links in the system and their targets to identify any other potentially malicious links. Example query: `SELECT * FROM file WHERE type = 'symlink';`
-- Examine the user's command history, if available, to identify any preceding commands that might provide context or indicate malicious intent.
-- Review system logs around the time of the event for any other suspicious activities or related events that could provide additional context.
-- Check for any recent changes to the files or directories targeted by the symbolic link to assess if any unauthorized modifications have occurred.
-- Investigate the user's recent login activity and source IP addresses to determine if there are any anomalies or indications of unauthorized access.
-- Correlate this event with other alerts or incidents involving the same user or system to identify patterns or ongoing attack campaigns.
-
-### False positive analysis
-
-- System administrators or automated scripts may create symbolic links to critical files for legitimate purposes, such as backups or system maintenance, which can trigger false positives.
-- Development environments might use symbolic links to manage dependencies or configurations, especially in shared directories, leading to benign alerts.
-- Some software installations or updates might create symbolic links to binaries or configuration files as part of their setup process, which could be misinterpreted as suspicious activity.
-- To manage these false positives, users can create exceptions for known benign processes or users by excluding specific user IDs or process names that are verified as non-threatening.
-- Implementing a whitelist of trusted directories or files that are frequently linked in a non-malicious context can help reduce unnecessary alerts.
-- Regularly review and update the detection rule to accommodate changes in legitimate system behavior, ensuring that only truly suspicious activities are flagged.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Investigate the symbolic link creation event by reviewing logs and process details to identify the source and intent of the action.
-- Verify the integrity of critical files and directories, such as /etc/shadow and /etc/sudoers, to ensure they have not been tampered with.
-- Remove any unauthorized symbolic links and restore any altered files from a known good backup.
-- Conduct a thorough review of user accounts and permissions, focusing on non-root users who executed the suspicious command, to identify potential privilege escalation paths.
-- Escalate the incident to the security operations team if evidence of privilege escalation or further compromise is found.
-- Implement enhanced logging policies to capture detailed process execution and file access events, ensuring future incidents can be detected and analyzed more effectively.
-- Integrate security tools with SIEM solutions to automate the detection of suspicious symbolic link creation and other privilege escalation attempts.
-- Restore the system to its operational state by applying security patches, updating configurations, and ensuring all security controls are active and functioning.
-- Harden the system by implementing least privilege principles, restricting the use of symbolic links, and regularly auditing critical system files and directories."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

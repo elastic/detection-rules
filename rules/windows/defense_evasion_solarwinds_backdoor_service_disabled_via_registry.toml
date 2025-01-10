@@ -2,7 +2,7 @@
 creation_date = "2020/12/14"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -56,52 +56,6 @@ registry where host.os.type == "windows" and event.type == "change" and registry
   ) and
   registry.data.strings : ("4", "0x00000004")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating SolarWinds Process Disabling Services via Registry
-
-SolarWinds software is integral for network management, often requiring deep system access. Adversaries may exploit this by altering registry settings to disable critical services, evading defenses. The detection rule identifies changes in registry paths linked to service start types, specifically targeting SolarWinds processes. This helps pinpoint unauthorized modifications indicative of potential security breaches.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the specific SolarWinds process involved by checking the `process.name` field against the list of known SolarWinds binaries.
-- Verify the registry path involved in the alert by examining the `registry.path` field to ensure it matches the critical paths associated with service start types.
-- Check the `registry.data.strings` field to confirm if the service start type was set to "4" (disabled), indicating a potential attempt to disable a service.
-- Correlate the timestamp of the registry change event with other logs to identify any concurrent suspicious activities or anomalies on the host.
-- Investigate the user account context under which the SolarWinds process was executed to determine if it aligns with expected administrative activity.
-- Use Osquery to gather additional context on the affected system. For example, run the following query to list all services with a start type of "disabled":
-  ```sql
-  SELECT name, start_type FROM services WHERE start_type = 'disabled';
-  ```
-- Examine recent process execution logs to identify any unusual or unauthorized execution of SolarWinds processes around the time of the alert.
-- Review system and security event logs for any signs of privilege escalation or lateral movement attempts that may coincide with the registry modification.
-- Investigate network logs for any unusual outbound connections from the affected host that could indicate data exfiltration or command-and-control activity.
-- Cross-reference the alert with threat intelligence sources to determine if the activity matches known attack patterns or indicators of compromise related to SolarWinds exploitation.
-
-### False positive analysis
-
-- Routine updates or maintenance activities by SolarWinds software may trigger the detection rule, as legitimate processes might modify registry settings during normal operations.
-- Scheduled tasks or automated scripts that involve SolarWinds processes could also lead to false positives if they alter service start types as part of their function.
-- To manage these false positives, users can create exceptions for known and verified SolarWinds processes that regularly perform such modifications, ensuring these are documented and approved by the security team.
-- Implementing a baseline of expected registry changes during normal operations can help differentiate between legitimate and suspicious activities, allowing for more accurate exclusions.
-- Regularly review and update the list of excluded processes and registry paths to adapt to changes in the network environment and SolarWinds software updates.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or changes.
-- Conduct a thorough investigation to confirm the unauthorized registry modification by reviewing system logs and correlating with other security events.
-- Identify and terminate any malicious processes associated with the SolarWinds binaries listed in the detection rule.
-- Restore the registry settings to their original state by referencing system backups or using known good configurations.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
-- Implement enhanced logging policies to capture detailed registry changes and process activities, ensuring that future unauthorized modifications are detected promptly.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate similar events and improve detection capabilities.
-- Apply security patches and updates to the SolarWinds software and the operating system to mitigate known vulnerabilities.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Implement hardening measures such as restricting registry access permissions, enabling application whitelisting, and conducting regular security audits to prevent similar incidents."""
 
 
 [[rule.threat]]

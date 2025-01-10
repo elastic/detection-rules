@@ -2,7 +2,7 @@
 creation_date = "2020/08/13"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -45,48 +45,6 @@ file where host.os.type == "windows" and event.type != "deletion" and event.acti
   ) and
   not process.executable : "C:\\Windows\\System32\\dfsrs.exe"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Creation or Modification of a new GPO Scheduled Task or Service
-
-Group Policy Objects (GPOs) are crucial for centralized management in Windows environments, allowing administrators to configure settings across domain-joined machines. Adversaries with domain admin rights can exploit GPOs to deploy malicious tasks or services, executing harmful payloads network-wide. The detection rule identifies suspicious changes to specific XML files associated with GPO tasks and services, excluding legitimate system processes, to flag potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific XML file involved, either "ScheduledTasks.xml" or "Services.xml", and note the file path to determine which GPO was modified.
-- Verify the timestamp of the event to establish when the modification occurred and correlate it with any known changes or maintenance activities.
-- Identify the user account associated with the modification event to determine if it was performed by a legitimate administrator or a potentially compromised account.
-- Check the process executable that triggered the event, ensuring it is not "C:\\\\Windows\\\\System32\\\\dfsrs.exe", which is excluded as a legitimate process.
-- Use Active Directory logs to trace any recent changes in domain admin group membership that might indicate unauthorized access.
-- Investigate the source host from which the modification was made to determine if it is a known administrative workstation or an unusual source.
-- Utilize Osquery to gather additional context on the host involved. For example, run the following query to list recent changes to scheduled tasks: `SELECT * FROM scheduled_tasks WHERE path LIKE '%\\\\SYSVOL\\\\domain\\\\Policies\\\\%\\\\MACHINE\\\\Preferences\\\\ScheduledTasks\\\\ScheduledTasks.xml';`
-- Examine recent network activity from the source host to identify any suspicious connections or data transfers that could indicate lateral movement or data exfiltration.
-- Review historical alerts and logs for any previous suspicious activity associated with the same user account or host to identify patterns or repeated attempts.
-- Consult with the IT team to confirm if the change was part of a planned update or deployment, and cross-reference with change management records for validation.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators often create or modify GPO scheduled tasks or services for routine maintenance or updates. These actions can trigger the detection rule, leading to false positives.
-- Automated system management tools: Tools like Microsoft System Center Configuration Manager (SCCM) or other third-party management solutions may modify GPO tasks or services as part of their normal operation, which can be mistaken for malicious activity.
-- Software updates and patches: Some software updates or patches may alter GPO scheduled tasks or services, causing the rule to flag these legitimate changes.
-- To manage false positives, users can create exceptions for known legitimate processes or tools by adding them to the exclusion list in the detection rule. This can be done by identifying the process executable paths or specific file changes that are known to be safe and adding them to the 'not process.executable' or 'not file.name' conditions in the query.
-
-### Response and remediation
-
-- Immediately isolate affected systems from the network to prevent further spread of potential malicious tasks or services.
-- Conduct a thorough investigation to identify the source of the GPO modification, focusing on recent changes and the accounts used to make these changes.
-- Review and verify the legitimacy of the scheduled tasks and services created or modified in the GPO, comparing them against known baselines.
-- Revoke domain admin privileges from any accounts that are not actively required for administrative tasks to limit potential misuse.
-- Restore any unauthorized changes to the GPO by reverting to a known good configuration or using backups.
-- Implement enhanced logging and monitoring for GPO changes, ensuring that all modifications are tracked and alerts are generated for suspicious activities.
-- Integrate security information and event management (SIEM) systems to correlate events and provide a comprehensive view of potential threats.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
-- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent future occurrences.
-- Apply hardening measures such as enforcing the principle of least privilege, using multi-factor authentication, and regularly auditing privileged accounts to reduce the risk of similar attacks."""
 
 
 [[rule.threat]]

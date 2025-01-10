@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -47,51 +47,6 @@ sequence by process.entity_id with maxspan=10m
      not process.args : "ADSelfService_Enroll.hta"]
   [network where host.os.type == "windows" and process.name : "mshta.exe"]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Mshta Making Network Connections
-
-Mshta.exe is a legitimate Windows utility used to execute Microsoft HTML Application (HTA) files. Adversaries exploit it to run malicious scripts, bypassing security measures. The detection rule identifies suspicious network activity by Mshta, excluding known benign processes, to flag potential threats. This helps in identifying unauthorized script execution and network connections, indicating possible malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of Mshta.exe making outbound network connections and verify the process entity ID for correlation.
-- Check the process start event to gather additional context, such as the exact command line arguments used with Mshta.exe, to identify potential malicious scripts.
-- Investigate the parent process of Mshta.exe to determine if it is a known benign process or if it could be part of a suspicious chain of execution.
-- Examine the network connections made by Mshta.exe, including destination IP addresses and ports, to identify any known malicious or suspicious endpoints.
-- Utilize Osquery to gather more information about the Mshta.exe process. For example, run the following query to list all network connections made by Mshta.exe:
-  ```sql
-  SELECT pid, local_address, local_port, remote_address, remote_port, state FROM process_open_sockets WHERE pid IN (SELECT pid FROM processes WHERE name = 'mshta.exe');
-  ```
-- Cross-reference the network activity with threat intelligence sources to determine if the IP addresses or domains are associated with known threats.
-- Analyze the timeline of events to see if there are any other suspicious activities occurring around the same time as the Mshta.exe execution.
-- Check for any other alerts or logs related to the same process entity ID to identify if this is part of a larger attack pattern.
-- Investigate the user account under which Mshta.exe was executed to determine if it has been compromised or is being used for unauthorized activities.
-- Review system logs and other security tools for any additional indicators of compromise that may correlate with the Mshta.exe activity.
-
-### False positive analysis
-
-- Known false positives for the Mshta Making Network Connections rule include legitimate applications that use mshta.exe for valid purposes, such as software updates or internal scripts executed by IT departments. These can trigger alerts if not properly excluded.
-- Users can manage these false positives by creating exceptions for specific parent processes or command-line arguments that are known to be safe. For instance, if a particular internal application frequently uses mshta.exe, its parent process can be added to the exclusion list.
-- Regularly review and update the exclusion list to ensure it reflects the current environment and any new legitimate use cases for mshta.exe, minimizing unnecessary alerts while maintaining security.
-- Consider implementing a monitoring period to observe mshta.exe activity and identify patterns that are consistently benign, which can then be safely excluded from triggering alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the execution of mshta.exe and any associated scripts or payloads.
-- Terminate any malicious processes associated with mshta.exe and remove any unauthorized scripts or files from the system.
-- Review and analyze logs from security information and event management (SIEM) systems to trace the attack vector and identify any other potentially compromised systems.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and network activity, ensuring future incidents can be detected and analyzed more effectively.
-- Integrate threat intelligence feeds to update detection rules and improve the identification of known malicious indicators related to mshta.exe abuse.
-- Restore the system to its operational state by applying the latest security patches, updating antivirus definitions, and ensuring all security controls are functioning correctly.
-- Conduct a post-incident review to identify gaps in security controls and processes, and implement hardening measures such as application whitelisting and user education on phishing threats.
-- Document the incident and response actions taken, updating incident response plans and playbooks to improve readiness for future incidents involving similar tactics."""
 
 
 [[rule.threat]]

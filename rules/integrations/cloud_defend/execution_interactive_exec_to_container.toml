@@ -2,7 +2,7 @@
 creation_date = "2023/05/12"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -58,48 +58,6 @@ process.entry_leader.same_as_process== true and
 /* interactive process */
 process.interactive == true
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Interactive Exec Command Launched Against A Running Container
-
-Containers often use the 'exec' command to run processes within a running container, providing a shell for real-time interaction. Adversaries exploit this to gain unauthorized access, potentially leading to further compromise or escape from the container. The detection rule identifies such threats by monitoring for interactive 'exec' events, focusing on initial processes in containers that indicate potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the 'exec' command in the container, focusing on the `process.entry_leader.entry_meta.type` field to ensure it is a container process.
-- Verify the `process.interactive` field to confirm that the process was indeed interactive, indicating a real-time shell session was established.
-- Check the `process.entry_leader.same_as_process` field to ensure the process is the initial one run in the container, which could indicate unauthorized access.
-- Investigate the user account associated with the `exec` command to determine if it is a known and authorized user.
-- Examine the command history within the container to identify any suspicious or unauthorized commands executed during the session.
-- Use Osquery to gather additional context about the container environment. For example, run the following query to list all processes running in the container: `SELECT pid, name, path FROM processes WHERE container_id = '<container_id>';`.
-- Analyze network activity from the container during the time of the alert to identify any unusual outbound connections or data exfiltration attempts.
-- Review logs from the container orchestration platform (e.g., Kubernetes) to identify any recent changes or deployments that might explain the interactive session.
-- Cross-reference the alert with other security events or alerts in the environment to identify potential patterns or coordinated attacks.
-- Consult with the application or development team to verify if the interactive session was part of a legitimate maintenance or troubleshooting activity.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators often use the 'exec' command for legitimate purposes such as debugging, monitoring, or performing maintenance tasks within containers. These activities can trigger the rule but are not malicious. Users can handle these by creating exceptions for known administrative accounts or specific maintenance windows.
-- Automated scripts and tools: Some automated deployment or monitoring tools may use the 'exec' command to perform health checks or updates within containers. These actions can be mistaken for threats. To manage this, users can whitelist specific scripts or tools that are known to perform these actions regularly.
-- Development and testing activities: Developers might use the 'exec' command during the development or testing phases to interact with containers. These actions are typically benign. Users can exclude these activities by setting exceptions for development environments or specific user roles associated with development tasks.
-- Container orchestration platforms: Certain container orchestration platforms might use the 'exec' command as part of their normal operations to manage container lifecycles. Users can address this by identifying and excluding specific processes or commands associated with these platforms.
-
-### Response and remediation
-
-- Immediately isolate the affected container to prevent further unauthorized access or potential lateral movement within the environment.
-- Investigate the source of the 'exec' command to determine if it was initiated by a legitimate user or an adversary, checking for any anomalies in user behavior or access patterns.
-- Review container logs and audit trails to identify any suspicious activities or commands executed during the interactive session.
-- If unauthorized access is confirmed, revoke any compromised credentials and review access controls to ensure least privilege principles are enforced.
-- Escalate the incident to the security operations team for further analysis and to determine if the breach extends beyond the container.
-- Implement enhanced logging and monitoring for container environments, focusing on 'exec' commands and other high-risk activities.
-- Integrate security tools with SIEM systems to improve real-time detection and response capabilities for container-related threats.
-- Restore the container to its last known good state from a secure backup, ensuring that any malicious changes are removed.
-- Conduct a post-incident review to identify gaps in security controls and update policies and procedures accordingly.
-- Apply hardening measures such as disabling unnecessary interactive access, enforcing network segmentation, and using container security solutions to prevent future incidents."""
 
 
 [[rule.threat]]

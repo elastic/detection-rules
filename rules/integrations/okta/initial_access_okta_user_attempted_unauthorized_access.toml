@@ -2,7 +2,7 @@
 creation_date = "2021/05/14"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/09"
 min_stack_version = "8.15.0"
 min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
 
@@ -13,54 +13,7 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unauthorized Access to an Okta Application"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unauthorized Access to an Okta Application
-
-Okta is a widely used identity management service that facilitates secure user authentication across applications. Adversaries may exploit valid credentials to gain unauthorized access, bypassing security controls. The detection rule monitors specific Okta system events, flagging attempts to access applications without proper authorization, thus helping identify potential breaches early.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event.dataset is "okta.system" and the event.action is "app.generic.unauth_app_access_attempt" to ensure the alert is valid.
-- Check the timestamp of the unauthorized access attempt to determine when the event occurred.
-- Identify the user account involved in the unauthorized access attempt by examining the user.id and user.name fields in the event data.
-- Investigate the source IP address from which the unauthorized access attempt originated to determine if it is known or suspicious.
-- Cross-reference the source IP address with threat intelligence feeds to check for any known malicious activity associated with it.
-- Review the application details, such as app.id and app.name, to understand which application was targeted in the unauthorized access attempt.
-- Analyze the user's recent activity logs in Okta to identify any unusual behavior or patterns that could indicate compromised credentials.
-- Use Osquery to gather additional context on the endpoint associated with the user account. For example, run the following query to check for recent login activities:
-  ```sql
-  SELECT * FROM last WHERE username = '<user.name>';
-  ```
-- Check for any recent changes to the user's account settings or permissions that could have facilitated the unauthorized access attempt.
-- Collaborate with the IT or security team to gather additional logs or data from network devices, firewalls, or other security tools to correlate with the Okta event and build a comprehensive timeline of the incident.
-
-### False positive analysis
-
-- Employees using new devices or networks may trigger unauthorized access alerts if their login attempts are flagged as unusual. To manage this, consider creating exceptions for known employee devices or IP addresses.
-- Automated scripts or applications that interact with Okta using service accounts might be misidentified as unauthorized access attempts. Regularly review and whitelist these service accounts to prevent false positives.
-- Third-party integrations or applications that require frequent authentication checks can generate alerts. Ensure these integrations are documented and create exceptions for their expected behavior.
-- Users who frequently travel or work remotely might access Okta from various locations, leading to false positives. Implement geolocation-based exceptions for these users to reduce unnecessary alerts.
-- Temporary access granted to contractors or partners can be mistaken for unauthorized access. Maintain an updated list of authorized external users and adjust the detection rule to accommodate their access patterns.
-
-### Response and remediation
-
-- Immediately isolate the affected user account by disabling it to prevent further unauthorized access.
-- Conduct a thorough investigation to determine the scope of the breach, including identifying any other compromised accounts or systems.
-- Review Okta logs and other relevant security logs to trace the adversary's actions and identify any additional unauthorized access attempts.
-- Reset passwords for the affected account and any other accounts that may have been compromised, ensuring the use of strong, unique passwords.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement multi-factor authentication (MFA) for all user accounts to enhance security and prevent future unauthorized access.
-- Review and update logging policies to ensure comprehensive monitoring of all authentication and access events in Okta.
-- Integrate Okta with a security information and event management (SIEM) system to enable real-time monitoring and alerting of suspicious activities.
-- Conduct a post-incident review to identify gaps in security controls and processes, and implement necessary improvements.
-- Educate users on recognizing phishing attempts and the importance of safeguarding their credentials to prevent credential theft.
-
-## Setup
+note = """## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

@@ -2,7 +2,7 @@
 creation_date = "2024/12/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -59,49 +59,6 @@ event.category:file and host.os.type:linux and event.type:creation and file.exte
   file.path:/var/tmp/mkinitramfs_* or process.executable:/snap/* or process.name:cpio
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Kernel Object File Creation
-
-Kernel object files (.ko) are loadable modules that extend the functionality of the Linux kernel. Adversaries exploit these to deploy rootkits, granting them stealthy control over a system. The detection rule identifies suspicious .ko file creation, excluding benign paths like system updates, to flag potential threats aligned with persistence tactics, ensuring early detection of malicious kernel modifications.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a .ko file creation event, focusing on the `event.category:file`, `host.os.type:linux`, `event.type:creation`, and `file.extension:ko` fields.
-- Examine the file path of the .ko file to determine if it resides in a suspicious or unusual directory, excluding known benign paths like `/var/tmp/mkinitramfs_*`.
-- Investigate the process that created the .ko file by analyzing the `process.executable` and `process.name` fields to identify any unusual or unauthorized processes.
-- Check the file creation timestamp to correlate with any other suspicious activities or anomalies on the system around the same time.
-- Use Osquery to list all loaded kernel modules and identify any that are not part of the standard or expected set. Example query: `SELECT * FROM kernel_modules WHERE name = '<suspicious_module_name>';`
-- Cross-reference the .ko file's hash with known malware databases to check for any matches with known malicious kernel modules.
-- Investigate the user account under which the .ko file was created to determine if it has the necessary privileges and if the activity aligns with typical user behavior.
-- Review system logs for any additional context or anomalies around the time of the .ko file creation, such as login attempts, privilege escalations, or other file modifications.
-- Analyze network activity from the host around the time of the .ko file creation to identify any suspicious outbound connections or data exfiltration attempts.
-- Consult with system administrators or other relevant personnel to verify if the .ko file creation was part of a legitimate update or maintenance activity.
-
-### False positive analysis
-
-- System updates and kernel upgrades often involve the creation of legitimate .ko files, which can trigger false positives. Users can manage this by excluding paths associated with these updates, such as `/lib/modules/` or specific update processes.
-- Custom kernel module development and testing environments may also generate .ko files as part of normal operations. Developers should consider excluding directories or processes related to their development activities to prevent unnecessary alerts.
-- Some legitimate software installations or updates might temporarily create .ko files in non-standard locations. Users should monitor and identify these patterns, then create exceptions for known benign software to reduce false positives.
-- Automated backup or recovery processes might involve the creation of .ko files, especially if they involve system snapshots or similar operations. Identifying these processes and excluding them can help in minimizing false alerts.
-- Users should regularly review and update their exclusion lists to ensure they reflect the current environment and operational needs, thus maintaining a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the source of the .ko file creation, examining recent system changes, user activity, and any unauthorized access.
-- Utilize forensic tools to analyze the .ko file for malicious code or rootkit characteristics, and determine the extent of the compromise.
-- Remove the malicious .ko file and any associated malware or unauthorized kernel modules from the system.
-- Restore the system from a known good backup if the integrity of the system is in question, ensuring that the backup is free from compromise.
-- Apply security patches and updates to the operating system and all installed software to mitigate known vulnerabilities.
-- Implement enhanced logging policies to capture detailed file creation events, process executions, and network activity for future investigations.
-- Integrate security solutions such as intrusion detection systems (IDS) and endpoint detection and response (EDR) tools to improve threat detection capabilities.
-- Escalate the incident to the security operations center (SOC) or relevant cybersecurity team for further analysis and to determine if additional systems are affected.
-- Review and update security policies and hardening measures, such as disabling unnecessary kernel module loading and enforcing strict access controls, to prevent similar incidents in the future."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

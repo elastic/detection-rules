@@ -2,7 +2,7 @@
 creation_date = "2020/09/18"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,50 +22,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Logging Sink Deletion"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GCP Logging Sink Deletion
-
-In GCP, logging sinks are crucial for exporting log entries to designated destinations for analysis and monitoring. Adversaries may delete these sinks to prevent logs from being exported, thus evading detection. The detection rule identifies successful deletion events of logging sinks, signaling potential defense evasion attempts by matching specific audit log actions and outcomes.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of `event.dataset:gcp.audit`, `event.action:google.logging.v*.ConfigServiceV*.DeleteSink`, and `event.outcome:success` to ensure the alert is valid and corresponds to a successful sink deletion.
-- Identify the user or service account associated with the deletion event by examining the `user.name` or `principalEmail` fields in the audit log entry.
-- Check the timestamp of the deletion event to determine when the sink was deleted and correlate this with any other suspicious activities around the same time.
-- Investigate the source IP address and location from which the deletion request was made to identify any anomalies or unauthorized access patterns.
-- Review the permissions and roles assigned to the user or service account involved in the deletion to assess if they had legitimate access to perform this action.
-- Examine the specific logging sink that was deleted, including its previous configuration and destination, to understand the potential impact on log monitoring and analysis.
-- Cross-reference other logs and alerts from the same time period to identify any related or preceding suspicious activities that might indicate a broader attack or compromise.
-- Utilize Osquery to gather additional context on the affected GCP environment. For example, run a query to list all current logging sinks and their configurations: `SELECT * FROM gcp_logging_sinks;` to verify if other sinks have been tampered with.
-- Investigate any recent changes to IAM policies or service accounts that might have inadvertently or maliciously granted excessive permissions related to logging sink management.
-- Consult with relevant stakeholders or teams to verify if the sink deletion was part of a legitimate change or maintenance activity, and document any findings for future reference.
-
-### False positive analysis
-
-- Routine maintenance or administrative tasks: Regular updates or reconfigurations by authorized personnel may involve the deletion and recreation of logging sinks, which can trigger the detection rule. To manage this, users can create exceptions for known maintenance windows or specific user accounts that perform these tasks.
-- Automated scripts or tools: Some organizations use automated processes to manage logging configurations, which might include deleting and recreating sinks as part of their operation. Users should identify these scripts and exclude their actions from triggering alerts by specifying the service accounts or IP addresses associated with these tools.
-- Testing environments: In development or testing environments, logging sinks may be frequently deleted and recreated as part of testing procedures. Users can exclude these environments from the detection rule by filtering based on project IDs or labels associated with non-production environments.
-- Misconfigured alerts: Sometimes, alerts may be triggered due to misconfigured logging sinks that are intentionally deleted to correct errors. Users should review and adjust the configurations to ensure that only relevant deletions are monitored, possibly by refining the query to exclude specific error codes or conditions.
-
-### Response and remediation
-
-- Immediately isolate the affected GCP project to prevent further unauthorized changes and assess the scope of the incident.
-- Review audit logs to identify the user or service account responsible for the sink deletion and determine if any other suspicious activities have been performed.
-- Recreate the deleted logging sink with the appropriate filters and export destinations to restore logging capabilities.
-- Implement additional logging and monitoring to capture any further unauthorized changes, focusing on high-value resources and critical operations.
-- Conduct a thorough investigation to determine if any other security controls have been impaired or if there are signs of lateral movement or data exfiltration.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if law enforcement or external parties need to be notified.
-- Review and update IAM policies to ensure that only authorized users have permissions to modify or delete logging sinks and other critical resources.
-- Implement automated alerts for any future logging sink deletions or modifications to enable rapid response to similar incidents.
-- Consider integrating with a Security Information and Event Management (SIEM) system to enhance log analysis and correlation capabilities.
-- Conduct a post-incident review to identify gaps in the current security posture and implement hardening measures, such as enabling multi-factor authentication and regular security training for users.
-
-## Setup
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/logging/docs/export"]

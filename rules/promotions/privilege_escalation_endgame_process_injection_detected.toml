@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 maturity = "production"
 promotion = true
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -36,48 +36,6 @@ type = "query"
 query = '''
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:kernel_shellcode_event or endgame.event_subtype_full:kernel_shellcode_event)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Process Injection - Detected - Elastic Endgame
-
-Elastic Endgame is a security solution that identifies malicious activities like process injection, a technique where adversaries inject code into legitimate processes to evade detection and escalate privileges. This detection rule leverages alerts from the Endgame module, focusing on kernel shellcode events, to identify suspicious process injection attempts, aligning with MITRE ATT&CK's T1055 technique for privilege escalation.
-
-### Possible investigation steps
-
-- Review the alert details in the Elastic Endgame console by clicking the Elastic Endgame icon in the event.module column or the link in the rule.reference column to gather initial context about the detected process injection.
-- Examine the event.kind, event.module, and endgame.metadata.type fields to confirm the alert is a detection type and is related to the Endgame module, ensuring the alert is relevant to process injection.
-- Analyze the event.action and endgame.event_subtype_full fields to verify the presence of kernel_shellcode_event, which indicates a potential process injection attempt.
-- Investigate the parent and child processes involved in the alert by reviewing process lineage data to identify any unusual or unexpected process relationships.
-- Use Osquery to gather additional information about the processes involved. For example, run the following query to list all processes with their parent process IDs and command lines: `SELECT pid, ppid, name, path, cmdline FROM processes WHERE pid = <suspicious_process_id>;`
-- Check for any recent changes or anomalies in the system's process tree around the time of the alert to identify any suspicious activities or patterns.
-- Review the system's security logs and any other relevant logs for additional indicators of compromise or related suspicious activities around the time of the alert.
-- Investigate the user account context under which the suspicious process was executed to determine if there are any signs of account compromise or misuse.
-- Correlate the alert with other security events or alerts in the environment to identify potential patterns or coordinated attacks.
-- Document all findings and observations during the investigation to maintain a comprehensive record for further analysis or escalation if needed.
-
-### False positive analysis
-
-- Known false positives for the Process Injection - Detected - Elastic Endgame rule may include legitimate software that uses process injection techniques for benign purposes, such as security tools, performance monitoring software, or certain types of debugging applications. These applications might trigger alerts due to their use of kernel shellcode events, which are also used by malicious actors.
-- To manage these false positives, users can create exceptions for specific processes or applications that are known to use process injection legitimately. This can be done by identifying the process names or hashes of the trusted applications and adding them to an exclusion list within the Elastic Endgame configuration. This approach helps in reducing noise and focusing on truly suspicious activities.
-- Regularly review and update the exception list to ensure that only verified and trusted applications are excluded. This helps maintain a balance between minimizing false positives and ensuring that new threats are not overlooked.
-- Collaborate with IT and security teams to understand the context of the detected process injection events, ensuring that any exclusions made do not inadvertently allow malicious activities to go undetected.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the threat and to contain the malicious activity.
-- Conduct a thorough investigation to identify the source and scope of the process injection, utilizing forensic tools to analyze memory dumps and process trees.
-- Terminate any suspicious processes identified during the investigation to halt any ongoing malicious activity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat actor has established persistence mechanisms.
-- Review and update endpoint detection and response (EDR) policies to ensure comprehensive logging of process creation, network connections, and code injection attempts.
-- Implement additional security measures such as application whitelisting and enhanced monitoring of high-risk processes to prevent future process injection attempts.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Educate users on recognizing signs of potential compromise and encourage reporting of suspicious activities to improve early detection.
-- Integrate threat intelligence feeds and MITRE ATT&CK framework into security operations to enhance detection capabilities and contextual understanding of threats."""
 
 
 [[rule.threat]]

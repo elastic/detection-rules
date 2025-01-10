@@ -2,7 +2,7 @@
 creation_date = "2021/01/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -85,48 +85,6 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
    "base64",
    "launchctl")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Emond Child Process
-
-The Event Monitor Daemon (emond) on macOS is a service that executes predefined actions when specific system events occur. Adversaries exploit emond by crafting rules that trigger malicious processes during events like startup or login. The detection rule identifies unusual child processes spawned by emond, such as shells or scripting languages, which are indicative of potential abuse for persistence or unauthorized command execution.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name and parent process name, ensuring they match the suspicious criteria outlined in the detection rule.
-- Check the timestamp of the event to determine when the suspicious child process was initiated and correlate it with any known user activities or scheduled tasks.
-- Investigate the command line arguments of the suspicious process to understand its intended actions and identify any potentially malicious commands or scripts.
-- Examine the user account associated with the process to determine if it aligns with expected user behavior or if it indicates potential compromise.
-- Utilize Osquery to gather additional context about the process. For example, run the following query to list all child processes of emond: `SELECT pid, name, path, cmdline FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'emond');`
-- Check system logs for any related events around the time of the alert, such as login attempts, system reboots, or other process executions that might provide context.
-- Investigate the origin of the emond rule that triggered the process execution by reviewing configuration files or system settings that define event actions.
-- Analyze network activity associated with the process to identify any suspicious outbound connections or data exfiltration attempts.
-- Cross-reference the process hash with threat intelligence databases to determine if it is associated with known malware or adversary techniques.
-- Review historical data to identify any previous occurrences of similar suspicious child processes spawned by emond, which could indicate a persistent threat.
-
-### False positive analysis
-
-- System administrators or legitimate software may use scripting languages or command-line tools for routine maintenance tasks, which could trigger the rule. For example, automated scripts executed during system startup or user login might be flagged as suspicious.
-- Developers and IT professionals often use shells and scripting languages for testing and development purposes, which could result in false positives if these activities are performed on systems monitored by the rule.
-- Users can manage false positives by creating exceptions for known, benign processes that are frequently executed by emond. This can be done by maintaining a whitelist of trusted scripts or applications that are expected to run as child processes of emond.
-- Regularly review and update the list of exceptions to ensure that only legitimate processes are excluded, minimizing the risk of overlooking genuine threats.
-
-### Response and remediation
-
-- Immediately isolate the affected macOS system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify any unauthorized emond rules by reviewing the configuration files located in /etc/emond.d/rules/.
-- Terminate any suspicious child processes spawned by emond to halt potential malicious activities.
-- Review system logs and security alerts to gather additional context on the suspicious activity and identify any other affected systems.
-- Escalate the incident to the security operations team for further analysis and to determine if the attack is part of a broader campaign.
-- Remove any unauthorized emond rules and restore legitimate configurations from a known good backup.
-- Implement enhanced logging policies to monitor emond activity and child processes, ensuring detailed logs are collected for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats.
-- Apply security patches and updates to the macOS system to mitigate vulnerabilities that could be exploited by adversaries.
-- Educate users on recognizing and reporting suspicious activities, and consider implementing additional security measures such as application whitelisting and endpoint detection and response (EDR) solutions."""
 
 
 [[rule.threat]]

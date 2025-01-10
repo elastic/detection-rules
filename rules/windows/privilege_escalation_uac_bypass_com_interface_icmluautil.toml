@@ -2,7 +2,7 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -41,48 +41,6 @@ process where host.os.type == "windows" and event.type == "start" and
  process.parent.args in ("/Processid:{3E5FC7F9-9A51-4367-9063-A120244FBEC7}", "/Processid:{D2E7041B-2927-42FB-8E9F-7CE93B6DC937}") and
  process.pe.original_file_name != "WerFault.exe"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating UAC Bypass via ICMLuaUtil Elevated COM Interface
-
-The ICMLuaUtil Elevated COM Interface is a component in Windows that facilitates certain processes to run with elevated privileges, bypassing User Account Control (UAC) prompts. Adversaries exploit this by invoking specific COM objects to execute code stealthily with higher permissions. The detection rule identifies such bypass attempts by monitoring processes initiated by `dllhost.exe` with specific arguments, excluding legitimate system processes, to flag potential privilege escalation activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the specific `dllhost.exe` process with the arguments `/Processid:{3E5FC7F9-9A51-4367-9063-A120244FBEC7}` or `/Processid:{D2E7041B-2927-42FB-8E9F-7CE93B6DC937}` to ensure it matches the UAC bypass signature.
-- Check the process tree to identify the parent process of `dllhost.exe` to understand the origin of the execution and determine if it is a legitimate system process or a suspicious one.
-- Investigate the user account under which the `dllhost.exe` process was executed to determine if it aligns with expected user behavior or if it indicates potential compromise.
-- Use Osquery to gather additional context about the `dllhost.exe` process. For example, run the following query to list all processes with their parent process IDs and command-line arguments: `SELECT pid, name, path, cmdline, parent FROM processes WHERE name = 'dllhost.exe';`
-- Examine the command-line arguments of the `dllhost.exe` process to identify any unusual or unexpected parameters that could indicate malicious activity.
-- Cross-reference the `process.pe.original_file_name` field to ensure it is not `WerFault.exe`, which is excluded from the detection rule, to validate the alert.
-- Analyze recent system logs and security events around the time of the alert to identify any other suspicious activities or anomalies that could be related to the UAC bypass attempt.
-- Check for any recent changes or installations on the system that could have introduced the potential for UAC bypass, such as new software or updates.
-- Investigate network activity from the host to identify any unusual outbound connections that could suggest data exfiltration or communication with a command and control server.
-- Review historical alerts and incidents involving the same host or user account to identify patterns or repeated attempts of privilege escalation or other suspicious activities.
-
-### False positive analysis
-
-- Legitimate software installations or updates may trigger the detection rule as they sometimes use the ICMLuaUtil Elevated COM Interface for necessary elevated operations. Users should verify the source and purpose of the process to determine if it is benign.
-- System maintenance tools or scripts that require elevated permissions might also be flagged. Users can create exceptions for these tools by adding them to an allowlist based on their file hash or specific command-line arguments.
-- Certain administrative tasks performed by IT personnel, such as system configuration changes, may inadvertently match the detection criteria. Organizations can manage these by documenting and excluding known administrative activities from the rule.
-- Automated system processes that are part of the operating system's normal functioning could occasionally be misidentified. Users should monitor these processes and, if consistently identified as false positives, adjust the detection rule to exclude them by specifying additional conditions or exceptions.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to confirm the UAC bypass attempt by reviewing logs and correlating with other security events.
-- Terminate any suspicious processes initiated by dllhost.exe that match the identified arguments to stop potential malicious activity.
-- Escalate the incident to the security operations team for a deeper analysis and to determine if other systems are affected.
-- Review and enhance logging policies to ensure comprehensive monitoring of COM object invocations and UAC bypass attempts.
-- Implement additional security controls, such as application whitelisting, to prevent unauthorized execution of elevated processes.
-- Restore the system to its operational state by removing any malicious code or unauthorized changes and applying necessary security patches.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate users on the risks of UAC bypass techniques and the importance of adhering to security best practices.
-- Consider integrating threat intelligence feeds and security information and event management (SIEM) solutions to improve detection and response capabilities."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2021/07/19"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Austin Songer"]
@@ -20,51 +20,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Route53 private hosted zone associated with a VPC"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS Route53 private hosted zone associated with a VPC
-
-AWS Route53 private hosted zones allow for DNS management within a Virtual Private Cloud (VPC), ensuring internal resources are accessible only within the VPC. Adversaries may exploit this by associating unauthorized VPCs to intercept or reroute traffic. The detection rule monitors successful associations of VPCs with hosted zones, flagging potential unauthorized access or configuration changes indicative of malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event dataset is `aws.cloudtrail` and the event provider is `route53.amazonaws.com`, ensuring the alert is relevant to AWS Route53 activities.
-- Verify the event action is `AssociateVPCWithHostedZone` and the event outcome is `success` to confirm that a VPC was successfully associated with a private hosted zone.
-- Identify the AWS account and user or role that performed the action by examining the `userIdentity` field in the CloudTrail logs to determine if the action was authorized.
-- Check the `sourceIPAddress` field to identify the IP address from which the request originated, and assess if it aligns with known or expected IP addresses for your organization.
-- Investigate the `requestParameters` field to gather details about the VPC and hosted zone involved, including VPC ID and hosted zone ID, to understand the scope of the association.
-- Cross-reference the VPC ID with your organization's inventory to determine if the VPC is recognized and authorized to be associated with the hosted zone.
-- Use Osquery to query AWS metadata and configuration for further context. For example, run the following Osquery query to list all VPCs associated with a specific hosted zone: `SELECT * FROM aws_route53_vpc_associations WHERE hosted_zone_id = '<hosted_zone_id>';`.
-- Review recent changes in IAM policies or roles that might have granted new permissions related to Route53 or VPC associations, focusing on any modifications around the time of the event.
-- Analyze historical CloudTrail logs for any previous `AssociateVPCWithHostedZone` events to identify patterns or repeated unauthorized associations.
-- Consult with relevant stakeholders or teams to verify if the association was part of a planned change or deployment, ensuring alignment with organizational processes and approvals.
-
-### False positive analysis
-
-- Routine administrative tasks: Regular operations by network administrators to associate VPCs with private hosted zones for legitimate purposes can trigger this rule. To manage this, create exceptions for known administrative accounts or specific time windows when these tasks are expected.
-- Automated infrastructure changes: Infrastructure as Code (IaC) tools like Terraform or AWS CloudFormation may automatically associate VPCs with hosted zones as part of deployment processes. Users can handle these by identifying and excluding specific automation accounts or tags associated with these tools.
-- Development and testing environments: Frequent changes in development or testing environments might lead to multiple VPC associations with hosted zones. Consider excluding specific environments or using tags to differentiate between production and non-production activities.
-- Multi-account setups: In organizations with multiple AWS accounts, cross-account VPC associations might be legitimate. Users should maintain a list of authorized accounts and exclude these from triggering alerts.
-- Scheduled maintenance: Planned maintenance activities might involve associating VPCs with hosted zones. Users can manage this by setting up maintenance windows and excluding activities during these periods from being flagged.
-
-### Response and remediation
-
-- Immediately isolate the affected VPC to prevent further unauthorized access or traffic interception.
-- Review AWS CloudTrail logs to identify the source and time of the unauthorized VPC association and gather evidence for further investigation.
-- Verify the IAM roles and permissions to ensure that only authorized users have the ability to associate VPCs with Route53 private hosted zones.
-- Revoke any unauthorized access or credentials that may have been used to perform the VPC association.
-- Conduct a thorough review of all VPC associations with Route53 private hosted zones to ensure no other unauthorized associations exist.
-- Escalate the incident to the security operations team for a deeper investigation into potential persistence mechanisms or account manipulation tactics used by the adversary.
-- Implement enhanced logging and monitoring policies to detect future unauthorized changes to Route53 configurations, leveraging AWS CloudTrail and AWS Config.
-- Integrate AWS GuardDuty and other threat detection services to provide real-time alerts on suspicious activities related to DNS and VPC configurations.
-- Restore the system to its operational state by reconfiguring the Route53 private hosted zone associations to only include authorized VPCs.
-- Apply hardening measures such as multi-factor authentication (MFA) for all IAM users and regular audits of access permissions to prevent future unauthorized access.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/Route53/latest/APIReference/API_AssociateVPCWithHostedZone.html"]

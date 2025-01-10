@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2024/06/03"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 updated_date = "2025/01/08"
 
 [rule]
@@ -13,7 +15,7 @@ environment. Adversaries may create these scripts to execute malicious code at s
 persistence onto the system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "endgame-*"]
+index = ["logs-endpoint.events.process*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Executable Bit Set for Potential Persistence Script"
@@ -58,12 +60,13 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
 process.args : (
   // Misc.
   "/etc/rc.local", "/etc/rc.common", "/etc/rc.d/rc.local", "/etc/init.d/*", "/etc/update-motd.d/*",
@@ -82,49 +85,6 @@ process.args : (
   (process.name == "install" and process.args : "-m*" and process.args : ("7*", "5*", "3*", "1*"))
 ) and not process.parent.executable : "/var/lib/dpkg/*"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Executable Bit Set for Potential Persistence Script
-
-In Linux environments, scripts can be set to execute automatically by setting the executable bit, a feature often exploited by adversaries to maintain persistence. Attackers may place scripts in directories typically used for startup processes, ensuring their code runs at boot or scheduled intervals. The detection rule identifies suspicious use of commands like `chmod` or `install` to set executable permissions on scripts in these sensitive directories, flagging potential persistence attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific script path and the command used to set the executable bit, focusing on the `process.args` field to understand the exact operation performed.
-- Check the `process.parent.executable` field to determine the parent process that initiated the command, which can provide context on whether the action was part of a legitimate process or potentially malicious.
-- Use Osquery to list all files in the directory where the script is located to identify any other suspicious files or scripts. Example query: `SELECT * FROM file WHERE directory = '/path/to/suspicious/directory';`
-- Investigate the user account associated with the process by examining the `process.user.name` field to determine if the account has a history of suspicious activity or if it has been compromised.
-- Analyze the script content by accessing the file directly to understand its purpose and whether it contains any malicious code or commands.
-- Cross-reference the script's hash with known malware databases to check if it matches any known malicious scripts.
-- Review system logs around the time of the alert to identify any other unusual activities or related events that could provide additional context.
-- Check for any recent changes in the system's startup configuration files or directories, as these could indicate attempts to establish persistence.
-- Use Osquery to query the system's cron jobs and scheduled tasks to identify any unauthorized or suspicious entries. Example query: `SELECT * FROM crontab WHERE command LIKE '%/path/to/suspicious/script%';`
-- Investigate network connections initiated by the host around the time of the alert to identify any potential communication with known malicious IP addresses or domains.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators often use `chmod` or `install` commands to set executable permissions on scripts for legitimate purposes, such as system maintenance or software updates. These actions can trigger alerts if they occur in directories monitored by the rule.
-- Automated software updates: Some software packages may automatically update themselves by modifying scripts in startup directories, which can be mistaken for persistence attempts.
-- Custom user scripts: Users may create personal scripts in their home directories for convenience, which could be flagged if they are set to execute at startup.
-- To manage these false positives, users can create exceptions for known benign processes or directories by updating the detection rule to exclude specific paths or parent processes that are verified as non-threatening.
-- Regularly review and update the list of exceptions to ensure that legitimate activities are not inadvertently flagged while maintaining the integrity of the detection system.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
-- Conduct a thorough investigation to identify the script's origin, purpose, and any associated processes or files. Use forensic tools to analyze the script and its execution history.
-- Review system logs and security alerts to determine if there are any other indicators of compromise or related activities on the system.
-- Remove the malicious script and any associated files or processes. Ensure that the executable bit is removed from any unauthorized scripts.
-- Restore the system from a known good backup if the integrity of the system is in question, ensuring that the backup is free from any malicious modifications.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if this is part of a larger attack campaign.
-- Implement enhanced logging and monitoring policies to capture detailed information on file permission changes and script executions, aiding in future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate alerts and improve detection capabilities.
-- Apply system hardening measures, such as restricting write permissions to sensitive directories and using access control lists (ACLs) to limit script execution.
-- Educate users and administrators on the risks of unauthorized script execution and the importance of maintaining secure configurations and practices."""
 
 
 [[rule.threat]]

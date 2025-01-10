@@ -2,7 +2,7 @@
 creation_date = "2020/11/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,50 +22,7 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Exchange Anti-Phish Rule Modification"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft 365 Exchange Anti-Phish Rule Modification
-
-Microsoft 365's anti-phishing rules are crucial for enhancing email security by fine-tuning detection settings to thwart phishing attempts. Adversaries may exploit this by disabling or removing these rules, thus weakening defenses and facilitating phishing attacks. The detection rule monitors for successful actions that alter these rules, such as disabling or removing them, to identify potential security breaches.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the event.action field indicating "Remove-AntiPhishRule" or "Disable-AntiPhishRule" and ensure the event.outcome is marked as success.
-- Check the event.dataset field to verify it is set to o365.audit and the event.provider is Exchange, confirming the source of the alert.
-- Identify the user account associated with the modification by examining the user.name or user.id fields in the alert details.
-- Investigate the user's recent activity in Microsoft 365 to determine if there are any other suspicious actions or anomalies, such as unusual login times or locations.
-- Correlate the alert with other security events or logs, such as sign-in logs, to identify any potential compromise of the user's account.
-- Use Osquery to gather additional context on the user's device. For example, run a query to list recent processes executed by the user: `SELECT * FROM processes WHERE user = '<user_name>';`.
-- Examine the timestamp of the rule modification to determine if it coincides with any known phishing campaigns or other security incidents.
-- Review the organization's change management records to verify if the rule modification was authorized or part of a scheduled change.
-- Analyze email logs to identify any phishing emails that may have bypassed security controls following the rule modification.
-- Consult with the user or their manager to confirm whether the rule modification was intentional and authorized, and gather any additional context or insights.
-
-### False positive analysis
-
-- Routine administrative tasks: Legitimate IT administrators may occasionally modify anti-phishing rules as part of regular maintenance or updates. These actions can trigger alerts but are not necessarily malicious.
-- Automated scripts: Some organizations use automated scripts to manage and update security settings, including anti-phishing rules. These scripts can generate alerts if they perform actions like disabling or removing rules.
-- Testing and audits: Security teams might intentionally modify anti-phishing rules to test system responses or during security audits, leading to false positives.
-- To manage these false positives, organizations can create exceptions for known administrative accounts or specific IP addresses associated with trusted IT personnel. Additionally, monitoring the context of the action, such as the time of day or associated user activity, can help differentiate between legitimate and suspicious modifications.
-
-### Response and remediation
-
-- Immediately isolate affected accounts or systems to prevent further unauthorized access or changes.
-- Review audit logs and identify any unauthorized modifications to anti-phishing rules, focusing on the "Remove-AntiPhishRule" or "Disable-AntiPhishRule" actions.
-- Verify the integrity of other security configurations and rules within Microsoft 365 to ensure no additional unauthorized changes have been made.
-- Restore any modified or removed anti-phishing rules to their original state using backup configurations or documented settings.
-- Conduct a thorough investigation to determine the source of the modification, including reviewing user activity and access permissions.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging and monitoring policies to capture detailed information on future changes to security settings and rules.
-- Integrate additional security tools and services, such as Security Information and Event Management (SIEM) systems, to improve detection and response capabilities.
-- Educate users and administrators on the importance of maintaining security configurations and the risks associated with phishing attacks.
-- Apply hardening measures by enforcing multi-factor authentication (MFA) and least privilege access to reduce the risk of unauthorized modifications.
-
-## Setup
+note = """## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

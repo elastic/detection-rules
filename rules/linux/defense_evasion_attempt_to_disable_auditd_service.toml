@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/08/28"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ provides system auditing and logging. Disabling the Auditd service can prevent t
 security events, which can be used to detect malicious activity.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "endgame-*"]
+index = ["logs-endpoint.events.process*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Disable Auditd Service"
@@ -51,61 +53,19 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and (
   (process.name == "service" and process.args == "stop") or
   (process.name == "chkconfig" and process.args == "off") or
   (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))
 ) and
 process.args in ("auditd", "auditd.service")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Attempt to Disable Auditd Service
-
-Auditd is a crucial Linux service for system auditing and logging, capturing security-relevant events. Adversaries may target this service to evade detection by stopping or disabling it, thus impairing the system's ability to log malicious activities. The detection rule identifies such attempts by monitoring processes that execute commands to stop or disable Auditd, flagging potential defense evasion tactics.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name and arguments that triggered the alert, focusing on `process.name` and `process.args` fields.
-- Check the user context under which the suspicious command was executed to determine if it was run by an unauthorized or unexpected user.
-- Investigate the parent process of the flagged process to understand how the command was initiated, using the `process.parent.name` and `process.parent.args` fields.
-- Examine the command execution history for the user involved to identify any other suspicious activities or patterns.
-- Use Osquery to list all recent changes to system services, including Auditd, with a query like: `SELECT * FROM osquery_schedule WHERE name = 'auditd';`
-- Review system logs around the time of the alert for any other suspicious activities or anomalies that might correlate with the attempt to disable Auditd.
-- Check for any recent modifications to the Auditd configuration files to ensure they have not been tampered with.
-- Investigate network connections from the host to identify any unusual outbound connections that might indicate data exfiltration or command-and-control activity.
-- Look for any other alerts or indicators of compromise on the same host that might suggest a broader attack campaign.
-- Verify the integrity of the Auditd service by checking its current status and configuration to ensure it is running as expected.
-
-### False positive analysis
-
-- Routine system maintenance or administrative tasks may trigger this rule if administrators legitimately stop or disable the Auditd service for updates or configuration changes. 
-- Automated scripts or configuration management tools like Ansible, Puppet, or Chef might execute commands that match the rule criteria during system provisioning or updates.
-- Testing environments where services are frequently started and stopped for development purposes can also lead to false positives.
-- To manage these false positives, users can create exceptions for known maintenance windows or specific administrative accounts that regularly perform these actions.
-- Implementing a whitelist of trusted scripts or tools that are known to perform legitimate service management can help reduce noise.
-- Regularly review and update the exclusion list to ensure it reflects current operational practices and does not inadvertently allow malicious activity.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Investigate the alert by reviewing the process execution logs to identify the user and source of the command attempting to disable Auditd.
-- Check for any unauthorized changes to system configurations or additional suspicious activities that may have occurred around the time of the alert.
-- Restore the Auditd service to its operational state by restarting it and ensuring it is enabled to start on boot.
-- Review and update access controls to ensure only authorized personnel can modify or stop critical services like Auditd.
-- Escalate the incident to the security operations team for further analysis and to determine if this is part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed audit logs and ensure they are securely stored and monitored for anomalies.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities and correlate events.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Apply system hardening measures, such as disabling unnecessary services and applying security patches, to reduce the attack surface and prevent future incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

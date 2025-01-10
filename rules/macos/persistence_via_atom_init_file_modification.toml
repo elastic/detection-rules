@@ -2,7 +2,7 @@
 creation_date = "2021/01/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -61,48 +61,6 @@ query = '''
 event.category:file and host.os.type:macos and not event.type:"deletion" and
  file.path:/Users/*/.atom/init.coffee and not process.name:(Atom or xpcproxy) and not user.name:root
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Persistence via Atom Init Script Modification
-
-Atom, a popular text editor, allows customization via the init.coffee script, which executes JavaScript upon startup. Adversaries exploit this by embedding malicious code, ensuring persistence each time Atom launches. The detection rule identifies suspicious modifications to this script on macOS, excluding legitimate processes and root user actions, to flag potential unauthorized changes.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the file path involved is `/Users/*/.atom/init.coffee` and verify the user account associated with the modification.
-- Check the process that made the modification by examining the `process.name` field to ensure it is not `Atom` or `xpcproxy`.
-- Verify the user account involved in the modification by reviewing the `user.name` field to ensure it is not `root`.
-- Use Osquery to list recent modifications to the `init.coffee` file with a query like: `SELECT * FROM file WHERE path = '/Users/*/.atom/init.coffee' ORDER BY atime DESC LIMIT 5;`.
-- Investigate the contents of the `init.coffee` file to identify any suspicious or unfamiliar JavaScript code.
-- Cross-reference the modification timestamp with user activity logs to determine if the modification aligns with legitimate user actions.
-- Check for any other suspicious file modifications or creations in the `.atom` directory that may indicate further persistence mechanisms.
-- Review system logs for any unusual activity or errors around the time of the modification to gather additional context.
-- Investigate the network activity of the user account and the host around the time of the modification for any signs of data exfiltration or command and control communication.
-- Correlate the findings with other security alerts or incidents involving the same user or host to identify potential patterns or related threats.
-
-### False positive analysis
-
-- Legitimate user customizations: Users often modify the init.coffee script to personalize their Atom experience, such as adding plugins or custom functions. These changes can trigger the detection rule. To manage this, users can create exceptions for known user accounts or specific script changes that are verified as safe.
-- Development and testing activities: Developers may frequently update the init.coffee file during testing or development of Atom packages. These activities can be excluded by setting exceptions for specific development environments or user accounts involved in these tasks.
-- Automated configuration management: Some organizations use automated tools to manage and update configuration files, including init.coffee. If these tools are known and trusted, their processes can be whitelisted to prevent false positives.
-- System updates or software installations: Occasionally, system updates or new software installations might modify the init.coffee file as part of their setup process. Users can monitor these events and exclude them if they are confirmed to be part of legitimate update or installation procedures.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify any unauthorized changes in the init.coffee file and determine the scope of the compromise.
-- Review recent modifications to the init.coffee file and cross-reference with known malicious JavaScript patterns or signatures.
-- Restore the init.coffee file from a known good backup if available, or manually remove any unauthorized code to ensure the system's integrity.
-- Scan the system for additional indicators of compromise, such as other modified configuration files or unexpected processes, to ensure no other persistence mechanisms are in place.
-- Escalate the incident to the security operations team if the investigation reveals a broader compromise or if the malicious code is part of a known threat campaign.
-- Implement enhanced logging policies to capture detailed file modification events and process execution details for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar persistence techniques.
-- Educate users on the risks of unauthorized script modifications and encourage reporting of suspicious activity to prevent future incidents.
-- Apply security hardening measures, such as restricting write permissions to critical configuration files and using application whitelisting to prevent unauthorized script execution."""
 
 
 [[rule.threat]]

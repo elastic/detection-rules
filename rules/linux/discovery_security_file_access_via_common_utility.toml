@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/11/04"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +13,7 @@ This rule detects sensitive security file access via common utilities on Linux s
 from sensitive files using common utilities to gather information about the system and its security configuration.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Security File Access via Common Utilities"
@@ -48,63 +50,25 @@ tags = [
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Discovery",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Crowdstrike",
+        "Data Source: SentinelOne",
+        "Data Source: Elastic Endgame"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.name in ("cat", "grep", "less", "more", "strings", "awk", "find", "xargs") and
-process.args like (
-  "/etc/security/*", "/etc/pam.d/*", "/etc/login.defs", "/lib/security/*", "/lib64/security/*",
-  "/usr/lib/security/*", "/usr/lib64/security/*", "/usr/lib/x86_64-linux-gnu/security/*",
-  "/home/*/.aws/credentials", "/home/*/.aws/config", "/home/*/.config/gcloud/*credentials.json",
-  "/home/*/.config/gcloud/configurations/config_default", "/home/*/.azure/accessTokens.json",
-  "/home/*/.azure/azureProfile.json"
-)
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  process.name in ("cat", "grep", "less", "more", "strings", "awk", "find", "xargs") and
+  process.args like (
+    "/etc/security/*", "/etc/pam.d/*", "/etc/login.defs", "/lib/security/*", "/lib64/security/*",
+    "/usr/lib/security/*", "/usr/lib64/security/*", "/usr/lib/x86_64-linux-gnu/security/*",
+    "/home/*/.aws/credentials", "/home/*/.aws/config", "/home/*/.config/gcloud/*credentials.json",
+    "/home/*/.config/gcloud/configurations/config_default", "/home/*/.azure/accessTokens.json",
+    "/home/*/.azure/azureProfile.json"
+  )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Security File Access via Common Utilities
-
-In Linux environments, common utilities like `cat`, `grep`, and `less` are essential for file manipulation and viewing. Adversaries exploit these tools to access sensitive security files, aiming to extract system configuration details. The detection rule identifies such unauthorized access attempts by monitoring the execution of these utilities when they target specific security-related file paths, thus helping to thwart potential information-gathering activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific utility (e.g., `cat`, `grep`, `less`) that was executed and the exact file path targeted, as indicated by the `process.name` and `process.args` fields.
-- Check the `host.os.type` and `event.type` fields to confirm the alert pertains to a Linux system and that the event type is a process start, ensuring the context aligns with the rule's intent.
-- Investigate the user account associated with the process execution by examining the `user.name` field to determine if the access attempt was made by a legitimate user or a potential adversary.
-- Analyze the `process.parent.name` field to understand the parent process that initiated the utility, which may provide insights into whether the access was part of a larger script or automated task.
-- Use Osquery to gather additional context about the process and its execution environment. For example, run the following query to list recent processes executed by the same user: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE uid = (SELECT uid FROM users WHERE username = '<username>') ORDER BY start_time DESC LIMIT 10;`
-- Examine system logs, such as `/var/log/auth.log` or `/var/log/secure`, to identify any unusual login activities or privilege escalations around the time of the alert.
-- Check for any recent changes to the targeted files by reviewing file modification timestamps and comparing them with the alert timestamp to identify unauthorized modifications.
-- Investigate network activity from the host during the time of the alert to detect any potential data exfiltration attempts or connections to suspicious external IP addresses.
-- Correlate the alert with other security events or alerts from the same host or user to identify patterns or repeated access attempts to sensitive files.
-- Review the system's security configuration and access controls to ensure that sensitive files are adequately protected and that only authorized users have access to them.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators often use utilities like `cat`, `grep`, and `less` to review security configurations and logs as part of regular maintenance. These legitimate activities can trigger the rule. To manage this, users can create exceptions for specific user accounts or processes that are known to perform these tasks regularly.
-- Automated scripts: Scheduled scripts or cron jobs that perform system checks or backups might access security files using these utilities. Users should identify such scripts and exclude them from triggering alerts by specifying their process IDs or command patterns in the rule configuration.
-- Security audits: During security audits, tools may be employed to verify system configurations, which could involve accessing sensitive files. Users can temporarily disable the rule or whitelist the audit tools during the audit period to prevent false positives.
-- Development and testing environments: Developers or testers might access security files to simulate or test configurations. In such cases, users can exclude specific environments or IP ranges from the rule to avoid unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the source and scope of the unauthorized access, focusing on the processes and users involved.
-- Review system logs and security alerts to determine if any sensitive data was accessed or exfiltrated, and document findings for further analysis.
-- Change credentials and access tokens for any compromised accounts, especially those related to cloud services like AWS, GCP, and Azure.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging and monitoring policies to capture detailed process execution and file access events, ensuring future unauthorized access attempts are detected promptly.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate alerts with known threat actors and tactics.
-- Restore the system to its operational state by applying patches, updating security configurations, and ensuring all unauthorized changes are reverted.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Implement hardening measures such as restricting access to sensitive files, enforcing least privilege principles, and using file integrity monitoring to detect unauthorized changes."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

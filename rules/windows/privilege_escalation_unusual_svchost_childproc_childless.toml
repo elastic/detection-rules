@@ -2,7 +2,7 @@
 creation_date = "2020/10/13"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -64,48 +64,6 @@ process where host.os.type == "windows" and event.type == "start" and
     ) and process.parent.args : "imgsvc"
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Service Host Child Process - Childless Service
-
-Service Host (svchost.exe) is a critical Windows process that hosts multiple services. Some services, known as "childless," typically do not spawn child processes. Adversaries may exploit this by injecting malicious code into these services to escalate privileges or evade detection. The detection rule identifies anomalies by monitoring for unexpected child processes from these "childless" services, flagging potential exploitation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific child process and parent service involved, focusing on the `process.name` and `process.parent.args` fields.
-- Verify the legitimacy of the parent service by checking the `process.parent.args` against known childless services to confirm if the service should indeed be childless.
-- Examine the command-line arguments of the child process using the `process.args` field to identify any suspicious or unusual parameters that may indicate malicious activity.
-- Check the executable path of the child process using the `process.executable` field to determine if it resides in a legitimate directory, such as `?:\\Windows\\System32\\` or `?:\\Program Files\\`.
-- Investigate the process creation time and user context to determine if the process was created during unusual hours or by an unexpected user.
-- Utilize Osquery to gather additional context about the process. For example, run the following query to list all processes with their parent process IDs and command-line arguments: `SELECT pid, name, path, cmdline, parent FROM processes WHERE name = '<child_process_name>';`.
-- Cross-reference the child process with known good or bad hashes using threat intelligence sources to determine if the executable is known to be malicious.
-- Analyze recent system logs and events around the time of the alert to identify any other suspicious activities or related events.
-- Check for any network connections initiated by the child process using network monitoring tools to identify potential C2 communication.
-- Review the system's security and application logs for any signs of exploitation or privilege escalation attempts that may correlate with the alert.
-
-### False positive analysis
-
-- **WerFault.exe, WerFaultSecure.exe, wermgr.exe**: These processes are related to Windows Error Reporting and may occasionally be spawned by svchost.exe during legitimate error handling scenarios. Users can exclude these processes from triggering alerts by adding them to the exception list.
-- **RelPost.exe with WdiSystemHost**: This executable may be launched by the WdiSystemHost service under certain conditions, such as system diagnostics or performance data collection. Users should monitor the context of these executions and consider excluding them if they are part of routine system operations.
-- **rundll32.exe with winethc.dll and WdiServiceHost**: This combination might occur during legitimate network configuration changes or diagnostics. Users can exclude this specific execution pattern if it is verified as part of normal system behavior.
-- **Executables under Program Files or Kodak directories with imgsvc**: These may be legitimate processes related to image processing or Kodak software operations. Users should verify the legitimacy of these processes and exclude them if they are consistently identified as non-threatening.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation to identify the source of the unusual child process, focusing on recent changes or suspicious activities.
-- Utilize forensic tools to capture memory and disk images for deeper analysis of potential code injection or exploitation.
-- Terminate any suspicious processes identified as child processes of svchost.exe that are not typically expected.
-- Review and analyze security logs to trace the origin of the attack and identify any other potentially compromised systems.
-- Apply patches and updates to the operating system and all installed software to mitigate known vulnerabilities.
-- Restore the system from a known good backup if malicious activity is confirmed and cannot be remediated.
-- Implement enhanced logging policies to capture detailed process creation events and network activity for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities.
-- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as disabling unnecessary services and enforcing least privilege principles."""
 
 
 [[rule.threat]]

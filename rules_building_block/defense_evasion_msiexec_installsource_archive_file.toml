@@ -2,7 +2,7 @@
 creation_date = "2023/09/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -47,49 +47,6 @@ sequence with maxspan=1m
     not process.name : "msiexec.exe" and
     not (process.executable : ("?:\\Program Files (x86)\\*.exe", "?:\\Program Files\\*.exe") and process.code_signature.trusted == true)]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Windows Installer with Suspicious Properties
-
-Windows Installer, a core component for application deployment on Windows, can be exploited by adversaries to bypass security measures. Attackers may misuse `msiexec.exe` to execute malicious MSI files, often sourced from archives like ZIP or RAR, or disguised with deceptive names. The detection rule identifies such activities by monitoring registry changes and process executions linked to `msiexec.exe`, flagging untrusted or unusual sources and executables.
-
-### Possible investigation steps
-
-- Review the alert details to understand the specific registry changes and process executions that triggered the alert, focusing on the `msiexec.exe` process and associated registry values like `InstallSource`, `DisplayName`, and `ProductName`.
-- Check the source of the MSI file by examining the `registry.data.strings` field to determine if it originated from a suspicious archive path, such as a ZIP, 7z, or RAR file in a user's temporary directory.
-- Investigate the parent process of `msiexec.exe` to identify how the installer was launched, ensuring it aligns with expected user or system behavior.
-- Verify the legitimacy of the executed process by checking its path and code signature status, especially if it is not located in the trusted `Program Files` directories.
-- Use Osquery to gather additional context about the suspicious process. For example, run the following query to list all processes with `msiexec.exe` as the parent: `SELECT pid, name, path, cmdline FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'msiexec.exe');`
-- Examine recent user activity on the host to identify any actions that might have led to the execution of the suspicious installer, such as downloading files from the internet or opening email attachments.
-- Correlate the alert with other security events or logs from the same host to identify any patterns or additional indicators of compromise.
-- Check for any network connections initiated by the suspicious process to determine if it is communicating with external or potentially malicious servers.
-- Review the system's application whitelisting policies to assess if there are any gaps or misconfigurations that could have allowed the execution of the suspicious installer.
-- Consult threat intelligence sources to determine if the suspicious installer or its components are associated with known malware or adversary techniques.
-
-### False positive analysis
-
-- Legitimate software installations or updates may trigger the rule if they are executed from compressed archives or temporary directories, especially during software development or testing phases.
-- Automated deployment tools or scripts that utilize `msiexec.exe` to install software from network locations or temporary paths might be flagged as suspicious.
-- Users can manage these false positives by creating exceptions for known and trusted software sources, such as specific directories or network paths frequently used for legitimate installations.
-- Exclude processes with verified code signatures from trusted vendors to reduce false positives while maintaining security.
-- Regularly review and update the list of exceptions to ensure that only non-threatening behaviors are excluded, minimizing the risk of overlooking genuine threats.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malware.
-- Conduct a thorough investigation to identify the source of the suspicious MSI file, checking for any unauthorized downloads or email attachments.
-- Review the registry changes and process execution logs to confirm the presence of malicious activity linked to msiexec.exe.
-- If malware is confirmed, use a trusted antivirus or endpoint detection and response (EDR) tool to remove the malicious files and any associated threats.
-- Restore the system from a known good backup if the integrity of the system is compromised and cannot be cleaned effectively.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and registry changes, focusing on msiexec.exe activities.
-- Integrate threat intelligence feeds to improve detection capabilities and correlate with known indicators of compromise (IOCs) related to msiexec.exe abuse.
-- Educate users on the risks of downloading and executing files from untrusted sources, emphasizing the dangers of opening email attachments from unknown senders.
-- Apply system hardening measures, such as application whitelisting and restricting msiexec.exe execution to trusted sources only, to prevent future exploitation attempts."""
 
 
 [[rule.threat]]

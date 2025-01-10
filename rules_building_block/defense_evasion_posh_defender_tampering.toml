@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/09/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -60,48 +60,6 @@ event.category: "process" and host.os.type:windows and
   )
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating PowerShell Script with Windows Defender Tampering Capabilities
-
-PowerShell is a powerful scripting language in Windows environments, often used for automation and configuration. However, adversaries exploit its capabilities to disable Windows Defender features, reducing detection risks. The detection rule identifies scripts using specific cmdlets and parameters that modify Defender settings, signaling potential tampering attempts aimed at impairing system defenses.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of suspicious PowerShell activity, focusing on the `powershell.file.script_block_text` field for any of the specified cmdlets and parameters.
-- Check the `event.category` field to ensure the event is categorized as a "process" and verify the `host.os.type` is "windows" to confirm the environment context.
-- Investigate the user account associated with the PowerShell process to determine if it is a known or privileged account, which could indicate a higher risk if compromised.
-- Examine the process tree to identify the parent process of the PowerShell script, which may provide insights into how the script was executed and whether it was initiated by a legitimate application or a suspicious source.
-- Use Osquery to gather additional context on the PowerShell process by running a query such as: `SELECT * FROM processes WHERE name = 'powershell.exe' AND cmdline LIKE '%Set-MpPreference%';` to identify all instances of PowerShell with similar command lines.
-- Analyze recent login events and user activity on the host to identify any unusual patterns or unauthorized access attempts that could correlate with the PowerShell activity.
-- Review the system's security logs for any other related events, such as changes to security settings or other tampering attempts, to build a timeline of suspicious activities.
-- Check for any network connections initiated by the PowerShell process to external IP addresses, which could indicate data exfiltration or command-and-control communication.
-- Investigate any file modifications or new files created around the time of the PowerShell execution to identify potential payloads or additional scripts dropped by the attacker.
-- Correlate the findings with threat intelligence sources to determine if the observed behavior matches known attack patterns or indicators of compromise associated with specific threat actors.
-
-### False positive analysis
-
-- Legitimate administrative scripts: System administrators may use PowerShell scripts to configure or troubleshoot Windows Defender settings as part of routine maintenance or system optimization. These scripts might include cmdlets and parameters that resemble tampering attempts.
-- Security software updates: Some security software or system updates might temporarily adjust Windows Defender settings to ensure compatibility or performance, triggering the detection rule.
-- Automated deployment tools: Tools used for automated deployment and configuration management might execute scripts that modify Defender settings, which could be mistaken for malicious activity.
-- To manage false positives, users can create exceptions for known legitimate scripts by whitelisting specific script paths or hashes. Additionally, monitoring the context of script execution, such as the user account and process lineage, can help differentiate between benign and malicious activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further tampering or spread of malicious activities.
-- Conduct a thorough investigation of the PowerShell script execution logs to identify the source and scope of the tampering attempt.
-- Review and analyze Windows Event Logs, especially Security and PowerShell logs, to gather more context on the attack and identify any additional compromised systems.
-- Remove any unauthorized or malicious scripts and restore Windows Defender settings to their default state using the Set-MpPreference cmdlet.
-- Update all antivirus and endpoint protection signatures to ensure the latest threat intelligence is applied.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed PowerShell activity, including script block logging and module logging, to improve future detection capabilities.
-- Integrate security information and event management (SIEM) systems with threat intelligence feeds to enhance detection and response to similar threats.
-- Restore the system to its operational state by applying the latest security patches and updates, and verify that all security controls are functioning correctly.
-- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as application whitelisting and restricting PowerShell execution policies, to prevent future occurrences."""
 
 
 [[rule.threat]]

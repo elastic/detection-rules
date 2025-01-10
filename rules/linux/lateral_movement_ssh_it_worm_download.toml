@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2023/09/21"
-integration = ["endpoint", "auditd_manager"]
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 updated_date = "2025/01/08"
 
 [rule]
@@ -11,7 +13,7 @@ Identifies processes that are capable of downloading files with command line arg
 autonomous SSH worm. This worm intercepts outgoing SSH connections every time a user uses ssh.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential SSH-IT SSH Worm Downloaded"
@@ -53,63 +55,20 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
     "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started")
- and process.name in ("curl", "wget") and process.args : (
+process where host.os.type == "linux" and event.type == "start" and
+ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+ process.name in ("curl", "wget") and process.args : (
   "https://thc.org/ssh-it/x", "http://nossl.segfault.net/ssh-it-deploy.sh", "https://gsocket.io/x",
   "https://thc.org/ssh-it/bs", "http://nossl.segfault.net/bs"
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential SSH-IT SSH Worm Downloaded
-
-SSH is a protocol used for secure remote access and management of systems. Adversaries exploit this by deploying worms like SSH-IT, which hijack SSH sessions to spread laterally across networks. The detection rule identifies suspicious file downloads via common tools like curl and wget, targeting specific URLs associated with the SSH-IT worm, thus flagging potential threats early in the infection chain.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of suspicious file downloads using `curl` or `wget` with URLs associated with the SSH-IT worm.
-- Examine the process arguments (`process.args`) to verify if they match any of the known malicious URLs listed in the detection rule.
-- Identify the user account under which the suspicious process was executed to determine if it was initiated by a legitimate user or a compromised account.
-- Check the process execution time (`event.type == "start"`) to correlate with any unusual user activity or other suspicious events in the network.
-- Investigate the source IP address and hostname (`host.os.type == "linux"`) to determine if the affected system is part of a larger pattern of compromise.
-- Use Osquery to list all active SSH sessions on the affected host to identify any unauthorized or unusual connections:
-  ```sql
-  SELECT user, remote_address, remote_port, start_time FROM process_open_sockets WHERE local_port = 22;
-  ```
-- Analyze the system's SSH configuration files and logs to identify any unauthorized changes or anomalies that could indicate worm activity.
-- Review network traffic logs for the affected host to detect any lateral movement attempts or connections to known malicious IP addresses.
-- Cross-reference the alert with other security tools and logs to gather additional context and identify any related alerts or incidents.
-- Document all findings and observations to build a comprehensive timeline of events leading up to and following the alert.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators often use tools like curl and wget for routine maintenance and updates, which may involve downloading scripts or files from URLs that are not malicious. To manage this, users can create exceptions for known and trusted URLs or specific administrative accounts that frequently perform these tasks.
-- Automated scripts and cron jobs: Some automated processes may use curl or wget to fetch updates or data from external sources. Users should review these scripts to ensure they are benign and consider excluding them from the detection rule by specifying the script names or paths.
-- Development and testing environments: Developers might use curl and wget to test connectivity or download resources during development. In such cases, users can exclude specific development machines or user accounts from the rule to prevent false positives.
-- Security tools and monitoring solutions: Some security tools may use these commands to verify the availability of resources or to perform security checks. Users should identify these tools and exclude their processes from triggering the detection rule.
-- Educational and research activities: In academic or research settings, users might download various resources for study purposes. Users can manage these false positives by excluding specific user groups or IP ranges associated with educational activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement by the SSH-IT worm.
-- Conduct a thorough investigation of the affected system to identify any unauthorized SSH connections or additional malware.
-- Terminate any suspicious processes related to the worm, such as those initiated by curl or wget with the identified malicious URLs.
-- Remove any downloaded malicious files and scripts associated with the SSH-IT worm from the system.
-- Reset credentials for any compromised accounts and ensure SSH keys are rotated to prevent unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the infection.
-- Implement enhanced logging policies to capture detailed SSH session activities and command executions for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system to its operational state by applying the latest security patches and updates, and verify system integrity.
-- Harden the system by configuring SSH to use key-based authentication, disabling root login, and enforcing strong password policies."""
 
 
 [[rule.threat]]

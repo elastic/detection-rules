@@ -2,7 +2,7 @@
 creation_date = "2024/04/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -48,49 +48,6 @@ sequence by host.id, user.id with maxspan=1s
  [process where host.os.type == "linux" and event.action == "end" and process.name == "sshd" and process.exit_code != 0] by process.pid, process.entity_id
  [network where host.os.type == "linux" and event.type == "end" and event.action == "disconnect_received" and process.name == "sshd"] by process.pid, process.entity_id
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Execution via XZBackdoor
-
-The XZBackdoor leverages SSH, a secure protocol for remote system access, to execute malicious commands. Adversaries exploit SSH by initiating sessions that appear legitimate but execute unauthorized processes, often terminating abruptly to avoid detection. The detection rule identifies such anomalies by monitoring SSH processes for unexpected terminations and unusual child process executions, signaling potential backdoor activity.
-
-### Possible investigation steps
-
-- Review the alert details to understand which host and user IDs are involved, as these are key identifiers in the query.
-- Examine the process tree for the SSHD process using the `process.pid` and `process.entity_id` fields to identify any unusual child processes that were spawned.
-- Check the command-line arguments of the SSHD process using `process.args` to verify if the `-D` and `-R` flags were used, which may indicate a persistent SSH session.
-- Investigate the parent process of any suspicious child processes using `process.parent.name` and `process.parent.entity_id` to determine if they were initiated by SSHD.
-- Analyze the exit codes of the SSHD process using `process.exit_code` to identify any non-zero values that could indicate abnormal termination.
-- Look into the network activity associated with the SSHD process using `event.action` and `event.type` to confirm if there was a disconnect event, which might suggest abrupt session termination.
-- Use Osquery to gather more context on the SSHD process and its child processes. For example, run the following query to list all processes with their parent-child relationships: `SELECT pid, name, path, parent FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'sshd');`
-- Cross-reference the executable paths of suspicious processes with known legitimate paths using `process.executable` to identify any anomalies.
-- Review the system logs for any additional context around the time of the alert, focusing on authentication logs and any other relevant security logs.
-- Correlate the findings with any other alerts or incidents involving the same host or user to identify patterns or repeated suspicious behavior.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators may use SSH to perform routine maintenance or execute scripts that could match the rule's criteria, such as starting and stopping services or running diagnostic commands. To manage this, users can create exceptions for known administrative accounts or specific command patterns that are regularly used in maintenance activities.
-- Automated scripts and cron jobs: Scheduled tasks or automated scripts that use SSH for remote execution might trigger the rule if they terminate unexpectedly due to errors or network issues. Users can handle these by identifying and excluding specific scripts or cron jobs that are known to cause such behavior.
-- Security tools and monitoring software: Some security tools or monitoring solutions might use SSH to perform checks or gather data, which could mimic the behavior detected by the rule. Users should review and whitelist these tools by their executable paths or command-line arguments to prevent false positives.
-- Testing and development environments: In environments where frequent testing or development occurs, SSH sessions may be started and stopped rapidly, leading to false positives. Users can exclude specific hosts or user accounts associated with testing and development to reduce noise.
-- Network instability: Temporary network issues might cause SSH sessions to disconnect unexpectedly, triggering the rule. Users can monitor network stability and exclude known periods of instability or specific network segments that are prone to such issues.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation of the SSH logs and process execution history to identify any unauthorized access or commands executed.
-- Terminate any suspicious or unauthorized SSH sessions and processes identified during the investigation.
-- Change all credentials associated with the compromised system, especially SSH keys and passwords, to prevent further unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
-- Implement enhanced logging and monitoring for SSH activities, including logging of all SSH sessions and command executions, to detect future anomalies.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system from a known good backup to ensure that no malicious code remains on the system.
-- Apply system hardening measures, such as disabling root login via SSH, using key-based authentication, and implementing two-factor authentication (2FA) for SSH access.
-- Review and update security policies and procedures to address any gaps identified during the incident response process, ensuring alignment with MITRE ATT&CK framework techniques for persistence and system process modification."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

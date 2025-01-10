@@ -2,7 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -20,51 +20,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS WAF Access Control List Deletion"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS WAF Access Control List Deletion
-
-AWS WAF protects web applications by filtering and monitoring HTTP requests. Access Control Lists (ACLs) define rules to block or allow traffic. Adversaries may delete ACLs to disable protections, facilitating attacks. The detection rule monitors successful deletion events in AWS CloudTrail, signaling potential defense evasion attempts by identifying unauthorized or suspicious ACL deletions.
-
-### Possible investigation steps
-
-- Review the AWS CloudTrail logs to confirm the `event.action:DeleteWebACL` and `event.outcome:success` to ensure the alert is valid and not a false positive.
-- Identify the `user.identity.arn` field in the CloudTrail logs to determine which IAM user or role initiated the deletion of the WAF ACL.
-- Check the `sourceIPAddress` field to identify the IP address from which the deletion request was made, and verify if it aligns with known or expected IP addresses for your organization.
-- Investigate the `userAgent` field to understand the application or service used to perform the deletion, which might provide additional context about the source of the request.
-- Examine the `eventTime` field to establish a timeline of events and correlate it with other activities in the AWS environment around the same time.
-- Use Osquery to query AWS API logs for any other suspicious activities around the same time. Example query: `SELECT * FROM aws_cloudtrail_events WHERE eventName = 'DeleteWebACL' AND eventTime BETWEEN 'start_time' AND 'end_time';`
-- Cross-reference the IAM user or role identified with recent IAM activity logs to check for any unusual permission changes or access patterns.
-- Investigate any recent changes to IAM policies or roles that might have inadvertently allowed unauthorized users to delete WAF ACLs.
-- Review the AWS WAF configuration history to determine if there were any recent changes to the ACLs that could have been a precursor to the deletion.
-- Check for any other security alerts or incidents in the AWS environment that might indicate a broader attack or compromise.
-
-### False positive analysis
-
-- Routine maintenance or administrative tasks may trigger the AWS WAF Access Control List Deletion rule, especially if performed by authorized personnel. These actions are typically non-threatening and can be considered false positives.
-- Automated scripts or tools used for infrastructure management might delete and recreate ACLs as part of their normal operation, leading to false positives. Users should identify these scripts and consider excluding their activity from alerts.
-- Changes in security policies or compliance requirements might necessitate the deletion of certain ACLs, which could be misinterpreted as suspicious activity. Users should document these changes and adjust the detection rule to account for them.
-- To manage false positives, users can create exceptions for specific IAM roles or users known to perform legitimate ACL deletions regularly. This can be done by adding conditions to the detection rule to exclude these entities.
-- Implementing a review process for deletion events can help differentiate between legitimate and suspicious activities, allowing for more accurate threat detection while minimizing false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected AWS account to prevent further unauthorized actions and assess the scope of the incident.
-- Review AWS CloudTrail logs to identify the source and user responsible for the deletion of the WAF ACL, focusing on any anomalies or unauthorized access patterns.
-- Verify the integrity of other security configurations and access controls within the AWS environment to ensure no additional tampering has occurred.
-- Restore the deleted WAF ACL from backups or recreate it using predefined templates to re-establish web application protections.
-- Implement multi-factor authentication (MFA) for all AWS accounts to enhance security and prevent unauthorized access.
-- Conduct a thorough review of IAM policies and permissions to ensure the principle of least privilege is enforced, reducing the risk of unauthorized actions.
-- Escalate the incident to the security operations team for further investigation and to determine if additional systems or data were compromised.
-- Enhance logging and monitoring by integrating AWS CloudTrail with a Security Information and Event Management (SIEM) system for real-time alerting and analysis.
-- Develop and implement a comprehensive incident response plan that includes regular drills and updates based on lessons learned from the incident.
-- Educate and train staff on security best practices and the importance of maintaining robust access controls to prevent future incidents.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

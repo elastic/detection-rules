@@ -2,7 +2,7 @@
 creation_date = "2024/07/03"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -66,49 +66,6 @@ event.category:process and host.os.type:windows and
     ("rahc" or "ekovin" or "gnirts" or "ecnereferpesobrev" or "ecalper" or "cepsmoc" or "dillehs")
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential PowerShell Obfuscated Script
-
-PowerShell is a powerful scripting language used for task automation and configuration management in Windows environments. Adversaries exploit its capabilities by obfuscating scripts to evade security measures like AMSI. The detection rule identifies obfuscation patterns, such as string manipulation and encoding techniques, to flag potentially malicious scripts that attempt to bypass security defenses.
-
-### Possible investigation steps
-
-- Review the alert details to understand which specific obfuscation pattern triggered the detection, focusing on the `powershell.file.script_block_text` field.
-- Examine the full script block text associated with the alert to identify any additional obfuscation techniques or suspicious commands not covered by the detection rule.
-- Check the `event.category` and `host.os.type` fields to confirm the context of the alert, ensuring it pertains to a Windows process execution.
-- Investigate the process tree to identify the parent process of the PowerShell script execution, which may provide insights into how the script was launched.
-- Use Osquery to gather more information about the process by running a query such as: `SELECT * FROM processes WHERE name = 'powershell.exe' AND pid = <PID>;` to retrieve details about the PowerShell process, including its command line arguments and parent process.
-- Analyze the user account associated with the PowerShell execution to determine if it aligns with expected behavior or if it might be compromised.
-- Review recent login events and user activity logs for the account in question to identify any anomalies or unauthorized access attempts.
-- Check for any network connections initiated by the PowerShell process to external IP addresses, which could indicate data exfiltration or command-and-control communication.
-- Search for any file modifications or new file creations on the host around the time of the alert to identify potential payloads or artifacts left by the script.
-- Correlate the alert with other security events or alerts from the same host or user account to identify patterns or a broader attack campaign.
-
-### False positive analysis
-
-- Legitimate administrative scripts: PowerShell scripts used by IT administrators for legitimate purposes may contain obfuscation techniques to protect sensitive information or to streamline complex operations. Users should review these scripts to ensure they are not flagged as malicious.
-- Automated deployment tools: Some deployment or configuration management tools may use obfuscation to protect proprietary code or to ensure compatibility across different environments. Users can create exceptions for these tools if they are verified as safe.
-- Security software: Certain security solutions may use obfuscation in their scripts to prevent tampering or reverse engineering. Users should verify the source and purpose of these scripts before excluding them.
-- Development and testing environments: Developers may use obfuscation techniques during the development or testing phases to simulate real-world scenarios. Users should ensure these scripts are confined to controlled environments and are not mistakenly flagged in production.
-- To manage false positives, users can create exceptions for known safe scripts by whitelisting specific script signatures or paths. Regularly updating the list of exceptions based on verified activities can help maintain a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potentially malicious scripts.
-- Conduct a thorough investigation of the PowerShell script to determine the extent of obfuscation and potential malicious intent.
-- Utilize endpoint detection and response (EDR) tools to analyze the behavior of the script and identify any additional indicators of compromise (IOCs).
-- Remove or quarantine any identified malicious scripts or files from the system.
-- Review and update PowerShell execution policies to restrict the execution of unauthorized scripts.
-- Escalate the incident to the security operations center (SOC) for further analysis and to determine if the attack is part of a larger campaign.
-- Implement enhanced logging for PowerShell activities, including script block logging and module logging, to improve future detection capabilities.
-- Integrate threat intelligence feeds to correlate detected patterns with known threat actors and techniques.
-- Restore the system from a known good backup to ensure the removal of any persistent threats.
-- Apply system hardening measures, such as disabling unnecessary PowerShell features and enforcing the use of AMSI, to reduce the risk of future obfuscation attempts."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

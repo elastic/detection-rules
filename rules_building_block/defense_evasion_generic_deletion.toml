@@ -2,7 +2,7 @@
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -48,48 +48,6 @@ process where host.os.type == "windows" and event.type == "start" and
   (process.name: "powershell.exe" and process.args: ("*rmdir", "rm", "rd", "*Remove-Item*", "del", "*]::Delete(*"))
 ) and not user.id : "S-1-5-18"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File or Directory Deletion Command
-
-In Windows environments, commands like `rundll32.exe`, `reg.exe`, `cmd.exe`, and `powershell.exe` are integral for system management, allowing users to delete files or directories. However, adversaries exploit these to erase logs or malware traces, hindering forensic analysis. The detection rule identifies suspicious deletions by monitoring these command executions, excluding benign paths, and flagging non-system user activities, thus highlighting potential malicious actions.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and arguments that triggered the rule, focusing on `process.name` and `process.args` fields.
-- Check the `user.id` field to determine which user account executed the command and assess if this account has a history of suspicious activity.
-- Investigate the parent process of the flagged command using the `process.parent.name` and `process.parent.args` fields to understand the context in which the deletion command was executed.
-- Examine the timestamp of the event to correlate with other activities on the system, such as logins or other process executions, to identify any patterns or anomalies.
-- Use Osquery to list recent file deletions on the system with a query like: `SELECT * FROM file_events WHERE action = 'DELETE' AND datetime >= 'YYYY-MM-DD HH:MM:SS';` to gather more context around the deletion activity.
-- Cross-reference the paths in `process.args` with known benign paths to ensure the exclusion list is comprehensive and verify if any new paths should be considered suspicious.
-- Analyze the network activity around the time of the event to identify any potential data exfiltration attempts or connections to known malicious IPs.
-- Review system logs for any other suspicious activities or errors that occurred around the same time as the deletion command execution.
-- Check for any recent changes in system configurations or installed software that might explain the use of deletion commands.
-- Investigate the presence of any known malware or indicators of compromise on the system using threat intelligence sources and compare them with the command arguments and user activity.
-
-### False positive analysis
-
-- Routine system maintenance tasks or software updates may trigger the rule, as they often involve deleting temporary files or old logs, which can be mistaken for malicious activity.
-- Automated scripts or scheduled tasks that clean up directories or manage file storage can also be flagged, especially if they use command-line tools like `cmd.exe` or `powershell.exe`.
-- Users can manage these false positives by creating exceptions for known benign processes or paths, such as excluding specific user accounts or directories frequently involved in legitimate deletions.
-- It's important to regularly review and update the exclusion list to ensure that new legitimate activities are not mistakenly flagged, while still maintaining the integrity of the detection rule against genuine threats.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and data exfiltration.
-- Conduct a thorough investigation to identify the scope of the deletion, focusing on critical files such as logs, browser history, or potential malware traces.
-- Utilize forensic tools to recover deleted files if possible, and analyze them for indicators of compromise or further malicious activity.
-- Escalate the incident to the security operations center (SOC) or incident response team if the deletion is linked to a broader attack or if sensitive data is involved.
-- Implement enhanced logging policies to capture detailed command execution and file access activities, ensuring that future deletions are detected promptly.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and correlate with known threat actor behaviors.
-- Restore the system to its operational state by reinstalling affected applications and restoring data from verified backups.
-- Apply system hardening measures, such as restricting the use of command-line tools to authorized personnel and implementing application whitelisting.
-- Review and update security policies and procedures to address gaps identified during the investigation and ensure compliance with best practices.
-- Conduct a post-incident review to learn from the event, improve response strategies, and prevent similar incidents in the future."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/05/17"
 integration = ["endpoint", "network_traffic", "panw"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -37,48 +37,6 @@ query = '''
 destination.port : (21 or 22 or 23 or 25 or 139 or 445 or 3389 or 5985 or 5986) and
 source.ip : (10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Network Sweep Detected
-
-Network sweeps are reconnaissance techniques where attackers scan networks to identify active hosts and services, often targeting common ports. This activity helps adversaries map out network vulnerabilities for future exploitation. The detection rule identifies suspicious behavior by monitoring connection attempts from a single source to multiple destinations on key ports, flagging potential reconnaissance efforts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the source IP address and the list of destination IP addresses involved in the network sweep, focusing on the `source.ip` and `destination.port` fields.
-- Verify the legitimacy of the source IP address by checking if it belongs to a known internal system or a potentially compromised device within the network.
-- Cross-reference the destination IP addresses with internal asset inventories to determine if they are critical systems or contain sensitive data.
-- Analyze historical logs to identify any previous suspicious activities associated with the source IP address, such as repeated failed login attempts or unusual data transfers.
-- Use network traffic analysis tools to inspect the packet data for the flagged connections, looking for any anomalies or patterns that suggest reconnaissance behavior.
-- Investigate the timing and frequency of the connection attempts to determine if they align with typical network usage patterns or if they indicate a deliberate scanning effort.
-- Utilize Osquery to gather additional context on the source host. For example, run the following Osquery query to check for recent network connections: `SELECT * FROM process_open_sockets WHERE remote_address IN ('<destination_ip_1>', '<destination_ip_2>', ...);`
-- Check for any correlated alerts or incidents in the security information and event management (SIEM) system that might provide additional context or indicate a broader attack campaign.
-- Consult threat intelligence sources to determine if the observed behavior matches known tactics, techniques, and procedures (TTPs) of specific threat actors or malware.
-- Document all findings and observations in a detailed report to facilitate further analysis and decision-making by the security team.
-
-### False positive analysis
-
-- Routine network management tasks: Network administrators often perform scans to monitor network health and identify issues. These legitimate activities can trigger the rule, leading to false positives.
-- Automated security tools: Security software and vulnerability scanners may conduct regular sweeps to ensure network security, which can be mistaken for malicious reconnaissance.
-- Internal application behavior: Some applications may communicate across multiple hosts and ports as part of their normal operation, potentially triggering the rule.
-- To manage false positives, users can create exceptions for known IP addresses or subnets associated with trusted network management tools and internal applications. This can be done by updating the detection rule to exclude these sources from triggering alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected systems from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the source of the network sweep, including reviewing logs and network traffic for any anomalies or patterns.
-- Verify the integrity of the systems involved by checking for any unauthorized changes or installations that may indicate a compromise.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the activity is part of a larger attack.
-- Implement enhanced logging policies to capture detailed network traffic and connection attempts, focusing on the ports and IP ranges identified in the detection rule.
-- Integrate threat intelligence feeds to correlate the detected activity with known threat actors or campaigns, leveraging MITRE ATT&CK framework for context.
-- Restore affected systems to a known good state using backups or system images, ensuring that any potential backdoors or malware are removed.
-- Apply network segmentation and access controls to limit the exposure of critical systems and services to unauthorized scanning or access.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Educate staff on recognizing and reporting suspicious network activity to improve early detection and response capabilities."""
 
 
 [[rule.threat]]

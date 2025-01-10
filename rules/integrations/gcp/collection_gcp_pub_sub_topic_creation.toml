@@ -2,7 +2,7 @@
 creation_date = "2020/09/23"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,50 +22,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Pub/Sub Topic Creation"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GCP Pub/Sub Topic Creation
-
-Google Cloud Pub/Sub is a messaging service that enables asynchronous communication between services by decoupling event producers and consumers. Adversaries might exploit this by creating topics to exfiltrate data or orchestrate malicious activities. The detection rule monitors audit logs for successful topic creation events, helping identify unauthorized or suspicious activities that could indicate abuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of `event.dataset:gcp.audit`, `event.action:google.pubsub.v*.Publisher.CreateTopic`, and `event.outcome:success` to ensure the alert is based on a successful topic creation event.
-- Identify the user or service account associated with the topic creation by examining the `user.name` or `user.email` fields in the audit log.
-- Check the `source.ip` field to determine the origin of the request and assess if it aligns with known and expected IP addresses for your organization.
-- Investigate the `gcp.project_id` field to understand which project the topic was created in and verify if the project is legitimate and expected to have new topics created.
-- Examine the `gcp.resource.name` field to identify the specific topic name and assess if it follows the naming conventions and patterns used within your organization.
-- Review historical logs for the identified user or service account to determine if there have been any other unusual or unauthorized activities.
-- Use Osquery to gather additional context on the GCP environment. For example, run the following query to list all topics in the project: `SELECT * FROM gcp_pubsub_topics WHERE project_id = '<project_id>';`.
-- Check for any recent changes in IAM policies or permissions related to Pub/Sub within the project to identify potential privilege escalations or misconfigurations.
-- Correlate the topic creation event with other logs or alerts to identify any related suspicious activities, such as data exfiltration attempts or unusual data processing patterns.
-- Consult with the project owner or relevant stakeholders to verify if the topic creation was authorized and aligns with current business needs or projects.
-
-### False positive analysis
-
-- Routine operations by development teams: Developers often create Pub/Sub topics during application development and testing. These activities are typically benign and can be excluded by identifying and whitelisting specific user accounts or service accounts associated with development environments.
-- Automated infrastructure provisioning: Tools like Terraform or Cloud Deployment Manager may automatically create Pub/Sub topics as part of infrastructure setup. To manage these, users can exclude events originating from known automation tools or specific project IDs used for infrastructure management.
-- Scheduled maintenance or updates: Regular maintenance tasks or updates might involve creating new topics temporarily. Users can handle these by setting time-based exceptions during known maintenance windows.
-- Internal data processing workflows: Some internal workflows may require the creation of new topics for data processing. Users should document these workflows and exclude related events by identifying specific patterns or labels associated with these processes.
-
-### Response and remediation
-
-- Verify the legitimacy of the topic creation by checking the associated user or service account and their permissions.
-- Contain potential threats by temporarily disabling the topic or restricting access to it until further investigation is completed.
-- Investigate the source of the topic creation by reviewing audit logs and identifying any unusual patterns or unauthorized access attempts.
-- Remediate unauthorized access by revoking permissions or credentials of compromised accounts and enforcing multi-factor authentication.
-- Escalate the incident to the security operations team if the topic creation is determined to be part of a larger attack or data exfiltration attempt.
-- Implement logging policies to ensure comprehensive monitoring of Pub/Sub activities, including topic creation, modification, and deletion.
-- Integrate with security information and event management (SIEM) systems to enhance real-time detection and correlation of suspicious activities.
-- Restore the system to its operational state by re-enabling legitimate topics and ensuring all security measures are in place.
-- Harden the environment by applying the principle of least privilege to all accounts and regularly reviewing access controls.
-- Educate users and administrators on recognizing and reporting suspicious activities related to Pub/Sub services to prevent future incidents.
-
-## Setup
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/pubsub/docs/admin"]

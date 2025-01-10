@@ -2,7 +2,7 @@
 creation_date = "2021/01/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -62,49 +62,6 @@ query = '''
 event.category:file and host.os.type:macos and not event.type:"deletion" and
  file.path:(/private/etc/periodic/* or /private/etc/defaults/periodic.conf or /private/etc/periodic.conf)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Persistence via Periodic Tasks
-
-Periodic tasks in macOS are scheduled operations that automate system maintenance and other routine activities. Adversaries may exploit these tasks to execute unauthorized code or maintain persistence by altering task configurations. The detection rule identifies suspicious file events related to periodic task configurations, excluding deletions, to spot potential tampering indicative of malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file path that triggered the alert, focusing on paths like `/private/etc/periodic/*`, `/private/etc/defaults/periodic.conf`, or `/private/etc/periodic.conf`.
-- Check the timestamp of the event to determine when the suspicious modification or creation occurred.
-- Investigate the user account associated with the event to determine if the activity aligns with expected behavior or if it might be indicative of unauthorized access.
-- Use Osquery to list all periodic tasks and their configurations to identify any unexpected or unauthorized entries. Example query: `SELECT * FROM file WHERE path LIKE '/private/etc/periodic/%' OR path = '/private/etc/defaults/periodic.conf' OR path = '/private/etc/periodic.conf';`
-- Examine the contents of the modified or newly created configuration files to identify any suspicious scripts or commands that could indicate malicious intent.
-- Cross-reference the event with other logs, such as authentication logs, to identify any unusual login activities around the time of the event.
-- Check for any recent changes in user privileges or group memberships that could have allowed unauthorized modifications to periodic task configurations.
-- Investigate any network connections or external communications initiated by the host around the time of the event to identify potential data exfiltration or command-and-control activity.
-- Review historical data to determine if similar modifications have occurred in the past, which could indicate a pattern of persistence attempts.
-- Consult threat intelligence sources to see if the identified modifications or scripts match known malicious activity or indicators of compromise.
-
-### False positive analysis
-
-- Routine system updates or legitimate software installations may modify periodic task configurations, leading to false positives. Users should verify if the changes coincide with known update schedules or software installations.
-- Administrative scripts or maintenance tools used by IT departments might alter periodic task settings as part of their normal operations. Users can create exceptions for these known scripts or tools to reduce noise.
-- Configuration management systems like Puppet or Chef may update periodic task configurations as part of their automated processes. Users should ensure these systems are accounted for in their monitoring rules.
-- Developers or system administrators might manually adjust periodic task settings for testing or optimization purposes. Users can maintain a whitelist of authorized personnel or processes that are allowed to make such changes.
-- Some third-party applications may legitimately modify periodic task configurations to schedule their own maintenance tasks. Users should review and approve these applications to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected macOS system from the network to prevent further unauthorized access or execution of malicious code.
-- Conduct a thorough investigation of the modified or newly created periodic task configurations to identify any unauthorized changes or scripts.
-- Review system logs and use endpoint detection and response (EDR) tools to trace the origin of the changes and identify any associated malicious activity.
-- Restore the original periodic task configurations from a known good backup to ensure system integrity.
-- Scan the system for additional indicators of compromise (IOCs) and remove any detected malware or unauthorized files.
-- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals a broader compromise or if assistance is needed.
-- Implement enhanced logging policies to capture detailed file modification events and periodic task executions for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and detect similar threats in the future.
-- Apply security patches and updates to the macOS system to mitigate vulnerabilities that could be exploited by adversaries.
-- Harden the system by restricting access to configuration files, enforcing least privilege principles, and regularly auditing scheduled tasks for unauthorized changes."""
 
 
 [[rule.threat]]

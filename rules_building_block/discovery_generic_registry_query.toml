@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -52,49 +52,6 @@ host.os.type:windows and event.category:process and event.type:start and
     "reg  query \"HKLM\\Software\\WOW6432Node\\Npcap\" /ve  "
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Query Registry using Built-in Tools
-
-The Windows Registry is a critical database for system configuration and application settings. Adversaries exploit built-in tools like `reg.exe` and PowerShell to query the registry, seeking information on installed software and system configurations. The detection rule identifies suspicious registry queries by monitoring specific command executions, filtering out benign activities, and focusing on potential misuse patterns, thus aiding in early threat detection.
-
-### Possible investigation steps
-
-- Review the alert details to understand which process triggered the rule, focusing on `process.name` and `process.args` to identify the specific command executed.
-- Check the `process.command_line` field to see the full command executed, which can provide context on the intent and scope of the registry query.
-- Investigate the parent process using `process.parent.name` and `process.parent.args` to determine if the registry query was initiated by a legitimate application or script.
-- Examine the user context under which the process was executed by reviewing the `user.name` field to assess if the activity aligns with the user's role and responsibilities.
-- Correlate the event timestamp with other logs to identify any preceding or subsequent suspicious activities that might indicate a broader attack pattern.
-- Use Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE name = 'reg.exe' OR name LIKE 'powershell%';` to list all instances of these processes and their command lines.
-- Investigate the network activity associated with the process using network logs to determine if there was any data exfiltration or communication with known malicious IPs.
-- Check for any recent changes in the registry keys queried by the process to identify unauthorized modifications or configurations.
-- Review historical data to determine if similar registry queries have been executed in the past, which might indicate a persistent threat or recurring reconnaissance activity.
-- Consult threat intelligence sources to see if the specific command or pattern matches known attack techniques or campaigns, providing further context on the potential threat actor.
-
-### False positive analysis
-
-- Routine administrative tasks often involve querying the registry using `reg.exe` or PowerShell, which can trigger false positives. System administrators frequently use these tools for legitimate purposes such as checking software installations or system configurations.
-- Automated scripts and software management tools may execute registry queries as part of their normal operations, leading to benign alerts. For example, inventory management systems might query registry keys to gather information about installed applications.
-- Security software updates or checks might involve registry queries to verify settings or configurations, which can be mistaken for suspicious activity.
-- To manage these false positives, users can create exceptions for known benign processes by excluding specific command lines or process arguments that are regularly used in their environment.
-- Regularly review and update the exclusion list to ensure it reflects current legitimate activities, minimizing unnecessary alerts while maintaining effective threat detection.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to determine the scope of the registry query activity, identifying any unauthorized access or changes.
-- Review the process execution details and command line arguments to confirm if the activity aligns with known malicious patterns or legitimate administrative tasks.
-- If malicious activity is confirmed, remove any unauthorized software or scripts that may have been installed or executed as a result of the registry query.
-- Restore the system to a known good state using backups or system restore points, ensuring that any malicious changes are reversed.
-- Implement enhanced logging policies to capture detailed process execution and command line activity for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate registry query activities with known threat actor tactics, techniques, and procedures (TTPs).
-- Escalate the incident to the security operations center (SOC) or incident response team if the activity is part of a broader attack campaign or if additional expertise is required.
-- Apply security patches and updates to the operating system and installed software to mitigate vulnerabilities that could be exploited by adversaries.
-- Educate users and administrators on the risks associated with registry queries and the importance of adhering to security best practices to prevent unauthorized access."""
 
 
 [[rule.threat]]

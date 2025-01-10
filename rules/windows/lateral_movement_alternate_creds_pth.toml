@@ -2,7 +2,7 @@
 creation_date = "2023/03/29"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -32,49 +32,6 @@ event.category : "authentication" and event.action : "logged-in" and
 winlog.logon.type : "NewCredentials" and event.outcome : "success" and 
 user.id : (S-1-5-21-* or S-1-12-1-*) and winlog.event_data.LogonProcessName : "seclogo"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Pass-the-Hash (PtH) Attempt
-
-Pass-the-Hash (PtH) exploits authentication processes by using stolen password hashes to gain unauthorized access, bypassing the need for plaintext passwords. Adversaries leverage this to move laterally across systems. The detection rule identifies suspicious logins on Windows systems, focusing on successful authentications using specific logon types and processes, indicating potential PtH activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the specific logon type "NewCredentials" and the logon process name "seclogo" to ensure it matches the criteria for a potential PtH attempt.
-- Correlate the user ID (S-1-5-21-* or S-1-12-1-*) with known user accounts to determine if the account is legitimate and if the activity aligns with expected behavior for that user.
-- Examine the source and destination IP addresses associated with the login event to identify if the access originated from an unusual or unauthorized location.
-- Check the timestamp of the event to determine if the login occurred during non-business hours, which could indicate suspicious activity.
-- Investigate the host from which the login attempt was made using Osquery to gather additional context. For example, run the following Osquery query to list recent logon sessions: `SELECT * FROM logged_in_users WHERE user = '<username>';`
-- Analyze the event logs on the involved systems for any preceding or subsequent suspicious activities, such as failed login attempts or unusual process executions.
-- Review any recent changes to user account privileges or group memberships that could have facilitated the PtH attempt.
-- Investigate any other authentication events involving the same user ID across the network to identify patterns or additional instances of suspicious logins.
-- Check for any known vulnerabilities or misconfigurations on the involved systems that could have been exploited to facilitate the PtH attempt.
-- Consult threat intelligence sources to determine if there are any known campaigns or threat actors currently using PtH techniques that match the observed behavior.
-
-### False positive analysis
-
-- Legitimate administrative tools or scripts that automate tasks may trigger the rule if they use the "NewCredentials" logon type and "seclogo" process, as these can mimic PtH behavior. Users should review the context of such logins to determine if they are part of routine administrative operations.
-- Scheduled tasks or services that require authentication using stored credentials might appear as PtH attempts. To manage these, users can create exceptions for known and verified tasks or services by excluding specific user IDs or hostnames.
-- Security software or network monitoring tools that perform regular checks or audits on systems might generate false positives. Users should identify these tools and exclude their associated processes or user IDs from the detection rule.
-- In environments with single sign-on (SSO) solutions, certain authentication processes might resemble PtH activity. Users should ensure that SSO-related logins are recognized and excluded from the rule by verifying the legitimacy of the logon process and user IDs involved.
-- To handle false positives effectively, users can maintain a whitelist of known non-threatening behaviors, regularly update it based on observed patterns, and apply it to the detection rule to minimize unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
-- Conduct a thorough investigation to identify the source of the hash theft, reviewing recent changes and access logs for anomalies.
-- Reset passwords for all accounts that were potentially compromised, ensuring that new passwords are strong and unique.
-- Analyze the event logs for other instances of the "seclogo" logon process to identify additional compromised systems.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed authentication events, including logon types and processes.
-- Integrate threat intelligence feeds to correlate detected PtH attempts with known threat actor tactics and techniques.
-- Restore the affected system from a known good backup to ensure no malicious code remains.
-- Apply security patches and updates to all systems to mitigate vulnerabilities that could be exploited for hash theft.
-- Implement network segmentation and least privilege access controls to limit the potential impact of future PtH attacks."""
 
 
 [[rule.threat]]

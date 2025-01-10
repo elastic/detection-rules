@@ -4,7 +4,7 @@ integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 min_stack_version = "8.13.0"
-updated_date = "2025/01/08"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -64,49 +64,6 @@ process where host.os.type == "linux" and event.type == "start" and process.name
   "-u", "--remove", "-z", "--zero"
 ) and not process.parent.name == "logrotate"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File Deletion via Shred
-
-The `shred` command in Linux is used to securely delete files by overwriting them, making recovery difficult. Adversaries exploit this to erase traces of malicious activity, hindering forensic analysis. The detection rule identifies suspicious use of `shred` by monitoring its execution with specific arguments, excluding benign processes like `logrotate`, to flag potential misuse for stealthy file removal.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the execution of the `shred` command, focusing on the `process.name` and `process.args` fields to verify the suspicious arguments used.
-- Check the `process.parent.name` field to ensure the parent process is not a benign process like `logrotate`, which is excluded in the detection rule.
-- Investigate the user account associated with the `shred` process by examining the `user.name` field to determine if the activity aligns with expected behavior for that user.
-- Analyze the `host.os.type` and `host.name` fields to identify the specific system where the `shred` command was executed, and assess if this system is a common target for such activities.
-- Use Osquery to gather additional context about the file system activity around the time of the alert. For example, run the following Osquery query to list recent file modifications: `SELECT * FROM file WHERE path LIKE '/path/to/suspicious/directory/%' AND mtime > (SELECT strftime('%s', 'now') - 3600);`
-- Examine the `event.type` field to confirm the event type is "start," indicating the initiation of the `shred` process, and correlate with other process events to understand the sequence of actions.
-- Review system logs and other security tools for any related alerts or anomalies around the time of the `shred` execution to identify potential precursor or follow-up activities.
-- Investigate network activity from the host using network monitoring tools to check for any suspicious outbound connections that might indicate data exfiltration or command-and-control communication.
-- Cross-reference the alert with known threat intelligence sources to determine if the observed behavior matches any known adversary tactics, techniques, or procedures (TTPs).
-- Document all findings and observations in a case management system to maintain a comprehensive record of the investigation and facilitate further analysis if needed.
-
-### False positive analysis
-
-- The `shred` command may be used by legitimate system maintenance processes, such as automated scripts for secure file deletion, which can trigger false positives. 
-- System administrators might use `shred` for routine secure deletion of sensitive files, which should be considered when analyzing alerts.
-- To manage these false positives, users can create exceptions for known benign processes or scripts that frequently use `shred` with the specified arguments.
-- Implementing a whitelist for specific users or processes that are authorized to use `shred` can help reduce noise in the detection system.
-- Regularly review and update the list of exceptions to ensure that only legitimate uses of `shred` are excluded from alerts, maintaining a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and data exfiltration.
-- Conduct a thorough investigation to identify the scope of the intrusion, focusing on logs and other forensic evidence to determine the extent of file deletion and any other malicious actions.
-- Utilize file recovery tools to attempt restoration of any critical files that may have been deleted using the `shred` command.
-- Review and analyze the process tree to identify the parent process of `shred` and any associated processes that may indicate the presence of malware or unauthorized scripts.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
-- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships, to aid in future investigations.
-- Integrate endpoint detection and response (EDR) solutions to monitor and alert on suspicious file deletion activities and other potential indicators of compromise.
-- Restore the system to its operational state by reinstalling the operating system and applications from trusted sources, ensuring all security patches are applied.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent similar incidents in the future.
-- Implement hardening measures such as restricting the use of the `shred` command to authorized users only and employing file integrity monitoring to detect unauthorized changes."""
 
 
 [[rule.threat]]

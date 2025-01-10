@@ -2,7 +2,7 @@
 creation_date = "2023/08/10"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -79,49 +79,6 @@ sample by host.id, process.pid, user.id
   [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/proc/net/ipv6_route"]
   [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/proc/net/if_inet6"]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Meterpreter Reverse Shell
-
-Meterpreter is a powerful payload within the Metasploit framework, often used by attackers to gain control over a compromised system. It operates by executing commands and gathering system information stealthily. Adversaries exploit it to fingerprint systems by reading specific files like `/etc/passwd` and network routes. The detection rule identifies these suspicious file access patterns, signaling a potential Meterpreter shell presence by monitoring system calls related to file reads on Linux systems.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific `host.id`, `process.pid`, and `user.id` associated with the suspicious file access.
-- Verify the legitimacy of the process by checking the `process.pid` against known legitimate processes on the system.
-- Use Osquery to gather more information about the process by running: `SELECT * FROM processes WHERE pid = <process.pid>;` to check the command line, parent process, and other attributes.
-- Investigate the `user.id` to determine if the user account is legitimate and if it has been compromised or misused.
-- Check the system logs for any unusual login activities or privilege escalations related to the `user.id`.
-- Examine the network connections of the host using Osquery: `SELECT * FROM socket_events WHERE pid = <process.pid>;` to identify any suspicious outbound connections.
-- Analyze the file access patterns on the host to see if other sensitive files have been accessed using: `SELECT * FROM file_events WHERE path IN ('/etc/passwd', '/etc/machine-id', '/proc/net/route', '/proc/net/ipv6_route', '/proc/net/if_inet6');`
-- Correlate the timestamps of the suspicious file accesses with other system events to identify any related activities or anomalies.
-- Investigate any recent changes to the system configuration or installed software that could have introduced vulnerabilities.
-- Consult threat intelligence sources to determine if there are any known campaigns or indicators of compromise associated with the observed behavior.
-
-### False positive analysis
-
-- Legitimate system administration tools or scripts may access files like `/etc/passwd` and network routes for configuration or monitoring purposes, leading to false positives. 
-- Automated backup or inventory management software might read these files to gather system information, which can trigger the detection rule.
-- Security monitoring tools that perform regular checks on system files and network configurations could also mimic the behavior of a Meterpreter shell.
-- To manage these false positives, users can create exceptions for known benign processes or users by excluding specific process IDs or user IDs from the detection rule.
-- Regularly review and update the list of exceptions to ensure that only trusted activities are excluded, maintaining the effectiveness of the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access and lateral movement.
-- Conduct a thorough investigation to confirm the presence of a Meterpreter shell by analyzing system logs, network traffic, and any suspicious processes or connections.
-- Terminate any malicious processes identified during the investigation to stop ongoing malicious activities.
-- Change all passwords and credentials that may have been compromised, especially those with elevated privileges.
-- Restore the system from a known good backup to ensure all malicious changes are removed, and verify the integrity of the restored system.
-- Implement enhanced logging and monitoring policies to capture detailed system and network activity, focusing on file access and process execution.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities and correlate alerts with known threat patterns.
-- Apply security patches and updates to the operating system and all installed software to mitigate known vulnerabilities.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate users and administrators on recognizing phishing attempts and other common attack vectors to reduce the risk of future incidents."""
 
 
 [[rule.threat]]

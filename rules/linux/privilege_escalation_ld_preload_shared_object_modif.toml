@@ -2,7 +2,7 @@
 creation_date = "2021/01/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -73,51 +73,6 @@ query = '''
 host.os.type:linux and event.category:file and event.action:(updated or renamed or rename or file_rename_event) and 
 not event.type:deletion and file.path:/etc/ld.so.preload and not process.name:(wine or oneagentinstallaction)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Modification of Dynamic Linker Preload Shared Object
-
-The dynamic linker preload mechanism in Linux, controlled via `/etc/ld.so.preload`, allows preloading of shared libraries before others. Adversaries exploit this by inserting malicious libraries, hijacking execution flow for privilege escalation. The detection rule monitors changes to this file, excluding benign processes, to identify unauthorized modifications indicative of such abuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the file path involved is `/etc/ld.so.preload` and verify the event action is either `updated`, `renamed`, or `file_rename_event`.
-- Check the `process.name` field to ensure the process responsible for the modification is not `wine` or `oneagentinstallaction`, as these are excluded from the rule.
-- Investigate the `host.os.type` field to confirm the operating system is Linux, as this rule is specific to Linux environments.
-- Use Osquery to list the current contents of `/etc/ld.so.preload` to identify any suspicious or unexpected libraries being preloaded:
-  ```sql
-  SELECT * FROM file WHERE path = '/etc/ld.so.preload';
-  ```
-- Examine the `event.category` field to ensure it is categorized as a `file` event, confirming the nature of the alert.
-- Investigate the process that made the modification by checking the process ID and command line arguments to understand the context of the change.
-- Review recent system logs and audit logs around the time of the modification for any additional suspicious activity or related events.
-- Check the user account associated with the process that modified the file to determine if it has the necessary privileges and if the activity aligns with normal behavior for that account.
-- Investigate any recent changes in user permissions or group memberships that could have allowed unauthorized access to modify `/etc/ld.so.preload`.
-- Correlate this event with other alerts or anomalies in the environment to identify potential patterns or coordinated activities that could indicate a broader attack.
-
-### False positive analysis
-
-- Routine system updates or legitimate software installations may modify `/etc/ld.so.preload`, triggering the detection rule. Users can handle these by creating exceptions for known update processes or installation scripts.
-- Security tools or monitoring agents, such as OneAgent, may interact with the preload file as part of their normal operations. Exclude these processes by adding them to the exception list in the detection rule.
-- Custom scripts or administrative tasks performed by system administrators might also lead to modifications. Ensure these activities are documented and consider excluding specific scripts or user actions if they are verified as non-threatening.
-- In environments using Wine, the process may interact with the preload file, leading to false positives. Exclude the Wine process from the detection rule to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the source of the unauthorized modification, focusing on recent changes and user activity logs.
-- Verify the integrity of the `/etc/ld.so.preload` file by comparing it with a known good backup or baseline configuration.
-- Remove any unauthorized or suspicious entries from the `/etc/ld.so.preload` file and restore it to its original state.
-- Perform a comprehensive malware scan on the affected system to detect and remove any additional malicious payloads.
-- Review user accounts and privileges on the system to ensure no unauthorized access or privilege escalation has occurred.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging and monitoring for critical system files and processes, including `/etc/ld.so.preload`, to detect future unauthorized modifications.
-- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to improve detection capabilities and correlate events across the network.
-- Apply system hardening measures, such as restricting write access to critical files and directories, and regularly update and patch the system to mitigate vulnerabilities."""
 
 
 [[rule.threat]]

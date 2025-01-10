@@ -2,7 +2,7 @@
 creation_date = "2022/10/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -95,53 +95,6 @@ process where host.os.type == "windows" and event.action == "start" and
     )
  )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Privileges Elevation via Parent Process PID Spoofing
-
-Parent Process ID (PPID) spoofing is a technique where attackers manipulate the PPID of a process to disguise its origin, often to gain elevated privileges or evade detection. By altering the PPID, adversaries can make malicious processes appear as if they were spawned by legitimate, trusted processes. The detection rule identifies such spoofing by monitoring process creation events, specifically looking for anomalies in parent-child process relationships and excluding known legitimate processes and signatures to reduce false positives. This helps in identifying unauthorized privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to understand which process triggered the rule, focusing on the `process.name`, `process.executable`, and `process.parent.executable` fields to identify the suspicious process and its parent.
-- Check the `process.parent.Ext.real.pid` field to verify if the parent process ID has been spoofed and assess the legitimacy of the parent process.
-- Investigate the `user.id` field to determine if the process is attempting to escalate privileges to SYSTEM, which could indicate malicious intent.
-- Examine the `process.code_signature.subject_name` and `process.code_signature.trusted` fields to verify the authenticity of the process's digital signature and identify any discrepancies.
-- Cross-reference the `process.executable` and `process.parent.executable` paths against known legitimate software paths to rule out false positives.
-- Utilize Osquery to gather additional context about the suspicious process. For example, run the following query to list all processes with their parent process IDs and user IDs:
-  ```sql
-  SELECT pid, name, path, parent, uid FROM processes WHERE pid = <suspicious_process_pid>;
-  ```
-- Analyze historical process creation events to identify any patterns or anomalies in parent-child relationships that could suggest further spoofing attempts.
-- Investigate any network connections initiated by the suspicious process using network monitoring tools to identify potential command and control communication.
-- Review system logs for any other unusual activities or errors around the time the alert was triggered, which might provide additional context or evidence of compromise.
-- Consult threat intelligence sources to determine if the process or its parent is associated with known malware or attack campaigns, providing further insight into the potential threat.
-
-### False positive analysis
-
-- The rule may trigger false positives when legitimate processes are involved in activities that resemble PPID spoofing, such as software updates or system utilities that spawn processes with elevated privileges. 
-- Common false positives include processes related to Windows Error Reporting (WerFault.exe, Wermgr.exe) and Windows Update (MpSigStub.exe, wuauclt.exe) which are known to exhibit behavior similar to PPID spoofing during normal operations.
-- Third-party software like remote support tools (TeamViewer, LogMeIn) and accessibility utilities (Utilman.exe spawning osk.exe, Narrator.exe, Magnify.exe) can also generate false positives due to their legitimate use of elevated privileges.
-- To manage these false positives, users can create exceptions by excluding specific process paths or code signatures from the detection rule. This involves adding known legitimate processes and their parent-child relationships to the exclusion list.
-- Users should regularly review and update the exclusion list to ensure it reflects the current environment and includes any new legitimate software that may trigger the rule.
-- It is crucial to verify the trustworthiness of the code signatures associated with excluded processes to prevent adversaries from exploiting these exceptions.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the source of the PPID spoofing, including reviewing process creation logs and correlating with known attack patterns.
-- Terminate any malicious processes identified during the investigation to stop ongoing threats.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is part of a larger attack campaign or if sensitive data may have been compromised.
-- Restore the system to a known good state using backups or system restore points, ensuring that all malicious changes are removed.
-- Implement enhanced logging policies to capture detailed process creation events and parent-child process relationships for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Review and update security policies and access controls to minimize the risk of privilege escalation through PPID spoofing.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Educate users and administrators on recognizing signs of privilege escalation and the importance of reporting suspicious activities promptly."""
 
 
 [[rule.threat]]

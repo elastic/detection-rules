@@ -2,7 +2,7 @@
 creation_date = "2022/07/11"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -26,51 +26,7 @@ index = ["logs-kubernetes.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Kubernetes Pod created with a Sensitive hostPath Volume"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Kubernetes Pod created with a Sensitive hostPath Volume
-
-Kubernetes allows containers to access host filesystems via hostPath volumes, which can be crucial for certain applications. However, if a container is compromised, adversaries can exploit these mounts to access sensitive host data or escalate privileges. The detection rule identifies when pods are created or modified with hostPath volumes pointing to critical directories, signaling potential misuse or security risks.
-
-### Possible investigation steps
-
-- Review the Kubernetes audit logs to confirm the alert by checking the `event.dataset` field for "kubernetes.audit_logs" and ensure the `kubernetes.audit.annotations.authorization_k8s_io/decision` is "allow".
-- Identify the specific pod involved by examining the `kubernetes.audit.objectRef.resource` field for "pods" and note the `kubernetes.audit.verb` to determine if it was a "create", "update", or "patch" action.
-- Investigate the `kubernetes.audit.requestObject.spec.volumes.hostPath.path` field to determine which sensitive directory was mounted and assess the potential risk associated with this path.
-- Check the `kubernetes.audit.requestObject.spec.containers.image` field to identify the container image used and verify if it is a known or trusted image, excluding "docker.elastic.co/beats/elastic-agent:8.4.0".
-- Use Osquery to gather more information about the node where the pod is running. For example, run the query: `SELECT * FROM kubernetes_pods WHERE name = '<pod_name>';` to get details about the pod's configuration and status.
-- Examine the Kubernetes cluster's RBAC policies to determine if the service account associated with the pod has excessive permissions that could be exploited.
-- Review the pod's logs and any associated application logs for suspicious activity or errors that might indicate a compromise.
-- Check for any recent changes in the cluster configuration or deployments that could have introduced vulnerabilities or misconfigurations.
-- Investigate network activity from the pod to identify any unusual outbound connections or data exfiltration attempts.
-- Correlate the findings with other security tools and logs, such as intrusion detection systems or endpoint protection solutions, to identify any related alerts or incidents.
-
-### False positive analysis
-
-- Certain monitoring or logging agents may require access to hostPath volumes for legitimate purposes, such as collecting system metrics or logs. These agents might trigger the rule if they mount sensitive directories.
-- Backup or disaster recovery solutions might use hostPath volumes to access and back up critical data, which could be flagged by the rule.
-- Development or testing environments often use hostPath volumes to simulate production-like conditions, which might not pose a security risk in these controlled settings.
-- Users can handle these false positives by creating exceptions for known benign applications or agents that require hostPath access. This can be done by excluding specific container images or namespaces from the rule.
-- Regularly review and update the list of exceptions to ensure that only trusted applications are excluded, minimizing the risk of overlooking genuine threats.
-
-### Response and remediation
-
-- Immediately isolate the affected pod to prevent further access to sensitive host data and potential privilege escalation.
-- Investigate the pod's configuration and logs to determine if there has been unauthorized access or malicious activity.
-- Review Kubernetes audit logs to identify any suspicious activities or patterns related to the creation or modification of pods with sensitive hostPath volumes.
-- Revoke any unnecessary permissions or access rights that may have been granted to the compromised pod or its associated service account.
-- Patch and update the Kubernetes cluster and any affected applications to address known vulnerabilities that could be exploited.
-- Escalate the incident to the security team if evidence of a breach or compromise is found, and consider involving incident response experts if necessary.
-- Implement logging policies to ensure comprehensive monitoring of Kubernetes audit logs and container activities for future incidents.
-- Integrate security tools such as intrusion detection systems and anomaly detection to enhance monitoring and alerting capabilities.
-- Restore the system to its operational state by redeploying the affected pod with secure configurations and without sensitive hostPath volumes.
-- Harden the Kubernetes environment by enforcing security best practices, such as using network policies, role-based access control (RBAC), and regular security audits.
-
-## Setup
+note = """## Setup
 
 The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
 references = [

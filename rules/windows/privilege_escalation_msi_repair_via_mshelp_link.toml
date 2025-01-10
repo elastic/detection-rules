@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel", "m365_defender", "window
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -51,52 +51,6 @@ process where event.type == "start" and host.os.type == "windows" and
                         "opera.exe", "iexplore", "firefox.exe", "waterfox.exe", "iexplore.exe", "tor.exe", "safari.exe") and
  process.parent.command_line : "*go.microsoft.com*"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Escalation via Vulnerable MSI Repair
-
-Windows Installer (MSI) is a service used for the installation, maintenance, and removal of software. Adversaries may exploit vulnerabilities in MSI repair processes to gain elevated privileges. This detection rule identifies suspicious activity by monitoring browser processes that access Microsoft Help pages and subsequently initiate elevated processes, indicating potential exploitation attempts for privilege escalation.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a browser process accessing Microsoft Help pages, as indicated by the `process.parent.command_line` field containing "*go.microsoft.com*".
-- Verify the parent process name using the `process.parent.name` field to ensure it matches one of the specified browsers (e.g., "chrome.exe", "msedge.exe", etc.).
-- Check the user domain in the `user.domain` field to confirm if the process is running under a system account like "NT AUTHORITY", which may indicate an attempt to gain elevated privileges.
-- Investigate the child process that was spawned by the browser to determine if it is an elevated process, using the `process` field to identify the process name and command line.
-- Correlate the timing of the browser navigation to the Microsoft Help page with the start time of the elevated process to assess if they are closely linked.
-- Use Osquery to gather additional context on the processes involved. For example, run the following Osquery query to list processes with elevated privileges:
-  ```sql
-  SELECT pid, name, path, cmdline, uid, gid FROM processes WHERE uid = 0;
-  ```
-- Examine the system's event logs for any additional indicators of privilege escalation attempts or anomalies around the time of the alert.
-- Investigate any recent software installations or updates that might have triggered the MSI repair process, potentially leading to the exploitation attempt.
-- Check for any known vulnerabilities or patches related to Windows Installer that might be relevant to the alert.
-- Gather information on the network activity of the involved processes to identify any suspicious outbound connections or data exfiltration attempts.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger this rule if they involve accessing Microsoft Help pages and subsequently launching elevated processes. Users should verify if the process is part of a known update or installation routine.
-- Automated scripts or system management tools that access Microsoft Help pages for documentation or troubleshooting purposes might also cause false positives. Users can create exceptions for these tools by identifying their specific command lines or process names.
-- Browsers with extensions or plugins that automatically navigate to Microsoft Help pages for support or information gathering could be flagged. Users should review the extensions in use and whitelist trusted ones.
-- IT support activities where technicians access Microsoft Help pages to assist users and then perform administrative tasks might be misidentified. Organizations can exclude known IT support tools or processes from triggering the rule.
-- Users can manage false positives by maintaining a list of known safe processes and command lines that frequently interact with Microsoft Help pages and ensuring these are excluded from the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement.
-- Conduct a thorough investigation to confirm the exploitation by reviewing logs and identifying any unauthorized elevated processes initiated by browser activity.
-- Terminate any suspicious elevated processes that were spawned following the browser's access to Microsoft Help pages.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
-- Apply the latest security patches and updates to the Windows Installer service to mitigate known vulnerabilities.
-- Implement enhanced logging policies to capture detailed process creation events and network activity for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar exploitation attempts.
-- Restore the system to its operational state by verifying the integrity of system files and reinstalling any compromised software.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Implement hardening measures such as disabling unnecessary services, enforcing least privilege principles, and conducting regular security audits to reduce the attack surface."""
 
 
 [[rule.threat]]

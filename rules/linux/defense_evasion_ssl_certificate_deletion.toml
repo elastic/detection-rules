@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/08"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -61,48 +61,6 @@ query = '''
 file where host.os.type == "linux" and event.type == "deletion" and file.path : "/etc/ssl/certs/*" and
 file.extension in ("pem", "crt") and not process.name in ("dockerd", "pacman")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating SSL Certificate Deletion
-
-SSL certificates are crucial for establishing secure communications in Linux environments, ensuring data integrity and trust. Adversaries may delete these certificates to bypass security controls, leading to potential data breaches or system compromise. The detection rule identifies suspicious deletions by monitoring specific directories and file types, excluding benign processes, thus highlighting potential malicious activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the file path and extension involved in the deletion, ensuring it matches the pattern "/etc/ssl/certs/*" with extensions "pem" or "crt".
-- Check the process name that triggered the deletion event to verify it is not one of the excluded benign processes like "dockerd" or "pacman".
-- Investigate the user account associated with the deletion event to determine if it is a legitimate user or potentially compromised.
-- Examine the process execution history on the host to identify any unusual or unauthorized processes that may have led to the certificate deletion.
-- Use Osquery to list all current SSL certificates in the "/etc/ssl/certs/" directory to assess the extent of the deletion. Example query: `SELECT * FROM file WHERE directory = '/etc/ssl/certs' AND (path LIKE '%.pem' OR path LIKE '%.crt');`
-- Analyze recent system logs for any signs of unauthorized access or other suspicious activities around the time of the certificate deletion.
-- Correlate the deletion event with any recent changes or updates in the system that might explain the certificate removal.
-- Investigate network logs to identify any unusual outbound connections that might suggest data exfiltration or communication with a command and control server.
-- Review any recent alerts or incidents on the same host to identify patterns or related activities that could indicate a broader attack.
-- Consult with system administrators or relevant personnel to verify if the certificate deletion was part of a planned maintenance or update activity.
-
-### False positive analysis
-
-- Routine system updates or maintenance tasks may trigger false positives, especially if they involve the removal or replacement of SSL certificates. Users can manage these by identifying and excluding specific update processes or maintenance scripts from the detection rule.
-- Automated certificate renewal processes, such as those used by Let's Encrypt, might delete old certificates as part of their renewal cycle. To handle this, users should identify the renewal process and add it to the list of excluded processes.
-- Custom scripts or applications that manage SSL certificates for legitimate purposes could also be flagged. Users should review these scripts and, if deemed safe, add them to the exclusion list to prevent unnecessary alerts.
-- In environments where containers are frequently created and destroyed, SSL certificates might be deleted as part of container lifecycle management. Users can exclude specific container management processes, like those related to Kubernetes or Docker, to reduce false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Verify the deletion of SSL certificates by checking the system logs and correlating with the detection rule to confirm malicious activity.
-- Restore deleted SSL certificates from a secure backup to re-establish secure communications and trust controls.
-- Conduct a thorough investigation to identify the source of the deletion, focusing on unauthorized access or compromised accounts.
-- Review and update access controls and permissions to ensure only authorized users and processes can modify SSL certificates.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed file access and modification events, including process and user information.
-- Integrate with security information and event management (SIEM) systems to correlate events and detect similar threats in the future.
-- Apply system hardening measures, such as disabling unnecessary services and enforcing strong authentication mechanisms.
-- Educate users and administrators on the importance of SSL certificates and the potential impact of their unauthorized deletion."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

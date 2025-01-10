@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -82,49 +82,6 @@ tags = [
     "Tactic: Privilege Escalation",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Windows User Privilege Elevation Activity
-
-In Windows environments, privilege elevation is often achieved using tools like 'runas', typically by administrators. Adversaries exploit this by hijacking accounts to gain elevated access, posing risks of data breaches or system compromise. The detection rule leverages machine learning to identify atypical user context switches, flagging potential misuse indicative of account takeover or unauthorized privilege escalation.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific user account involved in the unusual privilege elevation activity.
-- Check the timestamp of the activity to correlate it with any known scheduled tasks or administrative activities.
-- Examine the source and destination IP addresses associated with the activity to determine if they are part of the organization's network or if they are external.
-- Investigate the command line used in the privilege elevation attempt, focusing on any unusual or suspicious parameters.
-- Analyze the user's recent login history and patterns to identify any anomalies or deviations from their typical behavior.
-- Use Osquery to gather additional context on the system where the activity was detected. For example, run the following query to list recent processes executed by the user: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE user = '<username>';`
-- Check for any recent changes to the user's account, such as password resets or changes in group memberships, that could indicate account compromise.
-- Review system and security event logs for any additional suspicious activities around the time of the alert, such as failed login attempts or changes to security settings.
-- Investigate any other alerts or incidents involving the same user or system to identify potential patterns or related activities.
-- Consult with the user or their manager to verify if the activity was legitimate and authorized, ensuring to document any findings or explanations provided.
-
-### False positive analysis
-
-- Regular administrative tasks: Frequent use of the 'runas' command by legitimate domain or network administrators for routine maintenance can trigger false positives. Users can manage this by creating exceptions for known administrator accounts or specific tasks that are regularly performed.
-- Scheduled tasks or scripts: Automated scripts or scheduled tasks that require privilege elevation might be flagged. To handle this, users can whitelist these scripts or tasks by identifying their unique signatures or execution patterns.
-- Software updates or installations: Legitimate software updates or installations that require elevated privileges can be mistaken for suspicious activity. Users should consider excluding known update processes or installation paths from the detection rule.
-- Development and testing environments: Developers or testers might frequently switch user contexts to simulate different user roles, leading to false positives. In such cases, users can exclude specific development or testing environments from monitoring.
-- Third-party management tools: Some third-party tools that manage user accounts or perform administrative tasks might mimic privilege elevation activities. Users can address this by identifying and excluding these tools from the detection scope.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the source and scope of the privilege escalation, focusing on recent account activity and any anomalies in user behavior.
-- Reset passwords for compromised accounts and enforce multi-factor authentication (MFA) to prevent future unauthorized access.
-- Review and update user access controls, ensuring that only necessary privileges are granted to users based on their roles.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed user activity, including command execution and privilege changes, to aid in future investigations.
-- Integrate security information and event management (SIEM) tools with endpoint detection and response (EDR) solutions to improve threat detection and response capabilities.
-- Restore the system to its operational state by applying the latest security patches and updates, and verify the integrity of critical system files.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Implement hardening measures such as disabling unnecessary services, applying the principle of least privilege, and conducting regular security audits to reduce the risk of future incidents."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 

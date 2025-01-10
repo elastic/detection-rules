@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/02/05"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ specific process, detailing the memory segments, permissions, and what files are
 read a process's memory map to identify memory addresses for code injection or process hijacking.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Memory grep Activity"
@@ -27,55 +29,16 @@ tags = [
     "Tactic: Discovery",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
-process.name in ("grep", "egrep", "fgrep", "rgrep") and process.args in ("[stack]", "[vdso]", "[heap]")
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  process.name in ("grep", "egrep", "fgrep", "rgrep") and process.args in ("[stack]", "[vdso]", "[heap]")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Memory grep Activity
-
-In Linux, the `/proc/*/maps` file reveals a process's memory layout, crucial for understanding memory segments and permissions. Adversaries exploit this by using tools like `grep` to scan for specific memory areas, aiding in code injection or hijacking. The detection rule identifies such misuse by monitoring the execution of `grep` variants targeting memory-related arguments, signaling potential reconnaissance or preparatory actions for an attack.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name and arguments, ensuring they match the suspicious criteria: `grep`, `egrep`, `fgrep`, or `rgrep` with arguments like `[stack]`, `[vdso]`, or `[heap]`.
-- Check the process execution context by examining the parent process and any child processes spawned by the suspicious `grep` activity to understand the broader context of the execution.
-- Investigate the user account associated with the process to determine if the activity aligns with their typical behavior or if it appears anomalous.
-- Use Osquery to gather additional details about the process. For example, run the following query to list processes accessing `/proc/*/maps`: `SELECT pid, name, path FROM processes WHERE path LIKE '/proc/%/maps';`
-- Analyze the command history of the user associated with the suspicious process to identify any preceding commands that might indicate reconnaissance or preparatory actions.
-- Review system logs for any other unusual activities or errors around the time of the alert to identify potential correlations or patterns.
-- Check for any recent changes in system configurations or installed software that might explain the unusual `grep` activity.
-- Investigate network activity from the host to identify any suspicious outbound connections that could indicate data exfiltration or communication with a command and control server.
-- Correlate the alert with other security events or alerts from the same host or user to identify if this is part of a larger attack pattern.
-- Consult threat intelligence sources to determine if there are any known campaigns or threat actors associated with similar tactics, techniques, and procedures (TTPs).
-
-### False positive analysis
-
-- System administrators or developers may use `grep` to inspect memory maps for legitimate debugging or performance tuning purposes, which can trigger false positives. To manage this, users can create exceptions for specific user accounts or processes known to perform these activities regularly.
-- Automated monitoring tools or scripts that perform regular checks on system memory for health or performance metrics might also cause false positives. Users can handle these by identifying and excluding these tools from the detection rule.
-- Security software or forensic tools that analyze memory maps as part of their routine operations may be flagged. Users should whitelist these trusted applications to prevent unnecessary alerts.
-- In environments where custom applications frequently interact with memory maps for legitimate reasons, users should document these behaviors and adjust the detection rule to exclude these specific cases, ensuring that only suspicious activities are flagged.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to confirm the suspicious activity by reviewing logs and correlating with other security events.
-- Capture a memory dump and relevant logs for forensic analysis to understand the extent of the compromise and identify any injected code or malicious processes.
-- Terminate any unauthorized or suspicious processes identified during the investigation to prevent further malicious activity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system to a known good state using backups or reinstallation, ensuring that all security patches and updates are applied.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Implement hardening measures such as disabling unnecessary services, enforcing least privilege access, and regularly auditing system configurations to reduce the attack surface."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

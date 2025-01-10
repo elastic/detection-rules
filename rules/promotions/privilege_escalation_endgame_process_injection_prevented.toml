@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 maturity = "production"
 promotion = true
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -36,46 +36,6 @@ type = "query"
 query = '''
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:kernel_shellcode_event or endgame.event_subtype_full:kernel_shellcode_event)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Process Injection - Prevented - Elastic Endgame
-
-Elastic Endgame is a security solution that prevents malicious activities like process injection, a technique where adversaries insert code into legitimate processes to evade detection and escalate privileges. Attackers exploit this to execute arbitrary code stealthily. The detection rule identifies such threats by monitoring alerts for specific kernel shellcode events, indicating a prevention action against process injection attempts.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, focusing on fields like `event.kind`, `event.module`, `endgame.metadata.type`, and `event.action` to confirm the nature of the prevention.
-- Examine the `endgame.event_subtype_full` field to verify if the alert is related to a `kernel_shellcode_event`, which indicates a process injection attempt.
-- Check the timestamp of the alert to determine when the process injection attempt occurred and correlate it with other events in the system around the same time.
-- Identify the process targeted by the injection attempt by reviewing process-related fields such as `process.name`, `process.pid`, and `process.executable`.
-- Investigate the parent process using `process.parent.name` and `process.parent.pid` to understand the process hierarchy and identify potential sources of the injection attempt.
-- Use Osquery to gather additional context about the process and its parent. For example, run the following query to list open network connections for the process: `SELECT * FROM process_open_sockets WHERE pid = <process.pid>;`.
-- Analyze the user context under which the process was running by examining fields like `user.name` and `user.id` to assess if the user account might have been compromised.
-- Review recent login events and user activity logs to identify any suspicious behavior or unauthorized access attempts that could be related to the process injection.
-- Cross-reference the alert with other security tools and logs, such as firewall logs or intrusion detection systems, to identify any related suspicious activities or patterns.
-- Document all findings and observations, including any anomalies or patterns, to build a comprehensive understanding of the incident and facilitate further investigation if needed.
-
-### False positive analysis
-
-- Known false positives for the Process Injection - Prevented - Elastic Endgame rule may include legitimate software that uses process injection techniques for benign purposes, such as certain security tools, software debuggers, or performance monitoring applications. These applications might trigger alerts due to their behavior, which resembles malicious process injection.
-- To manage these false positives, users can create exceptions for specific applications or processes that are known to use process injection legitimately. This can be done by identifying the process names or hashes of the trusted applications and adding them to an exclusion list within the Elastic Endgame configuration. This approach helps in reducing noise and focusing on genuine threats while maintaining security efficacy.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of the threat.
-- Conduct a thorough investigation to identify the source and scope of the process injection attempt, using available logs and alerts.
-- Analyze the process and code involved in the injection attempt to understand the attacker's objectives and methods.
-- Remove any malicious code or unauthorized changes identified during the investigation from the affected system.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities exploited by the attacker.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response if necessary.
-- Implement enhanced logging policies to capture detailed process execution and network activity for future investigations.
-- Integrate additional security tools, such as endpoint detection and response (EDR) solutions, to improve threat detection and response capabilities.
-- Restore the system to its operational state by verifying the integrity of system files and configurations, and ensure all security measures are in place.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent similar incidents in the future."""
 
 
 [[rule.threat]]

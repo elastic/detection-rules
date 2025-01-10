@@ -2,7 +2,7 @@
 creation_date = "2020/09/01"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -15,51 +15,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Automation Runbook Deleted"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Azure Automation Runbook Deleted
-
-Azure Automation Runbooks automate repetitive tasks in cloud environments, enhancing operational efficiency. Adversaries may delete these runbooks to disrupt operations or conceal malicious activities. The detection rule monitors Azure activity logs for successful deletion events, signaling potential defense evasion attempts by identifying unauthorized or suspicious runbook deletions.
-
-### Possible investigation steps
-
-- Review the Azure activity logs to confirm the deletion event by filtering logs with `event.dataset:azure.activitylogs` and `azure.activitylogs.operation_name:"MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/DELETE"`.
-- Verify the `event.outcome` field to ensure the deletion was successful, as indicated by values "Success" or "success".
-- Identify the user or service principal responsible for the deletion by examining the `azure.activitylogs.caller` field.
-- Check the timestamp of the deletion event to determine when the runbook was deleted and correlate it with other suspicious activities around the same time.
-- Investigate the `azure.activitylogs.resource_id` field to identify the specific runbook and automation account affected.
-- Review the Azure AD sign-in logs for the identified user or service principal to detect any unusual login patterns or locations.
-- Examine the Azure activity logs for any preceding or subsequent operations by the same user or service principal to identify potential malicious activities.
-- Use Osquery to query the local system for any related Azure credentials or configurations that might have been used in the deletion. Example query: `SELECT * FROM azure_credentials WHERE user = '<identified_user>';`.
-- Cross-reference the deletion event with any recent changes in Azure policies or permissions that might have allowed unauthorized access.
-- Consult with the team responsible for Azure Automation to verify if the deletion was planned or authorized, and gather any additional context or documentation related to the runbook.
-
-### False positive analysis
-
-- Routine maintenance or administrative tasks may lead to legitimate runbook deletions, which can trigger false positives. These activities are often scheduled and documented, making them identifiable.
-- Automated scripts or third-party tools used for managing Azure resources might delete runbooks as part of their normal operation, leading to false alerts.
-- Users can manage false positives by creating exceptions for known maintenance windows or specific user accounts that regularly perform these tasks.
-- Implementing a review process for deletion events can help distinguish between legitimate and suspicious activities, reducing the likelihood of false positives.
-- Monitoring for additional context, such as associated user accounts or IP addresses, can help in identifying benign deletions and refining detection rules accordingly.
-
-### Response and remediation
-
-- Immediately isolate the affected Azure Automation account to prevent further unauthorized deletions or modifications.
-- Review Azure activity logs to identify the source of the deletion request, including user accounts and IP addresses involved.
-- Verify if the deletion was authorized by cross-referencing with change management records or contacting the responsible team.
-- Restore the deleted runbook from backups or version history to ensure continuity of automated operations.
-- Conduct a thorough investigation to determine if any other runbooks or resources were tampered with or deleted.
-- Escalate the incident to the security operations team if unauthorized access or malicious intent is confirmed.
-- Implement stricter access controls and multi-factor authentication for Azure Automation accounts to prevent unauthorized actions.
-- Enhance logging and monitoring by integrating with a Security Information and Event Management (SIEM) system for real-time alerts on suspicious activities.
-- Review and update incident response plans to include specific procedures for handling Azure Automation-related incidents.
-- Conduct a post-incident review to identify gaps in security controls and apply hardening measures, such as regular audits and least privilege access policies.
-
-## Setup
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

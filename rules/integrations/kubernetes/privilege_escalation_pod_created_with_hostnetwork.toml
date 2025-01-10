@@ -2,7 +2,7 @@
 creation_date = "2022/07/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -25,50 +25,7 @@ index = ["logs-kubernetes.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Kubernetes Pod Created With HostNetwork"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Kubernetes Pod Created With HostNetwork
-
-Kubernetes allows pods to connect to the host's network namespace, granting them access to services on the host's localhost. This can be exploited by attackers to monitor network traffic or bypass network restrictions. The detection rule identifies suspicious pod creation or modification events by monitoring audit logs for pods using the host network, excluding known benign images, to flag potential privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the audit log entry that triggered the alert to confirm the presence of `hostNetwork:true` in the `kubernetes.audit.requestObject.spec` field, ensuring the pod is indeed using the host network.
-- Verify the `kubernetes.audit.annotations.authorization_k8s_io/decision` field to ensure the action was allowed, indicating a potential security concern.
-- Check the `kubernetes.audit.objectRef.resource` field to confirm the resource type is "pods" and the action in `kubernetes.audit.verb` is "create", "update", or "patch" to validate the context of the alert.
-- Investigate the image used by the pod by examining the `kubernetes.audit.requestObject.spec.containers.image` field to identify if it is a known or unknown image, focusing on those not explicitly excluded by the rule.
-- Cross-reference the pod's namespace and node information to determine if the pod is running in a sensitive or critical environment, which might increase the risk level.
-- Use Osquery to gather additional context about the node where the pod is running. For example, execute the following query to list all pods using the host network on the node: `SELECT name, namespace, hostNetwork FROM kubernetes_pods WHERE hostNetwork = 1;`
-- Analyze network traffic logs from the node to identify any unusual or unauthorized access patterns that might indicate malicious activity originating from the pod.
-- Review recent changes or deployments in the Kubernetes environment to identify if the pod creation or modification aligns with expected operational activities or if it was unexpected.
-- Check for any other alerts or anomalies related to the same pod or node to identify potential patterns or coordinated activities.
-- Consult with the team responsible for the Kubernetes environment to verify if the use of host networking was intentional and authorized, and gather any additional context or documentation related to the deployment.
-
-### False positive analysis
-
-- Known false positives may occur when legitimate applications or services require access to the host network for valid operational reasons, such as monitoring tools or network utilities that need to interact with the host's network stack.
-- Users can handle these false positives by creating exceptions for specific images or namespaces that are known to require host network access. This can be done by updating the detection rule to exclude additional trusted images or namespaces beyond the default exclusion of "docker.elastic.co/beats/elastic-agent:8.4.0".
-- Regularly review and update the list of exceptions to ensure that only necessary and trusted applications are allowed to use the host network, minimizing the risk of overlooking potential threats.
-- Consider implementing additional context-based checks, such as verifying the source of the pod creation request or correlating with other security events, to further reduce the likelihood of false positives while maintaining security vigilance.
-
-### Response and remediation
-
-- Immediately isolate the affected pod by removing it from the host network to prevent further unauthorized access to the host's network services.
-- Conduct a thorough investigation of the pod's configuration and logs to identify any unauthorized access or data exfiltration attempts.
-- Review Kubernetes audit logs to trace the origin of the pod creation or modification request and identify any compromised user accounts or credentials.
-- Revoke access and rotate credentials for any accounts suspected of being compromised to prevent further unauthorized actions.
-- Escalate the incident to the security operations team if evidence of privilege escalation or lateral movement is found, following the organization's incident response plan.
-- Implement stricter network policies and role-based access controls (RBAC) to limit the use of host networking to only essential and trusted pods.
-- Enhance logging and monitoring by integrating with a Security Information and Event Management (SIEM) system to detect similar activities in the future.
-- Conduct a security review of all pods and containers running in the environment to ensure compliance with security best practices and identify any other potential vulnerabilities.
-- Restore the system to its operational state by redeploying affected services with secure configurations and ensuring no unauthorized changes remain.
-- Educate the development and operations teams on the risks associated with host networking and the importance of adhering to security policies and procedures.
-
-## Setup
+note = """## Setup
 
 The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
 references = [

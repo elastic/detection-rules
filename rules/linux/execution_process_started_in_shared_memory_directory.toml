@@ -2,7 +2,7 @@
 creation_date = "2022/05/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -74,48 +74,6 @@ user.id == "0" and process.executable : ("/dev/shm/*", "/run/shm/*", "/var/run/*
 not process.executable : ("/var/run/docker/*", "/var/run/utsns/*", "/var/run/s6/*", "/var/run/cloudera-scm-agent/*", 
 "/var/run/argo/argoexec") and not process.parent.command_line : "/usr/bin/runc init"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Binary Executed from Shared Memory Directory
-
-Shared memory directories in Linux, such as /dev/shm and /run/shm, are used for inter-process communication, allowing processes to exchange data efficiently. Adversaries exploit these directories by placing executables there, leveraging their high uptime for persistence. The detection rule identifies abnormal execution by the root user in these directories, excluding known benign processes, to flag potential backdoor activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the execution of a binary from a shared memory directory by the root user, focusing on the `process.executable` field to identify the exact path and binary executed.
-- Check the `event.timestamp` to determine when the execution occurred and correlate it with any other suspicious activities or alerts around the same time.
-- Investigate the `process.parent.command_line` to understand the parent process that initiated the execution, which might provide insights into how the binary was executed.
-- Use Osquery to list all files in the shared memory directories to identify any other suspicious binaries or scripts: `SELECT * FROM file WHERE path LIKE '/dev/shm/%' OR path LIKE '/run/shm/%' OR path LIKE '/var/run/%' OR path LIKE '/var/lock/%';`
-- Examine the `user.id` field to confirm the execution was indeed by the root user and check for any unauthorized privilege escalation activities.
-- Analyze the `process.command_line` to gather more context about the executed command and its arguments, which might reveal the intent or functionality of the binary.
-- Cross-reference the `host.os.type` and `event.type` fields to ensure the alert pertains to a Linux system and involves a process start event, confirming the relevance of the alert.
-- Investigate the system logs around the time of the alert for any anomalies or related events, such as unauthorized access attempts or configuration changes.
-- Check for any network connections initiated by the suspicious process using Osquery: `SELECT * FROM process_open_sockets WHERE pid = <suspicious_process_id>;`
-- Review historical data for any previous alerts or activities involving the same `process.executable` or similar patterns to identify potential persistence mechanisms or repeated attack attempts.
-
-### False positive analysis
-
-- Known false positives for the Binary Executed from Shared Memory Directory rule include legitimate processes that are executed by root in shared memory directories for operational purposes. These can include container management tools like Docker, which may use these directories for temporary storage and execution.
-- To manage these false positives, users can create exceptions for specific processes that are known to be benign. This can be done by adding exclusions for process executables that are frequently observed and verified as non-threatening, such as those related to Docker or other container orchestration tools.
-- Users should regularly review and update the list of excluded processes to ensure that only legitimate activities are excluded, minimizing the risk of overlooking potential threats.
-- It is important to maintain a balance between reducing noise from false positives and ensuring that potentially malicious activities are not ignored. This can be achieved by closely monitoring the behavior of excluded processes and adjusting the detection rule as necessary.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the executed binary and its origin, examining logs and process trees for any related suspicious activity.
-- Terminate any malicious processes identified during the investigation to halt ongoing threats.
-- Remove the malicious binary from the shared memory directory and any other locations it may have been copied to.
-- Review and analyze system logs, including authentication and access logs, to identify potential unauthorized access or privilege escalation.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and user activity, ensuring future incidents can be detected and analyzed more effectively.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are applied.
-- Harden the system by implementing least privilege access controls, disabling unnecessary services, and regularly auditing shared memory directories for unauthorized executables."""
 
 
 [[rule.threat]]

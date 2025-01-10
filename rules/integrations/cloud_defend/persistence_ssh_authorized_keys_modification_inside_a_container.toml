@@ -2,7 +2,7 @@
 creation_date = "2023/05/12"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -36,48 +36,6 @@ query = '''
 file where container.id:"*" and
   event.type in ("change", "creation") and file.name: ("authorized_keys", "authorized_keys2", "sshd_config")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating SSH Authorized Keys File Modified Inside a Container
-
-SSH authorized_keys files are crucial for managing access to systems via public key authentication, ensuring secure, password-less logins. In containerized environments, adversaries may exploit these files to gain unauthorized access or maintain persistence by adding their own keys. The detection rule identifies suspicious modifications to these files within containers, signaling potential compromise and warranting further investigation.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific container where the modification occurred, using the `container.id` field for context.
-- Verify the event type by checking the `event.type` field to confirm whether it was a "change" or "creation" event, which can help determine the nature of the modification.
-- Examine the `file.name` field to identify which file was modified: `authorized_keys`, `authorized_keys2`, or `sshd_config`, as this can indicate the method of potential unauthorized access.
-- Use Osquery to list all current SSH keys in the container by running: `SELECT * FROM authorized_keys WHERE path LIKE '/path/to/container/%';` to identify any unauthorized keys.
-- Check the container's creation and start time to determine if the modification aligns with expected operational activities or if it occurred at an unusual time.
-- Investigate the user context under which the modification was made by reviewing logs or using Osquery: `SELECT * FROM processes WHERE pid IN (SELECT pid FROM file_events WHERE path LIKE '/path/to/container/%');` to identify the process responsible for the change.
-- Correlate the container's network activity around the time of the modification to identify any suspicious connections or data transfers.
-- Review the container's history and any associated images to determine if the modification could have originated from a compromised image or during the build process.
-- Check for any other alerts or anomalies related to the same container or host to identify potential patterns or broader compromise.
-- Consult with the team responsible for the container to verify if the modification was authorized or part of a legitimate update or maintenance activity.
-
-### False positive analysis
-
-- Routine updates or maintenance tasks: In some environments, automated processes or configuration management tools may update SSH authorized_keys or sshd_config files as part of regular maintenance. These changes, while legitimate, can trigger the detection rule. Users can handle these by creating exceptions for known maintenance windows or specific automation tools.
-- Developer or administrator actions: Developers or system administrators might modify these files within containers for legitimate reasons, such as adding keys for new team members or updating configurations. To manage these, users can maintain a list of authorized personnel and their expected activities, creating exceptions for their actions.
-- Container orchestration tools: Some container orchestration platforms might modify SSH configurations as part of their operations, especially in environments where SSH access is used for debugging or management. Users should identify these tools and processes, and exclude their activities from triggering alerts.
-- Testing and development environments: In non-production environments, frequent changes to SSH configurations might occur as part of testing or development processes. Users can reduce false positives by applying the rule more strictly in production environments and less so in development settings.
-
-### Response and remediation
-
-- Immediately isolate the affected container to prevent further unauthorized access or lateral movement within the environment.
-- Conduct a thorough investigation to identify any unauthorized keys added to the authorized_keys file and determine the source of the modification.
-- Review container logs and access records to trace any suspicious activities or unauthorized access attempts.
-- Remove any unauthorized keys from the authorized_keys file and verify the integrity of the sshd_config file to ensure no malicious configurations are present.
-- Rotate SSH keys for all legitimate users who had access to the compromised container to prevent further unauthorized access.
-- Escalate the incident to the security operations team for a comprehensive analysis and to determine if other containers or systems have been affected.
-- Implement enhanced logging and monitoring for SSH activities within containers to detect future unauthorized access attempts promptly.
-- Integrate security tools with SIEM solutions to automate the detection and alerting of suspicious modifications to SSH-related files.
-- Restore the container to its operational state by redeploying it from a known good image and ensuring all security patches are applied.
-- Apply hardening measures such as disabling SSH access to containers unless absolutely necessary and using network policies to restrict access to SSH services."""
 
 
 [[rule.threat]]

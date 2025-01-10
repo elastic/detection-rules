@@ -2,7 +2,7 @@
 creation_date = "2020/09/21"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -21,50 +21,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Firewall Rule Deletion"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GCP Firewall Rule Deletion
-
-In GCP, firewall rules are crucial for controlling network traffic to and from VM instances and applications, ensuring robust security. Adversaries may delete these rules to bypass security measures, exposing systems to unauthorized access. The detection rule monitors audit logs for deletion actions in VPC and App Engine environments, identifying potential security evasion attempts by tracking specific delete operations.
-
-### Possible investigation steps
-
-- Review the audit logs to confirm the deletion event by filtering logs with `event.dataset:gcp.audit` and `event.action:(*.compute.firewalls.delete or google.appengine.*.Firewall.Delete*Rule)`.
-- Identify the user or service account responsible for the deletion by examining the `principalEmail` field in the audit log entry.
-- Check the `resourceName` field to determine which specific firewall rule was deleted and assess its importance to the network security posture.
-- Investigate the `timestamp` field to establish the exact time of the deletion and correlate it with other security events or anomalies in the environment.
-- Analyze the `sourceIP` field to identify the origin of the request and determine if it matches known or expected IP addresses.
-- Review the `userAgent` field to understand the tool or method used to perform the deletion, which might indicate whether it was a manual action or automated script.
-- Cross-reference the deletion event with recent changes in IAM roles or permissions to see if there were any unauthorized privilege escalations.
-- Use Osquery to gather additional context on the affected VM instances or applications. For example, run a query to list all current firewall rules: `SELECT * FROM gcp_firewall_rules WHERE project_id = 'your_project_id';`.
-- Investigate any recent changes in the network configuration or architecture that might have preceded the firewall rule deletion.
-- Check for any other suspicious activities or alerts in the same timeframe that could indicate a coordinated attack or broader security incident.
-
-### False positive analysis
-
-- Routine maintenance or administrative tasks can lead to legitimate firewall rule deletions, such as when network configurations are updated or deprecated rules are removed. Users should verify if the deletion aligns with scheduled maintenance activities.
-- Automated processes or scripts that manage firewall rules might trigger false positives if they are designed to periodically clean up or update rules. Users can create exceptions for these processes by identifying and excluding their specific identifiers or service accounts.
-- Changes in project ownership or restructuring within an organization might result in the deletion of firewall rules as part of resource reallocation. Users should ensure that such changes are documented and authorized to differentiate them from malicious activities.
-- Development and testing environments often have dynamic rule changes, including deletions, as part of normal operations. Users can manage false positives by excluding specific environments or using tags to differentiate between production and non-production resources.
-
-### Response and remediation
-
-- Immediately isolate affected systems to prevent further unauthorized access or damage.
-- Review audit logs to confirm the deletion of firewall rules and identify the source of the action.
-- Recreate the deleted firewall rules based on the last known good configuration to restore security controls.
-- Conduct a thorough investigation to determine if any unauthorized access or data exfiltration occurred following the rule deletion.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed information on firewall rule changes and other critical security events.
-- Integrate with a Security Information and Event Management (SIEM) system to correlate events and detect similar threats in the future.
-- Review and update access controls to ensure only authorized personnel can modify firewall rules.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate and train staff on the importance of firewall rules and the potential impact of their unauthorized deletion, leveraging MITRE ATT&CK framework insights on defense evasion and impair defenses.
-
-## Setup
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

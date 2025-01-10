@@ -2,7 +2,7 @@
 creation_date = "2024/07/15"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -76,48 +76,6 @@ sequence by host.id with maxspan=3s
    )
   ] by process.parent.entity_id
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Git Hook Egress Network Connection
-
-Git hooks are scripts triggered by Git events like commits or pushes, allowing automation of tasks. Adversaries can exploit these hooks to execute unauthorized commands, maintain persistence, or initiate network connections for data exfiltration. The detection rule identifies suspicious network activities by monitoring script executions from Git hooks and subsequent external network connections, flagging potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific Git hook script involved by examining the `process.args` field for the path and name of the script.
-- Check the `process.name` field to determine which shell was used to execute the Git hook script, as this might provide insight into the attacker's familiarity with the environment.
-- Investigate the `destination.ip` field in the network event to identify the external IP address the connection was attempted to, and perform a reputation check on this IP address to assess its potential maliciousness.
-- Use the `process.entity_id` and `process.parent.entity_id` fields to correlate the process execution and network connection events, confirming the sequence of actions.
-- Examine the `host.id` field to identify the affected host and gather additional context about its role and importance within the network.
-- Utilize Osquery to gather more information about the Git configuration and hooks on the affected system. For example, run the following Osquery query to list all Git hooks present on the system: `SELECT path, content FROM file WHERE path LIKE '/path/to/repo/.git/hooks/%';`
-- Check the system's process execution history around the time of the alert to identify any other suspicious activities or processes that might be related.
-- Review the system logs for any unusual or unauthorized access attempts or changes around the time of the alert to identify potential indicators of compromise.
-- Investigate the user account associated with the process execution to determine if it has been compromised or if there are any signs of unauthorized access.
-- Analyze any additional network traffic from the affected host to identify other potential connections to suspicious or unauthorized external IP addresses.
-
-### False positive analysis
-
-- Legitimate automation scripts: Developers often use Git hooks for automation tasks such as triggering CI/CD pipelines or deploying applications. These scripts might initiate network connections to internal servers or cloud services, which could be flagged as suspicious. Users can handle these by creating exceptions for known and trusted scripts or IP addresses.
-- Internal network connections: Git hooks might connect to internal resources for tasks like fetching dependencies or updating configurations. These connections could be mistakenly identified as egress attempts. To manage this, users can exclude specific internal IP ranges or domains from the detection rule.
-- Development tools and integrations: Some development tools or integrations might use Git hooks to communicate with external services for legitimate purposes, such as code quality checks or notifications. Users should identify these tools and add them to an allowlist to prevent false positives.
-- Testing environments: In testing or staging environments, developers might intentionally use Git hooks to simulate network activities for testing purposes. Users can exclude these environments from monitoring or adjust the rule to account for known testing activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the specific Git hook script responsible for the suspicious activity and review its contents for malicious code.
-- Terminate any unauthorized processes initiated by the Git hook to halt ongoing malicious activities.
-- Analyze network logs to identify any external IP addresses contacted during the incident and block these addresses at the firewall level.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the compromise.
-- Restore the affected system from a known good backup to ensure the removal of any persistent threats.
-- Implement enhanced logging policies to capture detailed process execution and network connection attempts for future investigations.
-- Integrate threat intelligence feeds to correlate detected activities with known threat actors and tactics, techniques, and procedures (TTPs).
-- Review and update Git hook permissions and configurations to limit execution to trusted scripts and users only.
-- Conduct a security awareness session for developers and system administrators on the risks associated with Git hooks and best practices for secure coding and configuration."""
 
 
 [[rule.threat]]

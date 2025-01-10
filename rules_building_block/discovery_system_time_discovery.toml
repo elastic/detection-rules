@@ -5,7 +5,7 @@ integration = ["windows", "endpoint", "system"]
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 
 [rule]
 author = ["Elastic"]
@@ -52,47 +52,6 @@ process where host.os.type == "windows" and event.type == "start" and
  (process.name: "tzutil.exe" and process.args: "/g")
 ) and not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating System Time Discovery
-System time discovery involves querying a system's time settings, often used by attackers to synchronize their activities or evade detection. Adversaries may exploit commands like `net time`, `w32tm`, or `tzutil` to gather time-related information. The detection rule identifies suspicious use of these commands, excluding legitimate system accounts, to flag potential reconnaissance activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name and arguments that triggered the alert, focusing on `process.name` and `process.args` fields.
-- Check the `user.id` field to identify the user account associated with the process execution and verify if it is a known or expected user.
-- Investigate the `process.parent.name` to understand the parent process that initiated the suspicious command, which might provide context on how the command was executed.
-- Examine the `host.os.type` to ensure the alert is relevant to a Windows system, as the rule is designed for Windows environments.
-- Correlate the event timestamp with other logs to identify any concurrent suspicious activities or patterns that might indicate a broader attack.
-- Use Osquery to gather additional context on the system's time settings and recent changes. For example, run the query: `SELECT * FROM time;` to retrieve current system time details.
-- Investigate any recent logins or user activity around the time of the alert to determine if there was unauthorized access or unusual behavior.
-- Check for any recent changes to system time settings or configurations that could indicate tampering, using system logs or configuration management tools.
-- Review network logs for any outbound connections around the time of the alert that could suggest data exfiltration or communication with a command and control server.
-- Consult threat intelligence sources to determine if the observed behavior matches known tactics, techniques, and procedures (TTPs) associated with specific threat actors or campaigns.
-
-### False positive analysis
-
-- Scheduled tasks or scripts that regularly check system time settings for synchronization purposes may trigger false positives. Users can handle these by identifying and excluding specific scripts or task names from the detection rule.
-- IT administrative tools or monitoring software that perform routine checks on system time settings might be flagged. To manage this, users should whitelist these tools by adding their process names or user IDs to the exception list.
-- Legitimate software updates or installations that require time synchronization could also be mistakenly identified. Users can mitigate this by monitoring the context of these activities and excluding known update processes.
-- In environments where time synchronization is critical, such as financial institutions, frequent legitimate use of time-related commands may occur. Users should document these use cases and adjust the detection rule to exclude them, ensuring that only unexpected or unusual activities are flagged.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activities and lateral movement.
-- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any additional indicators of compromise (IOCs) related to system time discovery.
-- Review and analyze logs from the affected system and any associated systems to trace the attacker's activities and identify any other compromised systems.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
-- Remediate the affected system by removing any malicious software or unauthorized changes, and restore the system to a known good state using backups if necessary.
-- Implement enhanced logging policies to capture detailed process execution and command-line arguments to improve future detection capabilities.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to enhance monitoring and detection of similar threats.
-- Conduct a post-incident review to identify gaps in security controls and processes, and update incident response plans accordingly.
-- Apply system hardening measures, such as disabling unnecessary services and enforcing least privilege access, to reduce the attack surface.
-- Educate users and administrators on recognizing and reporting suspicious activities to improve overall security awareness and response readiness."""
 
 
 [[rule.threat]]

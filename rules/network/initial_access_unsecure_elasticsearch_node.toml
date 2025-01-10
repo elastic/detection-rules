@@ -2,7 +2,7 @@
 creation_date = "2020/08/11"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -21,51 +21,7 @@ index = ["packetbeat-*", "logs-network_traffic.*"]
 language = "lucene"
 license = "Elastic License v2"
 name = "Inbound Connection to an Unsecure Elasticsearch Node"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Inbound Connection to an Unsecure Elasticsearch Node
-
-Elasticsearch is a powerful search and analytics engine often used for log and data analysis. When improperly configured without TLS or authentication, it becomes vulnerable to unauthorized access. Adversaries can exploit these weaknesses to gain initial access or manipulate data. The detection rule identifies unsecured nodes by monitoring inbound HTTP traffic on the default port, flagging connections lacking authentication headers, thus highlighting potential exploitation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the destination port is 9200, indicating the default Elasticsearch port, and verify the network direction is inbound.
-- Check the absence of the `http.request.headers.authorization` field to confirm that the connection lacks authentication.
-- Analyze the source IP address of the inbound connection to determine if it is from a known or trusted entity, or if it appears suspicious or unexpected.
-- Investigate the `event.dataset` and `event.category` fields to ensure the traffic is categorized as HTTP and aligns with the expected network traffic patterns.
-- Examine historical data for similar inbound connections to the Elasticsearch node to identify any patterns or repeated access attempts from the same source.
-- Use Osquery to gather additional context on the Elasticsearch node by running a query such as: `SELECT * FROM listening_ports WHERE port = 9200;` to verify if the node is actively listening on the default port.
-- Check for any recent changes in the Elasticsearch configuration files that might have disabled TLS or authentication inadvertently.
-- Review the `http.response.headers.content-type` field to ensure the traffic is not related to benign requests, such as favicon requests, which are filtered out by the rule.
-- Correlate the alert with other security events or logs to identify any concurrent suspicious activities or anomalies in the network.
-- Consult with the system administrators or the team responsible for the Elasticsearch deployment to verify if the node should be publicly accessible and if proper security measures are in place.
-
-### False positive analysis
-
-- Internal monitoring tools or services that regularly check the health of Elasticsearch nodes might trigger this rule if they do not use authentication headers. Users can create exceptions for known IP addresses or services that perform these checks.
-- Automated scripts or applications that interact with Elasticsearch for legitimate purposes without using authentication might be flagged. To manage this, users should ensure these scripts are updated to include authentication or whitelist their IP addresses.
-- Development or testing environments where security configurations are intentionally relaxed might generate alerts. Users can exclude these environments by filtering based on IP ranges or hostnames.
-- Security scanners or vulnerability assessment tools that probe Elasticsearch nodes could be mistaken for malicious activity. Users should identify and exclude these tools from triggering alerts by adding them to an exception list.
-- Certain legitimate third-party integrations that do not support authentication might cause false positives. Users should verify the necessity of these integrations and, if safe, exclude them from the rule.
-
-### Response and remediation
-
-- Immediately isolate the affected Elasticsearch node from the network to prevent further unauthorized access or data manipulation.
-- Conduct a thorough investigation to determine the extent of unauthorized access, focusing on logs and network traffic to identify any data exfiltration or manipulation.
-- Review and update the Elasticsearch configuration to enable Transport Layer Security (TLS) and implement strong authentication mechanisms to prevent future unauthorized access.
-- Apply security patches and updates to the Elasticsearch software to mitigate any known vulnerabilities that could be exploited.
-- Restore any altered or deleted data from backups, ensuring that the backup data is clean and uncompromised.
-- Implement network segmentation to limit access to Elasticsearch nodes, allowing only trusted IP addresses and services to connect.
-- Enhance logging and monitoring by integrating with a Security Information and Event Management (SIEM) system to detect and alert on suspicious activities in real-time.
-- Conduct a security audit of the entire environment to identify and remediate other potential vulnerabilities or misconfigurations.
-- Educate and train the IT and security teams on secure configuration practices and the importance of regular security assessments.
-- Escalate the incident to the appropriate internal teams and, if necessary, report to external authorities or partners, especially if sensitive data was accessed or exfiltrated.
-
-## Setup
+note = """## Setup
 
 This rule requires the addition of port `9200` and `send_all_headers` to the `HTTP` protocol configuration in `packetbeat.yml`. See the References section for additional configuration documentation."""
 references = [

@@ -2,7 +2,7 @@
 creation_date = "2020/04/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -49,49 +49,6 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   )
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating SUID/SGID Bit Set
-
-The SUID/SGID bits in Unix-like systems allow files to execute with the privileges of the file's owner or group, rather than the executing user. Adversaries exploit this by setting these bits on files to gain elevated privileges, potentially executing malicious code with higher access rights. The detection rule identifies such abuses by monitoring processes that attempt to set these bits, excluding known legitimate paths and arguments.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and arguments that triggered the alert, focusing on `process.name` and `process.args`.
-- Check the `process.parent.executable` field to determine the parent process and assess whether it is a known legitimate path or potentially malicious.
-- Investigate the user account associated with the process by examining the `user.name` field to determine if the account has a history of suspicious activity or if it is a privileged account.
-- Use Osquery to list all files with the SUID/SGID bit set on the system to identify any unexpected or unauthorized files. Example query: `SELECT path, mode FROM file WHERE mode & 4000 OR mode & 2000;`
-- Cross-reference the file paths identified in the alert with known system binaries and applications to determine if the SUID/SGID bit setting is expected or unusual.
-- Analyze the `event.type` and `event.action` fields to confirm the nature of the event and ensure it aligns with the expected behavior of the process.
-- Review system logs and audit logs around the time of the alert to gather additional context on the process execution and any related activities.
-- Investigate any network connections or external communications initiated by the process using network monitoring tools to identify potential data exfiltration or command-and-control activity.
-- Check for any recent changes or installations on the system that might explain the SUID/SGID bit setting, such as software updates or new application installations.
-- Consult threat intelligence sources to determine if the process or file path is associated with known malware or adversary techniques, leveraging the MITRE ATT&CK framework for context on potential privilege escalation tactics.
-
-### False positive analysis
-
-- Legitimate software installations or updates may trigger the rule when setting SUID/SGID bits as part of their normal operation. Users can handle these by adding exceptions for known software paths or processes, such as package managers or system update tools.
-- System maintenance scripts or administrative tasks that require elevated privileges might also set these bits temporarily. Users should review and potentially exclude these scripts if they are verified as safe and necessary for system operations.
-- Docker or container-related processes might set SUID/SGID bits within their environments, which can be non-threatening. Users can exclude paths related to Docker or container management to reduce false positives.
-- Some security tools or monitoring agents may use SUID/SGID bits to perform their functions. Users should verify these tools and exclude their processes or paths if they are confirmed to be legitimate and secure.
-- Custom scripts or applications developed in-house that require elevated privileges might also trigger the rule. Users should ensure these scripts are secure and then exclude them from monitoring to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on recent changes to file permissions and any unauthorized setuid/setgid bit modifications.
-- Review system logs and security alerts to trace the adversary's actions and identify any additional compromised accounts or systems.
-- Remove the setuid/setgid bits from unauthorized files and restore original permissions to prevent further privilege escalation.
-- Scan the system for malware and other indicators of compromise, removing any malicious files or processes discovered.
-- Reset passwords and review user accounts for unauthorized access, ensuring that only legitimate users have access to the system.
-- Escalate the incident to the security team or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging and monitoring to detect future attempts to exploit setuid/setgid bits, including integrating with SIEM solutions for real-time alerting.
-- Apply system and application patches to address any vulnerabilities that may have been exploited by the adversary.
-- Review and update security policies and hardening measures, such as disabling unnecessary services and enforcing the principle of least privilege, to reduce the attack surface and prevent similar incidents in the future."""
 
 
 [[rule.threat]]

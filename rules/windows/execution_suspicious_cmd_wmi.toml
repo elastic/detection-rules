@@ -2,7 +2,7 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -55,54 +55,6 @@ process where host.os.type == "windows" and event.type == "start" and
  process.parent.name : "WmiPrvSE.exe" and process.name : "cmd.exe" and
  process.args : "\\\\127.0.0.1\\*" and process.args : ("2>&1", "1>")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Cmd Execution via WMI
-
-Windows Management Instrumentation (WMI) is a powerful framework for managing data and operations on Windows systems. Adversaries exploit WMI for lateral movement by executing commands remotely, often using the command prompt (cmd.exe). The detection rule identifies such activity by monitoring for cmd.exe processes initiated by WMI, especially those with arguments indicating potential redirection or network access, signaling possible malicious intent.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of cmd.exe execution initiated by WmiPrvSE.exe, focusing on the process arguments, especially those indicating network access or redirection (e.g., "\\\\\\\\127.0.0.1\\\\*", "2>&1", "1>").
-- Check the event logs on the affected host for any additional context around the time of the alert, particularly looking for other WMI-related activities or unusual process creations.
-- Investigate the parent process WmiPrvSE.exe to determine if it was started by a legitimate user or process, and verify its command line arguments and execution history.
-- Use Osquery to gather more information about the cmd.exe process. For example, run the following query to list all processes with their parent process IDs and command line arguments:
-  ```sql
-  SELECT pid, name, path, cmdline, parent FROM processes WHERE name = 'cmd.exe';
-  ```
-- Examine network connections on the host to identify any suspicious outbound connections that may correlate with the cmd.exe execution, using tools like netstat or Osquery:
-  ```sql
-  SELECT pid, local_address, local_port, remote_address, remote_port FROM process_open_sockets WHERE pid IN (SELECT pid FROM processes WHERE name = 'cmd.exe');
-  ```
-- Correlate the alert with other security events or alerts in your environment to identify if this activity is part of a broader attack pattern or campaign.
-- Check for any recent changes in user accounts or permissions on the affected host that could indicate unauthorized access or privilege escalation.
-- Investigate the user account associated with the WMI activity to determine if it has been compromised or is being misused.
-- Review any recent software installations or updates on the host that could have introduced vulnerabilities or backdoors exploited by the adversary.
-- Consult threat intelligence sources to determine if the observed behavior matches known tactics, techniques, and procedures (TTPs) of specific threat actors or malware families.
-
-### False positive analysis
-
-- Scheduled administrative tasks: Routine administrative scripts executed via WMI for system maintenance or updates may trigger this rule. Users can create exceptions for known scripts or scheduled tasks by identifying their specific command patterns and excluding them from the detection criteria.
-- Monitoring and management tools: Some legitimate monitoring or management software may use WMI to execute commands remotely, which could be flagged as suspicious. Users should identify these tools and whitelist their processes or specific command arguments to prevent false alerts.
-- Internal IT operations: IT departments may use WMI for legitimate remote command execution as part of their daily operations. Users should document these operations and adjust the detection rule to exclude known internal IP addresses or specific command patterns associated with these activities.
-- Automated scripts: Automated scripts that perform network diagnostics or system checks might use WMI and cmd.exe, leading to false positives. Users can refine the detection rule by excluding specific script names or command arguments that are consistently used in these benign operations.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further lateral movement by the adversary.
-- Verify the legitimacy of the WMI activity by checking the source and context of the command execution.
-- Conduct a thorough investigation of the cmd.exe process and its arguments to determine if the activity is malicious.
-- Review recent WMI activity logs to identify any other suspicious or unauthorized actions.
-- If malicious activity is confirmed, remove any identified malware or unauthorized software from the system.
-- Restore the system from a known good backup if the integrity of the system is compromised.
-- Implement enhanced logging policies to capture detailed WMI and cmd.exe activity for future investigations.
-- Integrate threat intelligence feeds to correlate detected activities with known threat actor behaviors and tactics.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Apply security hardening measures, such as restricting WMI access to authorized users and systems, to prevent future exploitation."""
 
 
 [[rule.threat]]

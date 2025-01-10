@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/11/04"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ forwarding can be used to route network traffic between different network interf
 pivot between networks, exfiltrate data, or establish command and control channels.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "IPv4/IPv6 Forwarding Activity"
@@ -25,11 +27,13 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "exec_event") and
 process.parent.executable != null and process.command_line like (
   "*net.ipv4.ip_forward*", "*/proc/sys/net/ipv4/ip_forward*", "*net.ipv6.conf.all.forwarding*",
   "*/proc/sys/net/ipv6/conf/all/forwarding*"
@@ -41,51 +45,6 @@ process.parent.executable != null and process.command_line like (
   )
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating IPv4/IPv6 Forwarding Activity
-
-IPv4/IPv6 forwarding allows a system to route traffic between networks, a legitimate function in network management. However, attackers can exploit this to pivot across networks, exfiltrate data, or maintain control channels. The detection rule identifies suspicious command executions that enable IP forwarding, focusing on processes like `sysctl` and shell commands that modify forwarding settings, signaling potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific command and process that triggered the rule, focusing on the `process.command_line` and `process.name` fields to understand the exact action taken.
-- Check the `process.parent.executable` field to determine the parent process that initiated the command, which can provide context on whether the action was part of a legitimate script or user activity.
-- Investigate the user account associated with the process by examining the `user.name` field to determine if the activity aligns with the user's typical behavior or role.
-- Analyze the timing of the event by reviewing the `event.start` timestamp to correlate with other network or system activities that might indicate a broader attack pattern.
-- Use Osquery to gather additional context on the system's network configuration. For example, run the following query to check the current IP forwarding settings:
-  ```sql
-  SELECT * FROM osquery_flags WHERE name IN ('net.ipv4.ip_forward', 'net.ipv6.conf.all.forwarding');
-  ```
-- Examine recent login events on the host to identify any unusual or unauthorized access attempts that could be related to the suspicious activity.
-- Review network logs or use network monitoring tools to identify any unusual traffic patterns or connections that might suggest data exfiltration or lateral movement.
-- Check for any recent changes to network configurations or firewall settings on the host that could indicate an attempt to facilitate unauthorized network routing.
-- Investigate other processes running on the host around the same time as the alert to identify any additional suspicious activities or processes that might be part of a coordinated attack.
-- Consult threat intelligence sources to determine if there are any known campaigns or threat actors that use similar techniques, which could provide additional context or indicators of compromise.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators may legitimately enable IP forwarding during network configuration or troubleshooting, leading to false positives. To manage this, users can create exceptions for known administrative scripts or specific user accounts that regularly perform these tasks.
-- Automated scripts and tools: Some network management tools or automated scripts might enable IP forwarding as part of their normal operation. Users should identify these tools and exclude their processes from triggering alerts by specifying their process names or command patterns in the exception list.
-- Containerized environments: In environments using containers, certain orchestration tools might enable IP forwarding to manage network traffic between containers. Users can handle these false positives by excluding processes associated with these tools or by monitoring only specific hosts where such behavior is unexpected.
-- Testing and development environments: Developers might enable IP forwarding during testing phases to simulate network conditions. Users can reduce false positives by excluding specific development environments or by setting up temporary exceptions during known testing periods.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify any unauthorized changes to IP forwarding settings and determine the scope of the compromise.
-- Review system logs and network traffic to identify any suspicious activities or connections that may indicate lateral movement or data exfiltration.
-- Revert any unauthorized changes to the system's IP forwarding settings to restore normal network configuration.
-- Apply patches and updates to the operating system and any relevant software to mitigate known vulnerabilities.
-- Implement strict access controls and ensure that only authorized personnel can modify network settings.
-- Enhance logging policies to capture detailed information on command executions and network configuration changes for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
-- Escalate the incident to the appropriate internal teams and, if necessary, external authorities or cybersecurity experts for further analysis and response.
-- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as disabling IP forwarding by default and using network segmentation to limit potential attack vectors."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

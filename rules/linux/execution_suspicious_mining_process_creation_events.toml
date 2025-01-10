@@ -4,7 +4,7 @@ integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/08"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -62,48 +62,6 @@ query = '''
 file where host.os.type == "linux" and event.type == "creation" and event.action : ("creation", "file_create_event") and 
 file.name : ("aliyun.service", "moneroocean_miner.service", "c3pool_miner.service", "pnsd.service", "apache4.service", "pastebin.service", "xvf.service")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Mining Process Creation Event
-
-Cryptominers exploit system resources to mine cryptocurrency without user consent, often leveraging Linux services for persistence. Adversaries create or modify service files to execute mining software, disguising them as legitimate processes. The detection rule identifies unusual service creation events linked to known mining services, flagging potential unauthorized cryptomining activities by monitoring specific file names and creation actions.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the file name involved in the event matches one of the known suspicious service names: "aliyun.service", "moneroocean_miner.service", "c3pool_miner.service", "pnsd.service", "apache4.service", "pastebin.service", or "xvf.service".
-- Check the timestamp of the event to determine when the suspicious service was created and correlate it with other system activities around the same time.
-- Identify the user account or process that initiated the service creation event to assess if it was an authorized action or potentially compromised.
-- Use Osquery to list all services on the affected host and verify the presence of the suspicious service. Example query: `SELECT name, path, pid FROM services WHERE name IN ('aliyun.service', 'moneroocean_miner.service', 'c3pool_miner.service', 'pnsd.service', 'apache4.service', 'pastebin.service', 'xvf.service');`
-- Investigate the parent process of the service creation event to understand the origin and context of the execution.
-- Examine the file path and permissions of the suspicious service file to determine if it has been altered or if it resides in an unusual location.
-- Analyze system logs for any additional indicators of compromise or related suspicious activities, such as unusual network connections or high CPU usage.
-- Check for any recent changes to the system's scheduled tasks or cron jobs that might indicate persistence mechanisms related to cryptomining.
-- Investigate any outbound network connections from the host to known mining pools or suspicious IP addresses.
-- Gather and review any available threat intelligence or previous incidents related to the identified service names to understand potential adversary tactics and techniques.
-
-### False positive analysis
-
-- Legitimate administrative actions: System administrators may create or modify service files for legitimate purposes, such as deploying new applications or updating existing services. These actions can trigger the detection rule, resulting in false positives.
-- Custom scripts or services: Organizations may use custom scripts or services that have similar naming conventions to those flagged by the rule. These can be mistaken for mining services if they share file names with known cryptominer services.
-- Automated deployment tools: Tools like Ansible, Puppet, or Chef might create or modify service files as part of automated deployment processes, which could be incorrectly identified as suspicious activity.
-- To manage false positives, users can create exceptions for known legitimate service creation events by whitelisting specific file names or paths that are frequently used in non-threatening administrative tasks. Additionally, users can refine the detection rule to exclude certain hosts or directories that are known to be safe, reducing unnecessary alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the cryptominer and potential data exfiltration.
-- Conduct a thorough investigation to confirm the presence of unauthorized mining software by examining the identified service files and correlating them with known cryptomining signatures.
-- Terminate any suspicious processes associated with the identified service files to halt the mining activity.
-- Remove or disable the unauthorized service files to prevent them from being executed again.
-- Review and update the system's security patches and configurations to close any vulnerabilities that may have been exploited.
-- Implement enhanced logging policies to capture detailed information on service creation and modification events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system from a known good backup to ensure the removal of any persistent threats and verify the integrity of critical system files.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate users and administrators on recognizing signs of cryptomining infections and the importance of maintaining security hygiene."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/07/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -52,52 +52,6 @@ library where host.os.type == "windows" and event.action == "load" and
     )
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Compression DLL Loaded by Unusual Process
-
-Compression DLLs, like those in the .NET framework, facilitate data compression and decompression, crucial for efficient storage and transfer. Adversaries exploit these DLLs to compress data before exfiltration, masking their activities. The detection rule identifies unusual processes loading these DLLs, excluding trusted applications, to flag potential misuse indicative of data exfiltration attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process that triggered the rule, focusing on the `process.executable` and `process.name` fields to understand which application attempted to load the compression DLL.
-- Verify the legitimacy of the process by checking the `process.code_signature.trusted` field. If the signature is not trusted, prioritize this alert for further investigation.
-- Investigate the user context under which the process was executed by examining the `user.id` field. Determine if the user is expected to run such processes and if their activity aligns with their role.
-- Cross-reference the process path with known trusted applications and environments. If the path is unusual or not listed in the exclusion criteria, it may warrant further scrutiny.
-- Utilize Osquery to gather additional context about the process. For example, run the following query to list all processes that have loaded the specified DLLs:
-  ```sql
-  SELECT pid, name, path FROM processes WHERE path LIKE '%System.IO.Compression%';
-  ```
-- Check the process's parent process to understand the chain of execution. This can provide insights into whether the process was spawned by a legitimate application or a potentially malicious one.
-- Analyze recent file modifications and network connections initiated by the process to identify any suspicious data exfiltration activities.
-- Review system logs and other security tools for any correlated alerts or anomalies around the same timeframe to build a comprehensive picture of the event.
-- Investigate any recent changes or updates to the system that might explain the unusual process behavior, such as new software installations or updates.
-- Consult threat intelligence sources to determine if there are any known threats or campaigns associated with the process or DLLs in question, which could provide additional context for the alert.
-
-### False positive analysis
-
-- Known false positives may arise from legitimate applications that are not included in the predefined exclusion list but still load compression DLLs as part of their normal operations. These could include custom or third-party applications that use .NET compression libraries for legitimate data processing tasks.
-- Users can handle these false positives by identifying and documenting the legitimate applications that trigger the rule. Once identified, these applications can be added to the exclusion list by specifying their executable paths and ensuring their code signatures are trusted.
-- Another potential false positive source is system maintenance or administrative scripts that utilize compression DLLs for routine data management tasks. Users should verify the legitimacy of these scripts and, if deemed safe, exclude them from the rule.
-- Regularly review and update the exclusion list to accommodate new trusted applications or changes in existing applications' behavior, ensuring that only genuine threats are flagged while minimizing false positives.
-- Consider the context of the flagged event, such as the user account involved and the process's typical behavior, to determine if the activity is expected or warrants further investigation.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further data exfiltration and lateral movement.
-- Conduct a thorough investigation to identify the source of the unusual process loading the compression DLL, focusing on recent changes or suspicious activities.
-- Review and analyze logs from the affected system and any associated network traffic to identify potential data exfiltration attempts.
-- Terminate any suspicious processes identified during the investigation that are not part of the trusted applications list.
-- Remove any unauthorized or malicious software discovered during the investigation and ensure all security patches are up to date.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat actor is part of a larger campaign.
-- Implement enhanced logging policies to capture detailed process execution and DLL loading events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system to its operational state by verifying the integrity of system files and configurations, and ensure that all security controls are re-enabled.
-- Apply system hardening measures, such as restricting DLL loading paths and enforcing application whitelisting, to reduce the attack surface and prevent similar incidents."""
 
 
 [[rule.threat]]

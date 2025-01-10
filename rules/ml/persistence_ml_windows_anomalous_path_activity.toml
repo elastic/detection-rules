@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -85,50 +85,6 @@ tags = [
     "Tactic: Execution",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Windows Path Activity
-
-In corporate Windows environments, software is typically installed in standard directories, and deviations can signal potential threats. Adversaries exploit this by executing malware from non-standard paths like user or temporary directories, bypassing traditional security measures. The 'Unusual Windows Path Activity' rule detects such anomalies, flagging processes initiated from these atypical locations, thus aiding in identifying unauthorized or malicious activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name, path, and user account associated with the unusual activity.
-- Check the process's parent process to understand how it was initiated, using fields like `parent_process_name` and `parent_process_id`.
-- Investigate the file path from which the process was executed to determine if it is a known or expected location for legitimate software.
-- Use Osquery to gather more information about the file, such as its hash, size, and creation date, with a query like: `SELECT path, md5, sha256, size, ctime FROM file WHERE path = '<unusual_path>';`.
-- Examine the file's metadata and digital signature to verify its authenticity and origin.
-- Cross-reference the process and file details with threat intelligence sources to check for known malicious indicators.
-- Analyze recent user activity on the system to identify any downloads or installations that coincide with the alert.
-- Review system logs for any network connections initiated by the process to external IP addresses or domains.
-- Check for any persistence mechanisms that may have been established by the process, such as registry modifications or scheduled tasks.
-- Consult with the user associated with the alert to gather additional context about their recent activities and any software installations they may have performed.
-
-### False positive analysis
-
-- Legitimate software updates: Some legitimate software may update themselves by downloading new versions to temporary directories before installation. Users can create exceptions for known update processes to prevent false positives.
-- Development environments: Developers often compile and test software in user directories, which can trigger alerts. Excluding specific development tools or directories used by developers can reduce unnecessary alerts.
-- Portable applications: These applications run from user directories without installation. Users should whitelist trusted portable applications to avoid false positives.
-- User-installed software: In some environments, users may have permission to install software in their own directories. Identifying and excluding these known applications can help manage alerts.
-- Automated scripts: Scheduled tasks or scripts that run from user directories for legitimate purposes can be flagged. Users should document and exclude these scripts to prevent false positives.
-- Security tools: Some security tools may execute from non-standard paths for scanning or remediation purposes. Whitelisting these tools can prevent them from being flagged as threats.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malware.
-- Conduct a thorough investigation to identify the process and its origin, using endpoint detection and response (EDR) tools to trace the execution path and any associated files.
-- Terminate any suspicious processes identified as originating from atypical directories, such as user or temporary folders.
-- Remove or quarantine any malicious files or scripts found during the investigation to prevent re-execution.
-- Review and analyze system logs to determine if there are any other indicators of compromise or related activities, leveraging MITRE ATT&CK framework for threat context.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is determined to be part of a larger attack campaign or if additional expertise is required.
-- Restore the system to its operational state by reinstalling affected software from trusted sources and applying the latest security patches.
-- Implement or enhance logging policies to capture detailed process execution data, focusing on atypical directories to improve future detection capabilities.
-- Integrate threat intelligence feeds and automated alerting systems to enhance the detection of similar threats in the future.
-- Conduct a post-incident review to identify gaps in security controls and apply hardening measures, such as restricting execution permissions in user and temporary directories."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

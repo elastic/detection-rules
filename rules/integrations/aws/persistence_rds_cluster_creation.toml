@@ -2,7 +2,7 @@
 creation_date = "2020/05/20"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -23,50 +23,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS RDS Cluster Creation"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS RDS Cluster Creation
-
-Amazon RDS facilitates database management by automating tasks like scaling and backups. Adversaries may exploit RDS by creating unauthorized clusters to exfiltrate data or establish persistence. The detection rule monitors successful creation events of RDS clusters, flagging potential misuse by correlating specific actions and outcomes within AWS CloudTrail logs.
-
-### Possible investigation steps
-
-- Review the AWS CloudTrail logs to confirm the event details, focusing on the `event.dataset:aws.cloudtrail` and `event.provider:rds.amazonaws.com` fields to ensure the event is related to RDS cluster creation.
-- Verify the `event.action` field to determine whether the action was `CreateDBCluster` or `CreateGlobalCluster`, as these are the specific actions of interest.
-- Check the `event.outcome:success` field to confirm that the cluster creation was successful, which is crucial for identifying potential unauthorized activities.
-- Identify the AWS account and user associated with the event by examining the `userIdentity` field in the CloudTrail logs to determine if the action was performed by a legitimate user or an adversary.
-- Investigate the source IP address and location from which the request originated using the `sourceIPAddress` field to identify any unusual or suspicious access patterns.
-- Analyze the `requestParameters` field to gather details about the configuration of the newly created RDS cluster, such as the database engine, instance type, and region, to assess if they align with expected configurations.
-- Cross-reference the `userAgent` field to understand the tool or service used to perform the action, which can provide insights into whether the action was automated or manually executed.
-- Utilize Osquery to further investigate the AWS environment by running a query such as `SELECT * FROM aws_rds_clusters WHERE name = '<cluster_name>';` to gather additional details about the cluster, including its status and configuration.
-- Review recent IAM policy changes or role assignments that might have granted the necessary permissions for RDS cluster creation, focusing on any anomalies or deviations from standard practices.
-- Correlate the event with other recent AWS activity logs to identify any patterns or sequences of actions that could indicate a broader attack or unauthorized access attempt.
-
-### False positive analysis
-
-- Routine administrative tasks: Regular database management activities by authorized personnel can trigger the rule. To manage this, users can create exceptions for known administrative accounts or IP addresses.
-- Automated deployment scripts: Organizations using infrastructure as code (IaC) tools like Terraform or CloudFormation may inadvertently trigger the rule during legitimate deployments. Users should consider excluding specific IAM roles or tags associated with these tools.
-- Testing and development environments: Frequent creation of RDS clusters in non-production environments for testing purposes can lead to false positives. Users can exclude specific AWS accounts or regions dedicated to development and testing.
-- Scheduled maintenance: Automated processes for scaling or updating databases during scheduled maintenance windows might be flagged. Users can set time-based exceptions to ignore events during these periods.
-
-### Response and remediation
-
-- Immediately isolate the newly created RDS cluster to prevent any potential data exfiltration or unauthorized access.
-- Review AWS CloudTrail logs to identify the source of the cluster creation, including the IAM user or role responsible for the action.
-- Verify the legitimacy of the cluster creation with the relevant team or individual; if unauthorized, proceed with further investigation.
-- Revoke any suspicious or unauthorized IAM roles or user permissions that may have been used to create the RDS cluster.
-- Conduct a thorough review of network traffic and access logs to identify any data exfiltration attempts or unusual activity associated with the cluster.
-- If data exfiltration is confirmed, follow your organization's incident response plan to notify affected parties and regulatory bodies as required.
-- Implement enhanced logging and monitoring policies to capture detailed events related to RDS activities, ensuring future unauthorized actions are detected promptly.
-- Integrate AWS GuardDuty and other security tools to provide additional layers of threat detection and response capabilities.
-- Restore the system to its operational state by deleting unauthorized clusters and ensuring all legitimate clusters are configured securely with appropriate access controls.
-- Harden the environment by enforcing least privilege access, regularly reviewing IAM policies, and applying security patches to all related services.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

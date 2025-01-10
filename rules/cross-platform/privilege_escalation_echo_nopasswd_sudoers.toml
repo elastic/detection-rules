@@ -2,7 +2,7 @@
 creation_date = "2021/01/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -33,48 +33,6 @@ type = "query"
 query = '''
 event.category:process and event.type:start and process.args:(echo and *NOPASSWD*ALL*)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Privilege Escalation via Sudoers File Modification
-
-The sudoers file is crucial in Unix-like systems, defining user permissions for executing commands with elevated privileges. Adversaries may exploit this by modifying the file to allow unauthorized privilege escalation, often using the NOPASSWD directive to bypass password prompts. The detection rule identifies suspicious process activities, such as attempts to alter sudoers configurations, by monitoring specific command patterns indicative of such abuse.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, including the specific process and command line arguments that triggered the alert, focusing on `process.args` containing `echo` and `*NOPASSWD*ALL*`.
-- Verify the user account associated with the process by examining the `user.name` field to determine if the account has a history of administrative actions or if it is a potential target for compromise.
-- Check the `process.executable` field to identify the binary used to execute the command and ensure it is a legitimate system binary.
-- Investigate the parent process using `process.parent.executable` and `process.parent.args` to understand the origin of the suspicious process and assess if it was initiated by a legitimate or suspicious activity.
-- Use Osquery to list recent modifications to the sudoers file by running: `SELECT * FROM file WHERE path = '/etc/sudoers' OR path LIKE '/etc/sudoers.d/%' ORDER BY atime DESC LIMIT 5;` to identify any unauthorized changes.
-- Examine system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any entries related to sudo or authentication attempts around the time of the alert to gather additional context.
-- Cross-reference the alert timestamp with other security events or alerts to identify any correlated activities that might indicate a broader attack campaign.
-- Investigate the network activity of the involved host around the time of the alert to identify any suspicious outbound connections that might suggest data exfiltration or command-and-control communication.
-- Review the history of sudoers file modifications by checking version control systems or backup logs, if available, to identify when and by whom the changes were made.
-- Assess the system for other indicators of compromise, such as unusual user accounts, unauthorized software installations, or unexpected system configurations, to determine if the privilege escalation attempt is part of a larger intrusion.
-
-### False positive analysis
-
-- System administrators or automated scripts may legitimately modify the sudoers file to update permissions, which can trigger the detection rule. To manage this, users can create exceptions for known administrative accounts or scripts by excluding their process identifiers or command patterns from the rule.
-- Configuration management tools like Ansible, Puppet, or Chef might alter the sudoers file as part of routine system updates or deployments. Users can handle these by identifying the specific processes or tools involved and excluding them from the detection criteria.
-- During system setup or maintenance, temporary changes to the sudoers file might be necessary and benign. Users should document these activities and adjust the detection rule to ignore changes made during scheduled maintenance windows.
-- Some software installations require modifications to the sudoers file to function correctly. Users can whitelist these specific installation processes by excluding their associated command patterns or process names from the rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or privilege escalation.
-- Review the sudoers file for unauthorized modifications, specifically looking for entries with the NOPASSWD directive, and revert any changes to their original state.
-- Conduct a thorough investigation of system logs to identify any unauthorized access or command execution attempts, focusing on the timeframe of the detected modification.
-- Utilize MITRE ATT&CK framework details to understand the potential impact and methods used by the adversary, specifically focusing on T1548: Abuse Elevation Control Mechanism.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
-- Integrate with a security information and event management (SIEM) system to correlate events and detect similar threats across the network.
-- Restore the system to its operational state by applying verified backups and ensuring all security patches and updates are applied.
-- Conduct a security audit of user permissions and sudoers configurations to ensure adherence to the principle of least privilege.
-- Implement hardening measures such as multi-factor authentication for administrative access and regular reviews of privileged access configurations."""
 
 
 [[rule.threat]]

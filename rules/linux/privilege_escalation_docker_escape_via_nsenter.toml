@@ -2,7 +2,7 @@
 creation_date = "2024/07/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/07/10"
 
 [rule]
 author = ["Elastic"]
@@ -35,48 +35,6 @@ process where host.os.type == "linux" and event.type == "change" and event.actio
 process.entry_leader.entry_meta.type == "container" and process.args == "nsenter" and
 process.args in ("-t", "--target") and process.args_count >= 4
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Docker Escape via Nsenter
-
-Docker containers use namespaces to isolate processes, ensuring they operate independently from the host. The `nsenter` command allows entry into these namespaces, which attackers can exploit to break out of a container and access the host system, potentially escalating privileges. The detection rule identifies suspicious UID changes involving `nsenter` within containers, signaling possible escape attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a UID change event involving `nsenter` within a container, as indicated by the query fields `event.type == "change"` and `event.action == "uid_change"`.
-- Verify the process context by examining `process.entry_leader.entry_meta.type` to ensure the event originated from a containerized environment.
-- Check the command-line arguments of the process using `process.args` to confirm the use of `nsenter` with the `-t` or `--target` options, which are indicative of namespace entry attempts.
-- Analyze the `process.args_count` to ensure it meets or exceeds 4, suggesting a potentially complex command that might be used for container escape.
-- Investigate the parent process and its command-line arguments to understand the context in which `nsenter` was executed, which might provide insights into the attacker's intentions.
-- Use Osquery to gather additional context about the container and host environment. For example, run the following query to list all running containers and their associated namespaces: `SELECT * FROM docker_containers JOIN docker_namespace ON docker_containers.id = docker_namespace.id;`
-- Examine the user and group context of the process by reviewing the UID and GID before and after the change to assess the potential impact of the privilege escalation.
-- Correlate the event with other logs and alerts from the same timeframe to identify any related suspicious activities or patterns that might indicate a broader attack.
-- Investigate the network activity associated with the container and host during the time of the alert to detect any unauthorized data exfiltration or lateral movement attempts.
-- Review historical data for similar events involving `nsenter` to determine if this is an isolated incident or part of a recurring pattern, which could indicate a persistent threat.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators may use `nsenter` for legitimate purposes, such as debugging or managing containers. These actions can trigger the rule, leading to false positives. To manage this, users can create exceptions for known administrative accounts or specific time windows when such activities are expected.
-- Monitoring and logging tools: Some monitoring or logging tools might use `nsenter` to gather metrics or logs from containers. These tools can be identified and excluded by specifying their process names or paths in the rule exceptions.
-- Automated scripts: Automated scripts or orchestration tools that manage container lifecycles might use `nsenter` as part of their operations. Users should identify these scripts and exclude their specific command patterns or execution contexts to reduce false positives.
-- Development and testing environments: In development or testing environments, developers might frequently use `nsenter` for testing purposes. Users can exclude specific environments or IP ranges from the rule to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected container to prevent further unauthorized access or potential lateral movement within the network.
-- Conduct a thorough investigation to determine the extent of the breach, focusing on identifying any unauthorized access to the host system and any changes made.
-- Review logs and audit trails to trace the attacker's actions and identify any other potentially compromised containers or systems.
-- Escalate the incident to the security operations team and, if necessary, involve legal and compliance teams to assess any regulatory implications.
-- Remediate the affected systems by removing any unauthorized changes, patching vulnerabilities, and restoring systems from clean backups if necessary.
-- Implement enhanced logging and monitoring for container activities, specifically focusing on namespace entry attempts and UID changes.
-- Integrate security tools with SIEM systems to improve detection capabilities and automate alerting for similar incidents in the future.
-- Review and update container security policies, ensuring that least privilege principles are enforced and unnecessary capabilities are removed.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Educate and train staff on the latest container security best practices and threat detection techniques to prevent future incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -57,49 +57,6 @@ any where host.os.type == "windows" and
        "?:\\Windows\\System32\\wbem\\WMIADAP.exe",
        "?:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Script Object Execution
-
-The scrobj.dll is a legitimate Windows library used for executing scriptlets, often within trusted processes. Adversaries exploit this by loading scrobj.dll into atypical processes to execute malicious scripts, evading detection. The detection rule identifies such anomalies by monitoring for scrobj.dll in unexpected processes, excluding known safe executables, thus highlighting potential misuse for further investigation.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of scrobj.dll in an unexpected process by checking the `process.executable` field against the list of known safe executables.
-- Examine the `event.category` and `event.action` fields to determine if the alert was triggered by a library or driver load event, or a process image load event.
-- Investigate the parent process of the suspicious executable using the `process.parent.executable` field to identify potential sources of the script execution.
-- Check the `host.os.type` field to ensure the alert is relevant to a Windows environment, as the rule is specific to Windows systems.
-- Use Osquery to gather additional context on the suspicious process by running a query such as: `SELECT * FROM processes WHERE name = 'suspicious_process_name';` to retrieve details like process ID, parent process ID, and command line arguments.
-- Analyze the command line arguments of the suspicious process using the `process.command_line` field to identify any potentially malicious script or command being executed.
-- Correlate the alert with other security events or logs from the same host to identify any related suspicious activities or patterns.
-- Investigate the user account associated with the process execution using the `user.name` field to determine if the account has been compromised or is being misused.
-- Review recent changes or anomalies in the system's file system or registry that could indicate the presence of malicious scriptlets or persistence mechanisms.
-- Consult threat intelligence sources to check if the observed behavior or process is associated with known malware or attack techniques, leveraging the MITRE ATT&CK references provided in the alert.
-
-### False positive analysis
-
-- Known false positives for the Suspicious Script Object Execution rule may include legitimate administrative scripts or automation tools that load scrobj.dll for benign purposes. These can occur in environments where custom scripts are used for system management or monitoring.
-- Users can handle these false positives by identifying and documenting regular processes that load scrobj.dll as part of their normal operation. Once identified, these processes can be added to the exclusion list within the detection rule to prevent unnecessary alerts.
-- It is important to regularly review and update the exclusion list to ensure that only verified safe processes are excluded, maintaining a balance between security and operational efficiency.
-- In environments with frequent legitimate use of scriptlets, consider implementing additional monitoring or logging to differentiate between expected and unexpected script object executions, providing context for further analysis.
-- Collaboration with IT and security teams can help in understanding the typical use cases of scrobj.dll within the organization, aiding in the accurate identification of false positives.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Conduct a thorough investigation to confirm the presence of malicious script execution by analyzing the process tree and associated network connections.
-- Terminate any suspicious processes that have loaded scrobj.dll in an unusual manner, ensuring to capture memory dumps for further analysis.
-- Remove any identified malicious scriptlets or files from the system and perform a full antivirus and anti-malware scan.
-- Review and update security policies to ensure that only trusted processes are allowed to load scrobj.dll, leveraging application whitelisting where possible.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat is part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed process execution and DLL loading events, ensuring logs are forwarded to a centralized logging solution for analysis.
-- Integrate threat intelligence feeds to correlate detected anomalies with known threat actor tactics, techniques, and procedures (TTPs) as outlined in the MITRE ATT&CK framework.
-- Restore the system to its operational state by applying the latest security patches and updates, and verify the integrity of critical system files.
-- Harden the system by disabling unnecessary scripting capabilities and enforcing the principle of least privilege to reduce the attack surface."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -95,49 +95,6 @@ file.Ext.original.path : (
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating System Binary Moved or Copied
-
-System binaries are essential executables in Linux environments, responsible for core system functions. Adversaries may exploit these by moving or copying them to evade detection, often renaming them to mask malicious activities. The detection rule identifies unusual movements of these binaries, excluding legitimate processes and paths, to flag potential threats. This helps in identifying masquerading attempts, aligning with defense evasion tactics.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific system binary that was moved or copied, focusing on the `file.Ext.original.path` and `event.action` fields.
-- Check the `process.name` and `process.executable` fields to determine which process initiated the action and assess if it is a known legitimate process or potentially malicious.
-- Investigate the `host.os.type` to confirm the operating system environment and ensure the alert pertains to a Linux system.
-- Examine the `event.type` field to verify that the event is indeed a "change" event, indicating a modification to the file system.
-- Use Osquery to gather additional context about the process that triggered the alert. For example, run the following query to get more details about the process: `SELECT * FROM processes WHERE name = '<process.name from alert>';`
-- Check the system logs for any related entries around the time of the alert to identify any other suspicious activities or anomalies.
-- Investigate the user account associated with the process by checking the `process.user` field, if available, to determine if the action was performed by a legitimate user.
-- Look for any recent changes in the system's package management logs (e.g., dpkg, rpm) that might explain the movement or copying of the binary.
-- Assess the file's new location and permissions to determine if it aligns with typical system configurations or if it appears suspicious.
-- Cross-reference the alert with any other recent alerts or incidents involving the same host or process to identify potential patterns or ongoing threats.
-
-### False positive analysis
-
-- Known false positives may arise from legitimate system updates or package management activities, where system binaries are moved or copied as part of routine operations. These include processes like `dpkg`, `rpm`, `yum`, `apt`, and `snapd`, which are commonly used for installing or updating software packages.
-- System maintenance tasks performed by administrators or automated scripts might also trigger this rule. For example, using `ln` to create symbolic links or `sed` for in-place file editing can result in file movements that are benign.
-- Development and testing environments often involve frequent changes to system binaries, especially when using tools like `pip`, `node`, or `platform-python` for package management and script execution.
-- To manage these false positives, users can create exceptions for known benign processes and paths by adding them to the exclusion list in the detection rule. This involves specifying trusted process names, executables, or file paths that are known to perform legitimate operations.
-- Regularly review and update the exclusion list to ensure it reflects the current environment and operational needs, minimizing unnecessary alerts while maintaining security vigilance.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the binary movement, examining logs and system changes.
-- Verify the integrity of the moved or copied binaries by comparing them with known good versions or using a trusted source.
-- Remove or quarantine any unauthorized or suspicious binaries and restore legitimate versions from backups or trusted repositories.
-- Escalate the incident to the security operations team if the activity is confirmed as malicious, providing detailed findings and context.
-- Implement enhanced logging policies to capture detailed file and process activity, ensuring future incidents can be detected and analyzed more effectively.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Review and update access controls and permissions to limit the ability of unauthorized users to move or copy system binaries.
-- Conduct a post-incident review to identify gaps in detection and response, and update security policies and procedures accordingly.
-- Apply system hardening measures, such as enabling file integrity monitoring and restricting execution of binaries from non-standard directories, to reduce the attack surface."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

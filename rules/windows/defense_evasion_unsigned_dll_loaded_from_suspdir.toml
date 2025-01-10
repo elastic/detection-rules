@@ -2,7 +2,7 @@
 creation_date = "2022/11/22"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -125,50 +125,6 @@ library where host.os.type == "windows" and
 	 /* DLL loaded from the process.executable current directory */
 	 endswith~(substring(dll.path, 0, length(dll.path) - (length(dll.name) + 1)), substring(process.executable, 0, length(process.executable) - (length(process.name) + 1)))
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unsigned DLL Side-Loading from a Suspicious Folder
-
-DLL side-loading involves loading a malicious DLL into a trusted process to evade detection. Adversaries exploit this by placing unsigned DLLs in directories that mimic legitimate paths. The detection rule identifies trusted processes loading recently modified, unsigned DLLs from suspicious directories, indicating potential malicious activity. This helps in identifying attempts to bypass security measures by masquerading as legitimate software.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific trusted process and the unsigned DLL involved. Pay attention to the `process.code_signature.trusted` and `dll.code_signature.status` fields to confirm the trust status of the process and the unsigned nature of the DLL.
-- Examine the `dll.Ext.relative_file_creation_time` and `dll.Ext.relative_file_name_modify_time` fields to determine how recently the DLL was created or modified, which can indicate recent malicious activity.
-- Investigate the `dll.path` to verify if it matches any of the suspicious directories listed in the detection rule. This can help confirm if the DLL is located in a directory commonly abused for side-loading attacks.
-- Use Osquery to gather additional context about the process and DLL. For example, run the following query to list all DLLs loaded by the process: `SELECT * FROM process_open_sockets WHERE pid = <process_id>;` Replace `<process_id>` with the actual process ID from the alert.
-- Check the file properties and metadata of the unsigned DLL, including its creation and modification timestamps, to identify any anomalies or inconsistencies.
-- Correlate the process and DLL activity with other logs, such as Windows Event Logs, to identify any related suspicious behavior or events around the time of the alert.
-- Investigate the parent process of the trusted process to determine if it was spawned by a legitimate application or if it shows signs of compromise.
-- Analyze network activity associated with the process to identify any unusual outbound connections that could indicate data exfiltration or command-and-control communication.
-- Review the system's recent changes, such as software installations or updates, that might explain the presence of the unsigned DLL in a suspicious directory.
-- Conduct a file integrity check on the system to identify any other unauthorized or unexpected changes to critical system files and directories.
-
-### False positive analysis
-
-- Legitimate software updates: Some legitimate software may update their DLLs frequently, causing them to appear as recently modified. Users can create exceptions for known software update processes to prevent false positives.
-- Development environments: Developers often compile and test DLLs in directories that might match suspicious paths. Excluding directories used for development can help reduce false alerts.
-- Custom or in-house applications: Organizations may have custom applications that load unsigned DLLs from non-standard directories. Identifying and excluding these applications can prevent unnecessary alerts.
-- Backup or recovery software: Certain backup or recovery tools might temporarily load unsigned DLLs from unusual paths. Users should verify the legitimacy of such tools and consider excluding them if they are trusted.
-- Security software: Some security tools may use unsigned DLLs for legitimate purposes, such as monitoring or scanning. Users should ensure these tools are recognized and excluded from detection rules.
-- Testing or sandbox environments: In testing environments, unsigned DLLs might be used to simulate attacks or test software. Excluding these environments from production detection rules can help avoid false positives.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Conduct a thorough investigation to identify the source of the unsigned DLL and any associated malicious activity.
-- Use endpoint detection and response (EDR) tools to analyze the behavior of the trusted process and the loaded DLL.
-- Remove the malicious DLL and any other suspicious files from the system, ensuring that legitimate files are not affected.
-- Restore the system from a known good backup if the integrity of the system is compromised.
-- Update antivirus and anti-malware solutions to ensure they can detect and prevent similar threats in the future.
-- Implement application whitelisting to prevent unauthorized DLLs from being loaded by trusted processes.
-- Enhance logging policies to capture detailed information about DLL loads and process execution for future investigations.
-- Integrate threat intelligence feeds to stay informed about emerging threats and adapt defenses accordingly.
-- Escalate the incident to the security operations center (SOC) or relevant team if the threat is part of a larger attack campaign, referencing MITRE ATT&CK techniques TA0005 and T1036 for context."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/09"
 min_stack_version = "8.15.0"
 min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
 
@@ -23,50 +23,7 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Attempt to Create Okta API Token"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Attempt to Create Okta API Token
-
-Okta API tokens are crucial for automating and managing access within an organization's network. They allow seamless integration and interaction with Okta's identity management services. However, adversaries can exploit these tokens to gain persistent access, manipulate user accounts, or disable security measures. The detection rule identifies suspicious token creation activities by monitoring specific Okta system events, helping to thwart unauthorized access attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the `event.dataset:okta.system` and `event.action:system.api_token.create` fields, ensuring the alert is valid and corresponds to an API token creation attempt.
-- Identify the user account associated with the token creation attempt by examining the `actor.id` and `actor.alternateId` fields in the event logs.
-- Check the timestamp of the event to determine when the token creation attempt occurred and correlate it with other suspicious activities around the same time.
-- Investigate the IP address and geolocation from which the token creation request originated to identify any anomalies or unexpected locations.
-- Examine the `client.userAgent` field to understand the device and browser used during the token creation attempt, looking for any unusual or unauthorized devices.
-- Review recent login activities for the identified user account to detect any unauthorized access or unusual login patterns.
-- Use Osquery to gather additional context on the system from which the request originated. For example, run the following Osquery query to list recent network connections: `SELECT * FROM process_open_sockets WHERE remote_address = '<suspicious IP address>';`.
-- Check for any recent changes to user permissions or roles associated with the account in question, which might indicate privilege escalation attempts.
-- Analyze other Okta system events around the same timeframe to identify any related suspicious activities, such as failed login attempts or changes to security settings.
-- Collaborate with the IT or security team to verify if the token creation was part of a legitimate administrative task or if it requires further investigation.
-
-### False positive analysis
-
-- Routine administrative tasks: Legitimate IT administrators may frequently create Okta API tokens for maintenance or integration purposes. To manage these, users can create exceptions for specific administrator accounts or IP addresses known to perform these tasks regularly.
-- Automated processes: Some automated systems or applications might generate Okta API tokens as part of their normal operation. Users should identify these systems and exclude their activities from triggering alerts by whitelisting their associated service accounts or application identifiers.
-- Third-party integrations: Organizations often use third-party services that require Okta API tokens for integration. Users can handle these by maintaining a list of approved third-party services and excluding their token creation activities from detection.
-- Testing environments: In development or testing environments, API tokens might be created frequently for testing purposes. Users can exclude these environments from monitoring by setting up environment-specific exceptions or filters.
-
-### Response and remediation
-
-- Immediately revoke the suspicious Okta API token to prevent further unauthorized access.
-- Conduct a thorough investigation to identify any unauthorized changes made using the token, such as new user accounts or altered security policies.
-- Review Okta system logs to trace the origin of the token creation attempt and identify any associated user accounts or IP addresses.
-- Escalate the incident to the security operations center (SOC) for further analysis and to determine if additional systems are compromised.
-- Implement enhanced logging policies to capture detailed API activity and monitor for unusual patterns or behaviors.
-- Integrate Okta with a Security Information and Event Management (SIEM) system to enable real-time alerting and correlation with other security events.
-- Restore any unauthorized changes to user accounts or security settings to their original state.
-- Conduct a security review of Okta configurations and permissions to ensure least privilege access is enforced.
-- Educate users and administrators on the importance of API security and the risks associated with token misuse.
-- Regularly review and update security policies and procedures to incorporate lessons learned from the incident and improve future response efforts.
-
-## Setup
+note = """## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

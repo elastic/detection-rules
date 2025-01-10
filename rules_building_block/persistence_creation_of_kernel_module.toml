@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -35,48 +35,6 @@ file.extension == "ko" and not process.name : (
   "dpkg", "systemd", "falcon-sensor*", "dnf", "yum", "rpm", "cp"
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Creation of Kernel Module
-
-Kernel modules are dynamic components that extend the functionality of the Linux kernel, often used for hardware drivers or system enhancements. Adversaries may exploit this by loading malicious modules to gain persistence or execute unauthorized actions at a low level. The detection rule identifies suspicious module creation by monitoring changes in the kernel module directory, excluding known legitimate processes, to flag potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to understand which specific kernel module file was created or changed, focusing on the file path and extension, particularly looking for ".ko" files in "/lib/modules/*".
-- Identify the process responsible for the creation or modification of the kernel module by examining the process name and ensuring it is not one of the excluded legitimate processes like "dpkg", "systemd", "falcon-sensor*", "dnf", "yum", "rpm", or "cp".
-- Check the timestamp of the event to determine when the suspicious activity occurred and correlate it with other system activities or logs around the same time.
-- Use Osquery to list all currently loaded kernel modules and compare them against known legitimate modules. Example query: `SELECT * FROM kernel_modules;`
-- Investigate the parent process of the process that created or modified the kernel module to understand the origin of the activity and whether it was initiated by a user or another process.
-- Examine system logs, such as syslog or dmesg, for any related entries that might provide additional context or indicate other suspicious activities around the time of the module creation.
-- Verify the integrity and authenticity of the suspicious kernel module file by checking its hash against known good hashes or using a tool to analyze its contents for malicious code.
-- Investigate the user account associated with the process that created or modified the kernel module to determine if it has been compromised or is exhibiting unusual behavior.
-- Review recent system changes or updates that might have legitimately introduced new kernel modules, ensuring they align with expected maintenance or deployment activities.
-- Cross-reference the alert with threat intelligence sources to determine if the kernel module or associated process is linked to known malware or adversary techniques.
-
-### False positive analysis
-
-- Routine system updates or package installations can trigger false positives as legitimate processes like `dpkg`, `dnf`, `yum`, and `rpm` may create or modify kernel modules during their operations. These processes are already excluded in the detection rule, but additional package managers or custom scripts might need to be added to the exclusion list.
-- Security or monitoring tools such as `falcon-sensor` may also create or modify kernel modules as part of their normal operation. If other similar tools are in use, consider adding them to the exclusion list to prevent false positives.
-- Custom scripts or administrative tasks that involve kernel module management might inadvertently trigger the rule. Users should review these scripts and, if deemed safe, add them to the exclusion list to avoid unnecessary alerts.
-- To handle these false positives, users can update the detection rule to include additional known legitimate processes or paths in the exclusion list, ensuring that only truly suspicious activities are flagged.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Verify the legitimacy of the kernel module by checking the file's origin, creation time, and associated processes.
-- Use forensic tools to capture a memory dump and disk image of the affected system for further analysis.
-- Review system logs and audit trails to identify any unauthorized access or changes made around the time of the kernel module creation.
-- Remove the suspicious kernel module and any associated files or processes from the system.
-- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to detect and remove any additional threats.
-- Restore the system from a known good backup if the integrity of the system cannot be assured.
-- Implement enhanced logging policies to monitor kernel module directories and critical system files for unauthorized changes.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
-- Review and update security policies and procedures to include kernel module monitoring and ensure compliance with best practices for system hardening and threat mitigation."""
 
 
 [[rule.threat]]

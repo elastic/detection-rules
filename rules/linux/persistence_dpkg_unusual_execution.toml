@@ -2,7 +2,7 @@
 creation_date = "2024/07/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -64,49 +64,6 @@ process.group_leader.name != null and not (
   process.parent.executable in ("/usr/share/debconf/frontend", "/usr/bin/unattended-upgrade")
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual DPKG Execution
-
-DPKG is a core utility in Debian-based Linux systems for managing software packages. While essential for legitimate package management, adversaries can exploit DPKG to install malicious software, gaining persistence or executing unauthorized actions. The detection rule identifies anomalies by flagging DPKG executions from unexpected processes, excluding known legitimate sources, thus highlighting potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to understand which process triggered the Unusual DPKG Execution rule, focusing on the `process.executable` and `process.parent.name` fields.
-- Verify the legitimacy of the process by checking the `process.session_leader.name` and `process.group_leader.name` to ensure they are not associated with known legitimate DPKG operations.
-- Investigate the parent process by examining the `process.parent.executable` to determine if it is a known and trusted application.
-- Use Osquery to gather more information about the suspicious process. For example, run the following query to list all processes related to the suspicious executable: `SELECT * FROM processes WHERE path = '/var/lib/dpkg/info/*';`
-- Check the system logs for any recent package installations or removals that coincide with the alert timestamp to identify any unauthorized package management activities.
-- Investigate the network activity of the host around the time of the alert to identify any suspicious outbound connections that might indicate data exfiltration or command-and-control communication.
-- Examine the file system for any newly created or modified files in the `/var/lib/dpkg/info/` directory that could be associated with the suspicious DPKG execution.
-- Review user activity logs to determine if any unauthorized users were logged in or if there were any unusual login attempts around the time of the alert.
-- Cross-reference the alert with other security tools and logs to identify any correlated events or indicators of compromise that might provide additional context.
-- Document all findings and observations to build a comprehensive understanding of the incident, which will aid in determining the next steps for response and remediation.
-
-### False positive analysis
-
-- Automated system maintenance tasks: Some automated scripts or system maintenance tools might invoke DPKG for legitimate purposes, such as system updates or configuration changes, which could be flagged as unusual. Users can handle these by identifying the specific scripts or tools and adding them to the exclusion list.
-- Custom administrative scripts: Administrators may use custom scripts to manage packages across multiple systems. These scripts, if not recognized by the rule, could trigger false positives. Users should review these scripts and, if deemed safe, exclude them from the rule.
-- Non-standard package management tools: Some organizations might use alternative package management tools that interact with DPKG in unconventional ways. These tools should be identified and excluded if they are verified to be non-threatening.
-- Development and testing environments: In environments where software is frequently installed and removed for testing purposes, DPKG executions might be more common and benign. Users can create exceptions for these environments to reduce noise.
-- Legacy systems or configurations: Older systems or unique configurations might have different processes interacting with DPKG. Users should assess these systems and consider excluding them if they consistently generate false positives without indicating a threat.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malicious software.
-- Conduct a thorough investigation to identify the source of the unusual DPKG execution, examining process trees and related logs for any unauthorized changes or installations.
-- Verify the integrity of installed packages using checksums or package verification tools to identify any tampered or malicious packages.
-- Remove any unauthorized or malicious packages identified during the investigation to mitigate the threat.
-- Restore the system from a known good backup if the integrity of the system is compromised beyond repair.
-- Escalate the incident to the security operations team for further analysis and to determine if the attack is part of a larger campaign.
-- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
-- Integrate threat intelligence feeds to correlate unusual DPKG executions with known threat actor tactics, techniques, and procedures (TTPs).
-- Apply system hardening measures, such as restricting DPKG execution to trusted users and processes, and implementing application whitelisting.
-- Conduct a post-incident review to update incident response plans and improve detection rules based on lessons learned from the investigation."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

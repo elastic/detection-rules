@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -35,49 +35,6 @@ event.dataset:"github.audit" and event.category:"configuration" and
 event.action:* and github.hashed_token:* and 
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating First Occurrence GitHub Event for a Personal Access Token (PAT)
-
-Personal Access Tokens (PATs) in GitHub provide a way to authenticate programmatic access to repositories, enabling automation and integration. Adversaries may exploit PATs to gain unauthorized access, execute code, or exfiltrate data. The detection rule identifies new PAT events not seen in the past 14 days, flagging potential misuse by monitoring specific GitHub audit logs and access patterns.
-
-### Possible investigation steps
-
-- Review the GitHub audit logs to identify the specific event details, focusing on the `event.dataset:"github.audit"` and `event.category:"configuration"` fields to understand the context of the PAT usage.
-- Examine the `event.action` field to determine the specific action that triggered the alert, which can provide insights into the nature of the access or configuration change.
-- Investigate the `github.hashed_token` field to identify the specific PAT involved and check if it matches any known tokens or patterns associated with legitimate users or applications.
-- Analyze the `github.programmatic_access_type` field to determine whether the access was through an "OAuth access token" or a "Fine-grained personal access token," which can help assess the level of access granted.
-- Cross-reference the PAT event with recent user activity logs to identify any unusual patterns or anomalies in user behavior that might indicate misuse or compromise.
-- Use Osquery to gather additional context on the system or environment where the PAT was used. For example, run the following Osquery query to list recent network connections that might correlate with the PAT usage: `SELECT * FROM process_open_sockets WHERE remote_address IS NOT NULL;`
-- Check for any recent changes in repository permissions or settings that might have coincided with the PAT event, which could indicate an attempt to escalate privileges or exfiltrate data.
-- Investigate any associated IP addresses or geolocations from which the PAT was used to determine if they align with expected user locations or if they suggest unauthorized access.
-- Review any recent changes to the repositories accessed using the PAT to identify potential unauthorized modifications or data exfiltration attempts.
-- Collaborate with the user or team associated with the PAT to verify the legitimacy of the token and understand the intended use case, which can help determine if the alert is a false positive or a genuine security concern.
-
-### False positive analysis
-
-- Frequent legitimate automation scripts or integrations may trigger false positives if they generate new PATs regularly. Users can manage these by creating exceptions for known scripts or applications that are verified as non-threatening.
-- Developers or teams who rotate their PATs as part of a security best practice might also cause false positives. To handle this, users can maintain a list of accounts or tokens that are expected to rotate frequently and exclude them from alerts.
-- Testing environments or sandbox accounts that frequently generate and revoke PATs for testing purposes can be another source of false positives. Users should consider excluding these environments from the detection rule or setting up specific monitoring that accounts for their unique behavior.
-- In organizations with high developer turnover, new developers may frequently create PATs, leading to false positives. Implementing a process to quickly verify new developer accounts and their associated PATs can help mitigate this issue.
-- Users can also adjust the detection rule to include additional context, such as IP address or user agent, to better differentiate between legitimate and suspicious activity, reducing the likelihood of false positives.
-
-### Response and remediation
-
-- Immediately revoke the identified Personal Access Token (PAT) to prevent further unauthorized access.
-- Conduct a thorough investigation to determine the scope of the breach, including identifying any repositories accessed using the compromised PAT.
-- Review GitHub audit logs for any suspicious activities or anomalies associated with the compromised PAT.
-- Notify the affected repository owners and stakeholders about the potential breach and actions taken.
-- Escalate the incident to the security team for further analysis and to determine if additional systems or data were affected.
-- Implement enhanced logging and monitoring for GitHub activities to detect similar incidents in the future.
-- Educate users on secure PAT management practices, including regular rotation and using fine-grained permissions.
-- Integrate security tools with GitHub to automate the detection of anomalous PAT usage and other security events.
-- Restore any affected systems or repositories to their last known good state, ensuring no malicious code or data remains.
-- Apply hardening measures such as enforcing multi-factor authentication (MFA) for all GitHub accounts and restricting PAT usage to specific IP addresses or environments."""
 
 
 [[rule.threat]]

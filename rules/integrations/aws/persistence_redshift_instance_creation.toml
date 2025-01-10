@@ -2,7 +2,7 @@
 creation_date = "2022/04/12"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -24,51 +24,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Redshift Cluster Creation"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS Redshift Cluster Creation
-
-Amazon Redshift is a data warehousing service that allows for scalable data storage and analysis. Adversaries might exploit Redshift by creating unauthorized clusters to exfiltrate data or conduct unauthorized data analysis. The detection rule monitors for successful cluster creation events, especially by non-admin users, to identify potential misuse or misconfigurations that could lead to security vulnerabilities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event dataset is `aws.cloudtrail` and the event provider is `redshift.amazonaws.com` to ensure the alert is related to Redshift cluster creation.
-- Verify the `event.action` field is `CreateCluster` and the `event.outcome` is `success` to confirm a successful cluster creation event.
-- Identify the user who initiated the cluster creation by examining the `user.name` field in the event logs.
-- Check the `user.role` or `user.group` fields to determine if the user has administrative privileges or if they are a non-admin user.
-- Investigate the `source.ip` field to identify the IP address from which the cluster creation request originated and determine if it is a known or trusted source.
-- Review the `aws.region` field to verify if the cluster was created in an expected region or if it was created in an unusual or unauthorized region.
-- Use AWS CloudTrail logs to gather additional context around the time of the cluster creation event, looking for any other suspicious activities or related events.
-- If available, use Osquery to query AWS Redshift configurations and gather more details about the newly created cluster. Example Osquery query: `SELECT * FROM aws_redshift_clusters WHERE cluster_identifier = '<cluster_id>';`
-- Check for any recent changes in IAM policies or roles that might have inadvertently granted the user permissions to create Redshift clusters.
-- Review the organization's policy on Redshift cluster creation to determine if the creation aligns with expected usage patterns and business needs.
-
-### False positive analysis
-
-- Routine administrative tasks: Regularly scheduled maintenance or updates by authorized personnel might trigger cluster creation events. Users can manage these by creating exceptions for known maintenance windows or specific user accounts.
-- Automated processes: Some organizations use automated scripts or third-party tools to manage Redshift clusters, which could lead to false positives. Identifying and excluding these processes from alerts can reduce noise.
-- Development and testing environments: Non-admin users might create clusters for legitimate development or testing purposes. Establishing a list of approved users or environments can help in filtering out these benign activities.
-- Training and onboarding: New employees or teams might create clusters as part of their training or onboarding process. Monitoring and documenting these activities can help distinguish them from potential threats.
-- Temporary projects: Short-term projects might require the creation of Redshift clusters by non-admin users. Implementing a review process for temporary projects can help in identifying and excluding these from alerts.
-
-### Response and remediation
-
-- Verify the identity and permissions of the user who created the Redshift cluster to ensure they have the appropriate authorization.
-- Immediately isolate the newly created Redshift cluster to prevent any potential data exfiltration or unauthorized access.
-- Review CloudTrail logs to identify any suspicious activities or patterns associated with the cluster creation event.
-- Conduct a thorough investigation to determine if any sensitive data was accessed or exfiltrated using the unauthorized cluster.
-- Revoke any unnecessary permissions or roles from the user involved in the cluster creation to prevent further unauthorized actions.
-- Escalate the incident to the security operations team if the investigation reveals malicious intent or data compromise.
-- Implement enhanced logging and monitoring policies to capture detailed events related to Redshift cluster activities for future investigations.
-- Integrate AWS GuardDuty or similar threat detection services to provide real-time alerts on suspicious activities within the AWS environment.
-- Restore the system to its operational state by deleting the unauthorized Redshift cluster and ensuring no residual configurations remain.
-- Apply hardening measures such as enforcing least privilege access, enabling multi-factor authentication, and regularly reviewing IAM policies to prevent similar incidents.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/redshift/latest/APIReference/API_CreateCluster.html"]

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -33,48 +33,6 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "org.add_member"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating New User Added To GitHub Organization
-
-GitHub organizations manage collaborative projects, where adding users is routine for access control. However, adversaries may exploit this by adding unauthorized users to maintain persistence or manipulate accounts. The detection rule monitors GitHub audit logs for specific actions indicating new user additions, aligning with MITRE ATT&CK's account manipulation tactics, to identify potential security breaches.
-
-### Possible investigation steps
-
-- Review the GitHub audit log entry to confirm the `event.action` is "org.add_member" and verify the `event.dataset` is "github.audit" to ensure the alert is valid.
-- Identify the `user.name` and `user.email` fields in the audit log to determine who added the new user to the organization.
-- Check the `target.user` field to identify the new user added to the organization and gather their profile information.
-- Investigate the `organization.name` field to understand which organization the user was added to and assess the potential impact.
-- Review recent activity logs for the `user.name` who added the new member to identify any unusual or unauthorized actions.
-- Use Osquery to query the system for any recent changes in user accounts or permissions. Example query: `SELECT * FROM users WHERE username = '<new_user>' OR username = '<user_who_added>';`
-- Cross-reference the new user's email and username with known employees or contractors to verify their legitimacy.
-- Check for any recent changes in the organization's repositories or settings that might correlate with the new user addition.
-- Investigate any other alerts or incidents involving the same `user.name` or `target.user` to identify patterns or repeated suspicious behavior.
-- Consult with the organization's team leads or project managers to confirm if the new user addition was expected and authorized.
-
-### False positive analysis
-
-- Routine administrative actions: Regularly scheduled additions of new team members or collaborators by authorized personnel can trigger this rule. To manage this, organizations can maintain a list of known administrators whose actions are considered non-threatening and exclude their activities from triggering alerts.
-- Onboarding processes: Large organizations may have automated scripts or workflows that add new users as part of their onboarding process. These can be excluded by identifying and filtering out actions performed by these specific automation accounts.
-- Temporary project collaborations: Short-term projects may require adding external collaborators, which can be mistaken for unauthorized access. Organizations can create exceptions for specific projects or timeframes to prevent false positives.
-- Organizational restructuring: Changes in team structures or mergers may lead to a spike in user additions. Monitoring these events and temporarily adjusting the rule's sensitivity can help manage false positives during such periods.
-
-### Response and remediation
-
-- Verify the legitimacy of the new user addition by contacting the organization owner or admin to confirm if the addition was authorized.
-- Temporarily restrict the new user's access to sensitive repositories and resources until their legitimacy is confirmed.
-- Review the audit logs for any suspicious activities associated with the new user account, such as unusual repository access or changes.
-- If unauthorized access is confirmed, remove the user from the organization and reset credentials for any affected accounts.
-- Escalate the incident to the security team for further investigation and to determine if additional accounts or systems have been compromised.
-- Implement multi-factor authentication (MFA) for all organization members to enhance account security and prevent unauthorized access.
-- Update and enforce strict access control policies, ensuring that only necessary permissions are granted to users based on their roles.
-- Integrate GitHub audit logs with a Security Information and Event Management (SIEM) system for real-time monitoring and alerting of suspicious activities.
-- Conduct a security awareness training session for organization members to recognize and report potential security threats.
-- Regularly review and update the organization's security policies and procedures to align with best practices and emerging threats."""
 
 
 [[rule.threat]]

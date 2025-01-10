@@ -2,7 +2,7 @@
 creation_date = "2023/07/20"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -60,47 +60,6 @@ sequence by process.pid, host.id with maxspan=5s
    not process.name == "agentbeat"
   ] with runs=10
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Pspy Process Monitoring Detected
-
-Auditd is a powerful tool used in Linux environments to track system calls, providing insights into process activities. Adversaries exploit utilities like pspy to monitor processes without elevated privileges, seeking opportunities for privilege escalation. The detection rule identifies suspicious activity by tracking the 'openat' syscall within the /proc directory, flagging repeated access patterns indicative of pspy usage.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the 'openat' syscall within the /proc directory, focusing on the specific auditd data fields: `auditd.data.syscall`, `auditd.data.a0`, and `auditd.data.a2`.
-- Verify the frequency and pattern of the 'openat' syscall by examining the sequence of events for the same `process.pid` and `host.id` within the specified `maxspan=5s` to ensure it aligns with the rule's conditions.
-- Check the process name associated with the alert to confirm it is not a legitimate process like "agentbeat" that might be excluded from the rule.
-- Use Osquery to gather more information about the suspicious process. Execute a query such as: `SELECT pid, name, path, cmdline FROM processes WHERE pid = <suspicious_pid>;` to retrieve details about the process.
-- Investigate the parent process of the suspicious process to understand its origin and whether it was spawned by a legitimate or malicious process.
-- Examine the command line arguments (`cmdline`) of the suspicious process to identify any unusual or unexpected parameters that might indicate malicious intent.
-- Review the user account associated with the process to determine if it is a standard user or a service account, which might provide insights into potential misuse or compromise.
-- Check the process's file path and hash against known good or malicious software databases to identify if it matches any known utilities or malware.
-- Analyze the network activity of the host during the time of the alert to identify any suspicious outbound connections that might correlate with the process activity.
-- Correlate the findings with other security events or logs from the same host or network segment to identify any additional indicators of compromise or related suspicious activities.
-
-### False positive analysis
-
-- Known false positives for the Potential Pspy Process Monitoring Detected rule may include legitimate system monitoring tools or scripts that frequently access the /proc directory using the openat syscall. These tools might be part of regular system administration tasks or monitoring solutions that do not pose a security threat.
-- To manage these false positives, users can create exceptions for specific processes or scripts that are known to perform benign activities. This can be done by modifying the detection rule to exclude certain process names or paths that are identified as non-threatening. For example, adding exceptions for known monitoring tools or system processes that are verified to be safe can reduce noise in the detection system.
-- Users should regularly review and update the list of exceptions to ensure that only legitimate processes are excluded, maintaining a balance between reducing false positives and not missing actual threats.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to confirm the presence of pspy or similar unauthorized monitoring tools by analyzing audit logs and process activity.
-- Terminate any suspicious processes identified during the investigation to halt potential malicious activities.
-- Review user accounts and permissions on the affected system to identify and remove any unauthorized access or privilege escalation paths.
-- Escalate the incident to the security operations team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed process activity and syscall usage, focusing on the /proc directory and openat syscall.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats in the future.
-- Restore the system to its operational state by reinstalling affected software and applying the latest security patches and updates.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Implement system hardening measures, such as disabling unnecessary services and enforcing the principle of least privilege, to reduce the attack surface and prevent future incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

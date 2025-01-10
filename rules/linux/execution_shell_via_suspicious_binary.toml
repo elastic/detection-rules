@@ -2,7 +2,7 @@
 creation_date = "2023/07/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -77,49 +77,6 @@ sequence by host.id, process.entity_id with maxspan=1s
   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
   process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") ]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Reverse Shell via Suspicious Binary
-
-Reverse shells are a common technique used by attackers to gain persistent access to a compromised system. They exploit legitimate shell environments to execute commands remotely. Adversaries often use binaries in unusual directories to initiate these shells, followed by network connections to external IPs. The detection rule identifies this behavior by monitoring for suspicious binary executions, network activities, and shell spawns, flagging potential reverse shell activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific `host.id` and `process.entity_id` involved in the suspicious activity.
-- Examine the `process.executable` path to determine if it is located in a commonly abused directory, such as `/tmp/*` or `/var/tmp/*`, which may indicate malicious intent.
-- Check the `process.parent.name` to verify if the parent process is a shell, such as `bash` or `sh`, which could suggest a shell was spawned by the suspicious binary.
-- Investigate the `destination.ip` in the network event to identify if the connection was made to an external or suspicious IP address, excluding local addresses like `127.0.0.1` or `::1`.
-- Use Osquery to gather more information about the suspicious binary. For example, run the following query to list details about the executable: `SELECT * FROM processes WHERE path = '/path/to/suspicious/binary';`
-- Analyze the process tree to understand the sequence of events leading to the shell spawn, focusing on the relationship between the suspicious binary and the spawned shell.
-- Check for any recent file modifications or creations in the directories where the suspicious binary was executed, which might indicate additional malicious activity.
-- Review system logs for any other unusual activities or errors around the time of the alert to gather more context about the potential compromise.
-- Investigate the user account associated with the process execution to determine if it has been compromised or is being used maliciously.
-- Correlate the findings with other alerts or incidents involving the same `host.id` or `destination.ip` to identify patterns or repeated attempts of reverse shell activities.
-
-### False positive analysis
-
-- Legitimate administrative scripts: System administrators may use scripts located in directories like `/tmp` or `/var/tmp` for maintenance tasks, which could trigger the rule. Users can create exceptions for known scripts by specifying their exact paths or hashes.
-- Automated deployment tools: Tools that deploy applications or updates might execute binaries from non-standard directories. Users should identify these tools and exclude their processes from the rule.
-- Development and testing activities: Developers might run binaries from temporary directories during testing phases. Users can exclude specific user accounts or processes associated with development activities.
-- Backup and recovery operations: Some backup solutions might use temporary directories for storing scripts or binaries. Users should identify these operations and exclude them based on process names or paths.
-- Custom monitoring scripts: Organizations may have custom scripts for monitoring or logging that execute from unusual directories. Users can whitelist these scripts by adding exceptions for their specific paths or process names.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access and lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the suspicious binary and network connections.
-- Terminate any malicious processes identified during the investigation to stop ongoing threats.
-- Review and analyze logs from the affected system and network devices to gather evidence and understand the attack vector.
-- Remove any unauthorized binaries and scripts from the system, especially those located in commonly abused directories.
-- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities.
-- Restore the system from a known good backup if the integrity of the system is in question.
-- Implement enhanced logging and monitoring policies to detect similar threats in the future, including network traffic analysis and process execution monitoring.
-- Escalate the incident to the appropriate internal teams and, if necessary, external authorities or cybersecurity experts for further analysis and response.
-- Harden the system by disabling unnecessary services, enforcing least privilege access, and implementing network segmentation to reduce the attack surface."""
 
 
 [[rule.threat]]

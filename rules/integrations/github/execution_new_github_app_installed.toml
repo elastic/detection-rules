@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -30,49 +30,6 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "integration_installation.create"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating New GitHub App Installed
-
-GitHub Apps enhance functionality by integrating with repositories and organizations, often requiring permissions to access or modify data. Adversaries may exploit this by installing malicious apps to gain unauthorized access or control. The detection rule monitors audit logs for new app installations, flagging potential threats by identifying unauthorized or suspicious integrations.
-
-### Possible investigation steps
-
-- Review the audit logs to identify the specific GitHub App that was installed by examining the `event.action` field for "integration_installation.create".
-- Check the `user.name` field in the audit logs to determine who installed the app and verify if they have the appropriate permissions and role to do so.
-- Investigate the `github.app.name` field to gather more information about the app, including its purpose and the permissions it requests.
-- Cross-reference the app's permissions with your organization's security policies to ensure they align and do not pose a risk.
-- Look into the app's developer or vendor by researching the `github.app.owner` field to assess their reputation and trustworthiness.
-- Use Osquery to query the local system for any related processes or network connections initiated by the app. Example query: `SELECT * FROM processes WHERE name LIKE '%github%' OR path LIKE '%github%'`.
-- Check for any recent changes in the repositories or organization settings that could be linked to the app installation by reviewing the `event.dataset` field for related activities.
-- Analyze the `event.created` timestamp to determine if the app installation coincides with any other suspicious activities or alerts.
-- Consult with the team or individual who installed the app to understand the rationale behind its installation and verify its necessity.
-- Document all findings and context gathered during the investigation to aid in future reference and potential incident response activities.
-
-### False positive analysis
-
-- Known false positives for the New GitHub App Installed rule may include legitimate apps installed by trusted team members or automated processes that are part of regular operations. These installations might be flagged if they occur frequently or during unusual hours.
-- To manage these false positives, users can create exceptions for specific apps that are regularly installed and verified as safe. This can be done by maintaining a whitelist of trusted apps and updating it as necessary.
-- Another approach is to monitor the installation patterns and identify any recurring non-threatening behaviors, such as installations by specific users or teams, and exclude these from triggering alerts.
-- Users should also consider the context of the installation, such as whether it aligns with ongoing projects or initiatives, to determine if an alert is a false positive.
-- Implementing a review process for app installations can help in quickly identifying and excluding false positives, ensuring that only genuine threats are flagged for further investigation.
-
-### Response and remediation
-
-- Immediately review the permissions requested by the newly installed GitHub App to assess potential risks and determine if they align with organizational policies.
-- Verify the legitimacy of the app by checking its developer's reputation, user reviews, and any available security assessments.
-- Temporarily disable or uninstall the app if it is deemed suspicious or unauthorized to prevent further access or data modification.
-- Conduct a thorough audit of recent activities in the affected repositories and organization to identify any unauthorized changes or data access.
-- Notify the security team and relevant stakeholders about the incident for further investigation and to ensure awareness across the organization.
-- Escalate the issue to GitHub support if the app is confirmed to be malicious or if there is a need for further assistance in handling the incident.
-- Implement logging policies to capture detailed audit logs of app installations and other critical actions for future investigations.
-- Integrate security tools that can automatically monitor and alert on suspicious activities related to GitHub Apps and other integrations.
-- Restore any affected systems or repositories to their last known good state if unauthorized changes were detected.
-- Review and update organizational policies on app installations, ensuring only trusted and verified apps are allowed, and educate team members on the importance of scrutinizing app permissions."""
 
 
 [[rule.threat]]

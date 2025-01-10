@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2023/07/27"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
 updated_date = "2025/01/08"
 
@@ -12,7 +12,7 @@ allowed UID size (INT_MAX). Some older Linux versions were affected by a bug whi
 greater than INT_MAX to escalate privileges by spawning a shell through systemd-run.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via UID INT_MAX Bug Detected"
@@ -56,56 +56,16 @@ tags = [
     "Tactic: Privilege Escalation",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
-process.name == "systemd-run" and process.args == "-t" and process.args_count >= 3 and user.id >= "1000000000"
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "ProcessRollup2") and
+  process.name == "systemd-run" and process.args == "-t" and process.args_count >= 3 and user.id >= "1000000000"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Privilege Escalation via UID INT_MAX Bug Detected
-
-In certain Linux environments, a bug in older versions allows users with a UID exceeding INT_MAX to gain elevated privileges by executing commands via systemd-run. Adversaries exploit this by spawning privileged shells, bypassing standard security controls. The detection rule identifies such exploitation attempts by monitoring systemd-run executions with unusually high UIDs, signaling potential privilege escalation activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a UID greater than INT_MAX, specifically checking the `user.id` field to ensure it meets the threshold of "1000000000" or higher.
-- Examine the `process.name` and `process.args` fields to verify that the command executed was indeed `systemd-run` with the `-t` argument, indicating an attempt to spawn a shell.
-- Check the `event.type` and `event.action` fields to confirm that the event was a process start and involved execution, aligning with the conditions specified in the detection rule.
-- Investigate the user account associated with the high UID by querying the `/etc/passwd` file to gather more information about the account, such as its creation date and any associated comments.
-- Use Osquery to list all processes started by the suspicious UID to identify any other potentially malicious activities. Example query: `SELECT pid, name, path, cmdline FROM processes WHERE uid = <suspicious_uid>;`
-- Analyze system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any unusual login attempts or authentication failures associated with the high UID.
-- Review the systemd service logs using `journalctl` to trace the execution history of `systemd-run` commands and identify any patterns or anomalies.
-- Check for any recent changes to user accounts or group memberships that might indicate unauthorized modifications, using commands like `getent passwd` and `getent group`.
-- Investigate network activity from the host to identify any suspicious outbound connections or data exfiltration attempts that might correlate with the privilege escalation attempt.
-- Correlate the findings with other security alerts or incidents in the environment to determine if this is part of a broader attack campaign or an isolated incident.
-
-### False positive analysis
-
-- Users with legitimate high UIDs: In some organizations, system administrators may assign high UIDs for specific service accounts or applications, which could trigger the rule. To manage this, create exceptions for known service accounts by adding their UIDs to an exclusion list.
-- Testing environments: Developers or security teams might intentionally use high UIDs in testing environments to simulate attacks or test system responses. These activities can be excluded by filtering out events from designated testing servers or environments.
-- Legacy systems: Some older systems might have configurations that inadvertently assign high UIDs to certain users. Review and update these configurations to prevent unnecessary alerts, or exclude these systems from the rule if they are known to be non-threatening.
-- Automated scripts: Scripts that require elevated privileges might be configured to use high UIDs for execution. Identify and document these scripts, then exclude their associated UIDs from the detection rule to reduce false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the adversary.
-- Verify the UID of the user executing the systemd-run command and confirm if it exceeds INT_MAX, indicating potential exploitation.
-- Conduct a thorough investigation of the affected system to identify any unauthorized changes or additional malicious activities, focusing on processes and files accessed by the high UID user.
-- Review system logs and security alerts to trace the origin of the attack and identify any other potentially compromised systems.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a broader campaign.
-- Apply patches or updates to the affected system to address the UID INT_MAX bug, ensuring all systems are running supported and secure versions of Linux.
-- Implement enhanced logging policies to capture detailed information on process executions, user activities, and system changes, aiding future investigations.
-- Integrate security tools such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to improve monitoring and detection capabilities.
-- Restore the system to its operational state by removing any unauthorized changes, verifying system integrity, and re-enabling network connectivity once secure.
-- Harden the system by enforcing least privilege access controls, regularly reviewing user accounts and permissions, and conducting security awareness training for users."""
 
 
 [[rule.threat]]

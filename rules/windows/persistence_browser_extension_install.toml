@@ -2,7 +2,7 @@
 creation_date = "2023/08/22"
 integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -61,49 +61,6 @@ file where host.os.type == "windows" and event.type : "creation" and
   )
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Browser Extension Install
-
-Browser extensions enhance functionality in web browsers but can be exploited by adversaries to gain persistence or execute malicious activities. Attackers may disguise harmful extensions as legitimate or use compromised systems to install them. The detection rule identifies suspicious extension installations by monitoring specific file creation patterns in user directories, focusing on Firefox and Chromium-based browsers, while excluding known safe processes.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file name and path involved in the suspicious extension installation, focusing on the `file.name` and `file.path` fields.
-- Verify the process responsible for the file creation by checking the `process.name` field to ensure it is not a known safe process like `firefox.exe` with legitimate extension names.
-- Cross-reference the file path with known directories for Firefox and Chromium-based browsers to confirm the legitimacy of the extension installation location.
-- Use Osquery to list all installed extensions for the affected browser. For Firefox, run: `SELECT * FROM file WHERE path LIKE 'C:\\\\Users\\\\%\\\\AppData\\\\Roaming\\\\%\\\\Profiles\\\\%\\\\Extensions\\\\%' AND path LIKE '%.xpi';`
-- For Chromium-based browsers, use Osquery to query installed extensions: `SELECT * FROM file WHERE path LIKE 'C:\\\\Users\\\\%\\\\AppData\\\\Local\\\\%\\\\User Data\\\\Webstore Downloads\\\\%' AND path LIKE '%.crx';`
-- Investigate the origin of the extension by checking the browser's extension management interface or settings to see if the extension is listed and if it provides any additional information about its source.
-- Check the browser's history and download logs to identify any recent downloads or installations that coincide with the alert timestamp.
-- Analyze the system for any signs of compromise that could have led to unauthorized extension installation, such as unusual network activity or other suspicious file creations.
-- Consult threat intelligence sources to determine if the extension name or hash is associated with known malicious activity.
-- Document findings and gather all relevant evidence, including file hashes, paths, and process details, to support further analysis or escalation if needed.
-
-### False positive analysis
-
-- Known false positives may occur when legitimate browser extensions are installed or updated, especially if they are not from the official browser stores but are still safe and necessary for business operations.
-- Language packs and dictionary extensions for Firefox, such as those from `firefox.mozilla.org` and `dictionaries.addons.mozilla.org`, are common false positives and should be excluded from alerts.
-- Users can manage false positives by creating exceptions for specific processes or file paths that are verified as safe, ensuring that these are regularly reviewed and updated to reflect any changes in legitimate extension usage.
-- Regularly update the list of known safe processes and file paths to include any new legitimate extensions that are frequently used within the organization, reducing unnecessary alerts.
-- Consider implementing a whitelist of approved extensions and processes, which can be cross-referenced during the detection process to minimize false positives while maintaining security vigilance.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the malicious extension.
-- Verify the legitimacy of the detected browser extension by checking its source and comparing it against known malicious extensions.
-- Remove the suspicious browser extension from the affected browser to eliminate the immediate threat.
-- Conduct a full antivirus and anti-malware scan on the affected system to identify and remove any additional threats.
-- Review system and browser logs to trace the origin of the extension installation and identify any potential security breaches.
-- Escalate the incident to the security team if the extension is confirmed to be part of a larger attack or if multiple systems are affected.
-- Implement enhanced logging policies to capture detailed browser activity and file creation events for future investigations.
-- Integrate threat intelligence feeds to automatically update and block known malicious extensions and sources.
-- Restore the system to its operational state by ensuring all security patches and updates are applied to the operating system and browsers.
-- Harden the system by enforcing strict browser extension policies, such as allowing only extensions from trusted sources and regularly reviewing installed extensions."""
 
 
 [[rule.threat]]

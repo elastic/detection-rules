@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -25,51 +25,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Event Hub Authorization Rule Created or Updated"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Azure Event Hub Authorization Rule Created or Updated
-
-Azure Event Hub Authorization Rules manage access to Event Hubs, using cryptographic keys to define permissions. Adversaries may exploit these rules to gain unauthorized access, potentially extracting sensitive data. The detection rule monitors for the creation or modification of these rules, flagging successful operations to identify potential misuse or unauthorized changes.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event dataset is `azure.activitylogs` and the operation name is `MICROSOFT.EVENTHUB/NAMESPACES/AUTHORIZATIONRULES/WRITE` with a successful outcome.
-- Identify the user or service principal that performed the operation by examining the `azure.activitylogs.caller` field.
-- Check the timestamp of the event to determine when the authorization rule was created or updated.
-- Investigate the specific Event Hub namespace affected by reviewing the `azure.activitylogs.resource_id` field to understand the scope of the change.
-- Correlate the event with other recent activities by the same user or service principal to identify any suspicious patterns or anomalies.
-- Examine the `azure.activitylogs.correlation_id` to trace related operations and understand the broader context of the activity.
-- Use Osquery to query Azure logs for additional context, such as: `SELECT * FROM azure_activitylogs WHERE operation_name = 'MICROSOFT.EVENTHUB/NAMESPACES/AUTHORIZATIONRULES/WRITE' AND outcome = 'Success';`
-- Review any associated network or application logs to identify potential data exfiltration or unauthorized access attempts following the rule change.
-- Check for any recent changes to IAM policies or roles that might have inadvertently granted excessive permissions to the user or service principal involved.
-- Consult with the relevant application or infrastructure teams to verify if the change was expected and authorized, and gather any additional context or documentation related to the change.
-
-### False positive analysis
-
-- Routine administrative tasks: Regular updates or creations of authorization rules by system administrators or automated scripts can trigger alerts. To manage these, users can create exceptions for known administrative accounts or scheduled tasks that frequently perform these operations.
-- Deployment and configuration changes: During the deployment of new applications or updates to existing ones, authorization rules may be created or modified as part of the setup process. Users can exclude these events by identifying and filtering out activities associated with specific deployment tools or processes.
-- Testing and development environments: In non-production environments, developers may frequently create or update authorization rules for testing purposes. Users can handle these by setting up separate monitoring rules or excluding specific environments from triggering alerts.
-- Third-party integrations: Some third-party services or integrations may require the creation or modification of authorization rules. Users should document and exclude these known integrations to prevent false positives.
-- Service health checks: Automated health checks or monitoring services might create or update authorization rules as part of their operation. Users can identify these services and exclude their activities from alerting.
-
-### Response and remediation
-
-- Immediately review the Azure Activity Logs to confirm the creation or modification of the Event Hub Authorization Rule and identify the user or service principal responsible for the change.
-- Contain the potential threat by revoking the modified or newly created authorization rule if it is deemed unauthorized or suspicious.
-- Investigate the source of the change by checking the associated IP addresses, user agents, and timestamps to determine if the activity aligns with expected behavior.
-- Escalate the incident to the security operations team if the activity is confirmed to be unauthorized or if there is evidence of data exfiltration.
-- Implement additional logging and monitoring for Azure Event Hubs to capture detailed access and modification events, ensuring that all changes are auditable.
-- Review and update access policies to ensure that only necessary permissions are granted, and consider using Azure Managed Identities to reduce reliance on cryptographic keys.
-- Conduct a security review of all Event Hub Authorization Rules to ensure compliance with the principle of least privilege.
-- Restore the system to its operational state by reapplying any necessary authorization rules that were revoked during containment, ensuring they are configured securely.
-- Enhance future investigations by integrating Azure Security Center and Azure Sentinel for advanced threat detection and response capabilities.
-- Implement hardening measures such as regular audits of authorization rules, enforcing multi-factor authentication, and using Azure Policy to enforce security best practices across the environment.
-
-## Setup
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.microsoft.com/en-us/azure/event-hubs/authorize-access-shared-access-signature"]

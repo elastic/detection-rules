@@ -2,7 +2,7 @@
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -35,49 +35,6 @@ event.dataset:"github.audit" and event.category:"configuration" and event.action
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token") and
 github.repository_public:false
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating High Number of Cloned GitHub Repos From PAT
-
-Personal Access Tokens (PATs) facilitate programmatic access to GitHub repositories, enabling automation and integration. However, adversaries can exploit compromised PATs to clone numerous private repositories rapidly, potentially exfiltrating sensitive data. The detection rule identifies unusual cloning activity by monitoring for a surge in unique private repo clones from a single PAT, signaling potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific personal access token (PAT) involved in the unusual cloning activity.
-- Cross-reference the PAT with internal records to determine the owner and intended use of the token.
-- Analyze the `event.dataset`, `event.category`, and `event.action` fields to confirm the activity is related to `git.clone` operations on private repositories.
-- Check the `github.programmatic_access_type` field to verify if the access was through an "OAuth access token" or "Fine-grained personal access token" and assess the associated permissions.
-- Investigate the `github.repository_public` field to ensure the cloned repositories are indeed private, confirming the potential sensitivity of the data.
-- Examine the time frame of the cloning activity to understand the duration and frequency of the events, identifying any patterns or anomalies.
-- Use GitHub audit logs to trace back the IP addresses and locations from which the cloning requests originated, looking for any unusual or unauthorized access points.
-- Conduct a review of recent changes or updates to the repositories involved to identify any potential triggers or reasons for the cloning activity.
-- Utilize Osquery to gather additional context from the systems involved. For example, run an Osquery query to list recent network connections: `SELECT * FROM process_open_sockets WHERE remote_address = '<IP_of_interest>';` to identify any suspicious connections.
-- Collaborate with the repository owners and relevant stakeholders to gather insights into any recent activities or changes that might explain the cloning events, ensuring a comprehensive understanding of the situation.
-
-### False positive analysis
-
-- **Automated Backup Processes**: Organizations may have automated systems that regularly clone private repositories for backup purposes. These processes can trigger the detection rule due to the high volume of clone events. To manage this, users can create exceptions for known backup systems by identifying their associated PATs and excluding them from the rule.
-- **Continuous Integration/Continuous Deployment (CI/CD) Pipelines**: CI/CD tools often clone repositories to build and test code. If these tools use PATs, they might cause false positives. Users should identify PATs used by trusted CI/CD systems and exclude them from the detection rule to prevent unnecessary alerts.
-- **Development and Testing Activities**: During development sprints or testing phases, developers might clone repositories frequently. This can be mistaken for malicious activity. Users can mitigate this by setting time-based exceptions during known development periods or by excluding PATs associated with specific development teams.
-- **Third-party Integrations**: Some third-party services require access to repositories and may clone them as part of their functionality. Users should review and whitelist PATs used by trusted third-party services to avoid false positives.
-- **High-Volume User Activity**: In large organizations, certain users may have legitimate reasons to clone multiple repositories in a short time. Identifying these users and their associated PATs can help in creating exceptions to reduce false alerts.
-
-### Response and remediation
-
-- Immediately revoke the compromised Personal Access Token (PAT) to prevent further unauthorized access.
-- Notify the affected repository owners and stakeholders about the potential breach and advise them to review recent changes and access logs.
-- Conduct a thorough investigation to identify the source of the compromise, including reviewing access logs and identifying any unauthorized changes or data exfiltration.
-- Escalate the incident to the security team and, if necessary, involve legal and compliance teams to assess the impact and regulatory obligations.
-- Implement additional monitoring and alerting for unusual access patterns or cloning activities across all repositories.
-- Review and update access controls, ensuring that PATs are issued with the least privilege necessary and have expiration dates.
-- Educate users on secure handling of PATs, including avoiding hardcoding them in scripts and using environment variables instead.
-- Enhance logging policies to capture detailed access and activity logs, integrating them with a centralized security information and event management (SIEM) system for better analysis.
-- Consider implementing multi-factor authentication (MFA) for accessing sensitive repositories to add an additional layer of security.
-- Restore any affected systems or repositories to their last known good state, ensuring that any unauthorized changes are reverted and data integrity is maintained."""
 
 
 [[rule.threat]]

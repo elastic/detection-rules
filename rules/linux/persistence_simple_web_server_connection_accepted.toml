@@ -2,7 +2,7 @@
 creation_date = "2024/12/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -62,49 +62,6 @@ network where host.os.type == "linux" and event.type == "start" and event.action
   (process.name like "python*" and process.command_line like ("*--cgi*", "*CGIHTTPServer*"))
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Simple HTTP Web Server Connection
-
-Simple HTTP servers in Python and PHP are often used for development and testing, providing a quick way to serve web content. However, attackers can exploit these servers to maintain persistence on compromised systems by deploying malicious payloads, such as reverse shells. The detection rule identifies suspicious server activity by monitoring for specific process names and command-line patterns indicative of these lightweight servers being used inappropriately.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name and command-line arguments match the patterns specified in the detection rule, focusing on `process.name` and `process.command_line`.
-- Check the source IP address and port associated with the `connection_accepted` event to identify potential external connections.
-- Investigate the parent process of the detected Python or PHP process to determine how the server was initiated and if it was spawned by a legitimate application or script.
-- Use Osquery to list all active network connections on the host to identify any other suspicious connections: `SELECT * FROM process_open_sockets WHERE pid = (SELECT pid FROM processes WHERE name LIKE 'python%' OR name REGEXP 'php?[0-9]?\\.?[0-9]{0,2}');`
-- Examine the file system for any newly created or modified files in the web server's root directory that could indicate the presence of malicious payloads.
-- Review system logs for any recent user logins or privilege escalations that could correlate with the initiation of the HTTP server.
-- Analyze the command history of the user account associated with the process to identify any manual commands that may have started the server.
-- Check for any scheduled tasks or cron jobs that might be configured to restart the server automatically, indicating persistence mechanisms.
-- Investigate any other alerts or anomalies on the host around the same timeframe to identify potential lateral movement or additional compromise indicators.
-- Correlate the findings with threat intelligence sources to determine if the activity matches known attack patterns or threat actor behaviors.
-
-### False positive analysis
-
-- Development and testing environments: Simple HTTP servers are often used by developers for testing purposes. These environments may frequently trigger the rule due to legitimate use of Python or PHP servers. Users can handle this by creating exceptions for known development machines or specific user accounts that regularly perform these activities.
-- Automated scripts and tools: Some automated scripts or tools may use lightweight HTTP servers for legitimate tasks such as data collection or internal communication. Users should identify these scripts and exclude them from the rule by specifying their process names or command-line patterns.
-- Educational or training sessions: In educational settings, instructors or students might use simple HTTP servers to demonstrate web server concepts. Users can manage these false positives by excluding specific IP ranges or user accounts associated with educational activities.
-- Internal testing of web applications: Organizations may conduct internal testing of web applications using simple HTTP servers. To prevent false positives, users can whitelist specific IP addresses or hostnames where these tests are conducted.
-- Continuous integration/continuous deployment (CI/CD) pipelines: CI/CD processes might involve spinning up temporary HTTP servers for testing purposes. Users should identify these processes and exclude them by defining exceptions based on process names or command-line arguments.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on logs and network traffic related to the detected simple HTTP server activity.
-- Terminate any unauthorized processes related to the simple HTTP server, such as those running Python or PHP with suspicious command-line arguments.
-- Remove any malicious payloads or scripts uploaded to the server web root, ensuring no backdoors remain on the system.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and network connection data for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats.
-- Restore the system to its operational state by applying clean backups and ensuring all software is up to date with the latest security patches.
-- Harden the system by disabling unnecessary services, enforcing strong authentication mechanisms, and applying least privilege principles.
-- Review and update security policies and procedures to address gaps identified during the incident response process, leveraging MITRE ATT&CK framework insights for persistence and server software component threats."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

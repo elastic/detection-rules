@@ -2,7 +2,7 @@
 creation_date = "2020/09/22"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,50 +22,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP IAM Role Deletion"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GCP IAM Role Deletion
-
-Google Cloud Platform's Identity and Access Management (IAM) system is crucial for defining permissions and access controls across cloud resources. Adversaries may exploit this by deleting IAM roles, thereby disrupting legitimate user access and potentially masking unauthorized activities. The detection rule monitors audit logs for successful role deletions, signaling potential misuse and enabling timely investigation.
-
-### Possible investigation steps
-
-- Review the audit logs to confirm the event by checking the `event.dataset:gcp.audit` and `event.action:google.iam.admin.v*.DeleteRole` fields to ensure the deletion was successful, as indicated by `event.outcome:success`.
-- Identify the user or service account responsible for the deletion by examining the `user.name` or `principalEmail` fields in the audit logs.
-- Determine the time and date of the role deletion to establish a timeline of events by reviewing the `@timestamp` field.
-- Investigate the specific IAM role that was deleted by looking at the `resource.name` field to understand the permissions that were removed.
-- Check for any recent changes in IAM policies or permissions associated with the affected resources to identify potential unauthorized modifications.
-- Correlate the role deletion event with other logs or alerts around the same timeframe to identify any suspicious activities or patterns.
-- Use Osquery to gather additional context on the affected resources or accounts. For example, run the following Osquery command to list recent IAM role changes: `SELECT * FROM gcp_iam_policy WHERE action = 'DeleteRole' AND timestamp > 'YYYY-MM-DDTHH:MM:SSZ';`.
-- Investigate the network activity of the user or service account involved in the deletion to identify any unusual access patterns or connections.
-- Review the organization's change management records or communication logs to verify if the role deletion was authorized or part of a planned change.
-- Consult with relevant stakeholders or team members to gather additional context or insights regarding the role deletion and its potential impact on operations.
-
-### False positive analysis
-
-- Routine administrative tasks: Legitimate role deletions may occur during regular maintenance or restructuring of IAM roles by authorized personnel. To manage these, users can create exceptions for known administrative accounts or specific time windows when such activities are expected.
-- Automated role management tools: Some organizations use automated tools or scripts to manage IAM roles, which might include role deletions as part of their normal operation. Users should identify these tools and exclude their activities from triggering alerts by whitelisting their service accounts or specific actions.
-- Role lifecycle management: In environments where roles are frequently created and deleted as part of a lifecycle management process, users can reduce false positives by setting up alerts only for roles that are critical or have been flagged for monitoring.
-- Testing and development environments: Role deletions in non-production environments might not indicate malicious activity. Users can exclude these environments from monitoring or adjust the sensitivity of alerts to focus on production environments where the impact of role deletion is more significant.
-
-### Response and remediation
-
-- Immediately contain the incident by revoking any active sessions and access tokens associated with the affected IAM role to prevent further unauthorized access.
-- Investigate the audit logs to identify the source of the role deletion, including the user or service account responsible, and assess whether it was a legitimate action or part of a malicious activity.
-- Restore the deleted IAM role by recreating it with the original permissions, ensuring that legitimate users regain access to necessary resources.
-- Escalate the incident to the security operations team if the deletion is determined to be unauthorized or part of a broader attack, providing them with all relevant logs and findings.
-- Implement enhanced logging policies to capture detailed IAM activity, including role creation, modification, and deletion events, to improve future detection and investigation capabilities.
-- Integrate with a Security Information and Event Management (SIEM) system to automate the monitoring and alerting of suspicious IAM activities, ensuring timely response to potential threats.
-- Conduct a thorough review of IAM policies and permissions to identify and remediate any overly permissive roles that could be exploited by adversaries.
-- Educate users and administrators on the importance of IAM security and the potential impact of unauthorized role deletions, promoting awareness and adherence to best practices.
-- Regularly audit IAM roles and permissions to ensure they align with the principle of least privilege, reducing the risk of misuse or accidental deletions.
-- Consider implementing multi-factor authentication (MFA) and conditional access policies to add an additional layer of security for accessing and managing IAM roles.
-
-## Setup
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/iam/docs/understanding-roles"]

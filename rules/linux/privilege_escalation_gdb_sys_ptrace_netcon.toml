@@ -2,7 +2,7 @@
 creation_date = "2024/01/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -66,52 +66,6 @@ sequence by host.id, process.entry_leader.entity_id with maxspan=30s
   [network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start" and
    process.name != null and user.id == "0"]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Root Network Connection via GDB CAP_SYS_PTRACE
-
-GDB, a debugger, can be granted the CAP_SYS_PTRACE capability, allowing it to trace and control processes, a feature often exploited by attackers. By injecting code into root processes, adversaries can execute malicious payloads, such as reverse shells. The detection rule identifies this by monitoring GDB executions with CAP_SYS_PTRACE followed by root-initiated network connections, signaling potential abuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of GDB execution with CAP_SYS_PTRACE capability and subsequent root-initiated network connection.
-- Verify the process entry leader entity ID and host ID to ensure the sequence of events occurred on the same host and process context.
-- Check the timestamp of the GDB execution and the network connection attempt to confirm they fall within the 30-second maxspan window.
-- Investigate the user context by examining the user ID associated with the GDB process to ensure it is not root (user.id != "0").
-- Use Osquery to list all processes with CAP_SYS_PTRACE capability on the host to identify any other potentially suspicious processes:
-  ```sql
-  SELECT pid, name, uid, gid, path FROM processes WHERE capabilities LIKE '%CAP_SYS_PTRACE%';
-  ```
-- Analyze the network connection details, including destination IP and port, to determine if the connection is to a known malicious or suspicious address.
-- Review the process tree to identify the parent process of GDB and any child processes spawned, which may provide insight into how GDB was executed.
-- Check system logs for any unusual activity or errors around the time of the alert to gather additional context.
-- Investigate the binary and hash of the GDB executable to ensure it has not been tampered with or replaced by a malicious version.
-- Correlate with other security alerts or logs from the same host to identify any patterns or additional indicators of compromise.
-
-### False positive analysis
-
-- Development and debugging activities: Developers often use GDB with CAP_SYS_PTRACE for legitimate debugging purposes, which may trigger the rule when a root process initiates a network connection as part of normal operations. Users can handle these by creating exceptions for known development environments or specific user accounts frequently involved in debugging.
-- Automated system maintenance scripts: Some automated scripts running with root privileges might use GDB for monitoring or maintenance tasks, leading to false positives. Identifying and excluding these scripts from monitoring can reduce unnecessary alerts.
-- Security tools and monitoring software: Certain security tools may use GDB with CAP_SYS_PTRACE to monitor processes for security purposes, which could be misinterpreted as malicious activity. Users should whitelist these tools to prevent false positives.
-- Testing environments: In testing environments, GDB might be used extensively to simulate various scenarios, including network connections by root processes. Users can exclude specific testing environments or IP ranges to minimize false alerts.
-- Custom applications: Organizations may have custom applications that legitimately use GDB with CAP_SYS_PTRACE for process management or debugging. Users should document and exclude these applications from the rule to avoid false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and potential lateral movement.
-- Conduct a thorough investigation to confirm the presence of malicious activity by reviewing logs and identifying any unauthorized use of GDB with CAP_SYS_PTRACE.
-- Terminate any suspicious processes initiated by GDB and any unauthorized network connections to mitigate ongoing threats.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the compromise.
-- Review and analyze system logs, including process execution and network connection logs, to identify any additional indicators of compromise (IOCs) or related malicious activities.
-- Implement enhanced logging policies to capture detailed process execution and network activity, ensuring that CAP_SYS_PTRACE usage is monitored closely.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and improve detection capabilities.
-- Restore the system to a known good state by reinstalling the operating system and applications, ensuring all security patches are applied.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Implement hardening measures such as restricting the use of CAP_SYS_PTRACE to trusted users and processes, and regularly auditing system capabilities and permissions."""
 
 
 [[rule.threat]]

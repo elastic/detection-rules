@@ -2,7 +2,7 @@
 creation_date = "2020/09/18"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,52 +22,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Pub/Sub Topic Deletion"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GCP Pub/Sub Topic Deletion
-
-Google Cloud Pub/Sub is a messaging service that enables asynchronous communication between applications by decoupling event producers and consumers. Adversaries may delete topics to disrupt communication, impair defenses, or evade detection. The detection rule identifies successful deletion events by monitoring specific audit logs, helping to uncover potential malicious activity.
-
-### Possible investigation steps
-
-- Review the audit logs to confirm the deletion event by checking the `event.dataset:gcp.audit` and `event.action:google.pubsub.v*.Publisher.DeleteTopic` fields to ensure the alert is not a false positive.
-- Verify the `event.outcome:success` field to confirm that the deletion was successful and not an attempted action.
-- Identify the user or service account responsible for the deletion by examining the `user.name` or `serviceAccount` fields in the audit logs.
-- Check the `source.ip` field to determine the origin of the request and assess if it aligns with expected network activity.
-- Investigate the `timestamp` of the deletion event to understand the timing and correlate it with other activities in the environment.
-- Review the `resource.name` field to identify the specific topic that was deleted and assess its importance and impact on the system.
-- Use Osquery to gather additional context about the GCP environment. For example, run a query to list all remaining Pub/Sub topics: `SELECT * FROM gcp_pubsub_topics;` to understand the current state of the messaging service.
-- Examine related logs and events around the same timeframe to identify any suspicious activities or patterns that might indicate a broader attack.
-- Check for any recent changes in IAM policies or permissions that could have allowed unauthorized users to delete topics.
-- Collaborate with the application or service owners to understand the potential impact of the topic deletion and gather any additional context or insights they might have.
-
-### False positive analysis
-
-- Routine maintenance or administrative tasks may lead to legitimate topic deletions, which can be mistaken for malicious activity. 
-- Automated scripts or tools used for managing Pub/Sub topics might delete topics as part of their normal operation, triggering false positives.
-- Development and testing environments often involve frequent creation and deletion of topics, which can generate noise in the detection system.
-- To manage these false positives, users can create exceptions for known maintenance periods or specific service accounts that perform regular topic deletions.
-- Implementing a whitelist of topics or service accounts that are expected to be deleted regularly can help reduce unnecessary alerts.
-- Monitoring the context of the deletion, such as the source IP or user agent, can help differentiate between legitimate and suspicious activities.
-
-### Response and remediation
-
-- Immediately verify the deletion event by cross-referencing with change management records to confirm if it was authorized.
-- Contain the incident by temporarily disabling any service accounts or credentials that were used to perform the deletion, if unauthorized.
-- Investigate the source of the deletion by reviewing audit logs for any unusual activity or access patterns leading up to the event.
-- Restore the deleted Pub/Sub topic from backups or recreate it using documented configurations to resume normal operations.
-- Escalate the incident to the security operations team if unauthorized access is confirmed, providing them with all relevant logs and findings.
-- Implement enhanced logging policies to ensure all Pub/Sub activities are captured with sufficient detail for future investigations.
-- Integrate Pub/Sub monitoring with a Security Information and Event Management (SIEM) system to enable real-time alerting and analysis.
-- Review and update access controls and permissions for Pub/Sub resources to ensure the principle of least privilege is enforced.
-- Conduct a post-incident review to identify gaps in detection and response processes, and update incident response plans accordingly.
-- Educate relevant teams on the importance of monitoring and securing Pub/Sub resources, emphasizing the potential impact of unauthorized deletions.
-
-## Setup
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/pubsub/docs/overview"]

@@ -2,7 +2,7 @@
 creation_date = "2023/01/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -54,49 +54,6 @@ file where host.os.type == "windows" and event.code : "2" and
  not file.extension : ("temp", "tmp", "~tmp", "xml", "newcfg") and not user.name : ("SYSTEM", "Local Service", "Network Service") and
  not file.name : ("LOG", "temp-index", "license.rtf", "iconcache_*.db")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File Creation Time Changed
-
-File creation timestamps are crucial for tracking file history and integrity. Adversaries may alter these timestamps, a tactic known as timestomping, to disguise malicious files as benign by aligning their timestamps with trusted files. The detection rule leverages Sysmon EventID 2 to identify such changes, excluding legitimate processes and file types, thus highlighting suspicious activities that may indicate an attempt to evade detection.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file and process involved in the creation time change, focusing on the `file.name` and `process.executable` fields.
-- Verify the legitimacy of the process by checking the `process.executable` path against known trusted applications and directories.
-- Investigate the user context under which the file creation time was changed by examining the `user.name` field to determine if it aligns with expected user behavior.
-- Cross-reference the file path and name with known benign files and directories to assess if the file is typically found in trusted locations.
-- Utilize Osquery to gather additional context about the file and process. For example, run the following query to check for recent file modifications: `SELECT * FROM file WHERE path = 'C:\\\\path\\\\to\\\\suspicious\\\\file' AND mtime > (SELECT strftime('%s', 'now') - 86400);`
-- Check for any recent changes in the file's hash value to determine if the file content has been altered, which could indicate tampering.
-- Investigate the parent process of the suspicious executable to understand the process hierarchy and identify potential process injection or masquerading.
-- Review system logs and other security events around the time of the file creation time change to identify any correlated suspicious activities or anomalies.
-- Analyze network activity from the host to detect any unusual outbound connections that might suggest data exfiltration or command-and-control communication.
-- Consult threat intelligence sources to determine if the file or process has been associated with known malicious activity or campaigns.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger file creation time changes, especially for applications that frequently update, such as web browsers or productivity tools. Users can manage these by adding exceptions for known update processes or directories.
-- System maintenance tasks, like disk cleanup or system updates, might alter file timestamps. These can be handled by excluding specific system processes like cleanmgr.exe or msiexec.exe from the detection rule.
-- User-initiated file modifications, such as copying files to different directories, can also result in timestamp changes. To reduce false positives, users can exclude common user directories or specific file types that are often modified.
-- Automated backup or synchronization software may modify file timestamps to ensure data consistency. Users should consider excluding these applications or their associated directories from the rule.
-- Temporary files created by legitimate applications during normal operation might have their timestamps altered. Excluding file extensions like "temp" or "tmp" can help minimize these false positives.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the scope of the compromise, focusing on files with altered timestamps and correlating with other suspicious activities.
-- Review Sysmon logs and other relevant logs to trace the origin of the timestomping activity and identify any associated malicious processes or files.
-- Remove or quarantine any identified malicious files and terminate any associated malicious processes.
-- Restore any altered or deleted files from known good backups to ensure data integrity and system functionality.
-- Escalate the incident to the security operations center (SOC) or incident response team if the scope of the attack is beyond initial containment efforts.
-- Implement or enhance logging policies to ensure comprehensive monitoring of file attribute changes and other critical system events.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities that could be exploited by adversaries.
-- Educate users on recognizing and reporting suspicious activities to enhance the organization's overall security posture."""
 
 
 [[rule.threat]]

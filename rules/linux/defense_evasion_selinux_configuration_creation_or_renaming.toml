@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.16.2 for the SentinelOne Integration."
 min_stack_version = "8.16.2"
-updated_date = "2025/01/08"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -62,50 +62,6 @@ query = '''
 file where host.os.type == "linux" and event.action in ("creation", "file_create_event", "rename", "file_rename_event")
 and file.path : "/etc/selinux/config"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating SELinux Configuration Creation or Renaming
-
-SELinux is a Linux kernel security module that enforces access control policies to protect systems from unauthorized access. Adversaries may attempt to modify or rename the SELinux configuration file to weaken these defenses, facilitating unauthorized actions. The detection rule identifies such suspicious activities by monitoring file creation or renaming events specifically targeting the SELinux configuration path, signaling potential defense evasion attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event action is either "creation", "file_create_event", "rename", or "file_rename_event" and the file path is "/etc/selinux/config".
-- Check the timestamp of the event to determine when the SELinux configuration file was created or renamed.
-- Identify the user account and process responsible for the file creation or renaming by examining the event's user and process fields.
-- Investigate the command history of the identified user around the time of the event to find any suspicious commands using `history` or `bash_history`.
-- Use Osquery to gather more context about the process that triggered the event with a query like: `SELECT * FROM processes WHERE pid = <process_id>;`.
-- Examine the system logs, such as `/var/log/audit/audit.log` or `/var/log/secure`, for any related entries that might provide additional context or corroborate the event.
-- Check for any recent changes in user privileges or group memberships that might have allowed unauthorized access to modify SELinux configurations.
-- Investigate other recent file modifications in the `/etc/selinux/` directory to identify any additional unauthorized changes.
-- Review network logs for any unusual outbound connections from the host around the time of the event, which might indicate data exfiltration or command-and-control activity.
-- Correlate this event with other security alerts or anomalies on the same host to determine if it is part of a broader attack campaign.
-
-### False positive analysis
-
-- Routine system updates or administrative tasks may trigger the rule if SELinux configurations are updated or modified as part of legitimate maintenance activities. 
-- Automated configuration management tools like Ansible, Puppet, or Chef might modify the SELinux configuration file as part of their normal operations, leading to false positives.
-- System administrators may intentionally rename or create SELinux configuration files during troubleshooting or system hardening processes, which could be misinterpreted as suspicious activity.
-- To manage these false positives, users can create exceptions for known and trusted processes or users that regularly interact with the SELinux configuration file.
-- Implementing a whitelist of approved scripts or tools that are allowed to modify the SELinux configuration can help reduce noise from legitimate activities.
-- Regularly review and update the list of exceptions to ensure that only non-threatening behaviors are excluded, maintaining the integrity of the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or potential lateral movement.
-- Verify the integrity of the SELinux configuration file by comparing it with a known good backup or baseline to identify unauthorized changes.
-- Conduct a thorough investigation to determine the source and method of the modification, checking for any signs of compromise or unauthorized access.
-- Review system logs and security alerts to identify any related suspicious activities or indicators of compromise.
-- Restore the SELinux configuration file from a trusted backup if unauthorized changes are detected, and ensure SELinux is re-enabled and configured correctly.
-- Escalate the incident to the security operations team or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging and monitoring for SELinux-related activities to detect future unauthorized modifications promptly.
-- Integrate security tools with SIEM solutions to improve visibility and correlation of security events related to SELinux and other critical configurations.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Apply system hardening measures, such as restricting access to configuration files and enforcing least privilege principles, to reduce the risk of future incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

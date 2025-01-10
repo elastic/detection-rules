@@ -2,7 +2,7 @@
 creation_date = "2021/03/22"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -48,49 +48,6 @@ registry.path : (
 ) and length(registry.data.strings) > 0 and
 not registry.data.strings : "(empty)"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating NullSessionPipe Registry Modification
-
-The NullSessionPipe registry setting in Windows environments defines which named pipes can be accessed without authentication, facilitating anonymous connections. Adversaries may exploit this by modifying the registry to allow unauthorized access, aiding lateral movement within a network. The detection rule identifies changes to this registry path, focusing on non-empty modifications, to flag potential misuse indicative of adversarial activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the registry path matches one of the specified paths in the query: "HKLM\\\\SYSTEM\\\\*ControlSet*\\\\services\\\\LanmanServer\\\\Parameters\\\\NullSessionPipes", "\\\\REGISTRY\\\\MACHINE\\\\SYSTEM\\\\*ControlSet*\\\\services\\\\LanmanServer\\\\Parameters\\\\NullSessionPipes", or "MACHINE\\\\SYSTEM\\\\*ControlSet*\\\\services\\\\LanmanServer\\\\Parameters\\\\NullSessionPipes".
-- Check the event type to ensure it is a "change" event, indicating a modification to the registry.
-- Examine the registry data strings to identify which named pipes have been added or modified, ensuring they are not empty or marked as "(empty)".
-- Correlate the timestamp of the registry change event with other logs to identify any suspicious activities or patterns around the same time, such as unusual logins or file access.
-- Investigate the user account or process responsible for the registry modification to determine if it is a known and authorized entity.
-- Use Osquery to further investigate the registry modification by running a query such as: `SELECT * FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\%ControlSet%\\\\services\\\\LanmanServer\\\\Parameters\\\\NullSessionPipes';` to gather more details about the current state of the registry key.
-- Analyze network traffic logs to detect any unusual or unauthorized access attempts to the named pipes specified in the registry modification.
-- Review historical data to determine if similar registry modifications have occurred in the past and assess if there is a pattern or recurring threat actor involved.
-- Check for any related alerts or incidents in the security information and event management (SIEM) system that might provide additional context or evidence of lateral movement attempts.
-- Consult threat intelligence sources to see if there are any known campaigns or threat actors that commonly exploit NullSessionPipe modifications for lateral movement.
-
-### False positive analysis
-
-- Legitimate software installations or updates may modify the NullSessionPipe registry setting to facilitate necessary communication between components, which can trigger false positives. Users should verify if the modification aligns with recent software changes or updates.
-- Network management tools or legitimate administrative scripts might alter the NullSessionPipe settings to enable specific functionalities, leading to benign registry changes. Users can create exceptions for known tools or scripts that are part of regular network operations.
-- Certain enterprise applications may require anonymous access to specific named pipes for proper functionality. Users should document and exclude these applications from triggering alerts by adding them to an exception list.
-- Regular audits and reviews of registry changes can help identify patterns of benign modifications, allowing users to refine detection rules and reduce false positives by excluding these patterns.
-- Collaboration with IT and security teams to maintain an updated list of approved applications and tools that interact with the NullSessionPipe registry can help in managing exceptions effectively.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access and lateral movement.
-- Conduct a thorough investigation to identify any unauthorized modifications to the NullSessionPipe registry setting and determine the scope of the compromise.
-- Review recent changes in the registry and correlate them with user activity logs to identify potential malicious actors or compromised accounts.
-- Restore the NullSessionPipe registry setting to its default state to eliminate unauthorized anonymous access.
-- Implement enhanced logging and monitoring for registry changes, focusing on critical paths like NullSessionPipes, to detect future unauthorized modifications.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Review and update access controls and permissions for sensitive systems to ensure that only authorized users have access to modify critical registry settings.
-- Conduct a security audit of the network to identify and remediate other potential vulnerabilities that could be exploited for lateral movement.
-- Implement network segmentation to limit the spread of threats and reduce the attack surface for lateral movement.
-- Educate users and administrators on the risks associated with unauthorized registry modifications and the importance of maintaining secure configurations."""
 
 
 [[rule.threat]]

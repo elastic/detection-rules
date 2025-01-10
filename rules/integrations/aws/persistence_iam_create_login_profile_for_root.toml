@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "ES|QL available in technical preview."
 min_stack_version = "8.13.0"
-updated_date = "2025/01/08"
+updated_date = "2024/12/02"
 
 [rule]
 author = ["Elastic"]
@@ -17,49 +17,7 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS IAM Login Profile Added for Root"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS IAM Login Profile Added for Root
-
-AWS IAM allows management of user access and permissions within AWS environments. A login profile enables console access, typically not used by root accounts. Adversaries may exploit temporary root access to create a login profile, ensuring persistent access. The detection rule identifies this by monitoring specific API calls and conditions, such as successful profile creation without explicit user assignment, indicating potential self-assignment by a root user.
-
-### Possible investigation steps
-
-- Review the `@timestamp` field to determine when the login profile was created and correlate it with any known activities or changes in the environment around that time.
-- Examine the `aws.cloudtrail.user_identity.arn` to confirm the identity of the root user and verify if this action aligns with expected behavior or known activities.
-- Analyze the `source.address` to identify the IP address from which the CreateLoginProfile API call was made, and check if it matches known IP addresses associated with legitimate users or if it appears suspicious.
-- Investigate the `aws.cloudtrail.request_parameters` to understand the specifics of the request, ensuring no unexpected parameters were included that could indicate malicious intent.
-- Check the `aws.cloudtrail.response_elements` for any additional information or anomalies that might provide context or indicate a misconfiguration or security issue.
-- Use the `cloud.account.id` to identify the specific AWS account involved and verify if there have been any recent changes or incidents reported for this account.
-- Cross-reference the `aws.cloudtrail.user_identity.access_key_id` with known access keys to determine if the key used is legitimate or potentially compromised.
-- Utilize Osquery to further investigate the environment. For example, run an Osquery query to list all IAM users and their associated login profiles: `SELECT user_name, create_date FROM aws_iam_login_profiles;` to verify if any unexpected profiles exist.
-- Review historical CloudTrail logs for any other unusual or unauthorized activities associated with the root account, focusing on actions that could indicate privilege escalation or persistence attempts.
-- Collaborate with the account owner or security team to verify if the login profile creation was authorized and to gather any additional context or evidence that could aid in the investigation.
-
-### False positive analysis
-
-- **Automated Account Management Tools**: Some organizations use automated tools for account management that might inadvertently trigger the rule by creating login profiles for root accounts as part of their routine operations. To handle this, users can create exceptions for specific tools or scripts by identifying their unique access patterns or source IP addresses.
-- **Internal Security Audits**: During internal security audits, administrators might temporarily create login profiles for root accounts to test security configurations. These activities can be excluded by setting time-based exceptions during known audit periods or by excluding specific user identities associated with the audit team.
-- **Misconfigured Automation Scripts**: Scripts intended to manage IAM users might be misconfigured to include root account operations. Users should review and correct these scripts, and in the meantime, exclude known script-related activities by identifying their access keys or source IPs.
-- **Testing Environments**: In testing environments, developers might create login profiles for root accounts to simulate real-world scenarios. Users can manage these false positives by excluding specific testing environments based on account IDs or by tagging activities with identifiable metadata.
-
-### Response and remediation
-
-- Immediately revoke the login profile for the root account to prevent unauthorized access.
-- Rotate the root account's access keys and passwords to ensure no further unauthorized access can occur.
-- Review CloudTrail logs to identify any other suspicious activities or API calls made by the root account during the timeframe of the incident.
-- Implement multi-factor authentication (MFA) for the root account to add an additional layer of security.
-- Conduct a thorough investigation to determine how the adversary gained temporary access to the root account and address any identified vulnerabilities.
-- Escalate the incident to the security operations team for further analysis and to determine if any other accounts or resources have been compromised.
-- Enhance logging policies to ensure all critical actions, especially those involving root account activities, are logged and monitored in real-time.
-- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system for improved threat detection and response capabilities.
-- Restore the system to its operational state by verifying the integrity of all AWS resources and ensuring no unauthorized changes have been made.
-- Implement hardening measures such as least privilege access, regular security audits, and continuous monitoring to prevent future incidents.
-
+note = """
 ## Investigating AWS IAM Login Profile Added for Root
 
 This rule detects when a login profile is added to the AWS root account. Adding a login profile to the root account, especially if self-assigned, is highly suspicious as it might indicate an adversary trying to establish persistence in the environment.

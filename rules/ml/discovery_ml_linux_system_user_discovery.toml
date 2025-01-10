@@ -2,7 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/06/18"
 
 [rule]
 anomaly_threshold = 75
@@ -86,49 +86,6 @@ tags = [
     "Tactic: Discovery",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Linux User Discovery Activity
-
-In Linux environments, user discovery commands help administrators identify active users and system owners, crucial for system management. However, adversaries exploit these commands to gather intelligence on user accounts, potentially leading to further attacks like credential theft or privilege escalation. The detection rule identifies atypical execution of these commands by unexpected users, signaling possible account compromise or malicious reconnaissance.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific user account and the command executed that triggered the alert.
-- Check the timestamp of the alert to determine when the unusual activity occurred and correlate it with any other suspicious activities around the same time.
-- Investigate the source IP address and hostname from which the command was executed to verify if it aligns with the user's typical access patterns.
-- Examine the user's login history and session details to identify any anomalies or unauthorized access attempts.
-- Use Osquery to gather additional context on the system by running a query such as: `SELECT * FROM logged_in_users WHERE user = '<suspicious_user>';` to check for any active sessions of the suspicious user.
-- Analyze the command history of the user account to identify any other potentially malicious or unusual commands executed around the time of the alert.
-- Review system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any failed login attempts or other suspicious authentication events related to the user.
-- Check for any recent changes to user account permissions or group memberships that could indicate privilege escalation attempts.
-- Investigate any recent file modifications or access patterns that could suggest data exfiltration or preparation for further attacks.
-- Correlate the findings with other security alerts or incidents to determine if this activity is part of a larger attack campaign.
-
-### False positive analysis
-
-- System administrators or support staff may execute user discovery commands during routine maintenance or troubleshooting, which can trigger false positives. To manage this, create exceptions for known administrator accounts or specific maintenance windows.
-- Automated scripts or monitoring tools that perform regular checks on user accounts might be flagged as unusual activity. Exclude these scripts or tools by identifying their execution patterns and adding them to an allowlist.
-- Developers or engineers with legitimate reasons to access user information for debugging purposes may also cause alerts. Document these use cases and establish exceptions for specific user roles or groups.
-- Temporary contractors or new employees performing legitimate user discovery as part of their onboarding process might be mistakenly flagged. Implement a review process to quickly assess and approve such activities when they occur.
-- In environments with frequent user account changes, such as educational institutions or large enterprises, regular user discovery might be necessary. Adjust the detection thresholds or create dynamic exceptions based on the frequency of these changes.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying the commands executed and the user accounts involved.
-- Review system logs and user activity to identify any unauthorized access or suspicious behavior, leveraging enhanced logging policies if available.
-- Reset passwords for all potentially compromised accounts and enforce multi-factor authentication to prevent unauthorized access.
-- Remove any unauthorized users or accounts created by the adversary and ensure all legitimate accounts have appropriate permissions.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Restore the system to its operational state by applying the latest security patches and updates, and verify the integrity of critical system files.
-- Implement additional security measures such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to enhance monitoring and detection capabilities.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Educate users on security best practices and the importance of reporting suspicious activity to prevent future incidents."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

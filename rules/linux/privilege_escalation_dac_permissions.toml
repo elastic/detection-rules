@@ -2,7 +2,7 @@
 creation_date = "2024/01/08"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -71,50 +71,6 @@ process.command_line:(*sudoers* or *passwd* or *shadow* or */root/*) and not (
   )
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Privilege Escalation via Linux DAC permissions
-
-Linux Discretionary Access Control (DAC) allows file owners to set permissions, potentially leading to privilege escalation if misconfigured. Adversaries exploit DAC by using processes with capabilities like CAP_DAC_OVERRIDE to bypass permission checks. The detection rule identifies suspicious processes accessing sensitive files, excluding benign activities, to flag potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to understand which process triggered the rule, focusing on the `process.command_line` field to identify the specific command executed.
-- Check the `process.thread.capabilities.permitted` and `process.thread.capabilities.effective` fields to confirm if the process had CAP_DAC_OVERRIDE or CAP_DAC_READ_SEARCH capabilities.
-- Investigate the `user.id` field to determine the user context under which the suspicious process was executed, especially if it is not the root user (ID 0).
-- Examine the `process.name` and `process.executable` fields to identify the binary responsible for the execution and verify its legitimacy.
-- Analyze the `process.parent.name` to trace the parent process and understand the process hierarchy, which might provide insights into how the process was initiated.
-- Use Osquery to gather more information about the suspicious process. For example, run the following query to list processes with DAC capabilities: `SELECT pid, name, path, uid, gid, on_disk FROM processes WHERE capabilities LIKE '%CAP_DAC_%';`
-- Investigate the file paths accessed by the process, especially those related to `*sudoers*`, `*passwd*`, `*shadow*`, or `*/root/*`, to determine if any unauthorized changes were made.
-- Cross-reference the timestamps of the alert with system logs to identify any concurrent suspicious activities or anomalies.
-- Check for any recent changes in user permissions or group memberships that might have facilitated the privilege escalation attempt.
-- Review historical data for similar alerts or patterns involving the same user, process, or file paths to assess if this is part of a broader attack campaign.
-
-### False positive analysis
-
-- Known false positives may include legitimate administrative tasks performed by system administrators or automated scripts that require elevated permissions, such as backup operations or system updates.
-- Processes like "tar", "getent", "su", "stat", "dirname", "chown", "sudo", "dpkg-split", "dpkg-deb", "dpkg", "podman", "awk", "passwd", "dpkg-maintscript-helper", "mutt_dotlock", "nscd", "logger", and "gpasswd" are often used in routine maintenance and can trigger alerts if not excluded.
-- Exclude processes with a user ID of "0" (root) as these are typically expected to have elevated permissions and are less likely to represent a threat.
-- Exclude processes with executables located in paths like /usr/lib/*/lxc/rootfs/*, which are commonly associated with containerized environments and may not pose a risk.
-- Parent processes such as "dpkg", "java", scripts ending in *postinst, "dpkg-preconfigure", and "gnome-shell" can be part of legitimate software installations or updates and should be considered for exclusion.
-- Users can manage false positives by creating exceptions for known benign processes and paths, ensuring that only truly suspicious activities are flagged for further investigation.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the source of the privilege escalation attempt, focusing on the processes flagged by the detection rule.
-- Review and analyze logs from the affected system to determine the extent of the compromise and identify any additional suspicious activities.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Revoke any unauthorized access and reset credentials for compromised accounts, ensuring that all passwords are strong and unique.
-- Restore the system from a known good backup to ensure that any malicious changes are removed.
-- Implement enhanced logging policies to capture detailed process execution and file access events for future investigations.
-- Integrate additional security tools, such as endpoint detection and response (EDR) solutions, to improve visibility and detection capabilities.
-- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited for privilege escalation.
-- Conduct a security review and harden system configurations by enforcing the principle of least privilege and regularly auditing file permissions and access controls."""
 
 
 [[rule.threat]]

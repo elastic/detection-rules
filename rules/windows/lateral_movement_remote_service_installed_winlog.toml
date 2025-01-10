@@ -2,7 +2,7 @@
 creation_date = "2022/08/30"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -63,50 +63,6 @@ event.outcome=="success" and source.ip != null and source.ip != "127.0.0.1" and 
                 "?:\\Windows\\SysWOW64\\NwxExeSvc\\NwxExeSvc.exe",
                 "?:\\Windows\\System32\\taskhostex.exe")]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Remote Windows Service Installed
-
-Windows services are background processes that can be configured to start automatically, manually, or be triggered by specific events. Adversaries may exploit this by installing malicious services remotely to maintain persistence or facilitate lateral movement within a network. The detection rule identifies suspicious service installations following a network logon, excluding known legitimate services, to flag potential unauthorized activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific `winlog.logon.id` and `winlog.computer_name` associated with the suspicious service installation.
-- Verify the `source.ip` address from the authentication event to determine if it is from a known or trusted source within the network.
-- Check the `winlog.event_data.ServiceFileName` to identify the installed service's executable path and compare it against known legitimate services.
-- Use Osquery to list all services on the affected machine and identify any unfamiliar or suspicious services. Example query: `SELECT name, path, start_type FROM services WHERE path LIKE '%<suspicious_service_name>%';`
-- Investigate the user account associated with the `winlog.logon.id` to determine if it has a history of legitimate administrative actions or if it might be compromised.
-- Correlate the timestamp of the service installation with other logs to identify any concurrent suspicious activities, such as file modifications or registry changes.
-- Examine the service's executable file for any signs of tampering or unusual attributes, such as recent modification dates or unexpected file sizes.
-- Check for any recent changes in user permissions or group memberships that might have facilitated the unauthorized service installation.
-- Review network logs to identify any unusual outbound connections from the affected machine following the service installation.
-- Consult threat intelligence sources to determine if the service name or executable path is associated with known malware or adversary techniques.
-
-### False positive analysis
-
-- Known false positives for the Remote Windows Service Installed rule often arise from legitimate administrative activities, such as IT staff installing or updating software remotely, which can trigger service creation events.
-- Frequent non-threatening behaviors may include automated deployment tools or scripts that install services as part of routine maintenance or software updates.
-- To manage these false positives, users can create exceptions for specific service file paths or LogonIds that are known to be associated with legitimate administrative tasks.
-- Users should regularly review and update the list of excluded service file paths to ensure it reflects current legitimate activities, minimizing the risk of overlooking genuine threats.
-- Implementing a whitelist of trusted IP addresses or user accounts that are known to perform legitimate service installations can help reduce noise in the detection rule.
-- Monitoring and correlating these events with other security logs can provide additional context to distinguish between benign and malicious activities, aiding in the refinement of exceptions.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further lateral movement by the adversary.
-- Verify the legitimacy of the installed service by checking its origin, digital signature, and associated files.
-- Terminate any malicious services identified and remove associated files from the system.
-- Conduct a thorough investigation of the source IP address to determine if it is part of a larger attack campaign.
-- Review recent logon events and network activity to identify any other compromised accounts or systems.
-- Reset credentials for any accounts that were used in the suspicious logon events to prevent unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed information on service installations and network logons for future investigations.
-- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs).
-- Apply system hardening measures, such as disabling unnecessary services and enforcing least privilege access, to reduce the attack surface."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2024/07/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -59,48 +59,6 @@ query = '''
 host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.name:dpkg and
 process.args:("-i" or "--install")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating DPKG Package Installed by Unusual Parent Process
-
-DPKG is a core utility for managing Debian packages on Linux, crucial for software installation and maintenance. Adversaries may exploit DPKG to install harmful packages, leveraging unusual parent processes to evade detection. The detection rule identifies such anomalies by monitoring DPKG executions initiated by atypical parent processes, focusing on installation actions, thus highlighting potential malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the `dpkg` command execution with the `-i` or `--install` argument, as these indicate package installation attempts.
-- Identify and document the unusual parent process that initiated the `dpkg` command. This can provide insights into potential misuse or compromise of legitimate processes.
-- Cross-reference the parent process with known benign processes or scheduled tasks to rule out false positives.
-- Use Osquery to gather additional context about the parent process. For example, run the following query to list processes with their parent process IDs and command lines: `SELECT pid, name, cmdline, parent FROM processes WHERE name = 'dpkg';`
-- Investigate the user account associated with the `dpkg` execution to determine if it aligns with expected administrative activity or if it suggests unauthorized access.
-- Check system logs for any preceding or subsequent suspicious activities around the time of the `dpkg` execution, such as unusual login attempts or privilege escalation.
-- Examine the installed package details, including the package name, version, and source, to assess whether it is a known or potentially malicious package.
-- Review network logs for any outbound connections made by the system around the time of the package installation, which might indicate data exfiltration or command-and-control communication.
-- Investigate any file modifications or new files created in system directories that could be associated with the installed package, using file integrity monitoring tools or manual inspection.
-- Correlate the findings with threat intelligence sources to determine if the activity matches known attack patterns or indicators of compromise.
-
-### False positive analysis
-
-- System administrators or automated scripts may trigger the DPKG installation process for legitimate software updates or installations, leading to false positives. To manage this, users can create exceptions for known administrative scripts or processes that regularly perform package installations.
-- Some system management tools or configuration management software, such as Ansible or Puppet, might use DPKG to install packages as part of their normal operations. Users can exclude these tools by identifying their typical parent processes and adding them to an allowlist.
-- During system provisioning or automated deployment processes, DPKG might be invoked by non-standard parent processes. Users should review these processes and, if deemed safe, configure exceptions to prevent unnecessary alerts.
-- Developers or testing environments might use custom scripts to install packages for testing purposes, which could be flagged as unusual. Users can handle these by documenting and excluding these specific scripts or environments from the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of any potential malicious activity.
-- Conduct a thorough investigation to identify the unusual parent process that initiated the DPKG command and determine if it is associated with known malicious activity.
-- Review system logs and process execution history to trace the origin and impact of the installed package, ensuring no other systems are compromised.
-- Remove any suspicious or unauthorized packages installed by the DPKG command to mitigate potential threats.
-- Restore the system to a known good state using backups or system snapshots, ensuring all critical data is preserved.
-- Escalate the incident to the security operations team if the investigation reveals a broader compromise or if the threat cannot be contained.
-- Implement enhanced logging policies to capture detailed process execution and parent-child relationships for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats.
-- Apply system hardening measures, such as restricting the execution of administrative commands to authorized users and processes only.
-- Educate users and administrators on recognizing and reporting suspicious activities to improve overall security awareness and response times."""
 
 
 [[rule.threat]]

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/31"
 
 [rule]
 author = ["Elastic"]
@@ -41,49 +41,6 @@ library where host.os.type == "windows" and event.action == "load" and
     and dll.code_signature.trusted == true
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Masquerading as VLC DLL
-
-Dynamic Link Libraries (DLLs) are crucial for modularizing code in Windows environments, allowing applications like VLC to function efficiently. Adversaries exploit this by crafting malicious DLLs with names mimicking legitimate VLC components, aiming to evade detection. The detection rule identifies such threats by flagging unsigned or improperly signed DLLs masquerading as VLC, focusing on specific filenames and verifying their digital signatures against trusted sources.
-
-### Possible investigation steps
-
-- Verify the alert details by checking the specific DLL name that triggered the alert, focusing on "libvlc.dll", "libvlccore.dll", or "axvlc.dll".
-- Confirm the digital signature status of the DLL by examining the `dll.code_signature.subject_name` and `dll.code_signature.trusted` fields to ensure they do not match trusted sources like "VideoLAN".
-- Use Osquery to list all loaded DLLs on the affected host and their signature status with a query such as: `SELECT path, name, signer FROM processes JOIN signature ON processes.path = signature.path WHERE name IN ('libvlc.dll', 'libvlccore.dll', 'axvlc.dll');`.
-- Investigate the file path and location of the suspicious DLL to determine if it resides in a directory typically used by VLC or if it is in an unusual location.
-- Check the file creation and modification timestamps of the DLL to identify any anomalies or recent changes that could indicate tampering.
-- Review the process that loaded the DLL by examining the `event.action` field to understand the context in which the DLL was used.
-- Analyze the parent process and any associated child processes of the application that loaded the DLL to identify any suspicious activity or process lineage.
-- Gather additional context by reviewing recent system logs and events around the time the DLL was loaded to identify any related activities or anomalies.
-- Cross-reference the hash of the suspicious DLL against known malware databases or threat intelligence sources to check for any known malicious indicators.
-- Consult with the user or system owner to verify if there have been any recent installations or updates that could explain the presence of the unsigned DLL.
-
-### False positive analysis
-
-- Some legitimate software may use custom or modified versions of VLC DLLs that are not signed by VideoLAN, leading to false positives. Users should verify the source and purpose of these DLLs before excluding them.
-- In corporate environments, IT departments might deploy VLC with custom configurations or additional plugins that are unsigned. Users can create exceptions for these known internal deployments by verifying their origin and ensuring they are part of the organization's standard software package.
-- Security tools or software that integrate VLC functionalities might include their own versions of VLC DLLs, which could trigger the rule. Users should confirm the legitimacy of these tools and whitelist them if they are verified as safe.
-- To manage false positives, users can maintain a list of known and trusted unsigned DLLs that are regularly used in their environment and configure the detection system to exclude these from alerts.
-- Regularly review and update the list of exceptions to ensure that only verified and necessary DLLs are excluded, minimizing the risk of overlooking genuine threats.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Verify the legitimacy of the detected DLLs by checking their digital signatures and comparing them against known good signatures from VideoLAN.
-- Conduct a thorough investigation to identify any other systems that may have loaded the same or similar unsigned DLLs.
-- Remove any identified malicious DLLs and replace them with legitimate versions from a trusted source.
-- Perform a full system scan using updated antivirus and anti-malware tools to detect and remove any additional threats.
-- Review and update endpoint protection policies to ensure that only signed and trusted DLLs are allowed to load.
-- Implement enhanced logging policies to capture detailed DLL load events and code signature verification results for future investigations.
-- Integrate threat intelligence feeds to automatically update detection rules with the latest known malicious DLL signatures and behaviors.
-- Restore the system to its operational state by applying any necessary patches and updates, and verifying system integrity.
-- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as application whitelisting and stricter execution policies, to prevent similar incidents in the future."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -34,48 +34,6 @@ event.category:process and host.os.type:linux and event.type:start and event.act
 process.parent.name:(ssh or sshd) and process.args_count:2 and
 not process.command_line:(-bash or -zsh or -sh)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual SSHD Child Process
-
-Secure Shell (SSH) is a protocol used to securely access remote systems. Adversaries may exploit SSH to maintain persistence or create backdoors by spawning unexpected child processes. The detection rule identifies anomalies by monitoring process creation events where SSH or SSHD is the parent, filtering out typical shell invocations, thus highlighting potential malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to understand the specific process that was spawned, including the `process.command_line` and `process.args_count` fields, to identify any unusual or suspicious command-line arguments.
-- Check the `process.parent.name` field to confirm whether the parent process is indeed `ssh` or `sshd`, and verify the legitimacy of the parent process by cross-referencing with known user activity or scheduled tasks.
-- Investigate the user account associated with the SSH session by examining the `user.name` field to determine if the account is known and authorized to perform such actions.
-- Use Osquery to gather more context about the process by running a query such as: `SELECT * FROM processes WHERE pid = <suspicious_process_id>;` to retrieve detailed information about the process, including its path, arguments, and environment variables.
-- Examine the `host.os.type` field to ensure the alert pertains to a Linux system, as expected, and correlate with any other alerts or logs from the same host for additional context.
-- Analyze the `event.category` and `event.type` fields to confirm that the event is indeed a process start event, and correlate with other process events to identify any related or subsequent suspicious activity.
-- Check for any recent changes in the system's SSH configuration files, such as `/etc/ssh/sshd_config`, to identify potential unauthorized modifications that could facilitate persistence or backdoor creation.
-- Review historical logs and alerts for the same host or user to identify any patterns of unusual SSH activity or previous instances of similar alerts.
-- Investigate network logs to identify any unusual or unauthorized remote connections associated with the SSH session, focusing on the source IP address and geolocation.
-- Consult threat intelligence sources to determine if the command-line arguments or process names observed are associated with known malicious activity or threat actor tactics.
-
-### False positive analysis
-
-- Known false positives for the Unusual SSHD Child Process rule may include legitimate administrative scripts or automated tasks that are executed via SSH but do not follow typical shell invocation patterns. These can be routine maintenance scripts or monitoring tools that use SSH for remote execution.
-- Users can handle these false positives by creating exceptions for specific processes or command lines that are known to be safe. This can be done by adding these processes to an allowlist or by modifying the detection rule to exclude certain command patterns that are verified as non-threatening.
-- It is important to regularly review and update these exceptions to ensure that they do not inadvertently allow malicious activity. This involves monitoring the frequency and context of the flagged processes to distinguish between benign and potentially harmful activities.
-- Collaboration with system administrators and security teams can help in identifying and documenting legitimate use cases that may trigger the rule, ensuring that the detection remains effective while minimizing unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on SSH logs and process creation events.
-- Terminate any suspicious or unauthorized SSHD child processes identified during the investigation.
-- Review user accounts and SSH keys on the affected system to ensure no unauthorized accounts or keys have been added.
-- Change passwords and regenerate SSH keys for all legitimate users on the compromised system.
-- Apply security patches and updates to the operating system and SSH service to mitigate known vulnerabilities.
-- Implement enhanced logging policies to capture detailed process creation and network activity, ensuring future anomalies are detected promptly.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and analyze security events more effectively.
-- Restore the system from a known good backup if the integrity of the system is in question, ensuring all security measures are in place before reconnecting to the network.
-- Harden the system by disabling unused services, enforcing strong authentication mechanisms, and regularly reviewing security configurations to reduce the attack surface."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

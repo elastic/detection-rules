@@ -2,7 +2,7 @@
 creation_date = "2024/04/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -98,51 +98,6 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Shell Configuration Creation or Modification
-
-Shell configuration files in Unix systems are crucial for setting up user environments, including environment variables and command aliases. Adversaries exploit these files to execute malicious scripts and maintain persistence. The detection rule identifies suspicious creation or modification of these files, excluding legitimate processes and temporary files, to flag potential unauthorized changes indicative of malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific shell configuration file that was created or modified, using the `file.path` field from the query.
-- Check the `event.action` field to determine whether the file was newly created or renamed, which can provide context on the nature of the change.
-- Investigate the `process.executable` field to identify the process responsible for the file modification, ensuring it is not part of the excluded legitimate processes.
-- Examine the `process.name` field to gather more information about the process that triggered the alert, especially if it is not part of the known exclusions.
-- Use Osquery to list recent modifications to shell configuration files with a query like: `SELECT path, mtime FROM file WHERE path IN ('/etc/profile', '/etc/bash.bashrc', '/home/*/.bashrc', '/root/.bashrc') ORDER BY mtime DESC LIMIT 10;` to verify the alert and gather additional context.
-- Cross-reference the `process.executable` and `process.name` with known malicious binaries or scripts to assess potential threats.
-- Check the `file.extension` and `file.Ext.original.extension` fields to ensure the file is not a temporary or transitional file, which might be benign.
-- Investigate the user account associated with the file modification to determine if the activity aligns with expected behavior for that user.
-- Review system logs around the time of the alert to identify any other suspicious activities or related events that might indicate a broader compromise.
-- Analyze the contents of the modified shell configuration file to identify any unauthorized or suspicious entries, such as unexpected scripts or commands that could indicate persistence mechanisms.
-
-### False positive analysis
-
-- **Package Management Tools**: Actions by package managers like `dpkg`, `rpm`, `yum`, and `apt` can trigger the rule when they update or install software, as they may modify shell configuration files. Users can handle these by excluding the executables of these package managers from the rule.
-- **Container and Virtualization Software**: Tools such as `dockerd`, `podman`, and `snapd` may modify shell configurations during container or virtual environment setups. Excluding these specific executables can prevent false positives.
-- **User Account Management**: Commands like `adduser` and `useradd` might modify shell configuration files when creating new user accounts. Excluding these processes can help reduce false alerts.
-- **System Maintenance Scripts**: Automated scripts or system maintenance tasks, such as those run by `cron` or `systemd`, might alter shell configurations. Users can exclude these processes or specific script names to avoid false positives.
-- **Text Editors and Temporary Files**: Editors like `vim` create temporary files (e.g., with extensions like `.swp`) that might be flagged. Excluding these file extensions can prevent unnecessary alerts.
-- **Development and Scripting Tools**: Tools like `perl` and `sed` might be used in scripts that modify shell configurations. Users can exclude these processes when they are known to be part of legitimate scripts.
-- **Custom Exclusions**: Users can create custom exclusions for specific paths or processes that are known to be safe in their environment, ensuring that legitimate activities do not trigger false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or spread of malicious activity.
-- Conduct a thorough investigation to identify the scope of the compromise, focusing on recent changes to shell configuration files and correlating with known indicators of compromise related to the Kaiji malware family.
-- Review and analyze logs from the system and any connected systems to trace the origin of the unauthorized changes and identify any additional compromised systems.
-- Remove any unauthorized or malicious entries from the shell configuration files and restore them to their last known good state using backups if available.
-- Update and patch the system to the latest security standards to mitigate any vulnerabilities that may have been exploited.
-- Implement enhanced logging policies to capture detailed information on file modifications and process executions, ensuring that future unauthorized changes are detected promptly.
-- Integrate security solutions such as intrusion detection systems (IDS) and endpoint detection and response (EDR) tools to provide real-time monitoring and alerting for suspicious activities.
-- Conduct a security audit of user accounts and permissions to ensure that only authorized users have access to modify shell configuration files.
-- Escalate the incident to the appropriate internal security team or external cybersecurity experts if the compromise is severe or if additional expertise is required.
-- Educate users on security best practices, including recognizing phishing attempts and maintaining strong, unique passwords, to reduce the risk of future compromises."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

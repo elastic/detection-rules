@@ -2,7 +2,7 @@
 creation_date = "2024/03/26"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/02"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -54,48 +54,6 @@ process where host.os.type == "windows" and event.type == "start" and
   (process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe", "csc.exe") or
   ?process.pe.original_file_name in ("cmd.exe", "powershell.exe", "pwsh.dll", "powershell_ise.exe"))
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating ScreenConnect Server Spawning Suspicious Processes
-
-ScreenConnect, a remote support tool, allows administrators to control systems remotely. Adversaries may exploit this by executing unauthorized commands or scripts, potentially using it as a vector for deploying web shell backdoors. The detection rule identifies unusual child processes initiated by the ScreenConnect service, flagging potential exploitation or misuse by monitoring for specific command-line utilities and scripting engines.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the parent process is "ScreenConnect.Service.exe" and identify the suspicious child process name and command-line arguments.
-- Check the timestamp of the event to determine when the suspicious process was spawned and correlate it with any known activities or changes in the environment.
-- Investigate the user account associated with the process to determine if it is a legitimate user or potentially compromised.
-- Examine the network connections established by the suspicious process to identify any unusual or unauthorized external communications.
-- Use Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name = 'cmd.exe' OR name = 'powershell.exe' AND parent = (SELECT pid FROM processes WHERE name = 'ScreenConnect.Service.exe');`
-- Analyze the command-line arguments of the suspicious process to identify any potentially malicious scripts or commands being executed.
-- Review the system's event logs for any additional indicators of compromise or related suspicious activities around the same timeframe.
-- Check for any recent changes or updates to the ScreenConnect application that could explain the spawning of the suspicious process.
-- Investigate any other alerts or incidents involving the same host or user account to identify patterns or repeated attempts of exploitation.
-- Consult threat intelligence sources to determine if there are any known vulnerabilities or exploits associated with the specific version of ScreenConnect in use.
-
-### False positive analysis
-
-- Routine administrative tasks: ScreenConnect may legitimately spawn processes like cmd.exe or powershell.exe during regular maintenance or updates. Users should verify if these activities align with scheduled tasks or known administrative actions.
-- Automated scripts: Organizations using automated scripts for system management might see these processes triggered by ScreenConnect. It's important to cross-reference with scheduled automation tasks to confirm legitimacy.
-- Software updates: During software updates, ScreenConnect might execute scripts or commands that appear suspicious. Users should check if the timing of these processes coincides with known update schedules.
-- Exclusion methods: To manage false positives, users can create exceptions for known benign activities by whitelisting specific parent-child process relationships or by excluding processes executed during certain time frames associated with legitimate tasks.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any unauthorized access or changes made through the ScreenConnect service.
-- Review logs and alerts to identify any additional systems that may have been accessed or compromised using similar methods.
-- Terminate any suspicious processes spawned by ScreenConnect.Service.exe and remove any unauthorized scripts or tools found on the system.
-- Change all credentials associated with the compromised system and any other systems that may have been accessed using the same credentials.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional resources are needed.
-- Implement enhanced logging and monitoring for ScreenConnect activities, including command-line auditing and process creation events, to detect future suspicious activities.
-- Integrate threat intelligence feeds and MITRE ATT&CK framework mappings to improve detection capabilities and contextual understanding of similar threats.
-- Restore the system from a known good backup to ensure all malicious changes are removed and the system is returned to a secure operational state.
-- Apply security hardening measures, such as restricting ScreenConnect access to authorized users and implementing multi-factor authentication, to reduce the risk of future exploitation."""
 
 
 [[rule.threat]]

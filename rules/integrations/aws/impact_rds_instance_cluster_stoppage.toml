@@ -2,7 +2,7 @@
 creation_date = "2020/05/20"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -20,51 +20,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS RDS Instance/Cluster Stoppage"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS RDS Instance/Cluster Stoppage
-
-Amazon RDS is a managed database service that simplifies database setup, operation, and scaling. Adversaries may stop RDS instances or clusters to disrupt services, aligning with the MITRE ATT&CK tactic of service stop. The detection rule monitors AWS CloudTrail logs for successful stop actions on RDS, alerting analysts to potential malicious activity aimed at impacting database availability.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event dataset is `aws.cloudtrail` and the event provider is `rds.amazonaws.com`, ensuring the alert is relevant to an RDS stoppage.
-- Verify the event action is either `StopDBCluster` or `StopDBInstance` and the event outcome is `success` to confirm the stoppage was successful.
-- Identify the user or role that initiated the stop action by examining the `userIdentity` field in the CloudTrail logs.
-- Check the `sourceIPAddress` field to determine the IP address from which the stop action was initiated, which may provide clues about the origin of the request.
-- Investigate the `eventTime` field to establish a timeline and correlate with other events or activities that occurred around the same time.
-- Use Osquery to gather additional context on the AWS environment. For example, run a query to list all recent changes to RDS instances: `SELECT * FROM aws_rds_instances WHERE last_modified > date('now', '-1 day');`
-- Examine the `requestParameters` field to understand the specific parameters used in the stop request, which might indicate whether it was a planned action or an anomaly.
-- Cross-reference the stopped RDS instance or cluster with any scheduled maintenance or deployment activities to rule out legitimate administrative actions.
-- Review IAM policies and permissions associated with the user or role to determine if they have the necessary permissions to stop RDS instances or clusters, and if those permissions are appropriate.
-- Check for any other alerts or anomalies in the AWS environment that might indicate a broader attack or misconfiguration, such as unauthorized access attempts or changes to security groups.
-
-### False positive analysis
-
-- Routine maintenance activities: Scheduled maintenance or updates by authorized personnel may trigger the rule. Users can handle this by creating exceptions for known maintenance windows or specific user accounts responsible for these tasks.
-- Automated scaling operations: Some environments may have automated scripts or tools that stop RDS instances as part of scaling operations. Users should identify these scripts and exclude their actions from triggering alerts by using specific tags or identifiers.
-- Cost-saving measures: Organizations may stop RDS instances during off-peak hours to save costs. Users can manage this by setting up time-based exceptions for these known cost-saving schedules.
-- Testing and development environments: Instances in non-production environments may be stopped frequently for testing purposes. Users can exclude these environments by filtering based on instance identifiers or environment tags.
-- Disaster recovery drills: Regularly scheduled disaster recovery tests may involve stopping RDS instances. Users should document these drills and exclude them from alerts by using specific event identifiers or user accounts involved in the drills.
-
-### Response and remediation
-
-- Immediately verify the legitimacy of the stop action by checking the user identity and source IP address in the CloudTrail logs to determine if the action was authorized.
-- If unauthorized, isolate the affected RDS instance or cluster by restricting access through security groups and network ACLs to prevent further unauthorized actions.
-- Notify the security operations team and relevant stakeholders about the incident for awareness and further investigation.
-- Conduct a root cause analysis to understand how the unauthorized stop action was executed, focusing on compromised credentials or misconfigurations.
-- Restore the RDS instance or cluster to its operational state by starting the service and verifying data integrity and availability.
-- Review and update IAM policies to ensure the principle of least privilege is enforced, limiting who can stop RDS instances or clusters.
-- Implement enhanced logging and monitoring by enabling AWS CloudTrail and Amazon CloudWatch to capture detailed activity logs and set up alerts for critical actions.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and detect potential threats proactively.
-- Conduct regular security awareness training for users to recognize phishing attempts and other tactics that could lead to credential compromise.
-- Consider implementing additional security measures such as multi-factor authentication (MFA) and automated incident response playbooks to improve resilience against similar threats.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

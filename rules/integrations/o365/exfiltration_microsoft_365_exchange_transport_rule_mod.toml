@@ -2,7 +2,7 @@
 creation_date = "2020/11/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,50 +22,7 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Exchange Transport Rule Modification"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft 365 Exchange Transport Rule Modification
-
-Microsoft 365 Exchange transport rules manage email flow by applying specific actions to messages. Adversaries may exploit these rules to disable or delete them, facilitating data exfiltration or bypassing security measures. The detection rule monitors successful actions of rule removal or disabling, signaling potential misuse by tracking specific event categories and actions within the audit logs.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event.dataset is "o365.audit" and the event.provider is "Exchange" to ensure the alert is related to Microsoft 365 Exchange.
-- Verify the event.category is "web" and the event.action is either "Remove-TransportRule" or "Disable-TransportRule" to confirm the specific actions that triggered the alert.
-- Check the event.outcome field to ensure the action was successful, indicating that a transport rule was indeed removed or disabled.
-- Identify the user account associated with the action by examining the user.name or user.id fields in the audit logs to determine if the action was performed by an authorized user or a potential adversary.
-- Investigate the timestamp of the event to establish a timeline and correlate it with other suspicious activities or anomalies in the environment.
-- Examine the source IP address and location from which the action was performed to identify any unusual or unauthorized access patterns.
-- Review the history of changes to transport rules in the audit logs to identify any patterns or repeated attempts to modify rules by the same user or IP address.
-- Utilize Osquery to gather additional context on the user account involved. For example, run a query to list recent login activities: `SELECT * FROM users WHERE username = '<user.name>'`.
-- Cross-reference the identified user account and IP address with known threat intelligence sources to check for any associations with malicious activity.
-- Investigate any related email flow logs to determine if there was any data exfiltration or unauthorized email forwarding that coincided with the transport rule modification.
-
-### False positive analysis
-
-- Routine administrative tasks: Legitimate IT administrators may regularly disable or remove transport rules as part of routine maintenance or updates. To manage these, organizations can create exceptions for specific user accounts or roles known to perform these tasks frequently.
-- Automated scripts or tools: Some organizations use automated scripts or third-party tools to manage transport rules, which might trigger the detection rule. Users can handle these by identifying and excluding the specific scripts or tools from the monitoring process.
-- Testing and development environments: Changes in transport rules might occur frequently in testing or development environments. To reduce false positives, users can exclude these environments from the detection scope or adjust the rule to focus on production environments only.
-- Scheduled policy updates: Organizations may have scheduled updates to transport rules that coincide with policy changes or compliance requirements. Users can manage these by documenting the schedule and creating temporary exceptions during these periods.
-
-### Response and remediation
-
-- Immediately isolate the affected user accounts and systems to prevent further unauthorized actions.
-- Conduct a thorough investigation to determine the scope of the rule modification, identifying any data exfiltration or security bypass attempts.
-- Review audit logs to trace the origin of the modification, focusing on user activity and access patterns around the time of the event.
-- Re-enable or recreate the disabled or deleted transport rules to restore email flow security measures.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed user actions and changes to transport rules for future monitoring.
-- Integrate additional security tools, such as SIEM solutions, to correlate events and improve detection capabilities.
-- Conduct a post-incident review to identify gaps in security controls and update policies or procedures as necessary.
-- Educate users on security best practices and the importance of maintaining transport rule integrity.
-- Apply hardening measures, such as multi-factor authentication and least privilege access, to reduce the risk of unauthorized modifications.
-
-## Setup
+note = """## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

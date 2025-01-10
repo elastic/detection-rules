@@ -2,7 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["beaconing", "endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -56,49 +56,6 @@ not process.name: ("WaAppAgent.exe" or "metricbeat.exe" or "packetbeat.exe" or "
                    "agentbeat" or "dnf" or "yum" or "apt"
                   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Statistical Model Detected C2 Beaconing Activity
-
-Statistical models analyze network traffic patterns to identify anomalies indicative of command-and-control (C2) beaconing, a technique used by attackers to maintain covert communication with compromised systems. Adversaries exploit this by sending periodic signals to C2 servers, often mimicking legitimate traffic. The detection rule filters out known benign processes, focusing on unusual beaconing patterns to flag potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, including the timestamp, source IP, destination IP, and any associated user accounts.
-- Verify the process name involved in the alert to ensure it is not one of the known benign processes listed in the query filter.
-- Analyze network traffic logs to identify patterns or anomalies in the communication frequency, size, and timing that may indicate beaconing behavior.
-- Cross-reference the destination IP address with threat intelligence databases to check for any known malicious activity or associations with C2 infrastructure.
-- Use Osquery to gather additional context on the process involved in the alert. For example, run the following query to list network connections for the suspicious process: `SELECT pid, local_address, local_port, remote_address, remote_port, state FROM process_open_sockets WHERE pid = <suspicious_process_id>;`
-- Investigate the parent process of the suspicious activity to determine if it was spawned by a legitimate application or another potentially malicious process.
-- Check the system's event logs for any unusual activity or errors around the time of the alert that could provide additional context or indicators of compromise.
-- Examine the file system for any new or modified files associated with the suspicious process, which may indicate payload delivery or data exfiltration.
-- Review user activity logs to determine if the user associated with the alert was performing any unusual actions or accessing sensitive data.
-- Correlate the alert with other security events or alerts in the environment to identify potential patterns or coordinated attacks.
-
-### False positive analysis
-
-- Known false positives for the Statistical Model Detected C2 Beaconing Activity rule include legitimate applications that exhibit periodic network communication patterns similar to C2 beaconing. These applications often include system monitoring tools, cloud service agents, and software update services.
-- Users can manage these false positives by creating exceptions for processes that are known to generate benign beaconing patterns. This can be done by adding these processes to the exclusion list within the detection rule, ensuring that legitimate traffic is not flagged as suspicious.
-- Regularly review and update the exclusion list to accommodate new software or updates to existing applications that may alter their network communication behavior.
-- Consider the context of the network environment and the typical behavior of applications in use. For instance, if a new application is introduced that mimics beaconing patterns, assess its legitimacy before adding it to the exclusion list.
-- Collaborate with IT and security teams to identify and document legitimate processes that may trigger false positives, ensuring that the detection rule remains effective without compromising security.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further communication with the C2 server and limit potential data exfiltration.
-- Conduct a thorough investigation of the affected system to identify any malicious processes or files, leveraging endpoint detection and response (EDR) tools.
-- Analyze network traffic logs to identify any other systems that may be communicating with the same C2 server, expanding the scope of the investigation if necessary.
-- Remove any identified malicious software or files from the affected system and apply security patches to address any vulnerabilities exploited by the attacker.
-- Change passwords and credentials that may have been compromised, focusing on accounts with elevated privileges.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging and monitoring policies to capture detailed network and endpoint activity, aiding in future detection and investigation efforts.
-- Integrate threat intelligence feeds to update detection rules and improve the identification of known C2 infrastructure and tactics.
-- Restore the system to its operational state by reinstalling the operating system if necessary and ensuring all security measures are in place.
-- Apply hardening measures such as disabling unnecessary services, enforcing least privilege access, and conducting regular security awareness training for users."""
 
 
 [[rule.threat]]

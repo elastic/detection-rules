@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -47,49 +47,6 @@ sequence with maxspan=1m
      source.port > 49151 and destination.port > 49151 and source.ip != "127.0.0.1" and source.ip != "::1"
   ] by host.id, process.entity_id
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Incoming DCOM Lateral Movement via MSHTA
-
-DCOM allows software components to communicate over a network, enabling remote execution of applications like MSHTA, which runs HTML applications. Adversaries exploit this by executing commands remotely, bypassing traditional security measures. The detection rule identifies such abuse by monitoring for MSHTA processes initiated with specific arguments and network activity indicative of lateral movement, focusing on unusual port usage and non-local IP addresses.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of `mshta.exe` process execution with the `-Embedding` argument, as this is a key indicator of potential DCOM abuse.
-- Verify the source and destination IP addresses involved in the network activity. Ensure that the source IP is not a local address (i.e., not `127.0.0.1` or `::1`) and assess whether the IP is known or expected within the network.
-- Check the source and destination ports used in the network connection. Ports greater than 49151 are typically dynamic and may indicate unusual activity.
-- Correlate the `host.id` and `process.entity_id` from the alert with other logs to identify any related processes or activities on the same host.
-- Use Osquery to gather additional context on the `mshta.exe` process. For example, run the following query to list all processes with their parent process IDs and command-line arguments: `SELECT pid, parent, path, cmdline FROM processes WHERE name = 'mshta.exe';`
-- Investigate the parent process of `mshta.exe` to determine if it was spawned by a legitimate application or if it is part of a suspicious chain of execution.
-- Examine recent login events on the affected host to identify any unusual or unauthorized access attempts that may correlate with the alert.
-- Review any recent changes to the system's DCOM configuration or related registry keys that could indicate tampering or preparation for lateral movement.
-- Analyze network traffic logs for any other unusual or unexpected connections originating from or targeting the affected host around the time of the alert.
-- Consult threat intelligence sources to determine if the observed IP addresses or behavior patterns are associated with known threat actors or campaigns.
-
-### False positive analysis
-
-- Legitimate administrative tools or scripts that utilize MSHTA for remote management tasks may trigger this rule. Users should identify and document these tools to differentiate them from malicious activity.
-- Automated software deployment or update processes that use MSHTA for executing scripts across the network can be mistaken for lateral movement. Exclude these processes by creating exceptions based on known source IP addresses and process arguments.
-- Internal network scanning or monitoring tools that simulate lateral movement for security assessments might be flagged. Ensure these tools are whitelisted by their specific network and process characteristics.
-- Developers or IT personnel testing applications that involve remote execution via MSHTA could inadvertently trigger alerts. Establish a list of authorized personnel and their associated activities to prevent false positives.
-- In environments where MSHTA is used for legitimate inter-process communication, especially in legacy systems, consider excluding specific host IDs or process entity IDs that are known to engage in benign activity.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement and potential data exfiltration.
-- Conduct a thorough investigation to identify the source of the DCOM abuse, including reviewing logs for unusual MSHTA activity and correlating with other security events.
-- Terminate any suspicious MSHTA processes identified during the investigation to halt any ongoing malicious activity.
-- Reset credentials for any accounts that may have been compromised during the attack to prevent unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the full scope of the breach.
-- Implement enhanced logging policies to capture detailed process execution and network activity, focusing on DCOM and MSHTA usage.
-- Integrate threat intelligence feeds to improve detection capabilities for known indicators of compromise related to DCOM lateral movement.
-- Restore the affected system from a known good backup to ensure it is free from any malicious modifications.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities that could be exploited for DCOM abuse.
-- Review and update security policies and configurations to harden systems against similar attacks, including disabling unnecessary DCOM components and restricting MSHTA usage."""
 
 
 [[rule.threat]]

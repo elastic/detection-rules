@@ -2,7 +2,7 @@
 creation_date = "2023/07/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -40,50 +40,6 @@ process where event.type == "start" and event.action in ("exec", "exec_event", "
   (process.name == "getent" and process.args in ("passwd", "group"))
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Account or Group Discovery via Built-In Tools
-
-Built-in tools like `groups`, `id`, `dscl`, and `getent` are essential for managing and querying user and group information in Unix-like systems. Adversaries exploit these tools to enumerate accounts and groups, gaining insights into system configurations and potential targets. The detection rule identifies suspicious use of these tools by monitoring process execution patterns and specific arguments, flagging potential unauthorized discovery activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and arguments that triggered the alert, focusing on fields like `process.name` and `process.args`.
-- Check the `event.timestamp` to determine when the suspicious activity occurred and correlate it with any other unusual activities around the same time.
-- Investigate the `user.name` and `user.id` fields to identify the user account associated with the process execution and assess if the account has a legitimate reason to perform such actions.
-- Examine the `host.name` or `host.ip` fields to determine which system the activity originated from and assess its role within the network.
-- Use Osquery to gather additional context on the system by running a query such as: `SELECT * FROM processes WHERE name IN ('groups', 'id', 'dscl', 'dscacheutil', 'getent');` to identify any other related processes that may have been executed.
-- Analyze the `parent.process.name` and `parent.process.id` fields to understand the parent process that initiated the suspicious activity, which might provide insights into the origin of the command.
-- Review historical logs for the same `process.name` and `process.args` to determine if this is a recurring pattern or an isolated incident.
-- Check for any recent changes in user permissions or group memberships that might explain the use of these tools, focusing on the `process.args` that reference user or group files.
-- Investigate any network connections or data transfers initiated by the host around the time of the alert to identify potential data exfiltration attempts.
-- Correlate the findings with other security alerts or incidents to determine if this activity is part of a larger attack campaign or an isolated event.
-
-### False positive analysis
-
-- Routine administrative tasks can trigger this rule, as system administrators often use tools like `groups`, `id`, `dscl`, and `getent` for legitimate purposes such as user account management and system maintenance. 
-- Automated scripts or scheduled jobs that perform regular system audits or backups may also execute these commands, leading to false positives.
-- Security software or monitoring tools that periodically check system configurations and user permissions might invoke these commands, resulting in benign alerts.
-- To manage these false positives, users can create exceptions for known administrative accounts or specific scripts that are verified as non-threatening.
-- Implementing a baseline of normal system behavior can help distinguish between legitimate use and potential threats, allowing for more accurate filtering of alerts.
-- Regularly updating the list of approved processes and arguments in the detection rule can reduce the occurrence of false positives by excluding recognized safe activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying all accounts and groups accessed by the adversary.
-- Review system logs and security alerts to trace the adversary's activities and identify any additional compromised systems or accounts.
-- Change passwords for all potentially compromised accounts and enforce multi-factor authentication to enhance security.
-- Remove any unauthorized accounts or groups created by the adversary and ensure all legitimate accounts have appropriate permissions.
-- Restore the system from a known good backup to ensure no malicious changes persist.
-- Implement enhanced logging and monitoring policies to capture detailed information on account and group access activities.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Educate users and administrators on recognizing and reporting suspicious activities to prevent future incidents."""
 
 
 [[rule.threat]]

@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/04/24"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +20,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Kernel Module Removal"
@@ -58,57 +60,20 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
-  process.name == "rmmod" or
-  (process.name == "modprobe" and process.args in ("--remove", "-r"))
-) and process.parent.name in ("sudo", "bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  (
+    process.name == "rmmod" or
+    (process.name == "modprobe" and process.args in ("--remove", "-r"))
+  ) and
+  process.parent.name in ("sudo", "bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Kernel Module Removal
-
-Kernel modules dynamically extend a Linux kernel's capabilities without rebooting. Adversaries may exploit this by removing modules to disable security features or hide malicious activities. The detection rule identifies suspicious module removal attempts by monitoring specific processes and commands, such as `rmmod` and `modprobe`, especially when executed from common shell environments, indicating potential defense evasion tactics.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name (`rmmod` or `modprobe`) and the parent process name that triggered the alert, as these can provide initial context on how the module removal was attempted.
-- Check the user account associated with the process execution to determine if it was initiated by a legitimate user or a potential adversary.
-- Investigate the command-line arguments used with `modprobe` to confirm if the `--remove` or `-r` flags were used, indicating an attempt to remove a module.
-- Examine the process execution timeline to identify any preceding or subsequent suspicious activities, such as privilege escalation attempts or other defense evasion tactics.
-- Use Osquery to list currently loaded kernel modules and compare them with historical data to identify any discrepancies or missing modules. Example query: `SELECT * FROM kernel_modules;`
-- Correlate the alert with other security events or logs from the same host to identify any patterns or related activities that could indicate a broader attack.
-- Analyze the parent process (`sudo`, `bash`, etc.) to determine if it was used legitimately or if it shows signs of compromise, such as unusual execution paths or unexpected arguments.
-- Review system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any authentication anomalies or unauthorized access attempts around the time of the alert.
-- Investigate the network activity of the host to identify any suspicious outbound connections that could suggest data exfiltration or command-and-control communication.
-- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or if there are any active campaigns targeting similar vulnerabilities.
-
-### False positive analysis
-
-- System administrators or automated scripts may legitimately remove kernel modules during routine maintenance or updates, leading to false positives. Users can handle these by creating exceptions for known maintenance scripts or trusted administrator accounts.
-- Some security tools or monitoring solutions might remove kernel modules as part of their normal operation, which could trigger the rule. To manage this, users should identify and whitelist these specific tools or processes.
-- Development environments where kernel modules are frequently loaded and unloaded for testing purposes might also trigger false positives. Users can exclude these environments or specific user accounts from the rule to reduce noise.
-- In environments where custom scripts are used to manage kernel modules, these scripts might inadvertently trigger the rule. Users should review and, if necessary, modify the rule to exclude these scripts by adding them to an exception list based on their process names or paths.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Verify the legitimacy of the kernel module removal by checking user permissions and correlating with recent administrative activities.
-- Conduct a thorough investigation of the system logs to identify any unauthorized access or suspicious activities leading up to the module removal.
-- Utilize forensic tools to capture a snapshot of the current system state, including memory and disk images, for further analysis.
-- If unauthorized removal is confirmed, restore the affected kernel modules from a trusted backup or reinstall them using verified sources.
-- Review and update access controls and permissions to ensure only authorized personnel can modify kernel modules.
-- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future monitoring.
-- Integrate security solutions such as intrusion detection systems (IDS) and endpoint detection and response (EDR) tools to improve threat detection capabilities.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if broader organizational impacts exist.
-- Apply system hardening measures, such as disabling unnecessary kernel modules and enforcing strict module signing, to reduce the attack surface and prevent future incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/02"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -53,49 +53,6 @@ process where host.os.type == "windows" and event.type == "start" and process.na
   not (process.args : "-m" and process.args : "-bg") and
   not process.args : "-mm"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Application Shimming via Sdbinst
-
-Application shimming is a Windows feature designed to ensure software compatibility across different OS versions. However, attackers exploit this by using the sdbinst.exe tool to execute malicious code under the guise of legitimate processes, achieving persistence. The detection rule identifies suspicious sdbinst.exe executions by filtering out benign arguments, flagging potential misuse indicative of adversarial activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of suspicious `sdbinst.exe` execution, focusing on the `process.args` field to identify any unusual or unexpected arguments.
-- Check the process tree to understand the parent-child relationship of the `sdbinst.exe` process, identifying the parent process that initiated the execution.
-- Investigate the user account associated with the `sdbinst.exe` process to determine if it aligns with expected behavior or if it indicates potential compromise.
-- Examine the timestamp of the `sdbinst.exe` execution to correlate with other suspicious activities or events on the host.
-- Utilize Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name = 'sdbinst.exe';` to retrieve detailed information about the process execution.
-- Search for any recent file modifications or creations in directories commonly associated with application shimming, such as the AppCompat folder, to identify potential malicious SDB files.
-- Analyze the network activity of the host around the time of the `sdbinst.exe` execution to detect any unusual outbound connections or data exfiltration attempts.
-- Review system logs for any other indicators of compromise or related suspicious activities that occurred around the same time as the alert.
-- Investigate any other alerts or detections involving the same host or user account to identify patterns or a broader attack campaign.
-- Consult threat intelligence sources to determine if there are known campaigns or threat actors that commonly use application shimming techniques similar to those detected.
-
-### False positive analysis
-
-- Legitimate software installations or updates may trigger sdbinst.exe with arguments that appear suspicious but are benign, such as custom software deployment scripts or enterprise software updates that use sdbinst.exe for compatibility reasons.
-- System administrators or IT personnel might use sdbinst.exe intentionally for legitimate application compatibility testing or deployment, which could be misidentified as malicious activity.
-- To manage these false positives, users can create exceptions for known and verified software installations by whitelisting specific command-line arguments or paths associated with trusted applications.
-- Regularly review and update the list of exceptions to ensure that only verified and necessary processes are excluded, minimizing the risk of overlooking genuine threats.
-- Implement logging and monitoring to track the frequency and context of sdbinst.exe executions, allowing for better differentiation between legitimate and potentially malicious activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation of the sdbinst.exe process execution, including reviewing the command-line arguments and correlating with known malicious patterns.
-- Analyze the system for additional indicators of compromise (IOCs) related to application shimming and persistence mechanisms.
-- Terminate any suspicious processes associated with the malicious use of sdbinst.exe and remove any unauthorized application compatibility databases.
-- Restore the system from a known good backup if malicious activity is confirmed and system integrity is compromised.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
-- Review and update security policies and procedures to include specific measures against application shimming and related persistence techniques.
-- Conduct a post-incident review to identify gaps in detection and response, and apply lessons learned to strengthen the overall security posture."""
 
 
 [[rule.threat]]

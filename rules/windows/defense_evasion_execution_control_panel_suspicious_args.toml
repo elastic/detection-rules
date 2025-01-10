@@ -2,7 +2,7 @@
 creation_date = "2021/09/08"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -62,49 +62,6 @@ process where host.os.type == "windows" and event.type == "start" and
     "*\\AppData\\Local\\*"
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Control Panel Process with Unusual Arguments
-
-The Windows Control Panel, typically used for system settings, can be exploited by adversaries to execute malicious code under the guise of legitimate processes. By manipulating command line arguments, attackers can proxy execution through control.exe, evading detection. The detection rule identifies anomalies by flagging unusual file types and suspicious paths in the command line, indicating potential misuse for malicious activities.
-
-### Possible investigation steps
-
-- Review the alert details to understand the specific command line arguments that triggered the detection, focusing on unusual file types and suspicious paths.
-- Examine the process tree to identify the parent process of control.exe, which may provide context on how the process was initiated.
-- Check the user account associated with the process to determine if it aligns with expected behavior or if it indicates potential compromise.
-- Investigate the file paths and file types in the command line arguments to verify if they are legitimate or if they could be indicative of malicious activity.
-- Use Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE name = 'control.exe' AND cmdline LIKE '%<suspicious_argument>%';` to find other instances of similar command line usage.
-- Analyze recent file modifications in the directories specified in the command line arguments to identify any unauthorized changes or suspicious files.
-- Review system logs for any related events around the time the control.exe process was started to identify any correlated activities or anomalies.
-- Check for any network connections initiated by the control.exe process to determine if there is any suspicious outbound communication.
-- Investigate any scheduled tasks or startup items that might have been used to persistently execute the control.exe process with unusual arguments.
-- Correlate the findings with threat intelligence sources to determine if the observed behavior matches any known attack patterns or indicators of compromise.
-
-### False positive analysis
-
-- Users may encounter false positives when legitimate applications or system processes use control.exe with unusual file types or paths for valid purposes, such as custom configuration tools or third-party software that integrates with the Control Panel.
-- Some software installations or updates might temporarily use control.exe with paths like `*/AppData/Local/*` or `*:\\\\Users\\\\Public\\\\*` to manage settings or user data, which could trigger the rule.
-- Multimedia applications might inadvertently use image file extensions in command lines for legitimate reasons, leading to false positives when extensions like `*.jpg*` or `*.png*` are detected.
-- To manage these false positives, users can create exceptions for known benign processes or paths by adding them to an allowlist, ensuring that frequent non-threatening behaviors are not flagged.
-- Regularly review and update the allowlist to accommodate new legitimate applications or changes in system behavior, reducing unnecessary alerts while maintaining security.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation of the process command line arguments to confirm the presence of malicious activity, focusing on unusual file types and suspicious paths.
-- Review recent changes to the system, including installed applications and modified files, to identify any unauthorized or suspicious modifications.
-- Utilize endpoint detection and response (EDR) tools to perform a deep scan of the system for additional indicators of compromise (IOCs) and potential persistence mechanisms.
-- Remove any identified malicious files or processes and restore any altered system files from a known good backup.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
-- Implement enhanced logging policies to capture detailed process execution data, including command line arguments, to aid in future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate alerts and improve detection capabilities.
-- Restore the system to its operational state by applying the latest security patches and updates, and ensure that all security configurations are properly set.
-- Harden the system by disabling unnecessary services, applying least privilege principles, and educating users on recognizing and reporting suspicious activities."""
 
 
 [[rule.threat]]

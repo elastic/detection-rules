@@ -2,7 +2,7 @@
 creation_date = "2020/12/14"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -62,48 +62,6 @@ process.parent.name: (
      "SolarwindsDiagnostics*.exe"
      )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Command Execution via SolarWinds Process
-
-SolarWinds is a suite of network and system management tools widely used in IT environments. Adversaries may exploit SolarWinds processes to execute unauthorized commands by spawning child processes like Cmd.exe or Powershell.exe, leveraging trusted SolarWinds executables to evade detection. The detection rule identifies suspicious activity by monitoring the initiation of these child processes from specific SolarWinds parent processes, flagging potential misuse for further investigation.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the specific SolarWinds parent process that initiated the suspicious child process (Cmd.exe or Powershell.exe) using the `process.parent.name` field.
-- Check the `process.command_line` field for the suspicious child process to understand the exact command or script executed, which can provide insights into the intent of the execution.
-- Investigate the user account associated with the process execution by examining the `user.name` field to determine if the activity aligns with expected behavior for that account.
-- Correlate the timestamp of the event with other security logs to identify any concurrent suspicious activities or anomalies in the network or system.
-- Use Osquery to gather additional context about the parent process by running a query such as: `SELECT * FROM processes WHERE name LIKE 'SolarWinds%' AND pid = <parent_process_id>;` to retrieve details about the process state and its environment.
-- Examine historical data to determine if similar command executions have occurred previously from the same SolarWinds parent process, indicating a potential pattern or ongoing issue.
-- Analyze network traffic logs around the time of the event to identify any unusual outbound connections that may suggest data exfiltration or command-and-control communication.
-- Check for any recent changes or updates to the SolarWinds software that might explain the execution of the child process as part of legitimate operations.
-- Investigate the system for any signs of compromise, such as unauthorized changes to system files or configurations, which could indicate a broader security incident.
-- Consult threat intelligence sources to determine if there are any known campaigns or threat actors associated with exploiting SolarWinds processes in a similar manner.
-
-### False positive analysis
-
-- Routine administrative tasks: SolarWinds administrators may use Cmd.exe or Powershell.exe for legitimate configuration or maintenance tasks, leading to false positives. Users can create exceptions for known administrative activities by whitelisting specific user accounts or time frames.
-- Automated scripts: Scheduled scripts or automated processes that utilize Cmd.exe or Powershell.exe for system checks or updates might trigger alerts. To manage these, users can exclude specific scripts or processes by identifying their unique command-line arguments or execution patterns.
-- Software updates: During SolarWinds software updates, legitimate child processes may be spawned, which could be mistaken for suspicious activity. Users should monitor update schedules and temporarily adjust detection rules to accommodate these updates.
-- Third-party integrations: Some third-party tools integrated with SolarWinds may invoke Cmd.exe or Powershell.exe for data collection or reporting. Users can handle these by verifying the legitimacy of the third-party tool and excluding its known processes from triggering alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any additional systems that may have been affected.
-- Analyze the suspicious child processes (Cmd.exe or Powershell.exe) to understand the commands executed and assess potential damage or data exfiltration.
-- Review and collect relevant logs from SolarWinds and other security tools to gather evidence and understand the attack vector.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response coordination.
-- Remove any unauthorized or malicious scripts or executables identified during the investigation from the affected systems.
-- Apply patches and updates to SolarWinds and other software to mitigate known vulnerabilities and prevent similar attacks.
-- Implement enhanced logging policies to capture detailed process creation events and network activity for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to improve detection capabilities and correlate alerts.
-- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as application whitelisting and least privilege access, to strengthen defenses against similar threats."""
 
 
 [[rule.threat]]

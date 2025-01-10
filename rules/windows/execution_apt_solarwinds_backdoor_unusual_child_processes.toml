@@ -2,7 +2,7 @@
 creation_date = "2020/12/14"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 
@@ -58,49 +58,6 @@ process where host.os.type == "windows" and event.type == "start" and
  ) and
  not process.executable : ("?:\\Windows\\SysWOW64\\ARP.EXE", "?:\\Windows\\SysWOW64\\lodctr.exe", "?:\\Windows\\SysWOW64\\unlodctr.exe")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious SolarWinds Child Process
-
-SolarWinds is a widely used IT management software that operates critical network functions. Adversaries may exploit its trusted processes to execute unauthorized programs, bypassing security measures. The detection rule identifies unusual child processes spawned by SolarWinds' core executables, excluding known legitimate ones, to flag potential malicious activity. This approach leverages process behavior and code signature verification to detect anomalies indicative of compromise.
-
-### Possible investigation steps
-
-- Review the alert details to understand which specific child process was spawned by SolarWinds and verify if it matches any known legitimate processes.
-- Check the process code signature to determine if it is trusted or untrusted, focusing on the `process.code_signature.trusted` field.
-- Investigate the parent process details, specifically `SolarWinds.BusinessLayerHost.exe` or `SolarWinds.BusinessLayerHostx64.exe`, to confirm its legitimacy and recent activity.
-- Examine the process executable path using the `process.executable` field to ensure it is not located in suspicious directories.
-- Utilize Osquery to gather additional context on the suspicious process. Example query: `SELECT * FROM processes WHERE name = '<suspicious_process_name>';` to retrieve detailed information about the process.
-- Cross-reference the suspicious process with known threat intelligence sources to identify if it is associated with any known malicious activity.
-- Analyze the process command line arguments to identify any unusual or unexpected parameters that could indicate malicious intent.
-- Review recent system logs and events around the time of the alert to identify any correlated activities or anomalies.
-- Investigate network connections initiated by the suspicious process to detect any unauthorized or suspicious outbound communication.
-- Check for any recent changes or updates to the SolarWinds software that could explain the unusual child process behavior, ensuring it aligns with legitimate updates or patches.
-
-### False positive analysis
-
-- Known false positives may include legitimate SolarWinds processes that are not yet included in the exclusion list. These can occur when new SolarWinds updates introduce additional child processes that are not recognized by the current rule.
-- Users can handle these false positives by monitoring the detected processes and verifying their legitimacy through process code signature checks. If a process is confirmed to be non-threatening, it can be added to the exclusion list to prevent future alerts.
-- Another potential false positive source is third-party integrations or plugins that interact with SolarWinds processes. Users should verify these integrations and, if deemed safe, update the rule to exclude these specific child processes.
-- Regularly review and update the exclusion list to include new legitimate processes as SolarWinds software evolves. This proactive approach helps minimize false positives while maintaining security vigilance.
-- Consider implementing a logging mechanism to track and review all flagged processes over time. This can help identify patterns and refine the exclusion criteria to better distinguish between benign and suspicious activities.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation of the suspicious child process to determine its origin and intent, using forensic tools to analyze process execution and network connections.
-- Verify the integrity of SolarWinds software and its components by checking for unauthorized modifications or tampering.
-- Terminate any unauthorized or suspicious processes identified during the investigation to contain the threat.
-- Review and update security policies to ensure that only legitimate child processes are allowed to execute under SolarWinds parent processes.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat is part of a larger campaign.
-- Implement enhanced logging and monitoring for SolarWinds processes and related network activity to detect future anomalies.
-- Restore the system to its operational state by applying clean backups and ensuring all software is up to date with the latest security patches.
-- Conduct a post-incident review to identify gaps in security controls and improve response strategies.
-- Harden the environment by implementing least privilege access controls, regular software audits, and continuous security awareness training for staff."""
 
 
 [[rule.threat]]

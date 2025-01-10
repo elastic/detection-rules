@@ -2,7 +2,7 @@
 creation_date = "2020/11/30"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,51 +22,7 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Teams External Access Enabled"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft 365 Teams External Access Enabled
-
-Microsoft Teams allows external access to facilitate communication with users outside an organization, enhancing collaboration. However, adversaries can exploit this feature to exfiltrate data or maintain persistence by enabling external access or adding trusted domains. The detection rule monitors audit logs for successful configuration changes that permit external communication, flagging potential unauthorized access attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the event.action "Set-CsTenantFederationConfiguration" and ensure the event.outcome is marked as success.
-- Verify the event.dataset is o365.audit and the event.provider is either SkypeForBusiness or MicrosoftTeams to confirm the source of the alert.
-- Check the o365.audit.Parameters.AllowFederatedUsers field to ensure it is set to True, indicating that external access was enabled.
-- Investigate the user account associated with the configuration change to determine if the action was performed by a legitimate administrator or a potentially compromised account.
-- Examine the timestamp of the event to correlate with any other suspicious activities or anomalies in the environment around the same time.
-- Review the audit logs for any recent changes to the list of allowed domains for external access to identify any unauthorized additions.
-- Utilize Osquery to gather additional context on the user account involved. Example query: `SELECT * FROM users WHERE username = 'suspected_user';`
-- Check for any recent login activities from unusual locations or IP addresses associated with the user account involved in the configuration change.
-- Investigate any other recent configuration changes in Microsoft Teams or Skype for Business that might indicate further unauthorized access attempts.
-- Collaborate with the IT team to verify if the configuration change aligns with any recent legitimate business needs or projects that required enabling external access.
-
-### False positive analysis
-
-- Routine administrative changes: Legitimate IT administrators may enable external access as part of regular configuration updates or to facilitate business operations. To manage these, organizations can maintain a list of authorized personnel and cross-reference changes with approved change requests.
-- Partner or vendor communication: External access might be enabled to allow communication with trusted partners or vendors. Users can handle these by creating exceptions for known and verified domains, ensuring they are documented and regularly reviewed.
-- Temporary project requirements: Teams working on joint projects with external entities may require temporary external access. Implementing a process to log and approve such temporary access can help differentiate between legitimate and suspicious activities.
-- Misconfigured alerts: Sometimes, alerts may trigger due to misconfigured settings or testing environments. Regularly reviewing and updating alert configurations can help minimize these false positives.
-- Automated scripts or tools: Automated processes that modify configurations for maintenance or updates might trigger alerts. Identifying and documenting these scripts can help in excluding them from triggering false positives.
-
-### Response and remediation
-
-- Immediately disable external access in Microsoft Teams to prevent further unauthorized communication with external domains.
-- Conduct a thorough investigation of audit logs to identify any unauthorized configuration changes and determine the scope of potential data exfiltration.
-- Verify the list of allowed domains and remove any that are not recognized or authorized by the organization.
-- Reset credentials and review account permissions for any accounts involved in the suspicious activity to prevent further unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed audit logs of configuration changes and access attempts in Microsoft Teams.
-- Integrate Microsoft 365 security logs with a Security Information and Event Management (SIEM) system for real-time monitoring and alerting.
-- Conduct a review of current security policies and update them to include stricter controls on external access and domain whitelisting.
-- Restore the system to its operational state by ensuring all unauthorized changes are reverted and verifying the integrity of the Teams environment.
-- Apply hardening measures such as multi-factor authentication (MFA) for administrative accounts and regular security awareness training for users.
-
-## Setup
+note = """## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.microsoft.com/en-us/microsoftteams/manage-external-access"]

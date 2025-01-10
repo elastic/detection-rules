@@ -2,7 +2,7 @@
 creation_date = "2020/01/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -62,48 +62,6 @@ event.category:process and host.os.type:macos and event.type:(start or process_s
                                                 "/opt/jc/bin/jumpcloud-agent" or
                                                 "/Library/Addigy/go-agent")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Admin Group Account Addition
-
-In macOS environments, tools like `dscl` and `dseditgroup` manage user group memberships, including admin groups. Adversaries may exploit these tools to escalate privileges by adding accounts to admin groups via command-line operations. The detection rule identifies such attempts by monitoring process activities related to these tools, excluding legitimate management services, to flag unauthorized privilege escalation efforts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of `dscl` or `dseditgroup` in the `process.name` field and verify the command-line arguments in `process.args` to ensure they include "/Groups/admin" and "-a" or "-append".
-- Check the `event.category` and `event.type` fields to confirm the event is related to a process start on a macOS host.
-- Examine the `process.Ext.effective_parent.executable` field to ensure the process was not initiated by a legitimate management service like JAMF or JumpCloud.
-- Investigate the user account associated with the process to determine if it has a history of administrative actions or if it is a new or unexpected account.
-- Use Osquery to list current admin group members and identify any recent changes. Example query: `SELECT * FROM groups WHERE groupname = 'admin';`
-- Cross-reference the timestamp of the alert with system logs to identify any concurrent suspicious activities or anomalies.
-- Analyze the parent process of the flagged activity to understand the context in which the `dscl` or `dseditgroup` command was executed.
-- Review recent login events on the host to identify any unusual or unauthorized access attempts around the time of the alert.
-- Check for any other alerts or indicators of compromise on the same host that might suggest a broader attack or compromise.
-- Consult with the user or system owner to verify if the action was legitimate or if they have any knowledge of the activity.
-
-### False positive analysis
-
-- Legitimate administrative tools and services, such as JAMF and JumpCloud, may trigger this rule when performing authorized group management tasks. These tools are often used by IT departments for device management and may add accounts to admin groups as part of their normal operations.
-- To manage these false positives, users can create exceptions for known legitimate processes by excluding their executable paths in the detection rule. This can be done by adding the paths of trusted management services to the exclusion list, ensuring that only unauthorized attempts are flagged.
-- Regularly review and update the exclusion list to include any new legitimate management tools that may be introduced into the environment, ensuring that the detection rule remains effective without generating unnecessary alerts.
-- Consider implementing additional context checks, such as verifying the user context or correlating with other security events, to further reduce false positives and enhance the accuracy of the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or privilege escalation.
-- Verify the account added to the admin group and determine if it is legitimate or unauthorized by cross-referencing with user management records.
-- Review system logs and security alerts to identify any other suspicious activities or related incidents that may indicate a broader compromise.
-- Remove the unauthorized account from the admin group and reset its credentials to prevent further misuse.
-- Conduct a thorough investigation to determine how the unauthorized account addition occurred, focusing on potential vulnerabilities or misconfigurations.
-- Escalate the incident to the security operations team for further analysis and to assess the potential impact on the organization.
-- Implement enhanced logging and monitoring policies to capture detailed process activities and user actions, ensuring better visibility for future investigations.
-- Integrate security tools and solutions, such as SIEM and EDR, to automate detection and response to similar threats in the future.
-- Restore the system to its operational state by applying necessary patches, updates, and security configurations to prevent recurrence.
-- Harden the system by enforcing least privilege principles, regularly reviewing user group memberships, and conducting security awareness training for users."""
 
 
 [[rule.threat]]

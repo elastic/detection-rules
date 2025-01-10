@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 
 [rule]
 author = ["Elastic"]
@@ -59,49 +59,6 @@ process where host.os.type == "windows" and event.type == "start" and
                    "ssh.exe", "scp.exe", "wevtutil.exe", "wget.exe", "wmic.exe")
    )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious ScreenConnect Client Child Process
-
-ScreenConnect, a remote access tool, facilitates legitimate remote support by allowing users to control systems remotely. However, adversaries can exploit it to execute unauthorized commands, leveraging its access capabilities. The detection rule identifies unusual child processes spawned by ScreenConnect, such as PowerShell or cmd.exe, which may indicate malicious activity, by monitoring specific process names and arguments that are commonly used in attacks.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific child process and arguments that triggered the rule, focusing on the `process.name` and `process.args` fields.
-- Check the parent process details, specifically the `process.parent.name`, to confirm it is one of the ScreenConnect client processes listed in the query.
-- Investigate the user account associated with the process execution to determine if it aligns with expected usage patterns or if it appears suspicious.
-- Examine the network activity around the time of the alert to identify any unusual connections or data transfers, especially those involving external IP addresses.
-- Use Osquery to gather additional context on the suspicious process. For example, run the following query to list all processes spawned by ScreenConnect clients: `SELECT pid, name, path, cmdline FROM processes WHERE parent IN (SELECT pid FROM processes WHERE name IN ('ScreenConnect.ClientService.exe', 'ScreenConnect.WindowsClient.exe', 'ScreenConnect.WindowsBackstageShell.exe', 'ScreenConnect.WindowsFileManager.exe'));`
-- Analyze the command-line arguments (`process.args`) for any encoded or obfuscated content, particularly if PowerShell is involved, to understand the intent of the command.
-- Check for any recent changes to scheduled tasks or services on the host, especially if `schtasks.exe` or `sc.exe` were involved, to identify potential persistence mechanisms.
-- Review the system's event logs for any additional context or anomalies around the time of the alert, focusing on security and application logs.
-- Investigate any file modifications or creations that occurred around the time of the alert, especially if `msiexec.exe` or `rundll32.exe` were involved, to identify potential payloads or malicious files.
-- Correlate the alert with other security events or alerts in your environment to determine if this is part of a broader attack campaign or isolated incident.
-
-### False positive analysis
-
-- Legitimate IT support activities: ScreenConnect is often used by IT support teams to perform legitimate tasks that may involve running scripts or commands, such as PowerShell or cmd.exe, which can trigger the detection rule. Users can handle these by creating exceptions for known IT support activities or specific user accounts that regularly perform these tasks.
-- Automated maintenance scripts: Organizations may have automated scripts that run through ScreenConnect for system maintenance or updates, which could be flagged as suspicious. To manage this, users can exclude specific scripts or processes that are verified as part of routine maintenance.
-- Software installations and updates: ScreenConnect might be used to deploy software updates or installations that involve processes like msiexec.exe, which could be misidentified as malicious. Users should document and exclude these known software deployment activities from the detection rule.
-- Remote troubleshooting: During remote troubleshooting sessions, support staff might use tools like net.exe or schtasks.exe to diagnose and fix issues, which could be mistaken for malicious activity. Users can create exceptions for these processes when executed by trusted support personnel.
-- Custom scripts or tools: Organizations may use custom scripts or third-party tools that are executed via ScreenConnect for specific business needs. Users should review and whitelist these custom tools to prevent false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to confirm the legitimacy of the ScreenConnect activity by reviewing logs and correlating with authorized access requests.
-- Terminate any suspicious processes identified in the alert, such as PowerShell or cmd.exe, that were spawned by ScreenConnect.
-- Analyze the system for additional indicators of compromise, such as unauthorized user accounts or scheduled tasks, and remove any malicious artifacts.
-- Reset credentials for any accounts that may have been compromised, focusing on those with administrative privileges.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and network activity, ensuring that future incidents can be detected more effectively.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system to its operational state by applying the latest security patches and updates, and verify the integrity of critical system files.
-- Harden the system by disabling unnecessary services, enforcing least privilege access, and implementing multi-factor authentication for remote access tools like ScreenConnect."""
 
 
 [[rule.threat]]

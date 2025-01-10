@@ -2,7 +2,7 @@
 creation_date = "2020/09/23"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,50 +22,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Pub/Sub Subscription Deletion"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GCP Pub/Sub Subscription Deletion
-
-Google Cloud Platform's Pub/Sub service facilitates asynchronous communication by decoupling event producers and consumers. Subscriptions are critical as they define message delivery to applications. Adversaries may delete subscriptions to disrupt services or evade detection. The detection rule monitors audit logs for successful subscription deletions, flagging potential defense evasion activities.
-
-### Possible investigation steps
-
-- Review the audit logs to confirm the deletion event by checking the `event.dataset:gcp.audit` and `event.action:google.pubsub.v*.Subscriber.DeleteSubscription` fields to ensure the alert is valid.
-- Identify the user or service account responsible for the deletion by examining the `user.email` or `authenticationInfo.principalEmail` fields in the audit log entry.
-- Determine the time and date of the deletion event using the `event.start` or `timestamp` fields to understand the context and timeline of the activity.
-- Investigate the IP address and location from which the deletion request was made by reviewing the `requestMetadata.callerIp` field to identify any unusual access patterns.
-- Check for any other related activities by the same user or service account around the same time, such as other deletions or modifications, to assess if this is part of a broader attack.
-- Analyze the `resource.labels.subscription_id` field to identify which specific subscription was deleted and assess its importance and impact on the system.
-- Use Osquery to gather additional context on the system where the deletion was initiated. For example, run a query like `SELECT * FROM gcp_pubsub_subscriptions WHERE subscription_id = 'deleted_subscription_id';` to retrieve details about the subscription.
-- Review IAM policies and permissions associated with the user or service account to determine if the deletion was authorized or if there are excessive permissions that need to be addressed.
-- Cross-reference the deletion event with any recent changes in the environment, such as deployments or configuration changes, to identify potential causes or correlations.
-- Consult with relevant stakeholders or teams to gather additional context about the subscription's role and any potential business impact due to its deletion.
-
-### False positive analysis
-
-- Routine maintenance or administrative tasks may lead to legitimate subscription deletions, which could be flagged as false positives. Users should verify if the deletion aligns with scheduled maintenance activities.
-- Automated scripts or tools used for managing Pub/Sub resources might delete subscriptions as part of their normal operation. Users can create exceptions for known scripts or service accounts responsible for these actions.
-- Development and testing environments often involve frequent creation and deletion of subscriptions. Users should consider excluding these environments from monitoring or setting up specific rules to differentiate between production and non-production activities.
-- Subscription deletions by authorized personnel for resource optimization or cost management purposes can also trigger alerts. Users should maintain a list of authorized personnel and cross-reference deletion events with their activities to confirm legitimacy.
-
-### Response and remediation
-
-- Immediately verify the legitimacy of the subscription deletion by checking with the responsible team or individual.
-- Contain the potential threat by temporarily suspending any related service accounts or credentials that may have been compromised.
-- Investigate the audit logs to identify any unauthorized access patterns or anomalies leading up to the deletion event.
-- Restore the deleted subscription from backups or recreate it using documented configurations to resume normal operations.
-- Escalate the incident to the security operations team if unauthorized access is confirmed, and initiate a full security incident response.
-- Implement enhanced logging policies to capture detailed access and modification events for Pub/Sub resources.
-- Integrate with a Security Information and Event Management (SIEM) system to automate alerting and correlation of suspicious activities.
-- Review and update access controls and permissions for Pub/Sub resources to ensure the principle of least privilege is enforced.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Educate and train relevant personnel on recognizing and responding to similar threats, leveraging MITRE ATT&CK framework insights for defense evasion tactics.
-
-## Setup
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/pubsub/docs/overview"]

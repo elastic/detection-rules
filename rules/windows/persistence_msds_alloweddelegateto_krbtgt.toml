@@ -2,7 +2,7 @@
 creation_date = "2022/01/27"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -56,49 +56,6 @@ query = '''
 iam where event.action == "modified-user-account" and event.code == "4738" and
   winlog.event_data.AllowedToDelegateTo : "*krbtgt*"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating KRBTGT Delegation Backdoor
-
-In Active Directory, the KRBTGT account is crucial for Kerberos ticket granting. Adversaries may exploit this by altering delegation settings, allowing them to request tickets for KRBTGT, thus maintaining domain persistence. The detection rule identifies such modifications by monitoring specific event actions and codes, flagging unauthorized changes to the delegation attributes linked to KRBTGT.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event code is "4738" and the event action is "modified-user-account" to ensure it aligns with the KRBTGT Delegation Backdoor rule.
-- Examine the `winlog.event_data.AllowedToDelegateTo` field to verify if it contains any entries related to "krbtgt" to confirm unauthorized delegation settings.
-- Check the timestamp of the event to determine when the modification occurred and correlate it with other suspicious activities in the same timeframe.
-- Identify the user account that performed the modification by reviewing the `winlog.event_data.SubjectUserName` and `winlog.event_data.SubjectUserSid` fields to assess if the account has a legitimate reason for such changes.
-- Investigate the source machine from which the modification was made by examining the `winlog.event_data.SubjectLogonId` and `winlog.event_data.IpAddress` fields to trace the origin of the activity.
-- Use Osquery to gather additional context on the KRBTGT account by running a query such as: `SELECT * FROM ad_users WHERE name = 'krbtgt';` to check for any unusual attributes or changes.
-- Cross-reference the modification event with recent login activities of the involved user account to identify any anomalies or patterns of suspicious behavior.
-- Analyze the Active Directory logs for any other recent changes to critical accounts or delegation settings that might indicate a broader compromise.
-- Review historical data to determine if similar modifications have occurred in the past, which could suggest a recurring pattern of unauthorized access attempts.
-- Consult with the IT team to verify if there were any legitimate administrative tasks or changes scheduled that could explain the modification to the KRBTGT delegation settings.
-
-### False positive analysis
-
-- Routine administrative tasks: Legitimate changes to the msDS-AllowedToDelegateTo attribute for service accounts might trigger the rule. Administrators should verify if the modification aligns with scheduled maintenance or updates.
-- Service account updates: Updates or changes to service accounts that require delegation might be flagged. Users can create exceptions for known service accounts that regularly undergo such changes.
-- Automated scripts: Scripts that manage or update delegation settings across multiple accounts could cause false positives. Ensure these scripts are documented and create exceptions for their activity.
-- Third-party software: Some software solutions that integrate with Active Directory may modify delegation settings as part of their operation. Verify the software's behavior and exclude its actions if deemed non-threatening.
-- Regular audits: Security audits or compliance checks might involve reviewing and updating delegation settings, potentially triggering alerts. Document these activities and consider excluding them from the rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or ticket requests.
-- Conduct a thorough investigation to determine the extent of the compromise, focusing on recent changes to the KRBTGT account and related delegation settings.
-- Revert any unauthorized changes to the msDS-AllowedToDelegateTo attribute for the KRBTGT account to its original state.
-- Reset the KRBTGT account password twice to invalidate any existing Kerberos tickets that may have been issued using the compromised account.
-- Review and analyze security logs to identify any other suspicious activities or accounts that may have been compromised.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed audit logs of account modifications and delegation changes for future investigations.
-- Integrate with security information and event management (SIEM) systems to automate detection and alerting of similar threats in the future.
-- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent recurrence.
-- Apply hardening measures such as implementing least privilege access, regular account audits, and continuous monitoring to protect against similar threats."""
 
 
 [[rule.threat]]

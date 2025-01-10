@@ -2,7 +2,7 @@
 creation_date = "2023/08/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -68,49 +68,6 @@ sequence by host.id, user.id with maxspan=1m
    file.path : ("/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*",
      "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*")] by file.name
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File Creation, Execution and Self-Deletion in Suspicious Directory
-
-In Linux environments, temporary directories like `/tmp` and `/dev/shm` are often used for legitimate file storage and execution. However, adversaries exploit these directories to create, execute, and delete malicious files quickly, evading detection. The detection rule identifies this pattern by monitoring file creation, execution, and deletion within a short timeframe, focusing on directories frequently targeted by threat actors. This approach helps in identifying and mitigating potential malware activities that attempt to conceal their presence by self-deleting after execution.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file name and path involved in the creation, execution, and deletion sequence. Pay attention to the `file.name` and `file.path` fields.
-- Check the `host.id` and `user.id` fields to determine which host and user account were involved in the suspicious activity. This can help in understanding the context and potential impact.
-- Investigate the process that executed the file by examining the `process.name` and `process.parent.name` fields. Determine if the parent process is a known shell or script interpreter.
-- Use Osquery to list recent file activities in the suspicious directories. Example query: `SELECT * FROM file_events WHERE action IN ('CREATED', 'DELETED') AND path LIKE '/tmp/%' OR path LIKE '/dev/shm/%';`
-- Correlate the timestamps of file creation, execution, and deletion to confirm the short timespan and sequence of events. This can help validate the alert.
-- Examine the network activity on the host around the time of the alert to identify any potential data exfiltration or command and control communication.
-- Check for any other alerts or logs related to the same `host.id` or `user.id` to identify if this is part of a larger attack pattern.
-- Investigate the origin of the file by checking if it was downloaded using tools like `curl`, `wget`, or similar, as indicated in the query.
-- Review the system's process tree to understand the relationship between the processes involved and identify any anomalies.
-- Analyze the system's bash history or other shell histories for the `user.id` involved to uncover any manual commands that might have led to the file's creation and execution.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger this rule, as package managers or scripts often download, execute, and clean up files in temporary directories. Users can handle these by creating exceptions for known update processes or package manager activities.
-- Automated scripts or cron jobs that perform regular maintenance tasks might also match the rule's criteria. To manage this, users can exclude specific scripts or processes that are verified as non-malicious.
-- Development or testing environments where files are frequently created, executed, and deleted as part of normal operations can lead to false positives. Users should consider excluding these environments or specific directories from monitoring if they are known to be secure.
-- Backup or synchronization tools that temporarily store files in monitored directories before moving or deleting them can be mistaken for malicious activity. Users can add exceptions for these tools by identifying their specific process names or file paths.
-- Security tools or monitoring agents that perform integrity checks or other operations in temporary directories might inadvertently trigger the rule. Users should whitelist these tools by their process names or executable paths to prevent false alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malware.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the files and processes involved in the alert.
-- Capture and preserve relevant logs and artifacts for forensic analysis, including file creation, execution, and deletion events.
-- Terminate any malicious processes identified during the investigation to halt ongoing malicious activities.
-- Remove any malicious files or scripts found in the suspicious directories to prevent re-execution.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed file and process activities, especially in temporary directories.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches are up to date.
-- Harden the system by restricting write and execute permissions in temporary directories and implementing application whitelisting."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

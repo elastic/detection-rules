@@ -2,7 +2,7 @@
 creation_date = "2020/10/05"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -18,50 +18,7 @@ index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Default Cobalt Strike Team Server Certificate"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Default Cobalt Strike Team Server Certificate
-
-Cobalt Strike is a tool used for simulating advanced cyber threats, often employed in security testing. However, adversaries can exploit its default server certificate to establish covert command and control channels. The detection rule identifies this misuse by monitoring network traffic for specific cryptographic hashes associated with the default certificate, flagging potential unauthorized activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the default Cobalt Strike Team Server Certificate by checking the cryptographic hashes: MD5, SHA1, and SHA256.
-- Correlate the alert with other network traffic logs to identify the source and destination IP addresses involved in the communication.
-- Use Packetbeat or a similar tool to capture and analyze the network packets associated with the alert to understand the context of the communication.
-- Investigate the source IP address to determine if it belongs to a known or trusted entity within the organization or if it is an external or suspicious address.
-- Check historical logs to see if the same cryptographic hashes have been detected previously, indicating a persistent or recurring issue.
-- Utilize Osquery to gather more information about the systems involved. For example, run the following query to check for any suspicious processes or network connections on the host: `SELECT pid, name, path, cmdline FROM processes WHERE name LIKE '%cobalt%' OR cmdline LIKE '%cobalt%';`
-- Examine the destination IP address for any known associations with malicious activities or threat actor infrastructure.
-- Investigate any related user accounts or credentials that may have been used in the communication to assess potential compromise.
-- Review any associated DNS queries or domain names to identify if they are linked to known malicious domains or C2 infrastructure.
-- Cross-reference the alert with threat intelligence feeds to determine if the detected activity aligns with known threat actor tactics, techniques, and procedures (TTPs).
-
-### False positive analysis
-
-- Legitimate security testing activities: Organizations conducting authorized penetration tests or red team exercises may use Cobalt Strike with its default server certificate, triggering the detection rule. Users should verify the legitimacy of such activities and consider excluding known testing IP addresses or domains from the rule to prevent false positives.
-- Misconfigured security tools: Some security tools or network monitoring solutions might inadvertently use the default Cobalt Strike certificate for testing or demonstration purposes. Users should ensure these tools are correctly configured and exclude their traffic from the rule if necessary.
-- Internal training environments: Training environments that simulate cyber threats for educational purposes might use the default certificate. Users can manage this by creating exceptions for specific training network segments or IP ranges.
-- Legacy systems or software: Older systems or software that have not been updated might still use the default certificate for compatibility reasons. Users should identify these systems and either update them or exclude their traffic from the detection rule to avoid false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected systems from the network to prevent further command and control communication.
-- Conduct a thorough investigation to confirm the presence of Cobalt Strike by analyzing network traffic and system logs for the identified cryptographic hashes.
-- Remove any unauthorized Cobalt Strike installations and associated malicious files from the affected systems.
-- Change all credentials and access tokens that may have been compromised during the incident.
-- Escalate the incident to the security operations center (SOC) and relevant stakeholders for further analysis and response coordination.
-- Implement enhanced logging policies to capture detailed network traffic and system events, focusing on TLS connections and certificate usage.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities for similar threats in the future.
-- Restore affected systems from clean backups and ensure all security patches and updates are applied.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Implement network segmentation and application whitelisting to reduce the attack surface and prevent unauthorized software execution.
-
-## Threat intel
+note = """## Threat intel
 
 While Cobalt Strike is intended to be used for penetration tests and IR training, it is frequently used by actual threat actors (TA) such as APT19, APT29, APT32, APT41, FIN6, DarkHydrus, CopyKittens, Cobalt Group, Leviathan, and many other unnamed criminal TAs. This rule uses high-confidence atomic indicators, so alerts should be investigated rapidly."""
 references = [

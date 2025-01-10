@@ -2,7 +2,7 @@
 creation_date = "2020/11/19"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -68,48 +68,6 @@ any where host.os.type == "windows" and
     "?:\\Windows\\System32\\hvsirdpclient.exe"
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious RDP ActiveX Client Loaded
-
-The Remote Desktop Services ActiveX Client, mstscax.dll, facilitates remote desktop connections, enabling users to access and control remote systems. Adversaries may exploit this by loading the DLL in unauthorized contexts to perform lateral movement within a network. The detection rule identifies unusual loading of mstscax.dll outside typical system paths, flagging potential misuse indicative of malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of `mstscax.dll` being loaded from an unusual path, as indicated by the `process.executable` field.
-- Verify the legitimacy of the process by checking the `process.executable` path against known safe paths and any additional paths specific to your environment.
-- Examine the `host.os.type` field to ensure the alert pertains to a Windows system, as this rule is specific to Windows environments.
-- Investigate the parent process of the suspicious activity using the `event.category` and `event.action` fields to determine if the process was initiated by a legitimate user or application.
-- Use Osquery to gather more information about the process and its parent. For example, run the following query to list processes with their parent process IDs and paths: `SELECT pid, name, path, parent FROM processes WHERE path LIKE '%mstscax.dll%';`
-- Check the `file.name` field to confirm the file involved is indeed `mstscax.dll` and not a similarly named file that could be used to obfuscate malicious activity.
-- Analyze the network activity associated with the process to identify any unusual remote connections that could indicate lateral movement attempts.
-- Review recent user activity on the affected host to determine if any legitimate user actions could explain the loading of `mstscax.dll` from an unexpected location.
-- Correlate the alert with other security events or logs from the same host or network segment to identify any patterns or additional indicators of compromise.
-- Consult threat intelligence sources to determine if there are any known campaigns or malware that utilize similar techniques involving `mstscax.dll` for lateral movement.
-
-### False positive analysis
-
-- Known false positives for the Suspicious RDP ActiveX Client Loaded rule may include legitimate applications or system processes that load mstscax.dll for valid remote desktop functionalities. These can occur in environments where remote desktop services are frequently used for administrative purposes.
-- Users can handle these false positives by identifying and excluding specific processes or paths that are known to be safe. This can be done by adding exceptions to the detection rule for processes that are verified as non-threatening, such as those associated with trusted remote management tools or internal IT operations.
-- To manage false positives effectively, users should monitor the frequency and context of alerts. If a particular process or path consistently triggers alerts but is confirmed to be legitimate, it should be added to the exclusion list in the detection rule.
-- Regularly review and update the exclusion list to ensure it reflects the current environment and operational needs, minimizing unnecessary alerts while maintaining security vigilance.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further lateral movement and potential data exfiltration.
-- Conduct a thorough investigation to confirm the unauthorized loading of mstscax.dll, reviewing logs and correlating with other security events.
-- Terminate any suspicious processes associated with the unauthorized mstscax.dll loading to halt any ongoing malicious activity.
-- Remove any unauthorized or malicious files and restore the system to a known good state using backups or system restore points.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the compromise.
-- Implement enhanced logging policies to capture detailed information on DLL loads, process executions, and network connections for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities that could be exploited for lateral movement.
-- Conduct a review of user access permissions and implement least privilege principles to reduce the risk of unauthorized access.
-- Educate users on recognizing phishing attempts and other social engineering tactics that adversaries may use to gain initial access to the network."""
 
 
 [[rule.threat]]

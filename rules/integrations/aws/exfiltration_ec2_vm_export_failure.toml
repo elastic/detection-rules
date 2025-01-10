@@ -2,7 +2,7 @@
 creation_date = "2021/04/22"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -23,50 +23,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 VM Export Failure"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS EC2 VM Export Failure
-
-AWS EC2 allows users to export virtual machines for backup or migration. However, adversaries might exploit this feature to exfiltrate sensitive data by exporting VMs to unauthorized locations. The detection rule monitors failed export attempts, focusing on specific AWS CloudTrail events, to identify potential exfiltration activities, aligning with MITRE ATT&CK's exfiltration tactics.
-
-### Possible investigation steps
-
-- Review the specific CloudTrail event details associated with the failed export attempt, focusing on the `event.dataset`, `event.provider`, `event.action`, and `event.outcome` fields to confirm the nature of the failure.
-- Identify the IAM user or role (`userIdentity.arn`) that initiated the failed export task to determine if the action was performed by an authorized entity.
-- Check the source IP address (`sourceIPAddress`) and user agent (`userAgent`) associated with the failed export attempt to identify any unusual access patterns or locations.
-- Investigate the EC2 instance details (`requestParameters.instanceId`) involved in the export attempt to understand the potential sensitivity of the data within the instance.
-- Examine the AWS account activity logs for any other suspicious actions or patterns around the time of the failed export attempt to identify potential coordinated activities.
-- Use Osquery to gather additional context on the EC2 instance by running a query such as: `SELECT * FROM ec2_instance_metadata WHERE instance_id = '<instance_id>';` to retrieve metadata and assess the instance's configuration and network settings.
-- Analyze the CloudTrail logs for any successful export attempts or other related actions by the same IAM user or role to identify potential previous exfiltration activities.
-- Review the permissions and policies associated with the IAM user or role to ensure they align with the principle of least privilege and do not allow unauthorized export actions.
-- Correlate the failed export attempt with any recent changes in the AWS environment, such as new IAM policies or changes in network configurations, to identify potential misconfigurations.
-- Consult with relevant stakeholders or system owners to verify the legitimacy of the export attempt and gather additional context on the business need or lack thereof for such an action.
-
-### False positive analysis
-
-- Routine administrative tasks: Legitimate export attempts by system administrators for backup or migration purposes may trigger the rule. Users can handle these by creating exceptions for known administrator accounts or specific time windows when such tasks are scheduled.
-- Testing and development activities: Developers or IT staff may export VMs as part of testing or development processes. To manage these, users can exclude specific development accounts or tags associated with test environments.
-- Automated backup solutions: Some organizations use automated tools that periodically export VMs for backup. Users should identify and exclude these tools by their associated IAM roles or service accounts to prevent false positives.
-- Misconfigured export tasks: Failed export attempts due to misconfigurations or permission issues might be flagged. Users can review and adjust IAM policies or export configurations to ensure legitimate tasks are not mistakenly identified as threats.
-
-### Response and remediation
-
-- Immediately isolate the affected AWS account to prevent further unauthorized export attempts by restricting permissions and access.
-- Review AWS CloudTrail logs to identify the source of the failed export attempt, including the user or service account involved, and assess if there are any other suspicious activities.
-- Verify the integrity of the EC2 instances involved in the export attempt to ensure no data has been altered or exfiltrated.
-- Change credentials and access keys for any compromised accounts to prevent further unauthorized access.
-- Escalate the incident to the security operations team for a thorough investigation and to determine if the attempt is part of a larger attack.
-- Implement stricter IAM policies to limit export permissions to only trusted and necessary accounts, reducing the risk of unauthorized export attempts.
-- Enhance logging and monitoring by enabling detailed CloudTrail logging and integrating with a SIEM solution for real-time alerting and analysis.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Restore any affected systems to their operational state by verifying configurations and ensuring all security patches are applied.
-- Implement hardening measures such as multi-factor authentication, regular audits of access permissions, and continuous security training for users to prevent future incidents.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport.html#export-instance"]

@@ -2,7 +2,7 @@
 creation_date = "2021/02/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -72,49 +72,6 @@ sequence by host.id with maxspan=15s
 [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and process.parent.name : ("installer", "package_script_service") and process.name : ("bash", "sh", "zsh", "python", "osascript", "tclsh*")] by process.entity_id
 [network where host.os.type == "macos" and event.type == "start" and process.name : ("curl", "osascript", "wget", "python", "java", "ruby", "node")] by process.parent.entity_id
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating MacOS Installer Package Spawns Network Event
-
-MacOS installer packages, often with a .pkg extension, are used to distribute software. Adversaries exploit this by embedding scripts that execute upon installation, potentially launching network connections to download further malicious payloads. The detection rule identifies suspicious behavior by monitoring for installer-related processes spawning shell commands, followed by network activity, indicating possible malicious package execution.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific `host.id` and `process.entity_id` involved in the suspicious activity.
-- Examine the parent process name (`installer` or `package_script_service`) to confirm it is associated with a MacOS installer package.
-- Investigate the child process spawned (e.g., `bash`, `sh`, `zsh`, `python`) to determine if it executed any unusual or unexpected commands.
-- Check the network activity details, focusing on the process name (`curl`, `osascript`, `wget`, `python`, `java`, `ruby`, `node`) to identify any suspicious external connections.
-- Use Osquery to gather additional context on the processes involved. For example, run the following query to list recent processes executed by the installer: `SELECT pid, name, path, cmdline FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'installer');`
-- Investigate the command line arguments of the suspicious processes to identify any potentially malicious scripts or commands.
-- Review the file paths and hashes of the installer package and any downloaded files to check for known malicious signatures or anomalies.
-- Analyze the timing and sequence of events to determine if the network activity directly followed the process execution, indicating a potential download of additional payloads.
-- Check system logs for any other related events or anomalies around the time of the alert to gather more context on the system's state.
-- Correlate the findings with threat intelligence sources to determine if the behavior matches any known attack patterns or campaigns.
-
-### False positive analysis
-
-- Legitimate software installations: Some legitimate software packages may use scripts to perform necessary setup tasks, including network connections to download updates or additional components. Users should verify the source and integrity of the software to determine if the behavior is expected.
-- System updates: MacOS system updates or software updates from trusted vendors might trigger this rule due to their use of scripts and network connections during the installation process. Users can create exceptions for known update processes to prevent false positives.
-- Development tools: Developers using scripting languages and network tools for legitimate purposes, such as testing or deploying applications, may inadvertently trigger this rule. Users can exclude specific development environments or tools from monitoring to reduce false positives.
-- Automated scripts: Automated maintenance or configuration scripts that use network connections might be flagged. Users should review these scripts and, if deemed safe, add them to an exclusion list to avoid repeated alerts.
-- Custom software deployments: Organizations deploying custom software internally may use installer packages with embedded scripts that access the network. Users should ensure these packages are signed and trusted, then configure exceptions for these known processes.
-
-### Response and remediation
-
-- Immediately isolate the affected MacOS system from the network to prevent further malicious activity and data exfiltration.
-- Conduct a thorough investigation to identify the malicious package by reviewing recent installations and correlating them with the alert timestamp.
-- Terminate any suspicious processes identified in the alert, such as those initiated by the installer package, to halt ongoing malicious activities.
-- Remove the identified malicious package and any additional payloads it may have downloaded to ensure the system is free from threats.
-- Review and analyze system logs, including process execution and network activity, to understand the scope of the compromise and identify any lateral movement.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and network activity, aiding in future investigations and threat detection.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Restore the system to its operational state by reinstalling the operating system or restoring from a clean backup, ensuring all security patches are applied.
-- Harden the system by implementing security best practices, such as disabling unnecessary services, enforcing application whitelisting, and educating users on recognizing phishing attempts and suspicious software."""
 
 
 [[rule.threat]]

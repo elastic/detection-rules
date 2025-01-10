@@ -2,7 +2,7 @@
 creation_date = "2020/12/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/31"
 
 [rule]
 author = ["Elastic"]
@@ -70,49 +70,6 @@ file where host.os.type == "macos" and event.type in ("change", "creation") and 
       "/System/Library/PrivateFrameworks/DesktopServicesPriv.framework/Versions/A/Resources/DesktopServicesHelper"
     )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Sublime Plugin or Application Script Modification
-
-Sublime Text, a popular text editor, supports plugins and scripts written in Python to enhance functionality. Adversaries may exploit this by altering or creating scripts to execute malicious code whenever Sublime is launched, achieving persistence. The detection rule identifies suspicious modifications to Python files in specific Sublime directories on macOS, excluding legitimate processes, to flag potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file path and event type (change or creation) that triggered the alert. Focus on the `file.path` and `event.type` fields for context.
-- Verify the legitimacy of the process that modified or created the Python file by checking the `process.executable` field against known benign executables.
-- Use Osquery to list all Python files in the specified Sublime directories to identify any unexpected or recently modified files. Example query: `SELECT path, mtime FROM file WHERE path LIKE '/Users/%/Library/Application Support/Sublime Text%/Packages/%.py' OR path = '/Applications/Sublime Text.app/Contents/MacOS/sublime.py';`
-- Check the modification timestamps of the identified files to correlate with the alert time and determine if the changes are recent and potentially suspicious.
-- Investigate the content of the modified or newly created Python files for any signs of obfuscation, unusual imports, or suspicious code that could indicate malicious intent.
-- Cross-reference the user account associated with the file modification to determine if the activity aligns with expected user behavior or if it could be indicative of compromised credentials.
-- Review system logs and other security alerts around the time of the file modification to identify any related suspicious activities or anomalies.
-- Check for any recent installations or updates of Sublime Text or its plugins that could explain the file changes as legitimate.
-- Investigate the network activity of the host around the time of the alert to identify any potential command and control communication or data exfiltration attempts.
-- Consult threat intelligence sources to determine if there are any known threats or campaigns targeting Sublime Text plugins or scripts that match the observed behavior.
-
-### False positive analysis
-
-- Frequent updates or installations of Sublime Text plugins by developers can trigger false positives, as these actions involve legitimate changes to Python files in the monitored directories.
-- Automated scripts or tools used by developers to manage Sublime Text configurations may also cause false positives by creating or modifying Python files as part of their normal operation.
-- Users can manage these false positives by creating exceptions for specific processes or paths known to be safe, such as trusted plugin management tools or scripts.
-- Excluding specific user accounts or directories that are known to frequently update or modify Sublime Text plugins can help reduce noise from legitimate activities.
-- Monitoring the frequency and context of file changes can help distinguish between normal development activities and potential threats, allowing for more informed decisions on exclusions.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of the potential threat.
-- Conduct a thorough investigation to identify any unauthorized modifications to Sublime Text plugins or scripts, focusing on the specified directories.
-- Review recent changes to the system, including new user accounts, scheduled tasks, or other persistence mechanisms that may have been established.
-- Restore any modified or malicious Python scripts to their original state using known good backups or reinstall the Sublime Text application if necessary.
-- Implement logging policies to capture detailed file modification events, especially in directories where Sublime Text plugins and scripts are stored.
-- Integrate security solutions with threat intelligence feeds to enhance detection capabilities for similar threats in the future.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is confirmed to be part of a larger attack campaign.
-- Review and update security policies to restrict unauthorized access to application directories and enforce the principle of least privilege.
-- Conduct a post-incident review to identify gaps in detection and response processes and implement improvements.
-- Educate users on the risks of downloading and installing unverified plugins or scripts to prevent similar incidents."""
 
 
 [[rule.threat]]

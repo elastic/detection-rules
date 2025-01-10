@@ -2,7 +2,7 @@
 creation_date = "2020/12/22"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -50,49 +50,6 @@ event.category:file and event.type:(change or creation) and
               /usr/bin/chef-client
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating SSH Authorized Keys File Modification
-
-SSH authorized_keys files are crucial for secure, password-less authentication, allowing specified users to access systems via public keys. Adversaries exploit this by adding their keys, ensuring persistent access. The detection rule identifies unauthorized changes to these files, excluding benign processes, to flag potential malicious activity, aligning with MITRE ATT&CK's persistence tactics.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file that was modified, focusing on `file.name` to determine if it was "authorized_keys", "authorized_keys2", or another critical SSH configuration file.
-- Examine the `event.category` and `event.type` fields to confirm the nature of the change, whether it was a file creation or modification.
-- Check the `process.executable` field to identify the process responsible for the modification and verify if it is listed in the exclusion list of benign processes.
-- Investigate the user account associated with the modification event to determine if it aligns with expected administrative activity or if it appears suspicious.
-- Use Osquery to list all current entries in the authorized_keys file for the affected user account. Example query: `SELECT * FROM authorized_keys WHERE path = '/home/username/.ssh/authorized_keys';`
-- Cross-reference the public keys found in the authorized_keys file with known legitimate keys to identify any unauthorized additions.
-- Review recent login events for the affected user account to identify any unusual access patterns or times that could indicate unauthorized access.
-- Analyze system logs around the time of the modification event to identify any other suspicious activities or related events.
-- Investigate any network connections or data transfers initiated by the process responsible for the modification to assess potential data exfiltration or lateral movement.
-- Correlate the findings with other security alerts or incidents to determine if this event is part of a broader attack campaign.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators often modify SSH authorized_keys files during regular maintenance or when adding new users. These legitimate changes can trigger false positives.
-- Automated configuration management: Tools like Puppet, Chef, or Ansible may update authorized_keys files as part of their configuration management processes, leading to benign alerts.
-- Software updates: Some software installations or updates might modify SSH configuration files, including authorized_keys, as part of their setup process.
-- Development tools: Developers using tools like Git or Maven might inadvertently trigger alerts when these tools interact with SSH keys during development activities.
-- To manage false positives, users can refine the detection rule by adding exceptions for known benign processes or specific user actions that are regularly audited and verified. This can be done by updating the exclusion list in the detection rule to include additional trusted processes or paths that are identified during routine operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access.
-- Verify the integrity of the SSH authorized_keys file by comparing it with a known good backup or baseline.
-- Remove any unauthorized keys found in the authorized_keys file and reset SSH configurations to default settings.
-- Conduct a thorough investigation to identify how the adversary gained access and whether other systems are affected.
-- Review system logs and security alerts to trace the adversary's activities and identify any additional compromised accounts or systems.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed SSH access logs and file modification events for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities.
-- Restore the system to its operational state by applying security patches, updating software, and ensuring all configurations are secure.
-- Harden the system by enforcing strong authentication mechanisms, such as multi-factor authentication, and regularly auditing user access permissions."""
 
 
 [[rule.threat]]

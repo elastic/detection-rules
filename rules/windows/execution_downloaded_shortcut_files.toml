@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/08/06"
 
 [rule]
 author = ["Elastic"]
@@ -31,49 +31,6 @@ type = "eql"
 query = '''
 file where host.os.type == "windows" and event.type == "creation" and file.extension == "lnk" and file.Ext.windows.zone_identifier > 1
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Downloaded Shortcut Files
-
-Shortcut files (.lnk) are used in Windows environments to link to executable files or scripts, streamlining user access. Adversaries exploit this by embedding malicious commands in .lnk files, often delivered via phishing, to execute unauthorized actions. The detection rule identifies .lnk files created on Windows systems with a zone identifier indicating they were downloaded, flagging potential phishing attempts.
-
-### Possible investigation steps
-
-- Verify the alert by checking the file creation event details, focusing on the `file.extension` and `file.Ext.windows.zone_identifier` fields to confirm the presence of a downloaded .lnk file.
-- Examine the file path and name to determine if it matches known malicious patterns or if it appears suspicious or unusual for the user or system.
-- Review the user account associated with the file creation event to assess if the activity aligns with their typical behavior or if it appears anomalous.
-- Investigate the source of the download by analyzing network logs or browser history to identify the URL or IP address from which the .lnk file was downloaded.
-- Use Osquery to gather additional context about the .lnk file. For example, run the following query to list all .lnk files in the user's Downloads directory: `SELECT * FROM file WHERE path LIKE 'C:\\\\Users\\\\%\\\\Downloads\\\\%.lnk';`
-- Check the file hash against threat intelligence databases or a service like VirusTotal to determine if the .lnk file is associated with known malware.
-- Analyze the contents of the .lnk file to identify any embedded commands or scripts that could indicate malicious intent.
-- Review recent email logs for the user to identify any phishing emails that may have delivered the .lnk file as an attachment or link.
-- Correlate the event with other security alerts or logs from the same timeframe to identify any related suspicious activities or patterns.
-- Consult with the user to verify if they recall downloading the file and if they can provide any context or details about its origin.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger the rule if they include .lnk files downloaded from trusted sources. Users should verify the source and context of the download to determine if it is a false positive.
-- Corporate environments often use remote desktop or file-sharing services that might download .lnk files as part of routine operations. Users can create exceptions for known and trusted services to reduce noise.
-- Some web browsers or email clients may download .lnk files as part of their normal operation, especially if configured to save shortcuts for frequently accessed sites or applications. Users should review browser or email client settings and consider excluding these specific applications if they are known to be safe.
-- Automated scripts or tools that download and create .lnk files for legitimate purposes, such as system maintenance or monitoring, can be excluded by identifying the specific processes or scripts involved and adding them to an exception list.
-- Users should regularly review and update their exception lists to ensure that only verified and non-threatening behaviors are excluded, maintaining a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Analyze the .lnk file to determine the embedded command or script and assess its impact.
-- Check for any unauthorized changes or execution of malicious payloads on the system.
-- Remove the malicious .lnk file and any associated malware or unauthorized software.
-- Conduct a thorough scan of the system using updated antivirus and anti-malware tools.
-- Review user activity logs to identify how the .lnk file was downloaded and if any other systems are affected.
-- Escalate the incident to the security team if the threat is part of a larger campaign or if multiple systems are compromised.
-- Implement or update email filtering and web proxy rules to block similar phishing attempts in the future.
-- Enhance logging policies to capture detailed file creation and execution events for better future detection.
-- Restore the system from a clean backup if necessary and apply security patches and updates to harden the system against similar threats."""
 
 
 [[rule.threat]]

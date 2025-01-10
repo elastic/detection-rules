@@ -2,7 +2,7 @@
 creation_date = "2022/09/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -65,49 +65,6 @@ host.os.type : "linux" and event.category : "process" and event.action : ("exec"
   process.parent.name:(gen_passwd_sets or scc_* or wazuh-modulesd)
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Shadow File Read via Command Line Utilities
-
-In Linux environments, the `/etc/shadow` file stores hashed passwords and is crucial for system security. Adversaries with elevated privileges may attempt to access this file to extract credentials, facilitating lateral movement and unauthorized access. The detection rule identifies suspicious command-line attempts to read this file, excluding legitimate processes, by monitoring process execution patterns and arguments, thus helping to thwart potential credential theft.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of suspicious command-line attempts to access the `/etc/shadow` file, focusing on the `process.args` and `process.executable` fields.
-- Verify the user account associated with the process by examining the `user.name` field to determine if the access was performed by a legitimate user or an unexpected account.
-- Check the `host.os.type` and `event.category` fields to ensure the alert pertains to a Linux system and involves a process execution event.
-- Investigate the `process.parent.name` field to identify the parent process and assess whether it is a known legitimate process or potentially malicious.
-- Examine the `process.working_directory` field to confirm if the process was executed from the `/etc` directory, which might indicate an attempt to access the shadow file directly.
-- Utilize Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name = '<suspicious_process_name>';` to retrieve detailed information about the process, including its command line, parent process, and user.
-- Cross-reference the `process.executable` field with known legitimate utilities and paths to rule out false positives, focusing on paths not excluded in the query.
-- Analyze recent login events and privilege escalation activities on the host to identify any unauthorized access attempts that might correlate with the alert.
-- Review system logs for any other suspicious activities or anomalies around the time of the alert to gather more context on potential malicious behavior.
-- Investigate any network connections initiated by the suspicious process to determine if there was any data exfiltration or communication with external hosts.
-
-### False positive analysis
-
-- System maintenance tasks: Legitimate system administrators may access the `/etc/shadow` file during routine maintenance or configuration changes. To handle these, users can create exceptions for known maintenance scripts or processes by adding them to the exclusion list in the detection rule.
-- Backup operations: Automated backup processes might access the `/etc/shadow` file as part of a comprehensive system backup. Users should identify and exclude these backup processes by specifying their executable paths or parent process names in the rule.
-- Security software: Some security tools, such as vulnerability scanners or compliance checkers, may read the `/etc/shadow` file to verify system security settings. Users can manage these false positives by excluding the specific security software processes from the detection rule.
-- Containerized environments: In environments using containers, certain processes might access the `/etc/shadow` file as part of container management tasks. Users should exclude paths related to container runtimes, such as Docker or containerd, to prevent false positives.
-- Custom scripts: Organizations may have custom scripts that legitimately access the `/etc/shadow` file for specific operational needs. Users should review these scripts and add them to the exclusion criteria based on their executable paths or parent process names.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Verify the legitimacy of the process attempting to access the /etc/shadow file by reviewing the process tree and associated user accounts.
-- Conduct a thorough investigation to determine if any credentials have been compromised and reset passwords for affected accounts.
-- Review system logs and security alerts to identify any additional suspicious activities or related incidents.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging and monitoring for critical files and directories, including /etc/shadow, to detect future unauthorized access attempts.
-- Apply security patches and updates to address any vulnerabilities that may have been exploited for privilege escalation.
-- Restore the system to a known good state from backups if necessary, ensuring that all compromised accounts and processes are remediated.
-- Conduct a post-incident review to identify gaps in security controls and update policies and procedures accordingly.
-- Implement hardening measures such as enforcing the principle of least privilege, using multi-factor authentication, and regularly auditing user access rights."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

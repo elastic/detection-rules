@@ -2,7 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 anomaly_threshold = 70
@@ -52,49 +52,6 @@ tags = [
     "Tactic: Lateral Movement",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Spike in Number of Connections Made from a Source IP
-
-Remote Desktop Protocol (RDP) is a common technology used for remote management and access. Adversaries exploit RDP to move laterally within networks, seeking valuable data or further access. The detection rule identifies unusual spikes in RDP connections from a single source IP, signaling potential lateral movement attempts, aligning with MITRE ATT&CK's lateral movement tactics.
-
-### Possible investigation steps
-
-- Review the alert details to identify the source IP address and the list of destination IPs involved in the spike of RDP connections.
-- Verify the legitimacy of the source IP by checking if it belongs to a known and trusted device within the organization.
-- Analyze historical logs to determine if the source IP has exhibited similar behavior in the past or if this is an anomaly.
-- Cross-reference the source IP with threat intelligence feeds to check for any known malicious activity associated with it.
-- Use Osquery to gather more information about the source system. For example, run the following query to list active RDP sessions: `SELECT * FROM rdp_connections WHERE local_address = '<source_ip>';`
-- Investigate the destination IPs to determine if they are critical assets or if they have any known vulnerabilities that could be exploited.
-- Check for any recent changes or updates on the source system that might explain the spike in connections, such as new software installations or configuration changes.
-- Review user activity logs to identify any unusual login patterns or failed login attempts associated with the source IP.
-- Examine network traffic logs for any signs of data exfiltration or other suspicious activities originating from the source IP.
-- Collaborate with the IT team to verify if there were any legitimate administrative tasks or maintenance activities that could account for the increased RDP connections.
-
-### False positive analysis
-
-- Routine administrative tasks: Regularly scheduled maintenance or updates by IT staff can result in a spike in RDP connections from a single source IP. These activities are typically non-threatening and can be excluded by identifying and whitelisting the IP addresses of known administrative machines.
-- Automated scripts or tools: Some organizations use automated scripts or management tools that initiate multiple RDP connections for monitoring or configuration purposes. These should be reviewed and, if deemed safe, excluded from triggering alerts by adding them to an exception list.
-- Load balancers or proxy servers: In environments where RDP connections are routed through load balancers or proxy servers, a single source IP may appear to make numerous connections. Identifying these devices and excluding their IPs can prevent false positives.
-- Remote work scenarios: Employees working remotely might connect to multiple systems via RDP for legitimate business purposes. Recognizing these patterns and excluding the associated IPs can help reduce unnecessary alerts.
-- Testing and development environments: In testing or development environments, frequent RDP connections might occur as part of normal operations. These environments can be excluded from monitoring or have specific rules applied to minimize false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement by the attacker.
-- Conduct a thorough investigation to identify the source of the RDP connection spike, including reviewing logs and network traffic for any signs of unauthorized access or exploitation.
-- Reset credentials for any accounts that may have been compromised, especially those with administrative privileges, to prevent further unauthorized access.
-- Apply security patches and updates to all systems, focusing on vulnerabilities related to RDP and remote services, to mitigate exploitation risks.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging and monitoring for RDP connections and other remote access protocols to detect future anomalies and potential threats.
-- Review and update firewall rules and access controls to restrict RDP access to only trusted IP addresses and necessary users.
-- Conduct a post-incident review to identify gaps in security controls and processes, and develop an action plan to address these weaknesses.
-- Restore the affected system to its operational state by reimaging or rebuilding it from a known good backup, ensuring all security measures are in place.
-- Implement hardening measures such as enabling network-level authentication for RDP, using multi-factor authentication, and disabling unused services to reduce the attack surface."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

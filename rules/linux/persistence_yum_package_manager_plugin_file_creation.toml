@@ -2,7 +2,7 @@
 creation_date = "2024/06/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -85,49 +85,6 @@ file.path : ("/usr/lib/yum-plugins/*", "/etc/yum/pluginconf.d/*") and not (
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Yum Package Manager Plugin File Creation
-
-Yum, a package manager for Fedora-based systems, manages software installations and updates. It uses plugins to extend functionality, which can be targeted by attackers to insert malicious code, ensuring persistence by executing unauthorized actions whenever Yum is used. The detection rule identifies suspicious file creations in Yum's plugin directories, excluding legitimate processes and temporary files, to flag potential backdoor attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file path where the creation or rename event occurred, focusing on paths like `/usr/lib/yum-plugins/*` and `/etc/yum/pluginconf.d/*`.
-- Check the process that triggered the file creation event by examining the `process.executable` field to determine if it matches any known legitimate processes or if it appears suspicious.
-- Investigate the `process.name` field to identify the process responsible for the file creation, ensuring it is not a known benign process like `yumBackend.py`.
-- Verify the file extension using the `file.extension` field to ensure it is not a temporary or swap file (e.g., `.swp`, `.swpx`, `.swx`).
-- Use Osquery to list all files in the Yum plugin directories and check for recent modifications or unusual file names. Example query: `SELECT path, filename, mtime FROM file WHERE path LIKE '/usr/lib/yum-plugins/%' OR path LIKE '/etc/yum/pluginconf.d/%';`
-- Cross-reference the `process.executable` path with known system paths to identify if it originates from unusual locations such as `/nix/store/*` or `/var/lib/dpkg/*`.
-- Examine the file metadata, including creation and modification timestamps, to determine if the timing aligns with any known system changes or updates.
-- Analyze system logs for any related events around the time of the file creation to identify potential unauthorized access or changes.
-- Investigate the user account associated with the process that created the file to determine if it has the necessary permissions and if the activity aligns with typical user behavior.
-- Review any recent changes to Yum configurations or updates that might explain the file creation, ensuring no unauthorized modifications have been made.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger file creation events in Yum's plugin directories, especially when performed by system administrators or automated scripts. Users can manage these by adding exceptions for known safe processes or scripts that regularly perform such actions.
-- Temporary files created by text editors or system processes, such as those with extensions like "swp", "swpx", or "swx", can be mistakenly flagged. Users should ensure these extensions are included in the exclusion list to prevent unnecessary alerts.
-- Automation tools like Ansible may create temporary files in these directories, which can be mistaken for suspicious activity. Users can exclude file names starting with ".ansible" or ".ansible_tmp" to reduce false positives.
-- Processes running from specific directories, such as "/nix/store/*" or "/var/lib/dpkg/*", might be part of legitimate package management activities. Users should consider excluding these paths if they are part of regular system operations.
-- Certain system utilities like "sed" or "perl" might create temporary files during normal operations. Users can exclude these processes when they match specific patterns, such as "sed*" or "e2scrub_all.tmp*", to avoid false alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the source of the suspicious file creation, focusing on recent changes in the Yum plugin directories.
-- Review system logs and use forensic tools to trace the origin of the unauthorized file creation, paying attention to any unusual processes or user activities.
-- Remove any unauthorized or suspicious files from the Yum plugin directories and restore them from a known good backup if available.
-- Update all system packages and plugins to the latest versions to patch any known vulnerabilities that could have been exploited.
-- Implement strict access controls and permissions for the Yum plugin directories to limit who can create or modify files.
-- Enhance logging policies to include detailed monitoring of file creation and modification events in critical system directories.
-- Integrate security solutions such as intrusion detection systems (IDS) and endpoint detection and response (EDR) tools to improve threat detection capabilities.
-- Escalate the incident to the security operations center (SOC) or relevant security team for further analysis and to determine if the attack is part of a larger campaign.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans to prevent future occurrences."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

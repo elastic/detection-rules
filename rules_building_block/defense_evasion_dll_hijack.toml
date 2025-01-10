@@ -2,7 +2,7 @@
 creation_date = "2023/07/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -79,49 +79,6 @@ library where host.os.type == "windows" and
         "553451008520a5f0110d84192cba40208fb001c27454f946e85e6fb2e6553292"
     )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unsigned DLL Loaded by a Trusted Process
-
-In Windows environments, DLLs are essential for modularizing code, allowing trusted processes to load necessary functions dynamically. Adversaries exploit this by placing malicious, unsigned DLLs in directories of trusted applications, causing them to execute under the guise of legitimate processes. The detection rule identifies such anomalies by checking for unsigned DLLs loaded by trusted processes, focusing on recent file modifications and excluding known safe hashes, thus highlighting potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to identify the trusted process that loaded the unsigned DLL, focusing on the `process.executable` and `dll.path` fields.
-- Verify the digital signature status of the process using the `process.code_signature.status` field to confirm it is indeed trusted.
-- Check the `dll.Ext.relative_file_creation_time` and `dll.Ext.relative_file_name_modify_time` fields to determine if the DLL was recently created or modified, which could indicate suspicious activity.
-- Investigate the `dll.hash.sha256` field to see if the hash is known to be associated with malicious activity by cross-referencing with threat intelligence databases.
-- Use Osquery to list all DLLs loaded by the process in question, focusing on unsigned ones. Example query: `SELECT path, name, pid FROM processes JOIN process_open_sockets USING (pid) WHERE path LIKE '%<process_name>%' AND path NOT LIKE '%.dll';`
-- Examine the directory from which the DLL was loaded to identify any other suspicious files or recent changes, using the `dll.path` field for context.
-- Check the `user.id` field to determine which user account was associated with the process execution, looking for unusual or unauthorized accounts.
-- Investigate the `dll.Ext.device.product_id` field to see if the DLL was loaded from a virtual device, which might indicate an attempt to bypass security controls.
-- Review system logs and other security alerts around the time of the DLL loading to identify any correlated suspicious activities or patterns.
-- Consult with the application owner or system administrator to verify if the unsigned DLL is expected or part of a legitimate update or installation.
-
-### False positive analysis
-
-- Known false positives may include legitimate software updates or installations where unsigned DLLs are temporarily loaded by trusted processes. These scenarios can occur when software vendors release updates that have not yet been signed or when installation processes involve unsigned components.
-- Another potential false positive is the use of custom or in-house developed applications that may not have signed DLLs but are still trusted within the organization. These applications might load unsigned DLLs as part of their normal operation.
-- To manage these false positives, users can create exceptions for specific DLL hashes that are known to be safe but unsigned. This can be done by adding these hashes to the exclusion list in the detection rule.
-- Users can also exclude specific processes or directories from monitoring if they are known to frequently load unsigned DLLs as part of their legitimate function. This helps in reducing noise and focusing on truly suspicious activities.
-- Regularly updating the list of known safe hashes and maintaining a whitelist of trusted applications can help in minimizing false positives while ensuring that legitimate activities are not flagged as threats.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Verify the legitimacy of the unsigned DLL by checking its origin and purpose; if malicious, remove it from the system.
-- Conduct a thorough investigation to identify how the unsigned DLL was introduced, focusing on recent file modifications and access logs.
-- Review and update the list of known safe hashes to ensure that legitimate DLLs are not mistakenly flagged in the future.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is confirmed to be part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed process execution and DLL loading activities for future investigations.
-- Integrate threat intelligence feeds to automatically update detection rules with the latest known malicious hashes and signatures.
-- Restore the system to its operational state by reinstalling affected applications and applying the latest security patches.
-- Conduct a security audit of the application directories to ensure no other unauthorized files are present.
-- Implement hardening measures such as application whitelisting and enforcing strict code-signing policies to prevent unauthorized DLL loading."""
 
 
 [[rule.threat]]

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/31"
 
 [rule]
 author = ["Elastic"]
@@ -157,52 +157,6 @@ process where host.os.type == "windows" and event.type == "start" and
     )
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Masquerading as Browser Process
-
-Browsers are integral to accessing web content, often running with elevated privileges and trusted by users. Adversaries exploit this by masquerading malicious processes as legitimate browser processes to evade detection, bypass security measures, or deceive users. The detection rule identifies anomalies in browser processes, such as unexpected signatures or paths, to flag potential masquerading attempts, thereby enhancing security posture against such tactics.
-
-### Possible investigation steps
-
-- Review the process name and executable path to determine if it matches known legitimate browser paths or if it appears suspicious or unusual.
-- Check the process code signature details, including the subject name and trust status, to verify if the process is signed by a recognized and trusted entity.
-- Investigate the parent process to understand how the suspicious process was initiated and whether it was spawned by a legitimate application or a potentially malicious one.
-- Examine the command-line arguments used to start the process for any unusual or suspicious flags that might indicate malicious behavior.
-- Utilize Osquery to gather additional context about the process. For example, run the following query to list processes with their parent process and command-line arguments:
-  ```sql
-  SELECT pid, name, path, cmdline, parent FROM processes WHERE name IN ('chrome.exe', 'msedge.exe', 'firefox.exe', 'brave.exe', 'opera.exe', 'whale.exe');
-  ```
-- Cross-reference the process executable path with known software installation directories to determine if the executable is located in an expected location.
-- Analyze recent system logs and events around the time the process was started to identify any related activities or anomalies.
-- Investigate the network connections established by the process to identify any suspicious or unexpected external communications.
-- Check for any recent changes to the system, such as software installations or updates, that might explain the presence of the process.
-- Consult threat intelligence sources to determine if there are any known threats or campaigns associated with the process name or signature details.
-
-### False positive analysis
-
-- Legitimate software that uses browser processes for automation or testing, such as Selenium or Puppeteer, may trigger false positives. Users can handle these by adding exceptions for known automation tools in the detection rule.
-- Security software or monitoring tools that utilize browser processes for sandboxing or analysis, like HP Sure Click or Dynatrace, may be flagged. Users should exclude these processes by verifying their code signatures and adding them to an allowlist.
-- Custom or enterprise-specific applications that embed browser components might be misidentified. Users should ensure these applications are signed with trusted certificates and add them to exceptions if necessary.
-- Updates or beta versions of browsers that have not yet been recognized by the detection rule may cause false positives. Users can manage this by temporarily excluding these versions until the rule is updated.
-- Non-standard installations of browsers, such as portable versions, might not match expected paths or signatures. Users should verify the legitimacy of these installations and adjust the rule to accommodate them.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malware.
-- Verify the legitimacy of the suspicious browser process by checking the process's executable path and code signature against known trusted sources.
-- Terminate any identified malicious processes to stop ongoing malicious activity.
-- Conduct a thorough investigation of the system to identify any additional indicators of compromise or persistence mechanisms.
-- Review and analyze system logs to trace the origin and timeline of the suspicious activity, leveraging MITRE ATT&CK framework for context on masquerading techniques.
-- Restore the system from a known good backup if the integrity of the system is compromised.
-- Update and patch all software and operating systems to mitigate vulnerabilities that could be exploited by similar threats.
-- Implement enhanced logging policies to capture detailed process execution and code signature verification for future incidents.
-- Integrate threat intelligence feeds and security solutions to improve detection capabilities and reduce response times.
-- Escalate the incident to the appropriate internal or external cybersecurity team if the threat level is beyond current handling capabilities."""
 
 
 [[rule.threat]]

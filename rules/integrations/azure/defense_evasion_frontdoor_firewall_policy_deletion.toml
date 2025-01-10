@@ -2,7 +2,7 @@
 creation_date = "2021/08/01"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Austin Songer"]
@@ -24,50 +24,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Frontdoor Web Application Firewall (WAF) Policy Deleted"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Azure Frontdoor Web Application Firewall (WAF) Policy Deleted
-
-Azure Frontdoor WAF policies are crucial for protecting web applications by filtering and monitoring HTTP requests to block malicious traffic. Adversaries may delete these policies to bypass security measures, facilitating unauthorized access or data exfiltration. The detection rule identifies such deletions by monitoring Azure activity logs for specific operations, alerting security teams to potential defense evasion attempts.
-
-### Possible investigation steps
-
-- Review the Azure activity logs to confirm the deletion event by filtering for `event.dataset:azure.activitylogs` and `azure.activitylogs.operation_name:"MICROSOFT.NETWORK/FRONTDOORWEBAPPLICATIONFIREWALLPOLICIES/DELETE"` with `event.outcome:(Success or success)`.
-- Identify the user or service principal responsible for the deletion by examining the `azure.activitylogs.caller` field in the activity logs.
-- Check the timestamp of the deletion event to determine when the policy was deleted and correlate it with other security events or alerts around the same time.
-- Investigate the IP address and location associated with the deletion event using the `azure.activitylogs.callerIpAddress` field to identify any anomalies or suspicious access patterns.
-- Review the audit logs for any recent changes to user permissions or roles that might have allowed unauthorized deletion of the WAF policy.
-- Examine other Azure resources and configurations for any additional unauthorized changes or suspicious activities that might indicate a broader attack.
-- Use Osquery to gather more information about the system from which the deletion was initiated. For example, run the following Osquery query to list recent network connections: `SELECT * FROM process_open_sockets WHERE remote_address = '<IP_ADDRESS_FROM_LOGS>';`.
-- Check for any recent failed login attempts or unusual login activities in Azure Active Directory that could suggest compromised credentials.
-- Investigate any recent alerts or incidents related to the affected Azure Frontdoor instance to identify potential precursors or related activities.
-- Collaborate with the application and network teams to understand the potential impact of the WAF policy deletion on the security posture and application availability.
-
-### False positive analysis
-
-- Routine maintenance or administrative actions: Legitimate deletions of Azure Frontdoor WAF policies may occur during scheduled maintenance or when administrators are updating or replacing policies. These actions can be mistaken for malicious activity.
-- Policy migration: During a migration process, old WAF policies might be deleted as new ones are implemented. This can trigger alerts even though the activity is part of a planned upgrade or restructuring.
-- Testing and development environments: In non-production environments, frequent policy deletions may occur as part of testing or development processes. These should be distinguished from production environment alerts.
-- To manage these false positives, users can create exceptions for known administrative accounts or IP addresses that regularly perform these actions. Additionally, implementing a change management process that logs and approves legitimate deletions can help differentiate between authorized and unauthorized activities.
-
-### Response and remediation
-
-- Immediately isolate affected systems to prevent further unauthorized access or data exfiltration.
-- Review Azure activity logs to confirm the deletion of the WAF policy and identify any unauthorized access or suspicious activities around the time of deletion.
-- Restore the deleted Azure Frontdoor WAF policy from backups or recreate it using predefined templates to re-establish security controls.
-- Conduct a thorough investigation to determine the root cause of the policy deletion, including identifying any compromised accounts or insider threats.
-- Escalate the incident to the security operations center (SOC) and relevant stakeholders for further analysis and response coordination.
-- Implement enhanced logging and monitoring for Azure activity logs to detect similar unauthorized actions in the future.
-- Integrate Azure Security Center and other security tools to provide comprehensive visibility and automated alerts for suspicious activities.
-- Review and update access controls and permissions to ensure that only authorized personnel can modify or delete WAF policies.
-- Conduct a post-incident review to identify gaps in security posture and update incident response plans accordingly.
-- Educate and train staff on security best practices and the importance of maintaining robust security configurations to prevent future incidents.
-
-## Setup
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

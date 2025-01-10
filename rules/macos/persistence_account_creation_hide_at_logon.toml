@@ -2,7 +2,7 @@
 creation_date = "2020/01/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -58,48 +58,6 @@ query = '''
 event.category:process and host.os.type:macos and event.type:(start or process_started) and
  process.name:dscl and process.args:(IsHidden and create and (true or 1 or yes))
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Hidden Local User Account Creation
-
-In macOS environments, the `dscl` command-line utility is used for directory service management, including user account creation. Adversaries may exploit this to create hidden accounts, evading detection and maintaining persistence. The detection rule identifies suspicious `dscl` usage patterns, such as attempts to set accounts as hidden, signaling potential malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the `dscl` command with arguments indicating account creation and hidden status (`IsHidden`, `create`, `true`, `1`, or `yes`).
-- Cross-reference the timestamp of the alert with other logs to identify any correlated activities or anomalies around the same time.
-- Use Osquery to list all user accounts and check for any discrepancies or unexpected hidden accounts with the query: `SELECT * FROM users WHERE uid >= 500 AND NOT hidden = 0;`.
-- Investigate the parent process of the `dscl` command to determine if it was executed by a legitimate user or process.
-- Check for any recent changes in user permissions or group memberships that might indicate privilege escalation.
-- Analyze the command history of the user who executed the `dscl` command to identify any other suspicious activities.
-- Review system logs for any failed login attempts or unusual login patterns that might suggest unauthorized access attempts.
-- Examine network logs for any outbound connections from the host that could indicate data exfiltration or communication with a command and control server.
-- Verify the integrity of critical system files and configurations to ensure they have not been tampered with.
-- Consult threat intelligence sources to determine if there are any known campaigns or threat actors associated with similar tactics.
-
-### False positive analysis
-
-- System administrators or IT personnel may use the `dscl` command to create hidden accounts for legitimate purposes, such as managing system processes or services that require a separate account. These actions can trigger the detection rule but are not malicious.
-- Some applications or scripts may automate the creation of hidden accounts for functionality or security reasons, such as sandboxing or running background tasks. These automated processes can be mistaken for malicious activity.
-- To manage these false positives, users can create exceptions for known and trusted processes or accounts by whitelisting specific `dscl` command patterns or arguments that are regularly used in their environment.
-- Regularly review and update the list of exceptions to ensure that only legitimate activities are excluded, and monitor for any changes in behavior that might indicate a new threat.
-
-### Response and remediation
-
-- Immediately isolate the affected macOS system from the network to prevent potential lateral movement by the adversary.
-- Review the process execution logs to confirm the creation of a hidden user account using the `dscl` command with suspicious arguments.
-- Identify and document the hidden user account details, including username and UID, for further investigation.
-- Remove the unauthorized hidden user account using the `dscl` command to prevent further unauthorized access.
-- Conduct a thorough review of system logs and user activity to identify any additional unauthorized changes or suspicious behavior.
-- Escalate the incident to the security operations team for further analysis and to determine if other systems may be affected.
-- Implement enhanced logging policies to capture detailed process execution and user account changes for future investigations.
-- Integrate with a centralized security information and event management (SIEM) system to correlate events and improve detection capabilities.
-- Restore the system to its operational state by verifying the integrity of system files and configurations, ensuring no backdoors or persistence mechanisms remain.
-- Apply hardening measures such as disabling unnecessary services, enforcing strong password policies, and regularly auditing user accounts to reduce the risk of future incidents."""
 
 
 [[rule.threat]]

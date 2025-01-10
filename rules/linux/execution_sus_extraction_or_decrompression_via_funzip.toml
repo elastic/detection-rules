@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2023/06/26"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 updated_date = "2025/01/08"
 
 [rule]
@@ -13,7 +15,7 @@ output from tail can be piped to funzip in order to decompress malicious code be
 consistent with malware families such as Bundlore.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Content Extracted or Decompressed via Funzip"
@@ -53,59 +55,18 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.action in ("exec", "exec_event") and
+process where host.os.type == "linux" and event.action in ("exec", "exec_event", "start") and
 ((process.args == "tail" and process.args == "-c" and process.args == "funzip")) and
 not process.args : "/var/log/messages" and 
 not process.parent.executable : ("/usr/bin/dracut", "/sbin/dracut", "/usr/bin/xargs") and
 not (process.parent.name in ("sh", "sudo") and process.parent.command_line : "*nessus_su*")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Content Extracted or Decompressed via Funzip
-
-Funzip is a utility used to decompress files directly from a stream, often used in conjunction with other command-line tools. Adversaries exploit this by using commands like `tail` to read file ends and pipe the output to `funzip`, decompressing potentially malicious content for execution. The detection rule identifies this pattern by monitoring specific command sequences and excluding benign processes, thus flagging suspicious decompression activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the `tail` and `funzip` command sequence in the process arguments, as this is the primary indicator of suspicious activity.
-- Check the process tree to identify the parent process of the suspicious command execution. This can provide context on how the command was initiated and whether it was part of a larger script or process.
-- Investigate the user account associated with the process execution to determine if the activity aligns with their typical behavior or if the account may have been compromised.
-- Examine the command line arguments used with `tail` and `funzip` to identify the specific file being accessed and decompressed. This can help determine if the file is known or potentially malicious.
-- Use Osquery to gather additional context on the file being decompressed. For example, run the following query to check the file's metadata and hash: `SELECT path, size, md5, sha256 FROM file WHERE path = '/path/to/suspicious/file';`
-- Analyze the file's contents, if accessible, to determine if it contains malicious code or scripts. This may involve using static analysis tools or sandboxing the file in a controlled environment.
-- Cross-reference the file's hash with threat intelligence databases to see if it matches known malware signatures or has been reported in previous incidents.
-- Review system logs around the time of the alert to identify any other suspicious activities or anomalies that may correlate with the decompression event.
-- Investigate network activity from the host to determine if there were any outbound connections or data exfiltration attempts following the decompression event.
-- Check for any other alerts or indicators of compromise on the host that may suggest a broader attack or compromise, such as unusual login attempts or privilege escalation activities.
-
-### False positive analysis
-
-- Known false positives for this rule may include legitimate administrative or maintenance activities where system administrators use `tail` and `funzip` in combination for routine file management tasks. These activities might involve decompressing log files or other non-malicious data for analysis.
-- Another potential false positive scenario involves automated scripts or cron jobs that utilize `tail` and `funzip` for legitimate data processing or backup operations. These scripts might be part of system maintenance or data archiving processes.
-- To manage these false positives, users can create exceptions by excluding specific command sequences or parent processes that are known to be benign. For instance, if a particular script or administrative tool frequently triggers this rule but is verified as safe, users can add its process name or command line pattern to the exclusion list.
-- Users should regularly review and update their exclusion lists to ensure that only verified non-threatening behaviors are excluded, maintaining a balance between reducing false positives and ensuring effective threat detection.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of the potential malware.
-- Conduct a thorough investigation to confirm the presence of malicious activity by reviewing logs and identifying any unauthorized processes or files.
-- Terminate any suspicious processes related to the funzip and tail command sequence to halt any ongoing malicious activity.
-- Remove any identified malicious files or software from the system to prevent re-execution.
-- Restore the system from a known good backup if available, ensuring that the backup is free from any compromise.
-- Update and patch the system to the latest security standards to mitigate any vulnerabilities that may have been exploited.
-- Implement enhanced logging policies to capture detailed command-line activity and process execution for future investigations.
-- Integrate threat intelligence feeds and security solutions to improve detection capabilities and correlate alerts with known threat actors or techniques.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Review and update security policies and user training to reinforce awareness of suspicious activities and improve overall security posture."""
 
 
 [[rule.threat]]

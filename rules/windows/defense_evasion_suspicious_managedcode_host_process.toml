@@ -2,7 +2,7 @@
 creation_date = "2020/08/21"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -49,49 +49,6 @@ file where host.os.type == "windows" and event.type != "deletion" and
                "cmstp.exe.log",
                "regsvr32.exe.log")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Managed Code Hosting Process
-
-Managed code hosting processes like wscript.exe, cscript.exe, and others are integral to executing scripts and managing code in Windows environments. Adversaries exploit these processes for code injection, enabling stealthy execution of malicious payloads. The detection rule identifies anomalies by monitoring specific log files associated with these processes, flagging potential misuse indicative of process injection tactics.
-
-### Possible investigation steps
-
-- Review the alert details to identify which specific managed code hosting process log file triggered the alert (e.g., wscript.exe.log, cscript.exe.log).
-- Examine the timestamp of the event to determine when the suspicious activity occurred and correlate it with other events in the same timeframe.
-- Check the parent process of the suspicious managed code hosting process to identify if it was spawned by a legitimate or potentially malicious process.
-- Investigate the command line arguments used by the suspicious process to identify any unusual or unexpected parameters that could indicate malicious activity.
-- Analyze the user account associated with the process execution to determine if it aligns with normal user behavior or if it could be indicative of compromised credentials.
-- Utilize Osquery to gather additional context about the process. For example, run the following query to list all processes with their parent process IDs and command lines: `SELECT pid, name, path, cmdline, parent FROM processes WHERE name IN ('wscript.exe', 'cscript.exe', 'mshta.exe', 'wmic.exe', 'svchost.exe', 'dllhost.exe', 'cmstp.exe', 'regsvr32.exe');`
-- Cross-reference the process hash with threat intelligence databases to check if it is associated with known malware.
-- Review network connections established by the suspicious process to identify any unusual or unauthorized external communications.
-- Check for any recent changes to the system, such as new software installations or updates, that could explain the process behavior.
-- Investigate any related alerts or logs from other security tools that might provide additional context or corroborate the suspicious activity.
-
-### False positive analysis
-
-- Legitimate administrative scripts: System administrators often use scripts executed by processes like wscript.exe or cscript.exe for routine maintenance tasks, which can trigger false positives. To manage this, users can create exceptions for known scripts or script paths that are regularly used in their environment.
-- Software updates and installations: Some software installations or updates may use processes like mshta.exe or regsvr32.exe as part of their legitimate operations. Users should monitor these activities and whitelist specific update processes or installation paths that are verified as safe.
-- Automated system tasks: Windows Management Instrumentation (WMI) tasks or other automated system tasks might utilize wmic.exe or svchost.exe, leading to false alerts. Users can exclude these tasks by identifying and documenting regular system operations that are expected to use these processes.
-- Custom applications: In environments where custom applications are developed, these applications might use managed code hosting processes for legitimate purposes. Users should work with development teams to identify and exclude these applications from triggering alerts.
-- Security software: Some security tools may use these processes as part of their scanning or monitoring activities. Users should verify with their security vendors and exclude these processes if they are part of the security software's normal operation.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of the potential threat.
-- Conduct a thorough investigation of the flagged process by reviewing the associated log files and any related system events to confirm the presence of malicious activity.
-- Utilize endpoint detection and response (EDR) tools to perform a memory analysis and identify any injected code or anomalous behavior in the process.
-- If malicious activity is confirmed, terminate the suspicious process and remove any associated malicious files or scripts from the system.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat is part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed process execution data and integrate with a security information and event management (SIEM) system for real-time monitoring and alerting.
-- Restore the system to its operational state by applying the latest security patches, updating antivirus definitions, and ensuring all security configurations are up to date.
-- Conduct a post-incident review to identify any gaps in the current security posture and update incident response plans accordingly.
-- Educate users on recognizing and reporting suspicious activities to prevent future incidents.
-- Implement hardening measures such as application whitelisting, disabling unnecessary scripting engines, and enforcing least privilege access controls to reduce the attack surface."""
 
 
 [[rule.threat]]

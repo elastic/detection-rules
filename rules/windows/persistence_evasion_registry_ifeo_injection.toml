@@ -2,7 +2,7 @@
 creation_date = "2020/11/17"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -58,51 +58,6 @@ registry where host.os.type == "windows" and event.type == "change" and
     /* add FPs here */
   not registry.data.strings regex~ ("""C:\\Program Files( \(x86\))?\\ThinKiosk\\thinkiosk\.exe""", """.*\\PSAppDeployToolkit\\.*""")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Image File Execution Options Injection
-
-Image File Execution Options (IFEO) is a Windows feature that allows developers to debug applications by specifying an alternative executable to run instead of the original. Adversaries exploit this by setting a debugger to execute malicious code, achieving persistence. The detection rule identifies changes to specific registry keys associated with IFEO, flagging potential misuse by monitoring for suspicious executables being set as debuggers.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific registry path and value that triggered the alert, focusing on the `registry.path` and `registry.value` fields.
-- Verify the legitimacy of the executable set as the debugger by examining the `registry.data.strings` field to identify any suspicious or unknown executables.
-- Cross-reference the suspicious executable with known malicious file hashes or signatures using threat intelligence sources.
-- Use Osquery to list all entries under the Image File Execution Options registry key to identify any other potentially malicious configurations:
-  ```sql
-  SELECT * FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Image File Execution Options\\\\%';
-  ```
-- Investigate the process creation history on the host to determine if the suspicious executable has been executed, using event logs or endpoint detection and response (EDR) tools.
-- Check for any recent changes to the registry keys by reviewing the `event.type` field for "change" events and correlating with user activity logs to identify the responsible user or process.
-- Analyze the system's startup and scheduled tasks to ensure no additional persistence mechanisms are in place that could be related to the suspicious executable.
-- Review network activity logs for any unusual outbound connections initiated by the suspicious executable, which could indicate command and control communication.
-- Examine the file properties and metadata of the suspicious executable to gather information about its origin, such as creation date, digital signature, and file path.
-- Consult with the system owner or user to verify if the executable was intentionally installed or configured, and gather any additional context about recent software installations or updates.
-
-### False positive analysis
-
-- Known false positives for the Image File Execution Options Injection rule include legitimate software that uses the IFEO feature for debugging or monitoring purposes, such as ThinKiosk and PSAppDeployToolkit. These applications may set themselves as debuggers or monitor processes, which can trigger the detection rule.
-- To manage these false positives, users can create exceptions in the detection rule by adding specific paths or patterns to the exclusion list. For example, the rule already excludes paths like `C:\\Program Files\\ThinKiosk\\thinkiosk.exe` and any path containing `PSAppDeployToolkit`.
-- Users should regularly review and update the exclusion list to include other known benign applications that utilize IFEO for legitimate purposes, ensuring that the detection rule remains effective without generating unnecessary alerts.
-- It is important to maintain a balance between excluding known false positives and ensuring that the rule still detects potential malicious activity. Users should conduct thorough testing and validation before adding new exclusions to avoid missing genuine threats.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation to identify the malicious executable set as a debugger by reviewing the registry changes and correlating with known threat intelligence.
-- Remove or revert any unauthorized changes to the registry keys associated with Image File Execution Options and SilentProcessExit.
-- Perform a comprehensive malware scan on the affected system using updated antivirus or endpoint detection and response (EDR) tools.
-- Review system and security logs to identify any additional indicators of compromise or related suspicious activities.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is part of a larger attack campaign or if multiple systems are affected.
-- Implement enhanced logging policies to monitor registry changes and process executions, ensuring that future suspicious activities are detected promptly.
-- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to improve detection capabilities and contextual analysis.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
-- Harden the system by implementing least privilege principles, disabling unnecessary services, and regularly reviewing and updating security configurations."""
 
 
 [[rule.threat]]

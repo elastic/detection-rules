@@ -2,7 +2,7 @@
 creation_date = "2021/08/27"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Austin Songer"]
@@ -23,51 +23,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Alert Suppression Rule Created or Modified"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Azure Alert Suppression Rule Created or Modified
-
-Azure Alert Suppression Rules help manage alert noise by filtering out known false positives. However, adversaries can exploit these rules to evade detection by suppressing legitimate security alerts. The detection rule monitors for successful creation or modification of these rules, flagging potential misuse that aligns with defense evasion tactics, ensuring security teams maintain visibility over critical alerts.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, including the timestamp, user, and source IP address associated with the creation or modification of the suppression rule.
-- Verify the identity of the user who created or modified the suppression rule by checking their role and permissions in Azure Active Directory to ensure they have legitimate access.
-- Examine the `azure.activitylogs.operation_name` field to confirm the specific operation, "MICROSOFT.SECURITY/ALERTSSUPPRESSIONRULES/WRITE," was performed successfully.
-- Investigate the `event.outcome` field to ensure the operation was indeed successful and not a failed attempt, which might indicate a misconfiguration or unauthorized access attempt.
-- Cross-reference the `event.dataset:azure.activitylogs` with other logs to identify any unusual or suspicious activities around the same time, such as failed login attempts or changes to other security settings.
-- Use Osquery to gather additional context on the system where the rule was created or modified. For example, run a query to list recent changes to Azure configurations: `SELECT * FROM azure_activity_logs WHERE operation_name = 'MICROSOFT.SECURITY/ALERTSSUPPRESSIONRULES/WRITE' AND outcome = 'success';`
-- Check for any recent changes in the environment that might have necessitated the creation or modification of the suppression rule, such as new deployments or updates.
-- Analyze historical data to determine if there is a pattern of suppression rule modifications that could indicate a broader attempt to evade detection.
-- Consult with the security team or the user who made the change to understand the rationale behind the creation or modification of the suppression rule.
-- Document all findings and observations to maintain a comprehensive record of the investigation, which can be useful for future reference or audits.
-
-### False positive analysis
-
-- Routine administrative tasks: Legitimate changes made by security administrators to manage alert noise can trigger this rule. These changes are often necessary to maintain operational efficiency and should be reviewed to ensure they align with security policies.
-- Automated processes: Some organizations use automated scripts or tools to manage alert suppression rules, which can result in frequent rule modifications. These should be documented and monitored to distinguish between expected and unexpected changes.
-- Testing and development environments: In non-production environments, suppression rules may be frequently created or modified as part of testing processes. These environments should be clearly identified, and alerts from them can be excluded from triggering false positives.
-- Known maintenance windows: During scheduled maintenance, suppression rules might be adjusted to prevent alert fatigue. Establishing exceptions for these periods can help reduce unnecessary alerts.
-- To manage these false positives, users can implement exception lists for known benign activities, use tagging to differentiate between environments, and establish baselines for expected behavior to quickly identify deviations.
-
-### Response and remediation
-
-- Immediately review the Azure activity logs to identify the user or service principal responsible for creating or modifying the alert suppression rule.
-- Verify the legitimacy of the change by contacting the responsible user or team to confirm if the action was authorized and necessary.
-- If unauthorized, disable or delete the suspicious suppression rule to restore visibility to critical alerts.
-- Conduct a thorough investigation to determine if any other security configurations have been altered or if there are additional unauthorized changes.
-- Escalate the incident to the security operations team for further analysis and to assess the potential impact on the organization's security posture.
-- Implement enhanced logging and monitoring for Azure activity logs to detect similar unauthorized changes in the future.
-- Integrate Azure activity logs with a Security Information and Event Management (SIEM) system to enable real-time alerting and correlation with other security events.
-- Review and update access controls and permissions for users and service principals to ensure that only authorized personnel can modify alert suppression rules.
-- Conduct a post-incident review to identify gaps in the current security processes and implement measures to prevent recurrence.
-- Consider implementing additional security measures such as multi-factor authentication (MFA) and conditional access policies to strengthen the security of Azure resources.
-
-## Setup
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

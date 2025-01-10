@@ -2,7 +2,7 @@
 creation_date = "2022/02/07"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -64,49 +64,6 @@ configuration where host.os.type == "windows" and
     "\"%windir%\\AdminArsenal\\PDQInventory-Scanner\\service-1\\PDQInventory-Scanner-1.exe\" "
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Windows Service Installed via an Unusual Client
-
-Windows services are crucial for running background processes with elevated privileges. Adversaries exploit this by creating services to escalate privileges, often from administrator to SYSTEM. The detection rule identifies anomalies by flagging service installations from atypical client processes, excluding known legitimate services, to spot potential malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to understand which client process triggered the service installation and note the `winlog.event_data.ClientProcessId` and `winlog.event_data.ParentProcessId` fields for further context.
-- Verify the legitimacy of the client process by checking its file path, hash, and digital signature to ensure it is not a known malicious or suspicious executable.
-- Use Osquery to list all services on the host and identify any newly created or modified services. Example query: `SELECT name, display_name, path, start_type, status FROM services WHERE path LIKE '%<suspicious_path>%';`
-- Investigate the parent process using the `winlog.event_data.ParentProcessId` to determine if it is a known legitimate process or if it has any suspicious characteristics.
-- Cross-reference the `winlog.event_data.ServiceFileName` with known legitimate service paths to ensure it is not a false positive.
-- Check the system's event logs for any additional activities around the time of the service installation, focusing on process creation, network connections, and user logins.
-- Analyze the timeline of events leading up to and following the service installation to identify any patterns or anomalies in user or process behavior.
-- Investigate the user account associated with the service installation to determine if it has been compromised or is exhibiting unusual activity.
-- Review any recent changes to the system's configuration or installed software that could explain the unusual service installation.
-- Consult threat intelligence sources to determine if the client process or service file name is associated with known malware or attack campaigns.
-
-### False positive analysis
-
-- Known false positives for this rule include legitimate software installations or updates that create services using atypical client processes. Examples include software deployment tools or system management utilities that may not follow standard service installation procedures.
-- Users can handle these false positives by creating exceptions for known legitimate services. This can be done by adding the specific service file paths or client process identifiers to the exclusion list within the detection rule.
-- Regularly review and update the exclusion list to ensure it reflects the current environment and includes any new legitimate services that may trigger the rule.
-- Consider implementing a process to verify the legitimacy of flagged services by cross-referencing with software inventory or change management records to distinguish between benign and potentially malicious activities.
-- Engage with IT and security teams to identify any new software deployments or updates that could result in false positives, ensuring these are documented and accounted for in the rule configuration.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Verify the legitimacy of the service by checking the service name, file path, and associated process against known software and threat intelligence databases.
-- Terminate any suspicious processes associated with the unusual client process that installed the service.
-- Remove the malicious service and any associated files from the system to prevent re-execution.
-- Conduct a thorough investigation of the system to identify any additional indicators of compromise or persistence mechanisms.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is confirmed to be part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed process creation and service installation events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
-- Harden the system by enforcing least privilege principles, disabling unnecessary services, and implementing application whitelisting to prevent unauthorized service installations."""
 
 
 [[rule.threat]]

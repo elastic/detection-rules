@@ -2,7 +2,7 @@
 creation_date = "2020/11/06"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/09"
 min_stack_version = "8.15.0"
 min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
 
@@ -22,50 +22,7 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Attempt to Modify an Okta Application"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Attempt to Modify an Okta Application
-
-Okta is a widely used identity and access management service that helps organizations manage user authentication and application access. Adversaries may target Okta applications to alter configurations, disable security features, or disrupt operations. The detection rule monitors system events for application lifecycle updates, flagging unauthorized modification attempts to safeguard against potential security breaches.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event.dataset is "okta.system" and the event.action is "application.lifecycle.update" to ensure the alert is valid and relevant.
-- Check the timestamp of the event to determine when the modification attempt occurred and correlate it with any other suspicious activities around the same time.
-- Identify the user or service account associated with the modification attempt by examining the user.id and user.name fields in the event data.
-- Investigate the IP address and geolocation from which the modification attempt was made to determine if it aligns with expected user behavior or if it appears suspicious.
-- Examine the specific application targeted for modification by reviewing the app.id and app.name fields to assess its criticality and potential impact on the organization.
-- Analyze the change details to understand what specific modifications were attempted, such as configuration changes or security feature deactivation.
-- Cross-reference the user or service account activity with recent login events to verify if there were any unusual login patterns or failed login attempts.
-- Utilize Osquery to gather additional context on the system from which the modification attempt originated. For example, run the following Osquery query to list recent processes executed on the system: `SELECT * FROM processes WHERE start_time > (SELECT datetime('now', '-1 hour'));`
-- Check for any recent changes in user permissions or roles that might have inadvertently allowed unauthorized modification attempts.
-- Review audit logs and historical data for any previous similar modification attempts or patterns that could indicate a broader attack campaign.
-
-### False positive analysis
-
-- Routine administrative tasks: Regular updates or maintenance activities performed by authorized personnel may trigger the rule. To manage this, users can create exceptions for specific user accounts or roles known to perform these tasks frequently.
-- Scheduled application updates: Automated processes that update application configurations as part of scheduled maintenance can be mistaken for unauthorized modifications. Users should identify and exclude these processes from triggering alerts.
-- Integration with third-party services: Some integrations may require periodic updates to application settings, which could be flagged as modification attempts. Users can whitelist these integrations to prevent false positives.
-- Testing and development environments: Changes made in non-production environments for testing purposes might be detected by the rule. Users should consider excluding these environments from monitoring or adjusting the sensitivity of the rule for these contexts.
-
-### Response and remediation
-
-- Immediately isolate the affected Okta application to prevent further unauthorized modifications.
-- Review the Okta system logs to identify the source and scope of the modification attempt, focusing on the event.dataset:okta.system and event.action:application.lifecycle.update.
-- Verify the integrity of the Okta application configurations and restore them to their last known good state if any unauthorized changes are detected.
-- Conduct a thorough investigation to determine if any user accounts have been compromised, and reset credentials for affected accounts.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed audit trails of application lifecycle events and user activities within Okta.
-- Integrate Okta with a security information and event management (SIEM) system to enable real-time monitoring and alerting of suspicious activities.
-- Review and update access controls and permissions for Okta applications to ensure the principle of least privilege is enforced.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Educate users and administrators on security best practices and the importance of reporting suspicious activities to prevent future incidents.
-
-## Setup
+note = """## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

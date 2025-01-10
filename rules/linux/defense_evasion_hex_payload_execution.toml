@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/11/04"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +13,7 @@ This rule detects potential hex payload execution on Linux systems. Adversaries 
 and evade detection mechanisms.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Hex Payload Execution"
@@ -50,62 +52,24 @@ tags = [
     "Tactic: Defense Evasion",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  (process.name == "xxd" and process.args like ("-r*", "-p*")) or
-  (process.name like "python*" and process.command_line like "*fromhex*" and process.command_line like ("*decode*", "*encode*")) or
-  (process.name like "php*" and process.command_line like "*hex2bin*") or
-  (process.name like "ruby*" and process.command_line like "*].pack(\"H*\")*") or
-  (process.name like "perl*" and process.command_line like "*pack(\"H*\",*") or
-  (process.name like "lua*" and process.command_line like "*tonumber(cc, 16)*")
-)
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  (
+    (process.name == "xxd" and process.args like ("-r*", "-p*")) or
+    (process.name like "python*" and process.command_line like "*fromhex*" and process.command_line like ("*decode*", "*encode*")) or
+    (process.name like "php*" and process.command_line like "*hex2bin*") or
+    (process.name like "ruby*" and process.command_line like "*].pack(\"H*\")*") or
+    (process.name like "perl*" and process.command_line like "*pack(\"H*\",*") or
+    (process.name like "lua*" and process.command_line like "*tonumber(cc, 16)*")
+  )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Hex Payload Execution
-
-Hex encoding is often used to obfuscate data, making it harder for security tools to detect malicious payloads. Adversaries exploit this by encoding payloads in hex to bypass defenses. The detection rule identifies suspicious execution patterns on Linux, such as using tools like `xxd`, or scripting languages like Python and PHP, to decode hex-encoded data, signaling potential malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and command line arguments that triggered the rule, focusing on fields like `process.name` and `process.command_line`.
-- Check the `host.os.type` and `event.type` fields to confirm the alert pertains to a Linux system and involves a process start event.
-- Investigate the parent process of the suspicious execution using the `process.parent.name` and `process.parent.command_line` fields to understand the context in which the hex decoding was initiated.
-- Examine the user account associated with the process execution by reviewing the `user.name` field to determine if the activity aligns with expected behavior for that user.
-- Utilize Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name = '<process_name>' AND cmdline LIKE '%<suspicious_command_line>%';` to verify the process details and any related activity.
-- Analyze the network activity of the host during the time of the alert to identify any suspicious connections or data transfers that may correlate with the hex payload execution.
-- Review recent file modifications or creations on the host using file integrity monitoring tools or logs to detect any changes that coincide with the alert.
-- Check for any other alerts or logs related to the same host or user around the time of the alert to identify potential patterns or additional suspicious activities.
-- Investigate the system's history for any previous instances of similar alerts or processes to determine if this is part of a recurring pattern.
-- Consult threat intelligence sources to see if the specific command line patterns or process names have been associated with known malicious campaigns or tools.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators may use tools like `xxd`, Python, PHP, Ruby, Perl, or Lua for legitimate purposes such as data conversion or debugging, which can trigger this rule. To manage these, users can create exceptions for known administrative scripts or processes that frequently use these tools in a non-threatening manner.
-- Development and testing activities: Developers often use hex encoding and decoding during software development and testing phases. To handle these false positives, users can exclude specific development environments or user accounts from the rule.
-- Automated scripts and cron jobs: Automated scripts or scheduled tasks that perform regular data processing might use hex encoding for legitimate reasons. Users can whitelist these scripts by identifying their unique command-line patterns or process names.
-- Security tools and monitoring software: Some security tools may use hex encoding as part of their normal operations. Users should identify these tools and exclude them from the rule to prevent unnecessary alerts.
-- Data analysis and research: Researchers and data analysts might use hex encoding for data analysis purposes. Users can manage these false positives by excluding specific user accounts or processes associated with research activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation of the process execution logs to identify the source and scope of the hex payload execution.
-- Analyze the decoded payload to determine its intent and potential impact on the system.
-- Remove any identified malicious files or processes from the system to prevent further execution.
-- Apply patches and updates to the operating system and applications to mitigate vulnerabilities that may have been exploited.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
-- Integrate threat intelligence feeds to correlate detected activities with known threat actors and tactics.
-- Restore the system from a known good backup to ensure the integrity and security of the operational environment.
-- Review and update security policies and configurations to harden the system against similar obfuscation and execution techniques in the future."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

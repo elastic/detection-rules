@@ -2,7 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/06/18"
 
 [rule]
 anomaly_threshold = 75
@@ -86,48 +86,6 @@ tags = [
     "Tactic: Discovery",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Linux System Information Discovery Activity
-
-Linux systems often use commands like `uname`, `lscpu`, or `lsb_release` for legitimate system information discovery, aiding in troubleshooting and system management. However, adversaries can exploit these commands to gather critical system details, potentially leading to privilege escalation or persistence. The detection rule identifies atypical usage patterns by monitoring command execution from unexpected user contexts, signaling possible account compromise or malicious intent.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific command executed, the user account involved, and the timestamp of the activity.
-- Check the user account's login history and recent activity using `last` and `lastlog` commands to determine if the account has been accessed from unusual locations or at odd times.
-- Examine the user's shell history files (e.g., `.bash_history`) to identify any other suspicious commands executed around the same time.
-- Use Osquery to gather additional context about the system and user activity. For example, run the following query to list recent commands executed by the user: `SELECT * FROM shell_history WHERE uid = (SELECT uid FROM users WHERE username = 'suspicious_user');`
-- Investigate the parent process of the suspicious command execution to determine if it was initiated by a legitimate process or a potentially malicious one.
-- Analyze system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any authentication anomalies or failed login attempts around the time of the alert.
-- Check for any recent changes to user permissions or group memberships that could indicate privilege escalation attempts.
-- Review network activity logs to identify any unusual outbound connections or data exfiltration attempts following the suspicious command execution.
-- Correlate the alert with other security events or alerts in the environment to identify potential patterns or related incidents.
-- Consult threat intelligence sources to determine if the observed activity matches known tactics, techniques, and procedures (TTPs) associated with specific threat actors or malware.
-
-### False positive analysis
-
-- System administrators or IT personnel may execute system information discovery commands during routine maintenance or troubleshooting, which could trigger the rule. To manage this, users can create exceptions for specific user accounts or roles known to perform these tasks regularly.
-- Automated scripts or monitoring tools that run system information commands as part of their normal operation might also be flagged. Users should identify these scripts and whitelist them by their execution paths or associated service accounts to prevent false positives.
-- Developers or engineers working on performance testing or system optimization might use these commands in non-production environments. Users can exclude specific environments or IP ranges from monitoring to reduce unnecessary alerts.
-- In educational or research institutions, students or researchers might execute these commands as part of their learning or experimentation processes. Users can implement exceptions for specific user groups or departments to accommodate these activities without compromising security.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying the user account involved and any other systems that may have been accessed.
-- Review system logs and command history to identify unusual patterns or unauthorized commands executed, correlating with MITRE ATT&CK technique T1082 for system information discovery.
-- Reset passwords for the compromised account and any other accounts that may have been accessed, ensuring the use of strong, unique passwords.
-- Remove any unauthorized users or processes identified during the investigation and ensure that all system software is up to date with the latest security patches.
-- Restore the system from a known good backup if necessary, ensuring that the backup is free from any malicious modifications.
-- Implement enhanced logging and monitoring policies to capture detailed command execution and user activity, integrating with SIEM solutions for real-time alerting.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Provide security awareness training to users, emphasizing the importance of recognizing and reporting suspicious activity.
-- Consider deploying additional security measures such as multi-factor authentication and endpoint detection and response (EDR) solutions to enhance system hardening and threat detection capabilities."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

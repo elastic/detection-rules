@@ -2,7 +2,7 @@
 creation_date = "2021/12/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -64,49 +64,6 @@ sequence by host.id with maxspan=1m
                    "php*",
                    "wget")] by process.parent.pid
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential JAVA/JNDI Exploitation Attempt
-
-Java Naming and Directory Interface (JNDI) is a Java API that provides naming and directory functionality, allowing Java applications to discover and look up data and resources via a directory service. Adversaries can exploit JNDI by injecting malicious payloads that trigger outbound connections to attacker-controlled servers, potentially leading to remote code execution. The detection rule identifies such exploitation attempts by monitoring Java processes making outbound connections to specific ports associated with directory services, followed by the execution of suspicious child processes, which may indicate malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific `host.id` and `process.pid` associated with the suspicious activity.
-- Examine the network logs to confirm the outbound connection attempt by the Java process to the specified ports (1389, 389, 1099, 53, 5353) and verify if the destination IP addresses are known or suspicious.
-- Check the process tree to identify the parent Java process and any child processes that were spawned, focusing on those listed in the query (e.g., "sh", "bash", "curl").
-- Use Osquery to gather additional context about the Java process by running a query such as: `SELECT pid, name, path, cmdline FROM processes WHERE pid = <process.pid>;` to retrieve command-line arguments and the executable path.
-- Investigate the child processes further by querying their command-line arguments and execution paths to determine if they were used to download or execute additional payloads.
-- Analyze the timing of the events to see if the suspicious child processes were executed immediately after the network connection attempt, which could indicate a successful exploitation.
-- Cross-reference the destination IP addresses with threat intelligence sources to determine if they are associated with known malicious activity or command-and-control servers.
-- Review historical logs for the same `host.id` to identify any previous similar activities or patterns that might indicate ongoing exploitation attempts.
-- Check for any other alerts or anomalies related to the same Java process or host within the same timeframe to gather more context about the potential attack.
-- If available, use endpoint detection and response (EDR) tools to perform a deeper analysis of the affected host, focusing on file modifications, registry changes, and other indicators of compromise that may have occurred around the time of the alert.
-
-### False positive analysis
-
-- Legitimate enterprise applications may use JNDI for valid purposes, such as connecting to LDAP directories for authentication or configuration management, which could trigger the rule. Users should identify and whitelist these applications by excluding their specific process names or network behaviors.
-- Automated scripts or tools that perform regular maintenance or monitoring tasks might initiate outbound connections to directory service ports and spawn child processes like shell scripts or command-line tools. Users can create exceptions for these known scripts by specifying their process hashes or command-line arguments.
-- Development environments often use JNDI for testing purposes, which may involve connections to local or remote directory services and execution of various scripts. Developers should document these activities and exclude them from the rule by defining specific hostnames or IP addresses used in the development environment.
-- Security tools or network monitoring solutions might simulate JNDI exploitation attempts as part of their testing or alerting mechanisms. Users should coordinate with their security teams to identify these tools and exclude their activities from triggering the rule by using process or network identifiers.
-- In some cases, cloud-based services or microservices architectures might use JNDI for service discovery or configuration, leading to benign outbound connections and child process executions. Users should review their cloud configurations and exclude known service patterns by specifying relevant service accounts or container IDs.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further exploitation and lateral movement.
-- Conduct a thorough investigation to identify the scope of the attack, including checking for other systems that may have been compromised.
-- Analyze logs and network traffic to determine the source of the malicious payload and any outbound connections to attacker-controlled servers.
-- Terminate any suspicious processes identified in the alert, particularly those involving shell or scripting interpreters spawned by Java.
-- Apply security patches and updates to the Java environment and any other vulnerable software to mitigate the exploitation vector.
-- Restore the system from a known good backup if the integrity of the system is in question.
-- Implement enhanced logging policies to capture detailed process execution and network connection attempts for future analysis.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate and train staff on recognizing and responding to similar threats, emphasizing the importance of timely patch management and monitoring."""
 
 
 [[rule.threat]]

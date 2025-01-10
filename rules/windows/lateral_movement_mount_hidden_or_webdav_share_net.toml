@@ -2,7 +2,7 @@
 creation_date = "2020/11/02"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/02"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -57,49 +57,6 @@ process where host.os.type == "windows" and event.type == "start" and
  /* excluding shares deletion operation */
  not process.args : "/d*"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Mounting Hidden or WebDav Remote Shares
-
-WebDav and hidden remote shares facilitate file sharing and collaboration over networks, often used in enterprise environments. Adversaries exploit these to move laterally or exfiltrate data by mounting shares using tools like net.exe. The detection rule identifies suspicious use of net.exe to mount such shares, focusing on patterns indicative of hidden or WebDav shares, while excluding benign operations like share deletions.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of `net.exe` or `net1.exe` in the process name or original file name, as this is crucial for identifying the suspicious activity.
-- Examine the process arguments to verify the use of the "use" command, which indicates an attempt to mount a share.
-- Check for the presence of patterns in the process arguments that match hidden or WebDav shares, such as `\\\\*\\\\*$*`, `\\\\*@SSL\\\\*`, or `http*`, to confirm the nature of the share being accessed.
-- Investigate the parent process of `net1.exe` to ensure it is not `net.exe`, as this could indicate a legitimate operation.
-- Look for any exclusion patterns in the process arguments, such as `/d*`, to rule out share deletion operations.
-- Use Osquery to gather additional context about the process by running a query like: `SELECT * FROM processes WHERE name = 'net.exe' OR name = 'net1.exe';` to obtain details such as process ID, parent process, and command line arguments.
-- Correlate the event with other logs to identify any preceding or subsequent suspicious activities, such as unusual network connections or file access patterns.
-- Investigate the user account associated with the process to determine if it is a legitimate user or potentially compromised.
-- Check for any recent changes in user permissions or group memberships that could facilitate unauthorized access to remote shares.
-- Review network traffic logs to identify any data exfiltration attempts or connections to known malicious IP addresses associated with the mounted shares.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators may use net.exe to mount hidden or WebDav shares for routine maintenance or configuration tasks. To manage these, users can create exceptions for known administrative accounts or specific time windows when such activities are expected.
-- Automated scripts and tools: Some enterprise environments use automated scripts or third-party tools that rely on net.exe to manage network shares. Users should identify these scripts and tools and exclude their associated processes or command patterns from the detection rule.
-- Backup and synchronization software: Applications like backup solutions or file synchronization services (e.g., OneDrive) might use similar commands to access remote shares. Users can handle these by excluding processes associated with these applications or by specifying known safe network paths.
-- Testing and development environments: In environments where testing of network configurations or software development occurs, net.exe might be used frequently. Users should consider excluding specific development machines or user accounts from the detection rule to reduce noise.
-- User training and awareness: Educating users about the legitimate use of network shares and monitoring for unusual patterns can help distinguish between benign and suspicious activities, allowing for more accurate tuning of the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement or data exfiltration.
-- Conduct a thorough investigation to identify the source and scope of the intrusion, focusing on recent use of net.exe and net1.exe for mounting shares.
-- Review and analyze logs from the affected system and any connected systems to trace the adversary's activities and identify any additional compromised systems.
-- Remove any unauthorized mounted shares and terminate any suspicious processes related to net.exe or net1.exe.
-- Change all potentially compromised credentials and enforce multi-factor authentication to prevent unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed process execution and network activity, ensuring visibility into future suspicious activities.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for future incidents.
-- Restore the system to its operational state by applying the latest security patches and updates, and verify the integrity of critical system files.
-- Harden the environment by disabling unnecessary services, enforcing least privilege access, and conducting regular security awareness training for users."""
 
 
 [[rule.threat]]

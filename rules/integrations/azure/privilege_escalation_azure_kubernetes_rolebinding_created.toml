@@ -2,7 +2,7 @@
 creation_date = "2021/10/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Austin Songer"]
@@ -17,51 +17,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Kubernetes Rolebindings Created"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Azure Kubernetes Rolebindings Created
-
-Azure Kubernetes role bindings are crucial for managing access control by linking users or service accounts to specific roles within a cluster. Adversaries with the ability to create these bindings can escalate privileges by assigning themselves or others to high-privilege roles like cluster-admin. The detection rule monitors activity logs for role binding creation events, flagging successful operations that could indicate unauthorized privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the activity logs to confirm the presence of the role binding creation event by checking the `event.dataset:azure.activitylogs` and `azure.activitylogs.operation_name` fields for the specific operations related to role bindings and cluster role bindings.
-- Verify the `event.outcome` field to ensure the operation was successful, as this indicates the role binding was indeed created.
-- Identify the user or service account responsible for the role binding creation by examining the `azure.activitylogs.caller` field to determine if the action was performed by an authorized entity.
-- Check the `azure.activitylogs.resource` field to understand which specific role or cluster role was assigned and to whom, providing insight into potential privilege escalation.
-- Investigate the historical activity of the identified user or service account to determine if there are any patterns of suspicious behavior or previous unauthorized access attempts.
-- Use Osquery to gather additional context on the Kubernetes cluster by running a query such as: `SELECT * FROM kubernetes_rolebindings WHERE name = '<rolebinding_name>';` to retrieve detailed information about the role binding.
-- Cross-reference the role binding creation event with other security logs and alerts to identify any correlated activities that might indicate a broader attack or compromise.
-- Assess the current permissions and roles assigned to the user or service account involved in the role binding creation to evaluate if they have been granted excessive privileges.
-- Review any recent changes to the cluster's RBAC policies or configurations that might have inadvertently allowed unauthorized role binding creation.
-- Consult with the cluster administrators or security team to verify if the role binding creation was part of a legitimate change or deployment process, ensuring alignment with organizational policies.
-
-### False positive analysis
-
-- Routine administrative tasks: Regular operations by authorized personnel, such as creating role bindings for legitimate service accounts or users, can trigger alerts. To manage these, identify and document routine administrative activities and create exceptions for these specific actions in the detection rule.
-- Automated deployment tools: Continuous integration and deployment pipelines often create role bindings as part of their normal operation. Review and whitelist these tools by identifying their specific service accounts or user identities to prevent unnecessary alerts.
-- Third-party integrations: Some third-party applications or services may require role bindings to function correctly. Evaluate these integrations and, if deemed non-threatening, add them to an exception list based on their unique identifiers or operation patterns.
-- Testing environments: Development and testing environments may frequently create and modify role bindings as part of testing processes. Consider excluding these environments from monitoring or adjusting the sensitivity of alerts for these specific clusters to reduce noise.
-- Scheduled maintenance: During scheduled maintenance windows, role bindings might be created or modified as part of system updates or configuration changes. Document these maintenance activities and temporarily adjust alerting rules to avoid false positives during these periods.
-
-### Response and remediation
-
-- Immediately isolate the affected Kubernetes cluster to prevent further unauthorized access or privilege escalation.
-- Review the activity logs to identify the source of the role binding creation and determine if it was authorized or part of a malicious activity.
-- Revoke any unauthorized role bindings or cluster role bindings that have been created, especially those granting high privileges like cluster-admin.
-- Conduct a thorough investigation to identify any other potential security breaches or compromised accounts within the cluster.
-- Escalate the incident to the security operations team for further analysis and to determine if additional systems or data have been affected.
-- Implement enhanced logging and monitoring for Kubernetes role binding activities to detect future unauthorized changes promptly.
-- Integrate security information and event management (SIEM) tools to correlate Kubernetes activity logs with other security events for comprehensive threat detection.
-- Restore the system to its operational state by reapplying legitimate role bindings and ensuring all security patches and updates are applied.
-- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent similar incidents.
-- Implement hardening measures such as role-based access control (RBAC) policies, network segmentation, and regular security audits to reduce the attack surface.
-
-## Setup
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

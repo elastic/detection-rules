@@ -2,7 +2,7 @@
 creation_date = "2021/07/22"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -48,48 +48,6 @@ registry where host.os.type == "windows" and event.type == "change" and
   (registry.path : "*\\SOFTWARE\\Policies\\Mozilla\\Firefox\\DNSOverHTTPS" and
   registry.data.strings : ("1", "0x00000001"))
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating DNS-over-HTTPS Enabled via Registry
-
-DNS-over-HTTPS (DoH) encrypts DNS queries to enhance privacy and security, preventing eavesdropping and manipulation. However, adversaries can exploit DoH to conceal malicious activities, such as data exfiltration, by bypassing traditional DNS monitoring. The detection rule identifies registry changes enabling DoH in browsers like Edge, Chrome, and Firefox, signaling potential misuse by monitoring specific registry paths and values.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific registry path and value that triggered the alert, focusing on the `registry.path` and `registry.data.strings` fields.
-- Verify the legitimacy of the registry change by checking if the change aligns with any recent software updates or policy changes within the organization.
-- Use Osquery to list recent registry changes on the affected host to identify any other suspicious modifications. Example query: `SELECT * FROM registry WHERE path LIKE '%SOFTWARE\\\\Policies\\\\%' AND mtime > (SELECT datetime('now', '-1 day'));`
-- Investigate the user account associated with the registry change to determine if the account has a history of suspicious activity or if it has been compromised.
-- Check the system's event logs for any unusual activity around the time of the registry change, such as unexpected logins or process executions.
-- Analyze network traffic from the affected host to identify any unusual DNS queries or connections that could indicate data exfiltration or communication with malicious domains.
-- Correlate the alert with other security events or alerts from the same host to identify patterns or additional indicators of compromise.
-- Review the browser settings and extensions on the affected host to ensure no unauthorized changes or installations have occurred.
-- Consult with the user of the affected host to determine if they made the change intentionally and if so, understand the context and purpose behind it.
-- Document all findings and observations to provide a comprehensive overview of the investigation, which can be used for further analysis or reporting.
-
-### False positive analysis
-
-- Enabling DNS-over-HTTPS for legitimate privacy reasons: Users or IT departments may enable DoH to enhance privacy and security without malicious intent. This can be a common practice in organizations prioritizing data protection.
-- Browser updates or policy changes: Automatic updates or changes in browser policies might enable DoH by default, triggering the detection rule without any malicious activity.
-- Security software configurations: Some security software might enable DoH as part of their protective measures, leading to false positives.
-- Handling false positives: To manage these, users can create exceptions for known legitimate changes by whitelisting specific registry paths or values associated with trusted applications or updates. Regularly review and update these exceptions to ensure they align with current organizational policies and software configurations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent potential data exfiltration or further malicious activity.
-- Conduct a thorough investigation to determine if the registry changes were authorized or if they indicate malicious intent, focusing on recent user activities and installed software.
-- Review system logs and network traffic for any signs of data exfiltration or communication with known malicious IP addresses, leveraging existing security tools and threat intelligence feeds.
-- If unauthorized changes are confirmed, revert the registry settings to their original state and ensure DNS-over-HTTPS is disabled unless explicitly required for business purposes.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging and monitoring for registry changes and DNS queries to improve detection of similar activities in the future.
-- Integrate threat intelligence platforms and endpoint detection and response (EDR) solutions to provide better visibility and context for future investigations.
-- Educate users on the risks associated with unauthorized changes to system settings and the importance of reporting suspicious activities.
-- Apply security patches and updates to all systems to mitigate vulnerabilities that could be exploited by attackers.
-- Review and update security policies and procedures to include specific measures for handling DNS-over-HTTPS and registry modifications, ensuring alignment with MITRE ATT&CK framework techniques such as T1112."""
 
 
 [[rule.threat]]

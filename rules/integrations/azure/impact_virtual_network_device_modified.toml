@@ -2,7 +2,7 @@
 creation_date = "2020/08/12"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Austin Songer"]
@@ -23,50 +23,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Virtual Network Device Modified or Deleted"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Azure Virtual Network Device Modified or Deleted
-
-Azure virtual network devices, such as network interfaces, virtual hubs, and routers, are crucial for managing network traffic and connectivity in cloud environments. Adversaries may target these devices to disrupt services or reroute traffic for data exfiltration. The detection rule monitors specific Azure activity logs for operations indicating modifications or deletions, helping identify unauthorized changes that could signify malicious activity.
-
-### Possible investigation steps
-
-- Review the Azure activity logs to confirm the specific operation that triggered the alert, focusing on the `azure.activitylogs.operation_name` field to identify whether it was a modification or deletion.
-- Check the `event.outcome` field to ensure the operation was successful, as this indicates the change was applied.
-- Identify the user or service principal responsible for the operation by examining the `azure.activitylogs.caller` field to determine if the action was authorized.
-- Investigate the timestamp of the event to correlate with any other suspicious activities or changes in the environment.
-- Cross-reference the affected virtual network device with recent changes in network traffic patterns or connectivity issues to assess potential impact.
-- Use Osquery to gather additional context about the affected virtual network device. For example, run a query to list all network interfaces and their configurations: `SELECT * FROM azure_network_interfaces WHERE name = '<affected_device_name>';`.
-- Review any associated Azure Resource Manager (ARM) templates or scripts that might have been used to deploy or modify the network device to ensure they have not been tampered with.
-- Check for any recent changes in Azure policies or role assignments that might have inadvertently allowed unauthorized modifications.
-- Investigate any related alerts or incidents in the security information and event management (SIEM) system to identify potential patterns or coordinated attacks.
-- Consult with the network and cloud infrastructure teams to verify if the change was part of a planned maintenance or deployment activity.
-
-### False positive analysis
-
-- Routine maintenance activities by network administrators can trigger this rule, such as scheduled updates or configuration changes to network interfaces, virtual hubs, or routers. These actions are typically non-threatening and can be excluded by creating exceptions for known maintenance windows or specific user accounts.
-- Automated scripts or tools used for network management might also cause false positives if they perform frequent write or delete operations on virtual network devices. Users can handle these by identifying and excluding operations from trusted automation tools or service accounts.
-- Changes made by authorized third-party services or integrations that manage network configurations could be mistakenly flagged. To manage this, users should whitelist operations from these services by specifying their unique identifiers or IP addresses in the exclusion criteria.
-- In environments with dynamic scaling, automated processes that modify or delete network interfaces as part of scaling operations may be misinterpreted as malicious. Users can mitigate this by setting up exceptions for operations linked to known scaling activities or specific resource groups.
-
-### Response and remediation
-
-- Immediately isolate the affected virtual network device to prevent further unauthorized access or changes.
-- Review Azure activity logs to identify the source and scope of the modification or deletion, focusing on user accounts and IP addresses involved.
-- Verify the integrity of other network devices and configurations to ensure no additional unauthorized changes have occurred.
-- Restore the modified or deleted virtual network device from a known good backup to return the system to its operational state.
-- Implement stricter access controls and multi-factor authentication for accounts with permissions to modify network devices.
-- Escalate the incident to the security operations team for further investigation and to determine if the activity is part of a larger attack.
-- Conduct a root cause analysis to understand how the unauthorized change occurred and identify any security gaps.
-- Enhance logging policies to ensure comprehensive monitoring of all critical network device operations and integrate with a SIEM for real-time alerts.
-- Update and patch all network devices and related software to mitigate vulnerabilities that could be exploited by adversaries.
-- Educate and train staff on recognizing and responding to suspicious activities related to network device management, leveraging MITRE ATT&CK framework for threat context.
-
-## Setup
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.microsoft.com/en-us/azure/role-based-access-control/resource-provider-operations"]

@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -48,48 +48,6 @@ registry where host.os.type == "windows" and event.type == "change" and
                          "?:\\Program Files (x86)\\SAP\\SapSetup\\OnRebootSvc\\NWSAPSetupOnRebootInstSvc.exe", 
                          "?:\\Program Files (x86)\\Kaspersky Lab\\Kaspersky Security for Windows Server\\kavfs.exe")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Installation of Custom Shim Databases
-
-Application Compatibility Shim databases are used in Windows to ensure older applications run smoothly on newer OS versions by applying compatibility fixes. However, attackers can exploit this feature to maintain persistence and execute arbitrary code by installing malicious custom shim databases. The detection rule identifies changes in specific registry paths associated with these databases, excluding known legitimate processes, to flag potential abuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the registry path involved matches one of the specified paths in the detection rule, focusing on paths like "HKLM\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\AppCompatFlags\\\\Custom\\\\*.sdb".
-- Check the process executable that triggered the alert to ensure it is not one of the known legitimate processes listed in the exclusion list, such as "NwSapSetup.exe" or "kavfs.exe".
-- Investigate the timestamp of the registry change event to correlate with any other suspicious activities or changes on the system around the same time.
-- Use Osquery to list all custom shim databases installed on the system with a query like: `SELECT * FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\AppCompatFlags\\\\Custom\\\\%'`.
-- Examine the contents and metadata of the identified custom shim database files to determine their origin and purpose.
-- Cross-reference the identified shim database files with known good or bad hashes using threat intelligence sources or a file reputation service.
-- Investigate the user account context under which the registry change was made to determine if it aligns with expected administrative activity.
-- Review system logs and security events for any signs of privilege escalation or unauthorized access that could have led to the installation of the custom shim database.
-- Check for any recent software installations or updates that might have legitimately introduced new shim databases, ensuring they align with organizational policies.
-- Analyze network activity from the host around the time of the registry change for any unusual outbound connections that could indicate data exfiltration or command and control communication.
-
-### False positive analysis
-
-- Known false positives for the Installation of Custom Shim Databases rule include legitimate software installations or updates that modify the registry paths associated with shim databases. These can include software from vendors like SAP and Kaspersky, which are known to use these registry paths during their installation or update processes.
-- Users can handle these false positives by creating exceptions for specific processes that are known to be legitimate. This can be done by adding the executable paths of these trusted applications to the exclusion list in the detection rule, ensuring that these processes do not trigger alerts.
-- It is important to regularly review and update the list of excluded processes to ensure that only verified and trusted applications are excluded, minimizing the risk of overlooking potential threats.
-- Users should also monitor for any new software installations or updates that might interact with the registry paths in question, and assess whether these should be added to the exclusion list based on their legitimacy and frequency of occurrence.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the source of the custom shim database installation, focusing on recent changes and unauthorized access.
-- Review and analyze the process execution logs to determine if any known malicious executables were involved in the shim database installation.
-- Remove any unauthorized or suspicious shim databases from the registry paths identified in the detection rule.
-- Restore the system to a known good state using backups or system restore points, ensuring that no malicious changes persist.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed registry changes and process execution events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities that could be exploited by attackers.
-- Educate users and administrators on the risks associated with shim databases and the importance of monitoring for unauthorized changes."""
 
 
 [[rule.threat]]

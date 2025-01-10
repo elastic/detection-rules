@@ -2,7 +2,7 @@
 creation_date = "2024/05/29"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -43,50 +43,6 @@ any where host.os.type == "windows" and event.category : ("library", "process") 
   not ?dll.code_signature.trusted == true and
   not file.code_signature.status == "Valid"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unsigned DLL loaded by DNS Service
-
-The DNS service on Windows systems is crucial for resolving domain names to IP addresses. It uses DLLs to extend its functionality. Adversaries may exploit this by loading malicious, unsigned DLLs into the DNS service, potentially gaining elevated privileges and executing arbitrary code. The detection rule identifies such threats by monitoring for DLLs loaded by the DNS process that lack valid signatures, indicating possible tampering or unauthorized modifications.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process executable is "?:\\\\windows\\\\system32\\\\dns.exe" and verify the DLL in question is indeed unsigned.
-- Check the event logs for any recent changes or unusual activity around the time the unsigned DLL was loaded, focusing on event categories "library" and "process" with event types "start" and "change".
-- Investigate the file path and name of the unsigned DLL to determine if it is known or expected within the environment.
-- Use Osquery to list all DLLs currently loaded by the DNS service with the following query: `SELECT path, name, pid FROM processes JOIN process_open_sockets ON processes.pid = process_open_sockets.pid WHERE path LIKE '%dns.exe%';`
-- Examine the file metadata of the unsigned DLL, including creation and modification timestamps, to identify any anomalies or recent changes.
-- Cross-reference the unsigned DLL's hash against threat intelligence databases to check for known malicious signatures.
-- Analyze the parent process and any associated child processes of the DNS service to identify potential lateral movement or further exploitation attempts.
-- Review user and system activity logs around the time of the DLL load event to identify any suspicious behavior or unauthorized access attempts.
-- Investigate network connections initiated by the DNS service to detect any unusual or unauthorized external communications.
-- Consult with the system owner or administrator to verify if the unsigned DLL is part of a legitimate application or recent update that may not yet be signed.
-
-### False positive analysis
-
-- Some legitimate software may load unsigned DLLs into the DNS service for valid reasons, such as custom network management tools or legacy applications that do not have signed components. 
-- Security software or monitoring tools might inject unsigned DLLs for tracking or analysis purposes, which could be mistaken for malicious activity.
-- In environments with custom or in-house developed applications, these applications might not have signed DLLs, leading to false positives when they interact with the DNS service.
-- To manage these false positives, users can create exceptions for known and trusted applications by whitelisting their DLLs or processes in the security monitoring tool.
-- Regularly update the list of trusted software and their components to ensure that legitimate updates or changes do not trigger false alerts.
-- Collaborate with IT and security teams to maintain an inventory of authorized software and their expected behaviors, which can help in quickly identifying and excluding benign activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the unsigned DLLs loaded by the DNS service.
-- Verify the integrity of the DNS service and its associated files by comparing them against known good versions or using a trusted source.
-- Remove any unauthorized or malicious DLLs identified during the investigation and replace them with legitimate versions.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed information on DLL loads and process activities, ensuring future incidents can be detected more effectively.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system to its operational state by applying the latest security patches and updates, and conducting a full system scan to ensure no residual threats remain.
-- Harden the system by disabling unnecessary services, applying least privilege principles, and ensuring all software is up-to-date.
-- Review and update security policies and procedures to incorporate lessons learned from the incident, enhancing the organization's overall security posture."""
 
 
 [[rule.threat]]

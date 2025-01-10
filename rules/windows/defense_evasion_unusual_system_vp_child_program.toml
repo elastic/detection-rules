@@ -2,7 +2,7 @@
 creation_date = "2020/08/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -46,48 +46,6 @@ process where host.os.type == "windows" and event.type == "start" and
   process.parent.pid == 4 and process.executable : "?*" and
   not process.executable : ("Registry", "MemCompression", "?:\\Windows\\System32\\smss.exe")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Child Process from a System Virtual Process
-
-In Windows environments, the System process (PID 4) is a critical component responsible for managing system-level operations. Adversaries may exploit this by injecting malicious code to spawn unauthorized child processes, evading detection. The detection rule identifies anomalies by flagging unexpected child processes of the System process, excluding known legitimate executables, thus highlighting potential malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process executable and parent PID match the criteria: process.parent.pid == 4 and process.executable : "?*".
-- Cross-reference the process executable against known legitimate system processes to ensure it is not a false positive.
-- Use Osquery to gather additional context about the suspicious process. Example query: `SELECT * FROM processes WHERE pid = <suspicious_process_pid>;`
-- Investigate the command line arguments of the suspicious process to identify any unusual or malicious patterns.
-- Check the process creation time and correlate it with other system events or logs to identify any related activities.
-- Examine the parent process tree to understand the lineage and determine if there are any other suspicious processes involved.
-- Analyze network connections initiated by the suspicious process to identify any unusual or unauthorized communication.
-- Review recent changes to the system, such as software installations or updates, that might explain the presence of the process.
-- Investigate the user account context under which the process is running to determine if it aligns with expected behavior.
-- Consult threat intelligence sources to see if the process executable or related indicators have been associated with known threats.
-
-### False positive analysis
-
-- Known false positives for the Unusual Child Process from a System Virtual Process rule may include legitimate system maintenance or update processes that are not typically associated with malicious activity. These can include certain third-party security or system management tools that interact with the System process for legitimate purposes.
-- Users can handle these false positives by creating exceptions for specific executables that are verified as non-threatening. This can be done by adding these executables to the exclusion list in the detection rule, ensuring they are not flagged in future scans.
-- It is important to regularly review and update the list of excluded executables to ensure that only verified and trusted processes are excluded, maintaining a balance between security and operational efficiency.
-- Users should also consider the context of the flagged process, such as the time of execution and the associated user account, to determine if the activity aligns with expected behavior or scheduled tasks, which can help in distinguishing false positives from genuine threats.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation to confirm the presence of malicious code injection by analyzing the suspicious child process and its parent process.
-- Terminate any unauthorized processes spawned by the System process (PID 4) to halt malicious activity.
-- Review and collect relevant logs, including process creation logs and security event logs, to understand the scope and impact of the incident.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Restore the system to a known good state using backups or system restore points, ensuring that all malicious artifacts are removed.
-- Implement enhanced logging policies to capture detailed process creation and termination events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities against similar threats.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities that could be exploited for process injection.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent recurrence."""
 
 
 [[rule.threat]]

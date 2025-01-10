@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -46,48 +46,6 @@ process where event.type == "start" and
    "/usr/lib/go-*/bin/go", "/usr/lib/dracut/dracut-functions.sh", "/tmp/KSInstallAction.*/m/.patch/*"
 ) and not process.parent.name in ("pmlogger_daily", "pmlogger_janitor", "systemd")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Timestomping using Touch Command
-
-Timestomping involves altering file timestamps to evade detection, often using the 'touch' command in Unix-like systems. Adversaries exploit this to blend malicious files with legitimate ones by mimicking their timestamps. The detection rule identifies suspicious 'touch' command executions by non-root users, focusing on specific arguments that modify access and modification times, while excluding benign processes and known legitimate paths.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the 'touch' command execution by a non-root user, focusing on the specific arguments used, such as "-r", "-t", "-a", and "-m".
-- Identify the user account associated with the alert by examining the 'user.id' field to determine if the account is known or potentially compromised.
-- Investigate the parent process of the 'touch' command using the 'process.parent.name' field to understand the context in which the command was executed and check for any unusual or suspicious parent processes.
-- Cross-reference the file paths involved in the 'touch' command with known legitimate paths to ensure they are not part of the excluded paths, such as "/usr/lib/go-*/bin/go" or "/tmp/KSInstallAction.*/m/.patch/*".
-- Use Osquery to list recent file modifications in the directory where the 'touch' command was executed. Example query: `SELECT path, atime, mtime, ctime FROM file WHERE directory = '/path/to/suspicious/directory' ORDER BY mtime DESC LIMIT 10;`
-- Check system logs for any other suspicious activities or anomalies around the time of the 'touch' command execution to identify potential related events.
-- Analyze the command history of the user account involved to determine if there are any other suspicious commands executed around the same time.
-- Investigate any network connections or external communications initiated by the user account or the system around the time of the alert to identify potential data exfiltration or command-and-control activities.
-- Review any recent changes to user permissions or group memberships that might have allowed the execution of the 'touch' command by a non-root user.
-- Correlate the alert with other security events or alerts in the environment to identify if this is part of a larger attack campaign or isolated incident.
-
-### False positive analysis
-
-- Known false positives may arise from legitimate administrative scripts or maintenance tasks that use the 'touch' command with timestamp modification arguments. These scripts might be scheduled to run regularly and are not indicative of malicious activity.
-- Developers and system administrators might use the 'touch' command with specific arguments during software development or system configuration processes, which can trigger the detection rule.
-- To manage these false positives, users can create exceptions for specific scripts or processes by adding them to the exclusion list in the detection rule. This can be done by identifying the benign processes and paths that frequently trigger the rule and updating the exclusion criteria accordingly.
-- Regularly review and update the exclusion list to ensure it reflects the current environment and operational needs, minimizing unnecessary alerts while maintaining security vigilance.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify all files and processes that have been timestomped, using forensic tools to analyze file metadata and system logs.
-- Review user activity logs to determine if the non-root user executing the 'touch' command was authorized and if their account has been compromised.
-- Restore affected files from a known good backup to ensure integrity and correct timestamps, and verify the system's operational state.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed command execution and file modification events, ensuring that future timestomping attempts are detected promptly.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and correlate alerts with known threat actors.
-- Apply system hardening measures, such as restricting the use of the 'touch' command to authorized users only and implementing strict access controls.
-- Educate users on security best practices and the risks associated with unauthorized command execution to prevent future incidents.
-- Review and update incident response plans to incorporate lessons learned from the investigation and ensure readiness for similar threats in the future."""
 
 
 [[rule.threat]]

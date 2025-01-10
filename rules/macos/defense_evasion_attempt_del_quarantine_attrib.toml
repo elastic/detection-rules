@@ -2,7 +2,7 @@
 creation_date = "2020/08/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -68,53 +68,6 @@ process.executable : ("/usr/bin/xattr",
                       "/Applications/.com.bomgar.scc.*/Remote Support Customer Client.app/Contents/MacOS/sdcust") and not
 file.path : "/private/var/folders/*"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Quarantine Attrib Removed by Unsigned or Untrusted Process
-
-In macOS, files downloaded from the internet are tagged with a quarantine attribute, which is checked by Gatekeeper to ensure safety before execution. Adversaries may remove this attribute to bypass security checks. The detection rule identifies such actions by monitoring for the deletion of this attribute by untrusted or unsigned processes, excluding known safe executables and paths, thus highlighting potential evasion attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file path and process executable involved in the quarantine attribute removal. Pay attention to the `file.path` and `process.executable` fields.
-- Verify the legitimacy of the process executable by checking its code signature status. Use the `process.code_signature.trusted` and `process.code_signature.exists` fields to determine if the process is unsigned or untrusted.
-- Cross-reference the process executable path against known safe executables and paths to ensure it is not mistakenly flagged. Refer to the exclusion list in the detection rule.
-- Investigate the parent process of the flagged executable to understand the process hierarchy and determine if the parent process is legitimate or suspicious.
-- Use Osquery to gather additional context about the process and file involved. For example, run the following Osquery command to check for recent file modifications and process details:
-  ```sql
-  SELECT * FROM file WHERE path = '<file_path>';
-  SELECT * FROM processes WHERE pid = <process_id>;
-  ```
-- Check system logs for any related events or anomalies around the time the quarantine attribute was removed. Look for unusual activity that might correlate with the alert.
-- Investigate the user account associated with the process to determine if the activity aligns with expected behavior or if it indicates potential compromise.
-- Examine network activity from the host to identify any suspicious outbound connections that might suggest data exfiltration or command-and-control communication.
-- Review recent downloads or installations on the system to identify any potentially malicious software that could have triggered the alert.
-- Consult threat intelligence sources to determine if the process or file path is associated with known malware or adversary techniques, providing additional context for the investigation.
-
-### False positive analysis
-
-- Known false positives may occur when legitimate applications or system processes that are not signed or trusted remove the quarantine attribute. This can include custom scripts or third-party applications that are not widely recognized or signed by Apple.
-- Users can handle these false positives by creating exceptions for specific processes or paths that are known to be safe. This can be done by adding these processes or paths to the exclusion list in the detection rule.
-- Frequent non-threatening behaviors, such as updates or installations from trusted sources that are not signed, can be excluded by specifying their executable paths in the exclusion criteria.
-- It is important to regularly review and update the exclusion list to ensure that only legitimate processes are excluded, maintaining a balance between security and usability.
-- Users should monitor the behavior of excluded processes to ensure they do not become vectors for malicious activity, as threat actors may attempt to exploit these exceptions.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further potential malicious activity and lateral movement.
-- Verify the process responsible for removing the quarantine attribute by checking its executable path and signature status.
-- Conduct a thorough investigation of the process's origin and behavior, including reviewing recent downloads and installations on the system.
-- If the process is confirmed malicious, remove the associated files and any other suspicious files or applications installed around the same time.
-- Restore the system from a known good backup if the integrity of the system is compromised.
-- Escalate the incident to the security operations team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and file attribute changes for future investigations.
-- Integrate with threat intelligence platforms to correlate the activity with known threat actors or campaigns.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities that could be exploited.
-- Educate users on safe downloading practices and the importance of verifying the source of applications to prevent similar incidents."""
 
 
 [[rule.threat]]

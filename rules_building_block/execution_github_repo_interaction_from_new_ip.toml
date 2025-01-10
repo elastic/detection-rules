@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -35,51 +35,6 @@ event.dataset:"github.audit" and event.category:"configuration" and
 github.actor_ip:* and github.repo:* and 
 github.repository_public:false
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating First Occurrence of GitHub Repo Interaction From a New IP
-
-GitHub repositories are crucial for code collaboration and storage, often containing sensitive information. Adversaries may exploit unauthorized access to private repositories by interacting from unfamiliar IPs, potentially leading to data breaches or code tampering. This detection rule identifies such anomalies by flagging interactions from IPs not seen in recent activity, helping to mitigate unauthorized access risks.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific IP address involved in the interaction and the exact timestamp of the event.
-- Cross-reference the IP address with known IP addresses in your organization's network to determine if it is an internal or external IP.
-- Check the GitHub audit logs for any other activities associated with the same IP address to identify patterns or additional unauthorized access attempts.
-- Investigate the GitHub actor associated with the event to verify if the user account has a history of accessing the repository from different IPs or if this is an anomaly.
-- Examine the specific repository accessed to assess the sensitivity of the data and determine the potential impact of unauthorized access.
-- Utilize Osquery to gather additional context on the system that may have been used for the interaction. For example, run the following Osquery query to check for recent network connections from the suspicious IP:
-  ```sql
-  SELECT * FROM process_open_sockets WHERE remote_address = '<suspicious_ip>';
-  ```
-- Analyze any recent changes or commits made to the repository around the time of the alert to identify any unauthorized modifications.
-- Check for any recent changes in user permissions or access levels within the GitHub organization that could explain the new IP access.
-- Investigate any other security alerts or incidents that occurred around the same time to determine if this event is part of a larger attack pattern.
-- Consult threat intelligence sources to see if the IP address has been associated with known malicious activity or threat actors.
-
-### False positive analysis
-
-- Employees working remotely or traveling may trigger false positives when accessing GitHub repositories from new IP addresses. To manage this, maintain a list of known employee IPs or use a VPN to standardize IP addresses.
-- Automated systems or CI/CD pipelines that interact with GitHub repositories from dynamic IP addresses can also cause false positives. Consider whitelisting IP ranges associated with these systems or using static IPs for such interactions.
-- Third-party services or contractors with legitimate access to repositories might access from unfamiliar IPs. Establish a process to verify and document these IPs, and create exceptions for trusted partners.
-- Changes in corporate network infrastructure, such as new VPN endpoints or proxy servers, can result in new IP addresses being flagged. Regularly update the list of internal IPs to reflect these changes and prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected repository by restricting access to known, trusted IP addresses to prevent further unauthorized interactions.
-- Conduct a thorough investigation to identify the source and intent of the interaction, focusing on the new IP address and any associated user accounts.
-- Review recent changes in the repository for any unauthorized modifications or suspicious activity, and revert any unauthorized changes if necessary.
-- Notify the security team and relevant stakeholders about the incident, providing details of the IP address and any potential impact on the repository.
-- Implement enhanced logging and monitoring for GitHub interactions, ensuring that all access attempts, especially from new IPs, are logged and reviewed regularly.
-- Integrate threat intelligence feeds to correlate the new IP address with known malicious actors or activities, leveraging MITRE ATT&CK framework for context.
-- Update access controls and authentication mechanisms, such as enabling multi-factor authentication (MFA) for all users accessing private repositories.
-- Conduct a security awareness session for developers and repository maintainers to reinforce best practices for securing code repositories.
-- Restore the repository to its last known good state if any unauthorized changes were detected, ensuring that all code and data integrity is maintained.
-- Review and update incident response and recovery plans to incorporate lessons learned from the incident, enhancing future readiness and resilience."""
 
 
 [[rule.threat]]

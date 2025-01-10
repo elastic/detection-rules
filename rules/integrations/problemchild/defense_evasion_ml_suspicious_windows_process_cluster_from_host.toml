@@ -2,7 +2,7 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -57,49 +57,6 @@ tags = [
     "Tactic: Defense Evasion",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Windows Process Cluster Spawned by a Host
-
-The detection leverages machine learning to identify clusters of Windows processes with high malicious probability scores. Adversaries may exploit legitimate binaries, known as LOLbins, to evade detection by masquerading them as benign processes. This rule uses both supervised and unsupervised ML models to flag unusual process clusters on a single host, indicating potential malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific processes flagged as suspicious, including their names, paths, and associated host names.
-- Cross-reference the flagged processes with known legitimate binaries (LOLbins) to determine if they are being used in an unusual context.
-- Analyze the process tree to understand the parent-child relationships and identify any unusual process spawning patterns.
-- Check the process execution times and compare them with normal activity patterns for the host to identify anomalies.
-- Use Osquery to gather additional context on the suspicious processes. For example, run the following query to list all processes with their parent process IDs and command-line arguments: `SELECT pid, name, path, parent, cmdline FROM processes WHERE name IN ('<suspicious_process_name>');`
-- Investigate the network connections initiated by the suspicious processes to identify any unusual or unauthorized external communications.
-- Examine the file hashes of the suspicious binaries and compare them against threat intelligence databases to check for known malicious signatures.
-- Review the user accounts associated with the execution of the suspicious processes to determine if there are signs of compromised credentials or privilege escalation.
-- Analyze the system logs for any additional indicators of compromise or related suspicious activities around the time the processes were executed.
-- Correlate the findings with other security alerts or incidents to determine if the suspicious processes are part of a larger attack campaign.
-
-### False positive analysis
-
-- Known false positives for the Suspicious Windows Process Cluster Spawned by a Host rule may include legitimate administrative tools or scripts that are frequently used in the environment but are flagged due to their resemblance to LOLbins or unusual execution patterns.
-- Users can handle these false positives by creating exceptions for specific processes or process clusters that are regularly observed and verified as non-threatening. This can be done by whitelisting certain process names or paths that are known to be safe.
-- It is important to regularly review and update these exceptions to ensure that they do not inadvertently allow malicious activity to go undetected. This involves monitoring the environment for changes in legitimate process behavior and adjusting the exceptions accordingly.
-- In environments where certain processes are known to execute with high frequency, users can adjust the sensitivity of the ML models or set thresholds to reduce the likelihood of these processes being flagged as suspicious.
-- Collaboration with IT and security teams to understand the context of flagged processes can help in distinguishing between false positives and genuine threats, ensuring that only benign activities are excluded from alerts.
-
-### Response and remediation
-
-- Isolate the affected host from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation of the flagged processes to confirm malicious activity, focusing on identifying any LOLbins or masquerading techniques used.
-- Terminate any identified malicious processes and remove any associated files or artifacts from the system.
-- Review and analyze system logs and security alerts to understand the scope of the attack and identify any additional compromised systems.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
-- Implement enhanced logging policies to capture detailed process execution data and network activity for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Restore the system to its operational state by applying the latest security patches, updating antivirus definitions, and ensuring all security configurations are in place.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Implement hardening measures such as application whitelisting, disabling unnecessary services, and enforcing strict access controls to reduce the risk of future attacks."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

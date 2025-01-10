@@ -2,7 +2,7 @@
 creation_date = "2023/07/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -43,49 +43,6 @@ not (
   process.args : ("C:\\ProgramData\\Lenovo\\*", "C:\\ProgramData\\Adobe\\*", "C:\\ProgramData\\ASUS\\ASUS*")
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File and Directory Permissions Modification
-
-File and directory permissions in Windows environments control access and modification rights, crucial for maintaining system integrity. Adversaries exploit utilities like `icacls`, `cacls`, `takeown`, and `attrib` to alter permissions, enabling unauthorized file access or deletion. The detection rule identifies suspicious permission changes by monitoring these utilities' execution, filtering out benign processes, and focusing on potential threats, excluding known safe operations.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and arguments that triggered the alert, focusing on `process.name` and `process.args` fields.
-- Check the user context by examining the `user.id` field to determine if the action was performed by a legitimate user or a potential adversary.
-- Investigate the parent process using `process.parent.name` to understand the origin of the suspicious process execution.
-- Correlate the timestamp of the event with other security events to identify any related activities or anomalies around the same time.
-- Use Osquery to list recent file permission changes on the system with a query like: `SELECT path, mode, uid, gid FROM file WHERE path LIKE 'C:\\\\%' AND mode != '0644';` to identify unauthorized modifications.
-- Examine the command line arguments (`process.args`) for any unusual or unauthorized permission changes, such as granting full control (`*:F`) or resetting permissions.
-- Verify if the file or directory targeted by the permission change is critical or sensitive, which could indicate a higher risk.
-- Check for any exclusions in the query, such as known safe operations, to ensure the alert is not a false positive.
-- Investigate the system's recent login history and user activity to identify any unauthorized access attempts.
-- Review historical data for similar alerts on the same host to determine if this is part of a recurring pattern or isolated incident.
-
-### False positive analysis
-
-- Routine administrative tasks often trigger the execution of utilities like `icacls`, `cacls`, `takeown`, and `attrib`, leading to false positives. For instance, system administrators may use these tools to manage permissions during software installations or updates.
-- Automated scripts or system management tools from trusted vendors, such as Lenovo, Adobe, or ASUS, may execute these utilities as part of their normal operations, which can be safely excluded from alerts.
-- To manage these false positives, users can create exceptions by excluding specific processes or directories known to be safe, such as those related to trusted software vendors or internal IT scripts.
-- Regularly review and update the exclusion list to ensure it reflects the current environment and includes any new trusted processes or directories that may have been added.
-- Consider implementing a whitelist approach for known safe operations, allowing only specific, verified processes to execute these utilities without triggering alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or changes.
-- Conduct a thorough investigation to determine the scope of the permissions modification, identifying all affected files and directories.
-- Review system logs and security events to trace the origin of the suspicious activity, focusing on the execution of utilities like `icacls`, `cacls`, `takeown`, and `attrib`.
-- Verify the legitimacy of the user account involved in the permission changes and reset credentials if necessary to prevent further unauthorized access.
-- Restore original file and directory permissions from backups or use system restore points to revert changes, ensuring system integrity.
-- Escalate the incident to the security operations center (SOC) or incident response team if the activity is determined to be part of a larger attack or if sensitive data is involved.
-- Implement enhanced logging policies to capture detailed information on file and directory permission changes, including user actions and process executions.
-- Integrate security solutions such as endpoint detection and response (EDR) tools to monitor and alert on suspicious permission changes in real-time.
-- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent similar incidents in the future.
-- Apply hardening measures by restricting the use of permission-altering utilities to authorized personnel only and implementing least privilege access controls."""
 
 
 [[rule.threat]]

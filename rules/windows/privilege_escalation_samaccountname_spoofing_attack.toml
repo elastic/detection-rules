@@ -2,7 +2,7 @@
 creation_date = "2021/12/12"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -55,52 +55,6 @@ iam where event.action == "renamed-user-account" and
   /* machine account name renamed to user like account name */
   winlog.event_data.OldTargetUserName : "*$" and not winlog.event_data.NewTargetUserName : "*$"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Privileged Escalation via SamAccountName Spoofing
-
-In Active Directory environments, the `samAccountName` attribute is crucial for identifying user and computer accounts. Adversaries may exploit vulnerabilities like CVE-2021-42278 to rename computer accounts, mimicking domain controllers and gaining elevated privileges. The detection rule identifies suspicious renaming events where a machine account is altered to resemble a user account, signaling potential privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a `renamed-user-account` event action, focusing on the `winlog.event_data.OldTargetUserName` and `winlog.event_data.NewTargetUserName` fields to verify if a machine account was renamed to resemble a user account.
-- Cross-reference the `OldTargetUserName` and `NewTargetUserName` with known domain controller and user account naming conventions to identify any anomalies or patterns that suggest spoofing.
-- Check the event timestamp to determine when the renaming occurred and correlate it with other security events or logs around the same time for additional context.
-- Investigate the source of the renaming event by identifying the user or process that initiated the change, using the `winlog.event_data.SubjectUserName` and `winlog.event_data.SubjectUserSid` fields.
-- Utilize Osquery to gather more information about the system where the renaming event originated. For example, run the following Osquery query to list recent account changes on the system:
-  ```sql
-  SELECT * FROM users WHERE last_change > (SELECT MAX(last_change) - 86400 FROM users);
-  ```
-- Examine the system logs and security logs on the originating machine for any signs of unauthorized access or suspicious activity leading up to the renaming event.
-- Check for any recent changes in group memberships, especially those involving privileged groups like Domain Admins, to identify potential privilege escalation.
-- Analyze network traffic logs to detect any unusual communication patterns between the affected machine and other domain controllers or critical servers.
-- Review any recent patches or updates applied to the system to ensure that CVE-2021-42278 and related vulnerabilities have been addressed.
-- Consult with other security team members or stakeholders to gather additional insights or context that may aid in understanding the scope and impact of the potential privilege escalation attempt.
-
-### False positive analysis
-
-- Routine administrative tasks: In some environments, IT administrators may regularly rename computer accounts as part of maintenance or reorganization efforts. These legitimate activities can trigger the detection rule, leading to false positives. To manage this, create exceptions for known administrative actions by excluding specific administrator accounts or scheduled maintenance periods from the rule.
-- Automated scripts or tools: Some organizations use automated scripts or third-party tools to manage Active Directory accounts, which might include renaming operations. These can be mistaken for malicious activity. Identify and exclude these scripts or tools by their unique identifiers or execution context to reduce false positives.
-- Migrations or upgrades: During system migrations or software upgrades, bulk renaming of accounts might occur, which can be flagged by the rule. To handle this, temporarily disable the rule during planned migrations or add exceptions for the duration of the upgrade process.
-- Testing environments: In test or development environments, frequent renaming of accounts for testing purposes can trigger alerts. Consider excluding these environments from the rule or setting up a separate monitoring policy that accounts for the higher volume of changes.
-- Known service accounts: Some service accounts may have legitimate reasons to change their names, such as aligning with new naming conventions. Document these accounts and create exceptions to prevent them from being flagged as suspicious.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to confirm the exploitation of CVE-2021-42278 by reviewing logs and identifying any unauthorized changes to the samAccountName attribute.
-- Revert any unauthorized changes to the samAccountName attribute to restore the original state of the affected accounts.
-- Reset passwords for any accounts that were potentially compromised during the incident to prevent further unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the full scope of the breach.
-- Implement enhanced logging policies to capture detailed events related to account management and privilege escalation attempts for future investigations.
-- Integrate security information and event management (SIEM) solutions to correlate and analyze security events across the network for improved threat detection.
-- Apply security patches and updates to all systems to mitigate known vulnerabilities, including CVE-2021-42278, and prevent similar attacks.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Educate and train IT staff and users on recognizing and responding to potential security threats, emphasizing the importance of maintaining strong security hygiene."""
 
 
 [[rule.threat]]

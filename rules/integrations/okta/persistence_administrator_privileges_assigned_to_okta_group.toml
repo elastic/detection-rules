@@ -2,7 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/09"
 min_stack_version = "8.15.0"
 min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
 
@@ -23,50 +23,7 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Administrator Privileges Assigned to an Okta Group"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Administrator Privileges Assigned to an Okta Group
-
-Okta is a widely used identity management service that facilitates secure user authentication and authorization. Administrator roles in Okta grant elevated permissions, allowing significant control over user accounts and settings. Adversaries may exploit this by assigning admin roles to groups, thereby escalating privileges and maintaining unauthorized access. The detection rule monitors system events for privilege grants to groups, identifying potential misuse by flagging suspicious role assignments.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific Okta group and the administrator role that was assigned, using the `event.dataset:okta.system` and `event.action:group.privilege.grant` fields for context.
-- Check the Okta system logs for any recent changes or unusual activities related to the group in question, focusing on the timeframe around the alert.
-- Identify the user account that performed the privilege assignment by examining the `actor.id` and `actor.alternateId` fields in the event logs.
-- Investigate the history of the user account that made the change to determine if there are any signs of compromise or unusual behavior, such as logins from unfamiliar locations or devices.
-- Cross-reference the group membership to identify all users who are now granted elevated privileges and assess if any of these accounts show signs of compromise.
-- Use Osquery to gather additional context on the systems used by the user account that made the change. For example, run the following Osquery query to list recent logins on the user's machine: `SELECT * FROM last WHERE username = '<username>';`.
-- Analyze any recent changes to the Okta configuration or policies that might have facilitated the unauthorized privilege assignment.
-- Review any associated alerts or incidents that might provide additional context or indicate a broader attack pattern.
-- Check for any other privilege assignments to groups within the same timeframe to identify potential patterns or coordinated actions.
-- Collaborate with the IT or security team to gather additional context on the business justification for the role assignment, if any, and verify its legitimacy.
-
-### False positive analysis
-
-- Routine administrative tasks: Legitimate IT administrators may assign administrator roles to groups as part of regular maintenance or onboarding processes. To manage these, users can create exceptions for known administrative actions by whitelisting specific user accounts or groups involved in these tasks.
-- Organizational changes: During mergers, acquisitions, or restructuring, there may be a legitimate need to reassign roles and privileges. Users can handle these by temporarily adjusting the detection thresholds or excluding specific events during the transition period.
-- Automated processes: Some organizations use automated scripts or tools to manage user roles and permissions. These processes might trigger the detection rule. Users can exclude these automated actions by identifying and whitelisting the associated service accounts or scripts.
-- Testing and development: In environments where testing or development occurs, admin roles might be assigned to groups for testing purposes. Users can manage these by creating exceptions for specific test environments or by using separate detection rules for production and non-production environments.
-
-### Response and remediation
-
-- Immediately revoke the administrator privileges assigned to the Okta group to contain potential unauthorized access.
-- Conduct a thorough investigation to identify any compromised accounts within the group and assess the extent of unauthorized access or changes made.
-- Review recent Okta system logs for any suspicious activities or anomalies that coincide with the privilege assignment event.
-- Reset passwords and enforce multi-factor authentication (MFA) for all accounts within the affected group to prevent further unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for a comprehensive analysis and response.
-- Implement enhanced logging and monitoring policies to capture detailed events related to privilege changes and group assignments in Okta.
-- Integrate Okta with a security information and event management (SIEM) system to enable real-time alerting and correlation with other security events.
-- Conduct a post-incident review to identify gaps in security controls and update policies to prevent similar incidents in the future.
-- Apply hardening measures by limiting the number of users with the ability to assign administrator roles and regularly auditing group memberships.
-- Educate users and administrators on the risks associated with privilege escalation and the importance of adhering to the principle of least privilege.
-
-## Setup
+note = """## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

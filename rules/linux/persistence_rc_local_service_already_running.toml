@@ -2,7 +2,7 @@
 creation_date = "2024/06/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -68,49 +68,6 @@ query = '''
 process where host.os.type == "linux" and event.type == "info" and event.action == "already_running" and 
 process.parent.args == "/etc/rc.local" and process.parent.args == "start"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Execution of rc.local Script
-
-The `/etc/rc.local` script is a legacy Linux initialization script executed at the end of the boot process. While not enabled by default, attackers can exploit it to run malicious commands persistently at startup. The detection rule identifies potential misuse by monitoring for the `already_running` event action linked to `rc-local.service`, indicating the script's execution, thus alerting to possible unauthorized activities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the `already_running` event action associated with the `rc-local.service` systemd service, indicating potential execution of the `/etc/rc.local` script.
-- Verify the system's configuration to determine if the `/etc/rc.local` script is enabled and check for any recent modifications to the file by examining its last modified timestamp.
-- Use Osquery to list the contents of the `/etc/rc.local` file to identify any suspicious or unauthorized commands or scripts. Example query: `SELECT * FROM file WHERE path = '/etc/rc.local';`
-- Investigate the parent process details captured in the alert, specifically focusing on `process.parent.args` to understand the context in which the `/etc/rc.local` script was executed.
-- Check system logs, such as `/var/log/syslog` or `/var/log/messages`, for any entries around the time of the alert that might provide additional context or indicate other suspicious activities.
-- Examine the system's boot logs, such as `journalctl -b`, to identify any anomalies or errors during the boot process that could be related to the execution of the `/etc/rc.local` script.
-- Investigate user accounts and permissions to determine if unauthorized users have access to modify or execute the `/etc/rc.local` script.
-- Review recent changes to system services and startup scripts to identify any unauthorized modifications that could indicate persistence mechanisms.
-- Use Osquery to check for other persistence mechanisms on the system, such as cron jobs or other startup scripts, that might be used in conjunction with the `/etc/rc.local` script. Example query: `SELECT * FROM crontab;`
-- Correlate the alert with other security events or alerts from the same host to identify patterns or additional indicators of compromise that might suggest a broader attack campaign.
-
-### False positive analysis
-
-- The execution of legitimate administrative scripts or maintenance tasks via `/etc/rc.local` can trigger false positives. System administrators may use this script for benign purposes, such as configuring network settings or starting essential services at boot.
-- Some Linux distributions or custom configurations might still rely on `/etc/rc.local` for legitimate startup processes, leading to alerts that are not indicative of malicious activity.
-- To manage these false positives, users can create exceptions for known and verified scripts or commands within `/etc/rc.local` by specifying them in the detection rule's exclusion list.
-- Regularly review and update the exclusion list to ensure that only trusted and necessary scripts are allowed, minimizing the risk of overlooking potential threats.
-- Consider implementing additional monitoring or logging for `/etc/rc.local` modifications to quickly identify unauthorized changes that could indicate malicious intent.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or execution of malicious scripts.
-- Conduct a thorough investigation to identify any unauthorized changes to the `/etc/rc.local` script and review the script's contents for malicious commands.
-- Check system logs and use forensic tools to trace the origin of the unauthorized changes and identify any other compromised systems.
-- Remove any malicious entries from the `/etc/rc.local` script and restore it to its default state if necessary.
-- Apply patches and updates to the operating system and installed software to mitigate known vulnerabilities that could have been exploited.
-- Implement strict access controls and permissions for critical system files, including `/etc/rc.local`, to prevent unauthorized modifications.
-- Enhance logging and monitoring by enabling detailed audit logs for system changes and integrating with a centralized logging solution for real-time alerts.
-- Consider deploying additional security tools, such as host-based intrusion detection systems (HIDS), to detect and prevent similar threats in the future.
-- Escalate the incident to the security team or relevant authorities if the investigation reveals a broader compromise or if sensitive data has been accessed.
-- Educate users and administrators on security best practices and the importance of monitoring for unusual system behavior to prevent future incidents."""
 
 
 [[rule.threat]]

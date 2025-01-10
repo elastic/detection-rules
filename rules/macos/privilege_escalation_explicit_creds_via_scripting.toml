@@ -2,7 +2,7 @@
 creation_date = "2020/12/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -64,49 +64,6 @@ event.category:process and host.os.type:macos and event.type:(start or process_s
  process.name:"security_authtrampoline" and
  process.parent.name:(osascript or com.apple.automator.runner or sh or bash or dash or zsh or python* or Python or perl* or php* or ruby or pwsh)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Execution with Explicit Credentials via Scripting
-
-In macOS environments, the `security_authtrampoline` process is used to execute programs with elevated privileges via the Security framework. Adversaries may exploit this by using scripting interpreters to run unauthorized commands with root access, bypassing standard security measures. The detection rule identifies such abuse by monitoring the initiation of `security_authtrampoline` through common scripting languages, flagging potential misuse of explicit credentials for privilege escalation.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the `security_authtrampoline` process execution and identify the parent scripting interpreter from the `process.parent.name` field.
-- Cross-reference the `event.category:process` and `event.type:(start or process_started)` fields to verify the timing and frequency of the suspicious process execution.
-- Examine the user account associated with the process execution to determine if it aligns with expected behavior or if it indicates potential misuse of credentials.
-- Investigate the command line arguments used in the process execution to identify any unusual or unauthorized commands being executed with elevated privileges.
-- Utilize Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE name = 'security_authtrampoline';` to retrieve detailed information about the process, including its PID, parent PID, and execution path.
-- Check system logs for any related authentication events or anomalies around the time of the alert to identify potential unauthorized access attempts.
-- Analyze the network activity associated with the process to detect any suspicious outbound connections or data exfiltration attempts.
-- Review recent changes to the system, such as new software installations or script modifications, that could explain the unexpected use of `security_authtrampoline`.
-- Correlate the alert with other security events or alerts in the environment to identify patterns or coordinated activities that may indicate a broader attack.
-- Consult threat intelligence sources to determine if there are known campaigns or threat actors that commonly exploit `security_authtrampoline` for privilege escalation on macOS systems.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators may use scripting languages to perform routine maintenance or configuration tasks that require elevated privileges, leading to benign instances of `security_authtrampoline` execution. Users can create exceptions for known scripts or processes that are part of regular administrative workflows.
-- Automated scripts and tools: Some automated tools or scripts, such as those used for software deployment or system monitoring, might invoke `security_authtrampoline` as part of their normal operation. Users should identify these tools and whitelist them to prevent unnecessary alerts.
-- Development and testing environments: Developers might execute scripts that trigger `security_authtrampoline` during the development or testing of applications that require elevated privileges. In such cases, users can exclude specific development environments or user accounts from monitoring to reduce false positives.
-- Security software: Certain security applications may use scripting interpreters to perform legitimate security checks or updates that involve `security_authtrampoline`. Users should verify the legitimacy of these applications and consider excluding them from detection rules.
-- User-initiated actions: Advanced users or IT personnel might manually run scripts for troubleshooting or system management purposes. Organizations can implement a process to log and review these actions, allowing for the exclusion of verified user-initiated scripts from triggering alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected macOS system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the source of the unauthorized script execution, focusing on recent changes or suspicious activities in user accounts and installed applications.
-- Terminate any unauthorized processes associated with the `security_authtrampoline` and any parent scripting interpreters identified in the alert.
-- Review and revoke any compromised credentials or accounts, ensuring that all passwords are reset and multi-factor authentication is enforced.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed process execution events, including command-line arguments and parent-child process relationships, to aid in future investigations.
-- Integrate endpoint detection and response (EDR) solutions to monitor for similar suspicious activities and provide real-time alerts.
-- Restore the system to its operational state by reinstalling the operating system or restoring from a known good backup, ensuring all security patches are applied.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Implement hardening measures such as disabling unnecessary scripting interpreters, restricting the use of `AuthorizationExecuteWithPrivileges`, and enforcing least privilege principles across all user accounts."""
 
 
 [[rule.threat]]

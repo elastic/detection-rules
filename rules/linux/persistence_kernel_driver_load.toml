@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -56,49 +56,6 @@ query = '''
 driver where host.os.type == "linux" and event.action == "loaded-kernel-module" and
 auditd.data.syscall in ("init_module", "finit_module")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Kernel Driver Load
-
-Kernel modules extend the functionality of the Linux kernel, allowing dynamic loading of drivers and other components. Adversaries exploit this by loading malicious modules, or rootkits, to gain stealthy control over systems. The detection rule monitors system calls related to module loading, identifying suspicious activity by tracking specific actions indicative of unauthorized kernel modifications.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event action is "loaded-kernel-module" and verify the syscall involved is either "init_module" or "finit_module" as these are indicative of module loading.
-- Identify the specific kernel module that was loaded by examining the associated metadata in the alert, such as the module name or path, if available.
-- Check the timestamp of the event to determine when the module was loaded and correlate this with other system activities or logs around the same time for additional context.
-- Investigate the user or process that initiated the module load by examining the user ID and process ID fields in the alert to determine if it aligns with expected behavior or known legitimate processes.
-- Use Osquery to list all currently loaded kernel modules and their details to identify any unfamiliar or suspicious modules. Example query: `SELECT name, size, refcount, srcversion FROM kernel_modules;`
-- Cross-reference the loaded module with known good or bad modules by consulting threat intelligence sources or internal documentation to assess its legitimacy.
-- Analyze system logs, such as syslog or dmesg, for any additional messages or errors related to the module load event that could provide further insights.
-- Investigate the system's audit logs for any preceding or subsequent suspicious activities that might be related to the module load, such as unauthorized access attempts or privilege escalation.
-- Check for any recent changes to the system's configuration or installed software that could explain the module load, ensuring these changes are authorized and documented.
-- If the module is determined to be suspicious, consider conducting a deeper forensic analysis of the system to uncover any potential rootkits or other malicious activities that may have been facilitated by the module load.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger the loading of kernel modules, leading to false positives. Users can manage this by creating exceptions for known and trusted software update processes.
-- Certain hardware drivers, such as those for graphics cards or network adapters, may load kernel modules during normal operation. To handle these, users can whitelist specific drivers or hardware-related processes that are known to be safe.
-- System administrators performing routine maintenance or configuration changes might load kernel modules, which could be flagged as suspicious. Users should document and exclude these activities from monitoring when performed by authorized personnel.
-- Security software or monitoring tools that interact with the kernel might also load modules as part of their normal function. Users can create exceptions for these tools by verifying their legitimacy and adding them to an exclusion list.
-- Custom or in-house developed applications that require kernel module loading for functionality might be misidentified as threats. Users should ensure these applications are properly documented and excluded from detection rules if they are verified as safe.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Use forensic tools to capture a memory dump and disk image of the affected system for further analysis.
-- Investigate the loaded kernel module by checking its origin, signature, and any associated files or processes to determine if it is malicious.
-- Cross-reference the module's details with known threat intelligence databases to identify any known rootkits or malicious actors.
-- If a rootkit is confirmed, remove the malicious module using safe methods such as rebooting into a clean environment and using trusted tools to unload the module.
-- Restore the system from a known good backup if the integrity of the system cannot be assured after module removal.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems are affected.
-- Implement enhanced logging policies to monitor for future unauthorized kernel module loads, including detailed audit logs of system calls and module activities.
-- Integrate with security information and event management (SIEM) systems to correlate module loading events with other suspicious activities across the network.
-- Apply system hardening measures such as disabling unnecessary kernel module loading, enforcing strict access controls, and regularly updating the system to patch vulnerabilities."""
 
 
 [[rule.threat]]

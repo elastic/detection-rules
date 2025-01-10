@@ -2,7 +2,7 @@
 creation_date = "2023/06/09"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -58,49 +58,6 @@ file.path : (/proc/*/cmdline or /proc/*/stat or /proc/*/exe) and not process.nam
   ps or netstat or landscape-sysin or w or pgrep or pidof or needrestart or apparmor_status
 ) and not process.parent.pid : 1
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Proc Pseudo File System Enumeration
-
-The proc pseudo file system in Linux provides a window into the kernel and running processes, offering critical insights for system management. Adversaries exploit this by rapidly accessing multiple proc files to gather intelligence on active processes, potentially for reconnaissance or privilege escalation. The detection rule identifies such behavior by monitoring for unusual access patterns to specific proc files, excluding benign processes, thus highlighting potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to understand which specific proc files were accessed and by which process, focusing on the `file.path` and `process.name` fields.
-- Check the `process.parent.pid` to identify the parent process of the suspicious activity, as this can provide context on how the process was initiated.
-- Investigate the timeline of events leading up to the alert by examining logs for any related file access or process creation events.
-- Use Osquery to gather more information about the suspicious process. For example, run the query: `SELECT pid, name, path, cmdline, parent FROM processes WHERE pid = <suspicious_pid>;` to get details about the process and its parent.
-- Analyze the command line arguments (`cmdline`) of the suspicious process to determine its intended actions and whether they align with legitimate activities.
-- Cross-reference the `process.name` and `process.parent.pid` with known benign processes to rule out false positives.
-- Check for any recent changes or anomalies in user accounts or permissions that could be related to the suspicious process.
-- Investigate network activity associated with the suspicious process to identify any external connections or data exfiltration attempts.
-- Review historical data to determine if similar patterns of proc file enumeration have occurred in the past, indicating a persistent threat.
-- Consult threat intelligence sources to see if the process name or behavior matches any known malicious activity or indicators of compromise.
-
-### False positive analysis
-
-- System monitoring tools and legitimate administrative scripts may trigger the rule by accessing multiple proc files in a short period, as part of their normal operation. These tools often perform routine checks on system processes and should be reviewed to determine if they are benign.
-- Automated backup or system management software might also exhibit similar access patterns to the proc file system, especially during scheduled tasks. Identifying these processes and adding them to an exception list can help reduce false positives.
-- Developers and system administrators running diagnostic or performance analysis scripts may inadvertently trigger the rule. These scripts should be evaluated for their necessity and frequency, and exceptions can be made for known safe scripts.
-- Security software performing regular scans or checks on system processes might access proc files rapidly. It's important to verify the legitimacy of such software and consider excluding it from the rule if it is deemed safe.
-- To manage false positives, users can create exceptions by adding known benign process names or parent process IDs to the exclusion list in the detection rule. Regularly updating this list based on observed patterns and operational needs will help maintain the accuracy of threat detection.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further reconnaissance or potential lateral movement by the adversary.
-- Conduct a thorough investigation to identify the process responsible for the suspicious enumeration by analyzing logs and process details.
-- Terminate any malicious or unauthorized processes identified during the investigation to halt further malicious activity.
-- Review and analyze the system's recent activity and changes to identify any additional indicators of compromise or persistence mechanisms.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat is part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed process and file access activities, ensuring future suspicious behaviors are detected promptly.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Restore the system to its operational state by applying necessary patches, updates, and verifying the integrity of critical system files.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Implement system hardening measures, such as disabling unnecessary services, enforcing least privilege access, and regularly auditing system configurations to reduce the attack surface."""
 
 
 [[rule.threat]]

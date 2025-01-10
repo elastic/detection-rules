@@ -2,7 +2,7 @@
 creation_date = "2023/11/15"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -28,49 +28,6 @@ type = "new_terms"
 query = '''
 event.category:"authentication" and host.os.type:"windows" and winlog.logon.type:"NewCredentials" and winlog.event_data.LogonProcessName:(Advapi* or "Advapi  ") and not winlog.event_data.SubjectUserName:*$ and not process.executable :???\\Program?Files*
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating First Time Seen NewCredentials Logon Process
-
-The NewCredentials logon type in Windows allows a user to create a new security context using different credentials without logging off. Adversaries exploit this by forging access tokens to escalate privileges or bypass controls. The detection rule identifies unusual processes initiating such logons, excluding known system paths, to flag potential misuse indicative of token manipulation tactics.
-
-### Possible investigation steps
-
-- Review the alert details to understand which process triggered the NewCredentials logon type and note the `process.executable` path for further analysis.
-- Verify the `winlog.event_data.SubjectUserName` to identify the user account involved and check if it aligns with expected behavior or known user activity.
-- Investigate the `winlog.event_data.LogonProcessName` to confirm if it is indeed an unusual process initiating the logon, focusing on processes like "Advapi" that are commonly used in token manipulation.
-- Cross-reference the `host.os.type` to ensure the alert pertains to a Windows system, as this context is crucial for understanding the environment.
-- Use Osquery to gather more information about the suspicious process. For example, run the query: `SELECT * FROM processes WHERE path = '<process.executable path>'` to gather details such as process start time, parent process, and command line arguments.
-- Check the event logs for any preceding or subsequent suspicious activities related to the same `SubjectUserName` or `process.executable` to identify potential patterns or additional indicators of compromise.
-- Investigate the system's recent authentication logs to identify any other unusual logon types or failed logon attempts that might correlate with the alert.
-- Analyze network logs to determine if there was any unusual outbound or inbound traffic from the host around the time of the alert, which might indicate lateral movement or data exfiltration attempts.
-- Review any recent changes or updates to the system that might explain the new process behavior, such as software installations or configuration changes.
-- Consult threat intelligence sources to check if the `process.executable` or any related indicators have been associated with known malicious activity or campaigns.
-
-### False positive analysis
-
-- Scheduled tasks or automated scripts that use the NewCredentials logon type for legitimate purposes may trigger false positives. These tasks often run under specific service accounts or known user accounts.
-- Administrative tools or software that require elevated privileges and use the NewCredentials logon type can also be flagged. These tools might be part of regular IT operations or maintenance activities.
-- Users can manage these false positives by creating exceptions for specific processes or user accounts that are known to perform legitimate NewCredentials logons. This can be done by adding these processes or accounts to an allowlist within the detection rule.
-- Regularly review and update the list of exceptions to ensure that only verified and non-threatening behaviors are excluded, maintaining the effectiveness of the detection rule.
-- Consider monitoring the frequency and context of NewCredentials logons to distinguish between normal operational patterns and potential threats, adjusting the detection criteria as necessary.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Review the event logs to identify the source and scope of the NewCredentials logon activity, focusing on unusual processes and user accounts involved.
-- Terminate any suspicious processes identified during the investigation to halt potential malicious activity.
-- Change passwords for any compromised accounts and enforce multi-factor authentication to enhance security.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to detect and remove any malicious software.
-- Restore the system from a known good backup if malicious activity has compromised system integrity.
-- Implement enhanced logging policies to capture detailed authentication and process execution events for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and analyze suspicious activities.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response if necessary.
-- Apply security patches and updates to the operating system and applications to mitigate vulnerabilities exploited by adversaries."""
 
 
 [[rule.threat]]

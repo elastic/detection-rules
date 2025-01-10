@@ -2,7 +2,7 @@
 creation_date = "2024/01/08"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -70,51 +70,6 @@ sequence by host.id, process.pid with maxspan=1s
    ) and user.id != "0"
   ]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Privilege Escalation via CAP_CHOWN/CAP_FOWNER Capabilities
-
-In Linux, CAP_CHOWN and CAP_FOWNER capabilities allow processes to change file ownership and bypass permission checks, respectively. Adversaries exploit these to gain unauthorized file access, potentially altering sensitive files like `/etc/passwd`. The detection rule identifies processes with these capabilities targeting critical files, flagging suspicious ownership changes by non-root users, thus highlighting potential privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process and file involved, focusing on `process.pid`, `process.name`, and `file.path` fields.
-- Verify the user context by checking the `user.id` field to confirm that the action was performed by a non-root user.
-- Examine the command line used to execute the process by reviewing the `process.command_line` field to understand the intent and scope of the action.
-- Investigate the process's parent process to determine if it was spawned by a legitimate or suspicious parent using the `process.parent.name` and `process.parent.pid` fields.
-- Check the system logs for any related entries around the time of the event to gather additional context on the process execution and file ownership change.
-- Use Osquery to list all processes with CAP_CHOWN or CAP_FOWNER capabilities to identify any other potentially suspicious processes:
-  ```sql
-  SELECT pid, name, path, uid, gid, on_disk FROM processes WHERE capabilities LIKE '%CAP_CHOWN%' OR capabilities LIKE '%CAP_FOWNER%';
-  ```
-- Investigate the history of changes to the targeted file (e.g., `/etc/passwd`) to identify any unauthorized modifications or patterns of access.
-- Review user activity logs for the non-root user involved to identify any unusual behavior or access patterns leading up to the event.
-- Analyze network activity from the host to detect any potential exfiltration or communication with known malicious IPs or domains.
-- Correlate the event with other security alerts or incidents to determine if it is part of a broader attack campaign or isolated incident.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators may perform legitimate file ownership changes as part of regular maintenance or configuration updates. These actions can trigger the detection rule if they involve files like `/etc/passwd` or `/etc/shadow`. To manage this, users can create exceptions for known administrative scripts or processes that are regularly executed by trusted users.
-- Automated system updates: Some automated update processes or configuration management tools may change file ownership as part of their operations. These processes might be flagged if they have the necessary capabilities. Users can handle these by identifying and excluding specific update processes or tools that are verified as safe.
-- Backup and restore operations: Backup software might change file ownership during the backup or restore process, especially if it needs to ensure files are restored with the correct permissions. Users should identify and whitelist these backup processes to prevent false positives.
-- Development and testing environments: In environments where developers or testers frequently change file permissions or ownership for testing purposes, these actions might be flagged. Users can manage this by excluding specific development or testing processes or by setting up separate monitoring rules for these environments.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the source of the capability abuse, including reviewing logs for any suspicious process executions or file ownership changes.
-- Revert any unauthorized file ownership changes, especially for critical files like /etc/passwd, /etc/shadow, and /etc/sudoers, to their original state.
-- Reset passwords and review user accounts for any unauthorized changes or additions, focusing on accounts with elevated privileges.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
-- Implement enhanced logging policies to capture detailed process execution and file modification events, ensuring that CAP_CHOWN and CAP_FOWNER usage is monitored.
-- Integrate security tools such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to improve visibility and detection capabilities.
-- Apply security patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited for privilege escalation.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Implement hardening measures such as restricting the use of capabilities to only necessary processes and users, and regularly auditing capability assignments."""
 
 
 [[rule.threat]]

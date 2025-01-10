@@ -2,7 +2,7 @@
 creation_date = "2023/09/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -63,49 +63,6 @@ sequence by process.parent.entity_id with maxspan=1m
                      "?:\\Users\\*\\AppData\\Local\\Temp\\QBTools\\"))
     ]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Delayed Execution via Ping
-
-Ping is a network utility used to test connectivity and measure response times. Adversaries exploit it for delayed execution by using it to introduce pauses in scripts, often to evade detection. The detection rule identifies suspicious use of ping with specific arguments, followed by execution of potentially malicious utilities, indicating an attempt to stealthily execute harmful payloads.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, including the specific process names and arguments involved, such as "ping.exe" with the "-n" argument and the subsequent execution of suspicious utilities like "rundll32.exe" or "powershell.exe".
-- Examine the parent process information, particularly focusing on "cmd.exe", to determine how the ping command was initiated and whether it aligns with typical user behavior or automated scripts.
-- Investigate the user account associated with the process execution, especially if the user ID is not "S-1-5-18", to assess whether the activity is expected for that user or indicative of compromised credentials.
-- Check the process execution timeline to identify any patterns or sequences that suggest a coordinated attack, using the maxspan=1m parameter to focus on closely timed events.
-- Utilize Osquery to gather additional context on the involved processes. For example, run the following query to list all processes executed by the same user within a short timeframe: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE user = '<user_id>' AND start_time > datetime('now', '-5 minutes');`
-- Analyze the command line arguments of the suspicious processes to identify any encoded or obfuscated commands that may indicate malicious intent.
-- Investigate the file paths and code signatures of the executed processes, especially those in user directories like "?:\\\\Users\\\\*\\\\AppData\\\\*.exe", to determine if they are trusted or potentially malicious.
-- Review the system's event logs for any additional indicators of compromise or related suspicious activity, such as failed login attempts or unusual network connections.
-- Cross-reference the alert with known threat intelligence sources to identify if the observed behavior matches any known attack patterns or malware signatures.
-- Document all findings and observations, including any anomalies or deviations from normal behavior, to support further analysis and potential escalation.
-
-### False positive analysis
-
-- Scheduled tasks or legitimate administrative scripts may use ping for delay purposes, leading to false positives. Users can handle this by identifying and excluding these specific scripts or tasks from the detection rule.
-- Software installers or updaters might use ping to introduce delays during installation processes. Users should monitor and whitelist these known installers to prevent unnecessary alerts.
-- Network troubleshooting tools or scripts executed by IT personnel could trigger the rule. It's advisable to create exceptions for these tools when used by trusted users or within specific environments.
-- Automated testing environments might use ping to simulate network conditions, which could be mistaken for malicious activity. Users can exclude these environments or specific test scripts from the rule.
-- Some legitimate applications might use ping as part of their normal operation, especially in network-heavy applications. Users should identify these applications and adjust the rule to exclude them based on their process signatures or paths.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation of the affected system to identify any additional indicators of compromise, focusing on the processes and files executed after the ping command.
-- Terminate any malicious processes identified during the investigation to stop ongoing threats.
-- Remove or quarantine any malicious files or scripts found on the system to prevent re-execution.
-- Review and analyze logs from the affected system and network devices to understand the scope and timeline of the attack, leveraging MITRE ATT&CK T1059 for context on command and scripting interpreter techniques.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat appears to be part of a larger campaign or if sensitive data may have been compromised.
-- Implement enhanced logging policies to capture detailed process execution and network activity, ensuring future incidents can be detected and analyzed more effectively.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
-- Harden the system by disabling unnecessary services, applying least privilege principles, and ensuring that security configurations align with best practices to reduce the attack surface."""
 
 
 [[rule.threat]]

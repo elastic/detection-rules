@@ -2,7 +2,7 @@
 creation_date = "2024/03/13"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -60,49 +60,6 @@ event.category:process and host.os.type:linux and auditd.data.syscall:mprotect a
   process.name:httpd
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unknown Execution of Binary with RWX Memory Region
-
-In Unix systems, the `mprotect()` syscall alters memory permissions, potentially enabling read, write, and execute (RWX) access. While necessary for legitimate processes, adversaries exploit this to execute malicious code stealthily. The detection rule identifies suspicious RWX memory changes by monitoring `mprotect()` calls, excluding known safe binaries, thus highlighting potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, focusing on fields such as `event.category`, `host.os.type`, `auditd.data.syscall`, and `auditd.data.a2` to confirm the presence of an `mprotect()` call with RWX permissions.
-- Verify the process executable path and name using `process.executable` and `process.name` fields to ensure it is not part of the known safe binaries list.
-- Gather additional context about the process by checking its parent process using `process.parent.executable` and `process.parent.name` to identify potential sources of the suspicious activity.
-- Use Osquery to list all processes with RWX memory regions by executing: `SELECT pid, name, path FROM processes WHERE on_disk = 0 AND (path NOT LIKE '/usr/share/kibana/node/bin/node' AND path NOT LIKE '/usr/share/elasticsearch/jdk/bin/java' AND path NOT LIKE '/usr/sbin/apache2' AND name NOT LIKE 'httpd');`
-- Investigate the command line arguments of the suspicious process using `process.command_line` to identify any unusual or unexpected commands that might indicate malicious intent.
-- Check the process's network activity using `network.connection` fields to identify any suspicious outbound connections that could suggest data exfiltration or command and control communication.
-- Examine the file hashes of the binary using `file.hash.md5`, `file.hash.sha1`, and `file.hash.sha256` to determine if it matches any known malicious signatures in threat intelligence databases.
-- Review recent system logs and audit logs for any other suspicious activities or anomalies around the time of the alert to identify potential lateral movement or privilege escalation attempts.
-- Investigate the user account associated with the process using `user.name` and `user.id` to determine if the account has been compromised or is exhibiting unusual behavior.
-- Correlate the findings with other security tools and logs, such as endpoint detection and response (EDR) solutions, to build a comprehensive picture of the potential threat and its impact on the system.
-
-### False positive analysis
-
-- Known false positives for the Unknown Execution of Binary with RWX Memory Region rule often include legitimate applications that require RWX permissions for normal operations, such as just-in-time (JIT) compilers or certain database management systems. These applications may use `mprotect()` to optimize performance by dynamically generating and executing code.
-- Users can manage these false positives by creating exceptions for specific binaries or processes that are known to exhibit this behavior regularly. This can be done by adding these binaries to the exclusion list in the detection rule, ensuring that only truly suspicious activities are flagged.
-- It is important to regularly review and update the list of excluded binaries to ensure that new legitimate applications are not mistakenly flagged as threats. This can be achieved by maintaining a whitelist of trusted applications and processes that are known to use RWX memory regions safely.
-- In environments where custom or in-house applications are used, it is advisable to conduct a thorough analysis of these applications to understand their memory usage patterns. If they are identified as false positives, they should be documented and excluded from the detection rule to prevent unnecessary alerts.
-- Users should also consider the context of the system and its typical usage patterns. For instance, development environments may have more frequent legitimate use of RWX memory regions compared to production environments, and this context should guide the configuration of the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the process that triggered the `mprotect()` syscall with RWX permissions.
-- Review and analyze logs from the affected system and any related systems to trace the execution path and identify any additional compromised binaries or processes.
-- Remove or quarantine any identified malicious binaries or scripts, and terminate any suspicious processes that are running with RWX memory permissions.
-- Restore the affected system from a known good backup to ensure that no remnants of the malicious activity remain.
-- Apply security patches and updates to the operating system and all installed software to mitigate known vulnerabilities that could be exploited.
-- Implement enhanced logging policies to capture detailed syscall activity and process execution, ensuring that future suspicious activities are logged and can be analyzed.
-- Integrate security solutions such as endpoint detection and response (EDR) tools to provide real-time monitoring and alerting for suspicious activities, including unauthorized memory permission changes.
-- Conduct a post-incident review to identify gaps in security controls and processes, and update incident response plans accordingly.
-- Educate and train staff on recognizing and responding to similar threats, emphasizing the importance of monitoring for unusual memory permission changes and other indicators of compromise."""
 
 
 [[rule.threat]]

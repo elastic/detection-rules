@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/01/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -65,48 +65,6 @@ event.category:"process" and host.os.type:"linux" and event.type:"start" and eve
 (process.thread.capabilities.effective:"CAP_SYS_ADMIN" or process.thread.capabilities.permitted:"CAP_SYS_ADMIN") and
 not user.id:"0"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating CAP_SYS_ADMIN Assigned to Binary
-
-In Linux, the CAP_SYS_ADMIN capability grants extensive system administration privileges, enabling processes to perform critical operations like mounting filesystems and configuring networks. Adversaries may exploit binaries with this capability to escalate privileges. The detection rule identifies non-root processes executing with CAP_SYS_ADMIN, signaling potential misuse or misconfiguration.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of CAP_SYS_ADMIN in the effective or permitted capabilities of the process, ensuring the process is not running as root (user.id:"0").
-- Identify the process name and path (process.name) to determine if it is a known or expected binary on the system.
-- Check the process's parent process (process.parent.name) to understand the context of how the process was initiated.
-- Investigate the user account (user.id) associated with the process to determine if it is a legitimate user or potentially compromised.
-- Use Osquery to list all processes with CAP_SYS_ADMIN capabilities by running: `SELECT pid, name, path, uid, gid FROM processes WHERE capabilities LIKE '%CAP_SYS_ADMIN%';` to gather more context on other processes with similar capabilities.
-- Examine recent system logs and audit logs for any unusual activity or errors related to the process or user account.
-- Investigate the binary's file integrity and permissions to ensure it has not been tampered with or improperly configured.
-- Cross-reference the process's hash or signature against known malware databases to rule out any known threats.
-- Analyze network activity associated with the process to identify any suspicious connections or data transfers.
-- Consult with system administrators or application owners to verify if the process and its capabilities are expected and authorized within the environment.
-
-### False positive analysis
-
-- Known false positives for the CAP_SYS_ADMIN Assigned to Binary rule may include legitimate administrative tools or scripts that require CAP_SYS_ADMIN capabilities for routine operations, such as backup software, monitoring agents, or container management tools.
-- Users can handle these false positives by creating exceptions for specific processes or users that are known to require CAP_SYS_ADMIN capabilities for legitimate purposes. This can be done by adding exclusions in the detection rule for specific process names or user IDs that are verified to be non-threatening.
-- It is important to regularly review and update these exceptions to ensure they remain relevant and do not inadvertently allow malicious activity. This involves monitoring the behavior of excluded processes to confirm they continue to operate within expected parameters.
-- Additionally, users should consider the context of the system and its typical usage patterns. For example, a development server may have different legitimate uses of CAP_SYS_ADMIN compared to a production server, and exceptions should be tailored accordingly.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement.
-- Conduct a thorough investigation to identify the source of the CAP_SYS_ADMIN capability assignment, reviewing recent changes and user activities.
-- Terminate any suspicious processes running with CAP_SYS_ADMIN capabilities that are not associated with legitimate system administration tasks.
-- Review and audit user accounts and permissions to ensure no unauthorized privilege escalations have occurred.
-- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging for process execution and capability changes to improve detection of similar incidents in the future.
-- Integrate security tools with SIEM solutions to automate the detection of CAP_SYS_ADMIN misuse and generate alerts for security teams.
-- Restore the system to a known good state using backups, ensuring that any unauthorized changes are reverted.
-- Apply system hardening measures, such as restricting the use of capabilities and employing the principle of least privilege for user accounts.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly."""
 
 
 [[rule.threat]]

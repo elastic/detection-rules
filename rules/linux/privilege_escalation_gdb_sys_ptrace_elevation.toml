@@ -2,7 +2,7 @@
 creation_date = "2024/01/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -64,48 +64,6 @@ sequence by host.id, process.entry_leader.entity_id with maxspan=1m
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.name != null and user.id == "0"]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Privilege Escalation via GDB CAP_SYS_PTRACE
-
-The CAP_SYS_PTRACE capability in Linux allows processes to trace and control other processes, a feature primarily used for debugging. Adversaries can exploit this by using GDB with this capability to inject code into processes running as root, thereby escalating privileges. The detection rule identifies such abuse by monitoring sequences where GDB is executed with CAP_SYS_PTRACE, followed by a process running as root, indicating potential privilege escalation.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of GDB execution with CAP_SYS_PTRACE capability by checking the `process.name` and `process.thread.capabilities.effective` or `process.thread.capabilities.permitted` fields.
-- Verify the sequence of events by examining the `host.id` and `process.entry_leader.entity_id` to ensure the alert is not a false positive due to unrelated processes.
-- Check the `user.id` field to confirm that the process was executed by a non-root user before the privilege escalation attempt.
-- Investigate the parent process of GDB using the `process.parent.name` and `process.parent.pid` fields to understand the context in which GDB was executed.
-- Use Osquery to list all processes with CAP_SYS_PTRACE capability by running: `SELECT pid, name, uid, gid, capabilities FROM processes WHERE capabilities LIKE '%CAP_SYS_PTRACE%';`
-- Examine the command line arguments of the GDB process using the `process.args` field to identify any suspicious or unusual parameters that might indicate malicious intent.
-- Review the timeline of events around the alert using the `@timestamp` field to identify any other suspicious activities or anomalies occurring concurrently.
-- Check the system logs for any unauthorized access attempts or anomalies around the time of the alert to gather additional context.
-- Investigate the user account associated with the alert by reviewing the `user.id` and `user.name` fields to determine if the account has been compromised or is behaving unusually.
-- Correlate the findings with other security tools and logs to identify any patterns or indicators of compromise that align with the privilege escalation attempt.
-
-### False positive analysis
-
-- Development and debugging activities: Developers and system administrators may use GDB with CAP_SYS_PTRACE for legitimate debugging purposes, which can trigger the detection rule. To manage this, users can create exceptions for specific user accounts or processes that are known to perform regular debugging tasks.
-- Automated testing environments: In environments where automated testing frameworks utilize GDB for testing applications, the rule may generate false positives. Users can handle these by excluding specific testing processes or environments from the rule.
-- Security tools and monitoring software: Some security tools may use GDB with CAP_SYS_PTRACE as part of their monitoring or analysis functions. Users should identify and whitelist these tools to prevent false positives.
-- System maintenance scripts: Scheduled maintenance scripts that require debugging capabilities might inadvertently trigger the rule. Users can exclude these scripts by specifying their process names or execution times in the rule exceptions.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Verify the presence of unauthorized processes or code injections by reviewing process trees and system logs for anomalies.
-- Terminate any suspicious processes that are running with elevated privileges and were not initiated by legitimate users or administrators.
-- Conduct a thorough investigation to identify the source of the privilege escalation attempt, including reviewing user activity logs and access records.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Restore the system to a known good state by reverting to a clean backup or reinstalling the operating system if necessary.
-- Implement enhanced logging policies to capture detailed process execution and user activity, ensuring that CAP_SYS_PTRACE usage is monitored.
-- Integrate security tools such as intrusion detection systems (IDS) and endpoint detection and response (EDR) solutions to improve visibility and detection capabilities.
-- Apply system hardening measures, such as removing unnecessary capabilities from processes, enforcing the principle of least privilege, and regularly updating software to patch vulnerabilities.
-- Educate users and administrators on the risks associated with debugging tools and the importance of maintaining secure configurations to prevent privilege escalation attacks."""
 
 
 [[rule.threat]]

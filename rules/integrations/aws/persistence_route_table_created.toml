@@ -2,7 +2,7 @@
 creation_date = "2021/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -21,51 +21,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Route Table Created"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS Route Table Created
-
-AWS Route Tables are crucial for directing network traffic within AWS environments, defining how packets are routed between subnets and external networks. Adversaries may exploit this by creating unauthorized routes to intercept or redirect traffic, potentially leading to data exfiltration or service disruption. The detection rule monitors successful creation events of route tables, flagging potential misuse by identifying unexpected or suspicious activity patterns.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event dataset is `aws.cloudtrail` and the event provider is `ec2.amazonaws.com`, ensuring the alert is relevant to AWS Route Table creation.
-- Verify the event action is either `CreateRoute` or `CreateRouteTable` and the event outcome is `success` to confirm the alert is triggered by a successful route table creation.
-- Identify the AWS account and region where the route table was created to understand the scope and potential impact of the event.
-- Check the identity information (user or role) associated with the event to determine if the action was performed by an expected or authorized entity.
-- Investigate the source IP address and user agent from which the request originated to identify any unusual access patterns or locations.
-- Review CloudTrail logs for additional context around the time of the event to identify any related or suspicious activities.
-- Use Osquery to gather more information about the AWS environment. For example, run the following query to list all route tables in the account: `SELECT * FROM aws_ec2_route_tables;`
-- Analyze the route table configuration to identify any unauthorized or suspicious routes that could indicate malicious intent.
-- Cross-reference the route table creation event with IAM policies and permissions to ensure the user or role had legitimate access to perform the action.
-- Consult with the relevant AWS account owner or administrator to verify if the route table creation was part of an expected change or deployment.
-
-### False positive analysis
-
-- Routine infrastructure changes: Regular updates or expansions in AWS environments may involve creating new route tables, which can trigger the detection rule. Users should review change management logs to verify if the route table creation aligns with planned activities.
-- Automated deployment tools: Tools like AWS CloudFormation, Terraform, or other infrastructure-as-code solutions may automatically create route tables as part of their deployment processes. Users can create exceptions for specific IAM roles or user accounts associated with these tools to reduce noise.
-- Testing and development environments: Route tables created in non-production environments for testing purposes might be flagged. Users can exclude specific AWS accounts or regions dedicated to development and testing to minimize false positives.
-- Third-party integrations: Some third-party services or applications may require the creation of route tables for integration purposes. Users should identify and whitelist these services to prevent unnecessary alerts.
-- Temporary configurations: Short-term projects or experiments might necessitate the creation of route tables. Users can implement time-based exceptions to account for these temporary changes, ensuring they are automatically removed after a set period.
-
-### Response and remediation
-
-- Immediately review the AWS CloudTrail logs to verify the source and context of the route table creation event, ensuring it aligns with expected administrative actions.
-- Identify and isolate any unauthorized route tables by removing or disabling them to prevent potential data exfiltration or service disruption.
-- Conduct a thorough investigation to determine if any unauthorized access or changes have been made to other network configurations or resources.
-- Escalate the incident to the security operations team if the activity is confirmed to be malicious or if there is evidence of a broader compromise.
-- Implement AWS Identity and Access Management (IAM) policies to restrict route table creation permissions to only necessary personnel or roles.
-- Enable detailed logging and monitoring for AWS network activities, including route table changes, to enhance visibility and facilitate future investigations.
-- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system to automate the detection and alerting of suspicious network configuration changes.
-- Review and update the incident response plan to include specific procedures for handling unauthorized network configuration changes.
-- Restore the system to its operational state by verifying that all network routes are correctly configured and that no unauthorized routes remain.
-- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as network segmentation and enhanced access controls, to prevent future incidents.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

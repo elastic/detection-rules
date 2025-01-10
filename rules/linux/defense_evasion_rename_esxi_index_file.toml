@@ -2,7 +2,7 @@
 creation_date = "2023/04/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -61,51 +61,6 @@ query = '''
 file where host.os.type == "linux" and event.action == "rename" and file.name : "index.html" and
 file.Ext.original.path : "/usr/lib/vmware/*"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Renaming of ESXI index.html File
-
-In VMware ESXi environments, the `index.html` file is crucial for web-based management interfaces. Adversaries may rename this file to evade detection or to replace it with a malicious version, facilitating unauthorized access or data exfiltration. The detection rule identifies such renaming events by monitoring Linux systems for specific file operations within the VMware directory, flagging potential masquerading attempts.
-
-### Possible investigation steps
-
-- Verify the alert details, including the timestamp, to understand when the renaming event occurred.
-- Check the user account associated with the event to determine if it was an authorized user or a potential adversary.
-- Review the system logs around the time of the event for any additional suspicious activities or anomalies.
-- Use Osquery to list recent file modifications in the `/usr/lib/vmware/` directory to identify any other unauthorized changes:
-  ```sql
-  SELECT * FROM file WHERE path LIKE '/usr/lib/vmware/%' AND mtime > (SELECT strftime('%s', 'now') - 86400);
-  ```
-- Investigate the process that performed the renaming by correlating the event with process execution logs to identify the parent process and command line used.
-- Examine network logs for any unusual outbound connections from the host around the time of the event, which might indicate data exfiltration attempts.
-- Check for any recent privilege escalation events on the host that could have allowed an adversary to perform the renaming.
-- Review the file integrity monitoring logs to see if there are any other changes to critical files in the VMware directory.
-- Analyze the system for any signs of malware or rootkits that could have facilitated unauthorized access or file manipulation.
-- Cross-reference the event with other security alerts or incidents in the environment to determine if this is part of a broader attack campaign.
-
-### False positive analysis
-
-- Routine maintenance or updates: During regular system updates or maintenance, the `index.html` file may be temporarily renamed as part of the update process. Users can handle this by creating exceptions for known maintenance windows or update scripts.
-- Customization by administrators: System administrators might rename the `index.html` file for legitimate customization purposes, such as implementing a custom login page. To manage this, users can whitelist specific administrator actions or paths where such customizations are expected.
-- Backup operations: Automated backup processes might rename the `index.html` file as part of their operation to prevent overwriting or to create versioned backups. Users can exclude these operations by identifying and allowing known backup scripts or tools.
-- Testing and development: In environments where testing or development occurs, the `index.html` file might be renamed frequently for testing purposes. Users can manage this by setting exceptions for specific development environments or user accounts involved in testing.
-
-### Response and remediation
-
-- Immediately isolate the affected ESXi host from the network to prevent further unauthorized access or data exfiltration.
-- Verify the integrity of the renamed index.html file by comparing it with a known good version to determine if it has been tampered with or replaced.
-- Conduct a thorough investigation to identify any unauthorized access or changes made to the system, focusing on recent user activities and file modifications.
-- Restore the original index.html file from a secure backup if it has been altered or replaced with a malicious version.
-- Review and update access controls and permissions for the VMware directory to ensure only authorized personnel have the ability to modify critical files.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems have been compromised.
-- Implement enhanced logging and monitoring for file operations within the VMware directory to detect similar activities in the future.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and identify potential indicators of compromise.
-- Apply security patches and updates to the ESXi host and associated management interfaces to mitigate known vulnerabilities.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans, incorporating lessons learned to improve future response efforts."""
 
 
 [[rule.threat]]

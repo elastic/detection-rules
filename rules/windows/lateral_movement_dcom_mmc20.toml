@@ -2,7 +2,7 @@
 creation_date = "2020/11/06"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -47,51 +47,6 @@ sequence by host.id with maxspan=1m
  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "mmc.exe"
  ] by process.parent.entity_id
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Incoming DCOM Lateral Movement with MMC
-
-Distributed Component Object Model (DCOM) allows software components to communicate over a network, often used in Windows environments for remote management. Adversaries exploit DCOM to execute commands remotely, leveraging applications like MMC20. The detection rule identifies suspicious activity by monitoring network traffic and process creation patterns, focusing on remote command execution via MMC, which may indicate lateral movement attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of suspicious network activity involving `mmc.exe` with high source and destination ports (>= 49152), indicating potential DCOM exploitation.
-- Verify the source and destination IP addresses involved in the alert to determine if the source IP is external or internal, and assess the legitimacy of the connection.
-- Check the process creation logs to identify the parent process of `mmc.exe` and ensure it aligns with expected behavior; unexpected parent processes may indicate malicious activity.
-- Investigate the timeline of events by correlating the `process.entity_id` and `process.parent.entity_id` to understand the sequence of process creation and network activity.
-- Use Osquery to gather additional context on the host by running a query to list all processes related to `mmc.exe`:
-  ```sql
-  SELECT pid, name, path, cmdline, parent FROM processes WHERE name = 'mmc.exe';
-  ```
-- Examine the command line arguments of `mmc.exe` to identify any unusual or unauthorized commands that may have been executed.
-- Analyze the network traffic logs to identify any other suspicious connections or patterns that coincide with the alert timeframe, focusing on the `network.direction` and `network.transport` fields.
-- Cross-reference the alert with other security logs, such as Windows Event Logs, to identify any related authentication attempts or anomalies around the same time.
-- Investigate the user account associated with the `mmc.exe` process to determine if it has been compromised or is being used in an unauthorized manner.
-- Review historical data for similar alerts or patterns involving `mmc.exe` to assess if this is an isolated incident or part of a broader attack campaign.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators may use MMC for legitimate remote management tasks, which can trigger the rule. To manage this, users can create exceptions for known administrator accounts or specific IP addresses that regularly perform these tasks.
-- Automated scripts or management tools: Some organizations use automated scripts or third-party management tools that leverage DCOM and MMC for routine operations. Users can exclude these processes by identifying their unique characteristics, such as specific command-line arguments or process hashes.
-- Software updates and patches: Certain software updates or patches might use DCOM and MMC to apply changes across the network. Users should monitor update schedules and exclude related activities during these periods to avoid false positives.
-- Internal network scanning tools: Security teams might use network scanning tools that interact with MMC for vulnerability assessments. Users can whitelist these tools by their source IP addresses or specific network ranges to prevent false alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected host from the network to prevent further lateral movement and potential data exfiltration.
-- Conduct a thorough investigation of the affected host to identify any unauthorized access or changes, focusing on the processes initiated by mmc.exe.
-- Review network logs and traffic patterns to identify other potentially compromised systems or lateral movement attempts.
-- Terminate any suspicious processes associated with the DCOM exploitation and remove any unauthorized scheduled tasks or services.
-- Apply patches and updates to the operating system and applications to mitigate known vulnerabilities that could be exploited via DCOM.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed process creation and network activity, ensuring that future incidents can be detected more effectively.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system to its operational state by reinstalling the operating system if necessary and restoring data from verified backups.
-- Harden the environment by disabling unnecessary DCOM services and configuring firewall rules to restrict high-numbered ports used for DCOM communication."""
 
 
 [[rule.threat]]

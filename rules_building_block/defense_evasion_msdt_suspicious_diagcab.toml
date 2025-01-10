@@ -2,7 +2,7 @@
 creation_date = "2023/09/26"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -57,49 +57,6 @@ process where host.os.type == "windows" and event.action == "start" and
     "ftp://*"
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Troubleshooting Pack Cabinet Execution
-
-The Microsoft Diagnostic Wizard, often invoked via `msdt.exe`, is a legitimate tool used for troubleshooting and diagnostics in Windows environments. However, adversaries can exploit it to execute malicious files, particularly when these files are disguised as troubleshooting packs (`.diagcab`). The detection rule identifies unusual executions of `msdt.exe` from suspicious paths or with atypical parent processes, such as web browsers or email clients, which may indicate an attempt to misuse this tool for malicious purposes. By monitoring these specific conditions, the rule helps in identifying potential threats that leverage system binary proxy execution for defense evasion.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of `msdt.exe` execution with `/cab` argument, ensuring it matches the suspicious criteria outlined in the detection rule.
-- Identify and document the parent process of `msdt.exe` from the alert, focusing on unusual parent processes such as web browsers or email clients, which may indicate a phishing attempt or drive-by download.
-- Examine the full command line arguments used in the `msdt.exe` execution to gather more context about the potential source and nature of the `.diagcab` file.
-- Investigate the file path from which the `.diagcab` file was executed, especially if it originates from user directories, network shares, or URLs, to assess the legitimacy of the file.
-- Use Osquery to list recent processes executed by the user associated with the alert to identify any other suspicious activities. Example query: `SELECT * FROM processes WHERE uid = (SELECT uid FROM users WHERE username = 'suspected_user') ORDER BY start_time DESC LIMIT 10;`
-- Check the network connections established by `msdt.exe` or its parent process to identify any suspicious outbound connections that may indicate data exfiltration or command and control communication.
-- Analyze the `.diagcab` file itself, if accessible, using static and dynamic analysis tools to determine if it contains any malicious payloads or scripts.
-- Review the security logs for any other alerts or events related to the same user or system around the time of the alert to identify potential patterns or additional indicators of compromise.
-- Investigate the user's email and web browsing history to determine if they interacted with any suspicious emails or websites that could have led to the execution of the `.diagcab` file.
-- Correlate the findings with threat intelligence sources to check if the observed behavior or indicators match any known threat actor tactics, techniques, or procedures.
-
-### False positive analysis
-
-- Legitimate troubleshooting activities: Users or IT administrators may legitimately use `msdt.exe` to open `.diagcab` files for troubleshooting purposes. If these activities are frequent and known to be safe, they can be excluded by creating exceptions for specific user accounts or paths.
-- Software updates and installations: Some software installations or updates might invoke `msdt.exe` as part of their process. Monitoring these activities and correlating them with known update schedules or installation logs can help identify and exclude these benign events.
-- Remote support tools: IT support tools that remotely troubleshoot or diagnose issues might trigger this rule. Identifying and excluding these tools by their parent process or specific command-line arguments can reduce false positives.
-- Custom scripts or automation: Organizations may have custom scripts or automation that utilize `msdt.exe` for legitimate purposes. Documenting these scripts and excluding their specific execution patterns can help manage false positives.
-- Frequent use by specific applications: If certain applications are known to frequently invoke `msdt.exe` in a non-malicious manner, consider excluding these applications by their parent process name or path to reduce noise in the detection.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malware.
-- Conduct a thorough investigation to identify the source of the diagcab file and determine if any other systems have been affected.
-- Analyze the process tree and command-line arguments to confirm the execution path and parent process, ensuring it aligns with the detection rule criteria.
-- If malicious activity is confirmed, remove any unauthorized diagcab files and associated malicious binaries from the system.
-- Restore the system from a known good backup if the integrity of the system is compromised.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are at risk.
-- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships.
-- Integrate threat intelligence feeds to correlate detected activity with known threat actor tactics, techniques, and procedures (TTPs) related to MITRE ATT&CK T1218.
-- Educate users on the risks of opening files from untrusted sources, particularly those received via email or downloaded from the internet.
-- Apply system hardening measures, such as restricting the execution of diagcab files to trusted directories and implementing application whitelisting to prevent unauthorized software execution."""
 
 
 [[rule.threat]]

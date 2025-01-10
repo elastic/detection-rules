@@ -2,7 +2,7 @@
 creation_date = "2024/06/20"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -72,48 +72,6 @@ query = '''
 iam where host.os.type == "linux" and event.type in ("creation", "change") and auditd.result == "success" and 
 event.action in ("changed-password", "added-user-account", "added-group-account-to")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating User or Group Creation/Modification
-
-In Linux environments, user and group management is crucial for access control. Adversaries may exploit this by creating or modifying accounts to maintain unauthorized access. The detection rule utilizes `auditd_manager` to monitor successful user or group changes, focusing on actions like password changes or account additions, aligning with MITRE ATT&CK's persistence tactics.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific `event.type` and `event.action` that triggered the alert, focusing on whether it was a "creation" or "change" event.
-- Check the `auditd.result` field to confirm the success of the user or group modification, ensuring that the action was completed successfully.
-- Identify the user account or group involved in the event by examining the relevant fields in the alert, such as the username or group name.
-- Investigate the source of the event by reviewing the `host.os.type` and any associated IP addresses or hostnames to determine where the change originated.
-- Use Osquery to gather additional context about the user or group modification. For example, run the following query to list recent user additions or modifications: `SELECT * FROM users WHERE username = '<username>'`.
-- Cross-reference the identified user or group with known legitimate accounts to determine if the change aligns with expected administrative activities.
-- Review system logs and audit logs around the time of the event to identify any related activities or anomalies that could indicate malicious intent.
-- Check for any other recent alerts or events involving the same user or group to assess if this is part of a broader pattern of suspicious behavior.
-- Investigate the account that performed the modification to determine if it has been compromised or if it is being used by an unauthorized user.
-- Consult with system administrators or other relevant personnel to verify if the user or group modification was authorized and aligns with current operational needs.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators often create or modify user and group accounts as part of regular maintenance or onboarding processes. These legitimate actions can trigger the rule, leading to false positives.
-- Automated scripts or tools: Some organizations use automated scripts or configuration management tools (e.g., Ansible, Puppet) to manage user accounts, which can result in frequent non-threatening account changes being flagged.
-- Software installations: Certain software installations may create or modify user accounts as part of their setup process, which can be mistakenly identified as suspicious activity.
-- To manage these false positives, users can create exceptions for known administrative accounts or specific scripts/tools by filtering out events associated with these trusted sources. This can be done by adding conditions to the detection rule to exclude actions performed by specific user accounts or processes.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Review the audit logs to identify the specific user or group changes and determine if they were authorized or suspicious.
-- Verify the legitimacy of the newly created or modified accounts by cross-referencing with recent administrative activities and user requests.
-- If unauthorized changes are confirmed, disable or remove the suspicious accounts and reset passwords for any affected legitimate accounts.
-- Conduct a thorough investigation to identify any additional compromised systems or accounts, leveraging threat intelligence and MITRE ATT&CK details for context.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response coordination.
-- Implement enhanced logging policies to capture detailed user and group management activities, ensuring audit logs are securely stored and regularly reviewed.
-- Integrate additional security tools, such as intrusion detection systems (IDS) or endpoint detection and response (EDR) solutions, to improve monitoring and detection capabilities.
-- Restore the system to its operational state by applying security patches, updating configurations, and ensuring all security controls are active and functioning.
-- Harden the system by enforcing least privilege access, implementing multi-factor authentication, and conducting regular security awareness training for users."""
 
 
 [[rule.threat]]

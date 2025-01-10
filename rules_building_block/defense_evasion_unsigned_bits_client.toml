@@ -2,7 +2,7 @@
 creation_date = "2023/09/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -40,49 +40,6 @@ library where dll.name : "Bitsproxy.dll" and process.executable != null and
 not process.code_signature.trusted == true and
 not process.code_signature.status : ("errorExpired", "errorCode_endpoint*")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unsigned BITS Service Client Process
-
-The Background Intelligent Transfer Service (BITS) is a Windows component that facilitates asynchronous, prioritized, and throttled transfer of files between machines. While beneficial for legitimate updates and data transfers, adversaries can exploit BITS to stealthily download or upload malicious payloads. The detection rule identifies suspicious BITS activity by flagging processes using the BITS library that lack a valid code signature, indicating potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of an unsigned BITS client process by checking the `process.executable` field for the specific executable path.
-- Verify the `dll.name` field to ensure that "Bitsproxy.dll" is indeed being used by the process, as this is a key indicator of BITS activity.
-- Examine the `process.code_signature.trusted` field to confirm that the process lacks a valid code signature, which is crucial for identifying potentially malicious activity.
-- Investigate the `process.code_signature.status` field to ensure that the status does not indicate a known error like "errorExpired" or "errorCode_endpoint*", which could explain the unsigned status.
-- Use Osquery to gather more information about the process by running a query such as: `SELECT pid, name, path, cmdline FROM processes WHERE path = '<process.executable>';` to retrieve details about the process execution.
-- Check the process's parent process ID and lineage to determine how the unsigned BITS client process was initiated, which can provide insights into potential compromise vectors.
-- Analyze network activity associated with the process to identify any suspicious data transfers or connections that could indicate malicious use of BITS.
-- Review recent file modifications and creations in directories associated with the process to detect any unauthorized changes or payloads.
-- Correlate the findings with other security alerts or logs to identify patterns or related activities that could suggest a broader attack campaign.
-- Consult threat intelligence sources to determine if the observed behavior matches known tactics, techniques, and procedures (TTPs) associated with specific threat actors or malware families.
-
-### False positive analysis
-
-- Some legitimate software may use the BITS service without a valid code signature, especially older or custom-developed applications. These can trigger false positives if they are unsigned but not malicious.
-- System administrators should identify and document any known legitimate applications that use BITS and lack a valid code signature. These applications can be added to an exception list to prevent them from being flagged.
-- Regularly review and update the exception list to ensure it reflects the current environment and includes any new legitimate applications that may trigger the rule.
-- Consider the context of the flagged activity, such as the source and destination of the file transfers, to determine if the behavior aligns with expected and benign operations.
-- Collaborate with software vendors to verify the legitimacy of unsigned applications and encourage them to provide properly signed versions to reduce false positives.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and data exfiltration.
-- Verify the unsigned BITS client process by checking the process details and associated files for any known malicious indicators.
-- Terminate the suspicious BITS process and remove any associated files that are identified as malicious.
-- Conduct a thorough investigation of the system to identify any additional signs of compromise, such as unauthorized user accounts or scheduled tasks.
-- Review system and security logs to trace the origin of the unsigned BITS process and identify any lateral movement or additional compromised systems.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat is part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed process execution and network activity, focusing on BITS-related events.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection of similar threats in the future.
-- Restore the system to its operational state by applying the latest security patches, updating antivirus definitions, and ensuring all software is from trusted sources.
-- Harden the system by disabling unnecessary services, enforcing strict application whitelisting, and regularly reviewing and updating security configurations."""
 
 
 [[rule.threat]]

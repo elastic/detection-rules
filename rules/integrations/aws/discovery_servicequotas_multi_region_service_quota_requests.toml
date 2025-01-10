@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2024/08/26"
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -60,50 +60,6 @@ from logs-aws.cloudtrail-*
 // sort the results by time windows in descending order
 | sort target_time_window desc
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS Service Quotas Multi-Region `GetServiceQuota` Requests
-
-AWS Service Quotas manage resource limits, crucial for maintaining cloud efficiency. Adversaries exploit `GetServiceQuota` API calls to probe EC2 limits, potentially using compromised credentials to map infrastructure across regions. The detection rule identifies unusual multi-region queries within a short timeframe, signaling possible reconnaissance activities by counting distinct regions and API calls, thus highlighting potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to understand the specific `aws.cloudtrail.user_identity.arn` involved in the suspicious activity, as this will help identify the potentially compromised user or service account.
-- Examine the `target_time_window` to determine the exact 30-second period during which the unusual activity occurred, providing a precise timeframe for further investigation.
-- Analyze the `cloud.region` field to identify all regions where the `GetServiceQuota` API calls were made, which can help in understanding the scope of the potential reconnaissance.
-- Check the `window_count` to assess the total number of API calls made within the 30-second window, which can indicate the intensity of the activity.
-- Investigate the `aws.cloudtrail.user_identity.arn` in the AWS IAM console to verify the permissions and recent activity of the user or service account, looking for any anomalies or unauthorized changes.
-- Use AWS CloudTrail logs to trace back the source IP addresses associated with the `GetServiceQuota` API calls, which can help identify the origin of the requests.
-- Cross-reference the `aws.cloudtrail.user_identity.arn` with other recent CloudTrail logs to detect any other suspicious activities or patterns involving the same user or service account.
-- Utilize Osquery to gather additional context on the involved AWS resources. For example, run an Osquery query to list recent AWS API calls made by the same user or service account: `SELECT * FROM aws_cloudtrail_events WHERE user_identity_arn = '<aws.cloudtrail.user_identity.arn>' AND event_time BETWEEN '<start_time>' AND '<end_time>';`.
-- Investigate any recent changes to the AWS environment, such as new instance launches or configuration changes, that coincide with the timeframe of the alert, as these could be related to the suspicious activity.
-- Collaborate with the security team to correlate this alert with other security events or alerts, which may provide a broader context of a potential attack campaign or ongoing threat.
-
-### False positive analysis
-
-- Automated scripts or tools used by legitimate AWS administrators for infrastructure monitoring or management across multiple regions can trigger this rule. These tools might perform `GetServiceQuota` API calls as part of their routine checks.
-- Multi-region deployments by large organizations that frequently check service quotas to ensure compliance with internal policies or to optimize resource allocation can also result in false positives.
-- Scheduled tasks or cron jobs that run at specific intervals to gather quota information for reporting or auditing purposes might inadvertently match the rule's criteria.
-- To manage these false positives, users can create exceptions for known benign sources by excluding specific AWS Identity and Access Management (IAM) roles or user ARNs that are responsible for legitimate multi-region queries.
-- Implementing a whitelist of IP addresses or regions associated with trusted operations can help reduce noise from expected activities.
-- Regularly reviewing and updating the list of exceptions based on changes in organizational processes or infrastructure can help maintain the accuracy of the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected AWS account or instance to prevent further unauthorized access and limit potential damage.
-- Review CloudTrail logs to identify the source of the `GetServiceQuota` requests and determine if any other suspicious activities are associated with the same credentials or instance.
-- Revoke any compromised credentials and rotate access keys for the affected AWS account to prevent further unauthorized access.
-- Conduct a thorough investigation to determine if any malware or unauthorized software has been deployed on the affected instances, and remove any malicious components found.
-- Escalate the incident to the security operations team for further analysis and to determine if the activity is part of a larger attack campaign.
-- Implement enhanced logging and monitoring policies to capture detailed API activity, focusing on unusual patterns or access from unexpected regions.
-- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system to enable real-time alerting and correlation with other security events.
-- Review and update AWS IAM policies to enforce the principle of least privilege, ensuring that users and services have only the permissions necessary for their roles.
-- Restore affected systems to their operational state by redeploying clean instances from known-good backups or images, ensuring that all security patches are applied.
-- Conduct a post-incident review to identify gaps in the current security posture and implement hardening measures, such as enabling multi-factor authentication (MFA) and using AWS Config to enforce compliance with security best practices."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

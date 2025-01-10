@@ -2,7 +2,7 @@
 creation_date = "2021/07/06"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -64,52 +64,6 @@ process where host.os.type == "windows" and event.type == "start" and
     "?:\\Program Files (x86)\\GPLGS\\gswin32c.exe"
  )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Print Spooler Child Process
-
-The Print Spooler service, integral to Windows environments, manages print jobs by interacting with printer hardware. Adversaries exploit this service to escalate privileges, leveraging vulnerabilities to execute unauthorized processes. The detection rule identifies anomalies by monitoring child processes spawned by the spooler, excluding known benign activities, and focusing on those with elevated integrity levels, signaling potential exploitation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to understand which specific child process of `spoolsv.exe` was flagged, focusing on the `process.name` and `process.command_line` fields.
-- Verify the integrity level of the process using the `process.Ext.token.integrity_level_name` or `winlog.event_data.IntegrityLevel` fields to confirm if it is running with elevated privileges.
-- Cross-reference the `process.name` and `process.command_line` against known benign processes and command lines to rule out false positives.
-- Check the parent process details to ensure that `spoolsv.exe` is the legitimate parent and not a masqueraded process.
-- Use Osquery to gather additional context about the suspicious process. For example, run the following query to list all child processes of `spoolsv.exe`:
-  ```sql
-  SELECT pid, name, path, cmdline, parent FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'spoolsv.exe');
-  ```
-- Investigate the file path and hash of the executable using the `process.executable` field to determine if it matches known malicious files or has been altered.
-- Examine the system's event logs around the time of the alert for any related suspicious activities or anomalies.
-- Check for any recent changes or installations on the system that could have introduced the unusual process, focusing on software updates or new applications.
-- Review network activity from the host to identify any unusual outbound connections that might indicate data exfiltration or command and control communication.
-- Consult threat intelligence sources to see if the process or command line has been associated with known attack patterns or campaigns.
-
-### False positive analysis
-
-- Known false positives include legitimate processes that are commonly spawned by the Print Spooler service but are not associated with malicious activity. These include processes like "splwow64.exe", "PDFCreator.exe", "acrodist.exe", "spoolsv.exe", "msiexec.exe", "route.exe", and "WerFault.exe".
-- Exclusions are in place for command lines that involve typical system paths or operations, such as those involving the Windows system drivers directory or common network and system configuration commands.
-- Users can manage false positives by adding exceptions for specific processes or command lines that are known to be safe in their environment. This can be done by modifying the detection rule to include additional exclusions based on observed benign behavior.
-- It is important to regularly review and update the list of exclusions to ensure that new legitimate processes are not mistakenly flagged as threats, especially after system updates or changes in the environment.
-- Users should also consider the context of the detected process, such as the time of execution and the user account under which it was run, to better assess whether it is likely to be a false positive.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the unusual child processes spawned by spoolsv.exe.
-- Review system logs and security events to gather evidence and understand the attack vector, leveraging MITRE ATT&CK framework details for T1068 to identify exploitation patterns.
-- Terminate any unauthorized or suspicious processes identified during the investigation to contain the threat.
-- Apply the latest security patches and updates to the Windows operating system and Print Spooler service to mitigate known vulnerabilities.
-- Restore the system from a clean backup if available, ensuring that the backup is free from compromise.
-- Implement enhanced logging policies to capture detailed process creation events and integrity level changes for future investigations.
-- Integrate security solutions such as Endpoint Detection and Response (EDR) tools to improve threat detection and response capabilities.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate users and administrators on secure printing practices and the importance of applying security updates promptly."""
 
 
 [[rule.threat]]

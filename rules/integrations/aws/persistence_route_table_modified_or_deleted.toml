@@ -2,7 +2,7 @@
 creation_date = "2021/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -21,47 +21,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Route Table Modified or Deleted"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS Route Table Modified or Deleted
-
-AWS Route Tables direct network traffic within a VPC, crucial for maintaining secure and efficient communication. Adversaries may alter or delete route tables to reroute traffic, disrupt services, or exfiltrate data. The detection rule monitors successful modifications or deletions of route tables, identifying potential unauthorized changes by analyzing specific AWS CloudTrail events related to EC2 actions.
-
-### Possible investigation steps
-
-- Review the CloudTrail logs to identify the specific `event.action` that triggered the alert, focusing on actions like `ReplaceRoute`, `ReplaceRouteTableAssociation`, `DeleteRouteTable`, `DeleteRoute`, or `DisassociateRouteTable`.
-- Examine the `event.outcome` field to confirm the success of the action and ensure that the alert is not a false positive.
-- Identify the `user.identity` field in the CloudTrail logs to determine which IAM user or role performed the action, and verify if this user is authorized to make such changes.
-- Check the `sourceIPAddress` field to see where the request originated from, and assess if this IP address is expected or known within your network.
-- Investigate the `event.time` to understand when the modification or deletion occurred and correlate it with any other suspicious activities or alerts around the same time.
-- Use the `aws.region` field to determine the region where the change was made, and verify if this aligns with your organization's standard operations.
-- Query the AWS Config service to review the historical configuration of the affected route table and identify any previous changes or patterns.
-- Utilize Osquery to gather additional context by running a query such as: `SELECT * FROM aws_vpc_route_tables WHERE route_table_id = '<affected_route_table_id>';` to retrieve current route table configurations and compare them with expected settings.
-- Cross-reference the affected route table with any associated VPCs, subnets, or network interfaces to assess the potential impact on your network architecture.
-- Review any recent IAM policy changes or access key usage for the identified user to ensure there are no signs of credential compromise or privilege escalation.
-
-### False positive analysis
-
-- Routine infrastructure changes by authorized personnel can trigger alerts, such as scheduled updates or maintenance activities, which are not malicious. - Automated processes or scripts that modify route tables for scaling or failover purposes may also result in false positives. - To manage these, users can create exceptions for known IP addresses or IAM roles that regularly perform these actions. - Implementing a change management process and documenting expected modifications can help differentiate between legitimate and suspicious activities. - Regularly review and update the list of exceptions to ensure they align with current operational practices and security policies.
-
-### Response and remediation
-
-- Immediately isolate the affected VPC to prevent further unauthorized access or data exfiltration.
-- Review AWS CloudTrail logs to identify the source and scope of the unauthorized changes to the route tables.
-- Verify the integrity of other network configurations within the VPC to ensure no additional unauthorized modifications have been made.
-- Restore the route tables to their last known good configuration using backups or documented configurations.
-- Implement AWS Identity and Access Management (IAM) policies to restrict permissions for modifying route tables to only essential personnel.
-- Enable detailed logging and monitoring for all VPC and route table changes to ensure real-time detection of unauthorized activities.
-- Conduct a security review of the affected AWS account to identify and remediate any other potential vulnerabilities or misconfigurations.
-- Escalate the incident to the security operations team for further investigation and to determine if the incident is part of a larger attack.
-- Update incident response plans and playbooks to include lessons learned from the incident and improve future response efforts.
-- Consider implementing additional security measures such as AWS Config rules and GuardDuty to enhance detection and prevention of unauthorized network changes.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

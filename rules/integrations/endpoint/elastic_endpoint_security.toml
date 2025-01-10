@@ -5,7 +5,7 @@ maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 promotion = true
-updated_date = "2025/01/08"
+updated_date = "2024/11/27"
 
 [rule]
 author = ["Elastic"]
@@ -59,49 +59,6 @@ type = "query"
 query = '''
 event.kind:alert and event.module:(endpoint and not endgame)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Endpoint Security
-
-Endpoint Security plays a crucial role in safeguarding devices by monitoring and responding to threats. It leverages alerts from Elastic Endpoint Security to detect suspicious activities. Adversaries may exploit endpoints to execute unauthorized actions or exfiltrate data. The detection rule identifies potential threats by filtering alerts related to endpoint activities, excluding non-relevant modules, thus enabling swift investigation and response.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, focusing on the `event.kind:alert` and `event.module:endpoint` fields to confirm the alert's origin and type.
-- Check the alert timestamp to determine when the suspicious activity occurred and correlate it with other events around the same time.
-- Investigate the affected endpoint by identifying the device's hostname or IP address from the alert details.
-- Examine user activity on the affected endpoint to identify any unauthorized access or actions, using logs that capture user logins and executed commands.
-- Utilize Osquery to gather more information about the endpoint. For example, run the following query to list all running processes: `SELECT pid, name, path, cmdline FROM processes;`.
-- Analyze network connections from the affected endpoint to identify any unusual or unauthorized external communications.
-- Cross-reference the alert with other security tools and logs to gather additional context, such as firewall logs or intrusion detection system alerts.
-- Investigate any file modifications or creations on the endpoint around the alert time to detect potential malicious files or scripts.
-- Check for any recent changes in system configurations or installed software that could indicate tampering or exploitation.
-- Review historical alerts and incidents related to the same endpoint or user to identify patterns or repeated attack attempts.
-
-### False positive analysis
-
-- Known false positives for the Endpoint Security rule may include benign activities that resemble threat patterns, such as routine software updates or legitimate administrative tasks that trigger alerts.
-- Users can manage these false positives by creating exceptions for specific processes or activities that are consistently identified as non-threatening, ensuring these are well-documented and reviewed regularly.
-- It's important to analyze the context of each alert to determine if it aligns with expected behavior, such as scheduled maintenance or known software behavior, before categorizing it as a false positive.
-- Implementing a feedback loop with security teams can help refine detection rules and reduce the frequency of false positives by adjusting the criteria for alerts.
-- Regularly updating the list of exceptions and reviewing them against current threat intelligence can help maintain a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Isolate the affected endpoint from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation of the alert by analyzing logs and endpoint data to determine the scope and impact of the threat.
-- Identify and terminate any malicious processes or unauthorized access points on the affected endpoint.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is beyond the current team's capability to handle.
-- Apply patches or updates to the affected systems to address any vulnerabilities exploited by the adversary.
-- Restore the system to its operational state by reinstalling the operating system or restoring from a clean backup if necessary.
-- Implement enhanced logging policies to capture detailed endpoint activity for future investigations.
-- Integrate additional security tools, such as intrusion detection systems or threat intelligence platforms, to improve threat detection capabilities.
-- Conduct a post-incident review to identify gaps in the current security posture and update security policies accordingly.
-- Apply hardening measures, such as disabling unnecessary services and enforcing strong authentication mechanisms, to reduce the attack surface of endpoints."""
 
 
 [[rule.exceptions_list]]

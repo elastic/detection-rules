@@ -2,7 +2,7 @@
 creation_date = "2023/07/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -79,50 +79,6 @@ file.path in ("/usr/bin/sudo", "/bin/sudo") and not (
   (process.name == "sed" and file.name : "sed*")
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Sudo Hijacking
-
-Sudo is a critical utility in Linux environments, allowing users to execute commands with elevated privileges. Adversaries may exploit this by replacing the legitimate sudo binary with a malicious version to capture passwords or maintain persistence. The detection rule identifies suspicious creation or renaming of the sudo binary, excluding legitimate package management processes, to flag potential hijacking attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event action is either "creation" or "rename" for the file path "/usr/bin/sudo" or "/bin/sudo".
-- Check the process executable that triggered the alert to ensure it is not part of the legitimate package management processes listed in the exclusion criteria.
-- Investigate the file.Ext.original.path to determine if the original file path was "/usr/bin/sudo" or "/bin/sudo", which might indicate a legitimate update or replacement.
-- Examine the process name and executable path to identify any unusual or unauthorized processes that might have created or renamed the sudo binary.
-- Use Osquery to list recent changes to the sudo binary with a query like: `SELECT * FROM file WHERE path IN ('/usr/bin/sudo', '/bin/sudo') ORDER BY atime DESC LIMIT 5;` to gather more context on recent access times.
-- Check system logs for any related entries around the time of the alert to identify any suspicious activities or patterns.
-- Verify the integrity of the current sudo binary using checksums or hashes to compare against known good versions.
-- Investigate the user account associated with the process that triggered the alert to determine if it has a history of suspicious activity or if it has been compromised.
-- Review any recent changes in user permissions or sudoers file that might correlate with the alert.
-- Correlate the alert with other security events or alerts in the environment to identify potential patterns or coordinated attacks.
-
-### False positive analysis
-
-- Legitimate package management operations can trigger false positives. These include processes like updates or installations using package managers such as dpkg, rpm, yum, dnf, and apt. These processes are typically responsible for creating or renaming the sudo binary as part of their normal operations.
-- Exclude these package management processes by adding their executables to the exception list in the detection rule. This includes paths like "/bin/dpkg", "/usr/bin/rpm", "/usr/bin/apt-get", and others specified in the rule.
-- Temporary files created during legitimate operations, such as those with the extension "dpkg-new", can also cause false positives. Ensure these are excluded by checking the file extension in the rule.
-- Processes running from specific directories like "/nix/store/*", "/var/lib/dpkg/*", or "/snap/*" are often part of legitimate system operations and should be excluded to prevent false alerts.
-- If a process executable is null, it might indicate a legitimate system process that should not be flagged. Consider adding checks to handle such cases appropriately.
-- The use of the "sed" command in scripts that modify the sudo binary name temporarily can also lead to false positives. Exclude these by checking for the process name "sed" and file names starting with "sed".
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Verify the integrity of the sudo binary by comparing its hash with a known good version from a trusted source or repository.
-- Review system logs and security alerts to identify any unauthorized access or suspicious activity around the time of the sudo binary modification.
-- Conduct a thorough investigation to determine the source of the compromise, including reviewing user accounts and processes that initiated the change.
-- Restore the original sudo binary from a trusted backup or reinstall the sudo package using a secure package manager.
-- Escalate the incident to the security operations team if evidence of a broader compromise or advanced persistent threat is detected.
-- Implement enhanced logging policies to capture detailed audit logs of file modifications and process executions, focusing on critical system binaries.
-- Integrate with a centralized security information and event management (SIEM) system to correlate and analyze security events across the network.
-- Apply system hardening measures, such as restricting sudo access to only necessary users and implementing multi-factor authentication for privileged accounts.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans to improve future detection and response capabilities."""
 
 
 [[rule.threat]]

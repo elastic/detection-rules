@@ -2,7 +2,7 @@
 creation_date = "2021/06/24"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Austin Songer"]
@@ -22,51 +22,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Kubernetes Pods Deleted"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Azure Kubernetes Pods Deleted
-
-Azure Kubernetes Service (AKS) manages containerized applications using Kubernetes, orchestrating tasks like deployment and scaling. Pods, the smallest deployable units, can be targeted by adversaries to disrupt services by deletion. The detection rule monitors Azure activity logs for successful pod deletion operations, signaling potential malicious activity aimed at impacting service availability.
-
-### Possible investigation steps
-
-- Review the Azure activity logs to confirm the deletion event by filtering for `event.dataset:azure.activitylogs` and `azure.activitylogs.operation_name:"MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/PODS/DELETE"` with `event.outcome:(Success or success)`.
-- Identify the user or service principal responsible for the deletion by examining the `azure.activitylogs.caller` field in the logs.
-- Check the timestamp of the deletion event to determine when the activity occurred and correlate it with any other suspicious activities around the same time.
-- Investigate the specific pod(s) deleted by looking at the `azure.activitylogs.resource_id` field to understand which applications or services were impacted.
-- Analyze the context of the deletion by reviewing any related events in the activity logs, such as preceding or subsequent operations by the same user or on the same resources.
-- Verify if the deletion was part of a legitimate maintenance or deployment activity by cross-referencing with change management records or deployment logs.
-- Use Osquery to gather additional context on the affected Kubernetes cluster. For example, run a query to list all current pods and their statuses: `SELECT name, namespace, status FROM kubernetes_pods WHERE cluster_name = 'your_cluster_name';`.
-- Check for any recent alerts or incidents related to the same cluster or namespace to identify potential patterns or ongoing threats.
-- Investigate the network activity around the time of the deletion to detect any unusual access patterns or connections to the Kubernetes API server.
-- Consult with the application or service owners to verify if they were aware of or authorized the pod deletion, and gather any additional context they might have.
-
-### False positive analysis
-
-- Routine maintenance or updates: Regular updates or maintenance activities may involve the deletion and recreation of pods, which can trigger the detection rule. Users can manage this by creating exceptions for known maintenance windows or specific operations teams.
-- Automated scaling operations: Kubernetes may automatically delete pods as part of scaling operations, either up or down, which are benign activities. Users should consider excluding these operations by identifying and filtering out specific scaling-related events.
-- Deployment rollouts: During application deployment rollouts, old pods may be deleted to make way for new versions. Users can handle these by setting up exceptions for deployment-related activities, possibly by correlating with deployment logs.
-- Testing environments: In testing or development environments, frequent pod deletions may occur as part of normal testing procedures. Users can exclude these environments from monitoring or adjust the rule to focus on production environments only.
-- Known service accounts: If certain service accounts are responsible for legitimate pod deletions, users can exclude these accounts from triggering alerts by adding them to an allowlist.
-
-### Response and remediation
-
-- Immediately isolate the affected Kubernetes cluster to prevent further unauthorized access or damage.
-- Review Azure activity logs to confirm the deletion event and identify any unauthorized access patterns or suspicious IP addresses.
-- Recreate the deleted pods using the latest known good configuration to restore service availability.
-- Conduct a root cause analysis to determine how the deletion was initiated and identify any security gaps.
-- Escalate the incident to the security operations team if malicious intent is suspected, providing them with all relevant logs and findings.
-- Implement stricter access controls and role-based access management to limit who can delete pods in the future.
-- Enhance logging policies to ensure all Kubernetes API actions are logged and monitored for anomalies.
-- Integrate Azure Security Center and other security tools to provide real-time alerts and automated responses to suspicious activities.
-- Regularly update and patch Kubernetes clusters and associated components to mitigate vulnerabilities.
-- Conduct a security review and harden the Kubernetes environment by following best practices, such as network segmentation and using pod security policies.
-
-## Setup
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

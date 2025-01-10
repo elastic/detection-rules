@@ -2,7 +2,7 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -42,50 +42,6 @@ process where host.os.type == "windows" and event.type == "start" and
   not process.parent.args : ("C:\\Windows\\System32\\SHELL32.dll,RunAsNewUser_RunDLL",
                              "C:\\WINDOWS\\*.tmp,zzzzInvokeManagedCustomActionOutOfProc")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Command Shell Activity Started via RunDLL32
-
-RunDLL32 is a Windows utility that executes functions within DLLs, often used for legitimate purposes. However, attackers exploit it to run malicious scripts or commands by invoking command shells like cmd.exe or PowerShell. The detection rule identifies suspicious activity by monitoring processes initiated by RunDLL32, excluding known benign patterns, to flag potential misuse aligned with MITRE ATT&CK's execution tactics.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of `cmd.exe` or `powershell.exe` processes initiated by `rundll32.exe` and verify that the `process.parent.command_line` is not null.
-- Examine the `process.parent.command_line` field to understand the context in which `rundll32.exe` was executed, looking for any unusual or suspicious command-line arguments.
-- Check the `process.parent.args` field to ensure that the command line does not match known benign patterns, such as those involving `SHELL32.dll` or temporary files.
-- Investigate the parent process of `rundll32.exe` to determine how it was launched and whether it was initiated by a legitimate application or user action.
-- Use Osquery to gather additional context about the process tree. For example, run the following query to list processes related to the suspicious activity:
-  ```sql
-  SELECT pid, name, path, cmdline, parent FROM processes WHERE name IN ('cmd.exe', 'powershell.exe') AND parent IN (SELECT pid FROM processes WHERE name = 'rundll32.exe');
-  ```
-- Analyze the timeline of events leading up to the alert to identify any preceding activities that might indicate compromise, such as suspicious file downloads or registry changes.
-- Correlate the alert with other security events or logs, such as network traffic or file access logs, to identify any related indicators of compromise.
-- Check for any recent changes in the system, such as new software installations or updates, that might explain the execution of `rundll32.exe` with command shells.
-- Investigate the user account associated with the process to determine if it aligns with expected behavior or if it might be compromised.
-- Review historical data to see if similar alerts have been triggered in the past, which could indicate a recurring issue or persistent threat.
-
-### False positive analysis
-
-- Known false positives for the Command Shell Activity Started via RunDLL32 rule include legitimate system or application processes that invoke command shells for routine operations. For example, certain software installations or updates may use RunDLL32 to execute scripts as part of their setup process.
-- Users can manage these false positives by identifying and excluding frequent non-threatening behaviors. This can be done by adding exceptions to the detection rule for specific command line arguments or parent process command lines that are known to be safe. For instance, excluding command lines that match patterns like "C:\\\\Windows\\\\System32\\\\SHELL32.dll,RunAsNewUser_RunDLL" or "C:\\\\WINDOWS\\\\*.tmp,zzzzInvokeManagedCustomActionOutOfProc" can help reduce noise from benign activities.
-- It is important to regularly review and update these exceptions to ensure they align with the current environment and do not inadvertently allow malicious activity to go undetected.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation of the rundll32.exe process and its command line arguments to determine if the activity is malicious.
-- Review recent system changes and user activity logs to identify any unauthorized access or modifications.
-- If malicious activity is confirmed, terminate the suspicious processes and remove any associated malicious files or scripts.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed process creation events and command line arguments for future investigations.
-- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics and techniques.
-- Restore the system to its operational state by applying the latest security patches and updates, and conducting a full system scan with updated antivirus software.
-- Educate users on recognizing and reporting suspicious activities to prevent future incidents.
-- Implement system hardening measures, such as restricting the use of rundll32.exe to authorized applications and users, and applying application whitelisting policies."""
 
 
 [[rule.threat]]

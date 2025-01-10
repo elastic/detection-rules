@@ -2,7 +2,7 @@
 creation_date = "2021/07/15"
 integration = ["o365"]
 maturity = "development"
-updated_date = "2025/01/08"
+updated_date = "2024/09/05"
 
 [rule]
 author = ["Austin Songer"]
@@ -16,49 +16,7 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Impossible travel activity"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft 365 Impossible travel activity
-
-Microsoft 365's security features monitor user sign-ins to detect anomalies like impossible travel, where logins occur from geographically distant locations in a short time. Adversaries may exploit compromised credentials to access accounts from various locations. The detection rule identifies such suspicious activities by analyzing audit logs for successful logins flagged as impossible travel, helping to pinpoint potential unauthorized access.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the "Impossible travel activity" event action and ensure the event outcome is marked as success.
-- Verify the user's recent login history to identify any patterns or anomalies in login locations and times, focusing on the event.dataset:o365.audit field.
-- Check the event.provider:SecurityComplianceCenter field to ensure the alert originated from a trusted source and is not a false positive.
-- Analyze the event.category:web field to understand the context of the login attempt, such as the application or service accessed.
-- Cross-reference the IP addresses involved in the login attempts with known malicious IP databases to identify any potential threats.
-- Use Osquery to gather additional context on the user's device by running a query like: `SELECT * FROM users WHERE username = '<username>';` to verify if the user account has been accessed from multiple devices.
-- Investigate any recent changes to the user's account settings or permissions that could indicate unauthorized access.
-- Review the user's activity logs for any unusual behavior or actions that could suggest account compromise.
-- Collaborate with the network team to trace the network path of the login attempt and identify any anomalies in network traffic.
-- Consult with the user to verify if they were traveling or using a VPN that could explain the impossible travel alert, ensuring the legitimacy of the login attempt.
-
-### False positive analysis
-
-- Known false positives for the Microsoft 365 Impossible travel activity rule often arise from legitimate users who travel frequently or use VPN services that route traffic through different geographic locations. These scenarios can trigger alerts as they mimic the behavior of compromised accounts accessing from various locations.
-- To manage these false positives, users can create exceptions for specific users or IP addresses that are known to frequently travel or use VPNs. This can be done by configuring conditional access policies or adjusting the sensitivity of the detection rule to better align with the organization's typical user behavior.
-- Another method to handle false positives is to integrate user behavior analytics (UBA) to establish a baseline of normal activity for each user. This allows the system to differentiate between legitimate and suspicious activities more accurately.
-- Organizations should regularly review and update their exception lists and detection rules to ensure they reflect current user behavior and network configurations, minimizing the risk of overlooking genuine threats while reducing unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected user account by disabling it to prevent further unauthorized access.
-- Initiate a password reset for the compromised account and enforce multi-factor authentication (MFA) for additional security.
-- Conduct a thorough investigation of the audit logs to identify any other suspicious activities or compromised accounts.
-- Review and analyze the sign-in history and patterns to determine if any other accounts exhibit similar impossible travel activities.
-- Escalate the incident to the security operations center (SOC) for further analysis and to determine if there is a broader security breach.
-- Implement enhanced logging policies to capture detailed sign-in activities and integrate with a security information and event management (SIEM) system for real-time monitoring.
-- Educate users on recognizing phishing attempts and the importance of using strong, unique passwords to prevent credential compromise.
-- Restore the system to its operational state by ensuring all affected accounts are secured and any unauthorized changes are reverted.
-- Apply hardening measures such as restricting access based on geographic location and implementing conditional access policies.
-- Utilize MITRE ATT&CK framework to understand the adversary's tactics and techniques, and update security measures to mitigate similar threats in the future.
-
+note = """
 ## Important
 
 This rule is no longer applicable based on changes to Microsoft Defender for Office 365. Please refer to the following rules for similar detections:

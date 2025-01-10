@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2023/09/22"
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -30,48 +30,6 @@ type = "new_terms"
 query = '''
 host.os.type:windows and event.kind:signal and kibana.alert.rule.rule_id:"1d72d014-e2ab-4707-b056-9b96abe7b511"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Discovery Signal Alert with Unusual Process Executable
-
-This detection rule focuses on identifying anomalies in Windows environments by monitoring signals with atypical host, user, and process attributes. Adversaries often exploit legitimate discovery tools to gather system information stealthily. The rule flags unusual process executions, which may indicate unauthorized reconnaissance activities, by leveraging unique identifiers and alert data to pinpoint suspicious behavior.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, including the unique `host.id`, `user.id`, and `process.executable` involved in the alert.
-- Verify the legitimacy of the `process.executable` by checking its digital signature and comparing it against known good executables.
-- Cross-reference the `host.id` with asset management systems to gather information about the host, such as its role, owner, and recent changes or updates.
-- Investigate the `user.id` to determine if the user has a history of executing similar processes or if there are any anomalies in their recent activity.
-- Use Osquery to gather additional context about the process. For example, run the following query to list all processes executed by the user on the host: `SELECT * FROM processes WHERE uid = (SELECT uid FROM users WHERE username = '<user.id>') AND host = '<host.id>';`
-- Check for any recent logins or access attempts on the host that might correlate with the alert, focusing on unusual times or locations.
-- Analyze network traffic from the host around the time of the alert to identify any suspicious outbound connections or data exfiltration attempts.
-- Review historical alerts and logs to determine if there have been previous instances of similar unusual process executions on the same host or by the same user.
-- Consult threat intelligence sources to see if the `process.executable` or any related indicators have been associated with known threat actors or campaigns.
-- Document all findings and observations in a case management system to maintain a comprehensive record of the investigation for future reference.
-
-### False positive analysis
-
-- Known false positives for the Unusual Discovery Signal Alert with Unusual Process Executable rule may include legitimate administrative tools or scripts that perform system discovery tasks as part of routine operations. These can be flagged due to their atypical execution patterns or unique identifiers.
-- Users can manage these false positives by creating exceptions for known and trusted processes, users, or hosts that frequently trigger alerts. This can be done by adding specific host.id, user.id, or process.executable entries to an allowlist within the rule configuration.
-- Regularly review and update the list of exceptions to ensure that only verified non-threatening behaviors are excluded, maintaining the rule's effectiveness in detecting genuine threats.
-- Consider implementing a baseline of normal activity for your environment to better distinguish between legitimate and suspicious discovery activities, reducing the likelihood of false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected host from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the scope of the compromise, focusing on unusual process executions and correlating with other security alerts.
-- Review user activity logs to determine if any legitimate user accounts have been compromised and reset passwords as necessary.
-- Analyze the unusual process executable to understand its origin and functionality, using threat intelligence sources to identify any known malicious signatures.
-- Remove any unauthorized or malicious software identified during the investigation from the affected systems.
-- Restore the system from a known good backup to ensure all traces of the compromise are removed.
-- Implement enhanced logging policies to capture detailed process execution and user activity data for future investigations.
-- Integrate additional security tools, such as endpoint detection and response (EDR) solutions, to improve visibility and detection capabilities.
-- Escalate the incident to the appropriate internal teams and, if necessary, external authorities or cybersecurity partners for further analysis and response.
-- Review and update security policies and procedures to address any gaps identified during the incident, including implementing stricter access controls and regular security training for users."""
 
 
 [[rule.threat]]

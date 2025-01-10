@@ -2,7 +2,7 @@
 creation_date = "2023/09/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -40,50 +40,6 @@ library where host.os.type == "windows" and event.action == "load" and
     "?:\\Windows\\System32\\DriverStore\\FileRepository\\*"
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Image Loaded with Invalid Signature
-
-In Windows environments, code signing ensures the integrity and authenticity of binaries. Adversaries may exploit this by loading binaries with invalid signatures to masquerade as legitimate software, evading detection. The detection rule identifies such anomalies by checking for invalid signatures, recent file modifications, and mismatches between DLL and process names, excluding trusted system paths. This helps in pinpointing potential masquerading attempts.
-
-### Possible investigation steps
-
-- Review the alert details to understand which binary triggered the alert, focusing on the `dll.name` and `process.name` fields to identify potential mismatches.
-- Check the `dll.code_signature.status` field to determine the specific signature error, such as "errorUntrustedRoot" or "errorBadDigest," to assess the nature of the invalid signature.
-- Investigate the `dll.Ext.relative_file_creation_time` and `dll.Ext.relative_file_name_modify_time` fields to determine if the binary was recently created or modified, which could indicate suspicious activity.
-- Verify the `dll.path` to ensure it is not located in a trusted system path, as the rule excludes paths like "?:\\\\Windows\\\\System32\\\\DriverStore\\\\FileRepository\\\\*".
-- Use Osquery to gather additional context about the binary. For example, run the following query to list details about the binary: `SELECT path, sha256, signature_status FROM file WHERE path = '<dll.path>';`.
-- Cross-reference the hash of the binary (obtained from the Osquery result) with known threat intelligence databases to check for any known malicious activity.
-- Examine the parent process of the binary using the `process.name` field to understand the context in which the binary was loaded and identify any unusual parent-child process relationships.
-- Investigate the user account associated with the process to determine if it aligns with expected behavior or if it might be compromised.
-- Review recent system logs and events around the time the binary was loaded to identify any other suspicious activities or anomalies.
-- Consult with other security tools or logs to gather additional information about the network activity or other system changes that occurred around the time of the alert.
-
-### False positive analysis
-
-- Known false positives may arise from legitimate software that uses self-signed certificates or certificates from less common certificate authorities, which may not be recognized by the system, leading to an "errorUntrustedRoot" status.
-- Software updates or patches can temporarily result in mismatches between DLL and process names, especially if the update process involves temporary files or renaming during installation.
-- Development or testing environments often load unsigned or self-signed binaries, which can trigger this rule due to the nature of the software being tested.
-- Users can manage these false positives by creating exceptions for known and trusted software that frequently triggers the rule, ensuring that these exceptions are well-documented and reviewed regularly to maintain security integrity.
-- Implementing a whitelist for specific paths or binaries that are known to be safe, even if they occasionally show invalid signatures, can help reduce noise in the detection system.
-- Regularly updating the list of trusted certificate authorities and ensuring that legitimate software is using up-to-date certificates can also help minimize false positives.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potentially malicious activity.
-- Verify the invalid signature by cross-referencing with known trusted certificates and check for any recent unauthorized changes to the system.
-- Conduct a thorough investigation to identify the source of the invalid binary, including reviewing recent file modifications and process execution logs.
-- Remove or quarantine the suspicious binary and any associated files to prevent execution.
-- Escalate the incident to the security operations team for further analysis and to determine if the activity is part of a larger attack campaign.
-- Restore the system using a clean backup or reinstall the operating system if necessary to ensure all malicious components are removed.
-- Implement enhanced logging policies to capture detailed information on file creation, modification, and execution events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Conduct a security audit of the system and network to identify and remediate any vulnerabilities that may have been exploited.
-- Educate users on recognizing and reporting suspicious activities to improve overall security awareness and reduce the risk of future incidents."""
 
 
 [[rule.threat]]

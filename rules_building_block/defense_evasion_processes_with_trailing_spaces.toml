@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -38,49 +38,6 @@ query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
 process.name : "* "
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Processes with Trailing Spaces
-
-In computing environments, process names are crucial for identifying and managing running applications. Adversaries exploit this by appending trailing spaces to process names, making them appear legitimate while evading detection. This tactic leverages the masquerading technique to bypass security measures. The detection rule identifies such anomalies by flagging processes with unexpected trailing spaces, thus uncovering potential evasion attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of trailing spaces in the process name by examining the `process.name` field.
-- Cross-reference the `process.name` with known legitimate processes to identify any discrepancies or unusual patterns.
-- Investigate the `event.type` and `event.action` fields to understand the context of the process start event and confirm it aligns with typical execution patterns.
-- Check the parent process using the `process.parent.name` field to determine if the process was spawned by a legitimate or suspicious parent.
-- Utilize Osquery to gather additional context on the suspicious process by running a query such as: `SELECT pid, name, path, cmdline FROM processes WHERE name LIKE '% ';`
-- Examine the `process.executable` field to verify the file path and ensure it matches the expected location for legitimate processes.
-- Analyze the `user.name` field to identify the user account under which the process was executed, and assess if this aligns with normal user behavior.
-- Investigate any network connections or file modifications associated with the process using relevant logs or monitoring tools to identify potential malicious activity.
-- Review historical data for similar process names with trailing spaces to determine if this is part of a broader pattern or isolated incident.
-- Collaborate with other security teams or use threat intelligence sources to assess if the process name with trailing spaces is associated with known adversary techniques or campaigns.
-
-### False positive analysis
-
-- Known false positives for the Processes with Trailing Spaces rule may include legitimate applications or scripts that unintentionally have trailing spaces in their process names due to coding errors or formatting issues.
-- System administrators and developers might create scripts or batch files with trailing spaces for testing purposes, which can trigger the detection rule.
-- To manage these false positives, users can create exceptions for specific processes that are known to be safe and frequently exhibit trailing spaces, ensuring they are not flagged by the detection rule.
-- Regularly review and update the list of exceptions to accommodate changes in legitimate software behavior while maintaining security vigilance.
-- Implement logging and monitoring to track the frequency and context of trailing space occurrences, helping to distinguish between benign and potentially malicious activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
-- Conduct a thorough investigation to identify the source and scope of the intrusion, focusing on processes with trailing spaces and any associated files or network activity.
-- Terminate any suspicious processes identified with trailing spaces to halt any ongoing malicious activity.
-- Review and analyze system logs to trace the adversary's actions and identify any additional compromised systems or accounts.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
-- Implement enhanced logging policies to capture detailed process creation events, including command-line arguments and parent-child process relationships.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for masquerading techniques.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Implement hardening measures such as disabling unnecessary services, enforcing strong authentication mechanisms, and conducting regular security awareness training for users."""
 
 
 [[rule.threat]]

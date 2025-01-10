@@ -2,7 +2,7 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -58,48 +58,6 @@ tags = [
     "Tactic: Defense Evasion",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Process Spawned by a User
-
-The detection of unusual processes spawned by users leverages machine learning to identify anomalies in user behavior and process execution. Adversaries may exploit legitimate tools, known as LOLbins, to evade detection by masquerading malicious activities as benign processes. This detection rule employs both supervised and unsupervised ML models to flag processes that deviate from typical user patterns, indicating potential misuse or malicious intent.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name, user context, and timestamp of the unusual process execution.
-- Cross-reference the process name with known legitimate tools and LOLbins to determine if it is commonly used for legitimate purposes or known for malicious activity.
-- Analyze the user context to understand if the user typically runs such processes. Check historical data for any previous instances of this process being executed by the same user.
-- Investigate the parent process that spawned the unusual process to determine if it is a legitimate process or potentially compromised.
-- Use Osquery to gather additional context about the process. For example, run the following query to retrieve details about the process and its parent: `SELECT pid, name, path, parent, cmdline FROM processes WHERE name = '<process_name>';`
-- Check for any recent changes in the user's behavior or system configuration that might explain the unusual process execution.
-- Examine network connections initiated by the process to identify any suspicious or unexpected external communications.
-- Review system logs and security events around the time of the process execution for any related anomalies or indicators of compromise.
-- Correlate the findings with other security alerts or incidents to determine if this is part of a broader attack campaign.
-- Document all findings and observations to provide a comprehensive overview of the investigation, which can be used for further analysis or reporting.
-
-### False positive analysis
-
-- Known false positives for the Unusual Process Spawned by a User rule may include legitimate administrative tools or scripts that are infrequently used but necessary for specific tasks, such as system updates or maintenance activities, which may be flagged due to their atypical execution patterns.
-- Users can manage these false positives by creating exceptions for processes that are verified as non-threatening. This can be done by analyzing the context in which these processes are executed, such as the time, user, and system involved, and then configuring the ML models to recognize these patterns as benign.
-- Another common false positive scenario involves software updates or installations that temporarily alter user behavior or process execution patterns. Users should document these occurrences and adjust the detection parameters to accommodate such changes without compromising security.
-- To handle false positives effectively, users should regularly review flagged processes and update the exception list to include any new legitimate processes that are consistently misclassified, ensuring that the detection system remains accurate and efficient.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation of the flagged process, including reviewing process execution details, parent processes, and associated user activity.
-- Utilize endpoint detection and response (EDR) tools to analyze the system for additional indicators of compromise (IOCs) and identify any persistence mechanisms.
-- Terminate the suspicious process and remove any associated files or artifacts identified during the investigation.
-- Escalate the incident to the security operations center (SOC) or incident response team if the process is confirmed to be malicious or if there is evidence of broader compromise.
-- Implement enhanced logging policies to capture detailed process execution and user activity for future analysis and detection.
-- Integrate threat intelligence feeds to enrich alerts with context and improve detection capabilities against known LOLbins and masquerading techniques.
-- Restore the system to its operational state by applying necessary patches, updates, and verifying system integrity.
-- Conduct a post-incident review to identify gaps in detection and response, and update security policies and procedures accordingly.
-- Implement hardening measures such as application whitelisting, user behavior analytics, and least privilege access controls to reduce the risk of similar incidents in the future."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

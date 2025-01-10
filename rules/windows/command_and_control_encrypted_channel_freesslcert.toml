@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -55,50 +55,6 @@ network where host.os.type == "windows" and network.protocol == "dns" and
   /* Insert noisy false positives here */
   not process.name : ("svchost.exe", "MicrosoftEdge*.exe", "msedge.exe")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Connection to Commonly Abused Free SSL Certificate Providers
-
-Free SSL certificates, like those from Let's Encrypt, enable secure web traffic by encrypting data. Adversaries exploit these to mask malicious command and control (C2) communications. The detection rule identifies unusual Windows processes accessing domains with such certificates, excluding common false positives, to flag potential misuse of encrypted channels for C2 activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process executable path and domain name involved in the connection attempt. Focus on the `process.executable` and `dns.question.name` fields.
-- Verify the legitimacy of the domain by checking if it is associated with known malicious activities or if it is a legitimate service using free SSL certificates.
-- Investigate the process executable path to determine if it is a legitimate Windows process or if it has been tampered with. Pay attention to the paths specified in the query, such as `C:\\Windows\\System32\\*.exe`.
-- Use Osquery to gather additional context about the process. For example, run the following query to get details about the process and its parent process:
-  ```sql
-  SELECT pid, name, path, parent, cmdline FROM processes WHERE path = 'C:\\\\Windows\\\\System32\\\\<specific_process>.exe';
-  ```
-- Check the process's parent process to understand how it was spawned and if it aligns with expected behavior.
-- Examine the network traffic associated with the process to identify any unusual patterns or additional connections to suspicious domains.
-- Cross-reference the process and domain information with threat intelligence sources to identify any known indicators of compromise (IOCs).
-- Review system logs and event logs for any additional suspicious activities or anomalies around the time of the alert.
-- Investigate the user account associated with the process to determine if there are any signs of compromise or unauthorized access.
-- Consider running a full antivirus or endpoint detection and response (EDR) scan on the affected system to identify any additional threats or malware.
-
-### False positive analysis
-
-- **Common System Processes**: Some native Windows processes, such as `svchost.exe`, `MicrosoftEdge*.exe`, and `msedge.exe`, are known to generate network traffic that may appear suspicious but are typically benign. These processes are often involved in legitimate system operations and updates, which can include accessing domains secured with free SSL certificates.
-- **Web Browsers and Updates**: Web browsers and system update services frequently connect to a variety of domains, including those using free SSL certificates, for legitimate purposes such as downloading updates or accessing web content. These activities can trigger false positives if not properly excluded.
-- **Handling False Positives**: Users can manage false positives by creating exceptions for known benign processes and domains. This involves updating the detection rule to exclude specific process names or paths that are frequently involved in non-threatening activities. Regularly reviewing and updating these exceptions based on observed network behavior can help maintain the accuracy of the detection rule.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious communication and potential lateral movement.
-- Conduct a thorough investigation of the flagged process and domain connections to determine if they are indeed malicious or false positives.
-- Review and analyze network traffic logs to identify any additional suspicious activities or connections related to the alert.
-- If malicious activity is confirmed, terminate the suspicious processes and remove any associated malicious files or software from the system.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the compromise.
-- Implement enhanced logging policies to capture detailed process execution and network connection data for future investigations.
-- Integrate threat intelligence feeds to update and refine detection rules with the latest indicators of compromise (IOCs) related to free SSL certificate abuse.
-- Restore the system to its operational state by applying necessary patches, updates, and verifying the integrity of system files.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Implement hardening measures such as application whitelisting, network segmentation, and regular security audits to reduce the risk of future incidents."""
 
 
 [[rule.threat]]

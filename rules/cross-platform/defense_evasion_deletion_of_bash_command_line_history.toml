@@ -2,7 +2,7 @@
 creation_date = "2020/05/04"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -54,49 +54,6 @@ process where event.action in ("exec", "exec_event", "executed", "process_starte
   (process.args : "set" and process.args : "history" and process.args : "+o")
  )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Tampering of Shell Command-Line History
-
-Shell command-line history is a crucial feature that logs user commands, aiding in troubleshooting and audits. Adversaries may manipulate this history to hide their tracks, using commands to delete or redirect history files, or alter environment variables to disable logging. The detection rule identifies such tampering by monitoring for suspicious command patterns and arguments indicative of history manipulation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process and user involved in the tampering attempt, focusing on the `process.args` and `process.user` fields.
-- Check the process execution timeline to determine if there are any preceding or subsequent suspicious activities, using the `event.action` and `event.type` fields.
-- Investigate the command history of the user associated with the alert to identify any other potentially malicious commands executed around the same time.
-- Use Osquery to list all recent modifications to shell history files. Example query: `SELECT path, size, mtime FROM file WHERE path LIKE '/home/%/.bash_history' OR path LIKE '/root/.bash_history';`
-- Examine the system logs for any anomalies or errors that coincide with the time of the alert, which might indicate tampering or other malicious activities.
-- Verify the integrity of the shell history files by comparing them with backups or snapshots, if available, to identify any unauthorized changes.
-- Investigate any changes to environment variables related to shell history, such as `HISTFILE` and `HISTFILESIZE`, by reviewing the user's shell configuration files (e.g., `.bashrc`, `.bash_profile`).
-- Check for the presence of symbolic links or redirections of history files to `/dev/null` using the `ln` command, as indicated in the alert.
-- Analyze the system for any other indicators of compromise or persistence mechanisms that might suggest a broader attack campaign.
-- Correlate the findings with threat intelligence sources to determine if the activity matches known attack patterns or threat actor behaviors.
-
-### False positive analysis
-
-- System administrators or developers may intentionally clear command-line history for privacy or security reasons, leading to false positives. To manage this, users can create exceptions for specific user accounts or roles known to perform these actions regularly.
-- Automated scripts or maintenance tasks might include commands that manipulate shell history as part of their normal operation. Users can handle these by excluding processes or scripts with known benign behavior from triggering alerts.
-- Some security tools or compliance checks may execute commands that resemble history tampering to verify system configurations. Users should identify these tools and add them to an allowlist to prevent false positives.
-- Developers working in shared environments might redirect history files to avoid conflicts, which could be mistaken for tampering. Users can exclude specific directories or environments where this practice is common.
-- In environments where disk space is a concern, users might truncate history files to save space, which could trigger alerts. Users can set exceptions for these actions when performed by authorized personnel or scripts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further tampering or data exfiltration.
-- Conduct a thorough investigation to identify the scope of the tampering, including reviewing logs and correlating with other security events.
-- Restore the shell command-line history from backups if available, to aid in understanding the adversary's actions.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to capture detailed command-line activity, ensuring that logs are stored securely and are tamper-proof.
-- Integrate with a centralized logging solution or SIEM to aggregate and analyze shell command-line history across the organization.
-- Review and update security policies to include regular audits of shell history files and environment variables related to command logging.
-- Apply system hardening measures, such as restricting access to history files and enforcing the use of secure shell configurations.
-- Educate users on the importance of shell history for security and encourage reporting of any suspicious activity.
-- Leverage MITRE ATT&CK framework to understand potential adversary techniques and improve detection and response capabilities."""
 
 
 [[rule.threat]]

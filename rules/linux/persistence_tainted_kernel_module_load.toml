@@ -2,7 +2,7 @@
 creation_date = "2023/10/23"
 integration = ["system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -55,52 +55,6 @@ query = '''
 host.os.type:linux and event.dataset:"system.syslog" and process.name:kernel and 
 message:"module verification failed: signature and/or required key missing - tainting kernel"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Tainted Kernel Module Load
-
-Kernel modules extend the functionality of the Linux kernel, allowing dynamic loading of code. Adversaries exploit this by loading malicious modules to evade detection and maintain persistence. The detection rule identifies suspicious module loads by monitoring syslog for messages indicating failed module verification, signaling potential unauthorized kernel modifications. This helps in identifying and mitigating rootkit threats.
-
-### Possible investigation steps
-
-- Review the syslog entries around the time of the alert to gather more context about the module load attempt, focusing on the `message` field for any additional error messages or anomalies.
-- Check the `host.os.type` and `event.dataset` fields to confirm the alert pertains to a Linux system and is sourced from the syslog, ensuring the data is relevant to the investigation.
-- Identify the specific kernel module that triggered the alert by examining the `process.name` field and any associated module names or paths in the syslog message.
-- Use Osquery to list all currently loaded kernel modules and their details to identify any unfamiliar or suspicious modules:
-  ```sql
-  SELECT name, size, used_by FROM kernel_modules;
-  ```
-- Investigate the origin of the suspicious module by checking the file system for the module's file path and examining its metadata, such as creation and modification times.
-- Cross-reference the module's file path with known good or bad module lists to determine if it is a legitimate or potentially malicious module.
-- Analyze the system's boot logs and startup scripts to check for any unauthorized modifications that might load the suspicious module at boot time.
-- Review user and process activity logs around the time of the alert to identify any unusual behavior or processes that might have attempted to load the module.
-- Check for any recent changes in user privileges or new user accounts that could indicate unauthorized access or privilege escalation attempts.
-- Investigate network activity logs for any signs of communication with known malicious IP addresses or domains that could be associated with the suspicious module.
-
-### False positive analysis
-
-- Some legitimate kernel modules may not be signed or may lack the required keys, leading to false positives. This can occur with custom-built modules or those from trusted third-party vendors that do not follow the standard signing process.
-- Kernel modules used in development or testing environments might trigger alerts due to missing signatures, even though they are not malicious.
-- Users can manage these false positives by creating exceptions for specific modules known to be safe. This can be done by maintaining a whitelist of trusted module names or paths that are frequently loaded without signatures.
-- Regularly review and update the whitelist to ensure it only includes modules that are verified as non-threatening, reducing the risk of overlooking a genuine threat.
-- Consider implementing additional checks or monitoring for other indicators of compromise to complement the detection rule and provide a more comprehensive security posture.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
-- Conduct a thorough investigation to identify the loaded kernel module and verify its legitimacy by checking against known good modules and signatures.
-- If the module is confirmed malicious, remove it from the system and check for any additional unauthorized changes or files.
-- Review system logs and use forensic tools to trace the origin of the tainted module load and identify any potential entry points or vulnerabilities exploited by the adversary.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Restore the system to a known good state using backups or system snapshots, ensuring that all malicious artifacts are removed.
-- Apply security patches and updates to the operating system and all software to close any vulnerabilities that may have been exploited.
-- Implement enhanced logging policies to capture detailed information on kernel module loads and other critical system events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context on similar threats.
-- Conduct a post-incident review to identify gaps in security controls and update hardening measures, such as enforcing strict module signing policies and using secure boot mechanisms."""
 
 
 [[rule.threat]]

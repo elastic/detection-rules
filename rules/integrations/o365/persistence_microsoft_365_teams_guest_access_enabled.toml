@@ -2,7 +2,7 @@
 creation_date = "2020/11/20"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -21,50 +21,7 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Teams Guest Access Enabled"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft 365 Teams Guest Access Enabled
-
-Microsoft Teams allows organizations to collaborate with external users through guest access, facilitating communication and teamwork. However, adversaries can exploit this feature to gain persistent access by enabling guest access without authorization. The detection rule identifies such unauthorized actions by monitoring specific audit events and configurations, ensuring any suspicious enabling of guest access is promptly flagged for investigation.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the event.action "Set-CsTeamsClientConfiguration" and ensure the event.outcome is marked as success.
-- Verify the identity of the user or account that performed the action by examining the user information in the event logs, focusing on any anomalies or unfamiliar accounts.
-- Check the timestamp of the event to determine when the guest access was enabled and correlate it with other security events or logs around the same time for additional context.
-- Investigate the o365.audit.Parameters.AllowGuestUser field to confirm that it is set to True, indicating that guest access was indeed enabled.
-- Examine the event.provider field to determine whether the action was performed through SkypeForBusiness or MicrosoftTeams, which may provide additional context on the method used.
-- Utilize Osquery to gather more information about the user account involved. For example, run the following query to list recent logins and activities for the user: `SELECT * FROM users WHERE username = '<username>';`
-- Review the organization's Microsoft 365 audit logs for any other suspicious activities or changes made by the same user or account around the same time.
-- Investigate any recent changes to the Teams configuration settings to identify if there were any unauthorized modifications or patterns of suspicious behavior.
-- Cross-reference the alert with known threat intelligence sources to determine if the activity matches any known adversary tactics or techniques.
-- Consult with team members or stakeholders to gather additional context or insights regarding the legitimacy of the guest access enablement, especially if the user is unfamiliar or the action is unexpected.
-
-### False positive analysis
-
-- Routine administrative actions: Legitimate IT administrators may enable guest access as part of their regular duties to facilitate collaboration with external partners or clients. These actions can be considered false positives if they align with documented business processes.
-- Automated scripts or tools: Organizations may use automated scripts or third-party tools to manage Microsoft Teams configurations, including enabling guest access. These actions should be reviewed to ensure they are authorized and align with organizational policies.
-- Policy updates: Changes in organizational policies or compliance requirements may necessitate enabling guest access. Such changes should be documented and communicated to avoid being flagged as suspicious.
-- Exception handling: To manage false positives, organizations can create exceptions for known and authorized activities by maintaining a list of approved users or scripts that are allowed to enable guest access. Regularly review and update this list to ensure it reflects current business needs and security policies.
-
-### Response and remediation
-
-- Immediately disable guest access in Microsoft Teams to prevent unauthorized external access.
-- Review audit logs to identify any unauthorized changes to guest access settings and determine the scope of the incident.
-- Verify the identity and permissions of any external users who were granted guest access to ensure they are legitimate and authorized.
-- Conduct a thorough investigation to identify any potential data exfiltration or malicious activities performed by the adversary.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement stricter access controls and review the organization's guest access policies to prevent unauthorized changes in the future.
-- Enhance logging and monitoring by integrating with a Security Information and Event Management (SIEM) system to detect similar activities promptly.
-- Educate employees on the risks associated with guest access and provide training on identifying suspicious activities.
-- Restore any affected systems or configurations to their original state, ensuring no backdoors or unauthorized changes remain.
-- Apply hardening measures such as multi-factor authentication (MFA) and regular audits of access permissions to reduce the risk of persistence tactics like account manipulation.
-
-## Setup
+note = """## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

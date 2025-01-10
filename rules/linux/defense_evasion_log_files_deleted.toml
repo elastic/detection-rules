@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 min_stack_version = "8.13.0"
-updated_date = "2025/01/08"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -95,49 +95,6 @@ file where host.os.type == "linux" and event.type == "deletion" and
     ) and
     not process.name in ("gzip", "executor", "dockerd")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating System Log File Deletion
-
-System logs in Linux environments are crucial for monitoring and forensic analysis, capturing events like user logins and system errors. Adversaries may delete these logs to hide their tracks and evade detection. The detection rule identifies such deletions by monitoring specific log file paths and filtering out benign processes, thus alerting analysts to potential malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the specific log file path that was deleted and the timestamp of the event.
-- Check the process information associated with the deletion event, including the process ID, name, and user context, to identify any suspicious activity.
-- Use Osquery to list recent processes executed on the system that could be related to the deletion event. Example query: `SELECT pid, name, path, cmdline FROM processes WHERE start_time > (SELECT datetime('now', '-1 hour'));`
-- Investigate the user account associated with the deletion event to determine if it has a history of suspicious activity or if it was compromised.
-- Examine other system logs for unusual activity around the time of the deletion, such as failed login attempts or unauthorized access.
-- Correlate the deletion event with any recent changes in system configuration or software installations that could explain the log file removal.
-- Check for any other alerts or indicators of compromise on the system that might suggest a broader attack or compromise.
-- Investigate network activity from the host around the time of the log deletion to identify any potential data exfiltration or command-and-control communication.
-- Review file integrity monitoring logs to determine if any other critical files were modified or deleted around the same time.
-- Consult threat intelligence sources to see if the observed behavior matches any known attack patterns or threat actor tactics.
-
-### False positive analysis
-
-- Routine system maintenance tasks or log rotation processes may trigger false positives, as these operations can involve the deletion of log files to manage disk space and ensure system performance.
-- Automated backup solutions might delete logs after archiving them, which could be misinterpreted as malicious activity.
-- Certain system updates or administrative scripts may also delete or rotate logs as part of their normal operation, leading to false alerts.
-- To manage these false positives, users can create exceptions for known benign processes involved in log management, such as logrotate or backup scripts, by adding them to the exclusion list in the detection rule.
-- Regularly review and update the exclusion list to include any new legitimate processes that are identified as part of routine system operations, ensuring that only genuine threats trigger alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and data exfiltration.
-- Conduct a thorough investigation to determine the scope of the log deletion, identifying any other compromised systems or accounts.
-- Review user activity and process execution logs to identify unauthorized access or suspicious behavior leading up to the log deletion.
-- Restore deleted log files from backups if available, to aid in the forensic investigation and maintain historical data integrity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging policies to ensure critical logs are backed up regularly and stored securely, reducing the risk of future deletions.
-- Integrate additional security tools such as file integrity monitoring and endpoint detection and response (EDR) solutions to detect and alert on unauthorized file deletions.
-- Apply system hardening measures, including disabling unnecessary services, applying security patches, and enforcing least privilege access controls.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate users and administrators on the importance of system logs and the potential impact of their deletion, promoting a culture of security awareness."""
 
 
 [[rule.threat]]

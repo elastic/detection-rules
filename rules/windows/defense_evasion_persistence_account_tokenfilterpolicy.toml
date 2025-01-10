@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 
 [rule]
 author = ["Elastic"]
@@ -50,50 +50,6 @@ registry where host.os.type == "windows" and event.type == "change" and
     "MACHINE\\*\\LocalAccountTokenFilterPolicy"
   ) and registry.data.strings : ("1", "0x00000001")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Local Account TokenFilter Policy Disabled
-
-The Local Account TokenFilter Policy controls how local administrator accounts are treated during remote connections on Windows systems. When enabled, it grants full administrative privileges, potentially bypassing User Account Control (UAC). Adversaries exploit this by modifying the registry to escalate privileges remotely. The detection rule monitors registry changes to identify unauthorized modifications, signaling potential abuse of administrative access.
-
-### Possible investigation steps
-
-- Verify the alert by checking the registry path and value to confirm if the LocalAccountTokenFilterPolicy has been modified. Use the query fields `registry.path` and `registry.data.strings` to ensure the change is unauthorized.
-- Review the event logs around the time of the registry change to identify any associated user accounts or processes that may have initiated the modification.
-- Investigate the source of the remote connection by examining network logs to identify any unusual or unauthorized access attempts from external IP addresses.
-- Check for any recent changes in user account privileges, especially for local administrator accounts, to determine if there have been unauthorized privilege escalations.
-- Use Osquery to gather more information about the system state and user activities. For example, run the following Osquery command to check for recent registry changes: `SELECT * FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\%\\\\LocalAccountTokenFilterPolicy';`
-- Analyze the system's security logs for any signs of suspicious activity or patterns that coincide with the registry modification, such as failed login attempts or unusual process executions.
-- Correlate the alert with other security events or alerts in the same timeframe to identify potential indicators of a broader attack or compromise.
-- Review the system's patch and update history to ensure that all security patches have been applied, as unpatched systems may be more vulnerable to exploitation.
-- Investigate any recent software installations or updates that may have inadvertently or maliciously altered the registry settings.
-- Consult threat intelligence sources to determine if there are any known exploits or attack campaigns targeting the LocalAccountTokenFilterPolicy, which could provide additional context for the alert.
-
-### False positive analysis
-
-- Legitimate administrative tools or scripts may modify the LocalAccountTokenFilterPolicy registry setting as part of routine system management or configuration tasks, leading to false positives.
-- System administrators might intentionally enable this policy to facilitate remote management tasks, especially in environments where UAC prompts are disruptive to workflow.
-- Security software or compliance tools could alter this registry setting during audits or system checks, triggering the detection rule.
-- To manage these false positives, users can create exceptions for known administrative tools or scripts by excluding specific processes or user accounts from the detection rule.
-- Regularly review and update the list of exceptions to ensure that only trusted activities are excluded, maintaining a balance between security and operational efficiency.
-- Implement logging and alerting mechanisms to monitor the frequency and context of these registry changes, helping to distinguish between benign and potentially malicious activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Verify the registry change by checking the LocalAccountTokenFilterPolicy value and confirm if it was set to 1 without authorization.
-- Conduct a thorough investigation to identify any unauthorized users or processes that may have modified the registry setting.
-- Review system and security logs to trace the origin of the change and identify any other suspicious activities or related events.
-- Restore the registry setting to its default state by removing the LocalAccountTokenFilterPolicy entry or setting it to 0 if necessary.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to monitor registry changes and remote access attempts, ensuring that all critical changes are logged and reviewed regularly.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate events and detect similar threats in the future.
-- Apply security patches and updates to the affected system and ensure that all systems are configured with the principle of least privilege to minimize potential attack vectors.
-- Conduct a post-incident review to assess the effectiveness of the response and update security policies and procedures to prevent recurrence, including user training on security best practices."""
 
 
 [[rule.threat]]

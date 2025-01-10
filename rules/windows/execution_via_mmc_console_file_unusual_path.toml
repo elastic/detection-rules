@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 
 [rule]
 author = ["Elastic"]
@@ -50,49 +50,6 @@ process where host.os.type == "windows" and event.type == "start" and
         "?:\\Program Files (x86)\\*.msc"
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft Management Console File from Unusual Path
-
-Microsoft Management Console (MMC) is a Windows utility that provides a framework for system management tools. Adversaries may exploit MMC by executing .msc files from non-standard directories to bypass security controls. The detection rule identifies such anomalies by monitoring the execution of MMC files from paths outside trusted directories, flagging potential unauthorized access or execution attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific .msc file and the unusual path from which it was executed.
-- Verify the legitimacy of the process by checking the user account associated with the execution and correlating it with known user activity.
-- Examine the parent process of the mmc.exe execution to determine if it was initiated by a legitimate or suspicious process.
-- Use Osquery to list all running processes and their command-line arguments to identify any other unusual or unauthorized executions. Example query: `SELECT pid, name, path, cmdline FROM processes WHERE name = 'mmc.exe';`
-- Investigate the file path of the .msc file to determine if it is a known or expected location for such files. Check for any recent changes or modifications to the directory.
-- Check the file hash of the .msc file against known good hashes or threat intelligence databases to identify any known malicious files.
-- Review recent system logs and security events for any other suspicious activities or anomalies around the time of the alert.
-- Analyze network traffic from the host to identify any unusual outbound connections that may indicate data exfiltration or command and control activity.
-- Correlate the alert with other security events or alerts from the same host or user to identify potential patterns or coordinated attacks.
-- Consult with the user or system owner to verify if the execution was intentional and authorized, and gather any additional context or information.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators may execute .msc files from non-standard directories for legitimate purposes, such as custom scripts or tools stored in user-specific directories. To manage these, users can create exceptions for known administrative accounts or specific directories frequently used for legitimate tasks.
-- Software installations and updates: Some software installations or updates might temporarily execute .msc files from non-standard paths. Users can handle these by monitoring installation or update activities and creating temporary exceptions during these periods.
-- Development and testing environments: Developers or IT staff might run .msc files from unusual paths during testing or development phases. To reduce false positives, users can exclude specific development machines or user accounts from the rule.
-- Third-party management tools: Certain third-party management tools might use .msc files from non-standard locations. Users should identify these tools and add their execution paths to the exception list to prevent false alerts.
-- User-specific customizations: Advanced users might create custom .msc files for personal use, stored in non-standard directories. Users can manage these by allowing exceptions for specific user profiles or directories known to contain custom .msc files.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the execution of .msc files from untrusted paths.
-- Review system logs and security alerts to gather evidence of the attack vector and any associated malicious activity.
-- Remove any unauthorized .msc files and related malicious software from the system.
-- Restore the system from a known good backup to ensure all malicious changes are reverted.
-- Update and patch the operating system and all installed software to mitigate known vulnerabilities.
-- Implement application whitelisting to restrict the execution of .msc files to trusted directories only.
-- Enhance logging and monitoring policies to include detailed process execution and file access events for early detection of similar threats.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly."""
 
 
 [[rule.threat]]

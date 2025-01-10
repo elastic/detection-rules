@@ -2,7 +2,7 @@
 creation_date = "2024/08/08"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -80,50 +80,6 @@ not (
   (process.name == "perl" and file.name : "e2scrub_all.tmp*")
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Dynamic Linker Creation or Modification
-
-The dynamic linker in Linux systems is crucial for loading shared libraries needed by programs at runtime. Adversaries may exploit this by altering linker configuration files to hijack program execution, redirecting it to malicious libraries. The detection rule identifies suspicious creation or modification of these files, excluding legitimate processes and temporary files, to flag potential hijacking attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file path involved in the creation or modification event, focusing on paths like "/etc/ld.so.preload", "/etc/ld.so.conf.d/*", and "/etc/ld.so.conf".
-- Check the process executable that triggered the alert to determine if it is listed in the exclusion list, which includes common package managers and system processes.
-- Investigate the user account associated with the process that made the change to assess if it has legitimate access or if it might be compromised.
-- Use Osquery to gather more information about the process that triggered the alert. For example, run the following query to get details about the process: `SELECT * FROM processes WHERE pid = <process_id>;`.
-- Examine the process tree to understand the parent-child relationship and identify if the process was spawned by a legitimate or suspicious parent process.
-- Check the file's modification history and access times to determine if there have been any recent unauthorized changes or access patterns.
-- Investigate any network connections or external communications initiated by the process to identify potential command and control activity.
-- Review system logs for any other suspicious activities or anomalies around the time of the alert, such as failed login attempts or unusual user behavior.
-- Correlate the alert with other security events or alerts in the environment to identify if this is part of a broader attack campaign.
-- Verify the integrity of the dynamic linker configuration files by comparing them against known good baselines or backups to identify unauthorized changes.
-
-### False positive analysis
-
-- Package management operations: Legitimate package managers such as dpkg, rpm, yum, and others may modify dynamic linker configuration files during software installation or updates. These actions are typically benign and can be excluded by adding the package manager executables to the exception list.
-- System updates and maintenance: Automated system updates or maintenance scripts might trigger the rule. Exclude known update processes or scripts by specifying their executables in the exception criteria.
-- Temporary files: Editors like vim may create temporary swap files (e.g., with extensions like .swp, .swpx) during editing sessions. These can be safely ignored by excluding files with these extensions.
-- Virtualization and containerization tools: Tools such as Docker, Podman, and VMware may modify linker configurations as part of their normal operations. Exclude these processes by adding their executables to the exception list.
-- Monitoring and security tools: Some monitoring or security tools, like Dynatrace OneAgent, may interact with linker files. Exclude these tools by specifying their installation paths in the exception criteria.
-- Custom scripts or applications: If custom scripts or applications are known to modify linker configurations as part of their functionality, consider excluding these by adding their process names or paths to the exception list.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the source of the modification, including reviewing recent changes to dynamic linker configuration files and correlating with process execution logs.
-- Verify the integrity of the dynamic linker configuration files by comparing them with known good backups or baselines.
-- Restore any altered dynamic linker configuration files from a trusted backup to ensure the system's execution flow is not hijacked.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and file modification events, focusing on critical system directories and configuration files.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
-- Review and update access controls and permissions for critical system files to minimize the risk of unauthorized modifications.
-- Conduct a post-incident review to identify gaps in security controls and processes, and implement necessary improvements to prevent recurrence.
-- Educate users and administrators on the importance of maintaining system integrity and recognizing signs of potential compromise."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

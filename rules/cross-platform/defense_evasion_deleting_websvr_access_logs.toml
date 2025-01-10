@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -49,50 +49,6 @@ file where event.type == "deletion" and
                "/var/log/httpd/access_log",
                "/var/www/*/logs/access.log")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating WebServer Access Logs Deleted
-
-Web server access logs are crucial for monitoring and analyzing web traffic, providing insights into user activity and potential security incidents. Adversaries may delete these logs to cover their tracks, hindering forensic investigations. The detection rule identifies log deletions across common web server paths, signaling potential attempts at evasion or evidence destruction, thus alerting analysts to investigate further.
-
-### Possible investigation steps
-
-- Verify the alert by checking the specific file paths mentioned in the query to confirm if the deletion event is legitimate and not a false positive.
-- Review recent access logs, if available, to identify any suspicious activity or patterns leading up to the deletion event.
-- Use Osquery to list all recent file modifications in the web server directories to identify any unauthorized changes. Example query: `SELECT * FROM file WHERE path LIKE '/var/log/apache%/access.log' OR path LIKE '/etc/httpd/logs/access_log' OR path LIKE '/var/log/httpd/access_log' OR path LIKE '/var/www/%/logs/access.log';`
-- Check for any recent user account activity or privilege escalations that could indicate unauthorized access to the server.
-- Investigate any recent changes in user permissions or roles that might have allowed the deletion of log files.
-- Correlate the deletion event with other security alerts or logs from the same timeframe to identify potential related incidents.
-- Examine system logs for any signs of tampering or anomalies that could suggest an attempt to cover tracks.
-- Review network traffic logs for unusual outbound connections or data exfiltration attempts around the time of the log deletion.
-- Check for any scheduled tasks or scripts that might have been used to automate the deletion of log files.
-- Consult with the web server administrator to determine if there were any legitimate maintenance activities or updates that could have resulted in the log deletion.
-
-### False positive analysis
-
-- Routine maintenance tasks or automated scripts may delete old web server access logs to free up disk space, which can trigger false positives. 
-- Log rotation processes, which are standard in many server environments, might also result in log deletions that are benign and expected.
-- Scheduled cleanup jobs configured by system administrators to manage log file sizes can lead to false alerts.
-- To manage these false positives, users can create exceptions for known maintenance scripts or log rotation processes by excluding specific file paths or event sources from the detection rule.
-- Implementing a whitelist of trusted processes or users responsible for legitimate log deletions can help reduce unnecessary alerts.
-- Regularly review and update the exclusion list to ensure it aligns with current operational practices and does not inadvertently allow malicious activity to go undetected.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to determine the scope of the log deletion, identifying any other compromised systems or services.
-- Review recent user activity and access logs from other sources to identify potential unauthorized access or malicious behavior.
-- Restore deleted logs from backups if available, and analyze them for any indicators of compromise or suspicious activity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement stricter access controls and permissions on log files to prevent unauthorized deletion or modification.
-- Enhance logging policies by ensuring logs are sent to a centralized, secure logging server that is less susceptible to tampering.
-- Integrate additional security tools such as file integrity monitoring and endpoint detection and response (EDR) solutions to detect and alert on suspicious activities.
-- Apply system and application patches to address any vulnerabilities that may have been exploited by the adversary.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans to improve future detection and response capabilities."""
 
 
 [[rule.threat]]

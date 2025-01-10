@@ -4,7 +4,7 @@ integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender"
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 
 [rule]
 author = ["Elastic"]
@@ -79,52 +79,6 @@ process where host.os.type == "windows" and event.type == "start" and
       process.args : ("?:\\Users\\*\\Temp\\7z*", "?:\\Users\\*\\Temp\\Rar$*", "?:\\Users\\*\\Temp\\Temp?_*", "?:\\Users\\*\\Temp\\BNZ.*"))
    )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Script Execution via Microsoft HTML Application
-
-Microsoft HTML Applications (HTA) allow HTML code to run as trusted applications, leveraging Windows utilities like `rundll32.exe` and `mshta.exe`. Adversaries exploit this by executing malicious scripts under the guise of legitimate processes, bypassing defenses. The detection rule identifies suspicious script execution patterns and unusual command-line arguments, flagging potential misuse of these utilities for malicious activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name (`rundll32.exe` or `mshta.exe`) and command-line arguments that triggered the detection.
-- Examine the parent process of the suspicious execution to determine if it is a known legitimate application or an unexpected source, using the `process.parent.executable` field.
-- Check the command-line arguments for any known malicious patterns, such as `*script*eval(*`, `*mshta*http*`, or `*StrReverse*`, which may indicate obfuscation or remote script execution.
-- Investigate the user account associated with the process execution to determine if it aligns with expected behavior or if it might be compromised.
-- Use Osquery to gather additional context about the process execution. For example, run the following query to list all processes executed by the same user within a short time frame:
-  ```sql
-  SELECT pid, name, path, cmdline, start_time FROM processes WHERE uid = (SELECT uid FROM processes WHERE pid = <suspicious_pid>);
-  ```
-- Analyze network connections made by the suspicious process to identify any unusual or unauthorized external communications.
-- Check for any recent downloads or file modifications in the user's `Downloads` or `Temp` directories, especially `.hta` files, which may indicate the source of the script.
-- Review system logs for any other suspicious activities or errors around the time of the alert to identify potential lateral movement or additional compromise.
-- Correlate the alert with other security events or alerts in the environment to determine if this is part of a larger attack campaign.
-- Consult threat intelligence sources to see if the observed patterns or indicators match known attack techniques or threat actor behaviors.
-
-### False positive analysis
-
-- Legitimate software installations or updates may trigger the rule if they use `rundll32.exe` or `mshta.exe` with command-line arguments that resemble those used in malicious scripts. Users can handle these by creating exceptions for known software paths or processes.
-- Some enterprise applications, like Citrix or Microsoft Office, may use these utilities in a manner that appears suspicious but is actually benign. Users should exclude these applications by specifying their executable paths in the exception list.
-- Automated scripts or administrative tools that leverage `mshta.exe` for legitimate purposes, such as system configuration or maintenance tasks, might be flagged. Users can manage these by identifying and excluding specific command-line patterns or parent processes associated with these tasks.
-- HTA files downloaded from trusted internal sources or vendors might be mistakenly identified as threats. Users should maintain a list of trusted download locations or file hashes to prevent false positives.
-- Temporary files created during legitimate software extraction or installation processes, especially from archives, may match the rule's criteria. Users can exclude specific temporary directories or file patterns commonly used by trusted applications.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Conduct a thorough investigation of the process execution logs to confirm the presence of malicious activity, focusing on the command-line arguments and parent processes.
-- Terminate any suspicious processes identified during the investigation to halt any ongoing malicious activity.
-- Remove any malicious scripts or files identified on the system, ensuring to check common directories such as Downloads and Temp folders.
-- Restore the system from a known good backup if the integrity of the system is compromised.
-- Update and patch all software and operating systems to mitigate vulnerabilities that could be exploited by similar threats.
-- Implement enhanced logging policies to capture detailed process execution and command-line arguments for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection capabilities and correlate alerts with known threat indicators.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is confirmed to be part of a larger attack campaign.
-- Educate users on the risks of downloading and executing files from untrusted sources, emphasizing the importance of verifying the legitimacy of email attachments and links."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/09/21"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,54 +22,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP IAM Custom Role Creation"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GCP IAM Custom Role Creation
-
-Google Cloud Platform's IAM custom roles allow users to define specific permissions tailored to their needs, enhancing security by adhering to the principle of least privilege. However, adversaries may exploit these roles to gain unauthorized access or escalate privileges. The detection rule monitors audit logs for successful custom role creation events, helping identify potential misuse by correlating them with known threat tactics.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event dataset is `gcp.audit` and the event action is `google.iam.admin.v*.CreateRole` with a successful outcome.
-- Examine the timestamp of the custom role creation event to determine when the activity occurred.
-- Identify the user or service account associated with the role creation by reviewing the `actor` field in the audit log.
-- Check the `request` field in the audit log to understand the permissions included in the newly created custom role.
-- Investigate the `resource` field to determine the project or organization where the custom role was created.
-- Correlate the custom role creation event with other recent IAM activities, such as role assignments or permission changes, to identify potential privilege escalation attempts.
-- Use Osquery to gather additional context on the involved user or service account. For example, run the following query to list recent IAM activities for the account:
-  ```sql
-  SELECT * FROM gcp_iam_policy_audit WHERE actor_email = '<user_email>' ORDER BY timestamp DESC LIMIT 10;
-  ```
-- Review the organization's IAM policy change history to identify any unusual patterns or unauthorized modifications.
-- Investigate any associated network or system logs for suspicious activities around the time of the custom role creation.
-- Consult with relevant stakeholders or the user involved to verify the legitimacy of the custom role creation and understand its intended purpose.
-
-### False positive analysis
-
-- Routine administrative tasks: Custom roles may be created as part of regular administrative activities to tailor permissions for new projects or teams. These actions are typically non-threatening and can be identified by correlating the role creation with authorized change management records.
-- Automated processes: Some organizations use automation tools to manage IAM roles, which may include the creation of custom roles. These processes should be documented and can be excluded from alerts by identifying the service accounts or automation tools involved.
-- Development and testing environments: Custom roles are often created in non-production environments for testing purposes. These environments can be excluded from monitoring by filtering based on project or environment tags.
-- Known service accounts: If certain service accounts are regularly involved in creating custom roles as part of their legitimate function, these can be added to an exception list to reduce noise.
-- Frequent role updates: In dynamic environments where roles are frequently updated to accommodate changing needs, it may be beneficial to establish a baseline of expected behavior and exclude these from alerts unless they deviate significantly from the norm.
-
-### Response and remediation
-
-- Immediately review the audit logs to confirm the creation of the custom role and identify the user or service account responsible for the action.
-- Contain the potential threat by temporarily disabling the custom role to prevent any unauthorized access or privilege escalation.
-- Verify the permissions assigned to the custom role and assess whether they align with the principle of least privilege.
-- Investigate the context of the role creation by checking for any recent changes in IAM policies or unusual activities associated with the involved accounts.
-- If unauthorized access is confirmed, revoke any sessions or tokens associated with the compromised accounts and reset their credentials.
-- Escalate the incident to the security operations team for a thorough investigation and to determine if further actions are needed.
-- Implement enhanced logging policies to capture detailed IAM activities and integrate with a Security Information and Event Management (SIEM) system for real-time monitoring.
-- Conduct a review of all custom roles in the environment to ensure they are necessary and properly scoped, removing any that are redundant or overly permissive.
-- Develop and enforce a policy for regular audits of IAM roles and permissions to prevent privilege creep and ensure compliance with security best practices.
-- Consider implementing additional security measures such as multi-factor authentication (MFA) and automated alerts for critical IAM changes to strengthen the security posture.
-
-## Setup
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/iam/docs/understanding-custom-roles"]

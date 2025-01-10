@@ -2,7 +2,7 @@
 creation_date = "2020/12/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -59,50 +59,6 @@ sequence by host.id with maxspan=30s
  [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "automator"]
  [network where host.os.type == "macos" and process.name:"com.apple.automator.runner"]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Automator Workflows Execution
-Automator is a macOS utility that automates repetitive tasks through workflows. Adversaries may exploit this by embedding malicious JavaScript for Automation (JXA) in custom workflows, bypassing traditional script execution methods. The detection rule identifies this threat by monitoring the Automator process initiation followed by network activity from its XPC service, indicating potential malicious use.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the host.id and timestamp of the suspicious Automator process initiation.
-- Check the process lineage to determine the parent process of the Automator execution, which may provide insight into how it was launched.
-- Investigate the user account associated with the Automator process to determine if it aligns with expected behavior or if it appears compromised.
-- Examine recent file modifications or creations in directories commonly used for Automator workflows, such as ~/Library/Services or ~/Library/Automator, to identify any newly added or modified workflows.
-- Use Osquery to list all Automator workflows on the system and check for any unusual or unauthorized entries:
-  ```sql
-  SELECT * FROM file WHERE directory LIKE '/Users/%/Library/Services' OR directory LIKE '/Users/%/Library/Automator';
-  ```
-- Analyze the contents of any suspicious Automator workflows to identify embedded JavaScript for Automation (JXA) code that may indicate malicious intent.
-- Correlate the network activity from the com.apple.automator.runner process with known malicious IP addresses or domains to assess potential exfiltration or command-and-control communication.
-- Review system logs for any additional context around the time of the Automator process execution, focusing on security and application logs for anomalies.
-- Investigate other processes or network connections initiated by the same user or host around the same timeframe to identify potential lateral movement or further malicious activity.
-- Consult threat intelligence sources to determine if the observed behavior matches any known attack patterns or campaigns involving Automator or JXA.
-
-### False positive analysis
-
-- Legitimate use of Automator workflows by users or system processes can trigger false positives, especially if they involve network activity. Users should identify and document regular workflows that are known to be safe.
-- System updates or third-party applications that utilize Automator for legitimate automation tasks may also cause alerts. Monitoring and documenting these activities can help differentiate between benign and suspicious behavior.
-- Users can manage false positives by creating exceptions for specific workflows or processes that are verified as non-threatening. This can be done by whitelisting known safe process names or network activities associated with trusted applications.
-- Regularly review and update the list of exceptions to ensure that new legitimate workflows are accounted for, while also being cautious not to overlook potential threats.
-
-### Response and remediation
-
-- Immediately isolate the affected macOS system from the network to prevent further malicious activity and potential lateral movement.
-- Conduct a thorough investigation of the Automator workflows on the affected system to identify any unauthorized or suspicious scripts, particularly those containing JavaScript for Automation (JXA).
-- Review recent file modifications and system logs to trace the origin of the malicious workflow and determine if any other systems are affected.
-- Remove any identified malicious workflows and associated files from the system to prevent re-execution.
-- Restore the system from a known good backup if the integrity of the system is compromised beyond repair.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
-- Implement enhanced logging policies to capture detailed process execution and network activity, focusing on Automator and related services.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats in the future.
-- Educate users on the risks of executing untrusted workflows and scripts, emphasizing the importance of verifying the source of any automation tools.
-- Apply system hardening measures, such as restricting the execution of scripts and workflows to trusted sources and regularly updating macOS and security software to mitigate vulnerabilities."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2021/04/05"
 integration = ["endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/06/18"
 
 [rule]
 anomaly_threshold = 75
@@ -76,52 +76,4 @@ rule_id = "eaa77d63-9679-4ce3-be25-3ba8b795e5fa"
 severity = "low"
 tags = ["Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning"]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Spike in Firewall Denies
-
-Firewalls and ACLs are critical in regulating network traffic, blocking unauthorized access while allowing legitimate communication. Adversaries may exploit misconfigurations or launch attacks like reconnaissance or denial-of-service to generate a surge in denied traffic. The 'Spike in Firewall Denies' detection rule leverages machine learning to identify unusual spikes, signaling potential misconfigurations or malicious activities.
-
-### Possible investigation steps
-
-- Review the timestamp of the spike to determine the exact time window of the unusual activity.
-- Analyze the source IP addresses involved in the denied traffic to identify any patterns or anomalies, such as repeated attempts from a single IP or a range of IPs.
-- Examine the destination IP addresses and ports to understand which services or applications were targeted during the spike.
-- Check the firewall and ACL configuration logs for recent changes that might have led to misconfigurations, causing legitimate traffic to be denied.
-- Correlate the denied traffic with any known threat intelligence feeds to identify if the source IPs are associated with known malicious actors or activities.
-- Use Osquery to gather additional context on the affected systems. For example, run the following query to list recent network connections on a potentially affected host:
-  ```sql
-  SELECT datetime(start_time, 'unixepoch') AS start_time, local_address, local_port, remote_address, remote_port, protocol
-  FROM process_open_sockets
-  WHERE remote_address IN ('<suspicious_ip_1>', '<suspicious_ip_2>');
-  ```
-- Investigate any related alerts or logs from intrusion detection systems (IDS) or intrusion prevention systems (IPS) that might provide additional context on the nature of the denied traffic.
-- Check for any concurrent spikes in other network activities, such as successful connections or unusual data transfer volumes, which might indicate a broader attack pattern.
-- Review user activity logs to identify any unusual login attempts or access patterns that coincide with the spike in denied traffic.
-- Consult with application owners or network administrators to verify if any legitimate applications or services were impacted by the spike, which could indicate a misconfiguration rather than a malicious attempt.
-
-### False positive analysis
-
-- Routine network scans by security tools or vulnerability assessment software can trigger false positives, as these activities may generate a high volume of denied traffic. Users can handle this by creating exceptions for known IP addresses or ranges associated with these tools.
-- Legitimate applications with misconfigured network settings might cause a spike in denied traffic. Regularly auditing and updating application configurations can help minimize these occurrences.
-- Automated backup or synchronization processes that attempt to connect to restricted network segments may result in false positives. Identifying and whitelisting these processes can prevent unnecessary alerts.
-- Internal network changes, such as updates to firewall rules or ACLs, might temporarily increase denied traffic. Documenting and scheduling these changes can help correlate and exclude them from analysis.
-- High-volume legitimate business operations, like data migrations or large file transfers, could be mistaken for suspicious activity. Monitoring and adjusting thresholds during these operations can reduce false positives.
-
-### Response and remediation
-
-- Immediately isolate affected systems from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the source and nature of the spike in denied traffic, focusing on recent changes in firewall or ACL configurations.
-- Review firewall and ACL logs to pinpoint any misconfigurations or unauthorized changes that may have led to the spike.
-- If malicious activity is suspected, analyze the traffic patterns to identify potential command-and-control (C2) communication attempts or reconnaissance activities.
-- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals signs of a targeted attack or advanced persistent threat (APT).
-- Implement enhanced logging and monitoring to capture detailed information on denied traffic, ensuring future spikes can be quickly analyzed and addressed.
-- Integrate threat intelligence feeds to correlate denied traffic with known malicious IP addresses or domains, enhancing detection capabilities.
-- Restore affected systems to their operational state by applying necessary patches, reconfiguring firewalls, and ensuring all security controls are properly implemented.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Implement hardening measures such as regular audits of firewall rules, continuous monitoring for anomalies, and employee training on recognizing and reporting suspicious activities."""
 

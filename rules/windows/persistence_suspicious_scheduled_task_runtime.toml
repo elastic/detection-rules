@@ -2,7 +2,7 @@
 creation_date = "2020/11/19"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -80,52 +80,6 @@ process where host.os.type == "windows" and event.type == "start" and
      not (process.name : "powershell.exe" and process.args : ("-File", "-PSConsoleFile") and user.id : "S-1-5-18") and
      not (process.name : "msiexec.exe" and user.id : "S-1-5-18")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Execution via Scheduled Task
-
-Scheduled tasks in Windows automate routine tasks, but adversaries exploit them for persistence by executing malicious programs. They may use common utilities like PowerShell or scripts in unusual directories. The detection rule identifies such abuse by analyzing process lineage, command line usage, and excluding known benign activities, focusing on suspicious programs and paths.
-
-### Possible investigation steps
-
-- Review the alert details to understand which specific process triggered the rule, focusing on the `process.pe.original_file_name` and `process.args` fields to identify the suspicious program and its execution path.
-- Examine the `process.parent.name` and `process.parent.args` fields to confirm the parent process is `svchost.exe` with the "Schedule" argument, indicating the use of scheduled tasks.
-- Check the `event.type` field to ensure the event is a process start, confirming the execution of the suspicious program.
-- Investigate the user context by reviewing the `user.id` field to determine if the process was executed under a privileged account or a service account.
-- Use Osquery to gather additional context about the scheduled task. For example, run the following query to list all scheduled tasks and their associated actions:
-  ```sql
-  SELECT * FROM scheduled_tasks WHERE action LIKE '%cscript.exe%' OR action LIKE '%wscript.exe%' OR action LIKE '%PowerShell.EXE%' OR action LIKE '%Cmd.Exe%' OR action LIKE '%MSHTA.EXE%' OR action LIKE '%RUNDLL32.EXE%' OR action LIKE '%REGSVR32.EXE%' OR action LIKE '%MSBuild.exe%' OR action LIKE '%InstallUtil.exe%' OR action LIKE '%RegAsm.exe%' OR action LIKE '%RegSvcs.exe%' OR action LIKE '%msxsl.exe%' OR action LIKE '%CONTROL.EXE%' OR action LIKE '%EXPLORER.EXE%' OR action LIKE '%Microsoft.Workflow.Compiler.exe%' OR action LIKE '%msiexec.exe%';
-  ```
-- Analyze the command line arguments (`process.args`) for any encoded or obfuscated commands that may indicate malicious intent.
-- Cross-reference the suspicious paths (`process.args`) with known legitimate software installations or temporary file usage to rule out false positives.
-- Review recent system changes or installations that might have introduced the suspicious program or scheduled task.
-- Check for any network connections initiated by the suspicious process to identify potential command and control communication.
-- Correlate the findings with other security alerts or logs to determine if this activity is part of a broader attack campaign.
-
-### False positive analysis
-
-- Scheduled tasks created by legitimate software updates or system maintenance tools can trigger false positives. These tasks often use common utilities like PowerShell or cmd.exe, which are also used by malicious actors.
-- System administrators may use scheduled tasks to run scripts for routine maintenance or monitoring, which can appear suspicious if they use paths or programs listed in the detection rule.
-- Some enterprise applications may use scheduled tasks to perform legitimate background operations, especially if they are installed in non-standard directories like C:\\ProgramData or C:\\Windows\\Temp.
-- To manage these false positives, users can create exceptions for known benign activities by excluding specific process names, paths, or user IDs that are frequently involved in legitimate scheduled tasks.
-- Regularly review and update the list of excluded processes and paths to ensure that only non-threatening behaviors are excluded, maintaining the effectiveness of the detection rule.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Investigate the scheduled task to determine the origin and purpose of the suspicious execution, focusing on the process lineage and command line arguments.
-- Terminate any malicious processes identified during the investigation to stop ongoing threats.
-- Remove or disable the malicious scheduled task to prevent future execution.
-- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malware.
-- Review and analyze system logs, including Windows Event Logs and security logs, to trace the attack vector and identify any other compromised systems.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is part of a larger attack campaign or if multiple systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and command line arguments for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to improve detection capabilities and correlate suspicious activities.
-- Apply system hardening measures, such as restricting the use of scripting engines and enforcing least privilege access, to reduce the attack surface and prevent similar threats in the future."""
 
 
 [[rule.threat]]

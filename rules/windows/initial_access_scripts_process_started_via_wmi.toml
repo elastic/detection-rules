@@ -2,7 +2,7 @@
 creation_date = "2020/11/27"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -69,50 +69,6 @@ sequence by host.id with maxspan = 5s
      )
     ]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Windows Script Interpreter Executing Process via WMI
-
-Windows Management Instrumentation (WMI) is a powerful feature in Windows that allows for system management and automation. Adversaries may exploit WMI to execute scripts using interpreters like cscript.exe or wscript.exe, often bypassing traditional security measures. The detection rule identifies suspicious script execution via WMI by monitoring for specific processes initiated by WMI, which may indicate malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and executable path that triggered the alert, focusing on `process.name` and `process.executable` fields.
-- Check the `host.id` and `host.os.type` fields to confirm the affected host and ensure it is a Windows system.
-- Investigate the parent process `wmiprvse.exe` to determine if it has any unusual or unexpected child processes, using the `process.parent.name` field.
-- Examine the `user.domain` field to identify the user context under which the suspicious process was executed, paying attention to any non-standard domains.
-- Use Osquery to list all processes currently running on the host and identify any other suspicious activities. Example query: `SELECT name, path, pid, parent, uid FROM processes WHERE name IN ('cscript.exe', 'wscript.exe', 'PowerShell.EXE', 'Cmd.Exe');`
-- Analyze the `event.category` and `event.action` fields to understand the nature of the event, especially focusing on "Image loaded" actions that might indicate DLL loading.
-- Investigate the presence and usage of `wmiutils.dll` by checking the `dll.name` or `file.name` fields to confirm if it was loaded during the suspicious activity.
-- Correlate the alert with other recent alerts or logs from the same host to identify patterns or repeated suspicious behavior.
-- Review historical data for the same `process.name` and `process.executable` to determine if this is a recurring event or a one-time occurrence.
-- Check for any recent changes or anomalies in the system's configuration or user accounts that might explain the suspicious activity, using system logs and configuration management tools.
-
-### False positive analysis
-
-- Legitimate administrative scripts: System administrators often use scripts executed via WMI for legitimate purposes such as system maintenance, software deployment, or configuration management. These activities can trigger the detection rule, leading to false positives.
-- Monitoring and management tools: Some enterprise monitoring and management tools use WMI to execute scripts for gathering system information or performing routine tasks, which may be flagged by the rule.
-- Automated software updates: Certain software update mechanisms might use WMI to execute scripts as part of their update process, potentially causing false alerts.
-- To manage these false positives, users can create exceptions for known legitimate scripts or processes by whitelisting specific script names, paths, or user accounts that are verified as non-threatening.
-- Implementing a baseline of normal WMI activity within the organization can help distinguish between expected and suspicious behavior, reducing the likelihood of false positives.
-- Regularly review and update the list of exceptions to ensure that only verified and necessary activities are excluded from detection, maintaining a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to determine the scope of the compromise, focusing on identifying any additional systems that may have been affected.
-- Analyze the script executed via WMI to understand its purpose and potential impact, and check for any persistence mechanisms it may have established.
-- Terminate any malicious processes identified during the investigation and remove any unauthorized scripts or files from the system.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the attack is part of a larger campaign.
-- Implement enhanced logging policies to capture detailed process execution and WMI activity, ensuring that future incidents can be detected and analyzed more effectively.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures accordingly.
-- Implement hardening measures such as restricting WMI access, using application whitelisting, and enforcing the principle of least privilege to reduce the attack surface."""
 
 
 [[rule.threat]]

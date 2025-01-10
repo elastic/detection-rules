@@ -2,7 +2,7 @@
 creation_date = "2023/07/24"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/23"
 
 [rule]
 author = ["Elastic"]
@@ -67,48 +67,6 @@ process.name == "find" and process.args : "-perm" and process.args : (
   (process.args : "/usr/bin/pkexec" and process.args : "-xdev" and process.args_count == 7)
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating SUID/SGUID Enumeration Detected
-
-SUID and SGID are Linux permissions that allow programs to run with elevated privileges, potentially enabling users to perform tasks they otherwise couldn't. Adversaries exploit misconfigured binaries with these permissions to escalate privileges. The detection rule identifies suspicious use of the "find" command to locate such binaries, filtering out benign cases to highlight potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, including the specific `process.name` and `process.args` that triggered the alert.
-- Verify the user context by checking the `user.Ext.real.id` and `group.Ext.real.id` fields to determine if the command was executed by a privileged user or group.
-- Examine the `process.args` field to identify the exact permissions being searched for, such as "/6000", "-6000", "/4000", "-4000", "/2000", "-2000", "/u=s", "-u=s", "/g=s", "-g=s", "/u=s,g=s", or "/g=s,u=s".
-- Check the `process.args_count` to see if the command includes an unusually high number of arguments, which might indicate a complex or automated script.
-- Investigate the parent process of the "find" command to determine if it was initiated by a legitimate process or a potentially malicious one.
-- Use Osquery to list all files with SUID/SGID permissions on the system for further analysis. Example query: `SELECT path, mode FROM file WHERE mode & 4000 OR mode & 2000;`
-- Cross-reference the list of SUID/SGID files with known vulnerable binaries or those that should not have elevated permissions.
-- Analyze recent system logs for any other suspicious activities or anomalies around the time the "find" command was executed.
-- Investigate the network activity of the host to identify any potential data exfiltration or communication with known malicious IPs.
-- Review historical data to determine if similar "find" command executions have occurred in the past, indicating a pattern or ongoing reconnaissance activity.
-
-### False positive analysis
-
-- System administrators or security teams may use the "find" command with SUID/SGID arguments during routine audits or security assessments, which can trigger false positives. To manage this, consider excluding these activities by identifying the specific user accounts or groups performing these tasks and adding them to an exception list.
-- Automated scripts or security tools that regularly scan for SUID/SGID binaries as part of compliance checks can also generate false positives. Users can handle these by creating exceptions for known scripts or processes, ensuring they are documented and verified as non-threatening.
-- Some legitimate software installations or updates might use the "find" command with SUID/SGID arguments to verify permissions, leading to false positives. To address this, users can exclude these processes by identifying the specific software and its associated process arguments, then adding them to an exception list.
-- In environments where custom applications are developed, developers might use the "find" command with SUID/SGID arguments during testing or debugging, resulting in false positives. Users can mitigate this by excluding known development environments or user accounts from the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the adversary.
-- Conduct a thorough investigation to identify any misconfigured SUID/SGID binaries and assess if they have been exploited. Use forensic tools to analyze system logs and process execution history.
-- Remove or correct the permissions of any misconfigured SUID/SGID binaries to prevent unauthorized privilege escalation.
-- Review user accounts and privileges on the affected system to ensure no unauthorized changes have been made. Revoke any suspicious or unnecessary elevated privileges.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat actor has compromised other systems.
-- Implement enhanced logging and monitoring policies to capture detailed process execution and permission changes, ensuring future incidents can be detected more effectively.
-- Integrate security tools with SIEM solutions to automate the detection of suspicious SUID/SGID enumeration activities and alert security teams in real-time.
-- Restore the system to its operational state by applying the latest security patches and updates, and verify the integrity of critical system files and configurations.
-- Conduct a post-incident review to identify gaps in security controls and update security policies and procedures to prevent similar incidents in the future.
-- Educate system administrators and users on the risks associated with SUID/SGID permissions and best practices for maintaining secure configurations."""
 
 
 [[rule.threat]]

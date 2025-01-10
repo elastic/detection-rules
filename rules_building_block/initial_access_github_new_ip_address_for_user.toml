@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -34,49 +34,6 @@ query = '''
 event.dataset:"github.audit" and event.category:"configuration" and
 github.actor_ip:* and user.name:*
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating First Occurrence of IP Address For GitHub User
-
-The detection rule monitors GitHub audit logs for new IP addresses associated with user accounts, flagging those not seen in the past 14 days. This helps identify potential unauthorized access attempts, as adversaries may exploit compromised credentials to gain initial access from unfamiliar IPs. By correlating IP changes with user activity, the rule aids in detecting suspicious behavior indicative of account misuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a new IP address associated with the GitHub user account, focusing on the `github.actor_ip` and `user.name` fields.
-- Verify the legitimacy of the IP address by checking its geolocation and ASN information to determine if it aligns with the user's usual activity patterns.
-- Cross-reference the new IP address with known malicious IP databases to identify any potential threats.
-- Examine the user's recent activity logs in the GitHub audit dataset to identify any unusual or unauthorized actions, such as repository access or changes in configuration.
-- Check for any recent changes in the user's account settings, such as password changes or the addition of new SSH keys, which could indicate account compromise.
-- Investigate any other users who have logged in from the same IP address to determine if there is a broader issue affecting multiple accounts.
-- Use Osquery to gather additional context on the user's machine, such as running processes or network connections, with a query like: `SELECT * FROM processes WHERE user = '<username>';`
-- Review any recent email notifications sent to the user regarding suspicious activity or login attempts from unfamiliar locations.
-- Collaborate with the user to verify if they recognize the IP address or if they have recently traveled or used a VPN service that could explain the new IP.
-- Document all findings and observations in the investigation report to maintain a comprehensive record of the analysis process.
-
-### False positive analysis
-
-- Users frequently accessing GitHub from dynamic IP addresses, such as those assigned by ISPs, may trigger false positives. To manage this, consider creating exceptions for known user accounts with dynamic IPs by maintaining a list of trusted IP ranges.
-- Employees traveling or working remotely from different locations can result in new IP addresses being flagged. Implement a process to verify travel schedules or remote work arrangements and exclude these IPs from alerts.
-- Use of VPNs or proxy services by legitimate users can cause IP address changes. Establish a list of approved VPN or proxy IP addresses and configure the rule to ignore these.
-- Automated systems or scripts that access GitHub from various cloud environments might generate alerts. Identify and whitelist IP addresses associated with these systems to prevent unnecessary alerts.
-- Regularly review and update the list of exceptions to ensure it reflects current organizational practices and does not inadvertently allow unauthorized access.
-
-### Response and remediation
-
-- Immediately isolate the affected user account by temporarily disabling access to prevent further unauthorized actions.
-- Conduct a thorough investigation of the flagged IP address to determine its origin and assess whether it is associated with known malicious activity.
-- Review recent user activity logs to identify any unauthorized actions or changes made from the new IP address.
-- Reset the compromised user's credentials and enforce multi-factor authentication (MFA) to enhance account security.
-- Notify the affected user and relevant stakeholders about the potential security incident and provide guidance on recognizing phishing attempts and securing their accounts.
-- Escalate the incident to the security operations team if the investigation reveals signs of a broader compromise or if multiple accounts are affected.
-- Implement enhanced logging and monitoring policies to capture detailed user activity and IP address changes for future investigations.
-- Integrate threat intelligence feeds to correlate IP addresses with known threat actors and improve detection capabilities.
-- Restore the system to its operational state by verifying that no unauthorized changes persist and that all security measures are in place.
-- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as regular security training and periodic access reviews, to prevent future incidents."""
 
 
 [[rule.threat]]

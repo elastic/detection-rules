@@ -2,7 +2,7 @@
 creation_date = "2023/09/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -57,48 +57,6 @@ file where host.os.type == "windows" and event.type == "creation" and
     )
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File with Suspicious Extension Downloaded
-
-In Windows environments, certain file extensions can be leveraged for executing code, often bypassing traditional security measures. Adversaries exploit these extensions to execute malicious payloads under the guise of legitimate files. The detection rule identifies downloads of such files from external sources, excluding known safe paths and processes, to flag potential threats. This helps in early detection of attempts to evade defenses using system binary proxy execution techniques.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the file extension and path involved, focusing on the `file.extension` and `file.path` fields to determine if the file is indeed suspicious.
-- Check the `file.Ext.windows.zone_identifier` field to understand the origin of the file and confirm it was downloaded from an external source.
-- Investigate the process that created the file using the `process.name` field to determine if it is a known and trusted application.
-- Verify the digital signature of the process using the `process.code_signature.trusted` field to ensure it is from a legitimate source.
-- Cross-reference the file path against known safe paths listed in the query to rule out false positives.
-- Use Osquery to gather additional context about the file. For example, run the following query to check for recent file modifications: `SELECT * FROM file WHERE path = 'C:\\\\Path\\\\To\\\\Suspicious\\\\File';`
-- Examine the file's metadata and properties to identify any anomalies or inconsistencies that could indicate tampering or malicious intent.
-- Analyze network logs to trace the download source and determine if it is a known malicious domain or IP address.
-- Review user activity logs around the time of the file download to identify any unusual behavior or patterns that could suggest compromise.
-- Consult threat intelligence sources to check if the file hash or associated domains/IPs are linked to known threats or campaigns.
-
-### False positive analysis
-
-- **Microsoft Winget Source Files**: Downloads of files with the "msix" extension from the Microsoft Winget Source paths are known false positives. These files are part of legitimate package management operations. Users can handle these by adding exceptions for the specified paths in the detection rule.
-- **Microsoft Teams Temporary Files**: Files with the "msix" extension downloaded by the trusted "Teams.exe" process into its temporary directory are also false positives. These are typically updates or temporary files used by Microsoft Teams. Users should exclude this specific process and path combination to prevent unnecessary alerts.
-- **Legitimate Software Installations**: Some legitimate software installations may use extensions like "appinstaller" or "appx" for their setup files. Users should verify the source and context of such downloads and consider excluding known safe software sources or processes from the detection rule.
-- **System Updates and Configurations**: Files with extensions like "manifest" or "theme" may be part of system updates or user-initiated configuration changes. Users should assess the origin and purpose of these files and exclude them if they are part of routine system operations.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Conduct a thorough investigation of the downloaded file using a sandbox environment to determine its behavior and potential impact.
-- Check for any unauthorized changes or suspicious activities in the system logs and file integrity monitoring systems.
-- Remove the suspicious file and any associated malicious processes or scheduled tasks identified during the investigation.
-- Restore the system from a known good backup if any unauthorized changes or damages are detected.
-- Update antivirus and endpoint protection solutions to ensure they can detect and block similar threats in the future.
-- Implement enhanced logging policies to capture detailed file creation and modification events, especially for the identified suspicious extensions.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and correlation of similar threats.
-- Educate users on the risks of downloading files from untrusted sources and the importance of verifying file origins.
-- Review and update security policies to include hardening measures such as application whitelisting and restricting the execution of files with suspicious extensions."""
 
 
 [[rule.threat]]

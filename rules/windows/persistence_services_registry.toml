@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -65,49 +65,6 @@ registry where host.os.type == "windows" and event.type == "change" and
       "?:\\Windows\\System32\\WaaSMedicAgent.exe"
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Persistence via Services Registry
-
-Windows services are crucial for running background processes. Adversaries may exploit this by directly altering service registry keys to maintain persistence, bypassing standard APIs. The detection rule identifies such anomalies by monitoring changes to specific registry paths and filtering out legitimate processes, thus highlighting potential unauthorized service modifications indicative of malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific registry path and value that triggered the alert, focusing on the `registry.path` and `registry.value` fields.
-- Check the `process.name` and `process.executable` fields to determine which process made the registry change and assess if it is a known legitimate process or potentially malicious.
-- Investigate the parent process of the identified process to understand the process tree and determine if the process was spawned by a legitimate application or a suspicious one.
-- Use Osquery to list all services and their associated executables to identify any discrepancies or unusual entries. Example query: `SELECT name, display_name, path FROM services WHERE path LIKE '%ServiceDLL%' OR path LIKE '%ImagePath%';`
-- Examine the `registry.data.strings` field to see the new data written to the registry and assess if it points to a legitimate or suspicious file path.
-- Cross-reference the file path in `registry.data.strings` with known good files and directories to identify any anomalies or unauthorized files.
-- Check the file hash of the executable involved in the registry change against threat intelligence databases to determine if it is associated with known malware.
-- Review recent system logs and events around the time of the registry change to identify any other suspicious activities or related events.
-- Investigate the user account context under which the process ran to determine if it aligns with expected behavior or if it indicates potential compromise.
-- Analyze network connections made by the process to identify any unusual or unauthorized external communications that could suggest malicious activity.
-
-### False positive analysis
-
-- Legitimate software installations or updates may modify service registry keys directly, leading to false positives. Users can handle these by identifying the specific software involved and creating exceptions for its processes.
-- System maintenance tools, such as those used for driver updates or system optimizations, might also trigger this rule. Users should verify the legitimacy of these tools and exclude their processes if deemed safe.
-- Custom scripts or administrative tools that modify service configurations for legitimate purposes can be mistaken for malicious activity. Users should document these scripts and add them to the exclusion list to prevent false alerts.
-- Certain enterprise applications may have unique installation or update mechanisms that interact with the registry in non-standard ways. Users should work with their IT departments to identify these applications and configure exceptions accordingly.
-- Security software or monitoring tools that perform deep system scans or modifications might be flagged. Users should ensure these tools are from trusted vendors and exclude their processes to avoid unnecessary alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the process responsible for the registry modification by analyzing logs and correlating with known malicious indicators.
-- Terminate any suspicious processes identified during the investigation to halt potential malicious activity.
-- Restore the modified registry keys to their original state using a known good backup or by manually correcting the entries.
-- Perform a comprehensive malware scan on the affected system to detect and remove any additional malicious software.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat is part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed registry changes and process execution events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for similar threats.
-- Apply security patches and updates to the operating system and installed software to mitigate vulnerabilities that could be exploited for persistence.
-- Review and strengthen access controls and user permissions to limit the ability of unauthorized users to modify critical system settings."""
 
 
 [[rule.threat]]

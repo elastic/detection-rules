@@ -2,7 +2,7 @@
 creation_date = "2020/04/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -82,50 +82,6 @@ event.category:process and host.os.type:linux and event.type:(start or process_s
                 "/proc/ide/hd0/model") and
   not user.name:root
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Virtual Machine Fingerprinting
-
-Virtual Machine Fingerprinting involves identifying characteristics of a virtual environment, often to evade detection or tailor attacks. Adversaries exploit this by querying system files for hardware details, which can reveal if a system is virtualized. The detection rule targets non-root users accessing specific system paths indicative of VM environments, flagging potential reconnaissance activities by malware like Pupy RAT.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event category is 'process' and the host operating system type is 'linux', as specified in the query.
-- Verify the event type to ensure it matches 'start' or 'process_started', indicating a new process initiation.
-- Check the process arguments to identify which specific system path was accessed, such as "/sys/class/dmi/id/bios_version" or "/proc/scsi/scsi", to understand the nature of the fingerprinting attempt.
-- Investigate the user context by confirming the user name is not 'root', which could indicate unauthorized access attempts by a non-privileged user.
-- Correlate the alert with other recent alerts or logs to identify patterns or repeated access attempts to the same or similar system paths.
-- Use Osquery to gather additional context about the process by running a query like: `SELECT * FROM processes WHERE path IN ('/sys/class/dmi/id/bios_version', '/sys/class/dmi/id/product_name', '/sys/class/dmi/id/chassis_vendor', '/proc/scsi/scsi', '/proc/ide/hd0/model');`
-- Examine the parent process of the flagged process to determine if it was spawned by a known legitimate application or a suspicious one.
-- Check the process execution history for the non-root user to identify any other unusual or unauthorized activities.
-- Investigate the network activity associated with the process to detect any potential data exfiltration or communication with known malicious IP addresses.
-- Review system logs for any recent changes or anomalies that could indicate a compromise or unauthorized configuration changes related to virtualization detection.
-
-### False positive analysis
-
-- Non-malicious software or legitimate administrative scripts may access the same system paths for inventory or monitoring purposes, leading to false positives.
-- Developers or IT personnel using scripts to gather system information for troubleshooting or system management might trigger the rule.
-- Automated system management tools that check hardware details for compliance or inventory purposes could be flagged.
-- To manage these false positives, users can create exceptions for known benign processes or users by adding them to an allowlist.
-- Regularly review and update the allowlist to ensure it includes only trusted sources, minimizing the risk of overlooking genuine threats.
-- Consider implementing additional context checks, such as verifying the frequency and timing of access, to differentiate between routine operations and suspicious activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread or data exfiltration.
-- Conduct a thorough investigation to determine the scope of the intrusion, focusing on identifying any additional compromised systems or accounts.
-- Review system logs and process execution details to understand the adversary's actions and identify any persistence mechanisms.
-- Remove any unauthorized software or malware identified during the investigation, such as Pupy RAT, and ensure all malicious processes are terminated.
-- Change passwords and credentials for any accounts that may have been compromised, especially those with elevated privileges.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if law enforcement notification is necessary.
-- Implement enhanced logging and monitoring policies to capture detailed process execution and user activity, aiding in future detection and investigation efforts.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are applied.
-- Harden the system by disabling unnecessary services, enforcing least privilege access, and regularly reviewing and updating security configurations."""
 
 
 [[rule.threat]]

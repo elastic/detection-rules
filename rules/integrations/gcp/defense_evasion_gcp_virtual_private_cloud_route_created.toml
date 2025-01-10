@@ -2,7 +2,7 @@
 creation_date = "2020/09/22"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,51 +22,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Virtual Private Cloud Route Creation"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GCP Virtual Private Cloud Route Creation
-
-In GCP, VPC routes dictate network traffic paths between VM instances and other destinations, both internal and external. Adversaries may exploit this by creating routes to reroute or intercept traffic, potentially evading defenses. The detection rule monitors audit logs for route creation actions, identifying suspicious activities that could indicate such abuse.
-
-### Possible investigation steps
-
-- Review the audit logs to confirm the event dataset is `gcp.audit` and the event action is either `v1.compute.routes.insert` or `beta.compute.routes.insert` to ensure the alert is valid.
-- Identify the user or service account associated with the route creation by examining the `principalEmail` field in the audit log entry.
-- Check the `resourceName` field to determine the specific VPC and route that was created, and assess whether it aligns with expected network configurations.
-- Investigate the `request` field in the audit log to gather details about the route parameters, such as destination range and next hop, to understand the potential impact on network traffic.
-- Cross-reference the `sourceIP` field to identify the origin of the request and determine if it matches known IP addresses or locations associated with legitimate administrative activity.
-- Use Osquery to query the GCP environment for recent changes in network configurations. Example query: `SELECT * FROM gcp_vpc_routes WHERE creation_time > datetime('now', '-1 day');` to find any recent route creations.
-- Analyze historical audit logs for patterns of similar route creation activities by the same user or service account to identify potential malicious behavior.
-- Check for any recent changes in IAM policies or permissions that might have allowed unauthorized users to create routes.
-- Correlate the route creation event with other security alerts or anomalies in the environment to identify potential coordinated attack patterns.
-- Consult with the network or cloud infrastructure team to verify if the route creation was part of a planned change or if it deviates from standard operating procedures.
-
-### False positive analysis
-
-- Routine network configuration changes by authorized personnel can trigger the rule, as legitimate route creation is a common administrative task in managing cloud environments.
-- Automated deployment tools or scripts that create or modify routes as part of infrastructure provisioning or scaling activities may also generate alerts.
-- Scheduled maintenance activities that involve network reconfiguration might lead to false positives if not properly documented or communicated.
-- To manage these false positives, users can create exceptions for known and trusted sources of route creation, such as specific service accounts or IP addresses associated with legitimate administrative activities.
-- Implementing a review process for flagged events can help distinguish between benign and suspicious activities, ensuring that only genuine threats are escalated for further investigation.
-
-### Response and remediation
-
-- Immediately isolate the affected VPC to prevent further unauthorized traffic routing and potential data exfiltration.
-- Review the audit logs to identify the source and context of the route creation, focusing on user accounts and IP addresses involved.
-- Verify the legitimacy of the route by consulting with the network and security teams to determine if it aligns with expected network configurations.
-- Revoke any unauthorized access or permissions that allowed the route creation, and reset credentials for compromised accounts.
-- Remove the unauthorized route and restore the network configuration to its previous state to ensure normal traffic flow.
-- Escalate the incident to the security operations center (SOC) for further investigation and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed network and user activity, ensuring future incidents can be detected more efficiently.
-- Integrate threat intelligence feeds and anomaly detection tools to identify similar tactics, techniques, and procedures (TTPs) associated with MITRE ATT&CK T1562.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Apply network hardening measures, such as least privilege access controls and regular audits of network configurations, to prevent future unauthorized route creations.
-
-## Setup
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/vpc/docs/routes", "https://cloud.google.com/vpc/docs/using-routes"]

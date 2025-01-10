@@ -2,7 +2,7 @@
 creation_date = "2023/09/14"
 integration = ["dga", "endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 anomaly_threshold = 70
@@ -60,48 +60,6 @@ tags = [
     "Tactic: Command and Control",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential DGA Activity
-Domain Generation Algorithms (DGAs) are used by malware to dynamically generate domain names for command and control (C2) communication, making it difficult to block malicious domains. Adversaries exploit this by frequently changing domains to evade detection. The 'Potential DGA Activity' detection rule leverages machine learning to analyze DNS requests from source IPs, identifying patterns indicative of DGA usage, thus flagging potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to identify the source IP address associated with the potential DGA activity.
-- Analyze DNS logs to identify the specific domains queried by the source IP and check for patterns or anomalies in the domain names.
-- Cross-reference the identified domains with threat intelligence feeds to determine if they are known malicious or suspicious domains.
-- Use Osquery to gather additional context on the source IP's host by running a query to list recent DNS queries: `SELECT name, count FROM dns_cache WHERE name LIKE '%.%' ORDER BY count DESC LIMIT 10;`
-- Investigate the network traffic from the source IP to identify any unusual or unexpected outbound connections, focusing on the frequency and timing of the connections.
-- Check for any other alerts or logs related to the source IP to determine if there is a broader pattern of suspicious activity.
-- Examine endpoint logs for the source IP to identify any processes or applications that may be responsible for generating the DNS requests.
-- Review user activity associated with the source IP to determine if there is any legitimate reason for the observed DNS behavior.
-- Consult with other teams or departments to gather additional context or insights about the source IP or the domains in question.
-- Document findings and observations to build a comprehensive picture of the potential threat, which can be used for further analysis or escalation if necessary.
-
-### False positive analysis
-
-- Legitimate applications or services that frequently update or communicate with multiple domains may trigger false positives. Examples include content delivery networks (CDNs), cloud services, or software update mechanisms that use dynamic domain resolution.
-- Internal company services that use dynamic DNS for load balancing or failover purposes might be mistakenly flagged as DGA activity.
-- Users can manage these false positives by creating exceptions for known benign domains or IP addresses associated with trusted services, ensuring they are not flagged in future analyses.
-- Regularly review and update the list of exceptions to accommodate changes in legitimate service behaviors, reducing the likelihood of overlooking genuine threats.
-- Collaborate with IT and network teams to identify and document legitimate dynamic domain usage within the organization, aiding in the refinement of detection rules.
-
-### Response and remediation
-
-- Isolate the affected systems from the network to prevent further communication with potentially malicious domains.
-- Conduct a thorough investigation of DNS logs to identify all domains queried by the affected source IPs and cross-reference them with known malicious DGA patterns.
-- Utilize endpoint detection and response (EDR) tools to scan the affected systems for malware and remove any identified threats.
-- Escalate the incident to the security operations center (SOC) for further analysis and to determine if the threat is part of a larger campaign.
-- Implement network-level blocking of identified malicious domains and IP addresses to prevent future communication attempts.
-- Review and enhance DNS logging policies to ensure comprehensive visibility into DNS queries and responses for future investigations.
-- Integrate threat intelligence feeds with security information and event management (SIEM) systems to improve detection of DGA-related activities.
-- Restore affected systems from clean backups and ensure all security patches and updates are applied to prevent exploitation of known vulnerabilities.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Implement network segmentation and least privilege access controls to limit the potential impact of future DGA-related threats."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

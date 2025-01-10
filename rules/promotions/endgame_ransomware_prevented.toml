@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 maturity = "production"
 promotion = true
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -36,46 +36,4 @@ type = "query"
 query = '''
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:ransomware_event or endgame.event_subtype_full:ransomware_event)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Ransomware - Prevented - Elastic Endgame
-
-Elastic Endgame is a security solution designed to prevent ransomware by monitoring and analyzing system events. Adversaries often exploit vulnerabilities to deploy ransomware, encrypting files and demanding payment. The detection rule identifies ransomware activities by focusing on alerts from the Endgame module, specifically targeting prevention events linked to ransomware actions, thus enabling early intervention and mitigation.
-
-### Possible investigation steps
-
-- Review the alert details in the security dashboard to understand the context and specifics of the prevention event, focusing on the `event.kind`, `event.module`, and `endgame.metadata.type` fields.
-- Examine the `event.action` and `endgame.event_subtype_full` fields to confirm the type of ransomware event that was prevented and gather more context about the specific actions that triggered the alert.
-- Check the timestamp of the alert to determine when the ransomware activity was detected and correlate it with other events in the system logs around the same time.
-- Investigate the source and destination IP addresses involved in the alert to identify potentially compromised systems or external connections.
-- Use Osquery to gather additional information about the affected system. For example, run the following query to list recent processes that might be related to the ransomware activity: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE start_time > (SELECT datetime('now', '-1 hour'));`
-- Analyze the user account activity associated with the alert to determine if any unauthorized access or privilege escalation occurred.
-- Review file system changes on the affected system to identify any encrypted files or suspicious modifications that might indicate ransomware behavior.
-- Check for any related alerts or events in the security solution that might provide additional context or indicate a broader attack campaign.
-- Investigate any known vulnerabilities or exploits that might have been used to deploy the ransomware, focusing on recent patches or security advisories.
-- Document all findings and observations in a detailed report to support further analysis and potential response actions.
-
-### False positive analysis
-
-- Known false positives for the Ransomware - Prevented - Elastic Endgame rule may include legitimate software that performs file encryption as part of its normal operations, such as backup solutions or disk encryption tools. These applications can trigger alerts due to their behavior resembling ransomware activities.
-- Users can manage these false positives by creating exceptions for trusted applications. This involves identifying the legitimate software that triggers the alerts and adding them to an allowlist within the Elastic Endgame settings, ensuring that their activities are not flagged as malicious.
-- Regularly review and update the list of exceptions to accommodate any changes in software behavior or new legitimate applications that may be introduced into the environment.
-- It is crucial to maintain a balance between reducing false positives and ensuring that genuine threats are not overlooked. Therefore, any exceptions should be carefully evaluated and monitored to prevent potential security gaps.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of the ransomware.
-- Conduct a thorough investigation to identify the entry point and the scope of the attack, utilizing logs and alerts from Elastic Endgame.
-- Remove the ransomware by using trusted antivirus or anti-malware tools, ensuring the system is clean before reconnecting to the network.
-- Restore encrypted files from the most recent clean backup to ensure data integrity and minimize data loss.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
-- Implement enhanced logging policies to capture detailed system events and network traffic for future investigations.
-- Integrate Elastic Endgame with other security tools such as SIEMs for comprehensive threat detection and response capabilities.
-- Review and update security patches and configurations to close vulnerabilities exploited by the ransomware.
-- Educate employees on recognizing phishing attempts and other common ransomware delivery methods to reduce the risk of future incidents.
-- Conduct a post-incident review to assess the effectiveness of the response and update the incident response plan accordingly."""
 

@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -30,49 +30,6 @@ query = '''
 configuration where event.dataset == "github.audit"
   and github.category == "protected_branch" and event.type == "change"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GitHub Protected Branch Settings Changed
-
-GitHub's protected branch settings are crucial for maintaining code integrity by enforcing rules like requiring reviews before merging. Adversaries may alter these settings to bypass security measures, facilitating unauthorized code changes. The detection rule monitors audit logs for changes in branch protection, flagging potential defense evasion attempts for further investigation.
-
-### Possible investigation steps
-
-- Review the audit log entry details to identify the user who made the changes to the protected branch settings, focusing on fields like `event.dataset`, `github.category`, and `event.type`.
-- Verify the user's recent activity on GitHub to determine if there are any other suspicious actions or patterns, such as multiple changes to security settings or unusual commit activity.
-- Check the timestamp of the change to see if it aligns with any known maintenance windows or authorized change periods.
-- Cross-reference the user's GitHub activity with internal logs to see if there are any corresponding access logs or anomalies, such as unusual login locations or times.
-- Investigate the specific changes made to the branch protection settings to understand the potential impact on the repository's security posture.
-- Consult with the repository owner or relevant team members to confirm if the changes were authorized and align with current security policies.
-- Use Osquery to gather additional context on the user's machine, such as recent processes or network connections, with a query like: `SELECT * FROM processes WHERE user = 'username' AND start_time > 'timestamp';`
-- Analyze any related pull requests or commits to the affected branch to identify if any unauthorized code changes were made following the settings modification.
-- Review any recent communications or tickets that might provide context or justification for the changes, such as planned feature releases or security audits.
-- Document all findings and observations in a centralized investigation report to facilitate further analysis or handoff to incident response teams if necessary.
-
-### False positive analysis
-
-- Changes made by authorized personnel during routine maintenance or updates can trigger false positives. To manage this, maintain a list of trusted users whose actions are expected and can be excluded from alerts.
-- Automated processes or scripts that update branch protection settings as part of a continuous integration/continuous deployment (CI/CD) pipeline may also cause false positives. Consider creating exceptions for these automated actions by identifying and excluding specific service accounts or IP addresses.
-- Organizational policy changes that require updates to branch protection settings might be flagged. Document these policy changes and adjust the detection rule to recognize them as legitimate.
-- Temporary adjustments to branch protection settings for specific projects or deadlines can be mistaken for unauthorized changes. Implement a process to log and approve these temporary changes, allowing them to be excluded from alerts.
-- Frequent changes by specific teams or projects that have a higher rate of legitimate modifications can be excluded by setting up tailored rules or thresholds for those specific contexts.
-
-### Response and remediation
-
-- Immediately review the audit logs to identify the user who made the changes to the protected branch settings and verify if the change was authorized.
-- Revert any unauthorized changes to the branch protection settings to restore the original security posture.
-- Temporarily restrict access to branch protection settings to a limited number of trusted administrators until the investigation is complete.
-- Conduct a thorough review of recent commits and merges to the affected branches to ensure no unauthorized code changes were introduced.
-- Notify the security team and relevant stakeholders about the incident and provide them with details of the unauthorized changes.
-- If malicious activity is confirmed, initiate a security incident response plan, including isolating affected systems if necessary.
-- Enhance logging and monitoring by integrating GitHub audit logs with a centralized security information and event management (SIEM) system for real-time alerts.
-- Implement additional security measures such as two-factor authentication and stricter access controls for repository settings.
-- Conduct a post-incident review to identify gaps in the current security posture and update policies and procedures accordingly.
-- Educate developers and administrators on the importance of branch protection settings and the potential risks of unauthorized changes."""
 
 
 [[rule.threat]]

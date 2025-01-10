@@ -2,7 +2,7 @@
 creation_date = "2020/11/20"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -21,50 +21,7 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Exchange Management Group Role Assignment"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft 365 Exchange Management Group Role Assignment
-
-Microsoft 365 Exchange Management roles define permissions for managing Exchange environments. Adversaries may exploit this by assigning roles to unauthorized users, ensuring persistent access. The detection rule monitors successful role assignments within Exchange, flagging potential unauthorized changes that align with persistence tactics, thus aiding in identifying and mitigating account manipulation threats.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event dataset is `o365.audit` and the event provider is `Exchange`, ensuring the alert is relevant to Exchange role assignments.
-- Verify the `event.category` is `web` and the `event.action` is `New-ManagementRoleAssignment` to confirm the specific action that triggered the alert.
-- Check the `event.outcome` field to ensure it indicates a `success`, confirming that the role assignment was completed.
-- Identify the user account associated with the role assignment by examining the relevant fields in the alert, such as `user.name` or `user.id`.
-- Investigate the assigned role by reviewing the `management.role` field to understand the permissions granted and assess the potential impact.
-- Cross-reference the user account with known authorized personnel to determine if the role assignment aligns with expected administrative activities.
-- Utilize Osquery to gather additional context on the user account by running a query such as: `SELECT * FROM users WHERE username = '<user.name from alert>';` to check for any anomalies or recent changes.
-- Examine the `source.ip` field to identify the originating IP address of the role assignment action and assess if it matches known or expected locations.
-- Review historical logs for any previous role assignments or suspicious activities associated with the same user or IP address to identify patterns or repeated unauthorized actions.
-- Collaborate with the IT or security team to gather additional context on recent administrative changes or projects that might explain the role assignment, ensuring it was not part of a legitimate operation.
-
-### False positive analysis
-
-- Routine administrative tasks: Regular role assignments by authorized IT personnel for maintenance or updates can trigger alerts. To manage this, create exceptions for known administrative accounts or scheduled maintenance windows.
-- Automated scripts or tools: Some organizations use automated processes for role assignments, which may be flagged. Identify and exclude these scripts or tools by their unique identifiers or execution patterns.
-- Organizational changes: During mergers, acquisitions, or restructuring, role assignments may increase. Monitor these periods closely and temporarily adjust thresholds or exclusions to accommodate expected changes.
-- Training or onboarding: New employee onboarding or training sessions might involve temporary role assignments. Implement a process to log and verify these activities, allowing for temporary exclusions during these periods.
-
-### Response and remediation
-
-- Immediately isolate the affected account to prevent further unauthorized access and assess the scope of the role assignment.
-- Review audit logs to identify any additional unauthorized role assignments or suspicious activities linked to the compromised account.
-- Revoke any unauthorized role assignments and reset credentials for affected accounts to prevent adversary persistence.
-- Conduct a thorough investigation to determine how the adversary gained access and whether other accounts or systems are compromised.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement enhanced logging and monitoring policies to capture detailed audit logs of role assignments and other critical actions within Microsoft 365.
-- Integrate security information and event management (SIEM) solutions to correlate events and detect similar threats in the future.
-- Restore the system to its operational state by verifying that all unauthorized changes have been reverted and that security controls are in place.
-- Apply hardening measures such as multi-factor authentication (MFA) for administrative accounts and regular review of role assignments.
-- Educate users and administrators on recognizing phishing attempts and other common tactics used to gain unauthorized access.
-
-## Setup
+note = """## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

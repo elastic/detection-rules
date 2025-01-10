@@ -2,7 +2,7 @@
 creation_date = "2022/09/13"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,50 +22,7 @@ index = ["logs-kubernetes.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Kubernetes Anonymous Request Authorized"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Kubernetes Anonymous Request Authorized
-
-Kubernetes, a container orchestration platform, manages workloads and services. It uses authentication to control access. However, anonymous requests can occur, often for health checks. Adversaries might exploit this by using anonymous access to infiltrate clusters undetected. The detection rule identifies unauthorized anonymous access by monitoring audit logs for allowed requests from unauthenticated users, excluding common health endpoints.
-
-### Possible investigation steps
-
-- Review the audit logs to identify the specific unauthenticated user request that was authorized, focusing on the `kubernetes.audit.user.username` field to confirm if it matches "system:anonymous" or "system:unauthenticated".
-- Examine the `kubernetes.audit.requestURI` field to determine the exact resource or endpoint accessed, ensuring it is not one of the excluded health check endpoints like `/healthz`, `/livez`, or `/readyz`.
-- Analyze the `kubernetes.audit.annotations.authorization_k8s_io/decision` field to verify that the decision was indeed "allow", confirming unauthorized access.
-- Investigate the source IP address and user agent from the audit logs to identify the origin of the request and gather more context about the client making the request.
-- Cross-reference the timestamp of the unauthorized access with other logs and events to identify any correlated activities or anomalies in the cluster around the same time.
-- Use Osquery to gather more information about the nodes in the cluster. For example, run the following Osquery query to list all running pods and their associated namespaces: `SELECT name, namespace FROM kubernetes_pods;`.
-- Check for any recent changes in the cluster's RBAC (Role-Based Access Control) policies that might have inadvertently allowed anonymous access.
-- Review the cluster's network policies to ensure there are no misconfigurations that could allow unauthorized access from external sources.
-- Investigate any recent deployments or changes in the cluster that might have introduced vulnerabilities or misconfigurations.
-- Consult with the team responsible for the cluster to verify if there were any legitimate reasons for the anonymous access, such as testing or maintenance activities.
-
-### False positive analysis
-
-- Health checks and monitoring tools: Although the rule excludes common health endpoints like /healthz, /livez, and /readyz, other monitoring tools might access different endpoints anonymously, leading to false positives. Users should identify and exclude these specific endpoints in their environment.
-- Internal services or applications: Some internal services might be configured to use anonymous access for specific operations. Users should review these services and consider adding exceptions for known benign activities.
-- Misconfigured applications: Applications that are not properly configured might inadvertently make anonymous requests. Users should audit application configurations and adjust the rule to exclude these known benign requests.
-- Development and testing environments: In non-production environments, developers might use anonymous access for testing purposes. Users should differentiate between production and non-production environments and apply the rule accordingly to avoid unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected Kubernetes cluster to prevent further unauthorized access and potential lateral movement by adversaries.
-- Review audit logs to identify the source and scope of the unauthorized anonymous access, focusing on any unusual patterns or repeated access attempts.
-- Revoke any unauthorized access tokens or credentials that may have been compromised during the incident.
-- Escalate the incident to the security operations team and, if necessary, involve incident response specialists to assist with a thorough investigation.
-- Implement stricter authentication and authorization policies, ensuring that anonymous access is limited to only necessary endpoints like /healthz, /livez, and /readyz.
-- Enhance logging policies to capture detailed audit logs, including user activities and access attempts, and integrate with a Security Information and Event Management (SIEM) system for real-time monitoring.
-- Conduct a thorough review of the cluster's security configurations, ensuring that Role-Based Access Control (RBAC) is properly configured to minimize permissions for anonymous users.
-- Restore the system to its operational state by applying patches and updates to the Kubernetes environment and any affected applications.
-- Implement network segmentation and micro-segmentation to limit the potential impact of unauthorized access within the cluster.
-- Educate and train the development and operations teams on security best practices and the importance of monitoring for unauthorized access attempts, leveraging MITRE ATT&CK framework insights for threat-specific context.
-
-## Setup
+note = """## Setup
 
 The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
 references = [

@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/06/18"
 
 [rule]
 anomaly_threshold = 50
@@ -80,51 +80,4 @@ tags = [
     "Rule Type: Machine Learning",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Linux Network Port Activity
-
-In Linux environments, network ports facilitate communication between applications and services. Adversaries may exploit rarely used ports for malicious activities like command-and-control or data exfiltration, bypassing standard monitoring. The 'Unusual Linux Network Port Activity' detection rule identifies anomalies in port usage, flagging potential unauthorized access or threat actor presence by focusing on atypical destination port activity.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific destination port and source IP address involved in the unusual activity.
-- Check historical logs to determine if the destination port has been used previously and if so, assess the frequency and context of its usage.
-- Correlate the source IP address with known assets or users within the organization to determine if the activity aligns with expected behavior.
-- Use Osquery to gather additional context on the host involved. For example, run the following query to list active network connections and identify processes using the unusual port:
-  ```sql
-  SELECT pid, name, local_address, local_port, remote_address, remote_port FROM process_open_sockets WHERE local_port = <unusual_port>;
-  ```
-- Investigate the process identified in the previous step to determine its legitimacy by checking its executable path, hash, and associated user.
-- Analyze network traffic logs to identify any patterns or anomalies associated with the unusual port, such as repeated connections or data transfers.
-- Cross-reference the unusual port activity with threat intelligence feeds to check for known malicious indicators or patterns.
-- Examine system logs for any signs of compromise or suspicious activity around the time the unusual port activity was detected.
-- Verify if there are any recent changes or deployments on the host that could explain the unusual port activity, such as new software installations or updates.
-- Consult with relevant teams or personnel to gather additional context or insights regarding the unusual port activity, ensuring a comprehensive understanding of the situation.
-
-### False positive analysis
-
-- Known false positives may include legitimate applications or services that use non-standard ports for communication, such as custom internal tools or legacy systems that have not been updated to use standard ports.
-- Automated backup or monitoring solutions might use unusual ports for data transfer, which can trigger alerts if not properly documented or excluded.
-- Development and testing environments often experiment with different port configurations, leading to benign anomalies in port usage.
-- To manage these false positives, users can create exceptions for known and verified applications or services that consistently use specific non-standard ports.
-- Regularly review and update the list of exceptions to ensure that only legitimate activities are excluded, maintaining the effectiveness of the detection rule.
-- Collaborate with network and system administrators to document and understand the purpose of unusual port usage within the organization, reducing unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation of the unusual port activity by reviewing network logs and identifying the source and destination of the traffic.
-- Verify the legitimacy of the process or application using the unusual port by cross-referencing with known software and services.
-- If malicious activity is confirmed, terminate any suspicious processes and remove any unauthorized software or scripts.
-- Escalate the incident to the security operations team for further analysis and to determine if the activity is part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed network traffic and system events for future analysis and detection.
-- Integrate threat intelligence feeds and anomaly detection tools to improve the identification of unusual network activities.
-- Restore the system to its operational state by applying the latest security patches and updates, and ensure all security configurations are correctly set.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Implement network segmentation and access controls to limit the exposure of critical systems and reduce the risk of similar incidents in the future."""
 

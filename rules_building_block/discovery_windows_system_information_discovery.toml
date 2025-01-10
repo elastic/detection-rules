@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/06"
 integration = ["windows", "endpoint", "system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -54,49 +54,6 @@ process.parent.executable : (
     "?:\\ProgramData\\*"
 ) and not user.id : "S-1-5-18"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Windows System Information Discovery
-
-Windows System Information Discovery involves using built-in commands to gather system details, aiding attackers in understanding the environment post-compromise. Adversaries exploit tools like `cmd.exe`, `systeminfo.exe`, and `wmic.exe` to extract OS and hardware data. The detection rule identifies suspicious use of these commands, excluding legitimate processes and system accounts, to flag potential reconnaissance activities.
-
-### Possible investigation steps
-
-- Review the alert details to understand which specific command triggered the detection, focusing on the `process.name` and `process.args` fields.
-- Check the `process.parent.executable` field to identify the parent process that initiated the suspicious command, which can provide context on whether the execution was part of a legitimate process chain.
-- Investigate the `user.id` associated with the process to determine if the activity was performed by a legitimate user or a potentially compromised account.
-- Examine the `host.os.type` and `event.type` fields to confirm the environment and nature of the event, ensuring it aligns with the detection rule's focus on Windows systems and process start events.
-- Correlate the timestamp of the alert with other security events or logs to identify any preceding or subsequent suspicious activities that might indicate a broader attack pattern.
-- Use Osquery to gather additional context about the system and processes. For example, run the following Osquery query to list recent processes executed on the system: `SELECT pid, name, path, cmdline, parent FROM processes WHERE name IN ('cmd.exe', 'systeminfo.exe', 'wmic.exe');`
-- Investigate the network activity around the time of the alert to identify any unusual outbound connections that might suggest data exfiltration or command-and-control communication.
-- Review historical data for similar alerts on the same host or user account to determine if this is an isolated incident or part of a recurring pattern.
-- Check for any recent changes in user permissions or system configurations that could have facilitated the execution of the suspicious command.
-- Consult threat intelligence sources to see if the observed behavior matches known tactics, techniques, and procedures (TTPs) associated with specific threat actors or malware campaigns.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger the rule if they use `cmd.exe`, `systeminfo.exe`, or `wmic.exe` to check system compatibility or gather system information. Users can handle these by adding specific update or installation executables to the exclusion list.
-- System management tools or scripts that regularly run to gather system information for inventory or monitoring purposes might be flagged. To manage these, users should identify and exclude the specific scripts or management tools from the detection rule.
-- Automated tasks or scheduled jobs that use these commands for legitimate system maintenance or reporting can also cause false positives. Users can exclude these tasks by specifying the parent executable paths or user accounts associated with these jobs.
-- Developers or IT personnel running diagnostic commands during troubleshooting or system checks may inadvertently trigger the rule. Organizations can create exceptions for known user accounts or specific development environments to reduce false positives.
-- Security software or endpoint protection solutions that perform regular system scans and use these commands might be mistakenly flagged. Users should verify and exclude these security tools from the detection criteria to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further lateral movement by the attacker.
-- Conduct a thorough investigation to confirm the legitimacy of the detected activity by reviewing process execution details and correlating with known user behavior.
-- If malicious activity is confirmed, terminate any suspicious processes and remove any unauthorized tools or scripts found on the system.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the compromise.
-- Review and enhance logging policies to ensure comprehensive monitoring of command-line activities and process executions, focusing on the use of system information discovery tools.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for future investigations.
-- Restore the system to its operational state by applying clean backups and ensuring all security patches and updates are installed.
-- Implement hardening measures such as disabling unnecessary services, enforcing least privilege access, and applying application whitelisting to prevent unauthorized execution of system discovery tools.
-- Conduct a post-incident review to identify gaps in the security posture and update incident response plans accordingly.
-- Educate users on recognizing and reporting suspicious activities to enhance the organization's overall security awareness."""
 
 
 [[rule.threat]]

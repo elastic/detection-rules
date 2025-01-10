@@ -2,7 +2,7 @@
 creation_date = "2023/09/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -61,53 +61,6 @@ sequence with maxspan=1m
   not (process.name : "rundll32.exe" and process.args : "printui.dll,PrintUIEntry")
   ] by process.parent.entity_id
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Remote File Execution via MSIEXEC
-
-MSIEXEC is a Windows utility for installing and managing software packages. Adversaries may exploit it to execute remote files, potentially bypassing security controls. The detection rule identifies suspicious MSIEXEC activity by monitoring for specific command-line arguments, network connections, and unusual child processes, filtering out known legitimate behaviors to highlight potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to understand the specific command-line arguments used with `msiexec.exe`, focusing on the presence of the `/V` flag, which indicates verbose logging and potential remote execution.
-- Examine the network connections associated with `msiexec.exe` to identify any unusual or unauthorized remote IP addresses or domains that the process attempted to connect to.
-- Investigate the parent process of `msiexec.exe` to determine if it was launched by a legitimate process or if it was spawned by a suspicious or unexpected parent.
-- Check the user account associated with the `msiexec.exe` process, focusing on user IDs like "S-1-5-21-*" and "S-1-5-12-1-*", to verify if the activity aligns with normal user behavior or if it indicates potential compromise.
-- Analyze the child processes spawned by `msiexec.exe` to identify any unusual or unauthorized executables, especially those not located in typical directories like `?:\\Windows\\System32` or `?:\\Program Files`.
-- Verify the code signature of any executables involved in the alert to ensure they are from trusted sources, paying particular attention to any discrepancies in the signature's subject name or trust status.
-- Use Osquery to gather additional context on the system. For example, run the following query to list recent processes executed by `msiexec.exe`:
-  ```sql
-  SELECT pid, name, path, cmdline, parent FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'msiexec.exe');
-  ```
-- Cross-reference the alert with any recent phishing attempts or suspicious emails received by the user to determine if the `msiexec.exe` activity could be linked to a phishing attack.
-- Review system logs and security events around the time of the alert to identify any other suspicious activities or anomalies that might correlate with the `msiexec.exe` execution.
-- Consult threat intelligence sources to check if the IP addresses or domains contacted by `msiexec.exe` are associated with known malicious activities or threat actors.
-
-### False positive analysis
-
-- Legitimate software installations or updates may trigger the rule if they use msiexec.exe with remote packages, especially in enterprise environments where software deployment is automated.
-- Network administrators using msiexec.exe for remote installations across the network might be flagged; consider excluding these activities by identifying the specific network paths or IP addresses used.
-- Some IT management tools and scripts that automate software installations could mimic the behavior of adversaries; these should be reviewed and potentially excluded by process name or signature.
-- Exclude processes with trusted code signatures from known vendors, such as Citrix Systems, Inc., to reduce false positives from legitimate software.
-- Regularly review and update the list of excluded executables and paths to ensure that new legitimate software is not mistakenly flagged.
-- Consider the context of the user ID and integrity level; system administrators or automated service accounts might frequently trigger this rule during routine operations.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Verify the legitimacy of the MSIEXEC command and the source of the remote package by reviewing logs and network connections.
-- Terminate any suspicious processes initiated by msiexec.exe that are not part of known legitimate software installations.
-- Conduct a thorough investigation to identify any additional compromised systems or accounts, focusing on the MITRE ATT&CK tactic of Initial Access and technique of Phishing.
-- Remove any unauthorized software or files installed via the suspicious MSIEXEC activity and restore affected files from backups if necessary.
-- Update and apply security patches to the affected system to mitigate vulnerabilities that may have been exploited.
-- Implement enhanced logging policies to capture detailed process execution and network activity, ensuring that MSIEXEC usage is closely monitored.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities.
-- Educate users on recognizing phishing attempts and the importance of reporting suspicious emails or activities to reduce the risk of initial access through social engineering.
-- Review and strengthen endpoint protection configurations, including application whitelisting and execution restrictions, to prevent unauthorized use of system utilities like msiexec.exe."""
 
 
 [[rule.threat]]

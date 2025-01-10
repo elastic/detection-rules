@@ -2,7 +2,7 @@
 creation_date = "2021/05/10"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -21,51 +21,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Route 53 Domain Transferred to Another Account"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS Route 53 Domain Transferred to Another Account
-
-AWS Route 53 is a scalable DNS web service designed to route end-user requests to internet applications. Adversaries may exploit domain transfer capabilities to hijack domains, redirecting traffic or disrupting services. The detection rule monitors successful domain transfer requests, flagging potential unauthorized account manipulations, aligning with MITRE ATT&CK's persistence and account manipulation tactics.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event dataset is `aws.cloudtrail` and the event provider is `route53.amazonaws.com`, ensuring the alert is relevant to a Route 53 domain transfer.
-- Verify the `event.action` field to ensure it is `TransferDomainToAnotherAwsAccount` and the `event.outcome` is `success`, confirming a successful domain transfer request.
-- Identify the AWS account ID and user or role that initiated the transfer by examining the `user.identity.arn` and `aws.account.id` fields in the event logs.
-- Check the `sourceIPAddress` field to determine the IP address from which the transfer request was made, and assess if it aligns with known or expected IP addresses for the account.
-- Investigate the `userAgent` field to understand the application or service used to initiate the transfer, looking for anomalies or unexpected user agents.
-- Use Osquery to gather additional context on the AWS environment by running a query such as: `SELECT * FROM aws_cloudtrail_events WHERE eventName = 'TransferDomainToAnotherAwsAccount' AND recipientAccountId = '<target_account_id>';` to identify other related events.
-- Review recent AWS CloudTrail logs for any unusual activity or patterns around the time of the domain transfer, focusing on changes to IAM policies or roles.
-- Examine the AWS Route 53 configuration and domain settings to ensure no unauthorized changes were made post-transfer, such as DNS record modifications.
-- Cross-reference the domain transfer event with any recent support tickets or change requests to validate if the transfer was authorized and documented.
-- Consult with the domain's business owner or relevant stakeholders to confirm the legitimacy of the transfer and gather any additional context or concerns they may have.
-
-### False positive analysis
-
-- Legitimate domain transfers between accounts within the same organization can trigger this rule as a false positive. These transfers might occur during organizational restructuring or when consolidating domains under a single account for management purposes.
-- Routine domain management activities by authorized personnel, such as IT administrators or domain management teams, may also result in false positives if they frequently transfer domains for operational reasons.
-- To manage these false positives, users can create exceptions for known and trusted account IDs involved in regular domain transfers. This can be done by maintaining a whitelist of account IDs that are authorized to perform domain transfers.
-- Implementing a review process for domain transfer requests can help distinguish between legitimate and suspicious activities. This process should involve verifying the intent and authorization of the transfer with the involved parties.
-- Regularly updating and auditing the list of authorized personnel and accounts can help minimize false positives by ensuring only current and necessary accounts are included in exception lists.
-
-### Response and remediation
-
-- Immediately revoke any unauthorized access to the AWS account by changing credentials and implementing multi-factor authentication (MFA) for all users.
-- Conduct a thorough review of AWS CloudTrail logs to identify any unauthorized actions or anomalies associated with the domain transfer.
-- Verify the integrity of DNS records and ensure that they have not been altered to redirect traffic maliciously.
-- Contact AWS Support to report the unauthorized domain transfer and seek assistance in reversing the transfer if necessary.
-- Notify relevant stakeholders, including IT security teams and management, about the incident and potential impacts on services.
-- Implement network monitoring to detect any unusual traffic patterns that may indicate further exploitation attempts.
-- Review and update IAM policies to ensure that only authorized personnel have permissions to transfer domains.
-- Enhance logging and monitoring by integrating AWS CloudTrail with a Security Information and Event Management (SIEM) system for real-time alerts.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate users on security best practices and the importance of safeguarding credentials to prevent future account manipulation attempts.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/Route53/latest/APIReference/API_Operations_Amazon_Route_53.html"]

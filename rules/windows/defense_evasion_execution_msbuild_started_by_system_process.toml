@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -53,48 +53,6 @@ process where host.os.type == "windows" and event.type == "start" and
   process.name : "MSBuild.exe" and
   process.parent.name : ("explorer.exe", "wmiprvse.exe")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft Build Engine Started by a System Process
-
-The Microsoft Build Engine (MSBuild) is a platform for building applications, typically invoked by developers or integrated development environments. However, adversaries may exploit MSBuild to execute malicious code by disguising it as a legitimate build process. This detection rule identifies unusual MSBuild activity initiated by system processes like Explorer or WMI, which may indicate an attempt to evade defenses by leveraging trusted utilities.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name is "MSBuild.exe" and the parent process is either "explorer.exe" or "wmiprvse.exe" to ensure the rule was triggered correctly.
-- Check the timestamp of the MSBuild.exe process start event to determine when the activity occurred and correlate it with any other suspicious activities around the same time.
-- Investigate the user account associated with the MSBuild.exe process to determine if it is a legitimate user or if the account may have been compromised.
-- Examine the command line arguments used to start MSBuild.exe to identify any unusual or suspicious parameters that could indicate malicious intent.
-- Use Osquery to gather additional context about the MSBuild.exe process. For example, run the following query to list all processes with their parent process IDs and command lines: `SELECT pid, name, path, cmdline, parent FROM processes WHERE name = 'MSBuild.exe';`
-- Analyze the parent process (explorer.exe or wmiprvse.exe) to understand its recent activities and determine if it has been involved in any other suspicious behavior.
-- Check for any network connections initiated by MSBuild.exe to identify potential communication with external servers or command and control infrastructure.
-- Review system logs and security events around the time of the alert to identify any other indicators of compromise or related suspicious activities.
-- Investigate any recent changes to the system, such as new software installations or updates, that could explain the unusual MSBuild activity.
-- Consult threat intelligence sources to determine if there are any known campaigns or malware that utilize MSBuild.exe in a similar manner, which could provide additional context for the investigation.
-
-### False positive analysis
-
-- Known false positives for the Microsoft Build Engine Started by a System Process rule may include legitimate software installations or updates that utilize MSBuild as part of their setup process. These activities might be initiated by system processes like Explorer or WMI, leading to benign triggers of the detection rule.
-- Development environments or automated build systems that integrate with Windows Explorer or WMI for project management tasks can also cause false positives. These systems might start MSBuild as part of their normal operation, which is non-threatening.
-- To manage these false positives, users can create exceptions for specific parent-child process relationships that are known to be safe. This can be done by identifying the hash or path of the legitimate MSBuild instances and excluding them from the detection rule.
-- Users should regularly review and update their exception lists to ensure that only verified and non-malicious activities are excluded, maintaining a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation to confirm the legitimacy of the MSBuild process by reviewing the process tree and any associated scripts or commands executed.
-- Analyze the parent process (explorer.exe or wmiprvse.exe) to determine if it was compromised or used as a proxy for malicious activity.
-- Review system logs and security alerts to identify any other suspicious activities or related incidents on the network.
-- If malicious activity is confirmed, remove any identified malware or unauthorized scripts from the system.
-- Restore the system from a known good backup if the integrity of the system is compromised.
-- Implement enhanced logging policies to capture detailed process execution and parent-child relationships for future investigations.
-- Integrate threat intelligence feeds and security solutions to detect similar tactics, techniques, and procedures (TTPs) associated with MITRE ATT&CK T1127.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Apply system hardening measures, such as restricting the execution of MSBuild to authorized users and processes, and regularly update security patches and configurations."""
 
 
 [[rule.threat]]

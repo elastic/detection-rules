@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/02/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -49,49 +49,6 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   process.args like "/var/tmp/dracut*"
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Memory Seeking Activity
-
-In Unix-based systems, utilities like `tail`, `cmp`, `hexdump`, `xxd`, and `dd` are used for legitimate data processing tasks, including reading and comparing file contents. However, adversaries can exploit these tools to probe memory addresses, potentially setting the stage for further exploitation. The detection rule identifies suspicious executions of these utilities, filtering out benign use cases by examining process arguments and parent processes, thus highlighting potential malicious activity.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific utility and arguments that triggered the alert, focusing on the `process.name` and `process.args` fields.
-- Examine the `process.parent.name` and `process.parent.args` fields to understand the context in which the utility was executed and determine if it aligns with known benign processes or scripts.
-- Check the `process.parent.executable` and `process.parent.command_line` fields to identify the full path and command line of the parent process, which may provide additional context about the execution environment.
-- Investigate the user account associated with the process by examining the `user.name` field to determine if the activity is consistent with the user's typical behavior or role.
-- Use Osquery to gather additional context about the process and its parent. For example, run the following Osquery query to list recent processes executed by the same user: `SELECT pid, name, path, cmdline, parent FROM processes WHERE uid = (SELECT uid FROM users WHERE username = '<username>') ORDER BY start_time DESC LIMIT 10;`
-- Analyze system logs and other security tools for any related or preceding suspicious activity involving the same user or process, which might indicate a broader attack pattern.
-- Check for any network connections initiated by the process or its parent using network monitoring tools or logs to identify potential data exfiltration or command-and-control activity.
-- Review file system changes around the time of the alert, focusing on any files accessed or modified by the process, to identify potential data tampering or reconnaissance.
-- Correlate the alert with other security events or alerts from the same host or network segment to identify potential coordinated or multi-stage attacks.
-- Consult threat intelligence sources to determine if the observed behavior matches known tactics, techniques, and procedures (TTPs) associated with specific threat actors or malware families.
-
-### False positive analysis
-
-- Legitimate system maintenance scripts: Some system maintenance scripts may use utilities like `tail`, `cmp`, `hexdump`, `xxd`, and `dd` for routine tasks such as log file analysis or data processing. These scripts can trigger the rule if they match the specified arguments. Users can handle these by identifying the specific scripts and adding their parent process names or command lines to the exclusion list.
-- Backup and data migration processes: Automated backup or data migration processes might use these utilities to read or compare large data sets. If these processes are known and trusted, users can exclude them by specifying the parent executable paths or command lines in the exclusion criteria.
-- Security and monitoring tools: Some security tools or monitoring agents might use these utilities to perform legitimate checks on system files or memory. Users should verify the legitimacy of these tools and exclude their parent processes or command lines if they are frequently triggering the rule.
-- Development and testing environments: Developers or testers might use these utilities during debugging or testing phases, especially when working with memory dumps or binary files. Users can exclude specific development tools or scripts by adding their parent process details to the exclusion list.
-- Custom scripts and automation: Organizations often have custom scripts that utilize these utilities for various automation tasks. Users should review these scripts and, if deemed non-threatening, add their parent process names or command lines to the exclusion list to prevent false positives.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation of the suspicious process executions to determine if they were part of a legitimate operation or a potential attack. Review process arguments and parent processes for anomalies.
-- Analyze system logs and network traffic to identify any additional indicators of compromise or lateral movement attempts by the adversary.
-- If malicious activity is confirmed, terminate any unauthorized processes and remove any malicious files or scripts identified during the investigation.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed process execution data, including command-line arguments and parent-child process relationships, to aid in future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for potential threats.
-- Restore the system to its operational state by applying the latest security patches, updating antivirus definitions, and ensuring all security configurations are in place.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Implement hardening measures such as disabling unnecessary utilities, enforcing least privilege access, and conducting regular security audits to reduce the attack surface and prevent similar incidents in the future."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

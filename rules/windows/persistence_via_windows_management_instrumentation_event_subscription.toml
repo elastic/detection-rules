@@ -2,7 +2,7 @@
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/11/02"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -55,49 +55,6 @@ process where host.os.type == "windows" and event.type == "start" and
   process.args : "create" and
   process.args : ("ActiveScriptEventConsumer", "CommandLineEventConsumer")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Persistence via WMI Event Subscription
-
-Windows Management Instrumentation (WMI) allows for system management and monitoring through event subscriptions, which can be exploited by adversaries to maintain persistence. By creating event filters and consumers, attackers can execute code in response to system events. The detection rule identifies suspicious use of `wmic.exe` to create event consumers, signaling potential abuse for persistence.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of `wmic.exe` in the process name or `process.pe.original_file_name` fields, indicating the use of Windows Management Instrumentation Command-line.
-- Examine the `process.args` field to verify the presence of "create" along with "ActiveScriptEventConsumer" or "CommandLineEventConsumer", which suggests the creation of event consumers.
-- Check the `event.type` field to ensure it is marked as "start", indicating the initiation of a process that could be related to persistence mechanisms.
-- Investigate the parent process of `wmic.exe` to determine if it was spawned by a legitimate or suspicious process, which could provide context on how the execution was initiated.
-- Use Osquery to list all WMI event consumers on the system with a query like: `SELECT * FROM wmi_event_consumers;` to identify any suspicious or unauthorized consumers.
-- Cross-reference the timestamp of the alert with other logs or events on the system to identify any correlated activities or anomalies around the same time.
-- Analyze the user account context under which `wmic.exe` was executed to determine if it aligns with expected behavior or if it indicates potential compromise.
-- Review system logs for any additional WMI-related activities or errors that could provide further insight into the persistence mechanism being established.
-- Investigate any network connections or external communications initiated by `wmic.exe` or its parent process to identify potential command and control activities.
-- Check for any recent changes in system configurations or scheduled tasks that might have been altered to facilitate persistence through WMI event subscriptions.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators may use `wmic.exe` to create event consumers for legitimate monitoring and automation purposes. These activities can trigger the detection rule but are not malicious.
-- Software installations and updates: Some software installations or updates might use WMI event subscriptions as part of their setup or configuration processes, leading to false positives.
-- Monitoring and management tools: Certain IT management tools may utilize WMI event subscriptions to monitor system events, which can be mistaken for malicious activity.
-- To manage false positives, users can create exceptions for known legitimate processes or activities by whitelisting specific command lines or process hashes associated with trusted software and administrative tasks.
-- Regularly review and update the list of exceptions to ensure that only verified non-threatening behaviors are excluded, maintaining a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the scope of the compromise, focusing on WMI event subscriptions and any associated scripts or commands.
-- Terminate any malicious processes identified, particularly those related to `wmic.exe` and suspicious event consumers.
-- Remove unauthorized WMI event subscriptions by using tools like `wevtutil` or PowerShell to list and delete suspicious filters and consumers.
-- Restore the system to a known good state using backups or system restore points, ensuring that all malicious changes are reverted.
-- Implement enhanced logging policies to monitor WMI activity, including event subscription creation and execution, to detect future abuse.
-- Integrate security solutions with SIEM systems to correlate WMI activity with other security events for comprehensive threat detection.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Review and update security policies and procedures to include regular audits of WMI configurations and event subscriptions.
-- Apply system hardening measures, such as restricting WMI access to authorized users and implementing application whitelisting to prevent unauthorized execution of `wmic.exe`."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2020/09/21"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -21,50 +21,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Storage Bucket Permissions Modification"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GCP Storage Bucket Permissions Modification
-
-Google Cloud Platform (GCP) storage buckets are used to store and manage data. Permissions are controlled via IAM policies, which define who can access or modify resources. Adversaries may exploit these permissions to gain unauthorized access or expose sensitive data. The detection rule monitors audit logs for successful changes to bucket permissions, signaling potential security risks or misconfigurations.
-
-### Possible investigation steps
-
-- Review the audit logs to confirm the event details, focusing on the `event.dataset:gcp.audit` and `event.action:"storage.setIamPermissions"` fields to ensure the alert is valid and corresponds to a permissions change.
-- Identify the user or service account responsible for the permissions modification by examining the `user.name` or `user.email` fields in the audit logs.
-- Determine the specific changes made to the IAM policy by reviewing the `event.outcome:success` field and any associated details about the new permissions granted or removed.
-- Cross-reference the user or service account with known authorized personnel or services to assess if the change was expected or potentially malicious.
-- Investigate the timing of the permissions change to see if it coincides with any other suspicious activities or known incidents.
-- Check the history of permissions changes for the affected storage bucket to identify any patterns or repeated unauthorized modifications.
-- Use Osquery to gather additional context about the environment. For example, run a query to list all current IAM policies for the storage bucket: `SELECT * FROM gcp_iam_policies WHERE resource_name = 'projects/<project-id>/buckets/<bucket-name>';`.
-- Analyze any related network activity or access logs to determine if there was any unauthorized data access following the permissions change.
-- Review any recent changes in the organization's GCP environment or configurations that might explain the permissions modification.
-- Consult with the bucket owner or relevant stakeholders to verify if the permissions change was part of a legitimate business process or project.
-
-### False positive analysis
-
-- Routine administrative tasks: Changes made by authorized personnel during regular maintenance or updates can trigger the rule. To manage this, users can create exceptions for known maintenance windows or specific admin accounts.
-- Automated processes: Scheduled scripts or automated tools that modify bucket permissions as part of their operation may cause false positives. Users should identify these processes and exclude them from the rule by specifying their service accounts.
-- Third-party integrations: Some third-party services require permission changes to function correctly. Users should review and whitelist these services if they are deemed non-threatening.
-- Organizational policy updates: Changes in organizational policies that necessitate permission updates across multiple buckets can be mistaken for suspicious activity. Users can document and exclude these policy-driven changes by correlating them with internal change management records.
-
-### Response and remediation
-
-- Immediately review the IAM policy change to identify the user or service account responsible for the modification and verify if the change was authorized.
-- Revert any unauthorized or suspicious IAM permission changes to their previous state to prevent further unauthorized access.
-- Conduct a thorough investigation to determine if any data was accessed or exfiltrated during the period of unauthorized access.
-- Implement additional logging and monitoring for IAM changes on storage buckets to detect and alert on future unauthorized modifications.
-- Escalate the incident to the security operations team for further analysis and to determine if the incident is part of a larger attack campaign.
-- Review and update IAM policies to ensure the principle of least privilege is enforced, reducing the risk of future unauthorized changes.
-- Conduct a security awareness session with administrators to reinforce the importance of careful IAM policy management and the potential risks of misconfigurations.
-- Integrate with a Security Information and Event Management (SIEM) system to correlate IAM changes with other security events for enhanced threat detection.
-- Restore any affected systems or data to their last known good state if data integrity was compromised during the incident.
-- Implement additional security controls such as multi-factor authentication and conditional access policies to strengthen the security posture of GCP resources.
-
-## Setup
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/storage/docs/access-control/iam-permissions"]

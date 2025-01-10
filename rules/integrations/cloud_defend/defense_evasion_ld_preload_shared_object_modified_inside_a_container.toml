@@ -2,7 +2,7 @@
 creation_date = "2023/06/06"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -34,49 +34,6 @@ type = "eql"
 query = '''
 file where event.module== "cloud_defend" and event.type != "deletion" and file.path== "/etc/ld.so.preload"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Modification of Dynamic Linker Preload Shared Object Inside A Container
-
-The dynamic linker in Linux loads necessary libraries for programs at runtime, with the `ld.so.preload` file specifying libraries to load first. Adversaries exploit this by redirecting it to malicious libraries, gaining unauthorized access and evading detection. The detection rule identifies suspicious modifications to this file within containers, signaling potential hijacking attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event.module is "cloud_defend" and the event.type is not "deletion" to ensure the alert is relevant to the modification of the ld.so.preload file.
-- Verify the file path in the alert to confirm it is "/etc/ld.so.preload" to ensure the correct file is being investigated.
-- Check the timestamp of the modification event to determine when the suspicious activity occurred.
-- Identify the container ID or name where the modification took place to focus the investigation on the specific container environment.
-- Investigate the user or process that initiated the modification by examining the user.id and process.name fields in the alert data.
-- Use Osquery to list all processes running in the container at the time of the modification with a query like: `SELECT pid, name, path FROM processes WHERE container_id = '<container_id>';`
-- Examine the contents of the modified /etc/ld.so.preload file to identify any suspicious or unauthorized libraries being loaded.
-- Cross-reference the libraries listed in the modified ld.so.preload file with known malicious libraries or hashes to assess potential threats.
-- Review recent logs and events from the container for any other suspicious activities or anomalies around the time of the modification.
-- Investigate any network connections or data transfers initiated by the container around the time of the modification to identify potential data exfiltration or command and control activities.
-
-### False positive analysis
-
-- Routine updates or legitimate software installations within a container might modify the `ld.so.preload` file as part of their normal operation, leading to false positives. Users should verify if the modification aligns with known update or installation activities.
-- Some containerized applications may intentionally use the `ld.so.preload` mechanism for performance optimization or compatibility reasons. Users can create exceptions for these specific applications by identifying their typical behavior patterns and excluding them from the rule.
-- Automated configuration management tools or scripts that manage library paths might inadvertently trigger this rule. Users should review these tools' activities and whitelist them if they are confirmed to be non-malicious.
-- In development environments, developers might modify the `ld.so.preload` file for testing purposes. Users can exclude these environments from the rule or set up alerts to be less sensitive during known development periods.
-- To manage false positives, users can implement a monitoring period to establish a baseline of normal behavior, then adjust the rule to exclude these patterns while maintaining vigilance for truly suspicious activities.
-
-### Response and remediation
-
-- Immediately isolate the affected container to prevent further unauthorized access or execution of malicious code.
-- Conduct a thorough investigation to identify any malicious libraries specified in the /etc/ld.so.preload file and assess the extent of the compromise.
-- Remove any unauthorized or malicious entries from the /etc/ld.so.preload file and replace them with legitimate libraries if necessary.
-- Review container logs and system logs to trace the source of the modification and identify any other potentially compromised containers or systems.
-- Escalate the incident to the security operations team for further analysis and to determine if the attack is part of a broader campaign.
-- Restore the container from a known good backup or image to ensure the system is free from any malicious modifications.
-- Implement stricter access controls and monitoring on critical files like /etc/ld.so.preload to prevent unauthorized modifications in the future.
-- Enhance logging policies to capture detailed events related to file modifications and access within containers, integrating with SIEM solutions for real-time alerting.
-- Conduct a security review of container configurations and apply hardening measures, such as using read-only file systems and minimizing privileges.
-- Educate and train staff on recognizing and responding to similar threats, leveraging MITRE ATT&CK framework details to understand adversary techniques and tactics."""
 
 
 [[rule.threat]]

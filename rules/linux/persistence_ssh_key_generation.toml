@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/05/31"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +15,7 @@ tool to move laterally across a network or maintain persistence by generating un
 access to systems.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*", "endgame-*"]
+index = ["logs-endpoint.events.file*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "SSH Key Generated via ssh-keygen"
@@ -29,6 +31,7 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -38,49 +41,6 @@ file where host.os.type == "linux" and event.action in ("creation", "file_create
 process.executable == "/usr/bin/ssh-keygen" and file.path : ("/home/*/.ssh/*", "/root/.ssh/*", "/etc/ssh/*") and
 not file.name : "known_hosts.*"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating SSH Key Generated via ssh-keygen
-
-SSH keys, created using the ssh-keygen tool, are essential for secure authentication in Linux environments. While typically used for legitimate access to remote systems, adversaries can exploit this by generating unauthorized keys, enabling lateral movement or persistence. The detection rule monitors key creation events in critical directories, flagging potential misuse by excluding known benign files.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the event action is either "creation" or "file_create_event" and verify the process executable is "/usr/bin/ssh-keygen" to ensure the alert is valid.
-- Check the file path where the SSH key was created, ensuring it matches one of the critical directories: "/home/*/.ssh/*", "/root/.ssh/*", or "/etc/ssh/*".
-- Investigate the user account associated with the SSH key creation event to determine if the activity aligns with their typical behavior or if it appears suspicious.
-- Examine the timestamp of the SSH key creation to identify if it occurred during unusual hours or coincides with other suspicious activities.
-- Use Osquery to list all SSH keys in the system and identify any unauthorized or unexpected keys. Example query: `SELECT * FROM file WHERE path LIKE '/home/%/.ssh/id_%' OR path LIKE '/root/.ssh/id_%' OR path LIKE '/etc/ssh/ssh_host_%';`
-- Cross-reference the SSH key creation event with recent login attempts or successful logins to determine if the key has been used for unauthorized access.
-- Analyze system logs for any other unusual activities or errors around the time of the SSH key creation to gather additional context.
-- Check for any recent changes to the SSH configuration files in "/etc/ssh/" that might indicate tampering or preparation for unauthorized access.
-- Investigate any other processes or commands executed by the same user around the time of the SSH key creation to identify potential malicious behavior.
-- Review network logs for any outbound connections from the host that could suggest data exfiltration or communication with a command and control server.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators often generate SSH keys for legitimate purposes, such as setting up automated scripts or configuring new servers. These activities can trigger the rule but are non-threatening. Users can manage these by creating exceptions for specific user accounts or directories known to be used by administrators.
-- Automated deployment tools: Tools like Ansible, Puppet, or Chef may generate SSH keys as part of their deployment processes. These are typically benign and can be excluded by identifying the specific processes or service accounts involved in these operations.
-- Backup and recovery operations: Some backup solutions may create SSH keys to facilitate secure data transfer between systems. Users should identify these operations and exclude them from the rule by specifying the associated file paths or process names.
-- Development and testing environments: Developers may frequently generate SSH keys for testing purposes. To handle these, users can exclude specific development environments or user accounts from the rule.
-- Known benign scripts: If there are scripts or applications that are known to generate SSH keys as part of their normal operation, users can create exceptions for these by specifying the script names or paths in the exclusion list.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Verify the legitimacy of the SSH key creation by checking the user account associated with the key and confirming with the account owner.
-- Review system logs and SSH access logs to identify any unauthorized access attempts or successful logins using the newly created SSH key.
-- Remove any unauthorized SSH keys from the affected directories and change passwords for any compromised accounts.
-- Conduct a thorough scan of the system for any additional signs of compromise, such as unexpected processes or network connections.
-- Escalate the incident to the security operations team if unauthorized access is confirmed, providing them with all relevant logs and findings.
-- Implement enhanced logging policies to capture detailed SSH key creation events and monitor for any future unauthorized key generation.
-- Integrate with a Security Information and Event Management (SIEM) system to correlate SSH key creation events with other suspicious activities across the network.
-- Restore the system to its operational state by ensuring all unauthorized changes are reverted and applying any necessary security patches.
-- Harden the system by enforcing strict SSH key management policies, such as using key expiration and limiting key usage to specific IP addresses."""
 
 
 [[rule.threat]]

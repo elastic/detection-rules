@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/08"
+updated_date = "2024/11/02"
 
 [rule]
 author = ["Elastic"]
@@ -47,48 +47,6 @@ process where host.os.type == "windows" and event.type == "start" and
   process.args : "sdset" and process.args : "*D;*" and
   process.args : ("*;IU*", "*;SU*", "*;BA*", "*;SY*", "*;WD*")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Service DACL Modification via sc.exe
-
-Service Control Manager (SCM) in Windows manages service configurations, including their Discretionary Access Control Lists (DACLs). Adversaries may exploit `sc.exe` to alter DACLs, restricting access to services, making them unmanageable or hidden. The detection rule identifies such modifications by monitoring `sc.exe` executions with specific arguments indicative of DACL changes, signaling potential defense evasion tactics.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of `sc.exe` execution with the `sdset` argument, which indicates a potential DACL modification attempt.
-- Examine the `process.args` field to identify the specific DACL string used, focusing on patterns like `*D;*` and permissions such as `*;IU*`, `*;SU*`, `*;BA*`, `*;SY*`, and `*;WD*` to understand the intended access changes.
-- Check the `process.name` and `process.pe.original_file_name` fields to ensure the process is indeed `sc.exe` and not a masquerading executable.
-- Investigate the parent process of `sc.exe` to determine if it was launched by a legitimate application or a suspicious process.
-- Correlate the event with user activity by examining the user context under which `sc.exe` was executed to identify potential unauthorized access.
-- Use Osquery to list all services and their current DACLs to identify any discrepancies or unauthorized changes. Example query: `SELECT name, service_type, start_type, status, path, service_dacl FROM services WHERE path LIKE '%sc.exe%';`
-- Review recent system logs and security events around the time of the alert to identify any related activities or anomalies.
-- Investigate any network connections or file modifications made by `sc.exe` during the time of the alert to uncover potential lateral movement or data exfiltration attempts.
-- Check for any other alerts or indicators of compromise on the host that may suggest a broader attack campaign.
-- Document all findings and maintain a timeline of events to assist in understanding the scope and impact of the potential security incident.
-
-### False positive analysis
-
-- Legitimate administrative tasks: System administrators may use `sc.exe` to modify service DACLs for valid reasons, such as configuring service permissions during system setup or maintenance. These actions can trigger the detection rule but are not malicious.
-- Automated scripts and software: Some enterprise management tools or scripts might use `sc.exe` to adjust service permissions as part of their normal operation, leading to false positives.
-- Testing environments: In testing or development environments, developers might frequently modify service DACLs to test application behavior, which can be mistaken for suspicious activity.
-- To manage these false positives, users can create exceptions for known administrative accounts or specific scripts that regularly perform these actions. This can be done by excluding certain user accounts or process hashes from the detection rule, ensuring that only unexpected or unauthorized modifications trigger alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or changes.
-- Review the security logs to identify the source and scope of the DACL modification, focusing on the user account and process that executed `sc.exe`.
-- Verify the integrity of the service's DACLs and restore them to their default or intended state using backup configurations or system baselines.
-- Conduct a thorough investigation to determine if any other services or system components have been similarly modified or compromised.
-- Escalate the incident to the security operations center (SOC) or incident response team if unauthorized access or malicious intent is confirmed.
-- Implement enhanced logging policies to capture detailed information on service configuration changes, including command-line arguments and user context.
-- Integrate with a Security Information and Event Management (SIEM) system to correlate events and detect similar patterns of behavior across the network.
-- Apply security patches and updates to the operating system and critical applications to mitigate known vulnerabilities.
-- Educate users and administrators on the risks associated with improper DACL configurations and the importance of maintaining secure service settings.
-- Consider deploying endpoint detection and response (EDR) solutions to monitor and alert on suspicious activities related to service management and DACL modifications."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2021/01/21"
 integration = ["endpoint", "m365_defender"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/10"
 
 [rule]
 author = ["Elastic"]
@@ -43,49 +43,6 @@ registry where host.os.type == "windows" and event.type == "change" and
   /* exclude SYSTEM SID - look for changes by non-SYSTEM user */
   not user.id : "S-1-5-18"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Port Monitor or Print Processor Registration Abuse
-
-Port monitors and print processors are components in Windows that manage print jobs and data formatting. Adversaries exploit these by modifying registry paths to load malicious DLLs during system boot, gaining SYSTEM-level privileges. The detection rule identifies unauthorized registry changes to these paths, excluding those made by the SYSTEM user, to flag potential abuse for privilege escalation or persistence.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific registry path that was modified, focusing on paths related to port monitors and print processors as specified in the query.
-- Verify the user account associated with the registry change by examining the `user.id` field to ensure it is not the SYSTEM user (S-1-5-18), which is excluded in the detection rule.
-- Check the timestamp of the registry modification event to determine when the change occurred and correlate it with other system activities or logs around the same time.
-- Investigate the DLL file specified in the `registry.data.strings` field to determine its legitimacy by checking its file path, digital signature, and any known associations with malicious activity.
-- Use Osquery to list all DLLs currently registered as port monitors or print processors with a query like: `SELECT * FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\%ControlSet%\\\\Control\\\\Print\\\\Monitors\\\\%' OR path LIKE 'HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\%ControlSet%\\\\Control\\\\Print\\\\Environments\\\\Windows%\\\\Print Processors\\\\%';`
-- Cross-reference the identified DLL with threat intelligence databases or malware repositories to check for any known indicators of compromise.
-- Analyze the system's event logs, particularly the Security and System logs, for any suspicious activities or anomalies around the time of the registry change.
-- Investigate the system's startup programs and services to identify any unauthorized or unusual entries that could indicate persistence mechanisms.
-- Conduct a historical review of similar registry changes on the affected host to determine if this is an isolated incident or part of a recurring pattern.
-- If possible, perform a memory analysis on the affected system to detect any in-memory threats or anomalies associated with the suspicious DLL.
-
-### False positive analysis
-
-- Legitimate software installations or updates may modify print processor or port monitor registry paths, leading to false positives. Users should verify if the changes coincide with known software updates or installations.
-- Printer driver updates or installations can also trigger this rule. Users should check if the registry changes align with recent printer-related activities.
-- Some enterprise environments may have custom print solutions that modify these registry paths as part of their normal operation. Users can create exceptions for these known applications by identifying their specific user IDs or paths.
-- System administrators performing maintenance or configuration changes might inadvertently cause registry modifications. Users should ensure that such activities are documented and can be correlated with the detected changes.
-- To manage false positives, users can implement exceptions by excluding specific user IDs, paths, or known benign DLLs from the detection rule, ensuring that these exceptions are regularly reviewed and updated as necessary.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Verify the unauthorized registry changes by comparing with a known good baseline and identify the malicious DLLs involved.
-- Terminate any suspicious processes associated with the malicious DLLs to prevent further execution.
-- Remove or revert the unauthorized registry changes to their original state to disable the persistence mechanism.
-- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malware.
-- Review user accounts and permissions to ensure that only authorized users have the necessary privileges to modify critical registry paths.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to monitor registry changes and DLL loads, ensuring that logs are forwarded to a centralized logging solution for analysis.
-- Integrate threat intelligence feeds to correlate detected activities with known threat actor tactics, techniques, and procedures (TTPs) for improved detection and response.
-- Apply system hardening measures, such as disabling unnecessary services and enforcing least privilege principles, to reduce the attack surface and prevent similar threats in the future."""
 
 
 [[rule.threat]]

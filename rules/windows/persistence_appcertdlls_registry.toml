@@ -4,7 +4,7 @@ integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defende
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 
 [rule]
 author = ["Elastic"]
@@ -40,49 +40,6 @@ registry where host.os.type == "windows" and event.type == "change" and
     "MACHINE\\SYSTEM\\*ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*"
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Registry Persistence via AppCert DLL
-
-AppCert DLLs are dynamic link libraries that can be configured to load into every process that uses certain API functions, providing a mechanism for legitimate software to extend or modify process behavior. However, adversaries exploit this by inserting malicious DLLs into the registry path associated with AppCert DLLs, ensuring their code executes whenever a process is created. The detection rule identifies changes to specific registry paths linked to AppCert DLLs, signaling potential unauthorized persistence attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific registry path that triggered the alert, focusing on the `registry.path` field to determine which AppCert DLL path was modified.
-- Check the `event.type` field to confirm that the change event is indeed related to a modification, as this indicates a potential persistence attempt.
-- Use Osquery to list all DLLs currently configured in the AppCertDLLs registry path with a query like: `SELECT * FROM registry WHERE path LIKE 'HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\%ControlSet%\\\\Control\\\\Session Manager\\\\AppCertDLLs\\\\%'`.
-- Investigate the timestamp of the registry change to correlate it with other system events or user activities that occurred around the same time.
-- Examine the system's event logs, particularly the Security and System logs, for any suspicious activities or anomalies that coincide with the registry change.
-- Identify the user account associated with the registry change by reviewing the `user.name` field in the alert, and investigate the user's recent activities and access patterns.
-- Check for any known malicious or suspicious DLLs by comparing the modified DLLs against threat intelligence databases or using a malware analysis tool.
-- Investigate the parent process that initiated the registry change by correlating process creation events with the timestamp of the registry modification.
-- Review network activity logs for any unusual outbound connections or data transfers that might suggest communication with a command and control server.
-- Conduct a historical search for similar registry changes on the host or across the network to determine if this is an isolated incident or part of a broader pattern.
-
-### False positive analysis
-
-- Legitimate software installations or updates may modify the AppCert DLL registry paths as part of their normal operation, leading to false positives. Users should verify if the changes coincide with known software updates or installations.
-- Security software or system management tools might also interact with these registry paths to enhance security or manage system configurations, which can trigger alerts. Users can create exceptions for these trusted applications to reduce noise.
-- Custom enterprise applications developed in-house may use AppCert DLLs for legitimate process management purposes. It's important to document these applications and exclude their known behaviors from triggering alerts.
-- Regular audits of the registry changes can help identify patterns of benign activity, allowing users to refine detection rules and exclude non-threatening behaviors from being flagged.
-- Users should maintain a whitelist of known good DLLs and their associated registry paths to quickly identify and exclude them from false positive alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of the potential threat.
-- Conduct a thorough investigation to confirm the presence of unauthorized AppCert DLLs by reviewing the registry paths specified in the detection rule.
-- Utilize endpoint detection and response (EDR) tools to identify any additional indicators of compromise (IOCs) related to the AppCert DLL persistence technique.
-- Remove any unauthorized or suspicious DLLs found in the AppCertDLLs registry path and restore the registry to its previous state if possible.
-- Perform a comprehensive malware scan on the affected system to identify and remove any additional malicious software.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to monitor changes to critical registry paths and integrate with a security information and event management (SIEM) system for real-time alerts.
-- Review and update endpoint protection policies to prevent unauthorized modifications to the registry and ensure that all systems are running the latest security patches.
-- Educate users on recognizing and reporting suspicious activities to reduce the risk of future incidents.
-- Consider implementing application whitelisting to prevent unauthorized DLLs from being loaded into processes, thereby hardening the system against similar threats."""
 
 
 [[rule.threat]]

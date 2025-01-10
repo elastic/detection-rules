@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2024/11/04"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 updated_date = "2025/01/08"
 
 [rule]
@@ -11,7 +13,7 @@ This rule identifies when a web server is spawned via Python. Attackers may use 
 exfiltrate/infiltrate data or to move laterally within a network.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Web Server Spawned via Python"
@@ -49,65 +51,23 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  (process.name like "python*" and process.args in ("http.server", "SimpleHTTPServer")) or
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
   (
-    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-    process.command_line like~ "*python* -m http.server*"
+    (process.name like "python*" and process.args in ("http.server", "SimpleHTTPServer")) or
+    (
+      process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+      process.command_line like~ "*python* -m http.server*"
+    )
   )
-)
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Web Server Spawned via Python
-
-Python's built-in HTTP server module allows quick web server deployment, often used for testing or file sharing. Adversaries exploit this by launching servers to exfiltrate data or facilitate lateral movement. The detection rule identifies such activity by monitoring process executions on Linux systems, specifically looking for Python or shell commands initiating HTTP servers, indicating potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name and arguments, ensuring they match the criteria for spawning a web server via Python.
-- Check the user account associated with the process execution to determine if it aligns with expected behavior or if it might be compromised.
-- Investigate the parent process of the Python or shell command to understand how the web server was initiated and if it was part of a larger script or command sequence.
-- Examine the network connections on the host to identify any unusual outbound connections that could indicate data exfiltration.
-- Use Osquery to list all active network listeners on the host to verify if the Python web server is currently running:
-  ```sql
-  SELECT pid, name, port, address FROM listening_ports WHERE pid IN (SELECT pid FROM processes WHERE name LIKE 'python%');
-  ```
-- Analyze the command line arguments of the process to determine the specific directory being served, which could provide insight into the data being accessed or shared.
-- Review system logs for any recent login attempts or changes in user permissions that could suggest unauthorized access.
-- Correlate the alert with other security events or alerts from the same host or user to identify potential patterns or related activities.
-- Investigate any recent file modifications or creations in the directory being served by the web server to identify potential data staging or tampering.
-- Check for any scheduled tasks or cron jobs that might have been set up to automate the execution of the Python web server, indicating a persistent threat.
-
-### False positive analysis
-
-- Development and testing environments often use Python's built-in HTTP server for legitimate purposes, such as serving static files or testing web applications, which can trigger false positives.
-- System administrators or developers may use Python's HTTP server for quick file sharing within a secure network, leading to benign alerts.
-- Automated scripts or CI/CD pipelines might spawn temporary web servers for testing purposes, which could be mistaken for malicious activity.
-- To manage these false positives, users can create exceptions for known development or testing environments by excluding specific hostnames or IP addresses from the detection rule.
-- Users can also whitelist certain user accounts or process execution paths that are known to frequently and legitimately use Python's HTTP server.
-- Regularly review and update the exclusion list to ensure it aligns with current operational practices and does not inadvertently allow malicious activity.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further data exfiltration or lateral movement.
-- Investigate the process execution details, including the user account that initiated the server, to determine if it was authorized or malicious.
-- Review system logs and network traffic to identify any data that may have been exfiltrated or any other systems that may have been accessed.
-- Terminate the unauthorized Python web server process to stop any ongoing malicious activity.
-- Conduct a thorough scan of the system for any additional malicious scripts or tools that may have been deployed by the attacker.
-- Reset credentials and review permissions for the user account involved to prevent further unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and network activity for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Apply system hardening measures, such as disabling unnecessary services and enforcing the principle of least privilege, to reduce the attack surface."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

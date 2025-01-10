@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2024/06/03"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 updated_date = "2025/01/08"
 
 [rule]
@@ -13,7 +15,7 @@ by attackers to establish persistence by creating a backdoor, or escalate privil
 system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*", "endgame-*"]
+index = ["logs-endpoint.events.process*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Capability Set via setcap Utility"
@@ -53,64 +55,19 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Privilege Escalation",
     "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
 process.name == "setcap" and not (
   process.parent.executable == null or
   process.parent.executable : ("/var/lib/dpkg/*", "/var/lib/docker/*", "/tmp/newroot/*", "/var/tmp/newroot/*") or 
   process.parent.name in ("jem", "vzctl")
 )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Process Capability Set via setcap Utility
-
-The `setcap` utility in Linux assigns specific capabilities to executables, allowing them to perform privileged tasks without full root access. While beneficial for security, adversaries can exploit `setcap` to maintain persistence or escalate privileges by misconfiguring binaries. The detection rule identifies suspicious `setcap` usage by monitoring process execution, excluding benign parent processes, to flag potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name is "setcap" and the event type is "start" with actions "exec" or "exec_event".
-- Verify the parent process executable path and name to ensure it is not in the excluded list (e.g., "/var/lib/dpkg/*", "/var/lib/docker/*", "/tmp/newroot/*", "/var/tmp/newroot/*", "jem", "vzctl").
-- Check the user context under which the "setcap" command was executed to determine if it aligns with expected administrative activities.
-- Investigate the specific capabilities that were set by the "setcap" command to assess if they are necessary and appropriate for the binary.
-- Use Osquery to list all files with capabilities set on the system to identify any other potentially suspicious binaries:
-  ```sql
-  SELECT path, capabilities FROM file WHERE capabilities IS NOT NULL;
-  ```
-- Examine the command-line arguments used with "setcap" to understand the intent and scope of the capability changes.
-- Cross-reference the timestamp of the "setcap" execution with other system logs to identify any correlated suspicious activities.
-- Investigate the history of the binary on which capabilities were set to determine if it has been recently modified or replaced.
-- Review user activity logs around the time of the "setcap" execution to identify any anomalous behavior or unauthorized access.
-- Assess the system for any signs of persistence mechanisms or privilege escalation attempts that may have been established using the modified binary.
-
-### False positive analysis
-
-- Known false positives for the Process Capability Set via setcap Utility rule often arise from legitimate administrative tasks where system administrators use `setcap` to configure capabilities for system binaries or custom applications. These actions are typically benign and part of routine system maintenance.
-- Another source of false positives can be automated scripts or configuration management tools that use `setcap` as part of their deployment or configuration processes. These tools might run regularly and trigger the detection rule.
-- To manage these false positives, users can create exceptions for specific parent processes or paths that are known to be safe. For instance, if a particular script or tool frequently uses `setcap` and is verified to be non-malicious, its parent process name or executable path can be added to the exclusion list.
-- Users should regularly review and update the exclusion list to ensure it reflects the current environment and does not inadvertently allow malicious activity. This involves monitoring for any changes in legitimate processes that use `setcap` and adjusting the rule accordingly.
-- It's important to maintain a balance between reducing false positives and ensuring that potential threats are not overlooked. Regular audits and reviews of the exceptions can help maintain this balance.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the attacker.
-- Conduct a thorough investigation to identify the scope of the compromise, focusing on any binaries with altered capabilities and reviewing recent `setcap` command executions.
-- Remove any unauthorized capabilities set on binaries by using the `setcap` command to reset them to their default state.
-- Review and update user permissions and access controls to ensure that only authorized personnel can modify capabilities on executables.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging for process execution and `setcap` usage to improve detection of similar activities in the future.
-- Integrate security information and event management (SIEM) solutions to correlate events and provide better visibility into potential threats.
-- Restore the system to its operational state by verifying the integrity of critical system files and reinstalling any compromised software from trusted sources.
-- Apply system hardening measures, such as disabling unnecessary services and enforcing the principle of least privilege, to reduce the attack surface.
-- Educate users and administrators on the risks associated with misconfigured capabilities and the importance of maintaining secure configurations."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,7 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -55,48 +55,6 @@ process where host.os.type == "windows" and event.type == "start" and
                                "?:\\Windows\\System32\\inetsrv\\w3wp.exe")
          )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential DLL Side-Loading via Trusted Microsoft Programs
-
-DLL side-loading exploits the DLL search order to load malicious code into trusted Microsoft programs, which are often whitelisted by security tools. Adversaries rename or relocate these programs to execute unauthorized DLLs. The detection rule identifies unusual execution paths or renamed instances of known vulnerable programs, flagging potential evasion attempts by checking against expected file names and paths.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name and executable path that triggered the alert, focusing on the `process.name` and `process.executable` fields.
-- Verify the legitimacy of the process by checking the `process.pe.original_file_name` against known trusted Microsoft programs such as "WinWord.exe", "EXPLORER.EXE", "w3wp.exe", and "DISM.EXE".
-- Investigate the parent process that initiated the suspicious process using the `process.parent.name` and `process.parent.executable` fields to determine if it is a legitimate or expected parent.
-- Check the file path of the executable using the `process.executable` field to see if it matches any non-standard or unexpected paths that deviate from the typical installation directories.
-- Use Osquery to list all DLLs loaded by the suspicious process to identify any unusual or unauthorized DLLs. Example query: `SELECT pid, name, path FROM processes JOIN process_open_sockets USING (pid) WHERE name = '<suspicious_process_name>';`
-- Examine the file creation and modification timestamps of the suspicious executable and any associated DLLs to identify any recent changes that could indicate tampering.
-- Cross-reference the hash of the suspicious executable and DLLs with known malware databases or threat intelligence sources to check for known malicious signatures.
-- Analyze the network activity associated with the suspicious process using network monitoring tools to identify any unusual or unauthorized connections.
-- Review system logs and security events around the time of the alert to gather additional context and identify any related suspicious activities.
-- Consult with other team members or departments to determine if there are any legitimate reasons for the process to be running from a non-standard path, such as a recent software update or deployment.
-
-### False positive analysis
-
-- Legitimate software updates or installations may temporarily execute trusted Microsoft programs from non-standard paths, triggering false positives. Users can handle these by monitoring update schedules and creating temporary exceptions during known update windows.
-- Custom enterprise applications might use renamed instances of trusted Microsoft programs for legitimate purposes, such as compatibility or integration needs. Users should document these instances and create exceptions for known benign paths or renamed executables.
-- Virtual environments or sandboxed applications may execute trusted programs from non-standard paths as part of their isolation mechanisms. Users can identify these environments and exclude their specific paths from the detection rule.
-- Security or IT administrative tools might leverage renamed or relocated trusted programs for legitimate system management tasks. Users should verify the legitimacy of these tools and add them to an exception list if they are deemed non-threatening.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat.
-- Conduct a thorough investigation to confirm the presence of unauthorized DLLs by analyzing the process execution paths and comparing them against known trusted paths.
-- Utilize endpoint detection and response (EDR) tools to identify any additional systems that may exhibit similar suspicious behavior.
-- Remove or quarantine any identified malicious DLLs and restore the original trusted Microsoft program files to their correct paths and names.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if the threat actor has established persistence or lateral movement.
-- Implement enhanced logging policies to capture detailed process execution and file access events, ensuring that future anomalies can be detected more efficiently.
-- Integrate threat intelligence feeds to update detection rules and improve the identification of known malicious DLLs and associated tactics.
-- Restore the system to its operational state by applying the latest security patches and updates to all software, particularly focusing on the affected Microsoft programs.
-- Conduct a post-incident review to identify gaps in the current security posture and update security policies and procedures accordingly.
-- Implement hardening measures such as application whitelisting, restricting DLL loading paths, and educating users on recognizing and reporting suspicious activity."""
 
 
 [[rule.threat]]

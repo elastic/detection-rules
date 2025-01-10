@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/06/18"
 
 [rule]
 anomaly_threshold = 50
@@ -83,47 +83,4 @@ rule_id = "17e68559-b274-4948-ad0b-f8415bb31126"
 severity = "low"
 tags = ["Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning"]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Network Destination Domain Name
-
-Machine learning models analyze network traffic to identify domain names that deviate from typical patterns, flagging potential threats. Adversaries exploit this by using rare domains for malicious activities like phishing or command-and-control. The detection rule identifies these anomalies, alerting analysts to investigate potential security incidents.
-
-### Possible investigation steps
-
-- Review the alert details to identify the unusual domain name and the associated network activity, including timestamps and source IP addresses.
-- Cross-reference the unusual domain name with threat intelligence databases to check for any known associations with malicious activities.
-- Analyze the network traffic logs to determine the volume and frequency of requests to the unusual domain, looking for patterns that may indicate automated or scripted activity.
-- Investigate the source IP address to identify the device or user responsible for the network request, using asset management systems or endpoint detection and response (EDR) tools.
-- Use Osquery to gather additional context from the affected endpoint. For example, run the following query to list recent DNS queries made by the device: `SELECT name, COUNT(name) AS query_count FROM dns_queries GROUP BY name ORDER BY query_count DESC LIMIT 10;`
-- Check the endpoint's process execution logs to identify any suspicious processes that may have initiated the network request to the unusual domain.
-- Examine user activity logs to determine if the user associated with the source IP address engaged in any unusual behavior, such as clicking on phishing links or downloading suspicious files.
-- Review email logs for the user to identify any recent phishing attempts that may have led to the network request to the unusual domain.
-- Analyze any related alerts or incidents in the security information and event management (SIEM) system to identify potential correlations or patterns with other suspicious activities.
-- Consult with other analysts or teams to gather additional insights or context that may aid in understanding the significance of the unusual domain name and its potential impact.
-
-### False positive analysis
-
-- Legitimate business applications or services may use uncommon domain names for updates or communication, leading to false positives. Users should verify the domain's legitimacy and consider adding it to an allowlist if it is deemed safe.
-- Newly registered domains for legitimate purposes, such as marketing campaigns or new product launches, might trigger alerts. Users can monitor these domains for a period to ensure they are not associated with malicious activity before excluding them.
-- Internal development or testing environments often use unique domain names that could be flagged. Users should document these environments and exclude their domains from the detection rule to prevent unnecessary alerts.
-- Third-party services or APIs that are not widely recognized might be misidentified as threats. Users should confirm the service's authenticity and functionality, then create exceptions for these domains if they are verified as non-threatening.
-- Temporary or one-time use domains for legitimate purposes, such as event registrations or surveys, may cause false positives. Users should assess the context and frequency of access to these domains and exclude them if they are determined to be safe.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further communication with the suspicious domain.
-- Conduct a thorough investigation of the system to identify any malicious processes or files, focusing on indicators of initial access, persistence, command-and-control, or exfiltration activities.
-- Analyze network logs and DNS queries to determine the scope of the incident and identify any other systems that may have communicated with the unusual domain.
-- Remove any identified malware or unauthorized software from the affected system and ensure all security patches are up to date.
-- Change passwords and credentials that may have been compromised during the incident.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat appears to be part of a larger attack campaign.
-- Implement enhanced logging and monitoring policies to capture detailed network and DNS activity for future investigations.
-- Integrate threat intelligence feeds to improve detection of rare or suspicious domains in real-time.
-- Restore the system to its operational state by verifying the integrity of critical files and applications, and ensure all security measures are re-enabled.
-- Apply system hardening measures, such as disabling unnecessary services and enforcing least privilege access, to reduce the attack surface and prevent future incidents."""
 

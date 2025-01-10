@@ -2,7 +2,7 @@
 creation_date = "2023/07/14"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -42,49 +42,6 @@ sequence by user.name, source.port, source.ip with maxspan=15s
   winlog.event_data.ShareName in ("\\\\*\\ADMIN$", "\\\\*\\C$") and 
   source.ip != null and source.ip != "0.0.0.0" and source.ip != "::1" and source.ip != "::" and source.ip != "127.0.0.1"]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Network Share Discovery
-
-Network shares allow users to access files and resources across systems, facilitating collaboration. However, adversaries exploit this by scanning for shared folders, especially administrative shares, to gather intelligence or move laterally within a network. The detection rule identifies suspicious access attempts to default administrative shares from non-local IPs, signaling potential reconnaissance or lateral movement activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the `user.name`, `source.ip`, and `source.port` involved in the suspicious access attempt to the administrative shares.
-- Verify the legitimacy of the `source.ip` by checking if it belongs to a known and trusted network segment or if it is an external or unexpected internal IP address.
-- Cross-reference the `user.name` with organizational records to determine if the user should have access to the targeted network shares.
-- Check historical logs for previous access attempts from the same `source.ip` or `user.name` to identify patterns or repeated suspicious behavior.
-- Use Osquery to gather more information about the system associated with the `source.ip`. For example, run the following query to list active network connections: `SELECT * FROM process_open_sockets WHERE remote_address = '<source.ip>';`
-- Investigate the system associated with the `source.ip` for signs of compromise, such as unusual processes or services running, by using endpoint detection and response (EDR) tools.
-- Analyze the timing and frequency of the access attempts to determine if they align with normal user activity or if they occur at unusual times.
-- Check for any recent changes or updates to the system or network configuration that might explain the access attempt.
-- Review any related alerts or logs from other security tools that might provide additional context or corroborate the suspicious activity.
-- Consult with the user associated with the `user.name` to verify if they initiated the access attempt and if they are aware of any potential security issues.
-
-### False positive analysis
-
-- Routine administrative tasks: Legitimate IT administrators may access administrative shares for maintenance or troubleshooting, which can trigger the rule. To manage this, create exceptions for known administrator IP addresses or user accounts.
-- Automated backup or monitoring systems: These systems often access network shares to perform regular backups or health checks. Identify and exclude these systems by their IP addresses or service accounts to prevent false positives.
-- Software updates and patch management: Some update services may access administrative shares to deploy patches. Recognize these services and exclude their IPs or associated user accounts from triggering the rule.
-- Internal security scans: Security tools that perform vulnerability assessments or compliance checks might access network shares. Document these tools and exclude their IPs or user accounts to avoid unnecessary alerts.
-- Development and testing environments: Developers or automated testing scripts might access network shares as part of their workflow. Identify these environments and exclude relevant IPs or user accounts to reduce false positives.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further lateral movement by the adversary.
-- Conduct a thorough investigation to identify the source of the suspicious access attempts, focusing on the non-local IP addresses involved.
-- Review and analyze logs from the affected system and network devices to gather more context on the access attempts and identify any other potentially compromised systems.
-- Change passwords for accounts that were used to access the administrative shares, especially if they have elevated privileges.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement stricter access controls and permissions on network shares, ensuring that only authorized users have access to administrative shares.
-- Enhance logging policies to include detailed auditing of network share access and integrate with a security information and event management (SIEM) system for real-time monitoring.
-- Apply security patches and updates to all systems to mitigate known vulnerabilities that could be exploited for lateral movement.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate users on recognizing and reporting suspicious activities to improve the organization's overall security posture."""
 
 
 [[rule.threat]]

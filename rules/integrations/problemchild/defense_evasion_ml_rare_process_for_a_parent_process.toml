@@ -2,7 +2,7 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -57,49 +57,6 @@ tags = [
     "Tactic: Defense Evasion",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Process Spawned by a Parent Process
-
-In modern security environments, machine learning models are pivotal in identifying anomalies. The detection rule leverages both supervised and unsupervised ML to flag processes that deviate from normal behavior, indicating potential misuse of legitimate tools (LOLBins) by adversaries. By correlating unusual child processes with known malicious patterns, it effectively uncovers stealthy tactics like masquerading, enhancing defense against evasion techniques.
-
-### Possible investigation steps
-
-- Review the alert details to identify the parent and child process names, process IDs, and the timestamp of the event.
-- Cross-reference the parent and child process names against known legitimate and malicious process lists to assess their typical behavior and reputation.
-- Use Osquery to gather additional context about the processes. For example, run the following query to retrieve details about the child process: `SELECT * FROM processes WHERE pid = <child_process_id>;`.
-- Investigate the command line arguments used by the child process to identify any suspicious or unusual parameters that may indicate malicious activity.
-- Check the parent process's historical behavior to determine if spawning the flagged child process is typical or anomalous for this parent.
-- Analyze the user account associated with the process execution to determine if it aligns with expected behavior or if it might be compromised.
-- Examine the network connections established by the child process using Osquery: `SELECT * FROM process_open_sockets WHERE pid = <child_process_id>;` to identify any unusual or unauthorized external communications.
-- Review recent system logs and security events around the time of the alert to identify any correlated activities or anomalies.
-- Investigate any file modifications or registry changes made by the child process to assess potential persistence mechanisms or system alterations.
-- Consult threat intelligence sources to determine if the process behavior or associated indicators of compromise (IOCs) match known attack patterns or campaigns.
-
-### False positive analysis
-
-- Known false positives for the Unusual Process Spawned by a Parent Process rule often involve legitimate administrative tools or scripts that are frequently used in enterprise environments. These tools may be flagged due to their unusual execution patterns or names that resemble known malicious processes.
-- Users can manage these false positives by creating exceptions for processes that are regularly used and verified as safe within their organization. This can be done by maintaining a whitelist of known benign processes or by configuring the detection system to ignore specific parent-child process relationships that are deemed non-threatening.
-- It's important to regularly review and update these exceptions to ensure they reflect current operational practices and do not inadvertently allow new threats to go undetected.
-- In environments where certain processes are known to exhibit behavior similar to LOLBins but are part of routine operations, users should document these cases and adjust the detection thresholds or rules accordingly to minimize unnecessary alerts.
-- Collaboration with IT and security teams is crucial to accurately identify and exclude these benign processes without compromising the overall security posture.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation of the unusual process and its parent process to determine the scope and impact of the activity.
-- Terminate the suspicious process and any associated processes that are confirmed to be malicious.
-- Review and analyze logs to identify any additional indicators of compromise or related suspicious activities.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and action.
-- Implement enhanced logging policies to capture detailed process creation events and network activity for future investigations.
-- Integrate threat intelligence feeds to correlate detected anomalies with known threat patterns and adversary tactics.
-- Restore the system to its operational state by applying necessary patches, updates, and security configurations.
-- Conduct a post-incident review to identify gaps in detection and response capabilities and update security policies accordingly.
-- Apply system hardening measures, such as disabling unnecessary services and enforcing least privilege access controls, to reduce the attack surface."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

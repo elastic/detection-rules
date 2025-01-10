@@ -2,7 +2,7 @@
 creation_date = "2023/08/21"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -49,48 +49,6 @@ process where host.os.type == "windows" and event.type == "start" and
    )
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Bitsadmin Activity
-
-Windows Background Intelligent Transfer Service (BITS) facilitates low-bandwidth file transfers, often used for updates. Adversaries exploit BITS to persistently download and execute malicious payloads, leveraging its ability to operate in the background. The detection rule identifies suspicious BITS usage by monitoring specific command-line arguments in processes like `bitsadmin.exe` and `powershell.exe`, which are indicative of potential abuse.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific process name (`bitsadmin.exe` or `powershell.exe`) and the command-line arguments that triggered the alert. This will help determine the nature of the suspicious activity.
-- Check the process start time and correlate it with other events on the system to identify any unusual patterns or activities around the same time.
-- Investigate the parent process of the suspicious `bitsadmin.exe` or `powershell.exe` process to understand how it was initiated. This can provide insights into whether the process was started by a legitimate application or a potentially malicious script.
-- Examine the user account associated with the process to determine if the activity aligns with the user's typical behavior or if it might indicate compromised credentials.
-- Use Osquery to gather additional context about the process. For example, run the following query to list all BITS jobs on the system: `SELECT * FROM bits_jobs;` This can help identify any ongoing or completed BITS transfers that may be related to the alert.
-- Analyze network connections established by the suspicious process to identify any unusual or unauthorized external communications. This can help determine if data exfiltration or command and control activity is occurring.
-- Review the system's event logs for any additional indicators of compromise or related activities, such as failed login attempts, privilege escalation, or other suspicious processes.
-- Check for any recent file modifications or new files created on the system that could be associated with the suspicious BITS activity, indicating potential payloads or scripts.
-- Investigate any scheduled tasks or startup items that might have been created or modified to persist the malicious activity, especially if the `SetNotifyCmdLine` argument was used.
-- Consult threat intelligence sources to determine if the observed command-line arguments or network indicators match known malicious campaigns or tools, providing further context for the investigation.
-
-### False positive analysis
-
-- Legitimate software updates or patch management systems may trigger the Bitsadmin Activity rule, as they often use BITS for downloading updates, which can be mistaken for malicious activity.
-- System administrators or IT personnel using scripts to automate file transfers or system maintenance tasks might inadvertently match the rule's criteria, leading to false positives.
-- To manage these false positives, users can create exceptions for known and trusted processes or scripts by whitelisting specific command-line arguments or process names that are frequently used in legitimate operations.
-- Regularly review and update the list of exceptions to ensure that only verified and non-threatening activities are excluded, maintaining a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Analyze the process tree and command-line arguments associated with the suspicious BITS activity to understand the scope and intent of the attack.
-- Terminate any malicious processes identified, such as those initiated by bitsadmin.exe or powershell.exe with suspicious arguments.
-- Remove any unauthorized or malicious BITS jobs using the bitsadmin tool or PowerShell cmdlets to prevent further execution.
-- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malware.
-- Review and enhance logging policies to ensure detailed monitoring of BITS activities and PowerShell executions, including command-line arguments.
-- Implement application whitelisting to prevent unauthorized use of bitsadmin.exe and restrict PowerShell script execution to signed scripts only.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems are affected.
-- Restore the system from a known good backup if necessary, ensuring that all security patches and updates are applied.
-- Educate users on recognizing and reporting suspicious activities, and consider conducting a security awareness training session focused on phishing and social engineering tactics."""
 
 
 [[rule.threat]]

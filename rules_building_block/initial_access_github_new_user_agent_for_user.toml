@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -34,49 +34,6 @@ query = '''
 event.dataset:"github.audit" and event.category:"configuration" and
 github.user_agent:* and user.name:*
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating First Occurrence of User-Agent For a GitHub User
-User-Agent strings identify the software acting on behalf of a user, such as browsers or scripts, in GitHub environments. Adversaries may exploit this by using unfamiliar User-Agents to mask unauthorized access. The detection rule identifies new User-Agents associated with GitHub users, flagging potential unauthorized access attempts by comparing against a 14-day history.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific GitHub user and the new User-Agent string that triggered the alert.
-- Cross-reference the User-Agent string with known legitimate User-Agents to determine if it is commonly associated with authorized applications or browsers.
-- Check the GitHub audit logs for any other recent activities associated with the same user to identify any unusual patterns or anomalies.
-- Investigate the IP address associated with the new User-Agent to determine its geolocation and assess if it aligns with the user's typical access patterns.
-- Examine the event timestamps to see if the new User-Agent coincides with any known maintenance or deployment activities that could explain the change.
-- Utilize Osquery to gather additional context from the user's machine, such as running processes or network connections. Example query: `SELECT * FROM processes WHERE name LIKE '%github%' OR path LIKE '%github%';`
-- Review any recent changes in the user's access permissions or roles within the GitHub organization to assess if there have been unauthorized modifications.
-- Check for any recent password changes or multi-factor authentication (MFA) events for the user to determine if there have been attempts to secure the account.
-- Analyze any other security alerts or incidents involving the same user or User-Agent to identify potential correlations or patterns.
-- Consult with the user or relevant team members to verify if the new User-Agent is expected and authorized, documenting any findings for future reference.
-
-### False positive analysis
-
-- Frequent legitimate changes in User-Agent strings can occur due to updates in browsers or scripts used by GitHub users, leading to false positives. 
-- Automated tools or CI/CD systems that regularly update their User-Agent strings might trigger alerts despite being authorized and non-threatening.
-- Users accessing GitHub from different devices or networks may have varying User-Agent strings, which could be mistakenly flagged as suspicious.
-- To manage these false positives, users can create exceptions for known and trusted User-Agent strings that frequently change but are verified as non-malicious.
-- Implementing a whitelist of User-Agent strings associated with specific automated tools or scripts can help reduce unnecessary alerts.
-- Regularly reviewing and updating the list of exceptions based on user behavior and tool updates can help maintain the balance between security and usability.
-
-### Response and remediation
-
-- Immediately isolate the affected user account by disabling access to prevent further unauthorized actions.
-- Conduct a thorough investigation of the new User-Agent string to determine if it is associated with known malicious activity or legitimate changes.
-- Review recent activity logs for the affected user account to identify any suspicious actions or unauthorized access attempts.
-- Reset the credentials for the affected user account and enforce multi-factor authentication to enhance security.
-- Escalate the incident to the security operations team if the investigation reveals signs of a broader compromise or if multiple accounts are affected.
-- Implement enhanced logging policies to capture detailed User-Agent information and other relevant metadata for future analysis.
-- Integrate threat intelligence feeds to correlate User-Agent strings with known threat actors or attack patterns.
-- Restore the system to its operational state by ensuring all unauthorized changes are reverted and security controls are re-enabled.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Apply hardening measures such as regular audits of user access permissions and continuous monitoring of user activity to prevent future incidents."""
 
 
 [[rule.threat]]

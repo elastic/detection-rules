@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "network_traffic"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/06/18"
 
 [rule]
 anomaly_threshold = 50
@@ -79,50 +79,6 @@ tags = [
     "Tactic: Command and Control",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating DNS Tunneling
-DNS tunneling exploits the DNS protocol to covertly transmit data between a compromised system and an attacker-controlled server. Adversaries may use it for stealthy command-and-control or data exfiltration by embedding data within DNS queries. The 'DNS Tunneling' detection rule leverages machine learning to identify anomalies, such as an unusually high volume of DNS queries to a single domain, indicative of potential tunneling activity.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific domain involved in the unusually high volume of DNS queries. Note the domain name and the number of queries.
-- Check the source IP address or host that generated the DNS queries to determine if it is a known or trusted device within the network.
-- Analyze historical DNS logs to identify patterns or trends in DNS query activity from the source IP address. Look for any other unusual or repetitive query patterns.
-- Use network traffic analysis tools to capture and inspect DNS traffic from the source IP address. Look for any encoded data or unusual payloads within the DNS queries.
-- Investigate the domain involved in the alert using threat intelligence sources to determine if it is associated with known malicious activity or DNS tunneling tools.
-- Utilize Osquery to gather additional context from the affected host. For example, run the following Osquery query to list recent DNS queries made by the host:
-  ```sql
-  SELECT name, count FROM dns_cache WHERE name LIKE '%.<suspicious_domain>';
-  ```
-- Check for any running processes on the affected host that may be associated with DNS tunneling tools, such as dnscat or Iodine.
-- Review system logs and security events on the affected host for any signs of compromise or unusual activity around the time of the DNS queries.
-- Correlate the DNS tunneling alert with other security alerts or incidents to determine if it is part of a larger attack campaign or if other systems are affected.
-- Consult with other teams, such as threat intelligence or incident response, to gather additional insights or context about the potential threat and its implications.
-
-### False positive analysis
-
-- High volumes of DNS queries to legitimate content delivery networks (CDNs) or cloud service providers can trigger false positives, as these services often use DNS for load balancing and redundancy. Users can mitigate this by creating exceptions for known CDN or cloud service domains.
-- Internal applications that rely heavily on DNS for service discovery or configuration management might generate a large number of DNS queries, which could be mistaken for tunneling activity. Users should identify and whitelist these internal domains to prevent false alerts.
-- Automated security tools or network monitoring solutions that perform frequent DNS lookups for threat intelligence or domain reputation checks may also cause false positives. Users can exclude these tools' DNS queries from the detection rule to reduce noise.
-- Some legitimate software updates or patch management systems may use DNS queries to check for updates, leading to a high volume of DNS traffic. Users should identify these systems and add them to an exception list to avoid unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further data exfiltration or command-and-control communication.
-- Conduct a thorough investigation of DNS logs to identify the scope of the tunneling activity and determine which domains were queried excessively.
-- Analyze network traffic to identify any additional compromised systems or unusual patterns that may indicate further tunneling or malicious activity.
-- Remove any malicious software or scripts identified during the investigation from the affected system.
-- Change all credentials and access tokens that may have been exposed or compromised during the tunneling activity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are at risk.
-- Implement enhanced DNS logging and monitoring to detect future tunneling attempts, including setting up alerts for high volumes of DNS queries to single domains.
-- Integrate threat intelligence feeds to enrich DNS query data and improve detection of known malicious domains.
-- Restore the affected system to its operational state by applying necessary patches and updates, and ensure all security controls are re-enabled.
-- Harden the network by implementing DNS filtering, restricting outbound DNS traffic to known and trusted servers, and regularly reviewing firewall and proxy configurations."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

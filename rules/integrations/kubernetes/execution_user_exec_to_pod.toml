@@ -2,7 +2,7 @@
 creation_date = "2022/05/17"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -26,50 +26,7 @@ index = ["logs-kubernetes.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Kubernetes User Exec into Pod"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Kubernetes User Exec into Pod
-
-Kubernetes allows users to execute commands within a pod using the 'exec' command, facilitating debugging and management. However, adversaries can exploit this to gain unauthorized shell access, potentially exposing sensitive data. The detection rule identifies such attempts by monitoring audit logs for specific actions, ensuring any unauthorized access is promptly flagged for investigation.
-
-### Possible investigation steps
-
-- Review the audit log entry to confirm the 'exec' command was used by checking the `kubernetes.audit.objectRef.subresource` field for "exec".
-- Verify the `kubernetes.audit.annotations.authorization_k8s_io/decision` field to ensure the action was indeed allowed, indicating a successful execution attempt.
-- Identify the user or service account responsible for the action by examining the `kubernetes.audit.user.username` field.
-- Determine the source IP address of the request using the `kubernetes.audit.sourceIPs` field to assess if it originates from a known or suspicious location.
-- Check the `kubernetes.audit.objectRef.name` field to identify the specific pod targeted by the exec command.
-- Investigate the `kubernetes.audit.verb` field to confirm the action was a "create" operation, indicating a new exec session was initiated.
-- Use Osquery to gather more context about the pod by running a query such as: `SELECT * FROM kubernetes_pods WHERE name = '<pod_name>';` replacing `<pod_name>` with the value from `kubernetes.audit.objectRef.name`.
-- Examine the `kubernetes.audit.metadata.creationTimestamp` to establish a timeline and correlate with other events or alerts.
-- Review the pod's role and permissions to understand the potential impact of unauthorized access, focusing on any secrets or sensitive data it may have access to.
-- Cross-reference the event with other security logs or alerts to identify any related suspicious activities or patterns.
-
-### False positive analysis
-
-- Routine administrative tasks: Regular maintenance or debugging activities by authorized personnel can trigger this rule. To manage this, create exceptions for known administrative accounts or specific namespaces where such activities are expected.
-- Automated scripts: Some automated processes or CI/CD pipelines may use the 'exec' command for legitimate purposes. Identify these scripts and exclude their associated service accounts or IP addresses from triggering alerts.
-- Monitoring and logging tools: Certain monitoring or logging solutions may use 'exec' to gather metrics or logs from pods. Whitelist these tools by their service accounts or specific pod labels to prevent false positives.
-- Development environments: In development or testing environments, developers may frequently use 'exec' for testing purposes. Consider excluding these environments by namespace or label to reduce noise in alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected pod to prevent further unauthorized access and data exposure.
-- Review Kubernetes audit logs to identify the source of the unauthorized 'exec' command and determine the scope of the breach.
-- Revoke any compromised credentials and access tokens associated with the affected pod and user accounts.
-- Conduct a thorough investigation to determine if any sensitive data was accessed or exfiltrated, and document findings for further analysis.
-- Escalate the incident to the security operations team and relevant stakeholders for awareness and additional support.
-- Implement stricter role-based access controls (RBAC) to limit the use of the 'exec' command to only trusted administrators.
-- Enhance logging policies to ensure comprehensive monitoring of all 'exec' command attempts and integrate with a SIEM for real-time alerting.
-- Apply security patches and updates to the Kubernetes environment to address any known vulnerabilities that may have been exploited.
-- Restore the affected pod from a known good backup to ensure system integrity and continuity of operations.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans to improve future resilience.
-
-## Setup
+note = """## Setup
 
 The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
 references = [

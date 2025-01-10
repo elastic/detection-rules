@@ -2,7 +2,7 @@
 creation_date = "2020/11/23"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -45,49 +45,6 @@ registry where host.os.type == "windows" and event.type == "change" and
   /* add suspicious registry ImagePath values here */
   registry.data.strings : ("%COMSPEC%*", "*\\.\\pipe\\*")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious ImagePath Service Creation
-
-Windows services are crucial for running background processes. Adversaries may exploit the ImagePath registry value to persist or escalate privileges by pointing it to malicious executables or scripts. The detection rule monitors changes to this registry path, focusing on unusual patterns like command shells or named pipes, which often indicate malicious intent. This helps identify potential threats early in the attack lifecycle.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the registry path and data that triggered the alert, focusing on the `registry.path` and `registry.data.strings` fields.
-- Check the `host.os.type` to ensure the alert is relevant to a Windows system, as the rule is designed for Windows environments.
-- Investigate the `event.type` to verify that the change event is consistent with a suspicious modification, indicating a potential threat.
-- Use Osquery to list all services and their ImagePath values on the affected host to identify any other unusual entries. Example query: `SELECT name, image_path FROM services WHERE image_path LIKE '%\\\\pipe\\\\%' OR image_path LIKE '%COMSPEC%';`
-- Examine the process creation logs around the time of the registry change to identify any processes that might have been responsible for the modification.
-- Correlate the suspicious ImagePath with any known malicious executables or scripts by checking threat intelligence sources or databases.
-- Investigate the user account context under which the registry change was made to determine if it aligns with expected behavior or if it indicates potential compromise.
-- Review recent login events on the affected host to identify any unusual or unauthorized access patterns that could be related to the suspicious service creation.
-- Check for any network connections initiated by the suspicious service, especially those involving named pipes, to identify potential lateral movement or data exfiltration attempts.
-- Analyze any related file modifications or creations in the system directories that could be associated with the suspicious ImagePath, looking for signs of tampering or unauthorized files.
-
-### False positive analysis
-
-- Legitimate software installations or updates may modify the ImagePath registry value, triggering the rule. Users should verify if the change aligns with recent software activities.
-- System administrators might create or modify services for maintenance or configuration purposes, which could be flagged. It's important to confirm if these actions were authorized and expected.
-- Some security tools or monitoring software may use command shells or named pipes in their operations, leading to false positives. Users can create exceptions for these known tools by specifying their paths or signatures.
-- Automated scripts or deployment tools that configure services might also be detected. Users should review these scripts and, if deemed safe, exclude them from monitoring by adding their specific patterns to the exception list.
-- Regularly review and update the exception list to ensure it reflects the current environment and excludes only verified non-threatening behaviors.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent lateral movement and further compromise.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on the suspicious ImagePath registry changes.
-- Review recent service creations and modifications in the registry to identify any unauthorized or malicious entries.
-- Remove or disable any malicious services identified during the investigation to prevent further execution.
-- Restore the system to a known good state using backups or system restore points, ensuring that no malicious services are reintroduced.
-- Implement enhanced logging policies to capture detailed registry changes and service creation events for future analysis.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and detect similar threats in real-time.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Conduct a post-incident review to identify gaps in security controls and update policies and procedures to prevent similar incidents.
-- Apply system hardening measures, such as restricting permissions on critical registry paths and disabling unnecessary services, to reduce the attack surface."""
 
 
 [[rule.threat]]

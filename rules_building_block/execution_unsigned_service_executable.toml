@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -38,49 +38,6 @@ process.parent.executable:"C:\\Windows\\System32\\services.exe" and
 (process.code_signature.exists:false or process.code_signature.trusted:false) and
 not process.code_signature.status : (errorCode_endpoint* or "errorChaining")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Execution of an Unsigned Service
-
-The Service Control Manager (SCM) in Windows manages the execution of system services. Adversaries exploit SCM to run unsigned executables, potentially deploying malware or gaining elevated privileges. The detection rule identifies such activities by monitoring processes initiated by SCM, specifically those lacking valid code signatures, thus flagging potential security threats.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, including the timestamp, host information, and the specific unsigned executable that was initiated.
-- Verify the parent process by checking if `process.parent.executable` is indeed "C:\\\\Windows\\\\System32\\\\services.exe" to confirm the involvement of the Service Control Manager.
-- Examine the `process.code_signature.exists` and `process.code_signature.trusted` fields to determine if the executable lacks a signature or if the signature is untrusted.
-- Investigate the process's command line arguments and execution path to identify any anomalies or suspicious patterns.
-- Use Osquery to gather additional context about the process. For example, run the following query to list all running services and their associated executables: `SELECT name, path, state FROM services WHERE path LIKE 'C:\\\\Windows\\\\System32\\\\%' AND NOT signed;`
-- Check the system's event logs for any related entries around the time of the alert to identify any preceding or subsequent suspicious activities.
-- Investigate the network connections of the host during the time of the alert to identify any unusual outbound or inbound traffic.
-- Review the user account context under which the unsigned service was executed to assess if it aligns with expected behavior or if it indicates potential privilege escalation.
-- Correlate the alert with other security events or alerts from the same host to identify patterns or a broader attack campaign.
-- Consult threat intelligence sources to determine if the unsigned executable or its hash is associated with known malware or threat actors.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger this rule if the executable lacks a valid code signature. Users should verify the source and purpose of the executable before excluding it.
-- Custom or in-house applications often lack code signatures. Organizations should maintain a list of trusted internal applications and exclude them from the rule.
-- Some open-source or freeware applications may not be signed. Users should assess the risk and consider excluding these applications if they are deemed safe and necessary for business operations.
-- In development environments, unsigned executables are common. Users can create exceptions for specific development machines or directories to reduce noise.
-- To manage false positives, users can create exceptions by adding specific hashes, paths, or process names to an allowlist, ensuring that only verified and trusted unsigned executables are excluded.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malware.
-- Verify the unsigned service's legitimacy by cross-referencing with known software inventories and contacting the software vendor if necessary.
-- Terminate the suspicious process and any related processes to halt malicious activity.
-- Conduct a thorough investigation of the system to identify any additional indicators of compromise, such as unusual network connections or file modifications.
-- Review system logs and security alerts to determine the initial vector of compromise and assess the scope of the incident.
-- Restore the system from a known good backup if the integrity of the system is compromised and ensure all patches and updates are applied.
-- Implement enhanced logging policies to capture detailed process execution and service creation events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities and provide context for alerts.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is part of a larger attack campaign or if sensitive data is at risk.
-- Apply system hardening measures, such as enforcing strict code signing policies, disabling unnecessary services, and implementing least privilege access controls to reduce the attack surface."""
 
 
 [[rule.threat]]

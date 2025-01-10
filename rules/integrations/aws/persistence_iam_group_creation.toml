@@ -2,7 +2,7 @@
 creation_date = "2020/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -23,50 +23,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS IAM Group Creation"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS IAM Group Creation
-
-AWS IAM groups streamline permission management by allowing multiple users to inherit group-assigned permissions. Adversaries may exploit this by creating unauthorized groups to escalate privileges or maintain persistence. The detection rule monitors successful group creation events in AWS CloudTrail, flagging potential misuse by correlating specific IAM actions with known threat tactics.
-
-### Possible investigation steps
-
-- Review the CloudTrail logs to confirm the `event.action:CreateGroup` and `event.outcome:success` to ensure the alert is valid and not a false positive.
-- Identify the `userIdentity` field in the CloudTrail logs to determine which IAM user or role initiated the group creation.
-- Check the `event.time` field to establish the exact time of the group creation and correlate it with any other suspicious activities around the same timeframe.
-- Investigate the `requestParameters.groupName` to understand the naming convention and assess if it aligns with the organization's standard naming practices.
-- Examine the `sourceIPAddress` and `userAgent` fields to identify the origin of the request and determine if it was made from an unusual location or device.
-- Use AWS IAM console or CLI to list the members of the newly created group and verify if any unauthorized users have been added.
-- Review the permissions and policies attached to the new group to assess if they grant excessive or sensitive permissions that could be exploited.
-- Cross-reference the `userIdentity` with recent IAM activity logs to check for any other unusual or unauthorized actions performed by the same user or role.
-- Utilize Osquery to further investigate by running a query such as `SELECT * FROM aws_iam_groups WHERE group_name = '<group_name>';` to gather more details about the group and its configurations.
-- Check for any recent changes in IAM policies or configurations that might indicate an attempt to cover tracks or escalate privileges.
-
-### False positive analysis
-
-- Routine administrative tasks: Legitimate IAM group creation by system administrators for organizational purposes can trigger the rule. To manage this, users can create exceptions for known administrative accounts or specific time frames when such activities are expected.
-- Automated processes: Some organizations use automated scripts or tools to manage IAM groups, which may lead to frequent group creation events. Users can exclude these processes by identifying and filtering out the specific IAM roles or user accounts associated with these automated tasks.
-- Third-party integrations: Certain third-party services or applications may require the creation of IAM groups as part of their setup or operation. Users should review and whitelist these services by correlating the group creation events with known application behavior and excluding them from alerts.
-- Testing environments: In environments where IAM group creation is part of regular testing or development activities, users can exclude specific AWS accounts or regions dedicated to testing to reduce noise from non-threatening group creation events.
-
-### Response and remediation
-
-- Immediately review the IAM group creation event in AWS CloudTrail to verify if it was authorized or potentially malicious.
-- Identify the user or service that initiated the group creation and assess their activity for any other suspicious actions.
-- If unauthorized, disable the newly created IAM group and revoke any permissions associated with it to prevent privilege escalation.
-- Conduct a thorough investigation of the IAM policies attached to the group to ensure no sensitive permissions were granted.
-- Escalate the incident to the security operations team if the group creation is linked to known threat actors or tactics, such as those outlined in MITRE ATT&CK T1136.
-- Implement additional logging and monitoring for IAM activities to detect similar unauthorized actions in the future.
-- Review and update IAM policies to enforce the principle of least privilege, ensuring users and groups have only the permissions necessary for their roles.
-- Integrate AWS CloudTrail logs with a Security Information and Event Management (SIEM) system for enhanced threat detection and correlation.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Educate and train staff on recognizing and reporting suspicious IAM activities to improve organizational awareness and response capabilities.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

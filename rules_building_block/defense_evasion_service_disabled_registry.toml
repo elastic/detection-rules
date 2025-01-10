@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -44,49 +44,6 @@ registry where host.os.type == "windows" and event.type == "change" and
     )
   and not registry.path : "HKLM\\SYSTEM\\ControlSet001\\Services\\MrxSmb10\\Start"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Service Disabled via Registry Modification
-
-Windows services are crucial for system operations, often configured via the registry. Adversaries may alter service start settings to disable security tools, evading detection. This detection rule identifies unauthorized registry changes to service start values, excluding legitimate modifications by services.exe. It focuses on changes indicating potential tampering, alerting analysts to possible defense evasion tactics.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific registry path and data strings involved in the modification, focusing on paths like "HKLM\\\\SYSTEM\\\\*ControlSet*\\\\Services\\\\*\\\\Start".
-- Verify the process responsible for the registry change by examining the process name and user ID, ensuring it is not "services.exe" with user ID "S-1-5-18".
-- Check the event logs for any recent changes to the registry path "HKLM\\\\SYSTEM\\\\*ControlSet*\\\\Services\\\\*\\\\Start" to identify patterns or repeated attempts.
-- Investigate the user account associated with the registry change to determine if it has a history of suspicious activity or if it has been compromised.
-- Use Osquery to gather more information about the service in question. For example, run the query: `SELECT name, start_type, path FROM services WHERE name = '<ServiceName>';` to check the current configuration and status of the service.
-- Cross-reference the timestamp of the registry change with other security events or logs to identify any correlated activities, such as logins or file modifications.
-- Analyze the system for any other unauthorized registry changes or anomalies that might indicate broader tampering or compromise.
-- Investigate the network activity from the host around the time of the registry change to identify any suspicious outbound connections or data exfiltration attempts.
-- Review any recent software installations or updates on the host that might have inadvertently or maliciously altered service configurations.
-- Consult threat intelligence sources to determine if the observed behavior matches known tactics, techniques, and procedures (TTPs) associated with specific threat actors or malware campaigns.
-
-### False positive analysis
-
-- Legitimate software updates or installations may modify service start settings, triggering the rule. Users can handle these by identifying the specific update processes and adding them to an exception list.
-- System administrators may intentionally change service configurations for maintenance or optimization purposes. To manage this, document and exclude these known administrative activities from triggering alerts.
-- Some third-party management tools might alter service start values as part of their normal operation. Users should verify these tools' behavior and exclude them if they are deemed non-threatening.
-- Automated scripts or scheduled tasks that modify service settings for legitimate reasons can also cause false positives. Users should review these scripts and tasks, ensuring they are authorized, and exclude them from detection.
-- In environments with custom security policies, certain service modifications might be routine. Users should map these policies and create exceptions for expected changes to avoid unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized changes or potential lateral movement by the adversary.
-- Conduct a thorough investigation to identify the process responsible for the registry modification, focusing on any suspicious processes other than services.exe.
-- Review recent changes in the registry and correlate them with known malicious patterns or behaviors using threat intelligence sources.
-- Restore the modified registry settings to their original state, ensuring that critical security and monitoring services are re-enabled.
-- Escalate the incident to the security operations center (SOC) or incident response team if the modification is linked to a known threat actor or campaign.
-- Implement enhanced logging policies to capture detailed registry changes and process activities, ensuring that future unauthorized modifications are detected promptly.
-- Integrate additional security tools, such as endpoint detection and response (EDR) solutions, to improve visibility and response capabilities.
-- Conduct a security audit of the affected system to identify and remediate any other potential vulnerabilities or misconfigurations.
-- Educate users and administrators on the importance of maintaining secure configurations and monitoring for unauthorized changes.
-- Apply hardening measures, such as restricting registry access to authorized processes and users, to prevent similar incidents in the future."""
 
 
 [[rule.threat]]

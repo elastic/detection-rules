@@ -2,7 +2,7 @@
 creation_date = "2023/09/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -74,53 +74,6 @@ sequence with maxspan=1m
                    "*Common\\..\\..\\BuildTools\\*"))
   ] by process.parent.entity_id
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Execution via MS VisualStudio Pre/Post Build Events
-
-Microsoft Visual Studio allows developers to automate tasks using pre/post build events, which execute commands during the build process. Adversaries can exploit this by injecting malicious commands into these events, executing them under the guise of legitimate development activities. The detection rule identifies suspicious command executions linked to Visual Studio builds, focusing on unusual parent-child process relationships and command arguments, while excluding known benign patterns, to flag potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to understand the specific process and parent process involved, focusing on `process.name`, `process.parent.name`, and `process.args` fields to identify the command executed and its context.
-- Examine the `process.entity_id` and `process.parent.entity_id` to trace the process lineage and determine if there are any unusual or unexpected parent-child relationships.
-- Check the `process.command_line` for any suspicious or unexpected command arguments that could indicate malicious activity.
-- Investigate the file path in `process.args` to verify if it matches known temporary file patterns or if it appears suspicious, such as residing in unusual directories.
-- Use Osquery to gather additional context about the processes involved. For example, run the following query to list all processes executed by MSBuild.exe:
-  ```sql
-  SELECT pid, name, path, cmdline, parent FROM processes WHERE parent = (SELECT pid FROM processes WHERE name = 'MSBuild.exe');
-  ```
-- Analyze the execution history of the involved processes by reviewing logs or using endpoint detection tools to identify any patterns or anomalies in their behavior.
-- Cross-reference the involved executable paths against known good or whitelisted paths to identify any deviations that could suggest tampering or unauthorized modifications.
-- Investigate the user account associated with the process execution to determine if it aligns with expected usage patterns or if it could be compromised.
-- Review any recent changes or commits to the Visual Studio project files to identify potential unauthorized modifications to pre/post build events.
-- Correlate the alert with other security events or alerts in the environment to identify if this is part of a broader attack campaign or isolated incident.
-
-### False positive analysis
-
-- Known false positives may arise from legitimate development activities where Visual Studio projects use pre/post build events for automation, such as running scripts for deployment or configuration tasks.
-- Developers often use scripts like PowerShell or batch files in build events for tasks like copying files, setting environment variables, or generating resources, which can trigger the detection rule.
-- Frequent non-threatening behaviors include executing scripts related to version control operations, package management, or custom build tools that are part of the development workflow.
-- Users can handle these false positives by creating exceptions for specific command patterns or script paths that are known to be safe and part of the regular build process.
-- Excluding known benign patterns, such as those involving common development tools or scripts, can reduce noise and focus on truly suspicious activities.
-- It's important to regularly review and update the list of exceptions to ensure that new legitimate activities are not mistakenly flagged as threats.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Conduct a thorough investigation to identify the scope of the compromise, focusing on the Visual Studio project files and build scripts for unauthorized modifications.
-- Review and analyze the process execution logs to trace the origin of the malicious commands and identify any additional compromised systems.
-- Remove any unauthorized or suspicious pre/post build event scripts from the Visual Studio projects and restore them from a known good backup if necessary.
-- Apply patches and updates to Visual Studio and related development tools to mitigate any known vulnerabilities that could be exploited.
-- Implement strict access controls and permissions for Visual Studio projects to limit the ability to modify build scripts to authorized personnel only.
-- Enhance logging and monitoring by enabling detailed process creation and command-line logging to detect similar activities in the future.
-- Integrate security tools with SIEM solutions to correlate alerts and automate responses to suspicious activities related to build processes.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate developers and IT staff on secure coding practices and the risks associated with build process manipulation to prevent future incidents."""
 
 
 [[rule.threat]]

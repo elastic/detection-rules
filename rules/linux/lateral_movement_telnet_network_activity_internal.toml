@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/08"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -88,48 +88,6 @@ sequence by process.entity_id
     )
   ]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Connection to Internal Network via Telnet
-
-Telnet is a protocol offering command-line access to remote systems, often used for network device management. However, its lack of encryption makes it vulnerable to interception and misuse by adversaries for lateral movement within a network. The detection rule identifies Telnet connections to private IP ranges, signaling potential unauthorized access attempts, aligning with MITRE ATT&CK's lateral movement tactics.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of a Telnet connection to a private IP address, focusing on the `process.entity_id`, `destination.ip`, and `event.type` fields.
-- Verify the legitimacy of the Telnet process by checking the `process.name` and `host.os.type` fields to ensure it matches expected behavior for the system.
-- Use Osquery to gather additional context about the Telnet process by running a query such as: `SELECT * FROM processes WHERE name = 'telnet';` to retrieve details like the process ID, user, and command line arguments.
-- Investigate the source and destination IP addresses involved in the connection to determine if they belong to known or trusted devices within the network.
-- Check historical logs for previous Telnet connections from the same source IP to identify patterns or repeated unauthorized access attempts.
-- Analyze user activity associated with the Telnet process by reviewing login records and user sessions to identify any anomalies or unauthorized access.
-- Correlate the Telnet activity with other network traffic logs to identify any concurrent suspicious activities or lateral movement attempts.
-- Examine the system's security configuration and patch levels to assess if vulnerabilities could have been exploited to initiate the Telnet connection.
-- Review firewall and network access control logs to determine if there were any changes or anomalies that could have facilitated the Telnet connection.
-- Consult with system administrators or network engineers to verify if the Telnet connection was part of any scheduled maintenance or legitimate administrative task.
-
-### False positive analysis
-
-- Telnet connections initiated by network administrators for legitimate device management tasks can trigger false positives. Users can handle these by creating exceptions for known administrator IP addresses or specific devices frequently accessed for maintenance.
-- Automated scripts or monitoring tools that use Telnet for routine checks on network devices may also be flagged. To manage this, users can whitelist the IP addresses or process names associated with these scripts.
-- Internal testing environments that simulate network conditions using Telnet might be mistakenly identified as threats. Users should consider excluding IP ranges or hostnames associated with these testing environments.
-- Legacy systems that rely on Telnet for communication within a secure network segment could generate false positives. Users can mitigate this by defining exceptions for these systems, ensuring they are monitored through other security measures.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the Telnet connection, including reviewing logs and network traffic for any suspicious activity.
-- Terminate any unauthorized Telnet sessions and disable Telnet services on the affected system to prevent future misuse.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response.
-- Implement network segmentation to limit access to critical systems and reduce the risk of lateral movement.
-- Enhance logging and monitoring by enabling detailed logging for Telnet and other remote access protocols, and integrate with a security information and event management (SIEM) system for real-time analysis.
-- Apply security patches and updates to the affected system and any other vulnerable systems to mitigate known vulnerabilities.
-- Conduct a security audit of the affected system to identify and remediate any additional security weaknesses.
-- Restore the system to its operational state by verifying the integrity of system files and configurations, and ensure that all security measures are in place.
-- Implement hardening measures such as disabling unused services, enforcing strong authentication mechanisms, and using encrypted protocols for remote access to prevent future incidents."""
 
 
 [[rule.threat]]

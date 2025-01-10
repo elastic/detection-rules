@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/08"
+updated_date = "2024/10/28"
 
 
 [rule]
@@ -140,49 +140,6 @@ event.category:process and host.os.type:windows and
   ) and
   not user.id : ("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating PowerShell Script with Discovery Capabilities
-
-PowerShell is a powerful scripting language and automation framework used in Windows environments for system administration. Adversaries exploit its capabilities to gather information about the system, network, and domain, such as user accounts, network configurations, and installed software. The detection rule identifies suspicious PowerShell activity by monitoring specific cmdlets and methods indicative of reconnaissance efforts, while excluding benign processes and trusted user accounts.
-
-### Possible investigation steps
-
-- Review the alert details to understand which specific PowerShell cmdlet or method triggered the detection, focusing on the `powershell.file.script_block_text` field for context.
-- Check the `user.id` field to identify the user account associated with the PowerShell activity and determine if it is a known or trusted account.
-- Investigate the `event.category:process` to gather information about the parent process and any related child processes to understand the context of the PowerShell execution.
-- Examine the `host.os.type:windows` field to confirm the operating system and ensure the environment aligns with expected configurations.
-- Use Osquery to gather additional context about the system. For example, run the following query to list all running processes and their command-line arguments: `SELECT pid, name, path, cmdline FROM processes WHERE name LIKE '%powershell%';`
-- Cross-reference the PowerShell script block text with known benign scripts or administrative tasks to rule out false positives.
-- Analyze network logs to identify any unusual outbound connections or data exfiltration attempts that may correlate with the PowerShell activity.
-- Review recent changes to the system, such as new software installations or updates, that might explain the PowerShell activity.
-- Check for any other security alerts or logs related to the same user or system to identify potential patterns or additional suspicious behavior.
-- Consult threat intelligence sources to determine if the detected PowerShell activity matches known attack patterns or indicators of compromise.
-
-### False positive analysis
-
-- **System Administration Tasks**: Legitimate system administrators often use PowerShell cmdlets for routine tasks such as checking system configurations, user accounts, and network settings. These activities can trigger the rule. To manage this, create exceptions for known administrator accounts or specific cmdlets used in regular maintenance.
-- **Automated Scripts and Tools**: Some automated scripts or third-party tools may use PowerShell for legitimate discovery activities, such as inventory management or system monitoring. Identify these scripts and tools, and exclude their specific processes or user accounts from the rule.
-- **Security Software Operations**: Security software may use PowerShell to gather system information for protection purposes. Exclude processes associated with trusted security software to prevent false positives.
-- **Software Updates and Installations**: During software updates or installations, PowerShell may be used to check system compatibility or configurations, which can be mistaken for reconnaissance. Exclude known update processes or installation scripts from the rule.
-- **Development and Testing Environments**: Developers and testers might use PowerShell to simulate various scenarios, including discovery activities. Consider excluding user accounts or processes associated with development and testing environments to reduce false positives.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation of the PowerShell script execution to determine the scope and intent of the activity, focusing on the cmdlets and methods used.
-- Review user account activity and permissions to identify any unauthorized access or privilege escalation attempts.
-- Remove any malicious scripts or files identified during the investigation and ensure that all unauthorized changes are reverted.
-- Apply security patches and updates to the operating system and installed software to mitigate known vulnerabilities.
-- Implement enhanced logging policies to capture detailed PowerShell activity, including script block logging and transcription.
-- Integrate security solutions such as SIEM or EDR to improve detection and response capabilities for similar threats in the future.
-- Educate users on recognizing phishing attempts and suspicious activities to reduce the risk of initial compromise.
-- Restore the system to its operational state by verifying the integrity of critical system files and configurations.
-- Harden the system by disabling unnecessary services, enforcing strong password policies, and implementing network segmentation to limit lateral movement."""
 
 [[rule.filters]]
 [rule.filters.meta]

@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 min_stack_version = "8.13.0"
-updated_date = "2025/01/08"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -64,49 +64,6 @@ file where host.os.type == "linux" and event.type == "creation" and process.exec
 file.path like~ ("/lib/ld-linux*.so*", "/lib64/ld-linux*.so*", "/usr/lib/ld-linux*.so*", "/usr/lib64/ld-linux*.so*") and
 not process.name in ("dockerd", "yum", "dnf", "microdnf", "pacman")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Dynamic Linker (ld.so) Creation
-
-The dynamic linker, ld.so, is crucial in Linux environments for loading shared libraries required by executables. Adversaries may exploit this by replacing it with a malicious version to execute unauthorized code, bypassing security measures. The detection rule identifies suspicious creation of ld.so files, excluding legitimate processes, to flag potential threats and prevent system binary proxy execution abuses.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the file path matches the suspicious patterns ("/lib/ld-linux*.so*", "/lib64/ld-linux*.so*", "/usr/lib/ld-linux*.so*", "/usr/lib64/ld-linux*.so*") and verify the event type is "creation".
-- Check the process that created the file by examining the `process.executable` field to determine if it is a known legitimate process or potentially malicious.
-- Investigate the `process.name` to ensure it is not one of the excluded legitimate processes such as "dockerd", "yum", "dnf", "microdnf", or "pacman".
-- Use Osquery to gather more information about the process that created the file. Example query: `SELECT * FROM processes WHERE pid = <process_id>;` where `<process_id>` is the ID of the process that triggered the alert.
-- Examine the parent process of the suspicious process to understand the process hierarchy and identify any potential anomalies or unexpected parent-child relationships.
-- Check the file metadata, including creation and modification timestamps, to determine if the timing aligns with any known legitimate activities or scheduled tasks.
-- Investigate the user account associated with the process that created the file to determine if it has the necessary permissions and if the activity is consistent with the user's typical behavior.
-- Review recent system logs and audit logs for any other suspicious activities or anomalies around the time of the file creation event.
-- Analyze network activity from the host to identify any unusual outbound connections or data transfers that may indicate malicious behavior.
-- Correlate the alert with other security events or alerts from the same host or network segment to identify potential patterns or coordinated attacks.
-
-### False positive analysis
-
-- Routine system updates or package installations may trigger the rule as package managers like `apt`, `yum`, or `dnf` could create or update the dynamic linker as part of their operations. These processes are generally safe and can be excluded by adding them to the exception list if they are not already included.
-- Custom scripts or administrative tasks that involve rebuilding or updating system libraries might also lead to the creation of ld.so files. If these scripts are verified as safe, their associated processes can be added to the exclusion list to prevent false positives.
-- Automated configuration management tools such as Ansible, Puppet, or Chef might deploy or update ld.so files as part of their configuration tasks. Users should verify these actions and consider excluding these tools from the detection rule if they are part of regular, secure operations.
-- Development environments where developers frequently compile and test new versions of system libraries may inadvertently trigger the rule. In such cases, it is advisable to exclude specific development processes or paths that are known to be safe.
-- To manage these false positives, users can regularly review and update the exclusion list in the detection rule to include any new legitimate processes that are identified during routine operations. This helps in maintaining a balance between security and operational efficiency.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Verify the integrity of the dynamic linker (ld.so) by comparing it with a known good version from a trusted source or backup.
-- Conduct a thorough investigation to identify the source of the malicious ld.so creation, including reviewing logs and process execution history.
-- Remove the malicious ld.so file and replace it with a legitimate version from a trusted source.
-- Perform a comprehensive scan of the system for additional signs of compromise, such as unauthorized user accounts or other modified binaries.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Implement enhanced logging policies to capture detailed process execution and file creation events for future investigations.
-- Integrate threat intelligence feeds and endpoint detection and response (EDR) solutions to improve detection capabilities for similar threats.
-- Restore the system to its operational state by applying security patches, updating software, and ensuring all security configurations are hardened.
-- Educate users and administrators on the importance of monitoring system binaries and the risks associated with unauthorized modifications."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

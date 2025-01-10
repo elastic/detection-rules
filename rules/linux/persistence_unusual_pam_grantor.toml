@@ -2,7 +2,7 @@
 creation_date = "2024/03/06"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/07/23"
 
 [rule]
 author = ["Elastic"]
@@ -46,49 +46,6 @@ query = '''
 event.category:authentication and host.os.type:linux and event.action:authenticated and event.outcome:success and
 auditd.data.grantors:(* and not (pam_rootok or *pam_cap* or *pam_permit*))
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Authentication via Unusual PAM Grantor
-
-Pluggable Authentication Modules (PAM) are integral to Linux systems, managing authentication tasks. Adversaries may exploit uncommon PAM grantors to escalate privileges or maintain persistence by altering default configurations. The detection rule identifies successful authentications using atypical PAM grantors, signaling potential unauthorized modifications and aligning with MITRE ATT&CK's persistence tactics.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific PAM grantor involved in the authentication event and cross-reference it with known legitimate PAM modules.
-- Examine the `event.category`, `host.os.type`, `event.action`, and `event.outcome` fields to confirm the context of the authentication event and ensure it aligns with the alert criteria.
-- Check the `auditd.data.grantors` field to identify the exact grantor used and determine if it is part of any known or expected configurations.
-- Investigate the user account associated with the authentication event to determine if it is a legitimate user or potentially compromised.
-- Use Osquery to list all PAM modules and configurations on the affected host to identify any unauthorized or unusual entries. Example query: `SELECT * FROM pam_modules;`
-- Review recent changes to PAM configuration files, such as `/etc/pam.d/`, to identify any unauthorized modifications or additions.
-- Analyze system logs, such as `/var/log/auth.log` or `/var/log/secure`, for any other suspicious authentication attempts or related activities around the time of the alert.
-- Correlate the event with other security alerts or logs to identify any patterns or additional indicators of compromise.
-- Investigate the source IP address and geolocation associated with the authentication event to determine if it originates from a known or suspicious location.
-- Consult with system administrators or users to verify if any legitimate changes were made to the PAM configuration that could explain the unusual grantor usage.
-
-### False positive analysis
-
-- Certain legitimate applications or services may use custom PAM modules for authentication, which could trigger this rule. For example, specialized software that requires unique authentication methods might not use standard PAM grantors.
-- System administrators might intentionally configure non-standard PAM modules for enhanced security or specific operational needs, leading to false positives.
-- To manage these false positives, users can create exceptions for known and trusted PAM grantors by updating the detection rule to exclude these specific modules.
-- Regularly review and update the list of exceptions to ensure that only verified and non-threatening behaviors are excluded, maintaining the integrity of the detection process.
-- Collaborate with IT and security teams to document and understand the use of any non-standard PAM modules within the organization to accurately adjust the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the source and scope of the compromise, focusing on recent changes to PAM configurations and unusual user activity.
-- Review and analyze authentication logs to identify any unauthorized access attempts or successful authentications using unusual PAM grantors.
-- Revert any unauthorized changes to the PAM configuration files to their default state to ensure only legitimate authentication methods are used.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed authentication events and PAM module usage for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate unusual PAM activity with known threat actor tactics.
-- Restore the system to its operational state by applying verified backups and ensuring all security patches and updates are installed.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Harden the system by implementing least privilege access controls, regular audits of PAM configurations, and continuous monitoring for unusual authentication patterns."""
 
 
 [[rule.threat]]

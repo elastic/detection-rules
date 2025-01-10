@@ -2,7 +2,7 @@
 creation_date = "2024/01/15"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/07/18"
 
 [rule]
 author = ["Elastic"]
@@ -67,49 +67,6 @@ event.action in ("connection_attempted", "ipv4_connection_attempt_event") and pr
   )
 ) 
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Network Connection via Sudo Binary
-
-The 'sudo' command in Linux allows users to execute commands with elevated privileges, typically as the root user. Adversaries may exploit this by injecting malicious code into processes running with these privileges, potentially establishing unauthorized network connections. The detection rule identifies unusual network activity initiated by 'sudo', excluding common internal IP ranges, to flag potential privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name is "sudo" and verify the event type is "start" with actions "connection_attempted" or "ipv4_connection_attempt_event".
-- Check the destination IP address to ensure it is not within the excluded internal IP ranges, indicating a potential external connection.
-- Investigate the command line arguments used with the "sudo" process to identify any suspicious or unexpected commands that may have been executed.
-- Examine the user account associated with the "sudo" command to determine if the account has a history of legitimate use or if it might be compromised.
-- Use Osquery to gather additional context on the process by running a query such as: `SELECT * FROM processes WHERE name = 'sudo';` to retrieve details about the process, including its parent process and command line.
-- Analyze the parent process of the "sudo" command to understand the context in which it was executed and identify any potential anomalies.
-- Review recent authentication logs to check for unusual login attempts or successful logins around the time the "sudo" command was executed.
-- Investigate network logs to identify any other unusual or unauthorized network connections from the host around the same time as the alert.
-- Check for any recent changes to the system's sudoers file that might allow unauthorized users to execute commands with elevated privileges.
-- Correlate the alert with other security events or alerts from the same host to identify any patterns or additional indicators of compromise.
-
-### False positive analysis
-
-- **Administrative Scripts**: Some legitimate administrative scripts or tools may use 'sudo' to initiate network connections for system updates or configuration management. Users can handle these by identifying and excluding specific scripts or processes that are known to perform these actions regularly.
-- **Monitoring and Management Tools**: Network monitoring or management tools that require elevated privileges might trigger this rule. Users should review and whitelist these tools if they are verified to be safe and necessary for operations.
-- **Backup and Synchronization Services**: Services that perform backups or data synchronization might use 'sudo' to access network resources. Users can create exceptions for these services by specifying their process names or network destinations.
-- **Custom Internal Applications**: In some environments, custom applications may be designed to run with elevated privileges and initiate network connections. Users should document these applications and exclude them from the rule to prevent false positives.
-- **Testing and Development Environments**: Developers or testers might use 'sudo' to simulate network connections for testing purposes. Users can manage these by setting up separate rules or exceptions for known testing environments or IP ranges.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the source and scope of the intrusion, focusing on logs related to the 'sudo' command and network connections.
-- Terminate any suspicious processes that were initiated by 'sudo' and verify the integrity of system binaries and configurations.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if other systems are affected.
-- Review and enhance logging policies to ensure comprehensive monitoring of privileged command executions and network activities.
-- Implement additional security measures such as multi-factor authentication for privileged accounts and regular audits of sudoers files.
-- Restore the system from a known good backup if necessary, ensuring that all security patches and updates are applied.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate users and administrators on recognizing and reporting suspicious activities, emphasizing the importance of maintaining secure practices.
-- Consider deploying endpoint detection and response (EDR) solutions to improve visibility and response capabilities for future incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

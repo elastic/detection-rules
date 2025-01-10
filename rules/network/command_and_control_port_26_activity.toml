@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -36,49 +36,6 @@ type = "query"
 query = '''
 (event.dataset: (network_traffic.flow or zeek.smtp) or event.category:(network or network_traffic)) and network.transport:tcp and destination.port:26
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating SMTP on Port 26/TCP
-
-SMTP, typically operating on port 25, is crucial for email transmission. However, port 26 is often used to avoid conflicts or restrictions on port 25. Adversaries exploit this by using port 26 for covert command and control, as seen with the BadPatch malware. The detection rule identifies suspicious activity by monitoring TCP traffic on port 26, focusing on network flow and SMTP-related events, thus helping to uncover potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of SMTP traffic on TCP port 26 by examining the `destination.port` field.
-- Analyze the `event.dataset` field to determine if the traffic is associated with `network_traffic.flow` or `zeek.smtp`, which can provide insights into the nature of the traffic.
-- Check the `event.category` field for values like `network` or `network_traffic` to understand the context of the event.
-- Investigate the source and destination IP addresses involved in the alert to identify any known malicious actors or unusual communication patterns.
-- Use network flow data to assess the volume and frequency of SMTP traffic on port 26, looking for anomalies or spikes in activity.
-- Correlate the alert with other security events or logs to identify any related suspicious activities or patterns.
-- Examine historical data to determine if this behavior is new or part of a recurring pattern, which might indicate a persistent threat.
-- Utilize Osquery to gather additional context from the affected systems. For example, run the following Osquery query to check for processes listening on port 26: `SELECT pid, name, path FROM processes WHERE pid IN (SELECT pid FROM listening_ports WHERE port = 26 AND protocol = 'tcp');`
-- Investigate any associated user accounts or credentials that may have been used in the communication to identify potential compromise or misuse.
-- Consult threat intelligence sources to check for any known indicators of compromise (IOCs) related to the IP addresses, domains, or other artifacts observed in the alert.
-
-### False positive analysis
-
-- Legitimate mail transfer agents: Some organizations use port 26 for legitimate email traffic to avoid conflicts with port 25. This can result in false positives when these agents are detected by the rule.
-- Internal testing environments: Development or testing environments may use port 26 for SMTP traffic, leading to benign alerts.
-- Network misconfigurations: Misconfigured network devices or services might inadvertently use port 26, triggering the rule without malicious intent.
-- To manage these false positives, users can create exceptions for known IP addresses or domains associated with legitimate mail transfer agents or internal environments.
-- Regularly review and update the list of exceptions to ensure that only verified non-threatening behaviors are excluded from detection.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further command and control communication.
-- Conduct a thorough investigation of the network traffic logs to identify any other systems that may be communicating over port 26.
-- Utilize endpoint detection and response (EDR) tools to scan the affected system for the presence of BadPatch malware or any other suspicious activity.
-- Remove any identified malware from the affected system using updated antivirus or anti-malware tools.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the compromise.
-- Implement enhanced logging policies to capture detailed network traffic and SMTP-related events for future investigations.
-- Integrate threat intelligence feeds to update detection rules and improve the identification of similar threats in the future.
-- Restore the system to its operational state by applying the latest security patches and updates, and ensure all security configurations are properly set.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Implement network segmentation and access controls to limit the use of non-standard ports and reduce the attack surface."""
 
 
 [[rule.threat]]

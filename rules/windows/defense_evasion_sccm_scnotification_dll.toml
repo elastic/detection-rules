@@ -2,7 +2,7 @@
 creation_date = "2024/04/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -36,52 +36,6 @@ query = '''
 library where host.os.type == "windows" and process.name : "SCNotification.exe" and
   (dll.Ext.relative_file_creation_time < 86400 or dll.Ext.relative_file_name_modify_time <= 500) and dll.code_signature.status != "trusted"
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Windows Session Hijacking via CcmExec
-
-CcmExec, part of Microsoft's System Center Configuration Manager, manages client operations. Adversaries may exploit it by loading malicious DLLs into processes like SCNotification.exe to hijack user sessions. The detection rule identifies suspicious DLL activity by checking for recent file modifications and untrusted signatures, signaling potential session hijacking attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process name is 'SCNotification.exe' and verify the DLL involved has an untrusted code signature.
-- Check the 'dll.Ext.relative_file_creation_time' and 'dll.Ext.relative_file_name_modify_time' fields to determine the recency of the DLL file's creation or modification, indicating potential tampering.
-- Investigate the origin of the untrusted DLL by examining its file path and comparing it against known legitimate paths for SCNotification.exe dependencies.
-- Use Osquery to list all DLLs loaded by SCNotification.exe to identify any other suspicious or untrusted modules:
-  ```sql
-  SELECT path, pid, name FROM processes JOIN process_open_sockets USING (pid) WHERE name = 'SCNotification.exe';
-  ```
-- Cross-reference the untrusted DLL's hash against threat intelligence databases to check for known malicious signatures.
-- Analyze the parent process of SCNotification.exe to determine if it was spawned by a legitimate process or if there are signs of compromise.
-- Review recent system logs and security events around the time of the DLL's creation or modification for any anomalies or unauthorized access attempts.
-- Investigate user accounts active on the system at the time of the alert to identify any unauthorized or suspicious sessions.
-- Examine network connections established by SCNotification.exe to detect any unusual outbound traffic that could indicate data exfiltration or command-and-control communication.
-- Correlate this alert with other security events or alerts in the environment to identify potential patterns or coordinated attack activities.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger the rule if they involve DLLs with recent file modifications or untrusted signatures. Users should verify the source of the update and consider excluding these specific DLLs if they are confirmed to be safe.
-- Custom or in-house applications that are not signed by a trusted certificate authority might be flagged. Users can create exceptions for these applications by adding their signatures to a trusted list after confirming their legitimacy.
-- Security or system management tools that frequently update their components might cause false positives. Users should monitor these tools and exclude their DLLs from the rule if they are verified as non-malicious.
-- Development environments where DLLs are frequently compiled and modified can also trigger the rule. Developers should ensure that their development directories are excluded from monitoring to prevent unnecessary alerts.
-- In environments with strict security policies, some legitimate administrative actions might be flagged. Users should document these actions and adjust the rule to exclude known administrative processes that are part of regular operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Conduct a thorough investigation to identify the source of the untrusted DLL and any other potentially malicious files or processes on the system.
-- Review recent user activity and system logs to determine if any unauthorized access or actions have occurred.
-- Remove the malicious DLL and any associated files from the system, ensuring that all traces of the threat are eliminated.
-- Restore the system from a known good backup if available, ensuring that the backup is free from any compromise.
-- Update all system and application software to the latest versions to patch any vulnerabilities that may have been exploited.
-- Implement enhanced logging policies to capture detailed information on DLL loads and process execution for future investigations.
-- Integrate security solutions such as Endpoint Detection and Response (EDR) tools to improve detection and response capabilities.
-- Escalate the incident to the security team or relevant authorities if the investigation reveals a broader threat or compliance implications.
-- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as application whitelisting and stricter access controls, to prevent future incidents."""
 
 
 [[rule.threat]]

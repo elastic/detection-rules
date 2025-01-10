@@ -2,7 +2,7 @@
 creation_date = "2021/07/19"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Austin Songer"]
@@ -21,51 +21,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS ElastiCache Security Group Modified or Deleted"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS ElastiCache Security Group Modified or Deleted
-
-AWS ElastiCache security groups control inbound and outbound traffic to cache clusters, ensuring only authorized access. Adversaries may modify or delete these groups to bypass security controls, facilitating unauthorized data access or exfiltration. The detection rule monitors specific API actions related to security group changes, identifying successful modifications or deletions that could indicate potential security breaches.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific event.action that triggered the alert, such as "Delete Cache Security Group" or "Authorize Cache Security Group Ingress."
-- Examine the event.outcome field to confirm the success of the action, ensuring that the modification or deletion was indeed successful.
-- Check the event.dataset and event.provider fields to verify that the event originated from AWS CloudTrail and is related to ElastiCache, confirming the context of the alert.
-- Investigate the user identity associated with the event by reviewing the user identity fields in the CloudTrail logs to determine if the action was performed by an authorized user or an unexpected account.
-- Analyze the event time to correlate the action with other activities in the environment, identifying any unusual patterns or sequences of events.
-- Use Osquery to gather additional context on the AWS environment. For example, run a query to list recent changes to ElastiCache security groups: `SELECT * FROM aws_cloudtrail_events WHERE eventSource='elasticache.amazonaws.com' AND (eventName='DeleteCacheSecurityGroup' OR eventName='AuthorizeCacheSecurityGroupIngress' OR eventName='RevokeCacheSecurityGroupIngress') AND eventTime > date('now', '-1 day');`
-- Review the IP addresses and locations associated with the event to identify any anomalies or unexpected access patterns.
-- Investigate any related alerts or logs from other AWS services or security tools that might provide additional context or indicate a broader security incident.
-- Check for any recent changes in IAM policies or roles that might have inadvertently allowed unauthorized access to modify ElastiCache security groups.
-- Document all findings and observations to build a comprehensive understanding of the event, which will aid in determining the legitimacy of the action and any potential security implications.
-
-### False positive analysis
-
-- Routine maintenance activities by authorized personnel can trigger alerts when they modify or delete ElastiCache security groups as part of their regular duties. To manage these, users can create exceptions for specific IAM roles or users known to perform these tasks regularly.
-- Automated scripts or tools used for infrastructure management might modify security groups as part of their normal operation. Users should identify these scripts and exclude their actions from triggering alerts by using tags or specific identifiers.
-- Changes made during scheduled updates or deployments can also result in false positives. Users can mitigate these by setting up maintenance windows and excluding activities within these time frames from alerting.
-- Testing environments often undergo frequent changes, including security group modifications. Users can exclude specific environments or accounts dedicated to testing from the detection rule to reduce noise.
-- Integration with third-party services that require security group modifications might lead to false positives. Users should document these integrations and create exceptions for known service accounts or API calls associated with these services.
-
-### Response and remediation
-
-- Immediately isolate the affected ElastiCache instance by modifying the security group to restrict all inbound and outbound traffic.
-- Review CloudTrail logs to identify unauthorized API calls related to the security group changes and determine the source and identity of the actor.
-- Conduct a thorough investigation to assess the extent of unauthorized access or data exfiltration, focusing on the time window around the detected changes.
-- Revert any unauthorized modifications to the security group by restoring it to its previous state using backups or documented configurations.
-- Escalate the incident to the security operations team and notify relevant stakeholders, including data owners and compliance officers, if sensitive data is involved.
-- Implement additional monitoring and alerting for changes to ElastiCache security groups to detect similar activities in the future.
-- Enhance logging policies to ensure comprehensive coverage of all security group modifications and deletions, including detailed user activity logs.
-- Integrate AWS GuardDuty or similar threat detection services to provide real-time alerts on suspicious activities related to ElastiCache.
-- Review and update IAM policies to enforce the principle of least privilege, ensuring only authorized personnel can modify security groups.
-- Conduct a post-incident review to identify gaps in the current security posture and implement hardening measures, such as multi-factor authentication and regular security audits.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/AmazonElastiCache/latest/APIReference/Welcome.html"]

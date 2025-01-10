@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/11/16"
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -33,48 +33,6 @@ type = "threshold"
 query = '''
 signal.rule.name:* and user.name:* and not user.id:("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Multiple Alerts Involving a User
-The detection rule leverages alert data to identify users triggering multiple distinct alerts, which may indicate potential compromise. Adversaries often exploit user accounts to escalate privileges or exfiltrate data. By filtering out system accounts, the rule focuses on genuine user activity, helping analysts prioritize investigations and respond to potential threats effectively.
-
-### Possible investigation steps
-
-- Review the alert details to understand the specific alerts triggered for the user, focusing on the `signal.rule.name` field to identify the types of alerts involved.
-- Verify the user's identity and role within the organization using the `user.name` field to assess the potential impact of a compromise.
-- Check the user's recent activity logs to identify any unusual behavior patterns or deviations from their normal activity.
-- Investigate the user's login history, including timestamps and IP addresses, to detect any suspicious access attempts or locations.
-- Examine any recent changes to the user's account, such as password resets or privilege escalations, that could indicate unauthorized access.
-- Use Osquery to gather additional context on the user's machine. For example, run the following query to list recent processes executed by the user: `SELECT * FROM processes WHERE user = '<user.name>';`.
-- Correlate the alerts with other security events or logs to identify any related incidents or broader attack patterns.
-- Check for any recent changes in the user's network activity, such as unusual data transfers or connections to known malicious IPs.
-- Investigate any associated alerts or incidents involving other users or systems that may indicate a coordinated attack.
-- Document all findings and observations to provide a comprehensive overview of the investigation for further analysis and decision-making.
-
-### False positive analysis
-
-- Known false positives for the Multiple Alerts Involving a User rule may include users with roles that inherently trigger multiple alerts due to their job functions, such as system administrators or security personnel who regularly access sensitive systems or data.
-- Users involved in automated processes or scripts that interact with various systems might also trigger multiple alerts without any malicious intent.
-- To manage these false positives, users can create exceptions for specific user accounts that are known to generate frequent alerts as part of their normal operations, ensuring these are documented and reviewed regularly.
-- Implementing a baseline of normal user behavior can help distinguish between legitimate and suspicious activities, allowing for more accurate identification of potential threats.
-- Regularly updating the list of system accounts and roles that are excluded from the rule can help reduce the number of false positives and improve the efficiency of threat detection.
-
-### Response and remediation
-
-- Isolate the affected user account by disabling it temporarily to prevent further unauthorized access.
-- Conduct a thorough investigation of the alerts to determine the nature and scope of the compromise, focusing on any unusual activities or access patterns.
-- Review and analyze logs from relevant systems and applications to identify any additional indicators of compromise or lateral movement.
-- Reset the credentials of the compromised user account and any other accounts that may have been affected.
-- Escalate the incident to the security operations center (SOC) or incident response team if the investigation reveals a significant threat or widespread impact.
-- Implement additional logging and monitoring to capture detailed user activity and detect similar threats in the future.
-- Integrate threat intelligence feeds to enhance detection capabilities and provide context for future alerts.
-- Restore affected systems to their operational state by applying necessary patches and updates, and ensure data integrity is maintained.
-- Conduct a post-incident review to identify gaps in security controls and update policies and procedures accordingly.
-- Implement hardening measures such as multi-factor authentication, least privilege access, and regular security awareness training for users."""
 
 
 

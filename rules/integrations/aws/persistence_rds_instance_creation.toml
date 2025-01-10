@@ -2,7 +2,7 @@
 creation_date = "2021/06/06"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -20,50 +20,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS RDS Instance Creation"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS RDS Instance Creation
-
-Amazon RDS simplifies database management, offering scalable and cost-effective solutions. However, adversaries may exploit RDS by creating unauthorized instances to exfiltrate data or establish persistence. The detection rule monitors successful RDS instance creation events, flagging potential misuse by correlating specific AWS CloudTrail logs, thus enabling timely investigation and response.
-
-### Possible investigation steps
-
-- Review the AWS CloudTrail logs to confirm the event details, focusing on the `event.dataset:aws.cloudtrail` and `event.provider:rds.amazonaws.com` fields to ensure the event is related to RDS instance creation.
-- Verify the `event.action:CreateDBInstance` and `event.outcome:success` fields to confirm that the instance creation was successful and intended.
-- Identify the AWS account and user associated with the instance creation by examining the `userIdentity` field in the CloudTrail logs to determine if the action was performed by an authorized user.
-- Check the `sourceIPAddress` field to identify the IP address from which the request originated, and assess if it aligns with known and trusted IP addresses.
-- Investigate the `requestParameters` field to gather details about the RDS instance configuration, such as instance type, database engine, and allocated storage, to understand the potential impact.
-- Cross-reference the `awsRegion` field to ensure the instance was created in an expected and authorized region.
-- Utilize Osquery to further investigate the AWS environment by running a query such as: `SELECT * FROM aws_rds_instances WHERE instance_id = '<instance_id>'` to gather more details about the newly created RDS instance.
-- Review IAM policies and roles associated with the user or service that created the instance to ensure they have appropriate permissions and are not overly permissive.
-- Check for any related alerts or anomalies in the same timeframe that might indicate a broader security incident or unauthorized activity.
-- Document all findings and observations in a centralized investigation log to maintain a clear record of the investigation process and support any further analysis or escalation.
-
-### False positive analysis
-
-- Routine administrative tasks: Regular database maintenance or scaling activities by authorized personnel can trigger the rule. To manage this, users can create exceptions for known administrative accounts or specific time windows when such activities are expected.
-- Automated processes: Scheduled scripts or automated workflows that create RDS instances for testing or development purposes may be flagged. Users should identify these processes and exclude them by tagging instances or using specific IAM roles associated with these tasks.
-- Third-party integrations: Some third-party services may create RDS instances as part of their functionality. Users should verify these integrations and whitelist the associated actions or service accounts to prevent false positives.
-- Testing environments: Instances created in non-production environments for testing purposes might be detected. Users can exclude these environments by filtering based on tags, VPC IDs, or other identifiable attributes specific to test setups.
-
-### Response and remediation
-
-- Verify the legitimacy of the RDS instance creation by checking with the relevant stakeholders or database administrators.
-- Contain the potential threat by immediately revoking access to the unauthorized RDS instance and isolating it from the network.
-- Investigate the source of the instance creation by reviewing AWS CloudTrail logs for unusual activity or unauthorized access patterns.
-- Remediate by terminating the unauthorized RDS instance and ensuring no data has been exfiltrated or compromised.
-- Escalate the incident to the security operations team if the investigation reveals signs of a broader compromise or persistent threat.
-- Implement enhanced logging policies to capture detailed access and activity logs for all RDS instances and related AWS services.
-- Integrate AWS CloudTrail with a Security Information and Event Management (SIEM) system for real-time monitoring and alerting.
-- Restore the system to its operational state by ensuring all legitimate RDS instances are functioning correctly and securely.
-- Harden the environment by enforcing strict IAM policies, using multi-factor authentication, and regularly reviewing access permissions.
-- Educate and train staff on recognizing and responding to potential security incidents, emphasizing the importance of vigilance and prompt reporting.
-
-## Setup
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBInstance.html"]

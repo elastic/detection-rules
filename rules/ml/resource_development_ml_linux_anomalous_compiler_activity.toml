@@ -2,7 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/06/18"
 
 [rule]
 anomaly_threshold = 50
@@ -85,49 +85,6 @@ tags = [
     "Tactic: Resource Development",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Anomalous Linux Compiler Activity
-
-Compilers transform source code into executable programs, a routine task in development environments. However, in atypical user contexts, such activity may signal unauthorized software changes or privilege escalation attempts. Adversaries exploit compilers to deploy malware or execute exploits. The detection rule identifies unusual compiler usage patterns, flagging potential threats by monitoring deviations from normal user behavior.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific user and host involved in the anomalous compiler activity.
-- Check the historical activity of the user to determine if compiler usage is indeed unusual for this user context.
-- Analyze the specific compiler command executed, including any flags or options, to understand the nature of the compilation.
-- Investigate the source code or files being compiled to assess if they are legitimate or potentially malicious.
-- Use Osquery to gather additional context on the host. For example, run the following query to list recent processes executed by the user: `SELECT pid, name, path, cmdline, start_time FROM processes WHERE user = '<username>';`
-- Examine the file system for any newly created or modified executable files that may have resulted from the compilation.
-- Check for any recent privilege escalation attempts or suspicious activities in system logs that coincide with the compiler activity.
-- Correlate the event with other security alerts or logs to identify if this activity is part of a broader attack pattern.
-- Verify the integrity and origin of the compiler binary used to ensure it has not been tampered with or replaced.
-- Consult threat intelligence sources to determine if the observed activity matches known tactics, techniques, or procedures (TTPs) associated with adversaries.
-
-### False positive analysis
-
-- Development environments or users who occasionally compile software for legitimate purposes may trigger false positives. To manage this, users can create exceptions for specific user accounts or directories known for regular development activities.
-- Automated build systems or continuous integration pipelines that compile code as part of their routine operations might be flagged. Exclude these systems by identifying their unique user accounts or IP addresses and adding them to an allowlist.
-- System updates or package installations that involve compiling components can also be mistaken for anomalous activity. Users should monitor and document regular update schedules and exclude these activities during known maintenance windows.
-- Educational or research environments where users compile code for learning or experimentation may generate alerts. Implement user-specific exceptions based on the context of their activities and the educational tools they use.
-- Temporary projects or one-time tasks that require compilation might be misinterpreted as threats. Users can temporarily disable the rule or add time-bound exceptions for these specific tasks to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or spread of potential malware.
-- Conduct a thorough investigation to identify the source and scope of the anomalous compiler activity, reviewing logs and user activity to determine if it aligns with known threat patterns such as those described in MITRE ATT&CK T1588.
-- Verify the integrity of critical system files and executables to ensure they have not been altered or replaced by malicious versions.
-- Remove any unauthorized software or malware identified during the investigation, using trusted antivirus or anti-malware tools.
-- Reset credentials and review user permissions to ensure no unauthorized privilege escalations have occurred.
-- Escalate the incident to the security operations center (SOC) or incident response team if the activity is linked to a broader attack campaign or if sensitive data may have been compromised.
-- Implement enhanced logging policies to capture detailed information on compiler usage and other potentially suspicious activities for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to improve detection and response capabilities against similar threats.
-- Restore the system to its operational state by applying verified backups and patches, ensuring all security updates are current.
-- Conduct a post-incident review to identify gaps in security controls and implement hardening measures, such as application whitelisting and stricter access controls, to prevent recurrence."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

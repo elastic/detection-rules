@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -46,52 +46,6 @@ sequence by process.entity_id with maxspan=5m
   process.command_line : "*{DFB65C4C-B34F-435D-AFE9-A86218684AA8}*"]
  [file where host.os.type == "windows" and process.name : "dllhost.exe" and not file.path : "?:\\Users\\*\\Downloads\\*"]
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Host Files System Changes via Windows Subsystem for Linux
-
-Windows Subsystem for Linux (WSL) allows users to run a Linux environment directly on Windows, providing a seamless integration of Linux tools. Adversaries may exploit WSL to execute commands and modify files on the host system, bypassing traditional security measures. The detection rule identifies suspicious file operations initiated by WSL processes, specifically monitoring for unusual activity by the Plan9FileSystem, which is responsible for file system interactions, to flag potential misuse.
-
-### Possible investigation steps
-
-- Review the alert details to understand the context, including the process.entity_id and the timestamp of the event to correlate with other logs.
-- Verify the process start event for "dllhost.exe" with the specific Plan9FileSystem CLSID in the command line to confirm the use of WSL for file operations.
-- Check the file path involved in the alert to determine if it is a legitimate location or if it deviates from normal user behavior, especially outside the Downloads directory.
-- Investigate the parent process of "dllhost.exe" to identify how it was initiated and if it correlates with any known legitimate or suspicious activities.
-- Use Osquery to list all running WSL instances and their associated processes to identify any unusual or unauthorized WSL usage:
-  ```sql
-  SELECT name, state, version FROM wsl_instances;
-  ```
-- Examine recent file creation and modification events on the host system to identify any unauthorized changes or anomalies in file paths and names.
-- Correlate the event with user activity logs to determine if the file operations align with expected user behavior or if they indicate potential misuse.
-- Check for any recent changes in WSL configuration or installation logs to identify if WSL was recently enabled or modified, which could indicate an attempt to bypass security.
-- Review network logs for any unusual outbound connections from the host that could suggest data exfiltration attempts following the file system changes.
-- Investigate other security alerts or logs from the same host around the time of the alert to identify any additional indicators of compromise or related suspicious activities.
-
-### False positive analysis
-
-- Routine administrative tasks: System administrators may use WSL for legitimate purposes such as running scripts or managing files, which could trigger the detection rule. To handle this, users can create exceptions for known administrative accounts or specific scripts that are regularly executed.
-- Development activities: Developers often use WSL for software development, which involves frequent file creation and modification. Users can exclude specific development environments or directories from monitoring to reduce false positives.
-- Automated processes: Scheduled tasks or automated processes that interact with the file system via WSL might be flagged. Identifying and excluding these processes based on their command lines or execution patterns can help minimize false alerts.
-- Backup operations: Some backup solutions may utilize WSL to access and copy files, leading to potential false positives. Users should identify these backup processes and configure exceptions for them to prevent unnecessary alerts.
-- Security tools: Certain security tools or monitoring solutions might use WSL for scanning or analysis purposes. Users can whitelist these tools by their process names or command lines to avoid false detections.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Conduct a thorough investigation to identify the scope of the compromise, focusing on WSL processes and any unusual file modifications.
-- Review and analyze logs from WSL and Plan9FileSystem activities to understand the adversary's actions and entry points.
-- Remove any unauthorized WSL installations or configurations that were not approved or are deemed suspicious.
-- Restore any modified or deleted files from known good backups to ensure data integrity and system functionality.
-- Apply security patches and updates to both Windows and WSL to mitigate any known vulnerabilities that could be exploited.
-- Implement enhanced logging policies to capture detailed WSL activity, including process creation, file access, and network connections.
-- Integrate security solutions with SIEM systems to improve detection capabilities and automate alerting for suspicious WSL activities.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans accordingly.
-- Educate users and administrators on the risks associated with WSL and provide training on secure configuration and usage practices."""
 
 
 [[rule.threat]]

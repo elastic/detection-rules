@@ -2,7 +2,7 @@
 creation_date = "2024/07/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/07/31"
 
 [rule]
 author = ["Elastic"]
@@ -43,49 +43,6 @@ any where event.dataset == "aws.cloudtrail"
    and aws.cloudtrail.user_identity.type == "AssumedRole"
    and stringContains (user.id, ":i-")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AWS EC2 Instance Console Login via Assumed Role
-
-AWS EC2 instances can assume roles to access resources securely, using temporary credentials. Adversaries may exploit this by using compromised instance credentials to assume roles and gain unauthorized access. The detection rule identifies unusual console login activities by checking for EC2 instance IDs in session names and successful login events, signaling potential misuse of assumed roles.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the presence of the "i-" pattern in the session name, indicating an EC2 instance assumed role.
-- Verify the `event.dataset` field to ensure the event is sourced from "aws.cloudtrail" and the `event.provider` is "signin.amazonaws.com" to confirm the context of the alert.
-- Check the `event.action` field for "ConsoleLogin" or "GetSigninToken" to validate the type of login activity that occurred.
-- Examine the `event.outcome` field to confirm the login was successful, which is critical for identifying potential unauthorized access.
-- Investigate the `aws.cloudtrail.user_identity.type` field to ensure it is "AssumedRole", indicating the use of temporary credentials.
-- Identify the specific EC2 instance by extracting the instance ID from the `user.id` field, which contains the "i-" pattern.
-- Cross-reference the instance ID with AWS EC2 inventory to gather details about the instance, such as its purpose, owner, and associated security groups.
-- Use AWS CloudTrail logs to trace back the assumed role session to identify the source IP address and any preceding API calls that might indicate how the credentials were compromised.
-- If using Osquery, run a query to list all active sessions on the EC2 instance to identify any unusual or unauthorized users: `SELECT user, host, time FROM logged_in_users WHERE host = '<instance_id>';`
-- Analyze the AWS IAM role associated with the instance to review its permissions and determine if they are overly permissive or if there are any recent changes to the role's policy.
-
-### False positive analysis
-
-- **Automated Processes**: Some legitimate automated processes may use EC2 instance profiles to assume roles for routine tasks, leading to successful console login events. Users should identify and document these processes to differentiate them from potential threats.
-- **Frequent Role Assumptions**: In environments where EC2 instances frequently assume roles for legitimate purposes, such as accessing shared resources or services, these activities might trigger the rule. Users can create exceptions for known instance IDs or specific roles that are regularly assumed.
-- **Testing and Development Environments**: In testing or development environments, developers might frequently assume roles using EC2 instances for testing purposes. Users should consider excluding these environments from the rule or creating specific exceptions for known testing activities.
-- **Third-party Integrations**: Some third-party services or integrations might require EC2 instances to assume roles for legitimate operations. Users should verify these integrations and exclude them from the rule if they are deemed non-threatening.
-- **Handling False Positives**: To manage false positives, users can implement tagging or naming conventions for EC2 instances and roles that are known to perform legitimate activities. Additionally, users can adjust the rule to exclude specific instance IDs, roles, or environments that are verified as non-threatening.
-
-### Response and remediation
-
-- Immediately isolate the affected EC2 instance to prevent further unauthorized access and lateral movement within the network.
-- Review CloudTrail logs to identify the source of the compromised credentials and any other potentially affected resources or accounts.
-- Revoke the temporary credentials associated with the assumed role to prevent further misuse.
-- Conduct a thorough investigation to determine how the credentials were compromised, focusing on recent changes or anomalies in the instance's environment.
-- Reset credentials and rotate keys for the affected instance and any other potentially compromised accounts.
-- Escalate the incident to the security operations team for further analysis and to determine if additional resources or expertise are needed.
-- Implement enhanced logging and monitoring policies to capture detailed access and activity logs for all EC2 instances and associated roles.
-- Integrate AWS GuardDuty and other threat detection services to provide real-time alerts and insights into suspicious activities.
-- Restore the affected EC2 instance from a known good backup or snapshot to ensure it is free from any unauthorized changes or malware.
-- Apply security hardening measures, such as enforcing least privilege access, enabling multi-factor authentication, and regularly reviewing IAM policies and roles."""
 
 
 [[rule.threat]]

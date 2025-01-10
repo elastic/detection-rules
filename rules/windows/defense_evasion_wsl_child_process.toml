@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/10/31"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -70,50 +70,6 @@ process where host.os.type == "windows" and event.type : "start" and
       )
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Execution via Windows Subsystem for Linux
-
-Windows Subsystem for Linux (WSL) allows users to run Linux binaries natively on Windows, bridging the gap between Windows and Linux environments. Adversaries may exploit WSL to execute malicious Linux binaries, bypassing traditional Windows security measures. The detection rule identifies suspicious executions initiated by WSL processes, excluding known legitimate paths, to flag potential misuse while minimizing false positives.
-
-### Possible investigation steps
-
-- Review the alert details to understand which process was executed and its parent process, focusing on the `process.parent.name` field to confirm it was initiated by `wsl.exe` or `wslhost.exe`.
-- Examine the `process.executable` field to identify the exact path of the executed binary and determine if it is a known legitimate application or potentially malicious.
-- Check the `event.type` field to confirm the event is a process start, ensuring the alert is relevant to execution attempts.
-- Investigate the user context under which the process was executed by reviewing the user account details associated with the process to identify any anomalies or unauthorized access.
-- Utilize Osquery to gather additional context about the process by running a query such as: `SELECT * FROM processes WHERE name = 'wsl.exe' OR name = 'wslhost.exe';` to list all instances and their command-line arguments.
-- Correlate the alert with other security events or logs from the same host to identify any preceding or subsequent suspicious activities that might indicate a broader attack pattern.
-- Analyze network connections initiated by the suspicious process using network monitoring tools or logs to detect any unauthorized data exfiltration or communication with known malicious IPs.
-- Review the system's WSL configuration and installed distributions to ensure they are legitimate and have not been tampered with by running: `wsl --list --verbose` to list all installed distributions and their states.
-- Check for any recent changes to the WSL configuration files or related registry keys that could indicate tampering or unauthorized modifications.
-- Investigate the timeline of events on the host to identify any other suspicious activities or changes that coincide with the execution attempt, providing a broader context for the alert.
-
-### False positive analysis
-
-- Known false positives may arise from legitimate software development activities where developers use WSL to compile or test code, as these processes can mimic adversarial behavior.
-- System administrators or IT professionals might use WSL for routine maintenance tasks, which could trigger the detection rule if not properly excluded.
-- Automated scripts or scheduled tasks that leverage WSL for legitimate operations can also be flagged as suspicious.
-- To manage these false positives, users can create exceptions for specific processes or paths that are known to be safe and frequently used in their environment.
-- Regularly review and update the exclusion list to ensure it reflects the current operational needs and legitimate use cases of WSL within the organization.
-- Consider implementing a logging and alerting system to monitor excluded activities, ensuring that any changes in behavior are promptly investigated.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Verify the legitimacy of the WSL installation and any associated processes by cross-referencing with known software inventories.
-- Conduct a thorough investigation of the executed processes to determine if they are part of a legitimate application or a potential threat.
-- Review system logs and WSL-specific logs to identify any unusual or unauthorized activities that may indicate compromise.
-- Remove any unauthorized or malicious Linux binaries identified during the investigation from the WSL environment.
-- Update antivirus and endpoint detection and response (EDR) solutions to ensure they can detect and block similar threats in the future.
-- Escalate the incident to the security operations center (SOC) or incident response team if the threat is confirmed to be part of a larger attack campaign.
-- Implement enhanced logging policies to capture detailed process execution data, especially for WSL-related activities.
-- Integrate threat intelligence feeds and security information and event management (SIEM) solutions to improve detection capabilities for similar threats.
-- Apply system hardening measures, such as restricting WSL usage to authorized users and regularly updating WSL components, to reduce the attack surface."""
 
 
 [[rule.threat]]

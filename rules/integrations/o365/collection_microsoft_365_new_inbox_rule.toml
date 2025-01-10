@@ -2,7 +2,7 @@
 creation_date = "2021/03/29"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic", "Gary Blackwell", "Austin Songer"]
@@ -23,51 +23,7 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Inbox Forwarding Rule Created"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft 365 Inbox Forwarding Rule Created
-
-Microsoft 365 allows users to create inbox rules to automate email management, such as forwarding messages to another address. While useful, attackers can exploit these rules to covertly redirect emails, facilitating data exfiltration. The detection rule monitors for the creation or modification of such rules, specifically targeting actions that forward or redirect emails, thereby identifying potential unauthorized email collection activities.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific user account associated with the creation or modification of the inbox forwarding rule by examining the `o365.audit.Parameters` fields.
-- Verify the `event.action` field to determine whether the rule was newly created or modified, which can provide context on whether this is a new behavior or a change to existing configurations.
-- Check the `o365.audit.Parameters.ForwardTo`, `o365.audit.Parameters.ForwardAsAttachmentTo`, and `o365.audit.Parameters.RedirectTo` fields to identify the destination email addresses to which emails are being forwarded or redirected.
-- Investigate the `event.outcome` field to confirm the success of the rule creation or modification, ensuring that the alert is not a false positive due to a failed attempt.
-- Correlate the user account activity with recent login events to determine if there are any unusual login patterns or locations, using the `event.dataset:o365.audit` and `event.provider:Exchange` fields.
-- Examine the user's recent activity logs for any other suspicious actions or anomalies that might indicate account compromise, such as changes in user settings or permissions.
-- Utilize Osquery to gather additional context on the user's device and activity. For example, run a query to list recent processes executed by the user: `SELECT * FROM processes WHERE user = '<username>';`.
-- Check for any recent changes in the user's permissions or roles within Microsoft 365 that might indicate privilege escalation attempts.
-- Investigate whether similar forwarding rules have been created for other users within the organization, which could suggest a broader attack campaign.
-- Review any recent security alerts or incidents related to the user or the destination email addresses to identify potential links to known threats or ongoing investigations.
-
-### False positive analysis
-
-- Legitimate forwarding rules set by users for business purposes can trigger false positives. Users should review the context of the rule creation, such as the involved email addresses and the user's role, to determine if the action is expected.
-- Automated systems or third-party applications that integrate with Microsoft 365 and require email forwarding for functionality might also cause false positives. Identifying these systems and excluding their actions from the rule can help reduce noise.
-- Temporary forwarding rules set during employee transitions or for out-of-office scenarios can be mistaken for malicious activity. Organizations can manage this by maintaining a list of approved temporary rules and excluding them from detection.
-- Regular audits of forwarding rules can help distinguish between legitimate and suspicious activities. Implementing a process to document and approve forwarding rules can aid in quickly identifying false positives.
-- Users can create exceptions in the detection rule for specific users or departments known to frequently use forwarding rules for legitimate reasons, reducing unnecessary alerts.
-
-### Response and remediation
-
-- Immediately disable the suspicious inbox forwarding rule to prevent further unauthorized email redirection.
-- Conduct a thorough investigation to determine the scope of the compromise, including identifying any other potentially malicious rules or configurations.
-- Review the affected user's account activity for any signs of compromise, such as unusual login locations or times, and reset the account password.
-- Notify the affected user and relevant stakeholders about the incident and provide guidance on recognizing phishing attempts and securing their accounts.
-- Escalate the incident to the security operations team for further analysis and to determine if additional accounts or systems are affected.
-- Implement enhanced logging and monitoring for email rule changes and user account activities to detect similar threats in the future.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate and analyze related security events.
-- Restore any affected systems or accounts to their operational state by removing unauthorized changes and verifying system integrity.
-- Apply security hardening measures, such as enabling multi-factor authentication (MFA) for all users and restricting the ability to create forwarding rules to trusted users.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans to improve future detection and response capabilities.
-
-## Setup
+note = """## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [

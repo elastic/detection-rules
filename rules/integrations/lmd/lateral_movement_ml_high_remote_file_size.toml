@@ -2,7 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 anomaly_threshold = 70
@@ -53,49 +53,6 @@ tags = [
     "Tactic: Lateral Movement",
 ]
 type = "machine_learning"
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Remote File Size
-
-Machine learning models in security environments analyze file transfer patterns to identify anomalies, such as unusually large files shared remotely. Adversaries exploit this by aggregating data into large files to avoid detection during lateral movement. The 'Unusual Remote File Size' rule flags these anomalies, leveraging MITRE ATT&CK frameworks to pinpoint potential exploitation of remote services.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific remote host and file size that triggered the alert. Pay attention to fields such as source IP, destination IP, file path, and file size.
-- Correlate the alert with recent network activity logs to determine if there are any other unusual patterns or connections involving the same remote host.
-- Check historical data to see if the remote host has previously transferred files of similar sizes or if this is an anomaly.
-- Use Osquery to gather more information about the file in question. For example, run the following query to list files in the directory where the unusual file was detected: `SELECT path, size, atime, mtime FROM file WHERE directory = '/path/to/suspicious/directory';`
-- Investigate the user account associated with the file transfer to determine if there are any signs of compromise or unusual activity, such as failed login attempts or changes in user privileges.
-- Examine the processes running on the remote host at the time of the file transfer to identify any suspicious or unauthorized applications that could be involved in data aggregation or exfiltration.
-- Analyze the file metadata to understand its origin, creation date, and any modifications that might indicate tampering or aggregation of data.
-- Cross-reference the alert with threat intelligence feeds to check if the remote host IP or domain is associated with known malicious activity or threat actors.
-- Review any recent changes in network configurations or security policies that might have inadvertently allowed or facilitated the unusual file transfer.
-- Consult with other security team members or departments to gather additional context or insights that might aid in understanding the nature and intent of the file transfer.
-
-### False positive analysis
-
-- Large file transfers related to legitimate business operations, such as regular backups or data migrations, can trigger false positives. Users should identify these routine activities and create exceptions to prevent unnecessary alerts.
-- Software updates or patches distributed across the network may also be flagged. To manage this, users can whitelist known update servers or processes.
-- Data transfers involving multimedia files, such as video or high-resolution images, might be mistakenly identified as threats. Users should assess the context of these transfers and exclude them if they are part of normal business functions.
-- Remote file sharing services used for collaboration, like cloud storage solutions, can generate large file transfers. Users should monitor these services and exclude them if they are verified as secure and necessary for operations.
-- Automated data processing tasks that involve large datasets can be misinterpreted as suspicious activity. Users should document these processes and configure the system to recognize them as non-threatening.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further lateral movement and data exfiltration.
-- Conduct a thorough investigation to identify the source and scope of the anomaly, focusing on recent file transfer activities and user access logs.
-- Analyze the large file for any malicious content or sensitive data that may have been aggregated by the adversary.
-- Review and update access controls and permissions to ensure that only authorized users have access to sensitive data and remote services.
-- Implement enhanced logging and monitoring policies to capture detailed file transfer activities and user actions for future investigations.
-- Integrate threat intelligence feeds and security information and event management (SIEM) systems to correlate unusual file size alerts with other suspicious activities.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and response if the threat persists or is part of a larger attack.
-- Restore the affected system to its operational state by removing any malicious files, patching vulnerabilities, and verifying system integrity.
-- Conduct a post-incident review to identify gaps in the current security posture and update incident response plans accordingly.
-- Implement hardening measures such as network segmentation, multi-factor authentication, and regular security training to reduce the risk of future exploitation of remote services."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

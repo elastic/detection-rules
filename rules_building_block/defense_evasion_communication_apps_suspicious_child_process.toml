@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/31"
 
 [rule]
 author = ["Elastic"]
@@ -253,50 +253,6 @@ process where host.os.type == "windows" and event.type == "start" and
     )
   )
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Communication App Child Process
-
-Communication apps like Slack, WebEx, and Teams are integral to modern workflows, facilitating seamless interaction. However, adversaries can exploit these apps by spawning unauthorized child processes, potentially masquerading as legitimate ones or exploiting vulnerabilities to execute malicious code. The detection rule identifies such anomalies by monitoring child processes of these apps, ensuring they are trusted and signed by recognized entities. This helps in spotting deviations that could indicate malicious activity, such as unexpected command executions or unsanctioned software launches, thereby safeguarding against potential threats.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific communication app and child process involved, using fields like `process.parent.name` and `process.name`.
-- Verify the legitimacy of the child process by checking the `process.executable` path and `process.code_signature.trusted` status to ensure it matches known trusted paths and signatures.
-- Examine the `process.command_line` and `process.args` fields for any unusual or unexpected command executions that could indicate malicious activity.
-- Cross-reference the `process.code_signature.subject_name` with known legitimate entities to confirm the authenticity of the process.
-- Utilize Osquery to gather additional context about the suspicious process. For example, run the following query to list all processes with their parent process IDs and command lines: `SELECT pid, name, path, cmdline, parent FROM processes WHERE name = 'suspicious_process_name';`
-- Investigate the parent process (`process.parent.name`) to determine if it has been compromised or if it is behaving unexpectedly.
-- Check for any recent changes or updates to the communication app that might have introduced vulnerabilities or unauthorized modifications.
-- Analyze network activity associated with the suspicious process to identify any unusual outbound connections or data exfiltration attempts.
-- Review system logs and event history around the time of the alert to identify any correlated events or anomalies that could provide additional context.
-- Consult threat intelligence sources to determine if there are any known threats or vulnerabilities associated with the specific communication app or process involved in the alert.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger the rule if they spawn child processes from communication apps, as these processes might not be recognized or signed by trusted entities at the time of the update.
-- Custom scripts or automation tools that interact with communication apps could be flagged if they execute commands or launch processes that are not explicitly whitelisted.
-- Users running communication apps in non-standard directories or using portable versions might see false positives due to the rule's reliance on specific file paths for trusted executables.
-- To manage these false positives, users can create exceptions for known and verified processes by adding them to the list of trusted executables or code signatures.
-- Regularly review and update the list of trusted entities and executable paths to accommodate new software versions or organizational changes in software deployment practices.
-- Consider implementing a logging mechanism to track and analyze flagged processes, allowing for a more informed decision when creating exceptions.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Conduct a thorough investigation of the suspicious child process, including reviewing process trees and command-line arguments to identify any malicious behavior.
-- Verify the code signatures of the involved processes to ensure they are from trusted sources and have not been tampered with.
-- If malicious activity is confirmed, terminate the suspicious processes and remove any associated files or executables from the system.
-- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
-- Implement enhanced logging policies to capture detailed process execution data and network activity for future investigations.
-- Integrate threat intelligence feeds to correlate detected anomalies with known threat indicators and improve detection capabilities.
-- Restore the system to its operational state by applying the latest security patches and updates to the operating system and communication applications.
-- Conduct a security review of the affected applications and implement hardening measures, such as application whitelisting and least privilege access controls.
-- Educate users on recognizing and reporting suspicious activity to improve the organization's overall security posture."""
 
 
 [[rule.threat]]

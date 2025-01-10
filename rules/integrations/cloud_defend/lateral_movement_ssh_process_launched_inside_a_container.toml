@@ -2,7 +2,7 @@
 creation_date = "2023/05/12"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/08"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -47,49 +47,6 @@ process where container.id: "*" and event.type== "start" and
 event.action in ("fork", "exec") and event.action != "end" and 
 process.name: ("sshd", "ssh", "autossh")
 '''
-note = """## Triage and analysis
-
-### Disclaimer
-
-This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating SSH Process Launched From Inside A Container
-
-SSH, a protocol for secure remote access, is crucial in managing systems but poses risks when used inside containers. Adversaries exploit SSH to move laterally or establish persistence. The detection rule identifies SSH processes initiated within containers, signaling potential misuse. It monitors process starts, focusing on SSH-related binaries, to alert on unauthorized or suspicious activity.
-
-### Possible investigation steps
-
-- Verify the container ID by examining the `container.id` field to identify which container initiated the SSH process.
-- Check the `process.name` field to determine whether the process is `ssh`, `sshd`, or `autossh`, and assess the potential risk based on the specific binary used.
-- Review the `event.type` and `event.action` fields to confirm the process start and ensure it aligns with the expected behavior of the container.
-- Investigate the parent process of the SSH process to understand how it was initiated and whether it was expected or authorized.
-- Use Osquery to gather more information about the container environment. For example, run the query: `SELECT * FROM processes WHERE name IN ('ssh', 'sshd', 'autossh') AND pid = <PID>;` to get details about the SSH process.
-- Examine the container's network connections to identify any unusual or unauthorized connections that may have been established using SSH.
-- Check the container's logs for any signs of unauthorized access or suspicious activity around the time the SSH process was started.
-- Investigate the user context under which the SSH process was initiated to determine if it was executed by a legitimate user or potentially compromised credentials.
-- Review the history of the container's image and configuration to ensure there are no vulnerabilities or misconfigurations that could have been exploited.
-- Correlate the event with other security alerts or logs to identify any patterns or related activities that could indicate a broader attack or compromise.
-
-### False positive analysis
-
-- **Development and Testing Environments**: In some development or testing environments, SSH might be used legitimately for debugging or administrative tasks within containers. Users can handle these by creating exceptions for specific container IDs or environments where SSH usage is expected and authorized.
-- **Automated Maintenance Tasks**: Automated scripts or maintenance tasks might use SSH to perform updates or backups within containers. To manage these, users can exclude processes initiated by known maintenance scripts or from specific source IPs associated with trusted automation tools.
-- **Containerized SSH Services**: Some applications might intentionally run SSH services within containers for specific use cases, such as providing secure access to containerized applications. Users should document and exclude these known services by specifying the container names or image IDs that are expected to run SSH processes.
-- **Monitoring and Security Tools**: Security or monitoring tools might use SSH to gather data or perform security checks within containers. Users can manage these false positives by identifying and excluding processes started by these tools, often identifiable by specific user accounts or process arguments.
-- **Legacy Systems**: In environments with legacy systems, SSH might be used as a workaround for certain functionalities. Users should assess the necessity of these practices and, if deemed non-threatening, exclude them by defining exceptions based on process arguments or container labels.
-
-### Response and remediation
-
-- Immediately isolate the affected container to prevent further lateral movement or potential breakout to the host system.
-- Investigate the source of the SSH process by reviewing container logs and identifying any unauthorized access or suspicious activity.
-- Verify the integrity of the container image and check for any unauthorized modifications or additional binaries.
-- Revoke any compromised SSH credentials and enforce the use of strong, unique passwords or SSH keys for access.
-- Escalate the incident to the security operations team if there is evidence of a container breakout or if multiple containers are affected.
-- Implement enhanced logging policies to capture detailed process execution and network activity within containers for future investigations.
-- Integrate with security information and event management (SIEM) systems to correlate container activity with other security events across the environment.
-- Restore the container from a known good backup or rebuild it using a verified secure image to ensure no persistence mechanisms remain.
-- Apply container hardening measures, such as disabling SSH access within containers and using network policies to restrict inter-container communication.
-- Conduct a post-incident review to identify gaps in security controls and update incident response plans to address similar threats in the future."""
 
 
 [[rule.threat]]
