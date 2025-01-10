@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/11/04"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/11/04"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +13,7 @@ This rule detects sensitive security file access via common utilities on Linux s
 from sensitive files using common utilities to gather information about the system and its security configuration.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Security File Access via Common Utilities"
@@ -48,20 +50,24 @@ tags = [
         "OS: Linux",
         "Use Case: Threat Detection",
         "Tactic: Discovery",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Data Source: Crowdstrike",
+        "Data Source: SentinelOne",
+        "Data Source: Elastic Endgame"
         ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.name in ("cat", "grep", "less", "more", "strings", "awk", "find", "xargs") and
-process.args like (
-  "/etc/security/*", "/etc/pam.d/*", "/etc/login.defs", "/lib/security/*", "/lib64/security/*",
-  "/usr/lib/security/*", "/usr/lib64/security/*", "/usr/lib/x86_64-linux-gnu/security/*",
-  "/home/*/.aws/credentials", "/home/*/.aws/config", "/home/*/.config/gcloud/*credentials.json",
-  "/home/*/.config/gcloud/configurations/config_default", "/home/*/.azure/accessTokens.json",
-  "/home/*/.azure/azureProfile.json"
-)
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  process.name in ("cat", "grep", "less", "more", "strings", "awk", "find", "xargs") and
+  process.args like (
+    "/etc/security/*", "/etc/pam.d/*", "/etc/login.defs", "/lib/security/*", "/lib64/security/*",
+    "/usr/lib/security/*", "/usr/lib64/security/*", "/usr/lib/x86_64-linux-gnu/security/*",
+    "/home/*/.aws/credentials", "/home/*/.aws/config", "/home/*/.config/gcloud/*credentials.json",
+    "/home/*/.config/gcloud/configurations/config_default", "/home/*/.azure/accessTokens.json",
+    "/home/*/.azure/azureProfile.json"
+  )
 '''
 
 [[rule.threat]]
