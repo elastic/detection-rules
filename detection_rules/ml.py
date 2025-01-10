@@ -276,7 +276,8 @@ def get_ml_model_manifests_by_model_id(repo: str = 'elastic/detection-rules') ->
 @es_experimental.group('ml')
 def ml_group():
     """Experimental machine learning commands."""
-
+    click.secho('\n***** Deprecation Warning *****\n')
+    click.secho('\n* The experiment "ml" command(s) are deprecated and will be removed in a future release. *\n')
 
 @ml_group.command('check-files')
 @click.pass_context
