@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/12/19"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -52,6 +52,41 @@ host.os.type:windows and event.category:process and event.type:start and
     "reg  query \"HKLM\\Software\\WOW6432Node\\Npcap\" /ve  "
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Query Registry using Built-in Tools
+
+The Windows Registry is a critical database for system configuration and application settings. Adversaries exploit built-in tools like `reg.exe` and PowerShell to query the registry, seeking insights into installed software and system configurations. The detection rule identifies suspicious registry queries by monitoring specific command executions, filtering out benign activities, and focusing on potential threats, thus aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the process details, including process.name and process.args, to confirm if the command execution aligns with known legitimate administrative activities or if it appears suspicious.
+- Check the process.command_line field to understand the full context of the command executed and identify any deviations from typical usage patterns.
+- Investigate the user account associated with the process execution to determine if the activity is expected for that user or if it indicates potential unauthorized access.
+- Correlate the event with other recent events involving the same host or user to identify any patterns or sequences that suggest malicious behavior.
+- Examine the host's recent activity logs for any signs of compromise or other suspicious activities that might be related to the registry query.
+- Assess the risk and impact of the queried registry keys, such as HKCU or HKLM, to determine if they contain sensitive information that could be leveraged by an adversary.
+
+### False positive analysis
+
+- Routine system inventory checks by IT management tools may trigger this rule. To handle this, identify and exclude specific command patterns used by these tools from the detection rule.
+- Software update processes often query the registry to verify installation status. Exclude known update processes by adding their command lines to the exception list.
+- Security software may perform regular registry queries as part of its monitoring activities. Review and whitelist these processes to prevent unnecessary alerts.
+- Custom scripts used for system administration might query the registry. Document and exclude these scripts if they are verified as non-threatening.
+- Automated compliance checks that involve registry queries can be excluded by identifying their specific command signatures and adding them to the exception list.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious processes identified by the detection rule, such as instances of reg.exe or PowerShell executing unauthorized registry queries.
+- Conduct a thorough review of the system's registry to identify any unauthorized changes or entries that may have been made by the adversary.
+- Restore any altered registry settings to their original state using known good configurations or backups.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
+- Implement additional monitoring on the affected system and similar endpoints to detect any recurrence of the suspicious activity.
+- Review and update endpoint protection policies to block unauthorized registry access and enhance detection capabilities for similar threats."""
 
 
 [[rule.threat]]

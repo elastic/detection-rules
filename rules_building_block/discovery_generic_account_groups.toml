@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -60,6 +60,40 @@ process where host.os.type == "windows" and event.type == "start" and
 ) and not process.parent.args: "C:\\Program Files (x86)\\Microsoft Intune Management Extension\\Content\\DetectionScripts\\*.ps1"
 and not process.parent.name : "LTSVC.exe" and not user.id : "S-1-5-18"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Windows Account or Group Discovery
+
+Windows environments provide built-in tools for managing and querying user accounts and groups, essential for system administration. However, adversaries exploit these tools to gather information about user accounts and group memberships, aiding in privilege escalation and lateral movement. The detection rule identifies suspicious use of these tools by monitoring specific command executions and arguments, filtering out benign activities to highlight potential threats.
+
+### Possible investigation steps
+
+- Review the process name and arguments to determine if the command execution aligns with typical administrative tasks or if it appears suspicious. Pay particular attention to commands like net.exe, dsquery.exe, and whoami.exe.
+- Check the parent process name and arguments to identify if the command was executed by a legitimate application or script, such as those related to Microsoft Intune Management Extension or LTSVC.exe, which are excluded in the rule.
+- Investigate the user ID associated with the process to determine if it belongs to a legitimate system or service account, especially since the rule excludes the system account S-1-5-18.
+- Analyze the context of the host where the process was executed, including recent login activities, to identify any unusual patterns or unauthorized access attempts.
+- Correlate the alert with other security events or logs from the same host or user to identify potential lateral movement or privilege escalation activities.
+
+### False positive analysis
+
+- Routine administrative tasks using net.exe or net1.exe for legitimate account management may trigger alerts. Exclude these by identifying and whitelisting specific administrative scripts or processes that frequently use these commands.
+- Automated scripts or software updates that query user or group information using dsquery.exe or dsget.exe can be mistaken for threats. Monitor and exclude these processes if they are part of regular maintenance or update routines.
+- Commands executed by cmd.exe to display environment variables like %username% or %userdomain% during login scripts or system checks can be benign. Identify and exclude these scripts if they are part of standard operating procedures.
+- Processes initiated by known management tools such as Microsoft Intune or LTSVC.exe may appear suspicious. Exclude these parent processes to reduce false positives from trusted management software.
+- System accounts, particularly those with user ID S-1-5-18, may execute commands that match the rule criteria. Exclude these system accounts to prevent unnecessary alerts from standard system operations.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Terminate any suspicious processes identified by the detection rule, such as those involving net.exe, dsquery.exe, or other flagged applications.
+- Conduct a thorough review of user accounts and group memberships on the affected system to identify any unauthorized changes or additions.
+- Reset passwords for potentially compromised accounts, especially those with elevated privileges, to mitigate the risk of further exploitation.
+- Review and update access controls and permissions to ensure that only authorized users have access to sensitive resources and administrative tools.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for the affected system and similar environments to detect any recurrence of the threat or related suspicious activities."""
 
 
 [[rule.threat]]

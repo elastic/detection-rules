@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = "endpoint"
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -110,6 +110,40 @@ file where host.os.type == "windows" and event.type in ("creation", "change") an
    )
  )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating File Compressed or Archived into Common Format
+
+File compression and archiving are essential for efficient data storage and transfer, using formats like ZIP, RAR, and 7-Zip. However, adversaries exploit these technologies to obfuscate malicious files or stage data for exfiltration. The detection rule identifies suspicious compression activities by monitoring file creation or modification events, excluding trusted processes, and focusing on specific file signatures indicative of compression or archiving.
+
+### Possible investigation steps
+
+- Review the process executable and its code signature details to determine if the process is expected or potentially malicious. Pay attention to processes not listed in the exclusions, such as unknown or untrusted executables.
+- Examine the user ID associated with the event to identify if the activity was performed by a legitimate user or an unauthorized account. Investigate any anomalies in user behavior.
+- Analyze the file path and name to understand the context of the compressed or archived file. Check if the file location is typical for such activities or if it appears suspicious.
+- Investigate the file header bytes to confirm the type of compression or archive format used. This can help identify if the format is commonly used in the environment or if it is unusual.
+- Check for any recent changes or creations of similar files on the host to identify patterns or repeated activities that might indicate malicious intent.
+- Correlate the event with other security alerts or logs from the same host or user to gather additional context and determine if this is part of a larger attack or data exfiltration attempt.
+
+### False positive analysis
+
+- Trusted applications like Firefox, Wazuh Agent, Microsoft Office, OneDrive, Dropbox, Dell SupportAssist, and IIS may trigger false positives when they perform legitimate compression or archiving activities. Users can mitigate these by ensuring the processes are correctly signed and trusted, and by adding exceptions for these applications in the rule configuration.
+- Files with specific extensions or paths, such as those associated with OneDrive logs or IIS temporary compressed files, may be flagged. Users should review these paths and extensions and consider excluding them if they are part of regular, non-malicious operations.
+- Regular updates or operations by trusted software, such as Windows Update or Dell SupportAssist, might be misidentified as suspicious. Users should verify the legitimacy of these operations and adjust the rule to exclude these known, safe activities.
+- If certain processes are frequently involved in legitimate compression activities, users can add these processes to the exception list, provided they are verified as safe and necessary for business operations.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further data exfiltration or lateral movement by the adversary.
+- Terminate any suspicious processes identified in the alert that are not part of the trusted processes list, especially those involved in file compression or archiving.
+- Conduct a thorough scan of the isolated system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or software.
+- Review and analyze the compressed or archived files identified in the alert to determine if they contain sensitive data or malware, and take appropriate action based on the findings.
+- Restore any affected files from a known good backup if they have been altered or corrupted by the malicious activity.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement additional monitoring and alerting for similar file compression activities across the network to enhance detection and prevent recurrence."""
 
 
 [[rule.threat]]

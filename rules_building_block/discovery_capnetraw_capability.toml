@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/01/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -65,6 +65,41 @@ event.category:"process" and host.os.type:"linux" and event.type:"start" and eve
 (process.thread.capabilities.effective:"CAP_NET_RAW" or process.thread.capabilities.permitted:"CAP_NET_RAW") and
 not user.id:"0"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Network Traffic Capture via CAP_NET_RAW
+
+CAP_NET_RAW is a Linux capability that allows processes to create raw sockets, enabling them to send and receive packets directly at the network layer. This capability is crucial for network utilities but can be exploited by adversaries to intercept and manipulate network traffic, bypassing access controls. The detection rule identifies non-root processes with CAP_NET_RAW, flagging potential unauthorized network sniffing activities.
+
+### Possible investigation steps
+
+- Review the process details by examining the process.name field to identify the specific application or service that triggered the alert.
+- Check the user.id field to determine which non-root user is associated with the process, and assess whether this user should have CAP_NET_RAW capabilities.
+- Investigate the event.category and event.type fields to confirm the context of the process start event and ensure it aligns with expected behavior for the identified process.
+- Analyze the host.os.type field to verify the operating system environment and consider any specific configurations or security measures in place on the Linux host.
+- Correlate the event.action field with other recent events on the system to identify any unusual patterns or sequences of actions that might indicate malicious activity.
+- Consult system logs and network traffic data to gather additional context around the time of the alert, looking for signs of unauthorized network sniffing or manipulation.
+
+### False positive analysis
+
+- Network diagnostic tools like tcpdump or Wireshark may trigger this rule when used by non-root users. To manage this, create exceptions for these specific processes if they are part of regular network monitoring activities.
+- Custom scripts or applications developed in-house that require network packet analysis might also be flagged. Review these processes and, if deemed safe, add them to an allowlist to prevent future alerts.
+- Security software or monitoring agents that operate with CAP_NET_RAW for legitimate purposes can be identified as false positives. Verify their legitimacy and configure exceptions to avoid unnecessary alerts.
+- Development or testing environments where non-root users are granted CAP_NET_RAW for specific tasks may cause alerts. Ensure these environments are well-documented and apply exceptions where appropriate to reduce noise.
+- Automated deployment tools that temporarily use CAP_NET_RAW during setup or configuration might be flagged. Confirm their activity is expected and safe, then exclude them from the rule to streamline operations.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized network traffic sniffing and potential data exfiltration.
+- Terminate the suspicious process identified with CAP_NET_RAW capabilities to stop any ongoing malicious activities.
+- Conduct a thorough review of the affected system to identify any unauthorized changes or additional malicious processes that may have been initiated by the same threat actor.
+- Revoke CAP_NET_RAW capabilities from non-essential processes and users to minimize the risk of similar threats in the future.
+- Implement strict firewall rules to limit the types and contents of packets that can be sent and received, reducing the attack surface for network sniffing.
+- Escalate the incident to the security operations center (SOC) for further analysis and to determine if the threat is part of a larger attack campaign.
+- Enhance monitoring and logging for CAP_NET_RAW capability usage across all systems to improve detection and response times for similar threats in the future."""
 
 
 [[rule.threat]]

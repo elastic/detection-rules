@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -34,6 +34,41 @@ query = '''
 event.dataset:"github.audit" and event.category:"configuration" and
 github.actor_ip:* and user.name:*
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Occurrence of IP Address For GitHub User
+
+GitHub audit logs track user activities, including IP addresses, to monitor access patterns. Adversaries may exploit compromised credentials to access accounts from unfamiliar IPs, indicating potential unauthorized access. This detection rule identifies new IP addresses associated with a user within a 14-day window, flagging unusual access attempts that could signify initial access tactics by threat actors.
+
+### Possible investigation steps
+
+- Review the GitHub audit logs to identify the specific event associated with the new IP address, focusing on the event.dataset:"github.audit" and event.category:"configuration" fields.
+- Verify the legitimacy of the new IP address by cross-referencing it with known IP addresses associated with the user or organization, and check for any geographical anomalies.
+- Contact the user associated with the alert to confirm whether they recognize the IP address and if they have recently accessed their account from a new location or device.
+- Investigate the user.name field to gather additional context about the user's recent activities and any potential changes in their access patterns.
+- Assess the risk score and severity of the alert to prioritize the investigation and determine if immediate action is required to secure the account.
+- Check for any other recent alerts or suspicious activities related to the same user or IP address to identify potential patterns or coordinated attacks.
+
+### False positive analysis
+
+- Frequent travel or remote work by users can trigger false positives due to legitimate access from new IP addresses. Implement a process to whitelist known IP ranges associated with regular travel or remote work locations.
+- Use of VPNs or dynamic IP addresses by users may result in new IP detections. Consider excluding IP addresses from known VPN providers or implementing a policy to log and verify VPN usage.
+- Changes in corporate network infrastructure, such as new proxies or gateways, can lead to new IP addresses being flagged. Coordinate with IT to update the list of approved IP addresses when infrastructure changes occur.
+- Shared accounts accessed by multiple users from different locations can generate false positives. Encourage the use of individual accounts and monitor shared account access separately.
+- Regularly review flagged IP addresses and cross-reference them with known user activity patterns to identify and exclude benign occurrences.
+
+### Response and remediation
+
+- Immediately isolate the affected user account by temporarily disabling access to prevent further unauthorized activity.
+- Conduct a thorough review of recent activities associated with the compromised account to identify any unauthorized changes or data access.
+- Reset the password for the affected user account and enforce multi-factor authentication (MFA) to enhance security.
+- Notify the user of the suspicious activity and provide guidance on recognizing phishing attempts and securing their credentials.
+- Escalate the incident to the security operations team for further investigation and to determine if other accounts or systems have been compromised.
+- Monitor the network for any additional suspicious IP addresses or activities that may indicate further attempts at unauthorized access.
+- Update security policies and access controls to prevent similar incidents, ensuring that alerts for new IP addresses are promptly reviewed and addressed."""
 
 
 [[rule.threat]]

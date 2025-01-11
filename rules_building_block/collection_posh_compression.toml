@@ -5,7 +5,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 
 
 [rule]
@@ -70,6 +70,40 @@ not powershell.file.script_block_text : (
 ) and
 not file.directory : "C:\Program Files\Microsoft Dependency Agent\plugins\lib"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PowerShell Script with Archive Compression Capabilities
+
+PowerShell, a powerful scripting language in Windows, includes capabilities for file compression using various methods like ZipFile and GZipStream. While these are useful for legitimate data management, adversaries exploit them to compress and encrypt data for exfiltration. The detection rule identifies suspicious use of compression-related cmdlets and methods, excluding known benign activities, to flag potential threats.
+
+### Possible investigation steps
+
+- Review the PowerShell script block text associated with the alert to identify the specific compression methods or cmdlets used, such as "IO.Compression.ZipFile" or "Compress-Archive".
+- Check the process execution details, including the parent process, to understand the context in which the PowerShell script was executed and identify any potentially malicious parent processes.
+- Investigate the user account under which the PowerShell script was executed to determine if it aligns with expected behavior or if it might be compromised.
+- Examine the file paths and directories involved in the compression activity to identify any unusual or sensitive data locations that might indicate data exfiltration attempts.
+- Correlate the alert with other security events or logs, such as network traffic or file access logs, to identify any related suspicious activities or data transfers.
+- Verify if the alert corresponds to any known benign activities or exclusions, such as those specified in the query, to rule out false positives.
+
+### False positive analysis
+
+- Legitimate software updates or diagnostics tools, such as Lenovo's diagnostics, may use compression methods. Exclude these by adding specific paths or script block text to the exception list.
+- Automation tools like Ansible may trigger the rule during routine operations. Identify and exclude these by recognizing unique script block text patterns associated with these tools.
+- System management or monitoring agents, such as the Microsoft Dependency Agent, might perform compression tasks. Exclude their known directories or script block text to prevent false alerts.
+- Regular administrative tasks that involve file compression for backup or archiving purposes can be excluded by identifying and whitelisting specific script block text or directories used by trusted administrators.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further data exfiltration and limit the adversary's access.
+- Terminate any suspicious PowerShell processes identified by the alert to stop ongoing malicious activities.
+- Conduct a thorough review of the compressed files and directories mentioned in the alert to determine if sensitive data was involved and assess the extent of potential data loss.
+- Restore any compromised or altered files from backups, ensuring that the restored data is free from malicious modifications.
+- Implement additional monitoring on the affected system and similar endpoints to detect any further attempts at data compression or exfiltration.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat is part of a larger attack campaign.
+- Review and update endpoint protection configurations to enhance detection and prevention capabilities against similar threats in the future."""
 
 [[rule.filters]]
 [rule.filters.meta]

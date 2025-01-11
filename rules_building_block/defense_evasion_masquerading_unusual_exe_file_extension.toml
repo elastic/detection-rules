@@ -2,7 +2,7 @@
 creation_date = "2023/09/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -50,6 +50,40 @@ file where host.os.type == "windows" and event.action != "deletion" and
   not process.pid == 4 and
   not process.executable : "?:\\Program Files (x86)\\Trend Micro\\Client Server Security Agent\\Ntrtscan.exe"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Executable File with Unusual Extension
+
+Executable files are crucial for running applications, but adversaries may disguise them with non-executable extensions like images or documents to evade detection. This tactic, known as masquerading, exploits user trust and bypasses security filters. The detection rule identifies such anomalies by inspecting file headers for executable signatures, even if the extension suggests otherwise, thus flagging potential threats.
+
+### Possible investigation steps
+
+- Review the file path and name to determine if it aligns with typical user activity or known software installations, focusing on unusual directories or naming conventions.
+- Examine the file header bytes to confirm the presence of the "MZ" signature, indicating an executable file, despite the non-executable extension.
+- Check the file creation or modification timestamp to correlate with user activity or scheduled tasks, identifying any anomalies or unexpected changes.
+- Investigate the process that created or modified the file, excluding known safe processes like "Ntrtscan.exe", to identify potentially malicious activity.
+- Analyze the user account associated with the file creation or modification to determine if it has been compromised or is exhibiting unusual behavior.
+- Search for any related alerts or logs that might indicate a broader attack pattern or additional compromised files on the system.
+
+### False positive analysis
+
+- Files from legitimate software installations or updates may trigger the rule if they use non-standard extensions. Users can create exceptions for known software paths or specific file hashes to prevent these alerts.
+- Multimedia files with embedded executable content for legitimate purposes, such as self-extracting archives, might be flagged. Users should verify the source and purpose of such files and whitelist them if they are deemed safe.
+- Security or system administration tools that use unconventional file extensions for executables could be mistakenly identified. Users can exclude these tools by specifying their file paths or process names in the rule configuration.
+- Backup or recovery software that temporarily renames executable files with non-standard extensions during operations may cause false positives. Users should identify these processes and add them to the exclusion list to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potentially malicious executable file.
+- Terminate any suspicious processes associated with the identified executable file to halt any ongoing malicious activity.
+- Quarantine the suspicious file to prevent execution and further analysis, ensuring it is not accessible to users or other systems.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional threats.
+- Review recent file creation and modification logs to identify any other files with unusual extensions that may have been missed and take appropriate action.
+- Restore any affected files or systems from known good backups to ensure integrity and availability of data.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
 
 
 [[rule.threat]]

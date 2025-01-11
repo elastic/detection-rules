@@ -2,7 +2,7 @@
 creation_date = "2023/07/10"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -37,6 +37,41 @@ process where event.type == "start" and event.action in ("exec", "exec_event", "
   )
 )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux System Information Discovery
+
+Linux system information discovery involves commands like `uname`, `cat`, `more`, and `less` to gather system details such as kernel version, hardware, and configuration files. Adversaries exploit these to understand the environment and tailor attacks. The detection rule identifies suspicious use of these commands, focusing on process events that suggest system probing, thus alerting analysts to potential reconnaissance activities.
+
+### Possible investigation steps
+
+- Review the process event details to identify the specific command executed, focusing on the process.name and process.args fields to understand what system information was being queried.
+- Check the user context under which the command was executed to determine if it aligns with expected behavior for that user or if it suggests unauthorized access.
+- Investigate the parent process of the suspicious command to understand how the process was initiated and if it was part of a legitimate workflow or script.
+- Correlate the event with other recent process events from the same host to identify any patterns or sequences that suggest a broader reconnaissance or attack attempt.
+- Examine the network activity from the host around the time of the event to detect any potential data exfiltration or communication with known malicious IP addresses.
+- Review historical alerts and logs for the host to determine if there have been previous similar activities or other indicators of compromise.
+
+### False positive analysis
+
+- Routine system administration tasks may trigger the rule, such as when administrators use commands like uname, cat, more, or less to check system configurations or hardware details. To manage this, consider creating exceptions for known administrator accounts or specific maintenance windows.
+- Automated scripts or monitoring tools that regularly check system information for health and performance metrics can also cause false positives. Identify these scripts and exclude their process names or paths from the rule.
+- Software updates or installations that involve checking system compatibility might execute these commands. Review the context of such events and whitelist the associated processes or update tools.
+- Development or testing environments where frequent system information checks are part of normal operations can lead to alerts. Implement exclusions for these environments by specifying IP ranges or hostnames.
+- Security tools that perform regular audits or compliance checks may use these commands as part of their operations. Verify the legitimacy of these tools and exclude their activities from triggering alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further reconnaissance or lateral movement by the adversary.
+- Terminate any suspicious processes identified by the detection rule, particularly those involving the use of `uname`, `cat`, `more`, or `less` with sensitive arguments.
+- Conduct a thorough review of system logs and process histories to identify any unauthorized access or changes made by the adversary.
+- Restore any altered configuration files or system settings to their original state using verified backups.
+- Update and patch the Linux system to address any vulnerabilities that may have been exploited during the reconnaissance phase.
+- Implement stricter access controls and monitoring on sensitive files and directories to prevent unauthorized access in the future.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised."""
 
 
 [[rule.threat]]

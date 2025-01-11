@@ -2,7 +2,7 @@
 creation_date = "2023/09/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -40,6 +40,40 @@ library where dll.name : "Bitsproxy.dll" and process.executable != null and
 not process.code_signature.trusted == true and
 not process.code_signature.status : ("errorExpired", "errorCode_endpoint*")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unsigned BITS Service Client Process
+
+The Windows Background Intelligent Transfer Service (BITS) facilitates asynchronous, prioritized, and throttled transfer of files between machines, often used for updates. Adversaries exploit BITS to stealthily download or upload data, bypassing traditional security measures. The detection rule identifies anomalies by flagging processes using BITS without a valid code signature, indicating potential misuse for evasion or masquerading tactics.
+
+### Possible investigation steps
+
+- Review the process executable path to determine if it is a known or expected application using BITS. Investigate any unfamiliar or suspicious executables.
+- Check the process code signature details to understand why it is untrusted. Look for any discrepancies or missing signatures that could indicate tampering.
+- Investigate the parent process of the unsigned BITS client process to identify how it was initiated and assess if the parent process is legitimate or potentially malicious.
+- Analyze network activity associated with the process to identify any unusual or unauthorized data transfers, focusing on external connections that could indicate data exfiltration or command and control communication.
+- Cross-reference the process and its associated files with threat intelligence sources to determine if they are linked to known malicious activity or threat actors.
+- Review recent system changes or updates that might have introduced the unsigned process, such as new software installations or updates, to assess if they are legitimate or potentially compromised.
+
+### False positive analysis
+
+- Legitimate software updates or installations may trigger the rule if they use BITS without a valid code signature. Users can create exceptions for known software update processes that are verified as safe.
+- Custom or in-house applications that utilize BITS for file transfers might not have a valid code signature. These can be whitelisted by verifying their source and ensuring they are part of the organization's approved software inventory.
+- Development or testing environments often run unsigned applications that use BITS for data transfer. Exclude these environments from the rule to prevent unnecessary alerts, ensuring they are properly isolated from production systems.
+- Some third-party security tools or network management software may use BITS in a way that triggers the rule. Confirm the legitimacy of these tools and add them to an exception list if they are deemed non-threatening.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further data exfiltration or malicious activity.
+- Terminate the unsigned BITS client process to stop any ongoing unauthorized data transfers.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any additional threats.
+- Review and analyze the process execution history and associated files to determine the source and intent of the unsigned BITS client process.
+- Restore any altered or deleted files from backups, ensuring that the backup is clean and free from malware.
+- Escalate the incident to the security operations team for further investigation and to assess the potential impact on the organization.
+- Implement enhanced monitoring and logging for BITS-related activities to detect and respond to similar threats in the future."""
 
 
 [[rule.threat]]

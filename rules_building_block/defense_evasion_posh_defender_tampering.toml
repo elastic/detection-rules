@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/09/11"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -60,6 +60,40 @@ event.category: "process" and host.os.type:windows and
   )
 )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PowerShell Script with Windows Defender Tampering Capabilities
+
+PowerShell, a powerful scripting language in Windows, can be exploited by adversaries to disable Windows Defender features, reducing detection risks. Attackers may use specific cmdlets to impair antivirus defenses, facilitating payload execution. The detection rule identifies scripts attempting such tampering by monitoring for key cmdlets and parameters indicative of defense evasion tactics.
+
+### Possible investigation steps
+
+- Review the PowerShell script block text to identify the specific cmdlets and parameters used, focusing on those related to disabling Windows Defender features such as Set-MpPreference.
+- Check the event logs for the process category to gather additional context about the execution environment, including the user account and host involved.
+- Investigate the timeline of events to determine if the script execution coincides with other suspicious activities, such as unauthorized access attempts or unusual network traffic.
+- Analyze the host's security logs to assess whether any Windows Defender features were successfully disabled and if there are subsequent signs of malware or unauthorized changes.
+- Correlate the alert with other security events or alerts from the same host or user to identify potential patterns or indicators of a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate administrative scripts may use cmdlets like Set-MpPreference for valid configuration changes. Review the script's context and purpose to determine if it aligns with expected administrative tasks.
+- Automated system management tools might trigger this rule when configuring Windows Defender settings as part of routine maintenance. Identify and whitelist these tools to prevent unnecessary alerts.
+- Security software updates or patches could temporarily disable certain Windows Defender features, leading to false positives. Monitor update schedules and correlate alerts with known update activities.
+- Custom scripts developed for internal use may include these cmdlets for specific security configurations. Validate the script's origin and intent, and consider excluding them if they are verified as safe.
+- Training or testing environments might intentionally disable certain features for educational purposes. Ensure these environments are properly segmented and documented to avoid confusion with genuine threats.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further tampering or spread of malicious activities.
+- Terminate any suspicious PowerShell processes identified by the detection rule to halt ongoing tampering attempts.
+- Conduct a thorough scan of the isolated system using an updated antivirus solution to identify and remove any malicious payloads or scripts.
+- Restore Windows Defender settings to their default state to ensure all protective features are re-enabled.
+- Review and update endpoint protection policies to prevent unauthorized changes to security settings, ensuring only trusted administrators have the necessary permissions.
+- Monitor the network for any additional systems exhibiting similar behavior, indicating a broader compromise.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional containment or remediation actions are necessary."""
 
 
 [[rule.threat]]

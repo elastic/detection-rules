@@ -2,7 +2,7 @@
 creation_date = "2023/08/21"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -49,6 +49,41 @@ process where host.os.type == "windows" and event.type == "start" and
    )
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Bitsadmin Activity
+
+Windows Background Intelligent Transfer Service (BITS) facilitates low-bandwidth file transfers, often used for updates. Adversaries exploit BITS to persistently download and execute malicious payloads, leveraging its ability to operate in the background. The detection rule identifies suspicious BITS usage by monitoring specific command-line arguments associated with bitsadmin.exe and PowerShell, flagging potential misuse indicative of command and control activities.
+
+### Possible investigation steps
+
+- Review the process details to confirm the presence of suspicious command-line arguments associated with bitsadmin.exe or powershell.exe, such as "*Transfer*", "*Create*", "AddFile", or "*Start-BitsTransfer*".
+- Check the parent process of bitsadmin.exe or powershell.exe to determine if it was spawned by a legitimate application or a potentially malicious one.
+- Investigate the network connections established by the host during the time of the alert to identify any unusual or unauthorized external communications.
+- Examine the file paths and file names involved in the BITS transfer to assess if they are known or potentially malicious files.
+- Correlate the alert with other security events or logs from the same host to identify any additional indicators of compromise or related suspicious activities.
+- Review the user account associated with the process execution to determine if it aligns with expected behavior or if it might be compromised.
+
+### False positive analysis
+
+- Routine system updates or legitimate software installations may trigger BITS activity. Users can create exceptions for known update processes or trusted software installations to prevent false alerts.
+- Automated scripts or administrative tasks using PowerShell to manage BITS for legitimate purposes might be flagged. Identify and whitelist these scripts if they are verified as non-malicious.
+- Internal IT operations that utilize BITS for file transfers within the organization could be misidentified as threats. Document and exclude these operations from monitoring if they are part of regular IT maintenance.
+- Software distribution tools that rely on BITS for deploying applications across the network may cause false positives. Ensure these tools are recognized and excluded from the detection rule.
+- Frequent use of BITS for legitimate data synchronization tasks, such as cloud backups, should be reviewed and excluded if they are part of standard business operations.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further command and control communication and potential lateral movement.
+- Terminate any suspicious BITS jobs using bitsadmin.exe or PowerShell commands identified in the alert to stop ongoing malicious file transfers.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious payloads or remnants.
+- Review and analyze the BITS job history and PowerShell logs to identify any additional indicators of compromise (IOCs) or related malicious activities.
+- Restore the system from a known good backup if malicious activity has compromised system integrity or critical files.
+- Implement network-level controls to block known malicious IP addresses or domains associated with the detected command and control activity.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]

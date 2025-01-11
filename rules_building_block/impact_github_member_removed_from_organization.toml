@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -33,6 +33,39 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "org.remove_member"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Member Removed From GitHub Organization
+
+GitHub Organizations manage collaborative access to repositories, where members can be added or removed. Adversaries might exploit this by removing legitimate members to disrupt operations or conceal malicious activities. The detection rule monitors audit logs for member removal actions, flagging potential unauthorized access removal, aligning with MITRE ATT&CK's impact tactics, ensuring timely threat detection and response.
+
+### Possible investigation steps
+
+- Review the GitHub audit logs to confirm the event dataset is "github.audit" and the action is "org.remove_member" to ensure the alert is based on the correct event.
+- Identify the user who was removed from the organization and determine their role and access level to assess the potential impact of their removal.
+- Investigate the user account that performed the removal action to verify if it was authorized and check for any unusual activity or anomalies associated with this account.
+- Check the organization's recent activity logs for any other suspicious actions or changes that might indicate a broader security incident.
+- Contact the removed member or relevant team leads to confirm whether the removal was expected or authorized, and gather any additional context or concerns they might have.
+
+### False positive analysis
+
+- Routine member management activities can trigger alerts when legitimate members are removed as part of regular organizational changes. To mitigate this, establish a baseline of expected member removal activities and create exceptions for these patterns.
+- Temporary project members or contractors may be removed after project completion, leading to false positives. Implement a process to document and exclude these expected removals from triggering alerts.
+- Automated scripts or integrations that manage user access might inadvertently remove members, causing false positives. Review and adjust the scripts to ensure they align with organizational policies and exclude these actions from monitoring.
+- Organizational restructuring or mergers can result in bulk member removals, which may be flagged as suspicious. Coordinate with HR or management teams to anticipate these changes and temporarily adjust detection thresholds or rules.
+
+### Response and remediation
+
+- Immediately verify the legitimacy of the member removal by contacting the organization owner or admin to confirm if the action was authorized.
+- If unauthorized, promptly re-add the removed member to the organization to restore their access and minimize disruption.
+- Conduct a review of recent audit logs to identify any other suspicious activities or unauthorized changes within the organization.
+- Temporarily restrict access to critical repositories and resources until the source of the unauthorized removal is identified and mitigated.
+- Escalate the incident to the security team for further investigation and to assess potential impacts on the organization’s operations and data integrity.
+- Implement additional access controls, such as multi-factor authentication, to prevent unauthorized access and account manipulation in the future.
+- Update and reinforce incident response procedures to ensure rapid detection and response to similar threats in the future."""
 
 
 [[rule.threat]]

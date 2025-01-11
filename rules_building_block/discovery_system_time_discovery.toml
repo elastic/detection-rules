@@ -5,7 +5,7 @@ integration = ["windows", "endpoint", "system"]
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -52,6 +52,40 @@ process where host.os.type == "windows" and event.type == "start" and
  (process.name: "tzutil.exe" and process.args: "/g")
 ) and not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating System Time Discovery
+
+System time discovery involves querying a system's time settings, which adversaries exploit to synchronize attacks or evade detection. Attackers may use commands like `net time`, `w32tm`, or `tzutil` to gather time information. The detection rule identifies these activities by monitoring specific processes and arguments, excluding known system accounts, to flag potential reconnaissance efforts.
+
+### Possible investigation steps
+
+- Review the process details to confirm the presence of suspicious commands, such as "net time", "w32tm /tz", or "tzutil /g", and verify if these were executed by unexpected or unauthorized users.
+- Check the user ID associated with the process to ensure it is not one of the excluded system accounts (S-1-5-18, S-1-5-19, S-1-5-20) and determine if the user is legitimate or potentially compromised.
+- Investigate the parent process of the suspicious activity to understand the context of execution and identify if it was initiated by a legitimate application or a potentially malicious script or program.
+- Correlate the event with other logs or alerts from the same host to identify any additional suspicious activities or patterns that might indicate a broader attack or reconnaissance effort.
+- Assess the timing and frequency of the detected commands to determine if they align with normal operational procedures or if they suggest an anomaly that warrants further investigation.
+
+### False positive analysis
+
+- System maintenance tasks may trigger the rule when administrators use time-related commands for legitimate purposes. To manage this, create exceptions for known maintenance scripts or tools used by trusted administrators.
+- Automated scripts or software that synchronize time settings across multiple systems can cause false positives. Identify these scripts and exclude their associated user accounts or process names from the rule.
+- Scheduled tasks that involve time synchronization or adjustments might be flagged. Review scheduled tasks and exclude those that are part of routine system operations.
+- Monitoring tools that check system time as part of their health checks can be mistaken for reconnaissance. Whitelist these tools by excluding their process names or user accounts from the detection rule.
+- Training or testing environments where time-related commands are frequently executed for educational purposes can generate alerts. Exclude these environments by filtering based on specific hostnames or user accounts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious processes identified by the detection rule, such as instances of `net.exe`, `w32tm.exe`, or `tzutil.exe` running with unusual arguments.
+- Conduct a thorough review of user accounts and privileges on the affected system to ensure no unauthorized changes have been made, focusing on accounts not excluded by the detection rule.
+- Check for any signs of lateral movement or additional compromise on the network by reviewing logs and alerts from other systems.
+- Restore the system time settings to their correct state if they have been altered, ensuring synchronization with a trusted time source.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for time-related commands and processes to detect similar activities in the future."""
 
 
 [[rule.threat]]

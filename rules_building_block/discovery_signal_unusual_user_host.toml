@@ -2,7 +2,7 @@
 bypass_bbr_timing = true
 creation_date = "2023/10/10"
 maturity = "production"
-updated_date = "2024/09/01"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -39,6 +39,40 @@ host.os.type:windows and event.kind:signal and kibana.alert.rule.rule_id:(
   "1d72d014-e2ab-4707-b056-9b96abe7b511"
 )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Discovery Activity by User
+
+In Windows environments, discovery activities involve querying system information, which adversaries exploit to gather intelligence for further attacks. This detection rule identifies anomalies by monitoring unique host and user identifiers linked to discovery actions. By leveraging alert data from foundational rules, it flags unusual patterns, aiding in early threat detection and response.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host.id and user.id associated with the unusual discovery activity to understand the scope of the potential threat.
+- Check the event logs on the identified Windows host for any related discovery activities or other suspicious events around the time of the alert to gather more context.
+- Investigate the user account activity associated with the user.id to determine if there are any unauthorized or unexpected actions, such as logins from unusual locations or times.
+- Correlate the alert with other security events or alerts involving the same host.id or user.id to identify any patterns or additional indicators of compromise.
+- Assess the host's current state for any signs of compromise, such as unexpected processes, network connections, or changes in system configurations, to determine if further containment or remediation actions are necessary.
+
+### False positive analysis
+
+- Routine administrative tasks by IT staff may trigger alerts due to frequent system queries. To manage this, create exceptions for known IT user accounts and host identifiers that regularly perform these tasks.
+- Automated scripts or monitoring tools that query system information for legitimate purposes can be mistaken for unusual activity. Identify these scripts and tools, and exclude their associated user and host identifiers from the rule.
+- Software updates or installations that involve system checks might generate false positives. Review the timing and context of alerts to correlate them with scheduled updates, and exclude relevant identifiers if necessary.
+- Security audits or compliance checks often involve extensive system discovery activities. Document these events and exclude the involved user and host identifiers to prevent unnecessary alerts.
+- Training or testing environments where discovery activities are simulated can lead to false positives. Ensure these environments are recognized and excluded from the rule to avoid confusion.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent further lateral movement or data exfiltration. Disconnect it from the network while maintaining power to preserve volatile data for forensic analysis.
+- Conduct a thorough review of the user's recent activities and access logs to identify any unauthorized access or data manipulation. Focus on the specific user.id and host.id flagged in the alert.
+- Reset the credentials of the affected user account and any other accounts that may have been compromised. Ensure that new credentials adhere to strong password policies.
+- Scan the isolated host for malware or unauthorized software using updated antivirus and endpoint detection tools. Remove any malicious files or applications found.
+- Restore the affected system from a known good backup if any unauthorized changes or malware are detected that cannot be remediated.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems or users are affected.
+- Implement enhanced monitoring on the affected host and user account to detect any recurrence of unusual discovery activities, adjusting alert thresholds if necessary to improve detection accuracy."""
 
 
 [[rule.threat]]

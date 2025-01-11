@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -40,6 +40,40 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.args : "type" and process.args : (">", ">>")) or
     (process.args : "copy" and process.args : "/b"))
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Binary Content Copy via Cmd.exe
+
+Cmd.exe, a command-line interpreter on Windows, is often exploited by attackers to reconstruct binary files from fragments using commands like 'type' and 'copy /b'. This technique allows adversaries to evade detection by assembling malicious payloads directly on the target system. The detection rule identifies such activities by monitoring for specific command patterns indicative of binary reassembly, thus alerting analysts to potential threats.
+
+### Possible investigation steps
+
+- Review the process execution details to confirm the presence of cmd.exe with arguments related to 'type' and 'copy /b', as these are indicative of binary reassembly attempts.
+- Examine the parent process of the cmd.exe instance to determine if it was spawned by a legitimate application or a suspicious process, which could provide context on how the command was initiated.
+- Check the file paths and names involved in the 'type' and 'copy /b' commands to identify any unusual or unauthorized files being manipulated, which may indicate malicious intent.
+- Investigate the user account associated with the cmd.exe process to assess whether the activity aligns with the user's typical behavior or if the account may be compromised.
+- Correlate this event with other security alerts or logs from the same host or user to identify any patterns or additional indicators of compromise that could suggest a broader attack campaign.
+
+### False positive analysis
+
+- System administrators may use cmd.exe to concatenate log files or other non-malicious binary data. To handle this, create exceptions for known administrative scripts or processes that frequently use the 'type' or 'copy /b' commands.
+- Backup or maintenance scripts might use similar command patterns for legitimate purposes. Identify these scripts and exclude them from triggering alerts by specifying their file paths or process hashes in the monitoring tool.
+- Software installations or updates might involve the use of cmd.exe to manage binary files. Monitor installation logs and whitelist these activities when they are verified as part of legitimate software deployment processes.
+- Developers or IT personnel might use cmd.exe for testing or debugging purposes. Establish a list of trusted users or machines where such activities are expected and exclude them from the rule's scope.
+- Automated tasks or scheduled jobs that involve file manipulation using cmd.exe could trigger false positives. Review scheduled tasks and exclude those that are part of routine operations from the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further spread of the potential malicious payload.
+- Terminate any suspicious cmd.exe processes identified by the detection rule to halt ongoing binary reassembly activities.
+- Conduct a forensic analysis of the affected system to identify and remove any malicious binaries that may have been assembled and executed.
+- Review and restore any altered or deleted system files from a known good backup to ensure system integrity.
+- Escalate the incident to the security operations center (SOC) for further investigation and correlation with other potential threats in the environment.
+- Implement additional monitoring on the affected system and similar endpoints to detect any recurrence of the binary reassembly activity.
+- Update endpoint protection and intrusion detection systems with the latest threat intelligence to enhance detection capabilities against similar tactics."""
 
 
 [[rule.threat]]

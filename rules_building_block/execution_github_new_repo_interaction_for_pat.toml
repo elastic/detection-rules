@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -36,6 +36,41 @@ github.repo:* and github.hashed_token:* and
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token") and 
 github.repository_public:false
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Occurrence of Private Repo Event from Specific GitHub Personal Access Token (PAT)
+
+GitHub Personal Access Tokens (PATs) enable programmatic access to repositories, facilitating automation and integration. However, adversaries can exploit compromised PATs to access private repositories, potentially exfiltrating sensitive data. This detection rule identifies unusual private repo interactions by monitoring for PAT activity not observed in the past 14 days, signaling potential unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the specific GitHub repository involved in the alert to determine its sensitivity and the potential impact of unauthorized access.
+- Identify the user or system associated with the hashed_token in the alert to verify if the access was expected or authorized.
+- Check the history of the GitHub Personal Access Token (PAT) usage to determine if there have been any other unusual activities or patterns.
+- Investigate the OAuth access token or fine-grained personal access token to confirm its legitimacy and whether it has been compromised.
+- Contact the repository owner or relevant team members to verify if the access aligns with any recent changes or integrations.
+- Assess the event's context within the broader security environment to identify any related alerts or incidents that might indicate a larger security issue.
+
+### False positive analysis
+
+- Regularly scheduled automated tasks using PATs may trigger alerts. Identify and document these tasks to create exceptions for known, non-threatening activities.
+- Developers frequently accessing private repositories for legitimate purposes might cause false positives. Maintain a list of authorized users and their expected access patterns to exclude them from alerts.
+- Integration tools or CI/CD pipelines using PATs for routine operations can be mistaken for unauthorized access. Verify these tools and add them to an allowlist to prevent unnecessary alerts.
+- Temporary access granted to external collaborators for specific projects may appear as unusual activity. Ensure these instances are logged and monitored, and create temporary exceptions as needed.
+- Changes in team structure or roles leading to new PAT usage should be communicated to the security team to update monitoring rules accordingly.
+
+### Response and remediation
+
+- Immediately revoke the compromised GitHub Personal Access Token (PAT) to prevent further unauthorized access to private repositories.
+- Notify the repository owner and relevant stakeholders about the potential breach to ensure they are aware and can take necessary precautions.
+- Conduct a thorough review of recent activities associated with the compromised PAT to identify any unauthorized changes or data exfiltration.
+- Reset credentials and access tokens for all affected users and services to mitigate the risk of further unauthorized access.
+- Implement additional monitoring and alerting for unusual activities in private repositories to detect similar threats in the future.
+- Escalate the incident to the security team for a comprehensive investigation and to determine if further actions are required.
+- Review and update access controls and permissions for private repositories to ensure they follow the principle of least privilege."""
 
 
 [[rule.threat]]

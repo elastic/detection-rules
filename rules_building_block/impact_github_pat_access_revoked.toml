@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -33,6 +33,39 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "personal_access_token.access_revoked"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GitHub PAT Access Revoked
+
+GitHub Personal Access Tokens (PATs) are used to authenticate API requests without a password, granting access to private resources. Adversaries may exploit compromised PATs to access sensitive data or disrupt operations. The detection rule monitors audit logs for revoked PAT access, indicating potential unauthorized use or security policy enforcement, helping to identify and mitigate such threats.
+
+### Possible investigation steps
+
+- Review the audit logs for the specific event where event.dataset is "github.audit" and event.action is "personal_access_token.access_revoked" to identify the user or system associated with the revoked PAT.
+- Determine the scope of access that the revoked PAT had by reviewing the permissions and resources it was authorized to access.
+- Investigate the reason for the PAT revocation by checking for any related security alerts or policy enforcement actions that might have triggered the revocation.
+- Contact the user or team associated with the revoked PAT to verify if the revocation was expected or if there are any indications of unauthorized access or compromise.
+- Assess the potential impact on operations or data security due to the revocation and determine if any further actions, such as additional access reviews or security measures, are necessary.
+
+### False positive analysis
+
+- Routine administrative actions such as regular audits or security policy updates may trigger PAT access revocations. To manage these, create exceptions for known administrative accounts or scheduled maintenance periods.
+- Automated scripts or tools that rotate PATs for security reasons might cause frequent revocations. Identify these scripts and exclude their actions from triggering alerts by whitelisting their associated accounts or tokens.
+- User-initiated PAT revocations for personal security hygiene can appear as false positives. Encourage users to document such actions and maintain a list of user-initiated revocations to cross-reference with alerts.
+- Organizational policy changes that enforce stricter PAT usage guidelines may lead to mass revocations. Coordinate with policy enforcement teams to anticipate these changes and temporarily adjust detection thresholds or rules.
+
+### Response and remediation
+
+- Immediately revoke any remaining access for the compromised PAT to prevent further unauthorized access to private resources.
+- Notify the affected user and relevant security teams about the incident to ensure awareness and initiate further investigation if needed.
+- Conduct a review of recent activities associated with the compromised PAT to identify any unauthorized actions or data access.
+- Reset credentials and generate a new PAT for the affected user, ensuring it follows best practices for security and access control.
+- Implement additional monitoring for unusual activities related to the affected user's account to detect any further suspicious behavior.
+- Escalate the incident to higher-level security management if sensitive data was accessed or if the breach impacts critical operations.
+- Review and update access policies and token management practices to prevent similar incidents, ensuring that PATs are regularly rotated and have the least privilege necessary."""
 
 
 [[rule.threat]]

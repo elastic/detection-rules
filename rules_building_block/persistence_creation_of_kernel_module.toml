@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -35,6 +35,40 @@ file.extension == "ko" and not process.name : (
   "dpkg", "systemd", "falcon-sensor*", "dnf", "yum", "rpm", "cp"
 )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Creation of Kernel Module
+
+Kernel modules are dynamic components that extend the functionality of the Linux kernel, often used for hardware drivers or system enhancements. Adversaries may exploit this by loading malicious modules to gain persistence or execute unauthorized actions at a low level. The detection rule monitors the creation or modification of `.ko` files in the kernel module directory, excluding benign processes, to identify suspicious activity indicative of potential threats.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific `.ko` file path and the timestamp of its creation or modification in the `/lib/modules/` directory.
+- Investigate the process that triggered the alert by examining the process name and its parent process to determine if it is a known benign process or potentially malicious.
+- Check the system logs around the time of the alert for any unusual activity or errors that might provide additional context or indicate a compromise.
+- Verify the legitimacy of the `.ko` file by comparing its hash against known good hashes or by analyzing its contents for any suspicious code or behavior.
+- Assess the system for any other indicators of compromise, such as unexpected network connections or changes in system configurations, that might correlate with the kernel module activity.
+- Consult with system administrators or relevant personnel to confirm if the kernel module creation or modification was part of a legitimate update or maintenance activity.
+
+### False positive analysis
+
+- System updates and package installations can trigger the creation or modification of kernel module files. Processes like dpkg, dnf, yum, and rpm are typically involved in legitimate updates. Users can exclude these processes from triggering alerts by adding them to the exception list in the detection rule.
+- Security software such as falcon-sensor may create or modify kernel modules as part of their normal operation. To prevent false positives, users should ensure these processes are included in the exclusion list.
+- System management tools like systemd and cp may occasionally interact with kernel modules during routine operations. Users should verify these activities and consider excluding these processes if they are confirmed to be benign.
+- Custom scripts or administrative tasks that involve kernel module management might also cause false positives. Users should review these scripts and, if they are legitimate, add them to the exclusion criteria to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
+- Terminate any suspicious processes associated with the creation or modification of `.ko` files, especially those not whitelisted in the detection rule.
+- Remove any unauthorized or malicious `.ko` files from the `/lib/modules/` directory to prevent them from being loaded into the kernel.
+- Conduct a thorough review of recent system changes and installed packages to identify any unauthorized modifications or installations.
+- Restore the system from a known good backup if malicious kernel modules have been loaded and system integrity is compromised.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for kernel module activities to detect similar threats in the future, ensuring alerts are promptly reviewed and acted upon."""
 
 
 [[rule.threat]]

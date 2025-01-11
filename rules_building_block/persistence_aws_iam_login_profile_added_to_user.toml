@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/04/30"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -39,6 +39,40 @@ query = '''
 event.dataset: aws.cloudtrail and event.provider: "iam.amazonaws.com"
     and event.action: "CreateLoginProfile" and event.outcome: success
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS IAM Login Profile Added to User
+
+AWS IAM (Identity and Access Management) allows users to manage access to AWS services securely. A login profile enables console access for IAM users, typically used for programmatic access. Adversaries may exploit this by adding a login profile to maintain access even if keys are rotated. The detection rule identifies successful login profile creations, aiding in spotting unauthorized persistence attempts.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to identify the user associated with the CreateLoginProfile event by examining the event.dataset and event.provider fields.
+- Check the IAM user’s activity history to determine if there are any unusual or unauthorized actions performed by this user, focusing on recent changes or access patterns.
+- Investigate the source IP address and geolocation associated with the CreateLoginProfile event to assess if it aligns with expected user behavior or if it indicates potential unauthorized access.
+- Verify if the IAM user typically has console access or if this is an anomaly, as the rule suggests the user is usually for programmatic access only.
+- Correlate this event with other security alerts or logs to identify if there are additional indicators of compromise or persistence tactics being employed by an adversary.
+
+### False positive analysis
+
+- Routine administrative actions: Regularly scheduled maintenance or administrative tasks may involve creating login profiles for IAM users. To manage this, establish a baseline of expected administrative activities and exclude these from alerts.
+- Onboarding processes: New employee onboarding might include creating login profiles for IAM users. Coordinate with HR and IT departments to identify and exclude these events from triggering alerts.
+- Automated scripts: Some organizations use automated scripts to manage IAM users, which may include creating login profiles. Review and whitelist these scripts to prevent false positives.
+- Third-party integrations: Certain third-party services may require login profiles for integration purposes. Identify and document these services, then create exceptions for their legitimate activities.
+- Temporary access needs: Occasionally, temporary access might be granted to users for specific projects or tasks. Implement a process to track and exclude these temporary access events from alerting.
+
+### Response and remediation
+
+- Immediately disable the login profile for the affected IAM user to prevent unauthorized console access.
+- Review CloudTrail logs to identify any unauthorized activities performed by the IAM user after the login profile was created.
+- Rotate and reissue any access keys associated with the affected IAM user to ensure no further unauthorized programmatic access.
+- Conduct a thorough review of IAM policies and permissions associated with the affected user to ensure they align with the principle of least privilege.
+- Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement additional monitoring and alerting for any future attempts to create login profiles on IAM users who typically do not require console access.
+- Consider enabling multi-factor authentication (MFA) for all IAM users to add an additional layer of security against unauthorized access."""
 
 
 [[rule.threat]]

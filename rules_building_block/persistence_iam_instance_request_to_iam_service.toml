@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/07/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -63,6 +63,40 @@ any where event.dataset == "aws.cloudtrail"
             or startsWith(event.action, "Tag")
     )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EC2 Instance Interaction with IAM Service
+
+AWS EC2 instances can assume IAM roles to access resources securely, using temporary credentials. Adversaries may exploit this by assuming roles to escalate privileges or establish persistence, often by creating or modifying IAM policies. The detection rule identifies unusual role assumptions by EC2 instances, focusing on actions like creating or updating resources, which may indicate malicious activity.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs to identify the specific EC2 instance ID associated with the assumed role by checking the session name pattern "i-" in the user.id field.
+- Examine the event.action field to determine the specific actions taken by the EC2 instance, such as "Update", "Attach", "Create", or "Delete", to understand the scope of the activity.
+- Investigate the IAM role that was assumed by the EC2 instance to assess its permissions and determine if it has been modified recently or if it has excessive privileges.
+- Check for any recent changes in IAM policies or user accounts that could indicate privilege escalation or persistence attempts, focusing on actions like "CreateUser" or "AttachPolicy".
+- Correlate this activity with other security events or alerts in the environment to identify potential patterns of malicious behavior or lateral movement.
+
+### False positive analysis
+
+- Routine administrative tasks by authorized personnel may trigger the rule. To manage this, identify and document regular IAM role assumptions by EC2 instances for legitimate purposes and create exceptions for these patterns.
+- Automated processes or scripts that require IAM role assumptions for resource management can cause false positives. Review and whitelist these processes by their specific EC2 instance IDs or session names.
+- Scheduled maintenance activities involving IAM role assumptions might be flagged. Coordinate with the operations team to understand the schedule and exclude these activities from triggering alerts.
+- Development and testing environments often have frequent role assumptions for testing purposes. Isolate these environments and apply separate monitoring rules to avoid unnecessary alerts.
+- Third-party integrations that require IAM role assumptions should be reviewed and documented. Establish a baseline of expected behavior and exclude these from the rule if they are deemed non-threatening.
+
+### Response and remediation
+
+- Immediately isolate the affected EC2 instance to prevent further unauthorized actions. This can be done by removing it from any security groups that allow outbound internet access or by stopping the instance if necessary.
+- Revoke the temporary credentials associated with the assumed role to cut off any ongoing unauthorized access. This can be done by invalidating the session tokens.
+- Review and audit the IAM role and policies associated with the EC2 instance to identify any unauthorized changes. Revert any suspicious modifications to their original state.
+- Conduct a thorough investigation of the EC2 instance to identify any signs of compromise, such as unauthorized software or scripts, and remove any malicious artifacts found.
+- Rotate all credentials and access keys that may have been exposed or compromised during the incident to prevent further unauthorized access.
+- Escalate the incident to the security operations team for a comprehensive review and to determine if further actions are needed, such as notifying affected parties or involving legal authorities.
+- Implement enhanced monitoring and logging for IAM role assumptions and EC2 instance activities to detect similar threats in the future, ensuring that alerts are configured to notify the security team promptly."""
 
 [rule.investigation_fields]
 field_names = [

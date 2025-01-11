@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/13"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -51,6 +51,41 @@ process where host.os.type == "windows" and event.type == "start" and
    (process.name : "query.exe" and process.args : "process")
   ) and not user.id : "S-1-5-18"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Process Discovery Using Built-in Tools
+
+Process discovery tools, like PsList, qprocess, and tasklist, are integral for system administrators to monitor active processes on Windows systems. However, adversaries exploit these tools to identify running applications and security defenses, aiding in further attacks. The detection rule identifies suspicious use of these tools by monitoring specific command executions and arguments, excluding known system accounts, to flag potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific process name and arguments that triggered the rule, focusing on processes like PsList.exe, qprocess.exe, powershell.exe, wmic.exe, tasklist.exe, or query.exe.
+- Check the user account associated with the process execution to determine if it is a known or legitimate user, ensuring it is not the system account (S-1-5-18).
+- Investigate the context of the process execution by examining the parent process and any related processes to understand the sequence of events leading to the alert.
+- Analyze the timing and frequency of the process execution to identify any patterns or anomalies that could indicate malicious activity.
+- Correlate the alert with other security events or logs from the same host or user to gather additional context and assess the potential impact or intent of the activity.
+- If necessary, conduct a deeper forensic analysis on the host to identify any signs of compromise or further malicious behavior associated with the process execution.
+
+### False positive analysis
+
+- System maintenance tasks may trigger the rule when administrators use built-in tools for legitimate monitoring or troubleshooting. To manage this, create exceptions for known maintenance scripts or scheduled tasks by excluding specific user accounts or process arguments.
+- Automated monitoring solutions that regularly check system health can cause false positives. Identify these processes and exclude them by specifying their unique process arguments or user IDs in the rule configuration.
+- Software updates or installations might use these tools to verify system compatibility or status, leading to false alerts. Exclude these activities by recognizing the associated user accounts or process names involved in the update procedures.
+- Security software may use similar commands to perform routine checks. Determine which security tools are in use and exclude their known processes or user IDs to prevent unnecessary alerts.
+- Development or testing environments often run scripts that mimic adversarial behavior for testing purposes. Exclude these environments by filtering out specific hostnames or user accounts associated with development activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
+- Terminate any suspicious processes identified by the detection rule, such as PsList.exe, qprocess.exe, or unauthorized instances of powershell.exe, wmic.exe, and tasklist.exe.
+- Conduct a thorough review of the system's recent process execution history to identify any additional unauthorized or suspicious activities that may have been missed.
+- Reset credentials for any accounts that were active on the affected system during the time of the alert, especially if they have elevated privileges.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat has spread to other systems.
+- Implement additional monitoring on the affected system and similar systems to detect any recurrence of the suspicious process discovery activities.
+- Review and update endpoint protection configurations to ensure they are capable of detecting and blocking similar process discovery attempts in the future."""
 
 
 [[rule.threat]]

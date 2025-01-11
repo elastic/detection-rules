@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/06"
 integration = ["windows", "endpoint", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -54,6 +54,39 @@ process.parent.executable : (
     "?:\\ProgramData\\*"
 ) and not user.id : "S-1-5-18"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Windows System Information Discovery
+
+Windows system information discovery involves querying system details like OS version, hostname, and configuration, typically for legitimate administrative tasks. However, attackers exploit this to gain insights into a compromised system's environment, aiding in further attacks. The detection rule identifies suspicious use of system commands like `cmd.exe`, `systeminfo.exe`, and `wmic.exe` by filtering out benign processes and known safe parent executables, flagging potential malicious activity.
+
+### Possible investigation steps
+
+- Review the process details to confirm the execution of suspicious commands like cmd.exe, systeminfo.exe, hostname.exe, or wmic.exe, focusing on the arguments used, such as "ver*" or "os get".
+- Examine the parent process executable path to determine if it deviates from typical benign paths, such as those within Program Files or ProgramData directories, which are excluded in the rule.
+- Investigate the user account associated with the process execution, especially if the user ID is not "S-1-5-18", which indicates a non-system account, to assess if the activity aligns with the user's normal behavior.
+- Check the historical activity of the involved processes and user account to identify any patterns or anomalies that could suggest malicious intent or compromise.
+- Correlate the alert with other security events or logs from the same host to identify any preceding or subsequent suspicious activities that might indicate a broader attack campaign.
+
+### False positive analysis
+
+- Legitimate administrative scripts or tools may trigger the rule if they use commands like cmd.exe, systeminfo.exe, or wmic.exe. To handle this, identify and whitelist these known safe scripts by adding their parent executable paths to the exception list.
+- Automated software updates or system management tools might execute these commands as part of their routine operations. Exclude these processes by specifying their parent executable paths, such as those located in Program Files or ProgramData directories.
+- Developers or IT personnel using command-line tools for legitimate purposes can also cause false positives. Consider excluding user IDs associated with these roles if they are consistently triggering the rule without malicious intent.
+- Custom scripts or batch files that perform system checks may inadvertently match the detection criteria. Review these scripts and, if deemed safe, add their specific paths or parent executables to the exclusion list to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious processes identified by the detection rule, such as cmd.exe, systeminfo.exe, or wmic.exe, that are not associated with legitimate administrative tasks.
+- Conduct a thorough review of the affected system's recent activity logs to identify any additional indicators of compromise or lateral movement attempts.
+- Reset credentials for any user accounts that were active on the affected system during the time of the alert to prevent unauthorized access.
+- Restore the system from a known good backup if any unauthorized changes or malware are detected.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
+- Update endpoint detection and response tools to enhance monitoring for similar suspicious activities, ensuring that any gaps identified during this incident are addressed."""
 
 
 [[rule.threat]]

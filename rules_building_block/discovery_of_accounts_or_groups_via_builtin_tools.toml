@@ -2,7 +2,7 @@
 creation_date = "2023/07/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -40,6 +40,40 @@ process where event.type == "start" and event.action in ("exec", "exec_event", "
   (process.name == "getent" and process.args in ("passwd", "group"))
 )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Account or Group Discovery via Built-In Tools
+
+Built-in tools on Linux and macOS, such as `groups`, `id`, `dscl`, and `getent`, are essential for managing and querying user and group information. Adversaries exploit these tools to enumerate accounts and groups, gaining insights into system configurations and potential targets. The detection rule identifies suspicious use of these tools by monitoring process execution patterns and specific arguments, flagging potential unauthorized discovery activities.
+
+### Possible investigation steps
+
+- Review the process execution details, focusing on the process name and arguments, to determine if the usage aligns with typical administrative tasks or if it appears suspicious.
+- Check the user account associated with the process execution to verify if the account has legitimate reasons to perform such actions, especially if it involves querying sensitive files like /etc/passwd or /etc/sudoers.
+- Investigate the timing and frequency of the process execution to identify any unusual patterns or repeated attempts that could indicate malicious intent.
+- Correlate the event with other security alerts or logs from the same host or user to identify any related suspicious activities or anomalies.
+- Assess the system's recent login history and user activity to determine if there are any unauthorized access attempts or compromised accounts that could explain the alert.
+
+### False positive analysis
+
+- Routine administrative tasks may trigger the rule, such as system administrators using `groups`, `id`, or `getent` to verify user and group configurations. To manage this, create exceptions for known administrative accounts or specific times when these tasks are regularly performed.
+- Automated scripts or system management tools that query user and group information for legitimate purposes can also cause false positives. Identify these scripts and whitelist their execution paths or specific arguments used.
+- Security compliance checks often involve accessing files like `/etc/passwd` or `/etc/sudoers`. If these checks are part of regular audits, consider excluding the processes or users responsible for these checks from triggering alerts.
+- Integration with directory services might involve legitimate use of `dscl` or `dscacheutil` commands. Review and exclude these processes if they are part of normal directory synchronization or querying activities.
+- Regular system monitoring tools that perform discovery operations to maintain system health and inventory can be excluded by identifying their process names and arguments, ensuring they align with expected behavior.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious processes identified by the detection rule, such as those involving `groups`, `id`, `dscl`, `dscacheutil`, or `getent` with unauthorized arguments.
+- Conduct a thorough review of user and group accounts on the affected system to identify any unauthorized changes or additions, and revert them if necessary.
+- Reset passwords for all accounts on the affected system, prioritizing those with elevated privileges, to mitigate potential credential compromise.
+- Review and tighten access controls and permissions on sensitive files such as `/etc/passwd`, `/etc/master.passwd`, and `/etc/sudoers` to prevent unauthorized access.
+- Escalate the incident to the security operations team for further investigation and to determine if the activity is part of a larger attack campaign.
+- Implement enhanced monitoring and logging for the affected system and similar endpoints to detect any recurrence of the suspicious activity, ensuring logs are retained for future analysis."""
 
 
 [[rule.threat]]

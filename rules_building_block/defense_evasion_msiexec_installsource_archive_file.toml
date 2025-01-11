@@ -2,7 +2,7 @@
 creation_date = "2023/09/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/08/05"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -47,6 +47,40 @@ sequence with maxspan=1m
     not process.name : "msiexec.exe" and
     not (process.executable : ("?:\\Program Files (x86)\\*.exe", "?:\\Program Files\\*.exe") and process.code_signature.trusted == true)]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Windows Installer with Suspicious Properties
+
+The Windows Installer, or msiexec.exe, is a legitimate system utility used for installing, maintaining, and removing software. Adversaries may exploit it to execute malicious MSI files, bypassing security measures like application whitelisting. The detection rule identifies suspicious installer activity by monitoring registry changes and process executions linked to msiexec.exe, focusing on unusual sources or untrusted signatures.
+
+### Possible investigation steps
+
+- Review the registry change event details to identify the specific registry value and data strings involved, focusing on "InstallSource", "DisplayName", or "ProductName" to determine if they match suspicious patterns like temporary archive paths or "SetupTest".
+- Examine the process execution details to identify the child process started by msiexec.exe, noting its name and executable path, especially if it is not located in trusted directories like "Program Files" or "Program Files (x86)".
+- Check the code signature of the executed process to verify if it is untrusted, which could indicate a potential threat.
+- Investigate the source of the MSI file, whether local or network-based, to determine if it is from a known and trusted source or if it appears suspicious.
+- Correlate the alert with any recent user activity or changes in the system environment that might explain the execution of the installer, such as software updates or installations.
+- Look for any additional alerts or logs related to the same user or system around the time of the alert to identify potential patterns or related suspicious activities.
+
+### False positive analysis
+
+- Legitimate software installations from compressed archives may trigger alerts. Users can create exceptions for known software sources by specifying trusted archive paths in the rule configuration.
+- Internal software testing environments might use temporary or test names like "SetupTest" for legitimate purposes. Exclude these specific registry values or paths if they are part of routine operations.
+- Custom or in-house applications installed from non-standard directories may be flagged. Ensure these applications have trusted code signatures or add their paths to an allowlist to prevent false positives.
+- Frequent updates or installations from network shares within a controlled environment can be mistaken for suspicious activity. Define exceptions for these network paths if they are verified and secure.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread or communication with potential malicious sources.
+- Terminate any suspicious processes initiated by msiexec.exe that are not signed by trusted vendors or originate from unusual directories.
+- Remove any unauthorized or suspicious MSI files identified in the registry paths, especially those originating from temporary or archive directories.
+- Conduct a thorough scan of the system using updated antivirus or endpoint detection tools to identify and remove any additional malware or remnants.
+- Review and restore any altered registry settings to their original state to ensure system integrity and prevent unauthorized software installations.
+- Escalate the incident to the security operations team for further analysis and to determine if the threat is part of a larger attack campaign.
+- Implement additional monitoring and alerting for similar activities, focusing on msiexec.exe executions from untrusted sources or with unusual properties, to enhance future detection capabilities."""
 
 
 [[rule.threat]]

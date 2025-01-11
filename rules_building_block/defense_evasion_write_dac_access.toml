@@ -2,7 +2,7 @@
 creation_date = "2023/08/15"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -61,6 +61,40 @@ query = '''
 host.os.type: "windows" and event.action : ("Directory Service Access" or "object-operation-performed") and
   event.code : "4662" and winlog.event_data.AccessMask:"0x40000"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating WRITEDAC Access on Active Directory Object
+
+WRITEDAC permissions allow modification of an object's access control list in Active Directory, crucial for managing access rights. Adversaries exploit this to alter permissions, enabling unauthorized access and privilege escalation. The detection rule identifies such abuse by monitoring specific Windows events and access masks, flagging potential threats for further investigation.
+
+### Possible investigation steps
+
+- Review the event logs for event code 4662 to identify the specific object and user account involved in the WRITEDAC access attempt.
+- Examine the winlog.event_data.AccessMask field for the value "0x40000" to confirm the modification of the Discretionary Access Control List (DACL).
+- Investigate the user account associated with the WRITEDAC access to determine if it has a history of suspicious activity or if it has been compromised.
+- Check the Active Directory object that was accessed to understand its role and importance within the network, and assess the potential impact of unauthorized access.
+- Analyze recent changes to the object's access control list to identify any unauthorized modifications or privilege escalations.
+- Correlate this event with other security alerts or logs to identify patterns or additional indicators of compromise that may suggest a broader attack campaign.
+
+### False positive analysis
+
+- Routine administrative tasks may trigger WRITEDAC alerts when legitimate users modify access control lists as part of their job. To manage this, create exceptions for known administrative accounts performing regular maintenance.
+- Automated scripts or tools used for Active Directory management might generate false positives if they modify access control lists. Identify these scripts and whitelist their activity to prevent unnecessary alerts.
+- Software installations or updates that require changes to access control lists can also cause false positives. Monitor and document these activities, and consider excluding them from the rule if they are verified as safe.
+- Changes made by security tools that automatically adjust permissions for compliance or security hardening purposes may be flagged. Review these tools' activities and exclude them if they are part of a controlled process.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Revoke any unauthorized permissions or access rights granted through the WRITEDAC abuse by restoring the original Access Control List (ACL) settings on the compromised Active Directory object.
+- Conduct a thorough review of recent changes to the ACLs of critical Active Directory objects to identify any additional unauthorized modifications.
+- Reset passwords and review access rights for any accounts that were potentially compromised or used in the attack to prevent further unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for a comprehensive investigation and to determine the full scope of the breach.
+- Implement enhanced monitoring and alerting for similar WRITEDAC access attempts by adjusting logging and alert thresholds to detect future unauthorized access attempts promptly.
+- Review and update security policies and access controls to ensure that only authorized personnel have the necessary permissions to modify ACLs, reducing the risk of similar incidents in the future."""
 
 
 [[rule.threat]]

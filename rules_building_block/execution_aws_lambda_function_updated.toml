@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/04/20"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/09/01"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -54,6 +54,40 @@ event.dataset: "aws.cloudtrail"
     and event.outcome: "success"
     and event.action: (CreateFunction* or UpdateFunctionCode*)
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS Lambda Function Created or Updated
+
+AWS Lambda allows execution of code without server management, offering flexibility and scalability. However, adversaries may exploit this by creating or updating functions to run malicious code, steal data, or gain elevated access. The detection rule monitors successful creation or updates of Lambda functions, signaling potential misuse by tracking specific actions in AWS CloudTrail logs.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to identify the user or role that initiated the CreateFunction or UpdateFunctionCode actions. Check for any unusual or unauthorized users.
+- Examine the source IP address and geolocation associated with the event to determine if it originates from an expected or suspicious location.
+- Analyze the function code or configuration changes made during the update to identify any potentially malicious code or unexpected modifications.
+- Check the permissions and roles associated with the Lambda function to ensure they are not overly permissive and do not allow unauthorized access or privilege escalation.
+- Investigate any related AWS services or resources that interact with the Lambda function to assess potential lateral movement or data exfiltration risks.
+- Correlate the event with other security alerts or logs to identify any patterns or additional indicators of compromise that may suggest a broader attack.
+
+### False positive analysis
+
+- Routine updates to Lambda functions by development teams can trigger the rule. To manage this, create exceptions for specific user roles or accounts that are known to perform regular updates.
+- Automated deployment tools that update Lambda functions as part of a CI/CD pipeline may cause false positives. Exclude actions from these tools by identifying their specific IAM roles or user agents.
+- Scheduled updates or maintenance activities that involve Lambda function modifications can be mistaken for suspicious activity. Document and exclude these scheduled events by correlating them with known maintenance windows.
+- Third-party integrations that require Lambda function updates might trigger the rule. Identify and exclude these integrations by their unique identifiers or associated accounts.
+
+### Response and remediation
+
+- Immediately isolate the affected AWS Lambda function by disabling it to prevent further execution of potentially malicious code.
+- Review the AWS CloudTrail logs to identify any unauthorized access or changes made to the Lambda function, focusing on the user or role that performed the action.
+- Revert any unauthorized changes to the Lambda function by restoring it to a known good state using versioning or backups.
+- Conduct a security review of the IAM roles and permissions associated with the Lambda function to ensure they follow the principle of least privilege.
+- Notify the security operations team and relevant stakeholders about the incident for further investigation and potential escalation.
+- Implement additional monitoring and alerting for changes to Lambda functions to detect similar activities in the future.
+- Consider enabling AWS Config rules to continuously monitor and enforce compliance with security best practices for Lambda functions."""
 
 
 [[rule.threat]]

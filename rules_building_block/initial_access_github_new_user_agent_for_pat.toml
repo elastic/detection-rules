@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -35,6 +35,41 @@ event.dataset:"github.audit" and event.category:"configuration" and
 github.user_agent:* and github.hashed_token:* and
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Occurrence of User Agent For a GitHub Personal Access Token (PAT)
+
+GitHub Personal Access Tokens (PATs) enable programmatic access to GitHub resources, often used in automation and integration tasks. Adversaries may exploit these tokens to gain unauthorized access, especially if they can use a new user agent to avoid detection. The detection rule identifies anomalies by flagging new user agents associated with PATs, indicating potential misuse or compromise, thus aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the specific user agent flagged in the alert to determine if it is known or expected within the organization. Check for any recent changes in automation tools or scripts that might explain the new user agent.
+- Identify the GitHub user associated with the hashed token in the alert. Investigate their recent activity and access patterns to determine if there are any anomalies or unauthorized actions.
+- Examine the source IP address and geolocation associated with the new user agent to assess if it aligns with typical access patterns for the user or organization.
+- Check for any recent changes in the user's permissions or roles that might indicate a potential compromise or misuse of access.
+- Correlate the event with other security logs and alerts to identify any related suspicious activities or patterns that could indicate a broader security incident.
+- Communicate with the user or relevant team to verify if the new user agent usage was intentional and authorized, documenting any findings or confirmations.
+
+### False positive analysis
+
+- New user agents from legitimate automation tools or scripts may trigger false positives. Users should identify and whitelist these known tools to prevent unnecessary alerts.
+- Frequent updates or changes in user agents by legitimate applications can cause false positives. Monitor and document these changes to adjust detection rules accordingly.
+- Developers or teams using multiple devices or environments might introduce new user agents. Establish a baseline of expected user agents for these users and exclude them from alerts.
+- Legitimate third-party integrations that use rotating user agents can be mistaken for threats. Verify these integrations and create exceptions for recognized patterns.
+- Temporary network changes, such as using a VPN or proxy, might result in new user agents. Recognize these scenarios and adjust the detection criteria to accommodate such variations.
+
+### Response and remediation
+
+- Immediately revoke the compromised GitHub Personal Access Token (PAT) to prevent further unauthorized access.
+- Notify the affected user and relevant security teams about the potential compromise and provide details of the new user agent detected.
+- Conduct a thorough review of recent activities associated with the compromised PAT to identify any unauthorized actions or data access.
+- Reset credentials and enforce multi-factor authentication (MFA) for the affected account to enhance security.
+- Implement IP whitelisting for PAT usage to restrict access to known and trusted networks.
+- Escalate the incident to the security operations center (SOC) for further investigation and monitoring of related suspicious activities.
+- Update security policies and procedures to include regular audits of PAT usage and user agent patterns to prevent future occurrences."""
 
 
 [[rule.threat]]
