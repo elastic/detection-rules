@@ -2,7 +2,7 @@
 creation_date = "2023/07/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -38,6 +38,39 @@ query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
 process.name in ("vi", "nano", "cat", "more", "less") and process.args == "/etc/hosts"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating System Hosts File Access
+
+The hosts file is a local system file used to map hostnames to IP addresses, crucial for network operations. Adversaries may exploit this by accessing the file to identify potential targets for lateral movement within a network. The detection rule monitors the execution of common text editors and commands accessing the hosts file, flagging potential unauthorized access attempts, thus aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the process details to confirm the execution of text editors or commands (vi, nano, cat, more, less) with the argument "/etc/hosts" to determine if the access was intentional or suspicious.
+- Check the user account associated with the process to verify if the access aligns with their role and responsibilities within the organization.
+- Investigate the timing and frequency of the access to the hosts file to identify any unusual patterns or repeated attempts that may indicate malicious intent.
+- Correlate the event with other logs or alerts from the same host or user to identify any additional suspicious activities, such as attempts to access other sensitive files or network resources.
+- Assess the network environment for any recent changes or anomalies that could be related to the access of the hosts file, such as new devices or unexpected network traffic.
+
+### False positive analysis
+
+- Routine administrative tasks: System administrators often access the hosts file using text editors like vi or nano for legitimate configuration changes. To manage this, create exceptions for known administrator accounts or specific maintenance windows.
+- Automated scripts: Some automated scripts or configuration management tools may access the hosts file as part of their normal operation. Identify these scripts and exclude their process names or execution paths from the rule.
+- System updates: During system updates, certain processes might access the hosts file to ensure network configurations are up-to-date. Monitor update schedules and exclude these processes during known update periods.
+- Development environments: Developers may frequently access the hosts file to test network configurations. Consider excluding access from development machines or specific user accounts associated with development activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
+- Conduct a thorough review of recent access logs and process execution history on the affected system to identify any unauthorized access or suspicious activity.
+- Terminate any unauthorized processes that are currently accessing or have accessed the hosts file without legitimate reason.
+- Change credentials for any accounts that were active on the affected system during the time of the alert to prevent unauthorized access using compromised credentials.
+- Restore the hosts file to its original state if any unauthorized modifications are detected, ensuring that no malicious entries have been added.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised.
+- Implement enhanced monitoring on the affected system and similar endpoints to detect any future unauthorized access attempts to the hosts file."""
 
 
 [[rule.threat]]

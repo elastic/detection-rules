@@ -212,6 +212,24 @@ class TestValidRules(BaseRuleTest):
             """
             self.fail(fail_msg + '\n'.join(failures))
 
+    def test_note_contains_triage_and_analysis(self):
+        """Ensure the note field contains Triage and analysis content for Elastic rules."""
+        failures = []
+
+        for rule in self.all_rules:
+            if not rule.contents.data.is_elastic_rule:
+                continue  # Don't enforce on non-Elastic rules
+
+            note_field = rule.contents.data.get("note")
+
+            # Check if note field contains ## Triage and analysis
+            if not note_field or "## triage and analysis" not in note_field.casefold():
+                failures.append(f"{self.rule_str(rule)}: note field is missing ## Triage and analysis content.")
+
+        if failures:
+            fail_msg = "The following rules failed the note validation (missing investigation guide content):\n"
+            self.fail(fail_msg + "\n".join(failures))
+
 
 class TestThreatMappings(BaseRuleTest):
     """Test threat mapping data for rules."""

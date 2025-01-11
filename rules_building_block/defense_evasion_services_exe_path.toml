@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -40,6 +40,41 @@ query = '''
 process where event.type == "start" and process.name : "sc.exe" and
   process.args : "*config*" and process.args : "*binPath*"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Service Path Modification via sc.exe
+
+The `sc.exe` utility is a command-line tool used in Windows environments to manage services. Adversaries may exploit this tool to alter service paths, enabling persistence or privilege escalation by redirecting service execution to malicious binaries. The detection rule identifies suspicious modifications by monitoring for `sc.exe` executions that include specific arguments related to service configuration changes, signaling potential unauthorized service path alterations.
+
+### Possible investigation steps
+
+- Review the process execution details to confirm the presence of "sc.exe" with arguments containing "config" and "binPath" to verify the alert's legitimacy.
+- Identify the user account associated with the "sc.exe" process execution to determine if it aligns with expected administrative activity or if it indicates potential unauthorized access.
+- Examine the service name and the new binary path specified in the "sc.exe" command to assess if the path points to a known or suspicious executable.
+- Check the modification history of the service in question to identify any recent changes and correlate them with other system events or alerts.
+- Investigate the source and destination of the binary path to ensure it is not linked to known malicious files or locations.
+- Review related system logs and security events around the time of the alert to identify any additional suspicious activities or patterns.
+
+### False positive analysis
+
+- Routine administrative tasks using sc.exe may trigger alerts. System administrators often use sc.exe to configure services during maintenance or updates. To manage this, create exceptions for known administrative accounts or scheduled maintenance windows.
+- Software installations or updates might modify service paths as part of their setup process. Identify and whitelist trusted software installers or update processes to prevent unnecessary alerts.
+- Automated scripts or management tools that use sc.exe for legitimate service management can cause false positives. Review and exclude these scripts or tools by their process hash or command line patterns.
+- Security software or monitoring tools may use sc.exe to adjust service configurations for protection purposes. Verify and exclude these tools by their digital signatures or known process names to reduce noise.
+- Development environments where services are frequently started, stopped, or reconfigured for testing purposes can generate alerts. Implement exclusions for development machines or specific user accounts involved in testing.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity or lateral movement.
+- Terminate any suspicious processes related to the modified service path to halt potential malicious execution.
+- Restore the original service path configuration by reviewing system logs or backups to identify the legitimate service path and revert any unauthorized changes.
+- Conduct a thorough scan of the system using updated antivirus or endpoint detection tools to identify and remove any malicious binaries that may have been introduced.
+- Review user and service account permissions to ensure that only authorized personnel have the ability to modify service configurations, and adjust permissions as necessary.
+- Monitor for any further attempts to modify service paths using sc.exe by setting up alerts for similar command-line patterns to detect and respond to future incidents promptly.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]

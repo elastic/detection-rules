@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/06/22"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/06/25"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -45,6 +45,40 @@ query = '''
 event.dataset: "aws.cloudtrail" and event.provider: "rds.amazonaws.com" 
     and event.action: ("CreateDBSnapshot" or "CreateDBClusterSnapshot") and event.outcome: "success" 
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS RDS DB Snapshot Created
+AWS RDS DB Snapshots are backups of databases that ensure data recovery and continuity. However, adversaries may exploit this feature to bypass security controls or erase traces by reverting databases to previous states. The detection rule monitors successful snapshot creation events, serving as a foundational element to correlate with other alerts, thereby identifying potential misuse indicative of defense evasion tactics.
+
+### Possible investigation steps
+
+- Review the event details in AWS CloudTrail for the specific snapshot creation event, focusing on the event.provider as "rds.amazonaws.com" and event.action as "CreateDBSnapshot" or "CreateDBClusterSnapshot" to confirm the snapshot creation.
+- Identify the IAM user or role (event.userIdentity) associated with the snapshot creation to determine if the action was performed by an authorized entity or if it appears suspicious.
+- Check the event.sourceIPAddress to verify the origin of the request and assess if it aligns with expected network locations or if it indicates potential unauthorized access.
+- Investigate the timing of the snapshot creation event in relation to other activities in the AWS environment to identify any unusual patterns or sequences that might suggest malicious intent.
+- Correlate this snapshot creation event with other security alerts or logs to identify any concurrent or subsequent actions that could indicate an attempt to evade defenses or cover tracks.
+- Review the AWS RDS instance's recent activity and configuration changes to assess if there have been any unauthorized modifications or access attempts that could be related to the snapshot creation.
+
+### False positive analysis
+
+- Routine database maintenance activities by authorized personnel can trigger snapshot creation events. To manage this, create exceptions for known maintenance schedules or specific user accounts responsible for these tasks.
+- Automated backup solutions may regularly create snapshots as part of their operation. Identify and exclude these automated processes by filtering events based on the source or associated tags.
+- Development and testing environments often involve frequent snapshot creation for testing purposes. Exclude these environments by using environment-specific identifiers or tags in your filtering criteria.
+- Third-party integrations or services that require snapshot creation for functionality can generate false positives. Review and whitelist these services by their unique identifiers or API calls.
+- Ensure that any exclusion rules are regularly reviewed and updated to reflect changes in infrastructure or operational practices to maintain security integrity.
+
+### Response and remediation
+
+- Immediately review the AWS CloudTrail logs to identify the source of the snapshot creation, including the IAM user or role involved, and verify if the action was authorized.
+- Temporarily revoke or restrict permissions for the identified IAM user or role to prevent further unauthorized snapshot creations.
+- Assess the integrity of the database by comparing the current state with the snapshot to ensure no unauthorized changes have been made.
+- If unauthorized activity is confirmed, initiate a rollback to a known good state using a verified snapshot, ensuring that the compromised snapshot is not used.
+- Notify the security operations team and relevant stakeholders about the incident for further investigation and potential escalation.
+- Implement additional monitoring and alerting for unusual snapshot creation activities, focusing on deviations from normal patterns.
+- Review and update IAM policies to enforce the principle of least privilege, ensuring only necessary permissions are granted for snapshot creation."""
 
 
 [[rule.threat]]

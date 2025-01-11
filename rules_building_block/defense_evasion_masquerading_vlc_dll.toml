@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -41,6 +41,41 @@ library where host.os.type == "windows" and event.action == "load" and
     and dll.code_signature.trusted == true
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Masquerading as VLC DLL
+
+VLC media player uses specific DLLs for its functionality, typically signed by VideoLAN to ensure authenticity. Adversaries may exploit this by creating malicious DLLs with similar names to blend into systems, bypassing security measures. The detection rule identifies such anomalies by flagging unsigned or improperly signed DLLs mimicking VLC, focusing on defense evasion and persistence tactics.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific DLL name that triggered the alert, focusing on "libvlc.dll", "libvlccore.dll", or "axvlc.dll".
+- Check the code signature details of the flagged DLL to confirm the absence of a valid signature from "VideoLAN" or the specific subject name "716F2E5E-A03A-486B-BC67-9B18474B9D51".
+- Investigate the file path and location of the suspicious DLL to determine if it resides in a directory typically associated with VLC installations or if it is in an unusual location.
+- Analyze the process that loaded the DLL, including the parent process, to understand the context of its execution and identify any potentially malicious activity.
+- Correlate the event with other security logs or alerts to identify any related suspicious activities or patterns, such as recent downloads or installations that could have introduced the DLL.
+- Conduct a reputation check on the DLL file hash using threat intelligence sources to determine if it is known to be associated with malicious activity.
+- If necessary, isolate the affected system to prevent further potential compromise and perform a deeper forensic analysis to uncover any additional indicators of compromise.
+
+### False positive analysis
+
+- Legitimate software updates or installations may temporarily load unsigned or improperly signed VLC-related DLLs. Users can monitor the frequency and context of these events to determine if they align with known update schedules.
+- Custom or third-party applications that integrate VLC components might use their own versions of VLC DLLs. Users should verify the source and purpose of these applications and consider adding them to an exception list if deemed safe.
+- Development or testing environments may intentionally use modified VLC DLLs for debugging or feature testing. Users can exclude these environments from the rule or adjust the rule's scope to focus on production systems only.
+- Security tools or monitoring software might load or interact with VLC DLLs in a way that triggers the rule. Users should review the behavior of these tools and whitelist them if they are confirmed to be non-threatening.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat and to contain any malicious activity.
+- Terminate any processes associated with the suspicious DLLs to halt any ongoing malicious operations.
+- Remove the identified unsigned or improperly signed DLLs from the system to eliminate the immediate threat.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to detect and remove any additional malicious files or remnants.
+- Restore any affected files or system components from a known good backup to ensure system integrity and functionality.
+- Review and update endpoint protection policies to ensure that only signed and trusted DLLs are allowed to load, enhancing future detection and prevention.
+- Escalate the incident to the security operations center (SOC) or relevant security team for further analysis and to determine if additional systems are affected, ensuring comprehensive threat management."""
 
 
 [[rule.threat]]

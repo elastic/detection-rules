@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -37,6 +37,39 @@ host.os.type:windows and event.category:process and event.type:start and
 process.name.caseless:("ping.exe" or "tracert.exe" or "pathping.exe") and
 not process.args:("127.0.0.1" or "0.0.0.0" or "localhost" or "::1")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Discovery of Internet Capabilities via Built-in Tools
+
+Built-in network diagnostic tools like ping, tracert, and pathping are essential for assessing connectivity and network paths in Windows environments. Adversaries exploit these tools to verify internet access and map network routes, aiding in communication with command and control servers. The detection rule identifies suspicious use of these tools by monitoring process executions that target external IPs, excluding common local addresses, thus flagging potential reconnaissance activities.
+
+### Possible investigation steps
+
+- Review the process execution details to identify the specific built-in tool used (ping.exe, tracert.exe, or pathping.exe) and the external IP addresses targeted.
+- Examine the user account and host associated with the process execution to determine if the activity aligns with expected behavior or if it appears suspicious.
+- Check for any related network activity or connections to the external IP addresses identified, focusing on unusual or unauthorized communication patterns.
+- Investigate the historical activity of the involved user and host to identify any previous suspicious behavior or patterns that might indicate compromise.
+- Correlate the alert with other security events or logs from the same timeframe to identify potential indicators of compromise or related malicious activity.
+
+### False positive analysis
+
+- Routine network diagnostics by IT staff can trigger alerts when using tools like ping, tracert, or pathping to troubleshoot connectivity issues. To manage this, create exceptions for known IT user accounts or specific IP ranges frequently used for legitimate diagnostics.
+- Automated monitoring systems or scripts that regularly check network connectivity might be flagged. Identify these systems and exclude their process executions from the rule to prevent unnecessary alerts.
+- Software updates or installations that verify internet connectivity as part of their process can also be mistaken for suspicious activity. Whitelist these specific processes or applications to reduce false positives.
+- Internal network testing by security teams may involve the use of these tools to map network paths. Coordinate with security teams to ensure their activities are recognized and excluded from detection rules.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further communication with potential command and control servers.
+- Terminate any suspicious processes identified by the alert, specifically those involving ping.exe, tracert.exe, or pathping.exe targeting external IPs.
+- Conduct a thorough review of the system's network configuration and routing tables to identify any unauthorized changes or suspicious routes.
+- Scan the system for additional indicators of compromise, such as unusual network traffic patterns or unauthorized software installations.
+- Restore the system from a known good backup if any malicious activity is confirmed, ensuring that all security patches and updates are applied.
+- Implement network monitoring to detect and alert on similar suspicious activities in the future, focusing on unusual use of diagnostic tools.
+- Escalate the incident to the security operations center (SOC) or relevant IT security team for further investigation and to determine if the threat is part of a larger attack campaign."""
 
 
 [[rule.threat]]

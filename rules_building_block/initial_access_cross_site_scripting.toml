@@ -2,7 +2,7 @@
 creation_date = "2023/07/12"
 integration = ["apm"]
 maturity = "production"
-updated_date = "2024/09/01"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -31,6 +31,41 @@ any where processor.name == "transaction" and
 url.fragment : ("<iframe*", "*prompt(*)*", "<script*>", "<svg*>", "*onerror=*", "*javascript*alert*", "*eval*(*)*", "*onclick=*",
 "*alert(document.cookie)*", "*alert(document.domain)*","*onresize=*","*onload=*","*onmouseover=*")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Cross Site Scripting (XSS)
+
+Cross-Site Scripting (XSS) exploits vulnerabilities in web applications by injecting malicious scripts into trusted sites, often targeting users' browsers. Adversaries leverage this to execute scripts that can steal cookies, session tokens, or other sensitive data. The detection rule identifies suspicious script patterns in web transactions, such as `<script>` or `onerror=`, indicating potential XSS attempts, thus aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific URL fragment that triggered the rule, focusing on patterns like "<script*>", "*onerror=*", or "*javascript*alert*".
+- Examine the source and destination IP addresses associated with the transaction to determine if they are known or suspicious entities.
+- Check the user agent string in the transaction to identify if the request was made by a legitimate browser or a potentially malicious script.
+- Investigate the session data, including cookies and tokens, to assess if any sensitive information might have been exposed or compromised.
+- Analyze the referrer URL to understand the context of how the user arrived at the page, which might provide insights into potential phishing or redirection tactics.
+- Correlate the alert with other recent alerts or logs from the same user or IP address to identify patterns or repeated attempts of XSS attacks.
+
+### False positive analysis
+
+- Legitimate use of JavaScript functions like `onclick` or `onload` in web applications can trigger false positives. Review the context of these scripts and whitelist known safe scripts in the detection rule.
+- Developers often use `alert(document.cookie)` or `alert(document.domain)` for debugging purposes. Identify and exclude these scripts from the rule when they originate from trusted development environments.
+- Use of `eval()` in legitimate applications can be flagged. Ensure that any use of `eval()` is necessary and secure, and consider excluding these instances if they are verified as non-threatening.
+- SVG elements with embedded scripts, such as `<svg>`, might be used for legitimate purposes. Validate the source and purpose of these elements and create exceptions for trusted sources.
+- Frequent use of `onerror` for error handling in images or scripts can be misidentified. Confirm the legitimacy of these uses and exclude them from the rule if they are part of standard error handling practices.
+
+### Response and remediation
+
+- Immediately isolate the affected systems or user accounts to prevent further execution of malicious scripts and potential data exfiltration.
+- Clear the browser cache and cookies on affected systems to remove any malicious scripts or session hijacking attempts.
+- Conduct a thorough review of web application logs and user activity to identify any unauthorized access or data exfiltration attempts.
+- Patch and update the web application and any related software to close the identified vulnerabilities exploited by the XSS attack.
+- Implement Content Security Policy (CSP) headers on the web application to restrict the execution of untrusted scripts and mitigate future XSS attempts.
+- Notify the security team and relevant stakeholders about the incident, providing details of the attack vector and steps taken for containment and remediation.
+- Monitor the affected systems and web applications closely for any signs of recurring XSS attempts or related suspicious activities."""
 
 
 [[rule.threat]]

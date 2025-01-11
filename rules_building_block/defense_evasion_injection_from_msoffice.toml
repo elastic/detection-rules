@@ -2,7 +2,7 @@
 creation_date = "2023/09/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -48,6 +48,41 @@ process where host.os.type == "windows" and event.action == "start" and
     "?:\\Windows\\Sys*\\ctfmon.exe",
     "?:\\Windows\\System32\\notepad.exe")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Process Injection from Malicious Document
+
+Process injection is a technique used by adversaries to execute malicious code within the address space of another process, often to evade detection. Microsoft Office applications, like Word and Excel, are common targets due to their widespread use and ability to run macros. The detection rule identifies unusual child processes spawned by these applications, focusing on suspicious arguments and executable paths, to flag potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the parent process details to confirm if the process name is one of the targeted Microsoft Office applications (excel.exe, powerpnt.exe, winword.exe) and verify the legitimacy of the parent process.
+- Examine the child process executable path to determine if it matches the suspicious paths specified in the rule (e.g., "?:\\Windows\\SysWOW64\\*.exe", "?:\\Windows\\system32\\*.exe") and assess if the executable is expected or known to be used by the organization.
+- Investigate the process arguments to understand the context of the process execution, especially since the rule flags processes with a single argument, which might indicate an attempt to obfuscate or hide malicious activity.
+- Check the code signature of the executable to determine if it is trusted and verify the subject name to ensure it is not a spoofed or untrusted signature.
+- Correlate the alert with any recent activity involving the same user or host to identify patterns or additional indicators of compromise, such as other unusual process executions or network connections.
+- Review any related document files or email attachments that might have been opened around the time of the alert to identify potential sources of the malicious document or macro.
+
+### False positive analysis
+
+- Legitimate software updates or installations may trigger the rule if they are executed by Office applications. Users can create exceptions for known update processes by verifying their code signatures and adding them to a trusted list.
+- Automated scripts or administrative tools that interact with Office applications might be flagged. Review these scripts and, if verified as safe, exclude their specific executable paths from the rule.
+- Some enterprise applications may integrate with Office applications and spawn processes with similar characteristics. Identify these applications and exclude their executable paths or signatures to prevent false positives.
+- Users running custom macros that launch legitimate processes could trigger the rule. Educate users on safe macro practices and consider excluding specific macros or processes if they are deemed non-threatening.
+- System maintenance tasks that involve Office applications might be misidentified. Document these tasks and exclude their associated processes if they are confirmed to be safe.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat and to contain any ongoing malicious activity.
+- Terminate any suspicious processes identified by the alert, particularly those spawned by Microsoft Office applications with unusual arguments or paths.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious code or files.
+- Review and analyze the parent Office document suspected of containing malicious macros to understand the scope of the threat and to prevent similar future incidents.
+- Restore the affected system from a known good backup if any system integrity issues are detected, ensuring that the backup is free from any malicious code.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Update and enhance detection capabilities by reviewing and refining security monitoring rules to better identify similar threats in the future, leveraging insights from the current incident."""
 
 
 [[rule.threat]]

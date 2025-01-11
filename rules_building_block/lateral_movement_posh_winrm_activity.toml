@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -64,6 +64,40 @@ event.category:process and host.os.type:windows and
     "function Invoke-Command {"
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PowerShell Script with Remote Execution Capabilities via WinRM
+
+Windows Remote Management (WinRM) is a protocol that allows for remote management and execution of commands on Windows machines. Adversaries exploit WinRM to move laterally within networks by executing PowerShell scripts remotely. The detection rule identifies suspicious use of PowerShell cmdlets like `Invoke-Command` and `Enter-PSSession` with remote execution intent, excluding benign processes and directories, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the PowerShell script block text to identify the specific cmdlets and parameters used, focusing on "Invoke-WmiMethod", "Invoke-Command", or "Enter-PSSession" with "ComputerName" to understand the intent and target of the remote execution.
+- Check the user ID associated with the event to determine if it is a legitimate user or potentially compromised account, ensuring it is not "S-1-5-18" which is the SYSTEM account.
+- Investigate the source and destination IP addresses involved in the remote execution to assess if the activity is expected within the network or if it involves unusual or unauthorized systems.
+- Examine the file directory from which the PowerShell script was executed, ensuring it is not from "C:\\\\Program Files\\\\LogicMonitor\\\\Agent\\\\tmp", which is excluded as benign.
+- Correlate the event with other logs and alerts to identify any patterns or additional suspicious activities that might indicate lateral movement or further compromise within the network.
+- Assess the risk and impact of the detected activity by considering the context of the involved systems and users, and determine if immediate containment or further monitoring is necessary.
+
+### False positive analysis
+
+- Legitimate administrative tasks using PowerShell cmdlets like Invoke-Command or Enter-PSSession can trigger alerts. To manage this, create exceptions for known administrative accounts or specific user IDs that regularly perform these tasks.
+- Automated scripts from trusted software, such as monitoring tools, may use these cmdlets for legitimate purposes. Exclude directories associated with these tools, like C:\\Program Files\\LogicMonitor\\Agent\\tmp, to reduce false positives.
+- Scheduled tasks or maintenance scripts that use remote execution for system management can be mistaken for threats. Identify and whitelist these scripts by their file paths or script block text to prevent unnecessary alerts.
+- PowerShell modules that redefine or wrap cmdlets for legitimate use might trigger the rule. Review and exclude specific script block patterns that match these benign redefinitions to avoid false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further lateral movement and potential data exfiltration.
+- Terminate any suspicious PowerShell processes identified by the alert to halt ongoing malicious activities.
+- Conduct a thorough review of the affected system's PowerShell logs and event logs to identify any additional indicators of compromise or related malicious activities.
+- Reset credentials for any accounts that were used in the suspicious PowerShell commands to prevent unauthorized access.
+- Apply security patches and updates to the affected system to mitigate any known vulnerabilities that could be exploited by similar threats.
+- Implement network segmentation to limit the ability of threats to move laterally across the network in the future.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
 
 [[rule.filters]]
 [rule.filters.meta]

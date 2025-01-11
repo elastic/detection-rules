@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -34,6 +34,41 @@ query = '''
 event.dataset:"github.audit" and event.category:"configuration" and
 github.user_agent:* and user.name:*
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Occurrence of User-Agent For a GitHub User
+
+User-Agent strings identify the software acting on behalf of a user, such as browsers or scripts, in GitHub environments. Adversaries may exploit this by using unfamiliar User-Agents to mask malicious activities. The detection rule identifies new User-Agents associated with GitHub users, flagging potential unauthorized access attempts by monitoring changes over a 14-day period.
+
+### Possible investigation steps
+
+- Review the specific GitHub user account associated with the alert to determine if there have been any recent changes in activity or access patterns.
+- Examine the new User-Agent string identified in the alert to assess if it is associated with known legitimate software or if it appears suspicious or uncommon.
+- Check the event logs for any other activities associated with the same User-Agent string to identify patterns or additional context around its usage.
+- Investigate the IP address and geolocation associated with the new User-Agent to determine if it aligns with the expected locations for the user.
+- Contact the user to verify if they have recently used a new device or application that could explain the new User-Agent, ensuring it is an authorized change.
+- Review any recent changes in the user's permissions or roles within the GitHub environment to assess if there is a potential for misuse or unauthorized access.
+
+### False positive analysis
+
+- Frequent legitimate changes in User-Agent strings due to browser updates or different devices used by the same user can trigger false positives. Users can manage this by creating exceptions for known User-Agent strings associated with trusted devices or browsers.
+- Automated scripts or tools used by developers may introduce new User-Agent strings. To handle this, maintain a list of approved User-Agent strings for these tools and exclude them from triggering alerts.
+- Shared accounts or service accounts that are accessed from multiple locations or devices can result in new User-Agent detections. Implementing IP whitelisting or tagging known IP addresses can help reduce false positives in these scenarios.
+- Users accessing GitHub through VPNs or proxies might appear with different User-Agent strings. Identifying and excluding these known network configurations can help minimize unnecessary alerts.
+- Regularly review and update the list of exceptions to ensure that only legitimate and non-threatening User-Agent strings are excluded, maintaining the effectiveness of the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected GitHub account by temporarily suspending access to prevent further unauthorized actions.
+- Review the recent activity logs for the affected account to identify any unauthorized changes or data access, and document these findings for further analysis.
+- Reset the credentials for the compromised account and enforce multi-factor authentication (MFA) to enhance security.
+- Notify the affected user and relevant stakeholders about the incident, providing guidance on recognizing phishing attempts and securing their accounts.
+- Conduct a thorough review of the organization's GitHub access policies and permissions to ensure they follow the principle of least privilege.
+- Escalate the incident to the security operations team for further investigation and to determine if additional accounts or systems have been compromised.
+- Implement enhanced monitoring for the affected account and similar user accounts to detect any further suspicious activity promptly."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/07/14"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -42,6 +42,40 @@ sequence by user.name, source.port, source.ip with maxspan=15s
   winlog.event_data.ShareName in ("\\\\*\\ADMIN$", "\\\\*\\C$") and 
   source.ip != null and source.ip != "0.0.0.0" and source.ip != "::1" and source.ip != "::" and source.ip != "127.0.0.1"]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Network Share Discovery
+
+Network shares allow users to access files and resources across systems, facilitating collaboration. However, adversaries exploit this by scanning for shared folders, especially administrative shares, to gather intelligence or move laterally within a network. The detection rule identifies suspicious access attempts to these shares by monitoring specific event actions and filtering out benign IP addresses, thus highlighting potential reconnaissance activities.
+
+### Possible investigation steps
+
+- Review the source IP addresses involved in the alert to determine if they belong to known or trusted devices within the network. Cross-reference these IPs with asset management databases to identify the devices.
+- Check the user.name field to verify if the user account associated with the access attempts is legitimate and if it has a history of accessing network shares. Investigate any anomalies in user behavior or access patterns.
+- Analyze the timing and frequency of the access attempts by examining the sequence of events within the 15-second maxspan window to identify any patterns or unusual activity that could indicate automated scanning or reconnaissance.
+- Investigate the context of the network-share-object-access-checked events by reviewing logs from the involved systems to determine if there were any successful access attempts or subsequent suspicious activities following the initial alert.
+- Correlate the alert with other security events or alerts in the same timeframe to identify potential lateral movement or further reconnaissance activities by the same source IP or user account.
+
+### False positive analysis
+
+- Routine administrative tasks may trigger alerts when IT staff access administrative shares for legitimate purposes. To mitigate this, create exceptions for known IT personnel or service accounts that regularly perform these tasks.
+- Automated backup or monitoring systems might access network shares as part of their normal operations. Identify these systems and exclude their IP addresses from triggering alerts.
+- Software updates or patch management tools often scan network shares to deploy updates. Recognize these tools and whitelist their associated IP addresses or user accounts to prevent false positives.
+- Internal network scanning tools used for security assessments can mimic adversarial behavior. Ensure these tools are documented and their activities are excluded from detection rules.
+- Shared resources accessed by trusted third-party vendors might appear suspicious. Maintain a list of approved vendor IP addresses and exclude them from the rule to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Conduct a thorough review of the access logs to identify any unauthorized access attempts and determine the scope of the potential compromise.
+- Change passwords for any accounts that were accessed or potentially compromised during the network share discovery attempt.
+- Implement network segmentation to limit access to administrative shares and sensitive resources, ensuring only authorized users have access.
+- Apply security patches and updates to all systems to mitigate vulnerabilities that could be exploited for network share discovery.
+- Enhance monitoring and alerting for suspicious network share access attempts, focusing on unusual patterns or access from unexpected IP addresses.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional containment or remediation actions are necessary."""
 
 
 [[rule.threat]]

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -35,6 +35,40 @@ event.dataset:"github.audit" and event.category:"configuration" and
 github.hashed_token:* and user.name:* and
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Occurrence of Personal Access Token (PAT) Use For a GitHub User
+
+Personal Access Tokens (PATs) in GitHub provide a way to authenticate programmatic access to repositories, offering fine-grained permissions. Adversaries may exploit PATs to gain unauthorized access, maintain persistence, or manipulate accounts. This detection rule identifies unusual PAT usage by flagging tokens not seen in recent activity, helping to uncover potential misuse or unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the GitHub audit logs to identify the specific user and hashed token involved in the alert. Focus on the event.dataset:"github.audit" and user.name fields to gather initial context.
+- Check the user's recent activity history within the last 14 days to determine if there are any other unusual or unauthorized actions associated with their account.
+- Investigate the source IP address and location associated with the PAT usage to verify if it aligns with the user's typical access patterns.
+- Examine the permissions and scopes granted to the PAT to assess the potential impact of its use and whether it aligns with the user's role and responsibilities.
+- Contact the user to confirm whether they generated the PAT and if they recognize the activity, ensuring it was not an unauthorized action.
+- Review any recent changes in the user's account settings or access permissions that might indicate account manipulation or compromise.
+
+### False positive analysis
+
+- Regularly scheduled automated scripts or integrations may trigger alerts if they use PATs that are rotated or updated frequently. To manage this, consider maintaining a list of known scripts and their associated tokens, and exclude these from the alert if they match expected patterns.
+- Developers or team members who frequently create and use new PATs for testing or development purposes might cause false positives. Implement a process to document and approve such activities, and exclude these users or tokens from the alert based on their documented usage patterns.
+- Organizational changes, such as onboarding new team members or shifting roles, can lead to new PATs being used legitimately. Establish a communication channel with HR or team leads to anticipate these changes and temporarily exclude affected users from the alert during their transition period.
+- Third-party applications or services that integrate with GitHub and require PATs might be flagged if they are updated or reconfigured. Maintain an inventory of these applications and their expected token usage, and exclude them from the alert if they align with known configurations.
+
+### Response and remediation
+
+- Immediately revoke the identified Personal Access Token (PAT) to prevent further unauthorized access.
+- Notify the affected user and relevant security teams about the potential compromise and provide guidance on securing their account.
+- Conduct a review of recent activities associated with the compromised PAT to identify any unauthorized actions or changes made to repositories.
+- Reset the user's GitHub account credentials and enforce multi-factor authentication (MFA) to enhance account security.
+- Implement additional monitoring for unusual activities on the affected account and related repositories to detect any further unauthorized access attempts.
+- Escalate the incident to the organization's incident response team for further investigation and to determine if additional systems or accounts may be affected.
+- Review and update access policies and permissions for all users to ensure that only necessary access is granted, reducing the risk of future unauthorized access."""
 
 
 [[rule.threat]]

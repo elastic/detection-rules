@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -78,6 +78,41 @@ process where host.os.type == "windows" and event.type == "start" and
     )
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Masquerading as System32 Executable
+
+System32 executables are critical components of Windows, often targeted by adversaries for masquerading attacks. By replacing or mimicking these executables, attackers can execute malicious code under the guise of legitimate processes. The detection rule identifies anomalies by checking for unsigned executables or those signed by non-Microsoft entities, flagging potential masquerading attempts. It excludes known trusted signatures and paths to reduce false positives, focusing on defense evasion and persistence tactics.
+
+### Possible investigation steps
+
+- Review the process name and executable path to determine if it matches any known legitimate applications or if it appears suspicious based on the context of the alert.
+- Check the code signature status and subject name to verify if the executable is signed by a trusted entity or if it is unsigned, which could indicate a potential masquerading attempt.
+- Investigate the parent process to understand how the suspicious process was initiated and if it aligns with expected behavior for the system or user.
+- Examine the process execution history and any associated network activity to identify any unusual patterns or connections that could suggest malicious intent.
+- Cross-reference the executable path and process name against known false positives or exceptions listed in the rule to ensure the alert is not triggered by a benign process.
+- Gather additional context from system logs or endpoint detection tools to corroborate findings and assess the potential impact or scope of the activity.
+
+### False positive analysis
+
+- Executables signed by trusted third-party vendors like Lenovo, HP Inc., Dell Inc., ImageMagick Studio LLC, Arctic Wolf Networks, Intel(R) Online Connect Access, Fortinet Technologies, and Cisco Systems may trigger false positives. Users can mitigate this by adding these vendors to the exception list if their signatures are verified as trusted.
+- Processes running from temporary directories or specific paths such as "?:\\Program Files\\Git\\usr\\bin\\hostname.exe" or "?:\\Users\\*\\AppData\\Local\\Temp\\{*}\\taskkill.exe" might be flagged. Users should verify these paths and exclude them if they are part of legitimate operations.
+- The rule may flag processes like "ucsvc.exe" signed by Wellbia.com Co., Ltd. or "pnputil.exe" signed by Lenovo, HP Inc., or Dell Inc. as false positives. Users should ensure these signatures are trusted and add them to the exception list if necessary.
+- If "certutil.exe" is used by Intel(R) Online Connect Access or Fortinet Technologies, and the signature is trusted, users can exclude these specific instances to prevent false positives.
+- For processes like "sfc.exe" signed by Cisco Systems, users should verify the signature's trust status and exclude them if they are part of legitimate activities.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malicious activity.
+- Terminate any suspicious processes identified by the alert that are unsigned or signed by non-Microsoft entities.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or executables.
+- Restore any replaced or backdoored system32 executables from a known good backup to ensure system integrity.
+- Review and update the system's security patches and software updates to close any vulnerabilities that may have been exploited.
+- Monitor the system and network for any signs of persistence mechanisms or further unauthorized access attempts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]

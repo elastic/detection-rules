@@ -249,6 +249,14 @@ def toml_write(rule_contents, outfile=None):
                 # This will ensure that the output file has the correct number of backslashes.
                 v = v.replace("\\", "\\\\")
 
+            if k == 'osquery' and isinstance(v, list):
+                # Specifically handle transform.osquery queries
+                for osquery_item in v:
+                    if 'query' in osquery_item and isinstance(osquery_item['query'], str):
+                        # Transform instances of \ to \\ as calling write will convert \\ to \.
+                        # This will ensure that the output file has the correct number of backslashes.
+                        osquery_item['query'] = osquery_item['query'].replace("\\", "\\\\")
+
             if isinstance(v, dict):
                 bottom[k] = OrderedDict(sorted(v.items()))
             elif isinstance(v, list):

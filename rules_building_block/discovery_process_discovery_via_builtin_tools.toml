@@ -2,7 +2,7 @@
 creation_date = "2023/07/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -36,6 +36,40 @@ process where event.type == "start" and event.action in ("exec", "exec_event") a
 ) and 
 not process.parent.name in ("amazon-ssm-agent", "snap")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Process Discovery via Built-In Applications
+
+Built-in applications like `ps`, `pstree`, `htop`, and `pgrep` are essential for system administrators to monitor and manage processes on Linux and macOS systems. However, adversaries can exploit these tools to gain insights into running processes, aiding in reconnaissance and lateral movement. The detection rule identifies suspicious use of these tools by monitoring process execution events, excluding legitimate parent processes like `amazon-ssm-agent` and `snap`, thus highlighting potential malicious activity.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific built-in application used (e.g., ps, pstree, htop, pgrep) and the associated process execution event.
+- Examine the process tree to determine the parent process of the suspicious activity, ensuring it is not a legitimate process like amazon-ssm-agent or snap.
+- Investigate the user account associated with the process execution to determine if it aligns with expected behavior or if it might be compromised.
+- Check for any recent changes or anomalies in the system that could indicate unauthorized access or configuration changes.
+- Correlate the event with other security alerts or logs to identify any patterns or additional suspicious activities that might suggest a broader attack or reconnaissance effort.
+
+### False positive analysis
+
+- System management scripts or automation tools may frequently use built-in applications like ps or pgrep for legitimate monitoring tasks. Consider reviewing these scripts and excluding them from the rule if they are verified as non-threatening.
+- Developers and IT staff might use htop or pstree during routine system diagnostics. If these activities are common and verified as safe, add exceptions for specific user accounts or parent processes.
+- Scheduled maintenance tasks or cron jobs might trigger these tools for system health checks. Identify these tasks and exclude them from the rule to prevent unnecessary alerts.
+- Security software or monitoring agents might invoke these commands as part of their normal operation. Verify these processes and exclude them if they are part of trusted applications.
+- Training or testing environments where users are learning system administration might generate alerts. Consider excluding these environments from the rule to avoid false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected endpoint from the network to prevent potential lateral movement by the adversary.
+- Terminate any suspicious processes identified by the alert that are not associated with legitimate parent processes.
+- Conduct a thorough review of recent process execution logs to identify any unauthorized or unusual activity that may indicate further compromise.
+- Reset credentials and review access permissions for any accounts that were active on the affected endpoint to prevent unauthorized access.
+- Deploy endpoint detection and response (EDR) tools to monitor for any further suspicious activity and ensure comprehensive visibility.
+- Escalate the incident to the security operations center (SOC) for further investigation and to determine if additional endpoints are affected.
+- Implement additional monitoring rules to detect similar process discovery attempts, focusing on unusual parent-child process relationships."""
 
 
 [[rule.threat]]

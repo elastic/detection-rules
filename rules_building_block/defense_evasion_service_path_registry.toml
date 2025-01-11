@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -49,6 +49,39 @@ registry where host.os.type == "windows" and event.type == "change" and
     )
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Service Path Modification
+Service paths in Windows define the executable location for services. Adversaries may alter these paths to execute malicious code, achieving persistence or privilege escalation. The detection rule identifies unusual modifications to service paths by monitoring registry changes, specifically targeting paths not associated with standard system processes, thus flagging potential unauthorized alterations.
+
+### Possible investigation steps
+
+- Review the registry path specified in the alert to confirm the exact service path that was modified, focusing on paths like HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\ImagePath.
+- Identify the process that made the change by examining the process.executable field in the alert, and determine if it is a known or expected application.
+- Check the modification history of the service path to see if there have been any previous changes and if they were made by legitimate processes.
+- Investigate the executable specified in the modified service path to determine if it is a legitimate application or potentially malicious.
+- Correlate the alert with other security events or logs from the same host to identify any additional suspicious activity or patterns.
+- Assess the risk and impact of the modification by determining if the service is critical and if the change could lead to persistence or privilege escalation.
+
+### False positive analysis
+
+- Legitimate software updates or installations may modify service paths, triggering the rule. Users can create exceptions for known update processes by adding their executables to the exclusion list.
+- Custom or in-house applications installed in non-standard directories might be flagged. Verify these applications and add their paths to the exclusion list if they are deemed safe.
+- Administrative scripts or tools that modify service configurations as part of routine maintenance can cause alerts. Identify these scripts and exclude their execution paths to prevent false positives.
+- Security software or system management tools that alter service paths for legitimate reasons may be detected. Confirm their legitimacy and add them to the exclusion criteria to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Terminate any suspicious processes identified as modifying the service path, especially those not originating from standard system directories.
+- Restore the modified service path to its original, legitimate state using system backups or by manually correcting the registry entry.
+- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to identify and remove any additional malicious software.
+- Review and audit user accounts and permissions on the affected system to ensure no unauthorized privilege escalations have occurred.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
+- Implement enhanced monitoring and logging for registry changes and service path modifications to detect similar threats in the future."""
 
 
 [[rule.threat]]

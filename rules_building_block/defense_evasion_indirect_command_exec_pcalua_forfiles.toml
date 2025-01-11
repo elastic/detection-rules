@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -42,6 +42,40 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : ("pcalua.exe", "forfiles.exe")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Indirect Command Execution via Forfiles/Pcalua
+
+Forfiles and pcalua.exe are legitimate Windows utilities used for file management and program compatibility tasks. Adversaries exploit these tools to execute commands indirectly, bypassing security controls. The detection rule identifies suspicious activity by monitoring process initiation events where these utilities are the parent process, indicating potential misuse for defense evasion.
+
+### Possible investigation steps
+
+- Review the process details to identify the command line arguments used with pcalua.exe or forfiles.exe to understand the intended action and potential impact.
+- Check the parent process of pcalua.exe or forfiles.exe to determine how these utilities were invoked and assess if this aligns with expected behavior.
+- Investigate the user account associated with the process initiation to verify if the activity is consistent with their typical behavior or if the account may be compromised.
+- Examine recent system logs and security events for any related or suspicious activities that occurred around the same time as the alert.
+- Correlate the alert with other security events or alerts to identify if this is part of a larger attack pattern or campaign.
+
+### False positive analysis
+
+- Routine administrative tasks may trigger alerts when forfiles.exe or pcalua.exe are used for legitimate file management or compatibility checks. To manage this, identify and document regular administrative scripts or tasks that use these utilities and create exceptions for these known activities.
+- Software installations or updates often invoke pcalua.exe as part of their normal operation. Monitor and whitelist specific software installation processes that are known and trusted within your environment to reduce unnecessary alerts.
+- Scheduled tasks or automated scripts that utilize forfiles.exe for file cleanup or management can generate false positives. Review and exclude these tasks by correlating them with scheduled task logs or known maintenance windows.
+- Some third-party applications may use these utilities as part of their normal functionality. Identify these applications and consider creating exceptions based on the application's path or hash to prevent false alerts.
+- User-initiated actions, such as compatibility troubleshooting, might involve pcalua.exe. Educate users on the implications of using these tools and establish a process for reporting legitimate use cases to security teams for exclusion.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Terminate any suspicious processes initiated by pcalua.exe or forfiles.exe to stop potential malicious activity.
+- Conduct a thorough review of recent changes and scheduled tasks on the affected system to identify any unauthorized modifications or persistence mechanisms.
+- Restore any altered or deleted files from a known good backup to ensure system integrity and functionality.
+- Update and patch the affected system to close any vulnerabilities that may have been exploited by the adversary.
+- Monitor the network for any further suspicious activity related to pcalua.exe or forfiles.exe to detect potential follow-up attacks.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
 
 
 [[rule.threat]]

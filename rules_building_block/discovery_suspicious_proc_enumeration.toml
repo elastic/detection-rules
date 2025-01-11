@@ -2,7 +2,7 @@
 creation_date = "2023/06/09"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -58,6 +58,40 @@ file.path : (/proc/*/cmdline or /proc/*/stat or /proc/*/exe) and not process.nam
   ps or netstat or landscape-sysin or w or pgrep or pidof or needrestart or apparmor_status
 ) and not process.parent.pid : 1
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Proc Pseudo File System Enumeration
+
+The proc pseudo file system in Linux provides a window into the kernel and running processes, offering critical insights for system management. Adversaries exploit this by rapidly querying files like cmdline, stat, and exe to gather intelligence on active processes, potentially for reconnaissance or privilege escalation. The detection rule identifies such suspicious activity by monitoring for rapid, atypical access patterns to these files, excluding benign processes, thus flagging potential threats.
+
+### Possible investigation steps
+
+- Review the process triggering the alert by examining the process.name field to identify any unfamiliar or suspicious processes that are not part of the excluded list.
+- Investigate the parent process using the process.parent.pid field to determine if the process hierarchy appears legitimate or if it might be indicative of a compromised or malicious parent process.
+- Analyze the frequency and pattern of file access in the /proc/*/cmdline, /proc/*/stat, and /proc/*/exe paths to assess whether the access pattern is consistent with typical system behavior or indicative of reconnaissance activity.
+- Check for any recent changes or anomalies in the system logs around the time of the alert to identify any correlated suspicious activities or system changes.
+- Cross-reference the process with known threat intelligence sources to determine if it matches any known malicious signatures or behaviors.
+
+### False positive analysis
+
+- System monitoring tools that frequently access proc files for legitimate purposes may trigger false positives. Users can mitigate this by adding these tools to the exclusion list in the rule configuration.
+- Automated scripts or cron jobs that perform regular system checks might be flagged. Review these scripts and, if deemed safe, exclude their process names from the rule.
+- Custom administrative tools developed in-house that perform process checks could be mistakenly identified as threats. Verify their behavior and add them to the exception list if they are benign.
+- Security software that performs regular scans of system processes may also be detected. Confirm the legitimacy of such software and exclude it from the rule to prevent false alerts.
+- Development or testing environments where processes are frequently started and stopped might generate false positives. Consider excluding these environments from monitoring or adjusting the rule sensitivity for these specific cases.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
+- Terminate any suspicious processes identified as rapidly accessing the proc pseudo file system, especially those not whitelisted in the detection rule.
+- Conduct a thorough review of the system's process tree to identify any unauthorized or unexpected parent-child process relationships, focusing on those not originating from init (PID 1).
+- Analyze the system logs to trace the origin of the suspicious activity, identifying any potential entry points or vulnerabilities exploited by the adversary.
+- Apply security patches and updates to the affected system to address any known vulnerabilities that may have been exploited.
+- Restore the system from a known good backup if any signs of compromise or unauthorized changes are detected.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]

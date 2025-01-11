@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -74,6 +74,40 @@ process where event.type == "start" and host.os.type == "windows" and
     (process.name : "cmd.exe" and process.parent.name : "forfiles.exe" and process.command_line : "/c echo *")
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Process For MSSQL Service Accounts
+
+MSSQL service accounts are integral to managing SQL Server operations, executing processes necessary for database management. Adversaries may exploit these accounts to execute unauthorized processes, gaining initial access or moving laterally within a network. The detection rule identifies atypical processes initiated by MSSQL service accounts, excluding known legitimate processes, to flag potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the process details, including the process name and executable path, to determine if the process is expected or known to be associated with legitimate MSSQL operations.
+- Check the user account details, specifically the user.name and user.domain fields, to confirm if the process was initiated by a known MSSQL service account and verify if the account has been compromised or misused.
+- Investigate the parent process information to understand the process hierarchy and identify if the parent process is legitimate or if it indicates potential misuse or exploitation.
+- Analyze the process code signature details, focusing on the process.code_signature.subject_name and process.code_signature.trusted fields, to verify the authenticity and trust level of the process.
+- Correlate the event with other security logs and alerts to identify any related suspicious activities or patterns that might indicate lateral movement or persistence tactics.
+- Consult with the database administration team to verify if any recent changes or updates could have triggered the alert, ensuring that the process is not part of a legitimate maintenance or update task.
+
+### False positive analysis
+
+- Legitimate administrative tasks using cmd.exe initiated by sqlservr.exe may trigger alerts. To manage this, create exceptions for specific command lines that are known to be safe and frequently used by administrators.
+- Scheduled tasks or maintenance scripts that use cmd.exe with forfiles.exe and specific command lines can be excluded if they are part of regular operations. Verify these tasks and add them to the exception list to prevent unnecessary alerts.
+- Processes signed by Microsoft Corporation and marked as trusted, such as wermgr.exe or conhost.exe, may occasionally be flagged. Ensure these are part of normal operations and add them to the exclusion list if they are consistently non-threatening.
+- Custom or third-party applications that interact with MSSQL services and are not listed in the known legitimate processes may cause false positives. Review these applications and, if verified as safe, include them in the exceptions to reduce noise.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement or data exfiltration by the adversary.
+- Terminate any suspicious processes identified by the alert that are not part of the known legitimate processes for MSSQL service accounts.
+- Conduct a thorough review of the affected MSSQL service account credentials and reset them to prevent unauthorized access.
+- Analyze the system for any signs of persistence mechanisms or additional malware that may have been deployed by the attacker.
+- Restore the affected system from a known good backup if any unauthorized changes or damage to the system integrity are detected.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the scope of the compromise.
+- Implement additional monitoring and logging for MSSQL service accounts to detect any future unauthorized activities promptly."""
 
 
 [[rule.threat]]

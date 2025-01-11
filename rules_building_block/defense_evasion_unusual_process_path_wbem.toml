@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -53,6 +53,42 @@ process where host.os.type == "windows" and event.type == "start" and
     "wmiprvse.exe"
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Process Execution on WBEM Path
+
+The Windows Management Instrumentation (WMI) is a core component for managing data and operations on Windows systems. It is often targeted by adversaries for executing malicious payloads under the guise of legitimate processes. The detection rule identifies non-standard processes executing from the WBEM directory, a typical location for WMI binaries, by filtering out known legitimate executables, thus highlighting potential misuse for defense evasion.
+
+### Possible investigation steps
+
+- Review the process executable path to confirm it matches the WBEM directory paths specified in the query (?:\\Windows\\System32\\wbem\\* or ?:\\Windows\\SysWow64\\wbem\\*).
+- Identify the process name and compare it against the list of known legitimate WMI-related executables to ensure it is not mistakenly flagged.
+- Gather additional context on the process by checking its parent process and command line arguments to understand how it was initiated.
+- Investigate the user account associated with the process execution to determine if it aligns with expected behavior or if it indicates potential compromise.
+- Check for any recent changes or anomalies in the system's WMI configuration or related services that could suggest tampering or misuse.
+- Correlate the event with other security alerts or logs from the same host to identify any patterns or additional indicators of compromise.
+- If suspicious, isolate the host for further forensic analysis and consider running a full malware scan to detect any hidden threats.
+
+### False positive analysis
+
+- Legitimate administrative scripts or tools may occasionally execute from the WBEM path, especially in environments with custom management scripts. Review and document any such scripts to determine if they are benign.
+- Scheduled tasks or automated processes that utilize WMI for legitimate purposes might trigger this rule. Identify and whitelist these tasks to prevent unnecessary alerts.
+- Software updates or installations that temporarily use the WBEM directory for execution can be mistaken for unusual activity. Monitor and verify these processes during known update windows.
+- Security or monitoring tools that interact with WMI may execute processes from the WBEM path. Ensure these tools are recognized and excluded from the rule to avoid false positives.
+- In environments with custom WMI providers or extensions, additional executables may be present in the WBEM directory. Validate these custom components and adjust the rule to exclude them if they are verified as safe.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious processes identified running from the WBEM path that are not part of the known legitimate executables list.
+- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious payloads or files.
+- Review recent system changes and restore any altered or maliciously modified system files from a known good backup.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
+- Implement additional monitoring on the affected system and network to detect any further attempts to execute unauthorized processes from the WBEM path.
+- Update security policies and endpoint protection configurations to block execution of unauthorized processes from the WBEM directory in the future."""
 
 
 [[rule.threat]]

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -35,6 +35,41 @@ event.dataset:"github.audit" and event.category:"configuration" and
 github.actor_ip:* and github.hashed_token:* and
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Occurrence of IP Address For GitHub Personal Access Token (PAT)
+
+GitHub Personal Access Tokens (PATs) facilitate secure API interactions, but adversaries can exploit them to gain unauthorized access. By monitoring for new IP addresses associated with PAT usage, this detection rule identifies potential misuse. It flags unusual activity by checking if an IP address has been seen in the past 14 days, helping to thwart unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific IP address and GitHub actor involved in the event.
+- Check historical logs to determine if the IP address has been associated with any other GitHub activities or accounts beyond the 14-day window.
+- Investigate the GitHub actor's recent activity to identify any unusual patterns or unauthorized actions that may indicate compromise.
+- Verify the legitimacy of the GitHub Personal Access Token by contacting the token owner to confirm if the access was expected or authorized.
+- Assess the geographical location and ISP information of the IP address to determine if it aligns with the expected usage patterns of the GitHub actor.
+- Examine any other security alerts or incidents related to the same IP address or GitHub actor to identify potential correlations or broader security issues.
+
+### False positive analysis
+
+- Frequent legitimate access from dynamic IP addresses can trigger false positives. Users should maintain a list of known dynamic IP ranges used by trusted employees or services and exclude these from alerts.
+- Remote work or travel can result in legitimate access from new IP addresses. Implement a process to verify and whitelist IP addresses associated with known employee travel or remote work locations.
+- Use of VPNs or proxy services by employees can cause alerts due to IP address changes. Identify and exclude IP addresses associated with company-approved VPNs or proxy services.
+- Automated scripts or tools that rotate IP addresses for legitimate API access may trigger alerts. Document and exclude IP addresses used by these tools if they are verified as non-threatening.
+- Regularly review and update the exclusion list to ensure it reflects current legitimate access patterns, removing any outdated or unnecessary entries.
+
+### Response and remediation
+
+- Immediately revoke the compromised GitHub Personal Access Token (PAT) to prevent further unauthorized access.
+- Conduct a thorough review of recent activities associated with the compromised PAT to identify any unauthorized changes or data access.
+- Notify the affected user and relevant security teams about the incident, providing details of the IP address and any suspicious activities detected.
+- Implement IP whitelisting for GitHub access, if feasible, to restrict access to known and trusted IP addresses.
+- Enhance logging and monitoring for GitHub activities to detect any further unauthorized access attempts or anomalies.
+- Review and update access controls and permissions associated with GitHub accounts to ensure the principle of least privilege is enforced.
+- If unauthorized access is confirmed, initiate a security incident response process, including a full investigation and reporting to relevant stakeholders."""
 
 
 [[rule.threat]]

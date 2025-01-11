@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2024/12/10"
+updated_date = "2025/01/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -35,6 +35,41 @@ event.dataset:"github.audit" and event.category:"configuration" and
 event.action:* and github.hashed_token:* and 
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First Occurrence GitHub Event for a Personal Access Token (PAT)
+
+Personal Access Tokens (PATs) in GitHub provide a way to authenticate programmatic access to repositories, enabling automation and integration. Adversaries may exploit PATs to gain unauthorized access, execute code, or exfiltrate data. The detection rule identifies unusual PAT activity by flagging tokens not seen in recent history, helping to uncover potential misuse or unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the event details to identify the specific hashed token involved in the alert and determine if it corresponds to any known or expected activity.
+- Check the GitHub audit logs for any recent configuration changes or actions associated with the identified token to understand its usage context.
+- Investigate the user or application associated with the token to verify if they have a legitimate reason for accessing the repository or resources.
+- Assess the scope of access granted by the token, especially if it is a fine-grained personal access token, to evaluate potential risks or exposure.
+- Look for any other unusual or suspicious activities in the GitHub environment around the time of the alert to identify potential patterns or related incidents.
+- Contact the owner of the token, if identifiable, to confirm whether the token usage was authorized and expected.
+
+### False positive analysis
+
+- New legitimate integrations or applications may trigger the rule when they first use a PAT. Users should review the source and purpose of the token and, if verified as non-threatening, add the token to an allowlist to prevent future alerts.
+- Routine administrative tasks or updates that require new PATs can cause false positives. Document these tasks and create exceptions for known administrative activities to reduce unnecessary alerts.
+- Developers frequently creating and rotating PATs for testing purposes might trigger the rule. Establish a process to track and approve these activities, and consider excluding tokens associated with specific development environments.
+- Automated scripts or CI/CD pipelines that generate new PATs for each run can be mistaken for suspicious activity. Identify these scripts and pipelines, and configure the rule to recognize and exclude their expected behavior.
+- Organizational changes, such as team restructuring or onboarding new team members, may lead to increased PAT creation. Monitor these changes and temporarily adjust the rule's sensitivity or add exceptions during transition periods.
+
+### Response and remediation
+
+- Immediately revoke the identified Personal Access Token (PAT) to prevent any unauthorized access or actions using the token.
+- Review the access logs associated with the PAT to identify any suspicious activities or unauthorized access attempts that may have occurred.
+- Notify the repository owner and relevant stakeholders about the potential security incident and provide details of the PAT usage and associated risks.
+- Conduct a security review of the affected repositories to ensure no unauthorized changes or data exfiltration occurred during the period the PAT was active.
+- Implement additional monitoring for any further unusual activities or access attempts related to the compromised PAT or associated accounts.
+- Escalate the incident to the security team for a comprehensive investigation and to determine if further actions are necessary, such as notifying affected users or partners.
+- Enhance security measures by enforcing stricter access controls and considering the use of more granular permissions for future PATs to minimize potential impact."""
 
 
 [[rule.threat]]

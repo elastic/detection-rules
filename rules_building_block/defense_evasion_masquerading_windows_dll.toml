@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/31"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -104,6 +104,43 @@ library where event.action == "load" and dll.Ext.relative_file_creation_time <= 
       )
     )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Masquerading as System32 DLL
+
+System32 DLLs are critical components of the Windows operating system, providing essential functions for system operations. Adversaries may exploit this by replacing or mimicking these DLLs to execute malicious code, evade defenses, or maintain persistence. The detection rule identifies anomalies by checking for unsigned or non-Microsoft signed DLLs, recent file creation, and known masquerading patterns, helping to flag potential threats.
+
+### Possible investigation steps
+
+- Review the file creation time of the suspicious DLL to determine if it was recently created, as indicated by the `dll.Ext.relative_file_creation_time` field being less than or equal to 3600 seconds.
+- Check the file path of the DLL using the `dll.path` field to confirm if it resides outside of typical system directories, which might indicate an attempt to masquerade as a legitimate system DLL.
+- Verify the code signature of the DLL by examining the `dll.code_signature.subject_name` and `dll.code_signature.trusted` fields to identify if it is unsigned or signed by a non-Microsoft entity.
+- Investigate the process that loaded the DLL by reviewing the `process.name` field to understand the context in which the DLL was used and assess if the process is legitimate or potentially malicious.
+- Cross-reference the DLL name found in the `dll.name` field with known legitimate system DLLs to determine if the name is being used deceptively.
+- Analyze any related network activity or system changes around the time the DLL was loaded to identify potential malicious behavior or persistence mechanisms.
+
+### False positive analysis
+
+- Certain DLLs like icuuc.dll, timeSync.dll, and appInfo.dll may be signed by trusted vendors such as Valve, VMware, and Adobe. These are often legitimate and can be excluded by adding exceptions for these specific signatures.
+- DLLs like libcrypto.dll and wmi.dll signed by Bitdefender SRL or other trusted entities may trigger false positives. Users can mitigate this by creating exceptions for these trusted signatures.
+- dbghelp.dll is commonly used by various applications and may be signed by trusted entities. Consider excluding this DLL if it is consistently flagged without malicious activity.
+- DirectML.dll signed by Adobe Inc. can be a false positive. Users should verify the signature and exclude it if it is consistently trusted.
+- icsvc.dll signed by Dell Inc. or Dell Technologies Inc. may be legitimate. Users can handle this by adding exceptions for these signatures.
+- offreg.dll signed by Malwarebytes Inc. is often legitimate. Users should verify and exclude this DLL if it is consistently trusted.
+- AppMgr.dll signed by Autodesk, Inc. may be a false positive. Users can exclude this DLL if it is verified as trusted.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of potential malicious activity.
+- Terminate any suspicious processes associated with the unsigned or non-Microsoft signed DLLs identified in the alert.
+- Restore the affected DLLs from a known good backup or reinstall the affected software to ensure integrity.
+- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious files or remnants.
+- Review and update system access controls and permissions to limit the ability of unauthorized users to modify critical system files.
+- Monitor the system and network for any signs of persistence mechanisms or further attempts to load unauthorized DLLs.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]

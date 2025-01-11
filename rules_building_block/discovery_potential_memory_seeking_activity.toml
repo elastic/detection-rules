@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/02/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/18"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -49,6 +49,39 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   process.args like "/var/tmp/dracut*"
 )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Memory Seeking Activity
+
+In Linux environments, utilities like `tail`, `cmp`, `hexdump`, `xxd`, and `dd` are used for legitimate data processing tasks, including reading and manipulating file contents. However, adversaries can exploit these tools to probe memory addresses, potentially setting the stage for further exploitation. The detection rule identifies suspicious use of these utilities by monitoring specific command-line arguments indicative of memory-seeking behavior, while excluding known benign processes to reduce false positives. This approach helps in early detection of potential reconnaissance activities by attackers.
+
+### Possible investigation steps
+
+- Review the process details, including the process name and arguments, to confirm if the command usage aligns with typical memory-seeking behavior as outlined in the detection rule.
+- Examine the parent process information, such as the parent name and command line, to determine if the process was initiated by a known benign source or if it appears suspicious.
+- Check the execution context, including the user account and host details, to assess if the activity is expected for the given environment or user role.
+- Investigate any related processes or activities around the same timeframe to identify potential patterns or additional suspicious behavior.
+- Correlate the alert with other security events or logs to determine if there are signs of broader reconnaissance or exploitation attempts.
+
+### False positive analysis
+
+- Processes initiated by known benign scripts or applications such as error_monitor.sh, acme.sh, dracut, and leapp can trigger false positives. Users should consider adding these to the exclusion list if they are verified as non-threatening in their environment.
+- Parent processes like cagefs_enter, nessus-service, platform-python, vdsmd, docker-entrypoint.sh, and lsinitrd-quick are often legitimate and can be excluded if they are part of routine operations.
+- Command lines starting with sh and containing acme.sh or involving /var/tmp/dracut are typically benign. Users can exclude these patterns to reduce noise.
+- Regularly review and update the exclusion list to ensure it reflects the current operational environment and does not inadvertently allow malicious activity.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent potential lateral movement by the attacker and to contain the threat.
+- Terminate any suspicious processes identified by the detection rule, specifically those involving the use of `tail`, `cmp`, `hexdump`, `xxd`, or `dd` with the flagged arguments.
+- Conduct a memory dump and forensic analysis of the affected system to identify any unauthorized access or modifications to memory addresses.
+- Review and analyze logs from the affected system to trace the origin of the suspicious activity and identify any other potentially compromised systems.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Apply patches and updates to the affected system to address any vulnerabilities that may have been exploited by the attacker.
+- Implement enhanced monitoring and alerting for similar activities across the network to detect and respond to future attempts promptly."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

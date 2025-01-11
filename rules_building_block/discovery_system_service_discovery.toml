@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/01/24"
 integration = ["windows", "endpoint", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -52,6 +52,40 @@ process where host.os.type == "windows" and event.type == "start" and
   (process.name : "psservice.exe" or process.pe.original_file_name == "psservice.exe")
   ) and not user.id : "S-1-5-18"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating System Service Discovery through built-in Windows Utilities
+
+System service discovery is a technique used to enumerate services running on a Windows system, often leveraging built-in utilities like `net.exe`, `sc.exe`, and `tasklist.exe`. Adversaries exploit these tools to gather information about services for privilege escalation or lateral movement. The detection rule identifies suspicious use of these utilities by monitoring specific command-line arguments and process behaviors, excluding known benign system accounts, to flag potential reconnaissance activities.
+
+### Possible investigation steps
+
+- Review the process details to confirm the execution of `net.exe`, `sc.exe`, `tasklist.exe`, or `psservice.exe` by checking the process name and original file name fields. Verify if the command-line arguments match those specified in the rule, such as "start", "use", "query", "q*", or "/svc".
+- Investigate the user account associated with the process execution by examining the user.id field. Determine if the account is unusual or unauthorized for performing such actions, especially since the rule excludes the system account "S-1-5-18".
+- Check the parent process of the flagged process to understand the context of execution. This can help identify if the process was spawned by a legitimate application or a potentially malicious script or tool.
+- Analyze the timing and frequency of the detected activity. Determine if this is a one-time occurrence or part of a pattern, which could indicate automated or scripted reconnaissance.
+- Correlate the alert with other security events or logs from the same host or user to identify any additional suspicious activities, such as failed login attempts, unusual network connections, or file modifications, that might suggest a broader attack campaign.
+
+### False positive analysis
+
+- System administrators or automated scripts may use net.exe, sc.exe, or tasklist.exe for legitimate system management tasks. To reduce false positives, consider excluding these processes when executed by known administrative accounts or service accounts.
+- Scheduled tasks or maintenance scripts might invoke these utilities for routine checks. Identify and document such scripts, then create exceptions for their execution patterns to prevent unnecessary alerts.
+- Some third-party software may use these utilities as part of their normal operation. Monitor and whitelist these applications if they are verified to be safe and necessary for business operations.
+- Training and awareness for IT staff can help differentiate between legitimate and suspicious use of these utilities, reducing the likelihood of misidentifying benign activities as threats.
+- Regularly review and update the list of excluded accounts and processes to ensure that only verified non-threatening behaviors are exempted from detection.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further lateral movement or data exfiltration by the adversary.
+- Terminate any suspicious processes identified by the detection rule, such as instances of net.exe, sc.exe, or tasklist.exe, that are not associated with legitimate administrative tasks.
+- Conduct a thorough review of user accounts and privileges on the affected system to identify any unauthorized changes or escalations, and revert any suspicious modifications.
+- Reset passwords for potentially compromised accounts, especially those with administrative privileges, to prevent unauthorized access.
+- Review and apply any necessary security patches or updates to the affected system to address potential vulnerabilities exploited by the adversary.
+- Monitor network traffic and system logs for any signs of further reconnaissance or malicious activity, focusing on the use of built-in utilities and unusual command-line arguments.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]
