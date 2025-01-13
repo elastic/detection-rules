@@ -1,5 +1,4 @@
 [metadata]
-bypass_bbr_timing = true
 creation_date = "2023/08/04"
 integration = ["endpoint"]
 maturity = "production"
@@ -7,7 +6,6 @@ updated_date = "2024/05/31"
 
 [rule]
 author = ["Elastic"]
-building_block_type = "default"
 description = """
 Identifies suspicious child processes of communications apps, which can indicate a potential masquerading as the
 communication app or the exploitation of a vulnerability on the application causing it to execute code.
@@ -17,16 +15,15 @@ index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Communication App Child Process"
-risk_score = 21
+risk_score = 47
 rule_id = "adbfa3ee-777e-4747-b6b0-7bd645f30880"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Tactic: Persistence",
-    "Rule Type: BBR",
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
@@ -74,6 +71,7 @@ process where host.os.type == "windows" and event.type == "start" and
             "?:\\Program Files\\*",
             "?:\\Program Files (x86)\\*",
             "?:\\Windows\\System32\\WerFault.exe",
+            "?:\\Windows\\SysWOW64\\WerFault.exe",
             "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
             "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
             "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\opera.exe"
@@ -159,6 +157,7 @@ process where host.os.type == "windows" and event.type == "start" and
             "?:\\Program Files\\*",
             "?:\\Program Files (x86)\\*",
             "?:\\Windows\\System32\\WerFault.exe",
+            "?:\\Windows\\SysWOW64\\WerFault.exe",
             "?:\\Windows\\System32\\reg.exe",
             "?:\\Windows\\SysWOW64\\reg.exe"
           ) and process.code_signature.trusted == true  
@@ -186,49 +185,14 @@ process where host.os.type == "windows" and event.type == "start" and
             "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
             "?:\\Users\\*\\AppData\\Local\\Island\\Island\\Application\\Island.exe",
             "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
-            "?:\\Windows\\System32\\WerFault.exe"
+            "?:\\Windows\\System32\\WerFault.exe",
+            "?:\\Windows\\SysWOW64\\WerFault.exe"
           ) and process.code_signature.trusted == true  
         ) or
         (
           process.code_signature.subject_name : (
             "Zoom Video Communications, Inc."
           ) and process.code_signature.trusted == true
-        )
-      )
-    ) or
-
-    /* Outlook */
-    (process.parent.name : "outlook.exe" and not
-      (
-        (
-          process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe",
-            "?:\\Windows\\system32\\wermgr.exe",
-            "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe",
-            "?:\\Users\\*\\AppData\\Local\\Temp\\NewOutlookInstall\\NewOutlookInstaller.exe",
-            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-            "?:\\Users\\*\\AppData\\Local\\Island\\Island\\Application\\Island.exe",
-            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
-            "?:\\Users\\*\\AppData\\Roaming\\Zoom\\bin\\Zoom.exe",
-            "?:\\Windows\\System32\\IME\\SHARED\\IMEWDBLD.EXE",
-            "?:\\Windows\\System32\\spool\\drivers\\x64\\*",
-            "?:\\Windows\\System32\\prevhost.exe",
-            "?:\\Windows\\System32\\dwwin.exe",
-            "?:\\Windows\\System32\\mspaint.exe",
-            "?:\\Windows\\SysWOW64\\mspaint.exe",
-            "?:\\Windows\\System32\\notepad.exe",
-            "?:\\Windows\\SysWOW64\\notepad.exe",
-            "?:\\Windows\\System32\\smartscreen.exe",
-            "?:\\Windows\\explorer.exe",
-            "?:\\Windows\\splwow64.exe"
-          ) and process.code_signature.trusted == true  
-        ) or
-        (
-          process.name : "rundll32.exe" and
-          process.args : "*hpmsn???.dll,MonitorPrintJobStatus*"
         )
       )
     ) or
@@ -241,6 +205,7 @@ process where host.os.type == "windows" and event.type == "start" and
             "?:\\Program Files\\*",
             "?:\\Program Files (x86)\\*",
             "?:\\Windows\\System32\\WerFault.exe",
+            "?:\\Windows\\SysWOW64\\WerFault.exe",
             "?:\\Windows\\splwow64.exe"
           ) and process.code_signature.trusted == true  
         ) or
