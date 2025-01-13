@@ -3,21 +3,20 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = "endpoint"
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/09"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-Detects files being compressed or archived into common formats. This is a common technique used to obfuscate files to
-evade detection or to staging data for exfiltration.
+Detects files being compressed or archived into common formats by unsigned processes. This is a common technique used to
+obfuscate files to evade detection or to staging data for exfiltration.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
-max_signals = 1000
-name = "File Compressed or Archived into Common Format"
+name = "File Compressed or Archived into Common Format by Unsigned Process"
 references = ["https://en.wikipedia.org/wiki/List_of_file_signatures"]
 risk_score = 21
 rule_id = "79124edf-30a8-4d48-95c4-11522cad94b1"
@@ -34,7 +33,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "windows" and event.type in ("creation", "change") and process.executable != null and not user.id : ("S-1-5-18", "S-1-5-17") and
+file where host.os.type == "windows" and event.type in ("creation", "change") and
+ process.executable != null and process.code_signature.trusted != true and
  file.Ext.header_bytes : (
                           /* compression formats */
                           "1F9D*",             /* tar zip, tar.z (Lempel-Ziv-Welch algorithm) */
@@ -70,44 +70,6 @@ file where host.os.type == "windows" and event.type in ("creation", "change") an
                           "78617221*",         /* xar */
                           "4F4152*",           /* oar */
                           "49536328*"          /* cab archive */
- ) and
- not (
-   (
-     process.name : "firefox.exe" and
-     process.code_signature.subject_name : "Mozilla Corporation" and process.code_signature.trusted == true
-   ) or
-   (
-     process.name : "wazuh-agent.exe" and
-     process.code_signature.subject_name : "Wazuh, Inc" and process.code_signature.trusted == true and
-     file.name : ("ossec-*.log.gz", "tmp-entry.gz", "tmp-entry", "last-entry.gz")
-   ) or
-   (
-     process.name : ("excel.exe", "winword.exe", "powerpnt.exe") and
-     process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true
-   ) or
-   (
-     process.name : "OneDrive.exe" and
-     process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true and
-     (
-      file.extension : ("xlsx", "docx", "pptx", "xlsm") or
-      file.path : "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\logs\\*"
-     )
-   ) or
-   (
-     process.name : "Dropbox.exe" and
-     process.code_signature.subject_name : "Dropbox, Inc" and process.code_signature.trusted == true and
-     file.name : "store.bin"
-   ) or
-   (
-     process.name : "DellSupportAssistRemedationService.exe" and
-     process.code_signature.subject_name : "Dell Inc" and process.code_signature.trusted == true and
-     file.extension : "manifest"
-   ) or
-   (
-     process.name : "w3wp.exe" and
-     process.code_signature.subject_name : "Microsoft Windows" and process.code_signature.trusted == true and
-     file.path : "?:\\inetpub\\temp\\IIS Temporary Compressed Files\\*"
-   )
  )
 '''
 
