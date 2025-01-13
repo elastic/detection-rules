@@ -1,0 +1,83 @@
+[metadata]
+creation_date = "2025/01/07"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/01/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies file permission modification events on files located in common system binary paths. Adversaries may attempt to
+hide their payloads in the default Linux system directories, and modify the file permissions of these payloads prior to execution.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "System Binary Path File Permission Modification"
+references = ["https://blog.exatrack.com/Perfctl-using-portainer-and-new-persistences/"]
+risk_score = 21
+rule_id = "0049cf71-fe13-4d79-b767-f7519921ffb5"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name in ("chmod", "chown") and
+process.args like~ (
+  "/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*",
+  "/lib/*", "/usr/lib/*", "/lib64/*", "/usr/lib64/*"
+) and
+process.args in ("4755", "755", "000", "777", "444", "-x", "+x") and not (
+  process.args in ("/bin/chmod", "/usr/bin/chmod", "/usr/local/bin/chmod") or
+  process.parent.executable like~ ("/tmp/newroot/*", "/var/lib/dpkg/info/*") or
+  process.parent.name in ("udevadm", "systemd", "entrypoint", "sudo", "dart") or
+  process.parent.command_line == "runc init" or
+  process.parent.args like "/var/tmp/rpm-tmp.*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
