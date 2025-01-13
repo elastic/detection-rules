@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/08/06"
+updated_date = "2024/12/12"
 
 [transform]
 [[transform.osquery]]
@@ -91,6 +91,7 @@ Adversaries can use network shares to host tooling to support the compromise of 
 """
 references = [
     "http://web.archive.org/web/20230329172636/https://blog.menasec.net/2020/08/new-trick-to-detect-lateral-movement.html",
+    "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
 ]
 risk_score = 47
 rule_id = "ab75c24b-2502-43a0-bf7c-e60e662c811e"
@@ -115,7 +116,7 @@ sequence with maxspan=1m
       /* Veeam related processes */
       (
         process.name : (
-          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe", "Veeam.VSS.Sharepoint2010.exe"
+          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe", "Veeam.VSS.Sharepoint20??.exe"
         ) and process.code_signature.trusted == true and process.code_signature.subject_name : "Veeam Software Group GmbH"
       ) or
       /* PDQ related processes */
@@ -131,7 +132,32 @@ sequence with maxspan=1m
          process.code_signature.trusted == true and process.code_signature.subject_name : "CrowdStrike, Inc.") or
         (process.executable : "?:\\Windows\\System32\\drivers\\CrowdStrike\\*-CsInstallerService.exe" and 
          process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Windows Hardware Compatibility Publisher")
-      )
+      ) or
+      /* MS related processes */
+      (
+        process.executable == "System" or
+        (process.executable : "?:\\Windows\\ccmsetup\\ccmsetup.exe" and 
+         process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Corporation")
+      ) or
+      /* CyberArk processes */
+      (
+        process.executable : "?:\\Windows\\CAInvokerService.exe" and 
+        process.code_signature.trusted == true and process.code_signature.subject_name : "CyberArk Software Ltd."
+      )  or
+      /* Sophos processes */
+      (
+        process.executable : "?:\\ProgramData\\Sophos\\AutoUpdate\\Cache\\sophos_autoupdate1.dir\\SophosUpdate.exe" and 
+        process.code_signature.trusted == true and process.code_signature.subject_name : "Sophos Ltd"
+      )  or
+      /* Elastic processes */
+      (
+        process.executable : (
+          "?:\\Program Files\\Elastic\\Agent\\data\\elastic-agent-*\\components\\previous\\elastic-endpoint.exe",
+          "?:\\Program Files\\Elastic\\Agent\\data\\elastic-agent-*\\elastic-agent.exe",
+          "?:\\Program Files\\Elastic\\Agent\\data\\elastic-agent-*\\components\\agentbeat.exe"
+        ) and 
+        process.code_signature.trusted == true and process.code_signature.subject_name : "Elasticsearch, Inc."
+      ) 
     )
   ] by host.id, process.executable
 '''

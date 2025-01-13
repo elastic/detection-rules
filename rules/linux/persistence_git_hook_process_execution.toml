@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/06/26"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/06/26"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -13,11 +15,14 @@ spawned by the Git process itself. This behavior may indicate an attacker attemp
 leveraging the legitimate Git process to execute unauthorized commands.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Git Hook Child Process"
-references = ["https://git-scm.com/docs/githooks/2.26.0"]
+references = [
+    "https://git-scm.com/docs/githooks/2.26.0",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
+]
 risk_score = 21
 rule_id = "7ce5e1c7-6a49-45e6-a101-0720d185667f"
 setup = """## Setup
@@ -54,28 +59,36 @@ tags = [
     "Tactic: Execution",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.parent.name in (
-  "applypatch-msg", "commit-msg", "fsmonitor-watchman", "post-update", "post-checkout", "post-commit",
-  "pre-applypatch", "pre-commit", "pre-merge-commit", "prepare-commit-msg", "pre-push", "pre-rebase", "pre-receive",
-  "push-to-checkout", "update", "post-receive", "pre-auto-gc", "post-rewrite", "sendemail-validate", "p4-pre-submit",
-  "post-index-change", "post-merge", "post-applypatch"
-) and (
-  process.name in ("nohup", "setsid", "disown", "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") or 
-  process.name : ("php*", "perl*", "ruby*", "lua*") or 
-  process.executable : (
-    "/boot/*", "/dev/shm/*", "/etc/cron.*/*", "/etc/init.d/*", "/etc/update-motd.d/*",
-    "/run/*", "/srv/*", "/tmp/*", "/var/tmp/*", "/var/log/*"
-  )
-) and not process.name in ("git", "dirname")
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  process.parent.name in (
+    "applypatch-msg", "commit-msg", "fsmonitor-watchman", "post-update", "post-checkout", "post-commit",
+    "pre-applypatch", "pre-commit", "pre-merge-commit", "prepare-commit-msg", "pre-push", "pre-rebase", "pre-receive",
+    "push-to-checkout", "update", "post-receive", "pre-auto-gc", "post-rewrite", "sendemail-validate", "p4-pre-submit",
+    "post-index-change", "post-merge", "post-applypatch"
+  ) and
+  (
+    process.name in ("nohup", "setsid", "disown", "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") or 
+    process.name : ("php*", "perl*", "ruby*", "lua*") or 
+    process.executable : (
+      "/boot/*", "/dev/shm/*", "/etc/cron.*/*", "/etc/init.d/*", "/etc/update-motd.d/*",
+      "/run/*", "/srv/*", "/tmp/*", "/var/tmp/*", "/var/log/*"
+    )
+  ) and
+  not process.name in ("git", "dirname")
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
@@ -86,29 +99,28 @@ id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -116,3 +128,4 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

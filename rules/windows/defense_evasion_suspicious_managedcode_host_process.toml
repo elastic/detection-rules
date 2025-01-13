@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/08/21"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/31"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +13,7 @@ Identifies a suspicious managed code hosting process which could indicate code i
 code execution.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*", "endgame-*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Managed Code Hosting Process"
@@ -28,6 +30,10 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

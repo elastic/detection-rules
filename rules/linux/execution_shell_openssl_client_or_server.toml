@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/07/30"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/07/30"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ establish a secure connection to a remote server or to create a secure server to
 may be used to exfiltrate data or establish a command and control channel.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Openssl Client or Server Activity"
@@ -51,16 +53,18 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
-    "Data Source: Elastic Endgame"
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
-process.name == "openssl" and (
-  (process.args == "s_client" and process.args : ("-connect", "*:*") and not process.args == "-showcerts") or
-  (process.args == "s_server" and process.args == "-port")
-)
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
+  process.name == "openssl" and (
+    (process.args == "s_client" and process.args : ("-connect", "*:*") and not process.args == "-showcerts") or
+    (process.args == "s_server" and process.args == "-port")
+  ) and
+  not process.parent.executable in ("/pro/xymon/client/ext/awsXymonCheck.sh", "/opt/antidot-svc/nrpe/plugins/check_cert")
 '''
 
 [[rule.threat]]

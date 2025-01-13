@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/06/26"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/06/26"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -13,11 +15,14 @@ and customize Git's behavior. Attackers can abuse Git hooks to maintain persiste
 code whenever a specific Git event occurs.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
+index = ["logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Git Hook Created or Modified"
-references = ["https://git-scm.com/docs/githooks/2.26.0"]
+references = [
+    "https://git-scm.com/docs/githooks/2.26.0",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
+]
 risk_score = 21
 rule_id = "ac531fcc-1d3b-476d-bbb5-1357728c9a37"
 setup = """## Setup
@@ -54,9 +59,12 @@ tags = [
     "Tactic: Execution",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.type == "creation" and file.path : "*.git/hooks/*" and
 file.extension == null and process.executable != null and not (
@@ -71,7 +79,7 @@ file.extension == null and process.executable != null and not (
     "/usr/local/bin/dockerd", "/sbin/dockerd"
   ) or
   process.executable : ("/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*") or
-  process.name in ("git", "dirname") or
+  process.name in ("git", "dirname", "tar", "gitea", "git-lfs") or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )

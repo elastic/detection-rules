@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2024/11/04"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the execution of commands that enable IPv4 and IPv6 forwarding on Linux systems. Enabling IP
+forwarding can be used to route network traffic between different network interfaces, potentially allowing attackers to
+pivot between networks, exfiltrate data, or establish command and control channels.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "IPv4/IPv6 Forwarding Activity"
+risk_score = 21
+rule_id = "5a138e2e-aec3-4240-9843-56825d0bc569"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "exec_event") and
+process.parent.executable != null and process.command_line like (
+  "*net.ipv4.ip_forward*", "*/proc/sys/net/ipv4/ip_forward*", "*net.ipv6.conf.all.forwarding*",
+  "*/proc/sys/net/ipv6/conf/all/forwarding*"
+) and (
+  (process.name == "sysctl" and process.args like ("*-w*", "*--write*", "*=*")) or
+  (
+    process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and process.args == "-c" and
+    process.command_line like "*echo *"
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

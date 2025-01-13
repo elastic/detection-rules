@@ -57,12 +57,14 @@ from .utils import dict_hash, get_etc_path, get_path, load_dump
 from .version_lock import VersionLockFile, loaded_version_lock
 
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
-NAVIGATOR_GIST_ID = '1a3f65224822a30a8228a8ed20289a89'
-NAVIGATOR_URL = 'https://ela.st/detection-rules-navigator'
+NAVIGATOR_GIST_ID = '0443cfb5016bed103f1940b2f336e45a'
+NAVIGATOR_URL = 'https://ela.st/detection-rules-navigator-trade'
 NAVIGATOR_BADGE = (
     f'[![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)]({NAVIGATOR_URL})'
 )
 RULES_CONFIG = parse_rules_config()
+# The base package version that we will start to include all versions of historical rules
+BASE_PKG_VERSION = Version(major=8, minor=17, patch=0)
 
 
 def get_github_token() -> Optional[str]:
@@ -124,7 +126,19 @@ def build_release(ctx: click.Context, config_file, update_version_lock: bool, ge
                                                            registry_data['conditions']['kibana.version'].strip("^"))
     sde = SecurityDetectionEngine()
     historical_rules = sde.load_integration_assets(previous_pkg_version)
-    limited_historical_rules = sde.keep_latest_versions(historical_rules)
+    current_pkg_version = Version.parse(registry_data['version'])
+    # pre-release versions are not included in the version comparison
+    # Version 8.17.0-beta.1 is considered lower than 8.17.0
+    current_pkg_version_no_prerelease = Version(major=current_pkg_version.major,
+                                                minor=current_pkg_version.minor, patch=current_pkg_version.patch)
+    if current_pkg_version_no_prerelease >= BASE_PKG_VERSION:
+        click.echo(f'[+] Adding all historical rule versions in our release package for version \
+            {current_pkg_version_no_prerelease}')
+        limited_historical_rules = historical_rules
+    else:
+        click.echo(f'[+] Limit historical rule versions in our release package for version \
+            {current_pkg_version_no_prerelease}')
+        limited_historical_rules = sde.keep_latest_versions(historical_rules)
     package.add_historical_rules(limited_historical_rules, registry_data['version'])
     click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
 
@@ -780,7 +794,9 @@ def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path
               help='GitHub token to push to gist', hide_input=True)
 @click.option('--gist-id', default=NAVIGATOR_GIST_ID, help='Gist ID to be updated (must exist).')
 @click.option('--print-markdown', is_flag=True, help='Print the generated urls')
-def update_navigator_gists(directory: Path, token: str, gist_id: str, print_markdown: bool) -> list:
+@click.option('--update-coverage', is_flag=True, help='Update the docs/ATT&CK-coverage.md file')
+def update_navigator_gists(directory: Path, token: str, gist_id: str, print_markdown: bool,
+                           update_coverage: bool) -> list:
     """Update the gists with new navigator files."""
     assert directory.exists(), f'{directory} does not exist'
 
@@ -820,16 +836,39 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
         link_name = name.split('.')[0]
         markdown_links.append(f'|[{link_name}]({url})|')
 
+    markdown = [
+        f'**Full coverage**: {NAVIGATOR_BADGE}',
+        '\n',
+        f'**Coverage by platform**: [navigator]({platforms_url})',
+        '\n',
+        '| other navigator links by rule attributes |',
+        '|------------------------------------------|',
+    ] + markdown_links
+
     if print_markdown:
-        markdown = [
-            f'**Full coverage**: {NAVIGATOR_BADGE}',
-            '\n',
-            f'**Coverage by platform**: [navigator]({platforms_url})',
-            '\n',
-            '| other navigator links by rule attributes |',
-            '|------------------------------------------|',
-        ] + markdown_links
         click.echo('\n'.join(markdown) + '\n')
+
+    if update_coverage:
+        coverage_file_path = get_path('docs', 'ATT&CK-coverage.md')
+        header_lines = textwrap.dedent("""# Rule coverage
+
+ATT&CK navigator layer files are generated when a package is built with `make release` or
+`python -m detection-rules`.This also means they can be downloaded from all successful builds.
+
+These files can be used to pass to a custom navigator session. For convenience, the links are
+generated below. You can also include multiple across tabs in a single session, though it is not
+advisable to upload _all_ of them as it will likely overload your browsers resources.
+
+## Current rule coverage
+
+The source files for these links are regenerated with every successful merge to main. These represent
+coverage from the state of rules in the `main` branch.
+        """)
+        updated_file = header_lines + '\n\n' + '\n'.join(markdown) + '\n'
+        # Replace the old URLs with the new ones
+        with open(coverage_file_path, 'w') as md_file:
+            md_file.write(updated_file)
+        click.echo(f'Updated ATT&CK coverage URL(s) in {coverage_file_path}' + '\n')
 
     click.echo(f'Gist update status on {len(generated_urls)} files: {response.status_code} {response.reason}')
     return generated_urls

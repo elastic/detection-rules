@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/08/28"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/08/28"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +15,7 @@ in public key cryptography to identify a root certificate authority (CA). When a
 system or application will trust certificates in the root's chain of trust that have been signed by the root certificate.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Root Certificate Installation"
@@ -52,16 +54,19 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
 process.name in ("update-ca-trust", "update-ca-certificates") and not (
-  process.parent.name : (
-    "ca-certificates.postinst", "ca-certificates-*.trigger", "pacman", "pamac-daemon", "autofirma.postinst"
+  process.parent.name like (
+    "ca-certificates.postinst", "ca-certificates-*.trigger", "pacman", "pamac-daemon", "autofirma.postinst",
+    "ipa-client-install", "su", "platform-python", "python*", "kesl", "execd"
   ) or
-  process.parent.args : "/var/tmp/rpm*" or
+  process.parent.args like "/var/tmp/rpm*" or
   (process.parent.name in ("sh", "bash", "zsh") and process.args == "-e")
 )
 '''

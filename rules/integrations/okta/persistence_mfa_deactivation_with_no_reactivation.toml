@@ -2,7 +2,9 @@
 creation_date = "2020/05/20"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2024/07/23"
+updated_date = "2024/12/09"
+min_stack_version = "8.15.0"
+min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
 
 [rule]
 author = ["Elastic"]
@@ -52,11 +54,14 @@ This rule fires when an Okta user account has MFA deactivated and no subsequent 
 - Investigate the source of the attack. If a specific machine or network is compromised, additional steps may need to be taken to address the issue.
 - Encourage users to use complex, unique passwords and consider implementing multi-factor authentication.
 - Check if the compromised account was used to access or alter any sensitive data, applications or systems.
+- Review the client user-agent to determine if it's a known custom application that can be whitelisted.
 """
 references = [
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
     "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
+    "https://www.elastic.co/security-labs/monitoring-okta-threats-with-elastic-security",
+    "https://www.elastic.co/security-labs/starter-guide-to-understanding-okta",
 ]
 risk_score = 21
 rule_id = "cd89602e-9db0-48e3-9391-ae3bf241acd8"
@@ -67,8 +72,8 @@ type = "eql"
 
 query = '''
 sequence by okta.actor.id with maxspan=12h
-    [any where event.dataset == "okta.system" and okta.event_type == "user.mfa.factor.deactivate"
-        and okta.outcome.result == "SUCCESS" and not okta.client.user_agent.raw_user_agent like "SFDC-Callout*"]
+    [any where event.dataset == "okta.system" and okta.event_type in ("user.mfa.factor.deactivate", "user.mfa.factor.reset_all")
+        and okta.outcome.reason != "User reset SECURITY_QUESTION factor" and okta.outcome.result == "SUCCESS"]
     ![any where event.dataset == "okta.system" and okta.event_type == "user.mfa.factor.activate"]
 '''
 

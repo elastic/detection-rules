@@ -2,7 +2,7 @@
 creation_date = "2024/06/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/06/19"
+updated_date = "2024/10/17"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,10 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Systemd Generator Created"
-references = ["https://pberba.github.io/security/2022/02/07/linux-threat-hunting-for-persistence-systemd-generators/"]
+references = [
+    "https://pberba.github.io/security/2022/02/07/linux-threat-hunting-for-persistence-systemd-generators/",
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
+]
 risk_score = 47
 rule_id = "39c06367-b700-4380-848a-cab06e7afede"
 setup = """## Setup
@@ -53,7 +56,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Tactic: Privilege Escalation",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -71,9 +74,9 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
     "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
     "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
     "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
-    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
+    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client", "/usr/sbin/sshd",
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
-    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd"
+    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/libexec/platform-python"
   ) or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
   file.Ext.original.extension == "dpkg-new" or

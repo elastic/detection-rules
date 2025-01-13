@@ -353,7 +353,8 @@ class TestRuleTags(BaseRuleTest):
             'logs-windows.powershell*': {'all': ['Data Source: PowerShell Logs']},
             'logs-sentinel_one_cloud_funnel.*': {'all': ['Data Source: SentinelOne']},
             'logs-fim.event-*': {'all': ['Data Source: File Integrity Monitoring']},
-            'logs-m365_defender.event-*': {'all': ['Data Source: Microsoft Defender for Endpoint']}
+            'logs-m365_defender.event-*': {'all': ['Data Source: Microsoft Defender for Endpoint']},
+            'logs-crowdstrike.fdr*': {'all': ['Data Source: Crowdstrike']}
         }
 
         for rule in self.all_rules:
@@ -791,24 +792,39 @@ class TestRuleMetadata(BaseRuleTest):
                 else:
                     # checks if rule has index pattern integration and the integration tag exists
                     # ignore the External Alerts rule, Threat Indicator Matching Rules, Guided onboarding
-                    ignore_ids = [
-                        "eb079c62-4481-4d6e-9643-3ca499df7aaa",
-                        "699e9fdb-b77c-4c01-995c-1c15019b9c43",
-                        "0c9a14d9-d65d-486f-9b5b-91e4e6b22bd0",
-                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce",
-                        "0c41e478-5263-4c69-8f9e-7dfd2c22da64",
-                        "aab184d3-72b3-4639-b242-6597c99d8bca",
-                        "a61809f3-fb5b-465c-8bff-23a8a068ac60",
-                        "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
-                    ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.get('index') or []]):
-                        if not rule.contents.metadata.integration and rule.id not in ignore_ids and \
+                        if not rule.contents.metadata.integration and rule.id not in definitions.IGNORE_IDS and \
                                 rule.contents.data.type not in definitions.MACHINE_LEARNING:
                             err_msg = f'substrings {non_dataset_packages} found in '\
                                       f'{self.rule_str(rule)} rule index patterns are {rule.contents.data.index},' \
                                       f'but no integration tag found'
                             failures.append(err_msg)
+
+                # checks for a defined index pattern, the related integration exists in metadata
+                expected_integrations, missing_integrations = set(), set()
+                ignore_ml_packages = any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
+                                         for ri in rule_integrations)
+                for index in indices:
+                    if index in definitions.IGNORE_INDICES or ignore_ml_packages or \
+                            rule.id in definitions.IGNORE_IDS or rule.contents.data.type == 'threat_match':
+                        continue
+                    # Outlier integration log pattern to identify integration
+                    if index == 'apm-*-transaction*':
+                        index_map = ['apm']
+                    else:
+                        # Split by hyphen to get the second part of index
+                        index_part1, _, index_part2 = index.partition('-')
+                        #  Use regular expression to extract alphanumeric words, which is integration name
+                        parsed_integration = re.search(r'\b\w+\b', index_part2 or index_part1)
+                        index_map = [parsed_integration.group(0) if parsed_integration else None]
+                    if not index_map:
+                        self.fail(f'{self.rule_str(rule)} Could not determine the integration from Index {index}')
+                    expected_integrations.update(index_map)
+                missing_integrations.update(expected_integrations.difference(set(rule_integrations)))
+                if missing_integrations:
+                    error_msg = f'{self.rule_str(rule)} Missing integration metadata: {", ".join(missing_integrations)}'
+                    failures.append(error_msg)
 
         if failures:
             err_msg = """

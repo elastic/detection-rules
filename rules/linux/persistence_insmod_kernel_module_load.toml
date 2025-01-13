@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2022/07/11"
-integration = ["endpoint", "auditd_manager"]
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/06"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +41,7 @@ security products. Manually loading a kernel module in this manner should not be
 suspcious or malicious behavior.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Kernel Module Load via insmod"
@@ -155,30 +157,32 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and process.name == "insmod" and process.args : "*.ko"
+process where host.os.type == "linux" and event.type == "start" and process.name == "insmod" and process.args : "*.ko" and
+not process.parent.executable like (
+  "/opt/ds_agent/*", "/usr/sbin/veeamsnap-loader", "/opt/TrendMicro/vls_agent/*", "/opt/intel/oneapi/*",
+  "/opt/commvault/Base/linux_drv", "/bin/falcoctl"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1547.006"
 name = "Kernel Modules and Extensions"
 reference = "https://attack.mitre.org/techniques/T1547/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

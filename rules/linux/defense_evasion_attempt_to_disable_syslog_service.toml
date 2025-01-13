@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/04/27"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,10 +13,11 @@ Adversaries may attempt to disable the syslog service in an attempt to an attemp
 detection by security controls.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Disable Syslog Service"
+references = ["https://www.elastic.co/security-labs/detecting-log4j2-with-elastic-security"]
 risk_score = 47
 rule_id = "2f8a1226-5720-437d-9c20-e0029deb6194"
 setup = """## Setup
@@ -62,16 +65,18 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.action in ("exec", "exec_event") and
+process where host.os.type == "linux" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
  ( (process.name == "service" and process.args == "stop") or
    (process.name == "chkconfig" and process.args == "off") or
    (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))
- ) and process.args in ("syslog", "rsyslog", "syslog-ng")
+ ) and process.args in ("syslog", "rsyslog", "syslog-ng", "syslog.service", "rsyslog.service", "syslog-ng.service")
 '''
 
 
