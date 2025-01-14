@@ -4,7 +4,8 @@ Here are the queries currently available:
 
 
 ## aws
-- [AWS IAM Customer-Managed Policy Attachment for Privilege Escalation](./aws/docs/iam_customer_managed_policies_attached_to_existing_roles.md) (ES|QL)
+- [AWS IAM Customer-Managed Policy Attachment to Existing Roles](./aws/docs/iam_customer_managed_policies_attached_to_existing_roles.md) (ES|QL)
+- [AWS IAM Unusual AWS Access Key Usage for User](./aws/docs/iam_unusual_access_key_usage_for_user.md) (ES|QL)
 - [EC2 Modify Instance Attribute User Data](./aws/docs/ec2_modify_instance_attribute_user_data.md) (ES|QL)
 - [EC2 Suspicious Get User Password Request](./aws/docs/ec2_suspicious_get_user_password_request.md) (ES|QL)
 - [High EC2 Instance Deployment Count Attempts by Single User or Role](./aws/docs/ec2_high_instance_deployment_count_attempts.md) (ES|QL)
@@ -39,12 +40,18 @@ Here are the queries currently available:
 - [OSQuery SUID Hunting](./linux/docs/privilege_escalation_via_suid_binaries.md) (ES|QL)
 - [Persistence Through Reverse/Bind Shells](./linux/docs/persistence_reverse_bind_shells.md) (ES|QL)
 - [Persistence via Cron](./linux/docs/persistence_via_cron.md) (ES|QL)
+- [Persistence via DPKG/RPM Package](./linux/docs/persistence_via_rpm_dpkg_installer_packages.md) (ES|QL)
+- [Persistence via Docker Container](./linux/docs/persistence_via_malicious_docker_container.md) (ES|QL)
+- [Persistence via Dynamic Linker Hijacking](./linux/docs/persistence_via_dynamic_linker_hijacking.md) (ES|QL)
+- [Persistence via Loadable Kernel Modules](./linux/docs/persistence_via_loadable_kernel_modules.md) (ES|QL)
 - [Persistence via Message-of-the-Day](./linux/docs/persistence_via_message_of_the_day.md) (ES|QL)
 - [Persistence via Package Manager](./linux/docs/persistence_via_package_manager.md) (ES|QL)
+- [Persistence via Pluggable Authentication Modules (PAM)](./linux/docs/persistence_via_pluggable_authentication_module.md) (ES|QL)
 - [Persistence via SSH Configurations and/or Keys](./linux/docs/persistence_via_ssh_configurations_and_keys.md) (ES|QL)
 - [Persistence via System V Init](./linux/docs/persistence_via_sysv_init.md) (ES|QL)
 - [Persistence via Systemd (Timers)](./linux/docs/persistence_via_systemd_timers.md) (ES|QL)
 - [Persistence via Udev](./linux/docs/persistence_via_udev.md) (ES|QL)
+- [Persistence via Web Shell](./linux/docs/persistence_via_web_shell.md) (ES|QL)
 - [Persistence via rc.local/rc.common](./linux/docs/persistence_via_rc_local.md) (ES|QL)
 - [Potential Defense Evasion via Multi-Dot Process Execution](./linux/docs/defense_evasion_via_multi_dot_process_execution.md) (ES|QL)
 - [Privilege Escalation Identification via Existing Sudoers File](./linux/docs/privilege_escalation_via_existing_sudoers.md) (ES|QL)

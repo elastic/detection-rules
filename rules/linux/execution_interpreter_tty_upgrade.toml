@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2023/09/20"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ simple reverse shell to a fully interactive tty after obtaining initial access t
 stable connection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Upgrade of Non-interactive Shell"
@@ -51,16 +53,20 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and (
-  (process.name == "stty" and process.args == "raw" and process.args == "-echo" and process.args_count >= 3) or
-  (process.name == "script" and process.args in ("-qc", "-c") and process.args == "/dev/null" and 
-   process.args_count == 4)
-)
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  (
+    (process.name == "stty" and process.args == "raw" and process.args == "-echo" and process.args_count >= 3) or
+    (process.name == "script" and process.args in ("-qc", "-c") and process.args == "/dev/null" and
+    process.args_count == 4)
+  )
 '''
 
 
