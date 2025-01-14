@@ -51,25 +51,25 @@ query = '''
 process where host.os.type == "windows" and event.type : "start" and
   (
     (
-      (process.executable : "?:\\Windows\\System32\\bash.exe" or ?process.pe.original_file_name == "Bash.exe") and 
+      (process.executable : "?:\\Windows\\System32\\bash.exe" or ?process.pe.original_file_name == "Bash.exe") and
       not process.command_line : ("bash", "bash.exe")
-    ) or 
-    process.executable : "?:\\Users\\*\\AppData\\Local\\Packages\\*\\rootfs\\usr\\bin\\bash" or 
+    ) or
+    process.executable : "?:\\Users\\*\\AppData\\Local\\Packages\\*\\rootfs\\usr\\bin\\bash" or
     (
       process.parent.name : "wsl.exe" and process.parent.command_line : "bash*" and not process.name : "wslhost.exe"
-    ) or 
+    ) or
     (
       process.name : "wsl.exe" and process.args : (
         "curl", "/etc/shadow", "/etc/passwd", "cat", "--system", "root", "-e", "--exec", "bash", "/mnt/c/*"
       ) and not process.args : ("wsl-bootstrap", "docker-desktop-data", "*.vscode-server*")
     )
-  ) and 
+  ) and
     not process.parent.executable : ("?:\\Program Files\\Docker\\*.exe", "?:\\Program Files (x86)\\Docker\\*.exe")
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Suspicious Execution via Windows Subsystem for Linux
 

@@ -7,7 +7,7 @@ updated_date = "2025/01/10"
 [rule]
 author = ["Austin Songer", "Elastic"]
 description = """
-An adversary with a set of compromised credentials may attempt to make copies of running or deleted RDS databases in order to evade defense mechanisms or access data. This rule identifies successful attempts to restore a DB instance using the RDS `RestoreDBInstanceFromDBSnapshot` or `RestoreDBInstanceFromS3` API operations. 
+An adversary with a set of compromised credentials may attempt to make copies of running or deleted RDS databases in order to evade defense mechanisms or access data. This rule identifies successful attempts to restore a DB instance using the RDS `RestoreDBInstanceFromDBSnapshot` or `RestoreDBInstanceFromS3` API operations.
 """
 false_positives = [
     """
@@ -41,15 +41,15 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "aws.cloudtrail" 
-    and event.provider == "rds.amazonaws.com" 
-    and event.action in ("RestoreDBInstanceFromDBSnapshot", "RestoreDBInstanceFromS3") 
+any where event.dataset == "aws.cloudtrail"
+    and event.provider == "rds.amazonaws.com"
+    and event.action in ("RestoreDBInstanceFromDBSnapshot", "RestoreDBInstanceFromS3")
     and event.outcome == "success"
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating AWS RDS DB Instance Restored
 

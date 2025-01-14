@@ -71,23 +71,23 @@ sequence by host.id, process.entity_id with maxspan=1s
     (process.name : "lua*" and process.args : "-e" and process.args : "*socket.tcp*" and process.args : (
      "*io.popen*", "*os.execute*"
     )) or
-    (process.name : "php*" and process.args : "-r" and process.args : "*fsockopen*" and process.args : "*/bin/*sh*") or 
+    (process.name : "php*" and process.args : "-r" and process.args : "*fsockopen*" and process.args : "*/bin/*sh*") or
     (process.name : ("awk", "gawk", "mawk", "nawk") and process.args : "*/inet/tcp/*") or
     (process.name : "openssl" and process.args : "-connect") or
-    (process.name : ("nc", "ncat", "netcat") and process.args == "-e" and process.args_count >= 3 and 
+    (process.name : ("nc", "ncat", "netcat") and process.args == "-e" and process.args_count >= 3 and
      not process.args == "-z") or
     (process.name : "telnet" and process.args_count >= 3)
   ) and process.parent.name : (
     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "php*", "perl", "ruby", "lua*",
     "openssl", "nc", "netcat", "ncat", "telnet", "awk")]
-  [network where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
-    process.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") and 
+  [network where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and
+    process.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") and
     destination.ip != null and not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Potential Reverse Shell via Suspicious Child Process
 

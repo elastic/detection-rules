@@ -40,14 +40,14 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where 
-    
-    host.os.type == "windows" and event.type == "start" and  
-    
-    process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSACCESS.EXE", "VSTOInstaller.exe") and 
-    
-    process.args regex~ """.+\.(wll|xll|ppa|ppam|xla|xlam|vsto)""" and 
-    
+process where
+
+    host.os.type == "windows" and event.type == "start" and
+
+    process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSACCESS.EXE", "VSTOInstaller.exe") and
+
+    process.args regex~ """.+\.(wll|xll|ppa|ppam|xla|xlam|vsto)""" and
+
     /* Office Add-In from suspicious paths */
     (process.args :
              ("?:\\Users\\*\\Temp\\7z*",
@@ -61,12 +61,12 @@ process where
               "?:\\Windows\\Temp\\*",
               "\\Device\\*",
               "http*") or
-	      
-    process.parent.name : ("explorer.exe", "OpenWith.exe") or 
-    
+
+    process.parent.name : ("explorer.exe", "OpenWith.exe") or
+
     /* Office Add-In from suspicious parent */
     process.parent.name : ("cmd.exe", "powershell.exe")) and
-	  
+
     /* False Positives */
     not (process.args : "*.vsto" and
          process.parent.executable :
@@ -84,7 +84,7 @@ process where
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Suspicious Execution via Microsoft Office Add-Ins
 

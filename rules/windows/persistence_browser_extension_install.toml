@@ -42,13 +42,13 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "windows" and event.type : "creation" and 
+file where host.os.type == "windows" and event.type : "creation" and
 (
   /* Firefox-Based Browsers */
   (
     file.name : "*.xpi" and
     file.path : "?:\\Users\\*\\AppData\\Roaming\\*\\Profiles\\*\\Extensions\\*.xpi" and
-    not 
+    not
     (
       process.name : "firefox.exe" and
       file.name : ("langpack-*@firefox.mozilla.org.xpi", "*@dictionaries.addons.mozilla.org.xpi")
@@ -64,7 +64,7 @@ file where host.os.type == "windows" and event.type : "creation" and
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Browser Extension Install
 Browser extensions enhance functionality in web browsers but can be exploited by adversaries to gain persistence or execute malicious activities. Attackers may disguise harmful extensions as legitimate or use compromised systems to install them. The detection rule identifies suspicious extension installations by monitoring file creation events in typical extension directories, filtering out known safe processes, and focusing on Windows environments.

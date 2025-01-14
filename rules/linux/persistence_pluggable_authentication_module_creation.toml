@@ -8,7 +8,7 @@ updated_date = "2025/01/10"
 author = ["Elastic"]
 description = """
 This rule monitors for the creation or modification of Pluggable Authentication Module (PAM) shared object files or
-configuration files. Attackers may create or modify these files to maintain persistence on a compromised system, or 
+configuration files. Attackers may create or modify these files to maintain persistence on a compromised system, or
 harvest account credentials.
 """
 false_positives = [
@@ -39,13 +39,13 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.action in ("rename", "creation") and 
+file where host.os.type == "linux" and event.action in ("rename", "creation") and
 process.executable != null and (
   (file.path like~ (
     "/lib/security/*", "/lib64/security/*", "/usr/lib/security/*", "/usr/lib64/security/*",
     "/lib/x86_64-linux-gnu/security/*", "/usr/lib/x86_64-linux-gnu/security/*"
   ) and file.extension == "so") or
-  (file.path like~ "/etc/pam.d/*" and file.extension == null) or 
+  (file.path like~ "/etc/pam.d/*" and file.extension == null) or
   (file.path like~ "/etc/security/pam_*" or file.path == "/etc/pam.conf")
 ) and not (
   process.executable in (
@@ -68,13 +68,13 @@ process.executable != null and (
     "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*"
   ) or
   (process.name == "sed" and file.name like~ "sed*") or
-  (process.name == "perl" and file.name like~ "e2scrub_all.tmp*") 
+  (process.name == "perl" and file.name like~ "e2scrub_all.tmp*")
 )
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Creation or Modification of Pluggable Authentication Module or Configuration
 

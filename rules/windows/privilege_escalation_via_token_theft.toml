@@ -53,7 +53,7 @@ process where host.os.type == "windows" and event.action == "start" and
 
 /* Ignores Windows print spooler service with correlation to Access Intelligent Form */
 not (process.parent.executable : "?\\Windows\\System32\\spoolsv.exe" and
-     process.executable: "?:\\Program Files*\\Access\\Intelligent Form\\*\\LaunchCreate.exe") and 
+     process.executable: "?:\\Program Files*\\Access\\Intelligent Form\\*\\LaunchCreate.exe") and
 
 /* Ignores Windows error reporting executables */
  not process.executable : ("?:\\Windows\\System32\\WerFault.exe",
@@ -79,29 +79,29 @@ not (process.parent.executable : "?\\Windows\\System32\\spoolsv.exe" and
 
 
 /* Ignores additional parent executables that run with elevated privileges */
- not process.parent.executable : 
-               ("?:\\Windows\\System32\\AtBroker.exe", 
-                "?:\\Windows\\system32\\svchost.exe", 
-                "?:\\Program Files (x86)\\*.exe", 
-                "?:\\Program Files\\*.exe", 
+ not process.parent.executable :
+               ("?:\\Windows\\System32\\AtBroker.exe",
+                "?:\\Windows\\system32\\svchost.exe",
+                "?:\\Program Files (x86)\\*.exe",
+                "?:\\Program Files\\*.exe",
                 "?:\\Windows\\System32\\msiexec.exe",
                 "?:\\Windows\\System32\\DriverStore\\*") and
 
 /* Ignores Windows binaries with a trusted signature and specific signature name */
  not (process.code_signature.trusted == true and
-      process.code_signature.subject_name : 
-                ("philandro Software GmbH", 
-                 "Freedom Scientific Inc.", 
-                 "TeamViewer Germany GmbH", 
-                 "Projector.is, Inc.", 
-                 "TeamViewer GmbH", 
-                 "Cisco WebEx LLC", 
+      process.code_signature.subject_name :
+                ("philandro Software GmbH",
+                 "Freedom Scientific Inc.",
+                 "TeamViewer Germany GmbH",
+                 "Projector.is, Inc.",
+                 "TeamViewer GmbH",
+                 "Cisco WebEx LLC",
                  "Dell Inc"))
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Process Created with an Elevated Token
 

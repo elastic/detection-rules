@@ -36,24 +36,24 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-authentication where 
- host.os.type : "windows" and winlog.event_data.LogonProcessName : "Advapi*" and 
- winlog.logon.type == "Interactive" and winlog.event_data.SubjectUserSid : ("S-1-5-21*", "S-1-12-*") and 
- winlog.event_data.TargetUserSid : ("S-1-5-21*", "S-1-12-*")  and process.executable : "C:\\*" and 
- not startswith~(winlog.event_data.SubjectUserSid, winlog.event_data.TargetUserSid) and 
- not process.executable : 
-            ("?:\\Windows\\System32\\winlogon.exe", 
-             "?:\\Windows\\System32\\wininit.exe", 
-             "?:\\Program Files\\*.exe", 
-             "?:\\Program Files (x86)\\*.exe", 
-             "?:\\Windows\\SysWOW64\\inetsrv\\w3wp.exe", 
-             "?:\\Windows\\System32\\inetsrv\\w3wp.exe", 
+authentication where
+ host.os.type : "windows" and winlog.event_data.LogonProcessName : "Advapi*" and
+ winlog.logon.type == "Interactive" and winlog.event_data.SubjectUserSid : ("S-1-5-21*", "S-1-12-*") and
+ winlog.event_data.TargetUserSid : ("S-1-5-21*", "S-1-12-*")  and process.executable : "C:\\*" and
+ not startswith~(winlog.event_data.SubjectUserSid, winlog.event_data.TargetUserSid) and
+ not process.executable :
+            ("?:\\Windows\\System32\\winlogon.exe",
+             "?:\\Windows\\System32\\wininit.exe",
+             "?:\\Program Files\\*.exe",
+             "?:\\Program Files (x86)\\*.exe",
+             "?:\\Windows\\SysWOW64\\inetsrv\\w3wp.exe",
+             "?:\\Windows\\System32\\inetsrv\\w3wp.exe",
              "?:\\Windows\\SysWOW64\\msiexec.exe")
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Interactive Logon by an Unusual Process
 

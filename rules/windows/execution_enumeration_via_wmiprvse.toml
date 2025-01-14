@@ -47,16 +47,16 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and process.command_line != null and 
+process where host.os.type == "windows" and event.type == "start" and process.command_line != null and
   process.name:
   (
     "arp.exe", "dsquery.exe", "dsget.exe", "gpresult.exe", "hostname.exe", "ipconfig.exe", "nbtstat.exe",
     "net.exe", "net1.exe", "netsh.exe", "netstat.exe", "nltest.exe", "ping.exe", "qprocess.exe", "quser.exe",
     "qwinsta.exe", "reg.exe", "sc.exe", "systeminfo.exe", "tasklist.exe", "tracert.exe", "whoami.exe"
   ) and
-  process.parent.name:"wmiprvse.exe" and 
+  process.parent.name:"wmiprvse.exe" and
   not (
-    process.name : "sc.exe" and process.args : "RemoteRegistry" and process.args : "start=" and 
+    process.name : "sc.exe" and process.args : "RemoteRegistry" and process.args : "start=" and
     process.args : ("demand", "disabled")
   ) and
   not process.args : "tenable_mw_scan"
@@ -64,7 +64,7 @@ process where host.os.type == "windows" and event.type == "start" and process.co
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Enumeration Command Spawned via WMIPrvSE
 

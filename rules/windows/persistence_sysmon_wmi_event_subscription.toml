@@ -36,19 +36,19 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where 
+any where
  (
    (event.dataset == "windows.sysmon_operational" and event.code == "21" and
-    winlog.event_data.Operation : "Created" and winlog.event_data.Consumer : ("*subscription:CommandLineEventConsumer*", "*subscription:ActiveScriptEventConsumer*")) or 
+    winlog.event_data.Operation : "Created" and winlog.event_data.Consumer : ("*subscription:CommandLineEventConsumer*", "*subscription:ActiveScriptEventConsumer*")) or
 
-   (event.dataset == "endpoint.events.api" and event.provider == "Microsoft-Windows-WMI-Activity" and process.Ext.api.name == "IWbemServices::PutInstance" and 
+   (event.dataset == "endpoint.events.api" and event.provider == "Microsoft-Windows-WMI-Activity" and process.Ext.api.name == "IWbemServices::PutInstance" and
     process.Ext.api.parameters.consumer_type in ("ActiveScriptEventConsumer", "CommandLineEventConsumer"))
  )
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Suspicious WMI Event Subscription Created
 

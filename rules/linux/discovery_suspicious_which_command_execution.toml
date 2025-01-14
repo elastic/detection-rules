@@ -34,7 +34,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start") and 
+  event.action in ("exec", "exec_event", "start") and
   process.name == "which" and process.args_count >= 10 and not (
     process.parent.name == "jem" or
     process.parent.executable like ("/vz/root/*", "/var/lib/docker/*") or
@@ -42,14 +42,14 @@ process where host.os.type == "linux" and event.type == "start" and
   )
 
 /* potential tuning if rule would turn out to be noisy
-and process.args in ("nmap", "nc", "ncat", "netcat", nc.traditional", "gcc", "g++", "socat") and 
+and process.args in ("nmap", "nc", "ncat", "netcat", nc.traditional", "gcc", "g++", "socat") and
 process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 */
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Suspicious which Enumeration
 

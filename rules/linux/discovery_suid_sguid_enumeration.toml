@@ -59,18 +59,18 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.name == "find" and process.args : "-perm" and process.args : (
   "/6000", "-6000", "/4000", "-4000", "/2000", "-2000", "/u=s", "-u=s", "/g=s", "-g=s", "/u=s,g=s", "/g=s,u=s"
 ) and not (
-  user.Ext.real.id == "0" or group.Ext.real.id == "0" or process.args_count >= 12 or 
+  user.Ext.real.id == "0" or group.Ext.real.id == "0" or process.args_count >= 12 or
   (process.args : "/usr/bin/pkexec" and process.args : "-xdev" and process.args_count == 7)
 )
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating SUID/SGUID Enumeration Detected
 

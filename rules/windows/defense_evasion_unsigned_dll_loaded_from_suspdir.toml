@@ -43,12 +43,12 @@ type = "eql"
 query = '''
 library where host.os.type == "windows" and
 
- process.code_signature.trusted == true and 
- 
- (dll.Ext.relative_file_creation_time <= 500 or dll.Ext.relative_file_name_modify_time <= 500) and 
- 
-  not dll.code_signature.status : ("trusted", "errorExpired", "errorCode_endpoint*", "errorChaining") and 
-  
+ process.code_signature.trusted == true and
+
+ (dll.Ext.relative_file_creation_time <= 500 or dll.Ext.relative_file_name_modify_time <= 500) and
+
+  not dll.code_signature.status : ("trusted", "errorExpired", "errorCode_endpoint*", "errorChaining") and
+
       /* Suspicious Paths */
       dll.path : ("?:\\PerfLogs\\*.dll",
                   "?:\\Users\\*\\Pictures\\*.dll",
@@ -120,15 +120,15 @@ library where host.os.type == "windows" and
                   "?:\\Windows\\LiveKernelReports\\*.dll",
                   "?:\\Windows\\ModemLogs\\*.dll",
                   "?:\\Windows\\ImmersiveControlPanel\\*.dll",
-                  "?:\\$Recycle.Bin\\*.dll") and 
-	 
+                  "?:\\$Recycle.Bin\\*.dll") and
+
 	 /* DLL loaded from the process.executable current directory */
 	 endswith~(substring(dll.path, 0, length(dll.path) - (length(dll.name) + 1)), substring(process.executable, 0, length(process.executable) - (length(process.name) + 1)))
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Unsigned DLL Side-Loading from a Suspicious Folder
 

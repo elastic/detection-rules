@@ -56,19 +56,19 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=1m
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.name in ("gcc", "g++", "cc") and user.id != "0"] by process.args
-  [file where host.os.type == "linux" and event.action == "creation" and event.type == "creation" and 
+  [file where host.os.type == "linux" and event.action == "creation" and event.type == "creation" and
    process.name == "ld" and user.id != "0"] by file.name
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    user.id != "0"] by process.name
-  [process where host.os.type == "linux" and event.action in ("uid_change", "guid_change") and event.type == "change" and 
+  [process where host.os.type == "linux" and event.action in ("uid_change", "guid_change") and event.type == "change" and
    user.id == "0"] by process.name
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Potential Privilege Escalation via Recently Compiled Executable
 

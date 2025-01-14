@@ -31,18 +31,18 @@ type = "eql"
 query = '''
 sequence by process.entity_id with maxspan=5m
  [process where host.os.type == "windows" and event.action == "start" and
-  
+
   /* Direct Exec from USB */
   (process.Ext.device.bus_type : "usb" or process.Ext.device.product_id : "USB *") and
-  (process.code_signature.trusted == false or process.code_signature.exists == false) and 
-  
+  (process.code_signature.trusted == false or process.code_signature.exists == false) and
+
   not process.code_signature.status : ("errorExpired", "errorCode_endpoint*")]
  [network where host.os.type == "windows" and event.action == "connection_attempted"]
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Execution from a Removable Media with Network Connection
 

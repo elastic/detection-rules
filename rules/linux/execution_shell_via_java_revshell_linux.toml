@@ -57,8 +57,8 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=5s
-  [network where host.os.type == "linux" and event.action in ("connection_accepted", "connection_attempted") and 
-   process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and 
+  [network where host.os.type == "linux" and event.action in ("connection_accepted", "connection_attempted") and
+   process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
    not (destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
      destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
      "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
@@ -67,7 +67,7 @@ sequence by host.id with maxspan=5s
      "FF00::/8"
     )
   )] by process.entity_id
-  [process where host.os.type == "linux" and event.action == "exec" and 
+  [process where host.os.type == "linux" and event.action == "exec" and
    process.parent.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
    process.parent.args : "-jar" and process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
    and not process.parent.args in (
@@ -78,7 +78,7 @@ sequence by host.id with maxspan=5s
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Potential Reverse Shell via Java
 

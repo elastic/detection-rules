@@ -7,7 +7,7 @@ updated_date = "2025/01/10"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the use of the `curl` command-line tool with SOCKS proxy options, launched from an unusual parent 
+This rule detects the use of the `curl` command-line tool with SOCKS proxy options, launched from an unusual parent
 process. Attackers may use `curl` to establish a SOCKS proxy connection to bypass network restrictions and exfiltrate
 data or communicate with C2 servers.
 """
@@ -75,14 +75,14 @@ process.name == "curl" and (
   process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 ) and (
   process.args like ("--socks5-hostname", "--proxy", "--preproxy", "socks5*") or
-  process.args == "-x" or 
+  process.args == "-x" or
   process.env_vars like ("http_proxy=socks5h://*", "HTTPS_PROXY=socks5h://*", "ALL_PROXY=socks5h://*")
 )
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Curl SOCKS Proxy Activity from Unusual Parent
 

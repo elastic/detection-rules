@@ -58,15 +58,15 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.args : "import os;os.set?id(0);os.system(*)" and process.args : "*python*" and user.id != "0"]
-  [process where host.os.type == "linux" and event.action in ("uid_change", "gid_change") and event.type == "change" and 
+  [process where host.os.type == "linux" and event.action in ("uid_change", "gid_change") and event.type == "change" and
    (user.id == "0" or group.id == "0")]
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Potential Privilege Escalation via Python cap_setuid
 

@@ -31,15 +31,15 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=3m
- [library where host.os.type == "windows" and 
-  dll.name : ("System.DirectoryServices*.dll", "System.IdentityModel*.dll") and 
-  not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and 
-  not process.executable : 
-                ("?:\\windows\\system32\\dsac.exe", 
-                 "?:\\program files\\powershell\\?\\pwsh.exe", 
-                 "?:\\windows\\system32\\windowspowershell\\*.exe", 
-                 "?:\\windows\\syswow64\\windowspowershell\\*.exe", 
-                 "?:\\program files\\microsoft monitoring agent\\*.exe", 
+ [library where host.os.type == "windows" and
+  dll.name : ("System.DirectoryServices*.dll", "System.IdentityModel*.dll") and
+  not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+  not process.executable :
+                ("?:\\windows\\system32\\dsac.exe",
+                 "?:\\program files\\powershell\\?\\pwsh.exe",
+                 "?:\\windows\\system32\\windowspowershell\\*.exe",
+                 "?:\\windows\\syswow64\\windowspowershell\\*.exe",
+                 "?:\\program files\\microsoft monitoring agent\\*.exe",
                  "?:\\windows\\adws\\microsoft.activedirectory.webservices.exe")]
  [network where host.os.type == "windows" and destination.port == 9389 and source.port >= 49152 and
   network.direction == "egress" and network.transport == "tcp" and not cidrmatch(destination.ip, "127.0.0.0/8", "::1/128")]
@@ -47,7 +47,7 @@ sequence by process.entity_id with maxspan=3m
 note = """## Triage and analysis
 
 > **Disclaimer**:
-> This investigation guide was generated using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Potential Enumeration via Active Directory Web Service
 
