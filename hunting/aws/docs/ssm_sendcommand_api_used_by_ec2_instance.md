@@ -22,6 +22,7 @@ from logs-aws.cloudtrail-*
     and aws.cloudtrail.user_identity.type == "AssumedRole"
     and event.action == "SendCommand"
     and user.id like "*:i-*"
+| keep @timestamp, event.provider, event.action, aws.cloudtrail.user_identity.type, user.id, aws.cloudtrail.request_parameters
 ```
 
 ## Notes
