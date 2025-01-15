@@ -2,15 +2,17 @@
 creation_date = "2024/04/30"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/07/23"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies when a new SSH public key is uploaded to an AWS EC2 instance using the EC2 Instance Connect service. This
 action could indicate an adversary attempting to maintain access to the instance. The rule also detects the
-`SendSerialConsoleSSHPublicKey` API action, which could be used for privilege escalation if the serial console is
-enabled. Monitoring these activities helps ensure unauthorized access attempts are detected and mitigated promptly.
+`SendSerialConsoleSSHPublicKey` or `SendSSHPublicKey` API actions, which are logged when manually uploading an SSH key
+to an EC2 instance or serial connection. It is important to know that this API call happens automatically by the EC2
+Instance Connect service when a user connects to an EC2 instance using the EC2 Instance Connect service via the CLI or
+AWS Management Console.
 """
 false_positives = ["Administrators may upload SSH public keys to EC2 instances for legitimate purposes."]
 from = "now-9m"
@@ -22,7 +24,7 @@ note = """## Triage and Analysis
 
 ### Investigating AWS EC2 Instance Connect SSH Public Key Uploaded
 
-This rule detects when a new SSH public key is uploaded to an AWS EC2 instance using the EC2 Instance Connect service. Adversaries may upload SSH public keys to EC2 instances to maintain access to the instance. The rule also covers cases where the `SendSerialConsoleSSHPublicKey` API action is used to upload an SSH public key to a serial connection, which can be exploited for privilege escalation.
+This rule detects when a new SSH public key is uploaded to an AWS EC2 instance using the EC2 Instance Connect service. Adversaries may upload SSH public keys to EC2 instances to maintain access to the instance or for initial access. This action also occurs automatically in the background when establishing a connection to an instance via the same service.  The rule also covers cases where the `SendSerialConsoleSSHPublicKey` API action is used to upload an SSH public key to a serial connection, which can be exploited for privilege escalation.
 
 #### Possible Investigation Steps:
 
@@ -71,6 +73,7 @@ tags = [
     "Data Source: AWS EC2",
     "Use Case: Identity and Access Audit",
     "Tactic: Privilege Escalation",
+    "Tactic: Lateral Movement",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -83,6 +86,23 @@ event.dataset: aws.cloudtrail
 '''
 
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
