@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/09/01"
 
 [rule]
 author = ["Elastic"]
@@ -49,39 +49,6 @@ network where host.os.type == "windows" and
     ) and process.code_signature.trusted == true
   )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Outgoing RDP Connection by Unusual Process
-
-Remote Desktop Protocol (RDP) enables users to connect to other systems over a network, facilitating remote management and troubleshooting. However, adversaries can exploit RDP for lateral movement within a network, bypassing traditional security measures by using non-standard processes. The detection rule identifies unusual processes attempting RDP connections, excluding known legitimate applications, to flag potential malicious activity.
-
-### Possible investigation steps
-
-- Review the process executable path to determine if it is a known legitimate application or a potentially malicious one, focusing on paths not listed in the exclusion criteria.
-- Check the process code signature to verify if it is trusted or if there are any anomalies that might indicate tampering or a lack of a valid signature.
-- Investigate the source IP address and user account associated with the connection attempt to identify if they are known and authorized within the network.
-- Analyze historical network activity from the source host to identify any patterns or previous unusual behavior that might correlate with the current alert.
-- Examine any recent changes or installations on the source host that could explain the presence of an unusual process attempting an RDP connection.
-
-### False positive analysis
-
-- Legitimate third-party remote management tools may trigger false positives if they are not included in the exclusion list. Users should identify and add these tools to the exclusion list if they are verified as trusted and necessary for business operations.
-- Custom scripts or automation tools that initiate RDP connections for administrative purposes might be flagged. Ensure these scripts are signed and add them to the exclusion list if they are part of routine operations.
-- Internal security tools that perform network scans or health checks using RDP could be mistakenly identified as unusual processes. Verify these tools' signatures and include them in the exclusion list to prevent unnecessary alerts.
-- Development or testing environments where non-standard processes are used for RDP connections may generate alerts. Regularly review and update the exclusion list to accommodate these environments while ensuring they do not pose a security risk.
-
-### Response and remediation
-
-- Immediately isolate the affected host from the network to prevent further lateral movement by the adversary.
-- Terminate any suspicious processes identified as attempting the RDP connection that are not part of the known legitimate applications.
-- Conduct a thorough review of the affected host for any signs of compromise, including unauthorized user accounts, changes to system configurations, or presence of malware.
-- Reset credentials for any accounts that were accessed or potentially compromised during the incident to prevent unauthorized access.
-- Apply patches and updates to the affected system and any other vulnerable systems to mitigate known vulnerabilities that could be exploited for similar attacks.
-- Enhance monitoring and logging for RDP connections across the network to detect and respond to unusual activity promptly.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]

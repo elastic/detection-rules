@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/24"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -44,40 +44,6 @@ file where host.os.type == "windows" and event.type == "creation" and
     "\\Device\\HarddiskVolume*\\Windows\\WinSxS\\amd64_microsoft-windows-s..*\\*.settingcontent-ms"
   )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Creation of SettingContent-ms Files
-
-SettingContent-ms files are XML-based shortcuts used in Windows to link to specific settings pages. Adversaries exploit these files to execute malicious code by embedding harmful scripts, bypassing traditional security measures. The detection rule identifies unusual creation of these files outside typical directories, flagging potential threats by monitoring file creation events and filtering out known legitimate paths.
-
-### Possible investigation steps
-
-- Review the file creation event details to identify the specific path where the SettingContent-ms file was created, ensuring it is outside the known legitimate directories.
-- Investigate the user account associated with the file creation event to determine if the activity aligns with their typical behavior or if it appears suspicious.
-- Examine recent processes executed on the host around the time of the file creation to identify any potentially malicious activity or scripts that may have triggered the event.
-- Check for any network connections or external communications from the host that could indicate data exfiltration or command and control activity.
-- Look for other related alerts or events on the same host or user account to identify patterns or additional indicators of compromise.
-- Assess the risk and impact of the event by considering the host's role within the organization and any sensitive data it may access.
-
-### False positive analysis
-
-- Legitimate software installations or updates may create SettingContent-ms files in non-standard directories. Monitor software installation logs to correlate these events and consider excluding these paths if they are consistently benign.
-- Custom scripts or administrative tools used by IT departments might generate these files during configuration tasks. Verify the source of these scripts and, if deemed safe, add exceptions for these specific operations.
-- User-initiated actions, such as creating shortcuts to settings for convenience, can trigger false positives. Educate users on the implications and review these actions to determine if they should be excluded.
-- Automated system maintenance tasks or third-party management tools might create these files as part of their operations. Identify these tools and assess their behavior to decide on necessary exclusions.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further execution of potentially malicious code and lateral movement.
-- Terminate any suspicious processes associated with the SettingContent-ms file creation to halt any ongoing malicious activity.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or scripts.
-- Review and restore any altered system settings or configurations to their default or secure state to ensure system integrity.
-- Collect and preserve relevant logs and artifacts for further analysis and to support potential forensic investigations.
-- Escalate the incident to the security operations center (SOC) or incident response team for a deeper investigation and to determine the scope and impact of the threat.
-- Implement additional monitoring and alerting for unusual SettingContent-ms file creation activities to enhance detection and prevent recurrence of similar threats."""
 
 
 [[rule.threat]]

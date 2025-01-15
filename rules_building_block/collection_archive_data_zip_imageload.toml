@@ -2,7 +2,7 @@
 creation_date = "2023/07/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -34,7 +34,7 @@ type = "eql"
 query = '''
 library where host.os.type == "windows" and event.action == "load" and
   dll.name : ("System.IO.Compression.FileSystem.ni.dll", "System.IO.Compression.ni.dll") and
-  not
+  not 
   (
     (
       process.executable : (
@@ -52,41 +52,6 @@ library where host.os.type == "windows" and event.action == "load" and
     )
   )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Compression DLL Loaded by Unusual Process
-
-Compression DLLs, like those in the .NET framework, facilitate data compression and decompression, crucial for efficient data storage and transfer. Adversaries exploit these DLLs to compress and encrypt data before exfiltration, evading detection. The detection rule identifies unusual processes loading these DLLs, excluding trusted applications, to flag potential malicious activity.
-
-### Possible investigation steps
-
-- Review the process executable path to determine if it is indeed unusual or potentially malicious, focusing on paths not listed in the exclusion criteria.
-- Check the process code signature to verify if it is trusted or if there are any anomalies in the signature that could indicate tampering.
-- Investigate the user account associated with the process, especially if it is not one of the trusted system accounts (S-1-5-18, S-1-5-20), to assess if the account has been compromised.
-- Analyze the parent process of the flagged process to understand how it was initiated and if there are any suspicious activities leading up to the DLL load.
-- Correlate the event with other security alerts or logs from the same host to identify any patterns or additional indicators of compromise.
-- Examine network activity from the host around the time of the DLL load to detect any potential data exfiltration attempts.
-
-### False positive analysis
-
-- Trusted applications not covered by the exclusion list may trigger false positives. Regularly review and update the exclusion list to include additional trusted applications that are known to load compression DLLs.
-- System administrators or developers using custom scripts or tools that load compression DLLs for legitimate purposes might cause alerts. Consider adding these specific processes to the exclusion list if they are verified as non-malicious and signed by a trusted code signature.
-- Automated software updates or installations that temporarily load compression DLLs can be mistaken for suspicious activity. Monitor these events and, if they are routine and verified, adjust the rule to exclude these specific update processes.
-- Security or monitoring tools that perform legitimate data compression as part of their operations may be flagged. Ensure these tools are signed by a trusted code signature and add them to the exclusion list if necessary.
-- User-initiated processes that involve data compression for legitimate business purposes might trigger alerts. Educate users on the types of activities that could cause alerts and adjust the rule to exclude these processes if they are frequent and verified.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further data exfiltration or lateral movement by the adversary.
-- Terminate the suspicious process that loaded the compression DLL to halt any ongoing malicious activity.
-- Conduct a forensic analysis of the affected system to identify any compressed or encrypted files that may have been prepared for exfiltration.
-- Restore any compromised files from a known good backup to ensure data integrity and availability.
-- Update and patch the affected system to close any vulnerabilities that may have been exploited by the adversary.
-- Monitor network traffic for any signs of data exfiltration attempts or communication with known malicious IP addresses.
-- Escalate the incident to the security operations center (SOC) for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/07/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -43,42 +43,6 @@ not (
   process.args : ("C:\\ProgramData\\Lenovo\\*", "C:\\ProgramData\\Adobe\\*", "C:\\ProgramData\\ASUS\\ASUS*")
 )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File and Directory Permissions Modification
-
-File and directory permissions in Windows environments control access and modification rights, crucial for maintaining system integrity. Adversaries may exploit utilities like `icacls`, `cacls`, `takeown`, and `attrib` to alter permissions, enabling unauthorized access or deletion. The detection rule identifies suspicious use of these utilities, excluding known legitimate processes, to flag potential threats.
-
-### Possible investigation steps
-
-- Review the process details to identify the specific utility used (icacls.exe, cacls.exe, takeown.exe, or attrib.exe) and the arguments passed, as these can indicate the type of permission modification attempted.
-- Check the user ID associated with the process to determine if it is a known or unknown user, especially since the rule excludes the system account (S-1-5-18).
-- Investigate the file or directory path targeted by the permission modification to assess its importance and potential impact on the system.
-- Examine the process execution context, including the parent process and command line, to understand how the utility was invoked and whether it aligns with typical user behavior.
-- Correlate the event with other security alerts or logs around the same timeframe to identify any related suspicious activities or patterns.
-- Verify if the process arguments match any of the excluded paths (e.g., C:\\ProgramData\\Lenovo\\*) to ensure the alert is not a false positive due to legitimate software operations.
-- Assess the risk and potential impact of the permission change on system security and data integrity, considering the severity and risk score provided by the rule.
-
-### False positive analysis
-
-- Legitimate software installations or updates may trigger permission changes, especially from trusted vendors like Lenovo, Adobe, or ASUS. To manage these, add specific paths to the exclusion list, as shown in the rule.
-- System administrators often use utilities like icacls or takeown for routine maintenance. Identify and exclude these activities by correlating with known administrative tasks or by excluding specific user IDs associated with admin accounts.
-- Automated scripts or scheduled tasks that modify file permissions for backup or system optimization purposes can be mistaken for threats. Review and whitelist these scripts by their execution paths or associated user accounts.
-- Security software or system management tools may alter permissions as part of their normal operation. Verify these tools and exclude their processes or paths to prevent false alerts.
-- Temporary permission changes during software testing or development can be flagged. Coordinate with development teams to identify and exclude these activities during known testing periods.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or potential lateral movement by the threat actor.
-- Terminate any suspicious processes identified in the alert, such as instances of `icacls.exe`, `cacls.exe`, `takeown.exe`, or `attrib.exe` that match the query criteria.
-- Conduct a thorough review of the modified file and directory permissions to assess the extent of unauthorized changes and restore them to their original state.
-- Check for any unauthorized user accounts or changes in user privileges that may have been created or altered during the incident and revert them to their legitimate state.
-- Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised.
-- Implement additional monitoring on the affected system and similar environments to detect any recurrence of the threat, focusing on the specific utilities and arguments used in the attack.
-- Review and update access control policies and permissions to ensure they adhere to the principle of least privilege, reducing the risk of similar attacks in the future."""
 
 
 [[rule.threat]]

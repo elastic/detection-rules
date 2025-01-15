@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/26"
 integration = ["system"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -53,40 +53,6 @@ type = "query"
 query = '''
 host.os.type:linux and event.dataset:"system.syslog" and process.name:kernel and message:segfault
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Segfault Detected
-
-Segmentation faults occur when a program accesses restricted memory, often causing it to crash. While typically indicative of programming errors, adversaries can exploit these faults to execute unauthorized code, leveraging vulnerabilities like buffer overflows. The 'Segfault Detected' rule monitors Linux kernel logs for such faults, flagging potential exploitation attempts by correlating specific syslog events and process activities.
-
-### Possible investigation steps
-
-- Review the syslog entries around the time of the segfault event to gather additional context and identify any preceding or subsequent suspicious activities.
-- Investigate the process that triggered the segfault by examining its command line arguments, parent process, and any associated files or network connections to determine if it was part of a legitimate operation or a potential attack.
-- Check for any recent changes or updates to the system or software that might have introduced vulnerabilities or instability leading to the segfault.
-- Correlate the segfault event with other security alerts or logs to identify patterns or indicators of compromise that might suggest a broader attack campaign.
-- Assess the system for signs of exploitation, such as unexpected changes in file permissions, unauthorized user accounts, or unusual outbound network traffic, which could indicate successful code execution following the segfault.
-
-### False positive analysis
-
-- Kernel module crashes can generate segfault messages without indicating malicious activity. Review the specific module involved and consider excluding it if it is known to be unstable but non-threatening.
-- Debugging activities by developers may intentionally cause segfaults to test error handling. Coordinate with development teams to identify and exclude these events during known testing periods.
-- Certain legitimate applications may occasionally cause segfaults due to bugs or compatibility issues. Monitor these applications and, if they are verified as non-malicious, create exceptions for their segfault events.
-- System updates or patches might temporarily cause segfaults as software adjusts to new configurations. Track update schedules and exclude related segfaults if they align with these periods.
-- Custom scripts or automation tools that interact with system processes might inadvertently trigger segfaults. Validate these scripts and exclude their segfaults if they are part of routine operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent potential lateral movement or further exploitation.
-- Conduct a memory dump and forensic analysis of the affected system to identify any unauthorized code execution or modifications.
-- Review and update the system's software and libraries to patch any known vulnerabilities that could be exploited by buffer overflow attacks.
-- Implement application whitelisting to restrict the execution of unauthorized or suspicious processes.
-- Monitor for any additional segfault messages in the kernel logs across other systems to identify potential widespread exploitation attempts.
-- Escalate the incident to the security operations center (SOC) for further investigation and to determine if the attack is part of a larger campaign.
-- Enhance logging and alerting mechanisms to detect similar segmentation faults and potential exploitation attempts in the future."""
 
 
 [[rule.threat]]

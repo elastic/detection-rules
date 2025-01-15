@@ -2,7 +2,7 @@
 creation_date = "2023/09/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -40,41 +40,6 @@ library where host.os.type == "windows" and event.action == "load" and
     "?:\\Windows\\System32\\DriverStore\\FileRepository\\*"
   )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Image Loaded with Invalid Signature
-
-In Windows environments, code signing ensures the integrity and authenticity of binaries. Adversaries may exploit this by loading binaries with invalid signatures to masquerade as legitimate software, evading detection. The detection rule identifies such anomalies by scrutinizing signature errors and recent file modifications, excluding trusted system paths, to flag potential threats.
-
-### Possible investigation steps
-
-- Review the specific dll.name and process.name involved in the alert to understand which binary is attempting to load with an invalid signature.
-- Check the dll.code_signature.status to determine the nature of the signature error, such as "errorUntrustedRoot" or "errorBadDigest", to assess the potential risk.
-- Investigate the dll.Ext.relative_file_creation_time and dll.Ext.relative_file_name_modify_time to determine if the file was recently created or modified, which could indicate suspicious activity.
-- Examine the dll.path to ensure it does not fall within trusted system paths, as the rule excludes paths like "?:\\Windows\\System32\\DriverStore\\FileRepository\\*".
-- Correlate the event with other recent alerts or logs from the same host to identify any patterns or additional suspicious activities that might indicate a broader compromise.
-- Consult threat intelligence sources to see if the binary or its signature error has been associated with known malicious activity or campaigns.
-
-### False positive analysis
-
-- System or vendor updates may load binaries with temporary invalid signatures. Monitor update schedules and correlate alerts with known update activities to verify legitimacy.
-- Custom or in-house applications might not have valid signatures but are trusted within the organization. Create exceptions for these applications by specifying their paths or names in the exclusion list.
-- Development or testing environments often use unsigned or self-signed binaries. Consider excluding these environments from the rule or adjusting the risk score to reflect their lower threat level.
-- Security or monitoring tools may load unsigned components as part of their operation. Verify the legitimacy of these tools and exclude their paths if they are known and trusted.
-- Temporary file modifications during legitimate software installations or updates can trigger alerts. Cross-reference with installation logs or schedules to confirm benign activity.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent potential lateral movement by the adversary.
-- Terminate any suspicious processes associated with the loaded binary to halt any ongoing malicious activity.
-- Verify the integrity of the affected binary by comparing it against a known good version or reinstalling it from a trusted source.
-- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious files or artifacts.
-- Review recent file modifications and system logs to identify any unauthorized changes or access, and restore any altered files from backups if necessary.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement additional monitoring and alerting for similar signature anomalies to enhance detection and response capabilities for future incidents."""
 
 
 [[rule.threat]]

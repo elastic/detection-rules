@@ -2,7 +2,7 @@
 creation_date = "2023/09/26"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -68,41 +68,6 @@ process where host.os.type == "windows" and event.action == "start" and
 
   not process.args : ("?:\\Program Files (x86)\\*", "?:\\Program Files\\*")
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Execution via MSIEXEC
-
-MSIEXEC is a Windows Installer utility used for installing, modifying, and removing applications. Adversaries exploit it to execute malicious MSI files, often using silent install options to avoid detection. The detection rule identifies unusual MSIEXEC activity by analyzing execution context, such as unexpected parent processes or atypical file paths, to flag potential misuse indicative of defense evasion tactics.
-
-### Possible investigation steps
-
-- Review the parent process of the msiexec.exe execution to determine if it is an unexpected or suspicious executable, especially if it is not from typical locations like Program Files or Windows directories.
-- Analyze the command line arguments used with msiexec.exe, focusing on the presence of silent install options (/q, /quiet) and the number of arguments to identify potential misuse.
-- Check the file path of the MSI file being executed to ensure it is not from unusual or user-specific directories like Users or ProgramData, which could indicate a malicious file.
-- Investigate the user account associated with the execution, particularly if the user ID matches patterns like S-1-5-21* or S-1-12-*, to assess if the account has been compromised or is being used for unauthorized activities.
-- Examine the working directory and any related files or scripts in the context of the execution to identify any additional indicators of compromise or related malicious activity.
-- Correlate the event with other security alerts or logs to determine if this execution is part of a broader attack pattern or campaign.
-
-### False positive analysis
-
-- Legitimate software installations or updates may trigger the rule if they use msiexec.exe with silent install options. Users can create exceptions for known software paths or parent processes that frequently perform legitimate installations.
-- System administrators using scripts or automation tools like PowerShell or CMD to deploy software across multiple machines might cause false positives. Exclude these specific parent processes or command line patterns if they are part of routine administrative tasks.
-- Some enterprise software management tools may use msiexec.exe in a manner that matches the rule's criteria. Identify these tools and exclude their typical execution paths or parent processes to prevent unnecessary alerts.
-- Temporary files created during legitimate installations in user directories might be flagged. Consider excluding specific temporary directories or known MSI file patterns that are part of regular software deployment processes.
-- Regular updates from trusted software vendors that use msiexec.exe with quiet options can be excluded by identifying and whitelisting their specific update paths or parent processes.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malware or unauthorized access.
-- Terminate the suspicious msiexec.exe process to halt any ongoing malicious activity.
-- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or software.
-- Review and analyze the parent process and command line arguments associated with the msiexec.exe execution to understand the attack vector and entry point.
-- Restore any affected files or applications from a known good backup to ensure system integrity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
-- Implement additional monitoring and alerting for similar msiexec.exe activities to enhance detection and prevent recurrence of this threat."""
 
 
 [[rule.threat]]

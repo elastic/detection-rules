@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -38,40 +38,6 @@ query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
 process.name == "trap" and process.args : "SIG*"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Trap Signals Execution
-Trap signals in Unix-like systems allow programs to execute specific commands when receiving interrupt signals, such as SIGINT or SIGTERM. Adversaries exploit this by embedding malicious commands in trap handlers to gain elevated privileges or persist on a system. The detection rule identifies suspicious trap command executions by monitoring process start events with specific signal arguments, helping to uncover potential privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the process start event details to confirm the presence of a trap command execution, focusing on the process.name field to ensure it matches "trap".
-- Examine the process.args field to identify the specific signal (e.g., SIGINT, SIGTERM) that triggered the trap command, and assess whether the associated commands are legitimate or potentially malicious.
-- Investigate the parent process of the trap command by analyzing the process lineage to determine if it was initiated by a trusted or suspicious source.
-- Check the user context under which the trap command was executed to identify if it was run by a privileged user or an unexpected account.
-- Correlate the event with other logs or alerts from the same host or user to identify any patterns of suspicious behavior or previous privilege escalation attempts.
-- Review system logs for any additional indicators of compromise or unusual activity around the time of the trap command execution to gather more context on the potential threat.
-
-### False positive analysis
-
-- Routine system maintenance scripts may use trap commands to handle signals gracefully. Review these scripts to ensure they are legitimate and consider excluding them from the rule if they are frequently flagged.
-- Development environments often use trap commands for debugging purposes. Identify and document these environments, and create exceptions for known development processes to prevent unnecessary alerts.
-- Backup and recovery processes might employ trap commands to manage interruptions. Verify these processes and exclude them if they are consistently identified as false positives.
-- System monitoring tools may use trap commands to handle signals for logging or alerting purposes. Confirm the legitimacy of these tools and exclude them from the rule if they are trusted and regularly trigger alerts.
-- Custom user scripts that include trap commands for personal workflow automation can be a source of false positives. Encourage users to register their scripts with the security team to assess and potentially exclude them from monitoring.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Terminate any suspicious processes associated with the trap command execution to halt potential privilege escalation.
-- Conduct a thorough review of the affected system's trap handlers and shell configurations to identify and remove any unauthorized or malicious entries.
-- Restore the system from a known good backup if malicious modifications are detected and cannot be easily reversed.
-- Implement stricter access controls and monitoring on systems to prevent unauthorized modifications to trap handlers and shell configurations.
-- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
-- Update and enhance detection capabilities to monitor for similar trap command executions and other related privilege escalation attempts in the future."""
 
 
 [[rule.threat]]

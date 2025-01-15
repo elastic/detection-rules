@@ -2,7 +2,7 @@
 creation_date = "2023/06/08"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -61,41 +61,6 @@ file.path : ("/etc/modprobe.conf" or "/etc/modprobe.d" or /etc/modprobe.d/*) and
   aide or modprobe or python*
 )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Modprobe File Event
-
-Modprobe manages Linux kernel modules, crucial for system functionality. Adversaries may exploit modprobe configurations to load unauthorized modules, potentially bypassing security, escalating privileges, or concealing activities. The detection rule identifies unusual file access in modprobe directories, excluding benign processes, to flag potential tampering attempts.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific file path accessed, focusing on "/etc/modprobe.conf" or files within "/etc/modprobe.d".
-- Examine the process that triggered the alert by checking the process name and its parent process to understand the context of the file access.
-- Investigate the user account associated with the process to determine if it is a legitimate user or potentially compromised.
-- Check for any recent changes or modifications to the accessed modprobe files to identify unauthorized alterations.
-- Correlate the event with other security logs or alerts to identify any related suspicious activities or patterns.
-- Assess the system for any unauthorized kernel modules that may have been loaded as a result of the file access.
-
-### False positive analysis
-
-- System maintenance tools like mkinitramfs and systemd-udevd may access modprobe files during routine operations. To prevent these from triggering alerts, ensure they are included in the exclusion list within the detection rule.
-- Backup and recovery processes, such as those performed by borg, might interact with modprobe directories. Verify these processes are legitimate and add them to the exclusion criteria if they are part of regular system operations.
-- Security auditing tools like auditbeat and aide can access modprobe files as part of their monitoring activities. Confirm these tools are authorized and exclude them from the rule to avoid unnecessary alerts.
-- Package management and installation processes, such as those involving dpkg, may open modprobe files. If these actions are part of standard package updates or installations, include them in the exclusion list to reduce false positives.
-- Custom scripts or automation tools using Python may interact with modprobe configurations. Review these scripts to ensure they are safe and consider adding them to the exclusion list if they are frequently triggering alerts without posing a threat.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent potential lateral movement or further unauthorized access.
-- Conduct a thorough review of the processes that accessed the modprobe configuration files to identify any unauthorized or suspicious activity.
-- If unauthorized access is confirmed, remove any malicious or unauthorized kernel modules that have been loaded, and restore the modprobe configuration files from a known good backup.
-- Apply security patches and updates to the system to address any vulnerabilities that may have been exploited.
-- Enhance monitoring and logging for modprobe-related activities to detect any future unauthorized access attempts.
-- Review and tighten permissions on modprobe configuration files to ensure only authorized processes and users can access them.
-- Escalate the incident to the security operations team for further investigation and to determine if additional systems may be affected."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

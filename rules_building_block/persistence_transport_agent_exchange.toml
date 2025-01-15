@@ -2,7 +2,7 @@
 creation_date = "2023/07/14"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -64,40 +64,6 @@ event.category: "process" and host.os.type:windows and
     ("scriptCmd.GetSteppablePipeline" and "ForwardHelpTargetName Install-TransportAgent")
   )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Microsoft Exchange Transport Agent Install Script
-
-Microsoft Exchange Transport Agents are components that process email messages as they move through the transport pipeline. They can be customized to perform tasks like filtering or modifying messages. However, adversaries may exploit these agents to maintain persistence by installing malicious agents that execute tasks based on specific triggers. The detection rule identifies suspicious use of PowerShell cmdlets related to installing or enabling these agents, excluding known benign activities, to flag potential abuse.
-
-### Possible investigation steps
-
-- Review the PowerShell script block text associated with the alert to understand the context and intent of the commands executed, focusing on the use of "Install-TransportAgent" or "Enable-TransportAgent".
-- Check the user account associated with the alert, especially since the query excludes the system account (S-1-5-18), to determine if the activity is expected or if the account may have been compromised.
-- Investigate the host where the alert was triggered to identify any recent changes or anomalies, such as new software installations or configuration changes, that could indicate malicious activity.
-- Examine PowerShell logs and other relevant security logs on the host for additional suspicious activities or patterns that coincide with the time of the alert.
-- Cross-reference the alert with known benign activities that are excluded in the query to ensure the activity is not part of a legitimate administrative task.
-- Assess the risk and impact of the detected activity by considering the role of the affected Exchange server and the potential consequences of a compromised transport agent.
-
-### False positive analysis
-
-- Legitimate administrative tasks using Install-TransportAgent or Enable-TransportAgent can trigger alerts. To manage this, create exceptions for known administrative accounts or scripts that regularly perform these tasks.
-- Scheduled maintenance activities involving PowerShell cmdlets related to Exchange Transport Agents may be flagged. Document and exclude these activities by identifying their specific script block text patterns.
-- Automated monitoring or backup solutions that invoke similar cmdlets might cause false positives. Review and whitelist these processes by their user IDs or script block text to prevent unnecessary alerts.
-- Ensure that any exclusions do not inadvertently allow malicious activity by regularly reviewing and updating exception lists based on current threat intelligence and organizational changes.
-
-### Response and remediation
-
-- Immediately isolate the affected Exchange server from the network to prevent further malicious activity and potential lateral movement by the adversary.
-- Review and disable any suspicious or unauthorized transport agents identified on the Exchange server to halt any ongoing malicious processes.
-- Conduct a thorough examination of PowerShell logs and other relevant system logs to identify any additional indicators of compromise or related malicious activities.
-- Restore the affected Exchange server from a known good backup taken before the suspicious activity was detected to ensure system integrity.
-- Apply the latest security patches and updates to the Exchange server to mitigate any known vulnerabilities that could be exploited by adversaries.
-- Implement enhanced monitoring and alerting for PowerShell activities and transport agent modifications to detect any future unauthorized changes promptly.
-- Escalate the incident to the organization's security operations center (SOC) or incident response team for further investigation and to determine if additional systems may be compromised."""
 
 
 [[rule.filters]]

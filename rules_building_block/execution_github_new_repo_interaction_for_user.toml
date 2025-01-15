@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -32,44 +32,9 @@ type = "new_terms"
 
 query = '''
 event.dataset:"github.audit" and event.category:"configuration" and
-github.repo:* and user.name:* and
+github.repo:* and user.name:* and 
 github.repository_public:false
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating First Occurrence of GitHub User Interaction with Private Repo
-
-GitHub is a platform for version control and collaboration, allowing users to manage and store code in repositories. Private repositories are restricted to specific users, making unauthorized access a security concern. Adversaries may exploit compromised credentials to access sensitive code. The detection rule identifies unusual user interactions with private repositories, flagging users who haven't accessed them in the past 14 days, which may indicate potential unauthorized access attempts.
-
-### Possible investigation steps
-
-- Review the specific GitHub audit event details to identify the user involved in the interaction by examining the user.name field.
-- Verify the user's recent activity history on GitHub to determine if there are any other unusual or unauthorized actions, focusing on the last 14 days.
-- Check the access permissions and roles assigned to the user for the private repository in question to assess if the access was legitimate or potentially unauthorized.
-- Contact the user or their manager to confirm whether the interaction with the private repository was expected or authorized.
-- Investigate any recent changes to the user's credentials or access rights, such as password resets or role modifications, that could indicate a compromise.
-- Correlate this event with other security logs or alerts to identify any patterns or additional indicators of compromise related to the user's account.
-
-### False positive analysis
-
-- Users returning from vacation or leave may trigger the rule due to a lack of recent activity. Consider implementing a temporary exception for these users based on their leave schedule.
-- New team members or contractors accessing private repositories for the first time can be flagged. Maintain a list of new users and exclude them from the rule for an initial period.
-- Users involved in infrequent but legitimate projects may not access certain repositories regularly. Identify these projects and create exceptions for associated users.
-- Scheduled maintenance or audits by IT staff might result in flagged interactions. Coordinate with IT to whitelist these activities during known maintenance windows.
-- Automated scripts or tools that interact with repositories on behalf of users can cause false positives. Ensure these tools are properly documented and excluded from the rule.
-
-### Response and remediation
-
-- Immediately verify the legitimacy of the user interaction by contacting the user to confirm whether they initiated the access. If the user cannot be reached or denies the activity, proceed with containment steps.
-- Temporarily revoke the user's access to the private repository to prevent further unauthorized actions while the investigation is ongoing.
-- Conduct a thorough review of recent access logs and activities associated with the user's account to identify any other suspicious actions or potential compromise indicators.
-- Reset the user's credentials and enforce multi-factor authentication (MFA) to secure the account against further unauthorized access.
-- If unauthorized access is confirmed, perform a security audit of the affected repository to identify any data exposure or code alterations, and take necessary steps to mitigate any identified risks.
-- Notify the security team and relevant stakeholders about the incident, providing details of the unauthorized access and actions taken, and escalate to higher management if sensitive data is involved.
-- Update detection mechanisms and monitoring tools to enhance the identification of similar unauthorized access attempts in the future, leveraging insights from the incident."""
 
 
 [[rule.threat]]

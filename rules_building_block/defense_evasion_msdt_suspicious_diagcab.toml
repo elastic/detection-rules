@@ -2,7 +2,7 @@
 creation_date = "2023/09/26"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -57,40 +57,6 @@ process where host.os.type == "windows" and event.action == "start" and
     "ftp://*"
   )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Troubleshooting Pack Cabinet Execution
-
-The Microsoft Diagnostic Wizard, often invoked via `msdt.exe`, is a legitimate tool used for troubleshooting and diagnostics on Windows systems. Adversaries may exploit this tool to execute malicious files by disguising them as troubleshooting packs, especially from unusual paths or with unexpected parent processes. The detection rule identifies such suspicious executions by monitoring for `msdt.exe` launches with specific arguments and parent processes, indicating potential misuse for defense evasion.
-
-### Possible investigation steps
-
-- Review the process tree to understand the parent-child relationship of msdt.exe, focusing on the parent process names such as browsers or office applications, to determine if the execution context is unusual or expected.
-- Examine the command-line arguments used with msdt.exe, particularly looking for suspicious paths or URLs (e.g., network paths, HTTP, or FTP links) that could indicate a malicious source.
-- Check the file path and origin of the diagcab file being executed to verify if it is from a trusted source or if it has been downloaded from an untrusted or external location.
-- Investigate the user account under which msdt.exe was executed to determine if the activity aligns with the user's typical behavior or if it appears anomalous.
-- Look for any related network activity or connections initiated around the time of the msdt.exe execution to identify potential data exfiltration or communication with a command and control server.
-- Search for any additional alerts or logs related to the same user or system that might indicate a broader pattern of suspicious activity or compromise.
-
-### False positive analysis
-
-- Legitimate troubleshooting activities by IT staff or automated scripts may trigger this rule. To manage this, identify and whitelist known IT tools or scripts that regularly use msdt.exe for diagnostics.
-- Software updates or installations that use msdt.exe as part of their process can be mistaken for suspicious activity. Monitor and document these processes, and create exceptions for recognized software update paths.
-- Users accessing legitimate troubleshooting packs from network locations or URLs might cause false positives. Review and whitelist trusted network paths or domains frequently used for legitimate troubleshooting purposes.
-- Certain applications, like browsers or email clients, may inadvertently launch msdt.exe during normal operations. Identify these applications and consider excluding them from the parent process list if they are consistently non-threatening.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further potential spread of malicious activity.
-- Terminate the msdt.exe process if it is confirmed to be executing from a suspicious path or with an unusual parent process.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or remnants.
-- Review and analyze the suspicious diagcab file and its source to determine the extent of the compromise and any additional payloads or scripts that may have been executed.
-- Restore any affected files or system components from known good backups if any legitimate files were altered or deleted during the incident.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement additional monitoring and alerting for similar msdt.exe executions from unusual paths or with unexpected parent processes to enhance detection and prevent recurrence."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2024/04/14"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/07/23"
 
 [rule]
 author = ["Elastic"]
@@ -43,40 +43,6 @@ event.dataset:aws.cloudtrail
     and event.action:DescribeInstanceAttribute
     and aws.cloudtrail.request_parameters:(*attribute=userData* and *instanceId*)
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Attempt to Retrieve User Data from AWS EC2 Instance
-
-AWS EC2 instances can store sensitive configuration data in user data scripts, which are executed during instance launch. Adversaries may exploit the `DescribeInstanceAttribute` API call to access this data, potentially exposing vulnerabilities or sensitive information. The detection rule monitors CloudTrail logs for such API calls, flagging attempts to access user data, thus serving as an early indicator of suspicious activity.
-
-### Possible investigation steps
-
-- Review the CloudTrail logs to identify the source IP address and user identity associated with the DescribeInstanceAttribute API call to determine if the request was made by an authorized user or system.
-- Check the AWS IAM policies and roles associated with the user or service making the request to ensure they have the appropriate permissions and that there are no overly permissive policies in place.
-- Investigate the instanceId specified in the request to understand the context of the EC2 instance, including its purpose, the data it handles, and any recent changes or activities associated with it.
-- Examine the attribute userData in the request to assess what specific data or scripts might be exposed and evaluate the potential impact if this information were accessed by unauthorized parties.
-- Correlate this event with other logs and alerts to identify any patterns or sequences of actions that might indicate a broader reconnaissance or attack attempt, such as multiple DescribeInstanceAttribute requests or other discovery-related activities.
-
-### False positive analysis
-
-- Routine administrative tasks may trigger the DescribeInstanceAttribute API call when checking instance configurations. To manage this, identify and whitelist known administrative accounts or roles that regularly perform these tasks.
-- Automated scripts or monitoring tools might use the DescribeInstanceAttribute API call to verify instance settings. Review and document these tools, then create exceptions for their activity to prevent unnecessary alerts.
-- Cloud management platforms often perform discovery operations that include DescribeInstanceAttribute calls. Ensure these platforms are recognized and their actions are excluded from triggering alerts by adding them to an exception list.
-- Scheduled audits or compliance checks might involve DescribeInstanceAttribute requests. Coordinate with compliance teams to understand their schedules and exclude these activities from detection rules.
-- Development and testing environments may frequently use DescribeInstanceAttribute for configuration validation. Segregate these environments and apply specific rules that account for their unique activity patterns.
-
-### Response and remediation
-
-- Immediately isolate the affected EC2 instance to prevent further unauthorized access or data exfiltration. This can be done by modifying the security group to restrict inbound and outbound traffic.
-- Review the AWS CloudTrail logs to identify any unauthorized users or IP addresses that accessed the `DescribeInstanceAttribute` API call. Revoke any suspicious access keys or credentials associated with these users.
-- Conduct a thorough audit of the user data scripts stored on the affected EC2 instance to identify any sensitive information that may have been exposed. Remove or encrypt sensitive data as necessary.
-- Rotate any credentials or secrets that were stored in the user data scripts to prevent unauthorized use.
-- Implement additional monitoring and alerting for similar API calls in CloudTrail to detect and respond to future attempts promptly.
-- Escalate the incident to the security operations team for further investigation and to determine if additional instances or resources have been compromised.
-- Review and update IAM policies to ensure that only authorized users have the necessary permissions to access sensitive EC2 attributes, following the principle of least privilege."""
 
 
 [[rule.threat]]

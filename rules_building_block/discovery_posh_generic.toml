@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/10"
+updated_date = "2025/01/13"
 
 
 [rule]
@@ -63,7 +63,7 @@ event.category:process and host.os.type:windows and
       ("Get-WmiObject" or "gwmi" or "Get-CimInstance" or
        "gcim" or "Management.ManagementObjectSearcher" or
        "System.Management.ManagementClass" or
-       "[WmiClass]" or "[WMI]") and
+       "[WmiClass]") and
       (
         "AntiVirusProduct" or "CIM_BIOSElement" or "CIM_ComputerSystem" or "CIM_Product" or "CIM_DiskDrive" or
         "CIM_LogicalDisk" or "CIM_NetworkAdapter" or "CIM_StorageVolume" or "CIM_OperatingSystem" or
@@ -104,7 +104,7 @@ event.category:process and host.os.type:windows and
     ) or
     (
       ("Directoryservices.Activedirectory" or
-      "DirectoryServices.AccountManagement") and
+      "DirectoryServices.AccountManagement") and 
       (
         "Domain Admins" or "DomainControllers" or
         "FindAllGlobalCatalogs" or "GetAllTrustRelationships" or
@@ -136,44 +136,11 @@ event.category:process and host.os.type:windows and
       "Microsoft.PowerShell.Core\Export-ModuleMember" and
       "Microsoft.PowerShell.Cmdletization.Cim.CimCmdletAdapter"
     ) or
-    "CmdletsToExport=@(\"Add-Content\","
+    "CmdletsToExport=@(\"Add-Content\"," or
+    ("cmdletization" and "cdxml-Help.xml")
   ) and
   not user.id : ("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating PowerShell Script with Discovery Capabilities
-
-PowerShell is a powerful scripting language and command-line shell used for task automation and configuration management in Windows environments. Adversaries exploit PowerShell's capabilities to perform reconnaissance, gathering information about users, network configurations, and system settings. The detection rule identifies suspicious PowerShell activity by monitoring specific cmdlets and methods associated with discovery tasks, filtering out benign processes, and focusing on potential threats.
-
-### Possible investigation steps
-
-- Review the PowerShell script block text to identify which specific cmdlets or methods were used, focusing on those related to discovery activities such as "Get-ADDomain" or "Get-Process".
-- Check the user ID associated with the alert to determine if it belongs to a legitimate user or service account, ensuring it is not one of the excluded IDs like "S-1-5-18", "S-1-5-19", or "S-1-5-20".
-- Investigate the context of the process execution by examining related process creation events, including parent processes, to understand how the PowerShell script was initiated.
-- Correlate the alert with other security events or logs from the same host to identify any additional suspicious activities or patterns that might indicate a broader attack.
-- Assess the risk and impact by determining if the discovered information could be used for further malicious activities, such as privilege escalation or lateral movement within the network.
-
-### False positive analysis
-
-- Administrative scripts and tools may trigger the rule when performing legitimate system audits or inventory tasks. To manage this, identify and exclude specific scripts or tools that are known to be safe and frequently used by IT staff.
-- Scheduled tasks or automated processes that use PowerShell for system monitoring or maintenance can generate false positives. Review these tasks and exclude their associated user accounts or script names from the detection rule.
-- Security software or system management tools that use PowerShell for configuration checks or updates might be flagged. Whitelist these tools by excluding their specific cmdlets or script block texts from the rule.
-- PowerShell scripts used in software deployment or updates may match the rule's criteria. Exclude these scripts by adding exceptions for the user accounts or script paths involved in these operations.
-- Developers or system administrators using PowerShell for testing or development purposes might inadvertently trigger the rule. Implement exclusions for known development environments or user accounts to reduce false positives.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Terminate any suspicious PowerShell processes identified by the detection rule to halt ongoing reconnaissance activities.
-- Conduct a thorough review of user accounts and permissions on the affected system to identify any unauthorized changes or access.
-- Reset passwords for potentially compromised accounts, especially those with elevated privileges, to mitigate the risk of further exploitation.
-- Analyze PowerShell logs and other relevant system logs to identify any additional indicators of compromise or related malicious activity.
-- Escalate the incident to the security operations team for further investigation and to determine if the threat has spread to other systems.
-- Implement enhanced monitoring and alerting for PowerShell activities across the network to detect similar threats in the future."""
 
 [[rule.filters]]
 [rule.filters.meta]

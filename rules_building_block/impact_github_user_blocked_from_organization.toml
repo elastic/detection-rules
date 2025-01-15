@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -33,40 +33,6 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "org.block_user"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GitHub User Blocked From Organization
-
-GitHub is a platform for version control and collaboration, crucial for software development. Organizations use it to manage access to their repositories. Blocking a user can be a legitimate action to revoke access, but adversaries might exploit this to disrupt operations or remove access stealthily. The detection rule monitors audit logs for user blocks, identifying potential misuse by correlating specific actions with threat tactics, ensuring timely alerts for security teams.
-
-### Possible investigation steps
-
-- Review the audit logs for the specific event where event.dataset is "github.audit" and event.action is "org.block_user" to identify the user who was blocked and the timestamp of the action.
-- Verify the identity and role of the blocked user within the organization to assess the potential impact of their access removal.
-- Check for any recent changes or unusual activities in the repositories or organization settings that the blocked user had access to, which might indicate malicious intent or misuse.
-- Investigate the user who performed the block action to ensure it was authorized and aligns with organizational policies.
-- Look for any correlated events or alerts around the same timeframe that might suggest a coordinated attempt to disrupt operations or remove access stealthily.
-- Communicate with the organization’s admin or security team to confirm whether the block was intentional and part of a legitimate security measure.
-
-### False positive analysis
-
-- Routine administrative actions may trigger alerts when an organization intentionally blocks users for maintenance or restructuring. To manage this, create exceptions for known administrative accounts performing these actions.
-- Temporary access revocations for contractors or third-party collaborators can appear as user blocks. Implement a process to log and verify these temporary blocks to distinguish them from potential threats.
-- Automated scripts or bots used for managing user access might inadvertently block users during updates or error handling. Ensure these scripts are well-documented and monitored, and consider excluding their actions from alerts if they are verified as non-threatening.
-- High turnover in organizations can lead to frequent user blocks as part of offboarding processes. Establish a baseline for expected user block frequency and adjust alert thresholds accordingly to reduce noise from legitimate offboarding activities.
-
-### Response and remediation
-
-- Verify the legitimacy of the block by contacting the organization owner or admin to confirm whether the action was intentional or unauthorized.
-- If the block was unauthorized, immediately unblock the user and restore their access to the necessary repositories, ensuring no critical work is disrupted.
-- Conduct a review of recent audit logs to identify any other suspicious activities or unauthorized access attempts that may indicate a broader security issue.
-- Implement additional access controls or two-factor authentication for organization admins to prevent unauthorized actions in the future.
-- Notify the affected user about the incident, advising them to review their account security settings and change their password if necessary.
-- Escalate the incident to the security team for further investigation and to assess whether additional security measures are required to protect the organization.
-- Document the incident, including actions taken and lessons learned, to improve response strategies and prevent similar occurrences."""
 
 
 [[rule.threat]]

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/24"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/01/10"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -42,40 +42,6 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name : "cmstp.exe" and process.args == "/s"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Defense Evasion via CMSTP.exe
-
-CMSTP.exe is a legitimate Windows utility used to install network profiles via INF files. However, attackers can exploit it to execute malicious code by crafting INF files with harmful commands. The detection rule identifies suspicious activity by monitoring the execution of CMSTP.exe with specific arguments, flagging potential misuse for defense evasion tactics.
-
-### Possible investigation steps
-
-- Review the process execution details to confirm the presence of CMSTP.exe with the argument "/s" in the event logs, as this matches the suspicious activity pattern.
-- Investigate the parent process of CMSTP.exe to determine if it was launched by a legitimate application or a potentially malicious one.
-- Examine the associated INF file used during the execution to identify any unusual or malicious commands that may have been embedded.
-- Check the user account under which CMSTP.exe was executed to assess if it aligns with expected behavior or if it indicates potential compromise.
-- Analyze recent system changes or installations around the time of the alert to identify any unauthorized or suspicious modifications.
-- Correlate this event with other security alerts or logs to identify patterns or additional indicators of compromise that may suggest a broader attack campaign.
-
-### False positive analysis
-
-- Legitimate network profile installations may trigger the rule if CMSTP.exe is used with the /s argument. To manage this, identify and whitelist specific network profiles or installation scripts that are known and trusted within your organization.
-- Automated system management tools might use CMSTP.exe for legitimate purposes. Review and document these tools, then create exceptions for their known behaviors to prevent unnecessary alerts.
-- Scheduled tasks or scripts that regularly execute CMSTP.exe for maintenance or configuration purposes can be excluded by identifying their specific command-line patterns and adding them to an exception list.
-- User-initiated actions, such as manual network configuration changes, might also cause false positives. Educate users on the implications of using CMSTP.exe and establish a process for reporting legitimate use cases to the security team for review and potential exclusion.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further execution of potentially malicious code and lateral movement.
-- Terminate any running instances of CMSTP.exe that are executing with suspicious arguments, such as "/s", to halt any ongoing malicious activity.
-- Conduct a thorough review of the INF files associated with the CMSTP.exe execution to identify and remove any malicious commands or scripts.
-- Restore the system from a known good backup if malicious activity is confirmed and system integrity is compromised.
-- Update and patch the operating system and all software to the latest versions to mitigate exploitation of known vulnerabilities.
-- Implement application whitelisting to prevent unauthorized execution of CMSTP.exe and other system binaries that can be abused for proxy execution.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on the broader network."""
 
 
 [[rule.threat]]

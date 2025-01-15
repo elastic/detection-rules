@@ -2,7 +2,7 @@
 creation_date = "2023/08/21"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -44,40 +44,6 @@ process where host.os.type == "windows" and event.type == "start" and process.ar
         process.args : "*davclnt.dll,DavSetCookie*"
   )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Accessing Outlook Data Files
-
-Outlook data files, such as OST and PST, store emails and other data locally on Windows systems. Adversaries may target these files to collect sensitive information, bypassing email server security. The detection rule identifies suspicious processes accessing these files, excluding legitimate Outlook operations, to flag potential unauthorized access or data exfiltration attempts.
-
-### Possible investigation steps
-
-- Review the process details to identify the process name and arguments that triggered the alert, ensuring it matches the criteria of accessing OST or PST files without being a legitimate Outlook operation.
-- Investigate the parent process of the suspicious activity to determine if it was initiated by a legitimate application or a potentially malicious one.
-- Check the user account associated with the process to assess if the activity aligns with the user's typical behavior or if it appears suspicious.
-- Analyze the timeline of events to see if there are any other related alerts or activities around the same time that could indicate a broader attack or data exfiltration attempt.
-- Examine the network activity of the host to identify any unusual outbound connections that might suggest data exfiltration following the access of Outlook data files.
-
-### False positive analysis
-
-- Legitimate backup software may access OST and PST files as part of routine data backup processes. To handle this, identify and exclude these backup processes by adding them to the exception list in the detection rule.
-- Antivirus or endpoint protection software might scan Outlook data files during regular system checks. Review the processes associated with these scans and exclude them if they are verified as non-threatening.
-- System maintenance tools or scripts that perform file indexing or system optimization could trigger the rule. Determine if these tools are part of regular maintenance and exclude them accordingly.
-- Custom scripts or applications developed in-house that interact with Outlook data files for legitimate business purposes should be reviewed and excluded if they are deemed safe.
-- Occasionally, third-party email clients or plugins may access Outlook data files. Verify the legitimacy of these applications and exclude them if they are necessary for business operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Terminate any suspicious processes identified by the detection rule that are accessing Outlook data files, ensuring that legitimate Outlook operations are not disrupted.
-- Conduct a forensic analysis of the affected system to determine the extent of the compromise, focusing on identifying any data that may have been accessed or exfiltrated.
-- Change passwords and review access permissions for any accounts that may have been compromised as a result of the unauthorized access to Outlook data files.
-- Restore any corrupted or compromised Outlook data files from a known good backup to ensure data integrity and continuity of operations.
-- Implement additional monitoring and alerting for similar suspicious activities, focusing on processes accessing OST and PST files, to enhance detection capabilities.
-- Escalate the incident to the appropriate internal security team or external cybersecurity experts if the scope of the threat is beyond the current team's capacity to handle effectively."""
 
 
 [[rule.threat]]

@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/01/10"
+updated_date = "2024/10/28"
 
 [rule]
 author = ["Elastic"]
@@ -61,40 +61,6 @@ event.category:process and host.os.type:windows and
   ) and
   not file.directory : "C:\Program Files\WindowsAdminCenter\PowerShellModules\Microsoft.WindowsAdminCenter.Configuration"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating PowerShell Script with Log Clear Capabilities
-
-PowerShell, a powerful scripting language in Windows, enables automation and configuration management. Adversaries exploit its capabilities to clear event logs, erasing traces of their activities to evade detection. The detection rule identifies suspicious PowerShell commands linked to log deletion, excluding benign scripts and known safe directories, thus highlighting potential malicious behavior.
-
-### Possible investigation steps
-
-- Review the PowerShell script block text to confirm the presence of suspicious commands such as "Clear-EventLog" or "Remove-EventLog" and assess whether they are part of legitimate administrative activities or potentially malicious actions.
-- Check the file directory from which the PowerShell script was executed to ensure it is not from a known safe directory like "C:\\Program Files\\WindowsAdminCenter\\PowerShellModules\\Microsoft.WindowsAdminCenter.Configuration".
-- Investigate the process execution details, including the parent process, to determine if the PowerShell activity is part of a larger chain of suspicious behavior.
-- Correlate the event with other logs and alerts from the same host to identify any additional indicators of compromise or related suspicious activities.
-- Examine the user account associated with the PowerShell execution to verify if it has the necessary permissions and if the activity aligns with the user's typical behavior or role.
-
-### False positive analysis
-
-- Scripts from trusted directories like C:\\Program Files\\WindowsAdminCenter\\PowerShellModules\\Microsoft.WindowsAdminCenter.Configuration may trigger alerts. Exclude these directories in the rule configuration to prevent false positives.
-- Legitimate administrative tasks using PowerShell cmdlets such as Clear-EventLog for routine maintenance can be mistaken for malicious activity. Identify and whitelist these specific scripts or tasks to avoid unnecessary alerts.
-- PowerShell modules exporting benign cmdlets like Add-Content might be flagged. Ensure these modules are recognized and excluded by updating the rule to ignore known safe script block texts.
-- Scheduled tasks or automated scripts that perform log management as part of system health checks can be misinterpreted. Document and exclude these tasks from the detection rule to reduce false positives.
-- Security tools or monitoring solutions that use PowerShell for log management should be reviewed and excluded if they are known to be safe and necessary for operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and potential lateral movement by the attacker.
-- Terminate any suspicious PowerShell processes identified by the detection rule to halt ongoing log clearing activities.
-- Conduct a thorough review of the affected system's event logs and other forensic data to identify any additional malicious activities or indicators of compromise.
-- Restore cleared event logs from backups if available, to aid in further investigation and maintain historical data integrity.
-- Change all credentials used on the affected system, as attackers may have gained access to sensitive information during their activities.
-- Implement enhanced monitoring on the affected system and similar environments to detect any recurrence of log clearing or other suspicious activities.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if broader organizational impacts exist."""
 
 [[rule.filters]]
 [rule.filters.meta]

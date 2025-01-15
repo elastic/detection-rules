@@ -2,7 +2,7 @@
 creation_date = "2023/07/10"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -34,44 +34,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
+process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and 
 process.name : ("whoami", "w", "who", "users", "id")
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating System Owner/User Discovery Linux
-
-In Linux environments, commands like `whoami`, `w`, `who`, `users`, and `id` are essential for identifying the current user and other logged-in users. Adversaries exploit these tools to gather information about system ownership and user activity, aiding in privilege escalation or lateral movement. The detection rule monitors the execution of these commands, flagging potential misuse by correlating process start events with specific command executions, thus alerting analysts to suspicious user enumeration activities.
-
-### Possible investigation steps
-
-- Review the process start event details to identify the user account associated with the execution of the flagged command, focusing on the process.name field to confirm which command was executed.
-- Examine the timestamp of the event to determine if the command execution aligns with expected user activity or if it occurred during unusual hours.
-- Check the source IP address or terminal from which the command was executed to identify if it originated from a known or trusted location.
-- Investigate the parent process of the flagged command to understand the context in which it was executed and determine if it was initiated by a legitimate application or script.
-- Correlate the event with other recent alerts or logs to identify any patterns of suspicious behavior, such as multiple enumeration commands executed in a short timeframe.
-- Assess the risk score and severity in conjunction with other environmental factors to prioritize the investigation and determine if immediate action is required.
-
-### False positive analysis
-
-- Routine administrative tasks often involve the use of commands like `whoami` and `id` for legitimate purposes such as verifying user permissions. To reduce false positives, consider creating exceptions for known administrative scripts or users who frequently execute these commands as part of their regular duties.
-- Automated monitoring tools or scripts may periodically execute user discovery commands to gather system metrics or perform health checks. Identify these tools and exclude their process names or execution paths from triggering alerts.
-- Development and testing environments may see frequent use of these commands by developers or testers. Implement exceptions for specific environments or user groups where such activity is expected and non-threatening.
-- Scheduled jobs or cron tasks might execute these commands for logging or auditing purposes. Review and whitelist these scheduled tasks to prevent unnecessary alerts.
-- Security tools or agents running on the system might use these commands as part of their normal operation. Verify and exclude these processes to avoid false positives.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
-- Terminate any suspicious processes identified by the alert, particularly those associated with the execution of the `whoami`, `w`, `who`, `users`, or `id` commands, if they are not part of normal operations.
-- Conduct a thorough review of user accounts and permissions on the affected system to identify any unauthorized changes or suspicious accounts that may have been created or modified.
-- Reset passwords for all user accounts on the affected system, prioritizing accounts with elevated privileges, to mitigate the risk of credential compromise.
-- Review system logs and audit trails to identify any additional indicators of compromise or related suspicious activities that may have occurred before or after the alert.
-- Escalate the incident to the security operations team or incident response team for further investigation and to determine if additional systems are affected.
-- Implement enhanced monitoring and alerting for similar user enumeration activities across the network to detect and respond to future attempts promptly."""
 
 
 [[rule.threat]]

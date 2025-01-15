@@ -2,7 +2,7 @@
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -32,10 +32,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and 
 (
-  (process.name: "rundll32.exe" and process.args: "*InetCpl.cpl,Clear*") or
-  (process.name: "reg.exe" and process.args:"delete") or
+  (process.name: "rundll32.exe" and process.args: "*InetCpl.cpl,Clear*") or 
+  (process.name: "reg.exe" and process.args:"delete") or 
   (
     process.name: "cmd.exe" and process.args: ("*rmdir*", "*rm *", "rm") and
     not process.args : (
@@ -48,40 +48,6 @@ process where host.os.type == "windows" and event.type == "start" and
   (process.name: "powershell.exe" and process.args: ("*rmdir", "rm", "rd", "*Remove-Item*", "del", "*]::Delete(*"))
 ) and not user.id : "S-1-5-18"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File or Directory Deletion Command
-
-In Windows environments, commands like `rundll32.exe`, `reg.exe`, `cmd.exe`, and `powershell.exe` are integral for system management, allowing users to delete files or directories. Adversaries exploit these to erase logs or evidence of their activities, aiding in defense evasion. The detection rule identifies suspicious deletions by monitoring these command executions, excluding benign paths, and flagging non-system users, thus highlighting potential malicious activity.
-
-### Possible investigation steps
-
-- Review the process details to identify the specific command executed, focusing on the process name and arguments, such as "rundll32.exe", "reg.exe", "cmd.exe", or "powershell.exe", and their respective arguments.
-- Check the user ID associated with the process execution to determine if it is a non-system user, as the rule excludes the system user ID "S-1-5-18".
-- Investigate the context of the file or directory targeted for deletion by examining the process arguments, especially if they involve critical directories or files like logs or browser history.
-- Correlate the event with other recent activities on the host to identify any patterns or sequences that suggest malicious intent, such as multiple deletion attempts or other suspicious processes.
-- Assess the risk and impact of the deletion by determining if any important system or application logs were removed, which could hinder further investigation or system functionality.
-
-### False positive analysis
-
-- Routine system maintenance or software updates may trigger file or directory deletions. Users can create exceptions for known maintenance scripts or update processes to prevent false positives.
-- Automated cleanup tools like disk cleanup utilities or third-party software may use similar commands. Identify these tools and exclude their specific paths or user accounts from the rule.
-- User-initiated actions such as clearing browser history or temporary files can be mistaken for malicious activity. Educate users on the implications of these actions and consider excluding common user directories from monitoring.
-- Development environments often involve frequent file deletions during build processes. Exclude directories or processes associated with development tools to reduce noise.
-- Backup or synchronization software might delete files as part of their normal operation. Identify these applications and exclude their operations from the rule to avoid unnecessary alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Terminate any suspicious processes identified by the detection rule, such as those involving `rundll32.exe`, `reg.exe`, `cmd.exe`, or `powershell.exe` with deletion arguments.
-- Conduct a forensic analysis of the affected system to identify any deleted files or directories, focusing on logs, browser history, or other critical data that may have been targeted.
-- Restore any critical files or logs from backups if they were deleted and are necessary for ongoing operations or investigations.
-- Review user account activity, especially for non-system users flagged by the detection rule, to determine if any accounts have been compromised and reset credentials as necessary.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat is part of a larger attack campaign.
-- Implement additional monitoring and alerting for similar command executions to enhance detection and response capabilities for future incidents."""
 
 
 [[rule.threat]]

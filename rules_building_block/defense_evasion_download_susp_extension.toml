@@ -2,7 +2,7 @@
 creation_date = "2023/09/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -39,12 +39,12 @@ query = '''
 file where host.os.type == "windows" and event.type == "creation" and
   file.extension : (
     "appinstaller", "application", "appx", "appxbundle", "cpl", "diagcab", "diagpkg", "diagcfg", "manifest",
-    "msix", "pif", "search-ms", "searchConnector-ms", "settingcontent-ms", "symlink", "theme", "themepack"
+    "msix", "pif", "search-ms", "searchConnector-ms", "settingcontent-ms", "symlink", "theme", "themepack" 
   ) and file.Ext.windows.zone_identifier > 1 and
   not
   (
     (
-      file.extension : "msix" and
+      file.extension : "msix" and 
       file.path : (
         "?:\\Users\\*\\AppData\\Local\\Temp\\WinGet\\Microsoft.Winget.Source*",
         "?:\\Windows\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WinGet\\State\\defaultState\\Microsoft.PreIndexed.Package\\Microsoft.Winget.Source*"
@@ -52,45 +52,11 @@ file where host.os.type == "windows" and event.type == "creation" and
     ) or
     (
       process.name : "Teams.exe" and process.code_signature.trusted == true and
-      file.extension : "msix" and
+      file.extension : "msix" and 
       file.path : "?:\\Users\\*\\AppData\\Roaming\\Microsoft\\Teams\\tmp\\*"
     )
   )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File with Suspicious Extension Downloaded
-
-In Windows environments, certain file extensions can be exploited for unauthorized code execution. Adversaries may download files with these extensions to bypass security measures and execute malicious payloads. The detection rule identifies such files downloaded from external sources, excluding known safe paths and processes, to flag potential threats. This helps in early detection of defense evasion tactics.
-
-### Possible investigation steps
-
-- Review the file path and extension to determine if the file is located in a known safe directory or if it matches any of the excluded paths in the query.
-- Check the file's zone identifier to confirm it was downloaded from an external source, as indicated by a value greater than 1.
-- Investigate the process that created the file, focusing on whether it is a known and trusted application, especially if the process name is not Teams.exe or lacks a trusted code signature.
-- Analyze the file's metadata and properties to identify any unusual characteristics or discrepancies that could indicate tampering or malicious intent.
-- Correlate the event with other security logs and alerts to identify any related suspicious activities or patterns that could suggest a broader attack campaign.
-- Consult threat intelligence sources to determine if the file extension or any associated indicators of compromise (IOCs) are linked to known malware or threat actors.
-
-### False positive analysis
-
-- Files downloaded by trusted applications like Microsoft Teams may trigger false positives when they use the msix extension. To handle this, ensure that the process name is Teams.exe and the code signature is trusted, then exclude these paths from the rule.
-- Temporary files created by Windows Package Manager (WinGet) in specific directories can be mistakenly flagged. Exclude paths such as AppData\\Local\\Temp\\WinGet and systemprofile\\AppData\\Local\\Microsoft\\WinGet\\State\\defaultState\\Microsoft.PreIndexed.Package\\Microsoft.Winget.Source to prevent these false alerts.
-- Regularly review and update the list of trusted applications and paths to ensure that legitimate activities are not incorrectly identified as threats. This helps maintain the balance between security and operational efficiency.
-- Consider implementing a whitelist for known safe file extensions and paths that are frequently used in your organization to reduce the number of false positives and streamline the detection process.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Terminate any suspicious processes associated with the downloaded file, especially if they match the process names or paths identified in the detection rule.
-- Delete the suspicious file from the system to prevent accidental execution or further exploitation.
-- Conduct a thorough scan of the system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional threats or malware.
-- Review system logs and network traffic to identify any signs of lateral movement or data exfiltration attempts, and take appropriate action to contain any identified threats.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement additional monitoring and alerting for the specific file extensions and paths identified in the detection rule to enhance detection of similar threats in the future."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/08/21"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -44,40 +44,6 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and process.name : "at.exe" and process.args : "\\\\*"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating At.exe Command Lateral Movement
-
-The `at.exe` utility is a legacy Windows command-line tool used to schedule tasks on local or remote systems. Adversaries may exploit this tool to execute tasks on remote hosts, facilitating lateral movement within a network. The detection rule identifies suspicious use of `at.exe` by monitoring for its execution with arguments indicating remote task scheduling. This helps in pinpointing potential unauthorized task creations or modifications, which could signal malicious activity.
-
-### Possible investigation steps
-
-- Review the process execution details to confirm the use of at.exe, focusing on the process name and arguments, especially looking for remote task scheduling indicators such as "\\\\\\\\*".
-- Identify the source host from which the at.exe command was executed and determine if it is a known and authorized system within the network.
-- Investigate the target host(s) specified in the process arguments to assess if they are legitimate and expected targets for task scheduling from the source host.
-- Check the user account associated with the at.exe execution to verify if it has the necessary permissions and if the activity aligns with the user's typical behavior.
-- Examine the scheduled task details on the target host(s) to identify any unauthorized or suspicious tasks that may have been created or modified.
-- Correlate this event with other security alerts or logs to identify any patterns or additional indicators of lateral movement or compromise within the network.
-
-### False positive analysis
-
-- Scheduled administrative tasks: Routine administrative tasks scheduled by IT departments using at.exe on remote systems can trigger this rule. To manage this, identify and document legitimate scheduled tasks and create exceptions for these specific processes.
-- Automated software updates: Some software may use at.exe for automated updates or maintenance tasks across multiple systems. Verify the legitimacy of these updates and exclude them from the rule if they are confirmed to be safe.
-- Backup operations: Backup solutions might leverage at.exe for scheduling backups on remote machines. Confirm the backup processes and whitelist these operations to prevent false positives.
-- Monitoring and management tools: Certain network monitoring or management tools may utilize at.exe for legitimate purposes. Review these tools and their usage patterns, and exclude them if they are part of authorized network management activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement by the adversary.
-- Terminate any suspicious processes related to `at.exe` on the affected system to halt unauthorized task execution.
-- Review and remove any unauthorized scheduled tasks created via `at.exe` on both the local and remote systems.
-- Conduct a thorough investigation of the affected system to identify any additional indicators of compromise or persistence mechanisms.
-- Reset credentials for any accounts that were used to execute the `at.exe` command, especially if they have administrative privileges.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine the scope of the breach.
-- Implement enhanced monitoring and logging for `at.exe` usage across the network to detect and respond to similar threats in the future."""
 
 
 [[rule.threat]]

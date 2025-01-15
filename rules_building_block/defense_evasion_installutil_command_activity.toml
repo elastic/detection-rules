@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -46,40 +46,6 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name : "installutil.exe" and not user.id : "S-1-5-18"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating InstallUtil Activity
-
-InstallUtil is a legitimate Windows utility used for installing and uninstalling .NET applications by executing installer components. However, adversaries can exploit it to execute malicious code under the guise of a trusted process, evading security measures. The detection rule identifies suspicious InstallUtil activity by monitoring process starts on Windows systems, specifically flagging instances not initiated by the system account, which may indicate unauthorized use.
-
-### Possible investigation steps
-
-- Review the process details for the triggered alert, focusing on the user ID to identify the account that initiated the InstallUtil process, as it should not be the system account (S-1-5-18).
-- Investigate the parent process of InstallUtil to determine how it was launched and assess if the parent process is legitimate or potentially malicious.
-- Check the command-line arguments used with InstallUtil to identify any suspicious or unexpected parameters that could indicate malicious activity.
-- Analyze the timeline of events around the InstallUtil process start to identify any related or preceding suspicious activities, such as file downloads or other process executions.
-- Review the network activity associated with the user account and the host to identify any unusual outbound connections that could suggest data exfiltration or command-and-control communication.
-- Correlate the alert with other security events or logs from the same host or user account to identify patterns or repeated suspicious behavior.
-
-### False positive analysis
-
-- Legitimate software installations by IT administrators may trigger the rule if InstallUtil is used for deploying .NET applications. To manage this, create exceptions for known administrative accounts or specific installation scripts.
-- Automated deployment tools that utilize InstallUtil for legitimate software updates can cause false positives. Identify these tools and exclude their associated processes or user accounts from the rule.
-- Development environments where developers frequently use InstallUtil for testing purposes might be flagged. Consider excluding specific development machines or user accounts from the rule to reduce noise.
-- Scheduled tasks or scripts that use InstallUtil for routine maintenance or updates can be mistaken for malicious activity. Review and whitelist these tasks or scripts by their unique identifiers or execution paths.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized activity and potential lateral movement by the adversary.
-- Terminate the suspicious InstallUtil process to stop any ongoing malicious activity and prevent further execution of unauthorized code.
-- Conduct a thorough review of the affected system to identify any additional malicious files or processes that may have been introduced by the adversary.
-- Restore the system from a known good backup if any unauthorized changes or malicious software are detected, ensuring that the backup is free from compromise.
-- Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited by the adversary.
-- Monitor for any recurrence of similar activity by setting up alerts for InstallUtil executions not initiated by the system account, ensuring quick detection and response to future threats.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems may be affected."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -38,47 +38,12 @@ registry where host.os.type == "windows" and event.type == "change" and
     "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start",
     "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\*\\Start"
   ) and registry.data.strings : ("3", "4") and
-  not
+  not 
     (
       process.name : "services.exe" and user.id : "S-1-5-18"
     )
   and not registry.path : "HKLM\\SYSTEM\\ControlSet001\\Services\\MrxSmb10\\Start"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Service Disabled via Registry Modification
-
-Windows services are crucial for system operations, often configured via the registry. Adversaries may alter service start settings to disable security tools, evading detection. This detection rule identifies unauthorized registry changes to service start values, excluding legitimate processes like services.exe. By monitoring specific registry paths and values, it flags potential defense evasion attempts, aiding in timely threat response.
-
-### Possible investigation steps
-
-- Review the registry event details to identify the specific service affected by the registry modification, focusing on the registry.path field.
-- Investigate the process responsible for the change by examining the process.name and process.id fields to determine if it is a known or suspicious application.
-- Check the user.id associated with the event to verify if the change was made by an authorized user or account.
-- Correlate the event with other recent security alerts or logs to identify any patterns or additional suspicious activities on the host.
-- Assess the impact of the service modification by determining if the service is critical for security or monitoring, and evaluate the potential risk to the system.
-- If the service is related to security or monitoring, consider restoring the original registry settings and conducting a full system scan to ensure no further compromise.
-
-### False positive analysis
-
-- Legitimate software updates or installations may modify service start settings. Users can create exceptions for known update processes by identifying their process names and user IDs.
-- System administrators may intentionally change service configurations for maintenance or optimization. Document these changes and exclude them by specifying the responsible process names and user IDs.
-- Some third-party management tools might alter service settings as part of their normal operation. Identify these tools and exclude their process names from the detection rule.
-- Custom scripts or automation tasks that modify service settings for legitimate purposes should be reviewed and excluded by adding their process names to the exception list.
-- Regularly review and update the exclusion list to ensure it reflects current legitimate activities while minimizing the risk of overlooking potential threats.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized changes or potential lateral movement by the adversary.
-- Terminate any suspicious processes identified as modifying the registry, especially those not associated with legitimate system operations like services.exe.
-- Restore the modified registry settings to their original state using a known good backup or by manually resetting the service start values to their default configuration.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious software that may have been introduced.
-- Review and analyze system logs and security alerts to identify any additional indicators of compromise or related suspicious activities that may require further investigation.
-- Escalate the incident to the security operations center (SOC) or incident response team for a comprehensive investigation and to determine if the threat has impacted other systems within the network.
-- Implement enhanced monitoring and alerting for registry changes on critical systems to detect similar threats in the future, ensuring that alerts are promptly reviewed and acted upon."""
 
 
 [[rule.threat]]

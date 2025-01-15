@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -30,9 +30,9 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.executable : "?*" and
+  process.executable : "?*" and 
   not process.name : ("*.exe", "*.com", "*.scr", "*.tmp", "*.dat") and
-  not process.executable :
+  not process.executable : 
     (
       "MemCompression",
       "Registry",
@@ -59,41 +59,6 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.name: "AGSRunner.bin" and process.code_signature.subject_name: "Intel Corporation")
   )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unusual Process Extension
-
-In Windows environments, processes typically run with standard executable extensions like .exe or .com. Adversaries may exploit this by using non-standard extensions to disguise malicious activities, evading detection. The 'Unusual Process Extension' rule identifies such anomalies by flagging processes with uncommon extensions, excluding known legitimate cases, thus helping to uncover potential masquerading tactics.
-
-### Possible investigation steps
-
-- Review the process executable path and name to determine if it matches any known legitimate software or if it appears suspicious or unfamiliar.
-- Check the process code signature details, if available, to verify the authenticity of the process and identify the publisher. Pay special attention to any discrepancies or unsigned executables.
-- Investigate the parent process that initiated the unusual process to understand the context of its execution and assess if the parent process is legitimate or potentially compromised.
-- Search for any related network activity or connections initiated by the process to identify potential communication with malicious or suspicious external hosts.
-- Examine the file creation and modification timestamps of the process executable to determine if it aligns with expected software updates or installations.
-- Cross-reference the process with threat intelligence sources to identify if it is associated with known malware or threat actors.
-- Review system logs and other endpoint data for additional indicators of compromise or related suspicious activities that may provide further context to the alert.
-
-### False positive analysis
-
-- Processes with extensions like .p5x, .bin, or .dep from known software such as Dell SupportAssist, Intel AGS, or Docker may trigger false positives. Users can mitigate this by adding these specific paths to the exclusion list.
-- Signed executables from trusted vendors like Dell Inc, Bloomberg LP, Adobe Inc, and McAfee, LLC may be flagged. Verify the code signature and add these to exceptions if they are legitimate.
-- Processes related to software management or security tools, such as those from Veeam Software Group GmbH or Panda Security, might be incorrectly identified. Confirm their legitimacy and exclude them if necessary.
-- Regularly review and update the exclusion list to include new legitimate software that may use uncommon extensions, ensuring the rule remains effective without generating unnecessary alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malicious activity.
-- Terminate any suspicious processes identified with unusual extensions that do not match known legitimate cases.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious files.
-- Review and restore any altered system configurations or files to their original state, ensuring system integrity.
-- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
-- Implement application whitelisting to prevent execution of unauthorized or unusual file extensions in the future.
-- Update and enhance endpoint detection and response (EDR) solutions to improve detection capabilities for similar masquerading tactics."""
 
 
 [[rule.threat]]

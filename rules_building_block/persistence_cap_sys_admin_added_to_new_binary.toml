@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/01/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -65,41 +65,6 @@ event.category:"process" and host.os.type:"linux" and event.type:"start" and eve
 (process.thread.capabilities.effective:"CAP_SYS_ADMIN" or process.thread.capabilities.permitted:"CAP_SYS_ADMIN") and
 not user.id:"0"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating CAP_SYS_ADMIN Assigned to Binary
-
-In Linux, the CAP_SYS_ADMIN capability grants extensive system administration privileges, enabling processes to perform critical operations like mounting filesystems and configuring networks. Adversaries may exploit binaries with this capability to escalate privileges. The detection rule identifies non-root processes with CAP_SYS_ADMIN, flagging potential misuse by monitoring process execution events.
-
-### Possible investigation steps
-
-- Review the process name and path to determine if it is a known or expected binary that should have CAP_SYS_ADMIN capabilities.
-- Check the user ID associated with the process to understand which non-root user is executing the binary and assess if this is expected behavior.
-- Investigate the parent process to understand how the binary was executed and if it was initiated by a legitimate process or user.
-- Examine recent system changes or configurations that might have inadvertently granted CAP_SYS_ADMIN capabilities to the binary.
-- Look for any related alerts or logs that might indicate suspicious activity or attempts to exploit the CAP_SYS_ADMIN capability.
-- Assess the system for any signs of compromise or unauthorized access, focusing on persistence mechanisms and privilege escalation attempts.
-
-### False positive analysis
-
-- System maintenance scripts may trigger alerts if they are scheduled to run with elevated capabilities. Review and whitelist these scripts if they are verified as safe and necessary for system operations.
-- Backup software often requires CAP_SYS_ADMIN to access and manage filesystems. Confirm the legitimacy of the backup process and exclude it from the rule if it is a trusted application.
-- Monitoring tools that need to gather extensive system metrics might use CAP_SYS_ADMIN. Validate these tools and create exceptions for them to prevent unnecessary alerts.
-- Virtualization software may use CAP_SYS_ADMIN to manage virtual machines. Ensure that the software is from a trusted source and exclude it if it is a regular part of your infrastructure.
-- Custom applications developed in-house might require CAP_SYS_ADMIN for specific functionalities. Conduct a security review of these applications and exclude them if they are deemed safe and essential.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
-- Terminate any non-root processes identified with CAP_SYS_ADMIN capabilities to halt any unauthorized actions.
-- Conduct a thorough review of the system's capabilities and permissions to identify and remove any unnecessary CAP_SYS_ADMIN assignments from binaries.
-- Analyze the process execution logs to determine the origin and intent of the unauthorized process, focusing on identifying any potential entry points or vulnerabilities exploited.
-- Restore the system from a known good backup if any unauthorized changes or configurations are detected.
-- Implement stricter access controls and monitoring on systems with CAP_SYS_ADMIN capabilities to prevent future unauthorized access.
-- Escalate the incident to the security operations team for further investigation and to assess the need for broader organizational response measures."""
 
 
 [[rule.threat]]

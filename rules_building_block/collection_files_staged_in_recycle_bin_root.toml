@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -41,40 +41,6 @@ file where host.os.type == "windows" and event.type == "creation" and
   not file.path : "?:\\$RECYCLE.BIN\\*\\*" and
   not file.name : "desktop.ini"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating File Staged in Root Folder of Recycle Bin
-
-The Recycle Bin in Windows is designed to temporarily store deleted files, typically organized in subdirectories. Adversaries may exploit this by placing files directly in the root to prepare for data exfiltration or to bypass security measures. The detection rule identifies such anomalies by flagging file creations in the root, excluding typical system files, thus highlighting potential malicious staging activities.
-
-### Possible investigation steps
-
-- Review the file path to confirm it matches the pattern "?:\\\\$RECYCLE.BIN\\\\*" and ensure it is not a typical system file like "desktop.ini".
-- Investigate the file creation event to determine the user account associated with the action, checking for any unusual or unauthorized activity.
-- Examine the file's metadata and properties, such as creation time, size, and file type, to assess its legitimacy and potential risk.
-- Check for any recent or related alerts involving the same user or host to identify patterns or repeated suspicious behavior.
-- Analyze the file's content, if accessible, to determine if it contains sensitive or exfiltration-worthy data.
-- Review system logs and other security tools for any signs of data exfiltration attempts or other malicious activities around the time of the file creation.
-
-### False positive analysis
-
-- System maintenance tools or scripts may create files in the root of the Recycle Bin for temporary storage. Review the source of the file creation and consider excluding known maintenance tools from the detection rule.
-- Backup or recovery software might use the Recycle Bin's root for staging files during operations. Verify the software's behavior and add exceptions for trusted applications.
-- User actions, such as manual file management or organization, can result in files being placed in the root. Educate users on proper file management practices and consider excluding specific user actions if they are verified as non-malicious.
-- Automated processes or scripts that are part of legitimate business operations may inadvertently use the Recycle Bin's root. Identify these processes and create exceptions to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent potential data exfiltration or further malicious activity.
-- Verify the legitimacy of the file(s) found in the root of the Recycle Bin by cross-referencing with known good files and recent user activity.
-- If the file is confirmed malicious, remove it from the Recycle Bin and perform a full system scan using updated antivirus or endpoint detection and response (EDR) tools to identify and eliminate any additional threats.
-- Review recent user and system activity logs to identify any unauthorized access or actions that may have led to the file's creation.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat is part of a larger attack.
-- Implement additional monitoring on the affected system and similar endpoints to detect any recurrence of this activity.
-- Update security policies and access controls to limit the ability of users and processes to write files directly to the root of the Recycle Bin, if feasible."""
 
 
 [[rule.threat]]

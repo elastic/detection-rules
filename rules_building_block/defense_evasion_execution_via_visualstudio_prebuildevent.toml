@@ -2,7 +2,7 @@
 creation_date = "2023/09/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -51,7 +51,7 @@ sequence with maxspan=1m
       "cscript.exe", "wscript.exe",
       "installutil.exe"
     ) and
-    not
+    not 
     (
       process.name : ("cmd.exe", "powershell.exe") and
       process.args : (
@@ -74,40 +74,6 @@ sequence with maxspan=1m
                    "*Common\\..\\..\\BuildTools\\*"))
   ] by process.parent.entity_id
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Execution via MS VisualStudio Pre/Post Build Events
-
-Microsoft Visual Studio allows developers to automate tasks using pre/post build events, which execute commands during the build process. Adversaries can exploit this by injecting malicious commands into these events, executing harmful code under the guise of a legitimate build. The detection rule identifies suspicious command executions linked to Visual Studio builds, focusing on unusual parent-child process relationships and command patterns, while excluding known safe operations, to flag potential misuse.
-
-### Possible investigation steps
-
-- Review the process tree to identify the parent-child relationship, focusing on instances where MSBuild.exe spawns cmd.exe or other suspicious processes like powershell.exe or rundll32.exe.
-- Examine the command line arguments of the suspicious process to determine if they match known malicious patterns or if they deviate from typical build operations.
-- Check the file path and content of any scripts or executables in the Temp directory (e.g., tmp*.exec.cmd) to identify potential malicious payloads.
-- Investigate the user account associated with the process execution to determine if it aligns with expected developer activity or if it indicates unauthorized access.
-- Correlate the alert with recent changes in the Visual Studio project files to identify any unauthorized modifications to pre/post build events.
-- Look for additional indicators of compromise on the host, such as unusual network connections or file modifications, that may suggest further malicious activity.
-
-### False positive analysis
-
-- Visual Studio build scripts that legitimately use cmd.exe or powershell.exe for automation tasks may trigger false positives. Users can handle these by adding specific script paths or command patterns to the exclusion list.
-- Developers using MSBuild.exe for legitimate build processes might see false positives if their processes match the suspicious patterns. Exclude known safe MSBuild.exe paths from detection to mitigate this.
-- Automated build systems that utilize tools like vswhere.exe or git log for version control and project management can be mistakenly flagged. Exclude these command lines from the detection rule to prevent unnecessary alerts.
-- Custom scripts or tools that interact with Visual Studio projects, such as applocal.ps1 or MediaCache.ps1, may cause false positives. Users should identify and exclude these specific scripts if they are part of regular, non-malicious operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further execution of malicious commands and potential lateral movement.
-- Terminate any suspicious processes identified by the detection rule, particularly those involving cmd.exe or other flagged executables like powershell.exe, MSHTA.EXE, or rundll32.exe.
-- Conduct a thorough review of the Visual Studio project files and build scripts to identify and remove any unauthorized or malicious pre/post build commands.
-- Restore the affected system from a known good backup to ensure any backdoor or malicious modifications are completely removed.
-- Implement application whitelisting to restrict the execution of unauthorized scripts and executables, focusing on those commonly abused in this context.
-- Escalate the incident to the security operations team for further investigation and to determine if additional systems have been compromised.
-- Enhance monitoring and logging for Visual Studio build processes and related command executions to detect similar threats in the future."""
 
 
 [[rule.threat]]

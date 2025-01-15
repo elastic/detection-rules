@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/09/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -53,41 +53,6 @@ file where host.os.type == "windows" and event.action != "deletion" and
 
   not (process.executable : "?:\\Windows\\System32\\inetsrv\\w3wp.exe" and file.path : "?:\\inetpub\\temp\\IIS Temporary Compressed Files\\*")
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Archive File with Unusual Extension
-
-Archive files are commonly used for data compression and storage, often identified by specific headers. Adversaries may exploit this by disguising archives with extensions typical of images, audio, or documents to bypass security measures. The detection rule identifies such anomalies by checking for archive headers paired with unusual extensions, flagging potential masquerading attempts while excluding legitimate system processes.
-
-### Possible investigation steps
-
-- Review the file path and name to determine if it aligns with typical user or system activity, focusing on unusual directories or naming conventions.
-- Examine the file header bytes to confirm the file type and verify if it matches the expected format for the extension used.
-- Investigate the process that created or modified the file, especially if it is not a known or legitimate system process, to identify potential malicious activity.
-- Check the user account associated with the file creation or modification for any signs of compromise or unusual behavior.
-- Analyze recent network activity from the host to identify any suspicious connections or data exfiltration attempts that may correlate with the file creation.
-- Review historical alerts or logs for the host to identify any patterns or previous incidents that might indicate ongoing malicious activity.
-
-### False positive analysis
-
-- System-generated temporary files may trigger false positives, especially in environments where web servers like IIS are used. To mitigate this, ensure that the rule excludes paths such as "?:\\inetpub\\temp\\IIS Temporary Compressed Files\\*".
-- Legitimate software installations or updates might create archive files with unusual extensions as part of their process. Identify these processes and consider adding them to an exception list if they are verified as non-threatening.
-- Some backup or synchronization tools may use non-standard extensions for archive files. Review the tools in use within your environment and exclude their specific file paths or processes if they are known to be safe.
-- Custom applications developed in-house might use unconventional file extensions for archives. Work with development teams to understand these applications and exclude their file paths or processes as needed.
-- Regularly review and update the list of excluded processes and paths to ensure that only verified non-threatening behaviors are excluded, maintaining the effectiveness of the detection rule.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent potential lateral movement or data exfiltration by the adversary.
-- Terminate any suspicious processes associated with the unusual archive file creation, especially those not originating from legitimate system processes.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or software.
-- Restore any altered or deleted files from backups, ensuring that the backup is clean and free from any malicious alterations.
-- Review and update file association settings and policies to prevent unauthorized applications from executing or creating files with mismatched extensions and headers.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement additional monitoring and alerting for similar activities across the network to enhance detection and response capabilities for future attempts."""
 
 
 [[rule.threat]]

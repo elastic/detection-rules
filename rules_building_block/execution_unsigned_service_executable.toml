@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -33,46 +33,11 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and
-process.parent.executable:"C:\\Windows\\System32\\services.exe" and
+host.os.type:windows and event.category:process and event.type:start and 
+process.parent.executable:"C:\\Windows\\System32\\services.exe" and 
 (process.code_signature.exists:false or process.code_signature.trusted:false) and
 not process.code_signature.status : (errorCode_endpoint* or "errorChaining")
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Execution of an Unsigned Service
-
-The Service Control Manager (SCM) in Windows is crucial for managing system services. Adversaries may exploit SCM to run unsigned executables, potentially deploying malware or gaining elevated privileges. The detection rule identifies such activities by monitoring processes initiated by SCM, specifically those lacking valid code signatures, thus flagging potential threats for further investigation.
-
-### Possible investigation steps
-
-- Review the process details, including the executable path and name, to determine if the unsigned executable is expected or known within the environment.
-- Check the parent process, C:\\Windows\\System32\\services.exe, to confirm it is legitimate and not tampered with, as it is the parent process initiating the unsigned executable.
-- Investigate the origin of the unsigned executable by examining file creation and modification timestamps, and cross-reference with recent changes or deployments in the system.
-- Analyze the process execution context, such as user account and privileges, to assess if there is any indication of privilege escalation or unauthorized access.
-- Correlate the event with other security alerts or logs to identify any related suspicious activities or patterns, such as network connections or file modifications, that might indicate malicious behavior.
-- Consult threat intelligence sources to determine if the unsigned executable or its hash is associated with known malware or threat actors.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger the rule if they involve unsigned executables. Users can create exceptions for known update processes by verifying the source and adding them to an allowlist.
-- Custom in-house applications that are unsigned might be flagged. Ensure these applications are verified and trusted, then exclude them from the rule by specifying their executable paths.
-- Some third-party software, especially older or niche applications, may not have valid code signatures. Confirm the legitimacy of these applications and consider excluding them if they are essential and trusted.
-- Development or testing environments often run unsigned executables. To prevent unnecessary alerts, consider excluding these environments from the rule or creating specific exceptions for known development processes.
-- Temporary or transitional software deployments might lack signatures. If these are part of a controlled process, document and exclude them during the deployment phase.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of potential malware or unauthorized access.
-- Terminate the suspicious unsigned service process identified by the alert to halt any malicious activity.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious files or software.
-- Review and analyze recent changes to system services and scheduled tasks to identify unauthorized modifications or additions.
-- Restore the system from a known good backup if malicious activity is confirmed and cannot be fully remediated through cleaning.
-- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
-- Implement stricter application whitelisting policies to prevent the execution of unsigned or untrusted executables in the future."""
 
 
 [[rule.threat]]

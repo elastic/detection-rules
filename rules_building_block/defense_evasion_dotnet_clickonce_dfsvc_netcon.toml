@@ -2,7 +2,7 @@
 creation_date = "2023/09/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -36,41 +36,6 @@ sequence by user.id with maxspan=5s
   process.name : "rundll32.exe" and process.command_line : ("*dfshim*ShOpenVerbApplication*", "*dfshim*#*")]
  [network where host.os.type == "windows" and process.name : "dfsvc.exe"]
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Execution via Microsoft DotNet ClickOnce Host
-
-Microsoft DotNet ClickOnce is a deployment technology that allows users to install and run applications by clicking a link in a web browser. Adversaries may exploit this by using trusted processes like Dfsvc.exe to execute malicious payloads, bypassing security measures. The detection rule identifies suspicious activity by monitoring for specific process behaviors and network activities, indicating potential misuse of ClickOnce for defense evasion.
-
-### Possible investigation steps
-
-- Review the process execution details for rundll32.exe, focusing on the command line arguments to confirm the presence of dfshim and ShOpenVerbApplication or dfshim with a hash (#) symbol, which may indicate suspicious activity.
-- Investigate the network activity associated with dfsvc.exe to identify any unusual or unauthorized connections, especially those that might be communicating with external or suspicious IP addresses.
-- Correlate the user.id associated with the alert to determine if the activity aligns with expected behavior for that user or if it appears anomalous.
-- Check the parent process of rundll32.exe to understand how it was initiated and whether it was spawned by a legitimate application or process.
-- Examine recent file modifications or creations in the user's profile or temporary directories that might be related to the ClickOnce deployment, looking for any unexpected or malicious files.
-- Review security logs and alerts for any additional indicators of compromise or related suspicious activities around the same timeframe to assess the broader context of the potential threat.
-
-### False positive analysis
-
-- Legitimate ClickOnce applications may trigger the rule when they are installed or updated. Users can create exceptions for known trusted applications by whitelisting their specific command lines or network behaviors.
-- Software development environments that utilize ClickOnce for deploying applications might frequently trigger this rule. Exclude these environments by identifying and allowing specific user accounts or machines involved in the development process.
-- Automated deployment systems that use ClickOnce for distributing updates can cause false positives. Implement exceptions for these systems by monitoring and excluding their typical network and process patterns.
-- Internal IT tools that leverage ClickOnce for remote installations may be flagged. Identify these tools and exclude their associated processes and network activities from the rule.
-- Regularly review and update the list of exceptions to ensure that only verified and non-threatening activities are excluded, maintaining the effectiveness of the detection rule.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Terminate the suspicious processes, specifically rundll32.exe and dfsvc.exe, to stop the execution of any potentially malicious payloads.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or remnants.
-- Review and analyze network logs to identify any unauthorized or suspicious connections initiated by dfsvc.exe, and block any malicious IP addresses or domains.
-- Restore the system from a known good backup if any critical system files or applications have been compromised.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement application whitelisting to prevent unauthorized applications from executing, and ensure that only trusted ClickOnce applications are allowed to run."""
 
 
 [[rule.threat]]

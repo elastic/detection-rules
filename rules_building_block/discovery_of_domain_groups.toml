@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -39,41 +39,6 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   process.name in ("ldapsearch", "dscacheutil") or (process.name == "dscl" and process.args : "*-list*")
 )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Discovery of Domain Groups
-
-In Linux environments, commands like `ldapsearch`, `dscacheutil`, and `dscl` are used for querying domain groups and user accounts, aiding system administrators in managing network resources. Adversaries exploit these commands to gather intelligence on group memberships and permissions, which can inform their attack strategies. The detection rule identifies suspicious executions of these commands, flagging potential reconnaissance activities by monitoring specific process names and arguments, thus helping analysts to preemptively address threats.
-
-### Possible investigation steps
-
-- Review the alert details to identify the specific command executed, focusing on the process.name field to determine if it was ldapsearch, dscacheutil, or dscl.
-- Examine the process.args field to understand the context of the command execution, especially if dscl was used with the -list argument, which may indicate an attempt to enumerate domain groups.
-- Check the user account associated with the process execution to determine if the activity aligns with expected behavior for that user or if it appears suspicious.
-- Investigate the source host identified by host.os.type to assess if it is a critical system or if it has a history of similar reconnaissance activities.
-- Correlate this event with other recent alerts or logs from the same host or user to identify patterns or a sequence of reconnaissance activities that may suggest a larger attack strategy.
-- Review network logs or endpoint monitoring data to identify any subsequent suspicious activities following the command execution, such as unauthorized access attempts or data exfiltration.
-
-### False positive analysis
-
-- System administrators frequently use commands like ldapsearch, dscacheutil, and dscl for legitimate network management tasks. Regularly review and whitelist these activities if they originate from known administrative accounts or IP addresses.
-- Automated scripts or scheduled tasks may execute these commands as part of routine system audits or maintenance. Identify and document these scripts, then create exceptions in the detection rule to prevent unnecessary alerts.
-- Security tools or monitoring solutions might use these commands for compliance checks or security assessments. Verify the source of such activities and exclude them if they align with authorized security operations.
-- Development or testing environments may generate similar command executions as part of application testing. Ensure these environments are well-documented and consider excluding them from the rule to reduce noise.
-- If a specific user or service account is known to perform these actions regularly, consider adding them to an exception list after confirming their legitimacy and necessity for business operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further reconnaissance or lateral movement by the adversary.
-- Terminate any suspicious processes identified by the detection rule, specifically those involving `ldapsearch`, `dscacheutil`, or `dscl` with the `-list` argument.
-- Conduct a thorough review of recent logs and system activities to identify any unauthorized access or changes to group memberships and permissions.
-- Reset credentials and review permissions for any accounts that may have been exposed or compromised during the reconnaissance activity.
-- Escalate the incident to the security operations team for further investigation and to determine if additional systems have been affected.
-- Implement enhanced monitoring on the affected system and similar environments to detect any recurrence of the suspicious activity.
-- Review and update firewall and access control policies to limit unnecessary exposure of domain group information to unauthorized users."""
 
 
 [[rule.threat]]

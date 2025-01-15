@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -43,40 +43,6 @@ process where host.os.type == "windows" and event.type == "start" and
   process.args : ("call", "set", "get") and
   not process.args : ("*/node:localhost*", "*/node:\"127.0.0.1\"*", "/node:127.0.0.1")
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating WMIC Remote Command
-
-WMIC (Windows Management Instrumentation Command-line) is a powerful tool for managing Windows systems, allowing administrators to execute commands on remote hosts. However, adversaries can exploit WMIC for lateral movement by executing commands on remote systems without needing additional software. The detection rule identifies suspicious WMIC usage by monitoring command executions targeting non-local nodes, filtering out legitimate local operations, and flagging potential misuse for further investigation.
-
-### Possible investigation steps
-
-- Review the process details to confirm the execution of WMIC.exe, focusing on the process name and arguments to ensure they match the suspicious pattern identified in the query.
-- Examine the source and destination nodes involved in the command execution to determine if the remote node is a legitimate target for administrative tasks or if it appears unusual.
-- Check the user account associated with the WMIC command execution to verify if it is a known and authorized administrator account or if it appears suspicious.
-- Investigate the historical activity of the involved user account and source host to identify any patterns of lateral movement or other suspicious behavior.
-- Correlate the event with other security logs, such as authentication logs or network traffic, to gather additional context and identify potential unauthorized access or data exfiltration attempts.
-- Assess the risk and impact of the detected activity by considering the criticality of the involved systems and the potential for further compromise.
-
-### False positive analysis
-
-- Legitimate administrative tasks using WMIC to manage remote systems can trigger false positives. To handle this, identify and document regular administrative activities and create exceptions for these specific command patterns.
-- Automated scripts or scheduled tasks that use WMIC for routine maintenance or monitoring can be mistaken for suspicious activity. Review and whitelist these scripts by excluding their specific command signatures from the detection rule.
-- Internal IT tools that rely on WMIC for remote management may also cause false alerts. Collaborate with IT teams to understand these tools' usage patterns and adjust the rule to exclude known benign operations.
-- Ensure that any exceptions or exclusions are regularly reviewed and updated to reflect changes in administrative practices or IT infrastructure to maintain the effectiveness of the detection rule.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further lateral movement by the adversary. This can be done by disabling network interfaces or using network segmentation tools.
-- Terminate any suspicious WMIC processes identified on the affected system to stop any ongoing malicious activity.
-- Conduct a thorough review of user accounts and permissions on the affected system and any connected systems to identify unauthorized access or privilege escalation. Reset passwords and revoke access where necessary.
-- Check for any unauthorized changes or configurations on the affected system, especially those related to remote services, and revert them to their original state.
-- Restore the affected system from a known good backup if any malicious changes or persistence mechanisms are detected that cannot be easily remediated.
-- Enhance monitoring and logging on the affected and surrounding systems to detect any further suspicious activity, focusing on WMIC usage and remote service connections.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
 
 
 [[rule.threat]]

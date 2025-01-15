@@ -2,7 +2,7 @@
 creation_date = "2023/07/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -79,40 +79,6 @@ library where host.os.type == "windows" and
         "553451008520a5f0110d84192cba40208fb001c27454f946e85e6fb2e6553292"
     )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Unsigned DLL Loaded by a Trusted Process
-
-In Windows environments, trusted processes are often digitally signed to ensure integrity and authenticity. Adversaries exploit this by loading unsigned DLLs into these processes, effectively masking malicious activities. The detection rule identifies such anomalies by checking for unsigned DLLs loaded by trusted processes, focusing on recent file modifications and excluding known safe hashes, thus highlighting potential threats.
-
-### Possible investigation steps
-
-- Review the process code signature status to confirm the legitimacy of the trusted process that loaded the unsigned DLL. This can help determine if the process itself has been compromised.
-- Examine the file creation and modification times of the DLL using the fields dll.Ext.relative_file_creation_time and dll.Ext.relative_file_name_modify_time to assess if the DLL was recently altered or created, which might indicate malicious activity.
-- Investigate the path of the DLL and the process executable using the dll.path and process.executable fields to verify if the DLL is located in an expected directory or if it is suspiciously placed in the application's directory.
-- Check the user ID associated with the process using the user.id field to determine if the process was executed by a legitimate user or a system account, excluding the known safe user ID "S-1-5-18".
-- Cross-reference the DLL's SHA-256 hash against known safe hashes to ensure it is not a false positive. If the hash is not listed in the known safe hashes, further analysis of the DLL's behavior and origin is warranted.
-
-### False positive analysis
-
-- Unsigned DLLs from legitimate software updates or installations may trigger alerts. Users can manage this by maintaining an updated list of known safe hashes and excluding them from the rule.
-- Virtual devices like "Virtual DVD-ROM" or "Virtual Disk" may load unsigned DLLs as part of their normal operation. Consider excluding these specific device product IDs if they are frequently used in your environment.
-- System processes running under the local system account (user ID "S-1-5-18") might load unsigned DLLs during legitimate operations. Ensure these are excluded to prevent unnecessary alerts.
-- Frequent modifications to DLLs in development environments can cause false positives. Implement exceptions for directories or processes associated with development activities to reduce noise.
-- Regularly review and update the list of excluded hashes to ensure it reflects the current state of trusted software and system updates, minimizing the risk of overlooking new threats.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat and to contain any ongoing malicious activity.
-- Terminate the trusted process that has loaded the unsigned DLL to stop any malicious actions being executed under its context.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or remnants.
-- Review and restore any modified or deleted system files from a known good backup to ensure system integrity and functionality.
-- Analyze the unsigned DLL and its associated process to determine the source and method of compromise, documenting findings for further investigation.
-- Escalate the incident to the security operations center (SOC) or incident response team for a deeper investigation and to assess the potential impact on other systems.
-- Implement application whitelisting and enhance monitoring to prevent similar threats, ensuring that only digitally signed and verified DLLs are allowed to load into trusted processes."""
 
 
 [[rule.threat]]

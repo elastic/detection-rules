@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -38,40 +38,6 @@ query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
 process.name : "* "
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Processes with Trailing Spaces
-
-In Linux and macOS environments, processes can be manipulated by appending trailing spaces to their names, a tactic used by adversaries to disguise malicious activities as legitimate processes. This evasion technique exploits default file handling, which often overlooks such anomalies. The detection rule identifies these deceptive processes by monitoring for execution events with names ending in spaces, flagging potential masquerading attempts.
-
-### Possible investigation steps
-
-- Review the process name that triggered the alert to confirm the presence of trailing spaces, which may indicate an attempt to masquerade as a legitimate process.
-- Examine the parent process of the suspicious process to determine if it was spawned by a known legitimate application or a potentially malicious one.
-- Check the user account associated with the process execution to assess if it aligns with expected behavior or if it might be compromised.
-- Investigate the command line arguments used during the process execution to identify any unusual or unexpected parameters that could suggest malicious intent.
-- Correlate the event with other logs or alerts from the same host or user to identify any patterns or additional suspicious activities that might indicate a broader attack.
-
-### False positive analysis
-
-- System utilities or scripts with trailing spaces in their names may trigger alerts. Review these processes to confirm their legitimacy and consider adding them to an exception list if they are verified as non-threatening.
-- Custom applications or development scripts that inadvertently include trailing spaces in their process names can cause false positives. Regularly audit these applications and educate developers to avoid such naming conventions.
-- Automated deployment or configuration management tools might create processes with trailing spaces as part of their operations. Identify these tools and exclude them from monitoring if they are confirmed to be safe.
-- Legacy software that uses unconventional naming practices, including trailing spaces, should be assessed for security risks. If deemed safe, these can be added to an exclusion list to prevent unnecessary alerts.
-- Regularly update and review the exception list to ensure that only verified non-threatening processes are excluded, maintaining the effectiveness of the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
-- Terminate any suspicious processes identified with trailing spaces in their names to halt any ongoing malicious activity.
-- Conduct a thorough review of the system's process logs and execution history to identify any additional instances of masquerading or related suspicious activities.
-- Restore the affected system from a known good backup to ensure any malicious modifications are removed.
-- Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited.
-- Implement enhanced monitoring for process execution events, specifically focusing on anomalies such as trailing spaces in process names, to improve detection capabilities.
-- Escalate the incident to the security operations center (SOC) or relevant incident response team for further investigation and to determine if broader organizational impacts exist."""
 
 
 [[rule.threat]]

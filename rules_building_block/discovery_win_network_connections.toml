@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -48,39 +48,6 @@ process where event.type == "start" and
   (process.name : "nbtstat.exe" and process.args : "-s*")
 ) and not user.id : "S-1-5-18"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Windows System Network Connections Discovery
-
-Windows systems provide utilities like `netstat`, `net`, and `nbtstat` to manage and monitor network connections. Adversaries exploit these tools to map network connections, identifying potential targets. The detection rule monitors the execution of these utilities, focusing on specific arguments that suggest enumeration activities, while excluding benign system processes, to identify suspicious network discovery attempts.
-
-### Possible investigation steps
-
-- Review the process execution details to identify the user account associated with the alert, focusing on the user.id field to determine if it deviates from expected user behavior.
-- Examine the parent process of the flagged command to understand the context of execution and assess whether it was initiated by a legitimate application or script.
-- Investigate the command-line arguments used with the executed process (e.g., netstat.exe, net.exe, nbtstat.exe) to determine if they align with typical administrative tasks or suggest malicious intent.
-- Check the historical activity of the involved user account and system to identify any patterns or anomalies that could indicate a broader compromise or unauthorized access.
-- Correlate the alert with other security events or logs from the same timeframe to identify any related suspicious activities or indicators of compromise within the network.
-
-### False positive analysis
-
-- System administrators or network engineers may frequently use netstat, net, or nbtstat for legitimate network troubleshooting and monitoring tasks. To reduce false positives, consider excluding these users or specific user IDs from the rule, especially if they are known to perform these tasks regularly.
-- Automated scripts or scheduled tasks that utilize these network utilities for system health checks or inventory purposes can trigger the rule. Identify and exclude these processes by their parent process name or specific command-line arguments that are consistently used in these scripts.
-- Security software or network management tools might invoke these commands as part of their normal operations. Review the parent process names and user IDs associated with these tools and add them to the exclusion list to prevent unnecessary alerts.
-- In environments where network configurations are frequently changed or updated, legitimate use of net and net1 commands with arguments like "use", "user", "session", and "config" might be common. Monitor and document these activities to distinguish between routine operations and potential threats, and adjust the rule to exclude these known benign activities.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Terminate any suspicious processes identified by the detection rule, such as those involving netstat.exe, net.exe, net1.exe, or nbtstat.exe with suspicious arguments.
-- Conduct a thorough review of recent network connections and communications from the affected system to identify any unauthorized access or data transfers.
-- Reset credentials for any user accounts that were active on the affected system during the time of the alert to prevent further unauthorized access.
-- Apply patches and updates to the affected system to address any vulnerabilities that may have been exploited by the adversary.
-- Monitor the network for any further suspicious activity or attempts to use similar network discovery tools, adjusting network security policies as necessary.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
 
 
 [[rule.threat]]

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -33,41 +33,6 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "org.add_member"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating New User Added To GitHub Organization
-
-GitHub organizations manage collaborative projects, allowing users to contribute code and manage repositories. Adversaries may exploit this by adding unauthorized users to gain persistent access or manipulate accounts. The detection rule monitors audit logs for new member additions, flagging potential unauthorized access attempts, thus helping to identify and mitigate account manipulation threats.
-
-### Possible investigation steps
-
-- Review the GitHub audit logs to confirm the event details, specifically looking for entries where event.dataset is "github.audit" and event.action is "org.add_member" to verify the addition of the new user.
-- Identify the user who was added to the organization and gather information about their GitHub profile to assess their legitimacy and any potential connections to the organization.
-- Check the timestamp of the event to determine if the user addition occurred during unusual hours, which might indicate suspicious activity.
-- Investigate the user who performed the action of adding the new member to ensure they have the appropriate permissions and authority to do so.
-- Review recent activity logs for both the added user and the user who added them to identify any other unusual or unauthorized actions.
-- Contact the organization owner or relevant team members to confirm whether the addition of the new user was expected and authorized.
-
-### False positive analysis
-
-- Regular onboarding of new team members can trigger alerts. To manage this, maintain a list of known user additions and create exceptions for these events in the detection rule.
-- Automated processes or bots added to the organization for integration purposes may be flagged. Identify these accounts and exclude them from the rule to prevent unnecessary alerts.
-- Temporary contractors or external collaborators might be added frequently. Establish a process to review and whitelist these users if they are expected and authorized.
-- Organizational restructuring or team changes can lead to multiple legitimate user additions. Coordinate with HR or team leads to anticipate these changes and adjust the rule settings accordingly.
-- Scheduled audits or security reviews might involve adding users for verification purposes. Document these events and create temporary exceptions to avoid false positives during these periods.
-
-### Response and remediation
-
-- Immediately review the audit logs to confirm the identity and legitimacy of the newly added user. Verify if the addition was authorized by a known and trusted member of the organization.
-- Temporarily suspend the new user's access to the organization if the addition is deemed unauthorized or suspicious, to prevent any potential malicious activity.
-- Notify the organization's security team and relevant stakeholders about the unauthorized addition to ensure awareness and prompt action.
-- Conduct a thorough review of recent changes and activities in the organization's repositories to identify any unauthorized modifications or suspicious behavior linked to the new user.
-- Revoke any unauthorized access tokens or credentials associated with the new user to prevent further unauthorized access.
-- Implement additional access controls, such as multi-factor authentication (MFA) and role-based access, to enhance security and prevent similar incidents in the future.
-- Escalate the incident to higher-level security management or an incident response team if the unauthorized access is part of a larger or more complex threat campaign."""
 
 
 [[rule.threat]]

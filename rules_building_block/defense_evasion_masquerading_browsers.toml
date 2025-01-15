@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -165,41 +165,6 @@ process where host.os.type == "windows" and event.type == "start" and
     )
   )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Masquerading as Browser Process
-
-Browsers are integral to user interaction with the web, often trusted and whitelisted in security policies. Adversaries exploit this trust by masquerading malicious processes as legitimate browser processes, bypassing security measures and deceiving users. The detection rule identifies anomalies in browser processes, such as unusual or unsigned certificates, to flag potential threats, ensuring that only verified processes are executed.
-
-### Possible investigation steps
-
-- Review the process name and executable path to determine if it matches any known legitimate browser processes or paths listed in the query.
-- Check the process code signature details, specifically the subject name and trust status, to verify if the process is signed by a recognized and trusted entity.
-- Investigate the parent process to understand how the suspicious process was initiated and assess if it aligns with typical browser launch behavior.
-- Analyze the command-line arguments used by the process to identify any unusual or suspicious flags that may indicate malicious activity.
-- Correlate the process start event with other security events or logs from the same host to identify any related suspicious activities or patterns.
-- Consult threat intelligence sources to determine if the process name, executable path, or code signature has been associated with known threats or malware campaigns.
-
-### False positive analysis
-
-- Processes from legitimate software like HP Sure Click, Dynatrace, and Burp Suite may trigger false positives due to their use of Chrome executables. Users can mitigate this by adding exceptions for these specific paths and code signatures.
-- Microsoft Edge WebView2 processes signed by trusted entities like Bromium, Amazon, or Code Systems Corporation might be flagged. To handle this, users should ensure these signatures are included in the allowlist.
-- Firefox's default-browser-agent.exe signed by WATERFOX LIMITED can be a false positive. Users should verify the signature and add it to the trusted list if applicable.
-- Chromium-based browser processes from trusted vendors such as Citrix, AVG, or NortonLifeLock may be incorrectly flagged. Users should confirm the legitimacy of these signatures and update the allowlist accordingly.
-- Regularly review and update the list of trusted code signatures and executable paths to minimize false positives while maintaining security.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malware or unauthorized access.
-- Terminate any suspicious processes identified by the detection rule that are masquerading as legitimate browser processes.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or software.
-- Review and validate the code signatures of all browser-related processes on the affected system to ensure they are from trusted sources.
-- Restore any compromised systems from a known good backup to ensure system integrity and remove any persistent threats.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement enhanced monitoring and logging for browser processes across the network to detect similar threats in the future and improve response times."""
 
 
 [[rule.threat]]

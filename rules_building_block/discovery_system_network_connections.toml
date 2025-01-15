@@ -2,7 +2,7 @@
 creation_date = "2023/07/11"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -35,40 +35,6 @@ query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
 process.name in ("netstat", "lsof", "who", "w")
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating System Network Connections Discovery
-
-System network connections discovery involves tools like `netstat` and `lsof` to list active connections, aiding in network diagnostics. Adversaries exploit this to map network topology and identify potential targets. The detection rule identifies suspicious use of these tools by monitoring process execution events, flagging unusual activity patterns indicative of reconnaissance efforts.
-
-### Possible investigation steps
-
-- Review the process execution event details to confirm the process name is either "netstat", "lsof", "who", or "w", as these are the tools flagged by the rule.
-- Check the user account associated with the process execution to determine if the activity aligns with expected behavior for that user or if it appears suspicious.
-- Investigate the parent process of the flagged execution to understand the context in which the network discovery tool was launched, which may provide insights into whether the activity is part of a legitimate workflow or a potential threat.
-- Analyze the timing and frequency of the process execution events to identify patterns that may suggest automated or scripted activity, which could indicate malicious intent.
-- Correlate the event with other security alerts or logs from the same host or user to identify any additional indicators of compromise or related suspicious activities.
-- Examine network logs or connection details to identify any unusual or unauthorized network connections that may have been established as a result of the network discovery activity.
-
-### False positive analysis
-
-- Routine administrative tasks may trigger the rule when system administrators use netstat or lsof for legitimate network diagnostics. To manage this, create exceptions for known administrator accounts or specific times when these tasks are regularly performed.
-- Automated monitoring scripts that include network diagnostics commands like netstat or lsof can cause false positives. Identify and exclude these scripts by their process names or execution paths.
-- System health checks or security tools that periodically run netstat or lsof as part of their operations can be mistaken for suspicious activity. Whitelist these tools by verifying their signatures and ensuring they are from trusted sources.
-- Development or testing environments where network tools are frequently used for debugging purposes may generate alerts. Implement exclusions based on environment-specific identifiers or IP ranges to reduce noise.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further reconnaissance or lateral movement by the adversary.
-- Terminate any suspicious processes identified as using `netstat`, `lsof`, `who`, or `w` that are not part of normal operations or expected administrative tasks.
-- Conduct a thorough review of recent network connection logs to identify any unauthorized or unusual connections that may indicate further compromise or data exfiltration.
-- Reset credentials and review access permissions for accounts on the affected system to ensure no unauthorized access persists.
-- Apply security patches and updates to the affected system to mitigate any known vulnerabilities that could have been exploited.
-- Enhance monitoring and logging on the affected system and network to detect any further suspicious activities or attempts to use similar discovery techniques.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]

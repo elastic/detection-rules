@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -44,41 +44,6 @@ file where host.os.type == "windows" and event.type != "deletion" and file.exten
     (process.name : "APPServerClient.exe" and process.code_signature.status: "trusted" and file.name : "Parallels Client.lnk")
   )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Shortcut File Written or Modified on Startup Folder
-
-In Windows environments, the Startup folder is used to launch programs automatically when a user logs in. Adversaries exploit this by placing or altering shortcut files (.lnk) in this folder to achieve persistence. The detection rule monitors for non-deletion events involving .lnk files in the Startup paths, excluding trusted processes, to identify potential unauthorized modifications indicative of malicious activity.
-
-### Possible investigation steps
-
-- Review the file path and name of the .lnk file involved in the alert to determine if it matches any known malicious patterns or if it is associated with legitimate software.
-- Check the process name and code signature status that created or modified the .lnk file to verify if it is a trusted process or potentially malicious.
-- Investigate the user account associated with the file path to determine if there are any signs of compromise or unusual activity.
-- Examine recent login events and other security logs for the user to identify any suspicious behavior or unauthorized access.
-- Cross-reference the .lnk file with threat intelligence sources to see if it is associated with known malware or adversary techniques.
-- If the .lnk file is deemed suspicious, isolate the affected system and perform a deeper forensic analysis to identify any additional indicators of compromise.
-
-### False positive analysis
-
-- Trusted applications like OneNote, Okta Verify, OneLaunch, and Parallels Client may create or modify shortcut files in the Startup folder as part of their normal operation. These are not malicious activities and can be safely excluded from the detection rule.
-- To handle these false positives, ensure that the detection rule includes exceptions for processes with verified code signatures that are known to create legitimate shortcuts, as specified in the rule.
-- Regularly review and update the list of trusted processes and their associated shortcut files to ensure that new legitimate applications are not flagged as suspicious.
-- Consider implementing a whitelist approach where only known and trusted applications are allowed to modify the Startup folder, reducing the likelihood of false positives.
-- Engage with users to understand their typical software usage patterns, which can help in identifying and excluding benign activities that may otherwise trigger the rule.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or persistence by the adversary.
-- Terminate any suspicious processes that are not recognized or trusted, especially those associated with the creation or modification of .lnk files in the Startup folder.
-- Remove any unauthorized or suspicious .lnk files from the Startup folder paths to prevent them from executing on system startup.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious files or software.
-- Review and restore any altered system configurations or settings to their default or secure state to ensure system integrity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement additional monitoring and alerting for similar activities across the network to enhance detection and response capabilities for future incidents."""
 
 
 [[rule.threat]]

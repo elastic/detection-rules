@@ -2,7 +2,7 @@
 creation_date = "2023/08/24"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/28"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -44,41 +44,6 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and process.name : "wbemtest.exe"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating WMI WBEMTEST Utility Execution
-
-Windows Management Instrumentation (WMI) is a powerful framework for managing data and operations on Windows systems. The WBEMTEST utility is a diagnostic tool that allows users to interact with WMI, often used for legitimate administrative tasks. However, adversaries can exploit it to execute commands or gather information stealthily. The detection rule identifies instances of WBEMTEST execution, flagging potential misuse by monitoring process initiation events on Windows systems.
-
-### Possible investigation steps
-
-- Review the process start event details to confirm the execution of wbemtest.exe, focusing on the process name and event type fields.
-- Identify the user account associated with the wbemtest.exe process initiation to determine if the execution aligns with expected administrative activity.
-- Examine the parent process of wbemtest.exe to understand how it was launched and assess if it was initiated by a legitimate application or script.
-- Check for any network connections or remote interactions initiated by wbemtest.exe to identify potential unauthorized access to remote endpoints.
-- Investigate the historical activity of the user and host involved to identify any patterns of suspicious behavior or previous alerts related to WMI usage.
-- Correlate this event with other security alerts or logs from the same host or user to determine if this is part of a broader attack pattern.
-
-### False positive analysis
-
-- Administrative tasks using wbemtest.exe can trigger alerts. Regularly review and document legitimate administrative activities to differentiate them from potential threats.
-- Scheduled maintenance scripts or automated processes that utilize wbemtest.exe may cause false positives. Identify and whitelist these processes to prevent unnecessary alerts.
-- Software installations or updates that interact with WMI might execute wbemtest.exe. Monitor and log these events to establish a baseline of expected behavior.
-- Developers or IT staff using wbemtest.exe for troubleshooting or development purposes can be mistaken for adversarial activity. Implement user-based exceptions for known personnel conducting these tasks.
-- Security tools or monitoring solutions that leverage WMI for data collection might inadvertently execute wbemtest.exe. Coordinate with security teams to ensure these activities are recognized and excluded from alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Terminate the wbemtest.exe process if it is confirmed to be running without legitimate administrative purpose.
-- Conduct a thorough review of recent WMI activity on the affected system to identify any unauthorized or suspicious actions performed using WMI.
-- Reset credentials for any accounts that were used to execute wbemtest.exe, especially if they have administrative privileges, to prevent further misuse.
-- Implement host-based firewall rules to restrict WMI access to only trusted IP addresses and systems, reducing the risk of remote exploitation.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Update and enhance monitoring rules to detect similar WMI misuse attempts, ensuring that alerts are generated for any unauthorized execution of wbemtest.exe in the future."""
 
 
 [[rule.threat]]

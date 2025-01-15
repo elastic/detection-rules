@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/12/10"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for the Github Integration."
 
@@ -33,40 +33,6 @@ type = "eql"
 query = '''
 configuration where event.dataset == "github.audit" and event.action == "repo.create"
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating GitHub Repo Created
-GitHub repositories are essential for code collaboration and version control in cloud environments. Adversaries may exploit this by creating repositories to host malicious code or scripts for execution. The detection rule monitors GitHub audit logs for repository creation events, flagging potential unauthorized or suspicious activities that align with execution tactics, thereby aiding in early threat identification.
-
-### Possible investigation steps
-
-- Review the GitHub audit logs to confirm the details of the repository creation event, including the timestamp and the user account responsible for the action.
-- Verify the identity and role of the user who created the repository to determine if they have legitimate reasons and permissions to create new repositories.
-- Check the contents of the newly created repository for any suspicious or malicious code, scripts, or files that could indicate unauthorized activity.
-- Investigate any recent changes in user permissions or access levels that might have allowed unauthorized repository creation.
-- Correlate the repository creation event with other security alerts or logs to identify any related suspicious activities or patterns.
-- Contact the user or team responsible for the repository creation to confirm the legitimacy of the action and gather additional context if necessary.
-
-### False positive analysis
-
-- Routine repository creation by development teams can trigger false positives. To manage this, identify and whitelist repositories created by trusted team members or service accounts.
-- Automated processes or CI/CD pipelines that create repositories as part of their workflow may be flagged. Exclude these known processes by setting up exceptions based on specific user agents or IP addresses.
-- Educational or training sessions where multiple repositories are created for learning purposes can lead to alerts. Temporarily adjust the rule sensitivity or add exceptions during these sessions.
-- Open-source project contributions where new repositories are frequently created by contributors can be excluded by verifying contributor identities and adding them to an allowlist.
-- Internal hackathons or innovation days often result in a spike in repository creation. Coordinate with event organizers to anticipate these activities and adjust monitoring rules accordingly.
-
-### Response and remediation
-
-- Immediately review the newly created GitHub repository to determine if it contains any unauthorized or malicious code. If malicious content is identified, remove the repository to prevent further access or distribution.
-- Revoke access for any users or tokens that were involved in the unauthorized creation of the repository to prevent further unauthorized actions.
-- Conduct a thorough audit of recent GitHub activity logs to identify any other suspicious actions or patterns that may indicate a broader compromise.
-- Notify the security team and relevant stakeholders about the incident, providing details of the repository creation and any identified malicious content for further analysis and response.
-- Implement additional monitoring on GitHub activities, focusing on repository creation and access patterns, to detect similar unauthorized actions in the future.
-- Review and update GitHub access controls and permissions to ensure that only authorized personnel have the ability to create repositories, reducing the risk of unauthorized actions.
-- If the incident is part of a larger attack pattern, escalate to incident response teams for a comprehensive investigation and coordinated response."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/06/08"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -60,41 +60,6 @@ file.path : ("/etc/sysctl.conf" or "/etc/sysctl.d" or /etc/sysctl.d/*) and not p
   dpkg or dockerd or unattended-upg or systemd-sysctl or python* or auditbeat or dpkg or pool*
 )
 '''
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Sysctl File Event
-
-Sysctl configuration files in Linux environments manage kernel parameters, crucial for system performance and security. Adversaries may exploit these files to alter system behavior, potentially destabilizing or compromising the system. The detection rule identifies unauthorized file access or modifications by monitoring specific file events and excluding benign processes, thus highlighting potential malicious activity.
-
-### Possible investigation steps
-
-- Review the specific file path involved in the alert to determine if it is a critical sysctl configuration file, such as /etc/sysctl.conf or a file within /etc/sysctl.d/.
-- Identify the process that accessed or modified the file by examining the process.name field, ensuring it is not one of the excluded benign processes like dpkg or systemd-sysctl.
-- Check the timestamp of the event to correlate it with any known system changes or updates that might explain the file access.
-- Investigate the user account associated with the process to determine if the access was authorized or if the account has a history of suspicious activity.
-- Examine recent system logs for any other unusual activities or errors that might indicate tampering with system configurations.
-- Assess the current system stability and performance to identify any anomalies that could be linked to unauthorized sysctl file modifications.
-
-### False positive analysis
-
-- Routine system updates and package installations can trigger file events on sysctl configuration files. To manage this, exclude processes like dpkg and unattended-upg from the detection rule, as they are commonly involved in legitimate system maintenance activities.
-- Docker-related operations may access sysctl files as part of container management. Exclude the dockerd process to prevent false positives during normal Docker operations.
-- System initialization and configuration processes, such as systemd-sysctl, may read or write to sysctl files. Exclude this process to avoid alerts during standard system boot or configuration changes.
-- Monitoring tools like auditbeat may access sysctl files for auditing purposes. Exclude auditbeat to prevent false positives from legitimate monitoring activities.
-- Custom scripts or automation tools that frequently interact with sysctl files should be reviewed. If deemed non-threatening, add these specific process names to the exclusion list to reduce unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or potential spread of malicious activity.
-- Review the sysctl configuration files for unauthorized changes. Restore the files from a known good backup if any unauthorized modifications are detected.
-- Identify and terminate any suspicious processes that accessed the sysctl files, especially those not listed in the exclusion criteria of the detection rule.
-- Conduct a thorough investigation to determine how the unauthorized access occurred, focusing on potential vulnerabilities or misconfigurations that could have been exploited.
-- Apply necessary patches or updates to the system to address any identified vulnerabilities that may have been exploited.
-- Enhance monitoring and logging for sysctl file access to ensure any future unauthorized attempts are detected promptly.
-- Escalate the incident to the security operations team for further analysis and to determine if additional systems may be affected."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
