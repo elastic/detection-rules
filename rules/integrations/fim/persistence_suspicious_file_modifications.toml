@@ -2,7 +2,7 @@
 creation_date = "2024/06/03"
 integration = ["fim"]
 maturity = "production"
-updated_date = "2024/09/23"
+updated_date = "2024/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -48,7 +48,9 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
+    "Tactic: Credential Access",
     "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
     "Data Source: File Integrity Monitoring",
 ]
 timestamp_override = "event.ingested"
@@ -69,6 +71,9 @@ file.path : (
 
   // LD_PRELOAD
   "/etc/ld.so.preload", "/etc/ld.so.conf.d/*", "/etc/ld.so.conf",
+
+  // Dynamic linker
+  "/lib/ld-linux*.so*", "/lib64/ld-linux*.so*", "/usr/lib/ld-linux*.so*", "/usr/lib64/ld-linux*.so*",
 
   // message-of-the-day (MOTD)
   "/etc/update-motd.d/*",
@@ -107,7 +112,20 @@ file.path : (
   "/home/*/.kde/share/autostart/*", "/root/.kde/share/autostart/*",
   "/home/*/.kde4/share/autostart/*", "/root/.kde4/share/autostart/*",
   "/home/*/.local/share/autostart/*", "/root/.local/share/autostart/*",
-  "/home/*/.config/autostart-scripts/*", "/root/.config/autostart-scripts/*"
+  "/home/*/.config/autostart-scripts/*", "/root/.config/autostart-scripts/*",
+
+  // LKM configuration files
+  "/etc/modules", "/etc/modprobe.d/*", "/usr/lib/modprobe.d/*", "/etc/modules-load.d/*",
+  "/run/modules-load.d/*", "/usr/local/lib/modules-load.d/*", "/usr/lib/modules-load.d/*",
+
+  // PAM modules & configuration files
+  "/lib/security/*", "/lib64/security/*", "/usr/lib/security/*", "/usr/lib64/security/*",
+  "/lib/x86_64-linux-gnu/security/*", "/usr/lib/x86_64-linux-gnu/security/*",
+  "/etc/pam.d/*", "/etc/security/pam_*", "/etc/pam.conf",
+
+  // Misc.
+  "/etc/shells"
+
 ) and not (
   file.path : (
     "/var/spool/cron/crontabs/tmp.*", "/run/udev/rules.d/*rules.*", "/home/*/.ssh/known_hosts.*", "/root/.ssh/known_hosts.*"
@@ -116,38 +134,48 @@ file.path : (
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1037.004"
 name = "RC Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/004/"
 
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
 
 [[rule.threat.technique]]
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1136.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1136/001/"
 
-
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1543.002"
 name = "Systemd Service"
 reference = "https://attack.mitre.org/techniques/T1543/002/"
-
 
 [[rule.threat.technique]]
 id = "T1556"
@@ -158,42 +186,67 @@ reference = "https://attack.mitre.org/techniques/T1556/"
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1053.003"
 name = "Cron"
 reference = "https://attack.mitre.org/techniques/T1053/003/"
 
-
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
-
-
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
