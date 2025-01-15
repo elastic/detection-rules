@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/11/03"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/09/23"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+min_stack_version = "8.13.0"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +13,7 @@ Identifies the deletion of sensitive Linux system logs. This may indicate an att
 forensic evidence on a system.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "System Log File Deletion"
@@ -69,6 +71,7 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
