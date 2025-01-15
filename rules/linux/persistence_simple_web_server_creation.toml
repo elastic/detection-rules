@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2024/12/17"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/12/17"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/08"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ simple HTTP web servers to establish persistence on a compromised system by uplo
 to the server web root, allowing them to regain remote access to the system if lost. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Simple HTTP Web Server Creation"
@@ -52,14 +54,19 @@ tags = [
     "Tactic: Execution",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  (process.name regex~ """php?[0-9]?\.?[0-9]{0,2}""" and process.args == "-S") or
-  (process.name like "python*" and process.args in ("--cgi", "CGIHTTPServer"))
-)
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  (
+    (process.name regex~ """php?[0-9]?\.?[0-9]{0,2}""" and process.args == "-S") or
+    (process.name like "python*" and process.args in ("--cgi", "CGIHTTPServer"))
+  )
 '''
 
 [[rule.threat]]
