@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/01/09"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2025/01/07"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Identifies recursive process capability enumeration of the entire filesystem thr
 may manipulate identified capabilities to gain root privileges.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Capability Enumeration"
@@ -51,14 +51,16 @@ tags = [
     "Tactic: Discovery",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and
-process.name == "getcap" and process.args == "-r" and process.args == "/" and process.args_count == 3 and
-user.id != "0"
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "ProcessRollup2") and
+  process.name == "getcap" and process.args == "-r" and process.args == "/" and
+  process.args_count == 3 and user.id != "0"
 '''
 
 
