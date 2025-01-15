@@ -217,8 +217,8 @@ class TestValidRules(BaseRuleTest):
         failures = []
 
         for rule in self.all_rules:
-            if not rule.contents.data.is_elastic_rule:
-                continue  # Don't enforce on non-Elastic rules
+            if not rule.contents.data.is_elastic_rule or rule.contents.data.building_block_type:
+                continue  # Don't enforce on non-Elastic rules or building block rules
 
             note_field = rule.contents.data.get("note")
 
