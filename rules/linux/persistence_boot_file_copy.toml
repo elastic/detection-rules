@@ -64,7 +64,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed") and
 process.name in ("cp", "mv") and process.parent.executable != null and process.args like~ "/boot/*" and not (
   process.parent.name in ("update-initramfs", "dracut", "grub-mkconfig", "shim-install", "sudo", "activate-theme") or
   process.parent.executable like~ ("/usr/lib/kernel/install.d/*", "/tmp/newroot/*", "/var/lib/dpkg/info/*") or
