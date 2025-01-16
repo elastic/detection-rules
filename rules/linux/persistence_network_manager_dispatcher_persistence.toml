@@ -76,9 +76,11 @@ file where host.os.type == "linux" and event.type == "creation" and file.path li
     "/usr/sbin/sshd", "/usr/bin/gitlab-runner", "/opt/gitlab/embedded/bin/ruby", "/usr/sbin/gdm", "/usr/bin/install",
     "/usr/local/manageengine/uems_agent/bin/dcregister", "/usr/local/bin/pacman"
   ) or
-process.executable like~ (
+  process.executable like~ (
     "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*"
-  )
+  ) or
+  file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
+  (process.name == "sed" and file.name : "sed*")
 )
 '''
 
