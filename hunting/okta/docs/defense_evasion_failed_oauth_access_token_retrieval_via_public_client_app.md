@@ -33,6 +33,8 @@ from logs-okta.system*
 
     // filter for scopes that are not implicitly granted
     and okta.outcome.reason == "no_matching_scope"
+
+| keep @timestamp, event.action, okta.actor.type, okta.outcome.result, okta.outcome.reason, okta.actor.display_name
 ```
 
 ## Notes

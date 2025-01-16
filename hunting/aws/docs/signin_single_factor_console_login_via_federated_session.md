@@ -24,6 +24,7 @@ from logs-aws.cloudtrail-*
     and aws.cloudtrail.user_identity.type == "FederatedUser"
 | dissect aws.cloudtrail.additional_eventdata "{%{?mobile_version_key}=%{mobile_version}, %{?mfa_used_key}=%{mfa_used}}"
 | where mfa_used == "No"
+| keep @timestamp, event.provider, event.action, aws.cloudtrail.event_type, aws.cloudtrail.user_identity.type, aws.cloudtrail.additional_eventdata, mobile_version, mfa_used
 ```
 
 ## Notes

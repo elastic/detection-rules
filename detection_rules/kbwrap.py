@@ -279,7 +279,7 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             exceptions_containers,
             exceptions_items,
             exception_list_rule_table,
-            exceptions_directory,
+            exceptions_directory if exceptions_directory else None,
             save_toml=False,
             skip_errors=skip_errors,
             verbose=False,
@@ -297,7 +297,7 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
         action_connectors, ac_output, ac_errors = build_action_connector_objects(
             action_connector_results,
             action_connector_rule_table,
-            action_connectors_directory=None,
+            action_connectors_directory=action_connectors_directory if action_connectors_directory else None,
             save_toml=False,
             skip_errors=skip_errors,
             verbose=False,
