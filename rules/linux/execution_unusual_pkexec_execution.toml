@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2025/01/16"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 updated_date = "2025/01/16"
 
@@ -13,7 +13,7 @@ executions of `pkexec` are identified, and may indicate an attempt to escalate p
 unauthorized actions on the system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
+index = ["logs-endpoint.events.process*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unusual Pkexec Execution"
@@ -23,7 +23,6 @@ setup = """## Setup
 
 This rule requires data coming in from one of the following integrations:
 - Elastic Defend
-- Auditbeat
 
 ### Elastic Defend Integration Setup
 Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
