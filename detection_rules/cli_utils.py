@@ -210,22 +210,17 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
     # DEFAULT_PREBUILT_RULES_DIRS[0] is a required directory just as a suggestion
     suggested_path = Path(DEFAULT_PREBUILT_RULES_DIRS[0]) / contents['name']
     path = Path(path or input(f'File path for rule [{suggested_path}]: ') or suggested_path).resolve()
-    # NOTE we may want to remove the date logic, should the date match Kibana or match rules repo?
-    # Inherit maturity and dates from the rule already exists
+    # Inherit maturity from the rule already exists
     maturity = "development"
-    updated_date = None
-    created_date = None
     if path.exists():
         rules = RuleCollection()
         rules.load_file(path)
         if rules:
             maturity = rules.rules[0].contents.metadata.maturity
-            updated_date = rules.rules[0].contents.metadata.updated_at
-            created_date = rules.rules[0].contents.metadata.created_at
 
     meta = {
-        "creation_date": created_date or creation_date,
-        "updated_date": updated_date or creation_date,
+        "creation_date": creation_date,
+        "updated_date": creation_date,
         "maturity": maturity,
     }
 
