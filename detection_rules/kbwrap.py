@@ -8,7 +8,6 @@ import re
 import sys
 from pathlib import Path
 from typing import Iterable, List, Optional
-from datetime import datetime
 
 import click
 
