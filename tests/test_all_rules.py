@@ -212,24 +212,6 @@ class TestValidRules(BaseRuleTest):
             """
             self.fail(fail_msg + '\n'.join(failures))
 
-    def test_note_contains_triage_and_analysis(self):
-        """Ensure the note field contains Triage and analysis content for Elastic rules."""
-        failures = []
-
-        for rule in self.all_rules:
-            if not rule.contents.data.is_elastic_rule or rule.contents.data.building_block_type:
-                continue  # Don't enforce on non-Elastic rules or building block rules
-
-            note_field = rule.contents.data.get("note")
-
-            # Check if note field contains ## Triage and analysis
-            if not note_field or "## triage and analysis" not in note_field.casefold():
-                failures.append(f"{self.rule_str(rule)}: note field is missing ## Triage and analysis content.")
-
-        if failures:
-            fail_msg = "The following rules failed the note validation (missing investigation guide content):\n"
-            self.fail(fail_msg + "\n".join(failures))
-
 
 class TestThreatMappings(BaseRuleTest):
     """Test threat mapping data for rules."""
@@ -1306,6 +1288,43 @@ class TestRiskScoreMismatch(BaseRuleTest):
             err_msg = 'The following rules have mismatches between Severity and Risk Score field values:\n'
             err_msg += invalid_str
             self.fail(err_msg)
+
+
+class TestInvestigationGuide(BaseRuleTest):
+    """Test investigation guide content."""
+
+    def test_note_contains_triage_and_analysis(self):
+        """Ensure the note field contains Triage and analysis content for Elastic rules."""
+        failures = []
+
+        for rule in self.all_rules:
+            if not rule.contents.data.is_elastic_rule or rule.contents.data.building_block_type:
+                continue  # Don't enforce on non-Elastic rules or building block rules
+
+            note_field = rule.contents.data.get("note")
+
+            # Check if note field contains ## Triage and analysis
+            if not note_field or "## triage and analysis" not in note_field.casefold():
+                failures.append(f"{self.rule_str(rule)}: note field is missing ## Triage and analysis content.")
+
+        if failures:
+            fail_msg = "The following rules failed the note validation (missing investigation guide content):\n"
+            self.fail(fail_msg + "\n".join(failures))
+
+    def test_investigation_guide_uses_rule_name(self):
+        """Check if investigation guide uses rule name in the title."""
+        errors = []
+        for rule in self.all_rules.rules:
+            note = rule.contents.data.get('note')
+            if note is not None:
+                # Check if `### Investigating` is present and if so,
+                # check if it is followed by the rule name.
+                if '### Investigating' in note:
+                    results = re.search(rf'### Investigating\s+{re.escape(rule.name)}', note, re.I | re.M)
+                    if results is None:
+                        errors.append(f'{self.rule_str(rule)} investigation guide does not use rule name in the title')
+        if errors:
+            self.fail('\n'.join(errors))
 
 
 class TestNoteMarkdownPlugins(BaseRuleTest):
