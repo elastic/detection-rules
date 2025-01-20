@@ -4,12 +4,12 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
 min_stack_version = "8.13.0"
-updated_date = "2024/10/02"
+updated_date = "2025/01/20"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies AWS EC2 EBS snaphots being shared with another AWS account. EBS virtual disks can be copied into snapshots,
+Identifies AWS EC2 EBS snaphots being shared with another AWS account or made public. EBS virtual disks can be copied into snapshots,
 which can then be shared with an external AWS account or made public. Adversaries may attempt this in order to copy the
 snapshot into an environment they control, to access the data.
 """
@@ -21,14 +21,14 @@ false_positives = [
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
-name = "AWS EC2 EBS Snapshot Shared with Another Account"
+name = "AWS EC2 EBS Snapshot Shared or Made Public"
 note = """
 
 ## Triage and Analysis
 
-### Investigating AWS EC2 EBS Snapshot Shared with Another Account
+### Investigating AWS EC2 EBS Snapshot Shared or Made Public
 
-This rule detects when an AWS EC2 EBS snapshot is shared with another AWS account. EBS virtual disks can be copied into snapshots, which can then be shared with an external AWS account or made public. Adversaries may attempt this to copy the snapshot into an environment they control to access the data. Understanding the context and legitimacy of such changes is crucial to determine if the action is benign or malicious.
+This rule detects when an AWS EC2 EBS snapshot is shared with another AWS account or made public. EBS virtual disks can be copied into snapshots, which can then be shared with an external AWS account or made public. Adversaries may attempt this to copy the snapshot into an environment they control to access the data. Understanding the context and legitimacy of such changes is crucial to determine if the action is benign or malicious.
 
 #### Possible Investigation Steps:
 
@@ -37,6 +37,7 @@ This rule detects when an AWS EC2 EBS snapshot is shared with another AWS accoun
 - **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access.
 - **Contextualize with Timestamp**: Use the `@timestamp` field to check when the change occurred. Modifications during non-business hours or outside regular maintenance windows might require further scrutiny.
 - **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities.
+- **Review UserID**: Check the `userId` field to identify the AWS account with which the snapshot was shared. Verify if this account is authorized to access the data or if it belongs to a known third party. If this value is `all`, the snapshot is made public.
 
 ### False Positive Analysis:
 
@@ -63,6 +64,7 @@ references = [
     "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html",
     "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifySnapshotAttribute.html",
     "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-post-exploitation/aws-ec2-ebs-ssm-and-vpc-post-exploitation/aws-ebs-snapshot-dump",
+    "https://hackingthe.cloud/aws/exploitation/Misconfigured_Resource-Based_Policies/exploting_public_resources_attack_playbook/"
 ]
 risk_score = 21
 rule_id = "4182e486-fc61-11ee-a05d-f661ea17fbce"
