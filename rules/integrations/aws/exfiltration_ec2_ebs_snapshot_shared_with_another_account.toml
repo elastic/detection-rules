@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "AWS integration breaking changes, bumping version to ^2.0.0"
 min_stack_version = "8.13.0"
-updated_date = "2025/01/06"
+updated_date = "2025/01/20"
 
 [rule]
 author = ["Elastic"]
@@ -37,6 +37,7 @@ This rule detects when an AWS EC2 EBS snapshot is shared with another AWS accoun
 - **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access.
 - **Contextualize with Timestamp**: Use the `@timestamp` field to check when the change occurred. Modifications during non-business hours or outside regular maintenance windows might require further scrutiny.
 - **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities.
+- **Review UserID**: Check the `userId` field to identify the AWS account with which the snapshot was shared. Verify if this account is authorized to access the data or if it belongs to a known third party. If this value is `all`, the snapshot is made public.
 
 ### False Positive Analysis:
 
@@ -81,17 +82,9 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail-* metadata _id, _version, _index
-| where
-    event.provider == "ec2.amazonaws.com"
-    and event.action == "ModifySnapshotAttribute"
-    and event.outcome == "success"
+| where event.provider == "ec2.amazonaws.com" and event.action == "ModifySnapshotAttribute" and event.outcome == "success"
 | dissect aws.cloudtrail.request_parameters "{%{?snapshotId}=%{snapshotId},%{?attributeType}=%{attributeType},%{?createVolumePermission}={%{operationType}={%{?items}=[{%{?userId}=%{userId}}]}}}"
-| where
-    operationType == "add"
-    and (
-        cloud.account.id != userId
-        or userId == "all"
-    )
+| where operationType == "add" and cloud.account.id != userId
 | keep @timestamp, aws.cloudtrail.user_identity.arn, cloud.account.id, event.action, snapshotId, attributeType, operationType, userId
 '''
 
