@@ -2,7 +2,7 @@
 creation_date = "2023/01/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/20"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -127,10 +127,14 @@ event.category:"process" and host.os.type:windows and
 			unloadsilent or 
 			AmsiX64 or 
 			AmsiX32 or 
-			FindAmsiFun
+			FindAmsiFun or
+		    "AllocHGlobal((9076" or
+		    "[cHAr](65)+[cHaR]([byTe]0x6d)+[ChaR]([ByTe]0x73)+[CHaR]([BYte]0x69"
     ) or
     powershell.file.script_block_text:("[System.Runtime.InteropServices.Marshal]::Copy" and "VirtualProtect") or
-    powershell.file.script_block_text:("[Ref].Assembly.GetType(('System.Management.Automation" and ".SetValue(")
+    powershell.file.script_block_text:("[Ref].Assembly.GetType(('System.Management.Automation" and ".SetValue(") or
+    powershell.file.script_block_text:("::AllocHGlobal((" and ("System.Management.Automation.$([" or "System.$([cHAr]" or "[cHaR]([byTe]")) or
+    powershell.file.script_block_text:("::AllocHGlobal((" and ".SetValue(" and "-replace" and ".NoRMALiZe(")
   ) and
   not powershell.file.script_block_text : (
     "sentinelbreakpoints" and "Set-PSBreakpoint"
