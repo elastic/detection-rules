@@ -29,6 +29,7 @@ Here are the queries currently available:
 - [Defense Evasion via Capitalized Process Execution](./linux/docs/defense_evasion_via_capitalized_process_execution.md) (ES|QL)
 - [Drivers Load with Low Occurrence Frequency](./linux/docs/persistence_via_driver_load_with_low_occurrence_frequency.md) (ES|QL)
 - [Excessive SSH Network Activity to Unique Destinations](./linux/docs/excessive_ssh_network_activity_unique_destinations.md) (ES|QL)
+- [General Kernel Manipulation](./linux/docs/persistence_general_kernel_manipulation.md) (ES|QL)
 - [Git Hook/Pager Persistence](./linux/docs/persistence_via_git_hook_pager.md) (ES|QL)
 - [Hidden Process Execution](./linux/docs/defense_evasion_via_hidden_process_execution.md) (ES|QL)
 - [Logon Activity by Source IP](./linux/docs/login_activity_by_source_address.md) (ES|QL)
