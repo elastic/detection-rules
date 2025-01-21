@@ -1,32 +1,25 @@
 [metadata]
-creation_date = "2024/06/03"
+creation_date = "2025/01/21"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/16"
+updated_date = "2025/01/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the addition of an executable bit for scripts that are located in directories which are commonly
-abused for persistence. An alert of this rule is an indicator that a persistence mechanism is being set up within your
-environment. Adversaries may create these scripts to execute malicious code at start-up, or at a set interval to gain
-persistence onto the system.
+This rule detects when an unusual child process is spawned from the `dbus-daemon` parent process. The `dbus-daemon`
+process is a message bus system that provides a way for applications to talk to each other. Attackers may abuse
+this process to execute malicious code or escalate privileges.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Executable Bit Set for Potential Persistence Script"
-references = [
-    "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
-    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
-    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
-    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
-]
+name = "Unusual D-Bus Daemon Child Process"
 risk_score = 21
-rule_id = "94418745-529f-4259-8d25-a713a6feb6ae"
+rule_id = "9705b458-689a-4ec6-afe8-b4648d090612"
 setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
@@ -58,71 +51,64 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
-process.args : (
-  // Misc.
-  "/etc/rc.local", "/etc/rc.common", "/etc/rc.d/rc.local", "/etc/init.d/*", "/etc/update-motd.d/*",
-  "/etc/apt/apt.conf.d/*", "/etc/cron*", "/etc/init/*", "/etc/NetworkManager/dispatcher.d/*",
-  "/lib/dracut/modules.d/*", "/usr/lib/dracut/modules.d/*",
-
-  // XDG
-  "/etc/xdg/autostart/*", "/home/*/.config/autostart/*", "/root/.config/autostart/*",
-  "/home/*/.local/share/autostart/*", "/root/.local/share/autostart/*", "/home/*/.config/autostart-scripts/*",
-  "/root/.config/autostart-scripts/*", "/etc/xdg/autostart/*", "/usr/share/autostart/*",
-  
-  // udev
-  "/lib/udev/*", "/etc/udev/rules.d/*", "/usr/lib/udev/rules.d/*", "/run/udev/rules.d/*"
-
-) and (
-  (process.name == "chmod" and process.args : ("+x*", "1*", "3*", "5*", "7*")) or
-  (process.name == "install" and process.args : "-m*" and process.args : ("7*", "5*", "3*", "1*"))
-) and not process.parent.executable : "/var/lib/dpkg/*"
+process.parent.name == "dbus-daemon" and process.args_count > 1 and not (
+  process.parent.args == "--session" or
+  process.args in ("/usr/lib/software-properties/software-properties-dbus", "/usr/share/backintime/qt/serviceHelper.py") or
+  process.name in ("dbus-daemon-launch-helper", "gnome-keyring-daemon", "abrt-dbus", "aptd", "usb-creator-helper") or
+  process.executable like~ ("/usr/lib/*", "/usr/local/lib/*", "/usr/libexec/*", "/tmp/newroot/*")
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1037"
-name = "Boot or Logon Initialization Scripts"
-reference = "https://attack.mitre.org/techniques/T1037/"
-[[rule.threat.technique.subtechnique]]
-id = "T1037.004"
-name = "RC Scripts"
-reference = "https://attack.mitre.org/techniques/T1037/004/"
-
 
 [[rule.threat.technique]]
-id = "T1053"
-name = "Scheduled Task/Job"
-reference = "https://attack.mitre.org/techniques/T1053/"
-[[rule.threat.technique.subtechnique]]
-id = "T1053.003"
-name = "Cron"
-reference = "https://attack.mitre.org/techniques/T1053/003/"
-
-
-[[rule.threat.technique]]
-id = "T1547"
-name = "Boot or Logon Autostart Execution"
-reference = "https://attack.mitre.org/techniques/T1547/"
-[[rule.threat.technique.subtechnique]]
-id = "T1547.013"
-name = "XDG Autostart Entries"
-reference = "https://attack.mitre.org/techniques/T1547/013/"
-
-
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
