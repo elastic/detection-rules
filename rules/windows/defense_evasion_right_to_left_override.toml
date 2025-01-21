@@ -1,0 +1,88 @@
+[metadata]
+creation_date = "2025/01/20"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2025/01/20"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation or execution of files or processes with names containing the Right-to-Left Override (RTLO)
+character, which can be used to disguise the file extension and trick users into executing malicious files.
+"""
+from = "now-9m"
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "endgame-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "File with Right-to-Left Override Character (RTLO) Created/Executed"
+risk_score = 47
+rule_id = "7e763fd1-228a-4d43-be88-3ffc14cd7de1"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and event.category in ("file", "process") and 
+  (
+    (event.type == "creation" and file.path : "*\u{202E}*") or 
+    (event.type == "start" and process.name : "*\u{202E}*")
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.002"
+name = "Right-to-Left Override"
+reference = "https://attack.mitre.org/techniques/T1036/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
