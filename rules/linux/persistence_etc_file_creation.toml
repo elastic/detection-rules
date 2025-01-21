@@ -2,7 +2,7 @@
 creation_date = "2022/07/22"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/09/23"
 
 [transform]
 [[transform.osquery]]
@@ -136,6 +136,8 @@ This rule monitors for the creation of the most common system-wide configuration
 references = [
     "https://www.intezer.com/blog/incident-response/orbit-new-undetected-linux-threat/",
     "https://www.intezer.com/blog/research/lightning-framework-new-linux-threat/",
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
 ]
 risk_score = 47
 rule_id = "1c84dd64-7e6c-4bad-ac73-a5014ee37042"
@@ -180,7 +182,7 @@ type = "eql"
 
 query = '''
 file where host.os.type == "linux" and event.type in ("creation", "file_create_event") and user.id == "0" and
-file.path : ("/etc/ld.so.conf.d/*", "/etc/cron.d/*", "/etc/sudoers.d/*", "/etc/rc.d/init.d/*", "/etc/systemd/system/*",
+file.path : ("/etc/ld.so.conf.d/*", "/etc/cron.d/*", "/etc/sudoers.d/*", "/etc/init.d/*", "/etc/systemd/system/*",
 "/usr/lib/systemd/system/*") and not (
   (process.name : (
     "chef-client", "ruby", "pacman", "packagekitd", "python*", "platform-python", "dpkg", "yum", "apt", "dnf", "rpm",

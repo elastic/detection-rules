@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/11/03"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+min_stack_version = "8.13.0"
+updated_date = "2025/01/06"
 
 [rule]
 author = ["Elastic"]
@@ -11,12 +13,13 @@ Identifies the deletion of sensitive Linux system logs. This may indicate an att
 forensic evidence on a system.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "System Log File Deletion"
 references = [
     "https://www.fireeye.com/blog/threat-research/2020/11/live-off-the-land-an-overview-of-unc1945.html",
+    "https://www.elastic.co/security-labs/detecting-log4j2-with-elastic-security",
 ]
 risk_score = 47
 rule_id = "aa895aea-b69c-4411-b110-8d7599634b30"
@@ -68,6 +71,7 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -86,7 +90,8 @@ file where host.os.type == "linux" and event.type == "deletion" and
     "/var/log/secure",
     "/var/log/auth.log",
     "/var/log/boot.log",
-    "/var/log/kern.log"
+    "/var/log/kern.log",
+    "/var/log/dmesg"
     ) and
     not process.name in ("gzip", "executor", "dockerd")
 '''

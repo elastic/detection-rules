@@ -12,7 +12,6 @@ PIP := $(VENV_BIN)/pip
 all: release
 
 $(VENV):
-	python3.12 -m pip install --upgrade pip setuptools
 	python3.12 -m venv $(VENV)
 
 .PHONY: clean
@@ -23,6 +22,13 @@ clean:
 deps: $(VENV)
 	@echo "Installing all dependencies..."
 	$(PIP) install .[dev]
+	$(PIP) install lib/kibana
+	$(PIP) install lib/kql
+
+.PHONY: hunting-deps
+deps: $(VENV)
+	@echo "Installing all dependencies..."
+	$(PIP) install .[hunting]
 
 .PHONY: pytest
 pytest: $(VENV) deps
@@ -42,14 +48,19 @@ lint: $(VENV) deps
 test: $(VENV) lint pytest
 
 .PHONY: test-cli
-test-cli: $(VENV)
+test-cli: $(VENV) deps
 	@echo "Executing test_cli script..."
 	@./detection_rules/etc/test_cli.bash
 
 .PHONY: test-remote-cli
-test-remote-cli: $(VENV)
+test-remote-cli: $(VENV) deps
 	@echo "Executing test_remote_cli script..."
 	@./detection_rules/etc/test_remote_cli.bash
+
+.PHONY: test-hunting-cli
+test-remote-cli: $(VENV) hunting-deps
+	@echo "Executing test_hunting_cli script..."
+	@./detection_rules/etc/test_hunting_cli.bash
 
 .PHONY: release
 release: deps

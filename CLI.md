@@ -5,7 +5,7 @@ the [README](README.md). Basic use of the CLI such as [creating a rule](CONTRIBU
 [testing](CONTRIBUTING.md#testing-a-rule-with-the-cli) are referenced in the [contribution guide](CONTRIBUTING.md).
 
 
-## Using a config file or environment variables
+## Using a user config file or environment variables
 
 CLI commands which are tied to Kibana and Elasticsearch are capable of parsing auth-related keyword args from a config
 file or environment variables.
@@ -17,9 +17,9 @@ follows:
 * config values
 * prompt (this only applies to certain values)
 
-#### Setup a config file
+#### Setup a user config file
 
-In the root directory of this repo, create the file `.detection-rules-cfg.json` and add relevant values
+In the root directory of this repo, create the file `.detection-rules-cfg.json` (or `.yaml`) and add relevant values
 
 Currently supported arguments:
 * elasticsearch_url
@@ -27,6 +27,7 @@ Currently supported arguments:
 * cloud_id
 * *_username (kibana and es)
 * *_password (kibana and es)
+* api_key
 
 #### Using environment variables
 
@@ -40,6 +41,8 @@ Using the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION` will bypass t
 on the building block rules.
 
 Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detection Rules Unit Tests on the `tags` field in toml files.
+
+Using the environment variable `DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION` will bypass the timeline template id and title validation for rules. 
 
 ## Importing rules into the repo
 
@@ -84,9 +87,19 @@ Usage: detection_rules import-rules-to-repo [OPTIONS] [INPUT_FILE]...
   Import rules from json, toml, yaml, or Kibana exported rule file(s).
 
 Options:
-  --required-only            Only prompt for required fields
-  -d, --directory DIRECTORY  Load files from a directory
-  -h, --help                 Show this message and exit.
+  -ac, --action-connector-import  Include action connectors in export
+  -e, --exceptions-import         Include exceptions in export
+  --required-only                 Only prompt for required fields
+  -d, --directory DIRECTORY       Load files from a directory
+  -s, --save-directory DIRECTORY  Save imported rules to a directory
+  -se, --exceptions-directory DIRECTORY
+                                  Save imported exceptions to a directory
+  -sa, --action-connectors-directory DIRECTORY
+                                  Save imported actions to a directory
+  -ske, --skip-errors             Skip rule import errors
+  -da, --default-author TEXT      Default author for rules missing one
+  -snv, --strip-none-values       Strip None values from the rule
+  -h, --help                      Show this message and exit.
 ```
 
 The primary advantage of using this command is the ability to import multiple rules at once. Multiple rule paths can be
@@ -96,9 +109,13 @@ a combination of both.
 In addition to the formats mentioned using `create-rule`, this will also accept an `.ndjson`/`jsonl` file
 containing multiple rules (as would be the case with a bulk export).
 
+The `-s/--save-directory` is an optional parameter to specify a non default directory to place imported rules. If it is not specified, the first directory specified in the rules config will be used.
+
 This will also strip additional fields and prompt for missing required fields.
 
 <a id="note-3">\* Note</a>: This will attempt to parse ALL files recursively within a specified directory.
+
+Additionally, the `-e` flag can be used to import exceptions in addition to rules from the export file.
 
 
 ## Commands using Elasticsearch and Kibana clients
@@ -164,6 +181,8 @@ Options:
   -h, --help                   Show this message and exit.
 
 Commands:
+  export-rules   Export custom rules from Kibana.
+  import-rules   Import custom rules into Kibana.
   search-alerts  Search detection engine alerts with KQL.
   upload-rule    Upload a list of rule .toml files to Kibana.
 ```
@@ -271,7 +290,7 @@ directly.
 ```console
 Usage: detection_rules export-rules-from-repo [OPTIONS]
 
-  Export rule(s) into an importable ndjson file.
+  Export rule(s) and exception(s) into an importable ndjson file.
 
 Options:
   -f, --rule-file FILE
@@ -279,13 +298,16 @@ Options:
   -id, --rule-id TEXT
   -o, --outfile PATH              Name of file for exported rules
   -r, --replace-id                Replace rule IDs with new IDs before export
-  --stack-version [7.10|7.11|7.12|7.13|7.14|7.15|7.16|7.8|7.9|8.0|8.1|8.10|8.11|8.12|8.13|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9]
+  --stack-version [7.8|7.9|7.10|7.11|7.12|7.13|7.14|7.15|7.16|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14]
                                   Downgrade a rule version to be compatible
                                   with older instances of Kibana
   -s, --skip-unsupported          If `--stack-version` is passed, skip rule
                                   types which are unsupported (an error will
                                   be raised otherwise)
   --include-metadata              Add metadata to the exported rules
+  -ac, --include-action-connectors
+                                  Include Action Connectors in export
+  -e, --include-exceptions        Include Exceptions Lists in export
   -h, --help                      Show this message and exit.
 ```
 
@@ -316,6 +338,7 @@ Options:
   --kibana-url TEXT
   -kp, --kibana-password TEXT
   -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --api-key TEXT
   --cloud-id TEXT              ID of the cloud instance.
 
 Usage: detection_rules kibana import-rules [OPTIONS]
@@ -328,7 +351,7 @@ Options:
   -id, --rule-id TEXT
   -o, --overwrite                 Overwrite existing rules
   -e, --overwrite-exceptions      Overwrite exceptions in existing rules
-  -a, --overwrite-action-connectors
+  -ac, --overwrite-action-connectors
                                   Overwrite action connectors in existing
                                   rules
   -h, --help                      Show this message and exit.
@@ -474,6 +497,51 @@ python -m detection_rules kibana import-rules -d test-export-rules -o
 </details>
 
 ### Exporting rules
+
+This command should be run with the `CUSTOM_RULES_DIR` envvar set, that way proper validation is applied to versioning when the rules are downloaded. See the [custom rules docs](docs/custom-rules.md) for more information.
+
+```
+python -m detection_rules kibana export-rules -h
+
+█▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
+█  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
+█▄▄▀ █▄▄  █  █▄▄ █▄▄  █  ▄█▄ █▄█ █ ▀▄█      █ ▀▄ █▄▄█ █▄▄ █▄▄ ▄▄█
+
+Kibana client:
+Options:
+  --ignore-ssl-errors TEXT
+  --space TEXT                 Kibana space
+  --provider-name TEXT         Elastic Cloud providers: cloud-basic and cloud-
+                               saml (for SSO)
+  --provider-type TEXT         Elastic Cloud providers: basic and saml (for
+                               SSO)
+  -ku, --kibana-user TEXT
+  --kibana-url TEXT
+  -kp, --kibana-password TEXT
+  -kc, --kibana-cookie TEXT    Cookie from an authed session
+  --api-key TEXT
+  --cloud-id TEXT              ID of the cloud instance.
+
+Usage: detection_rules kibana export-rules [OPTIONS]
+
+  Export custom rules from Kibana.
+
+Options:
+  -d, --directory PATH            Directory to export rules to  [required]
+  -acd, --action-connectors-directory PATH
+                                  Directory to export action connectors to
+  -ed, --exceptions-directory PATH
+                                  Directory to export exceptions to
+  -da, --default-author TEXT      Default author for rules missing one
+  -r, --rule-id TEXT              Optional Rule IDs to restrict export to
+  -ac, --export-action-connectors
+                                  Include action connectors in export
+  -e, --export-exceptions         Include exceptions in export
+  -s, --skip-errors               Skip errors when exporting rules
+  -sv, --strip-version            Strip the version fields from all rules
+  -h, --help                      Show this message and exit.
+
+```
 
 Example of a rule exporting, with errors skipped
 

@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/11/18"
-integration = ["endpoint"]
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/12/10"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -11,11 +13,14 @@ Detects changes to registry persistence keys that are not commonly used or modif
 be an indication of an adversary's attempt to persist in a stealthy manner.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*"]
+index = ["logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Uncommon Registry Persistence Change"
-references = ["https://www.microsoftpressstore.com/articles/article.aspx?p=2762082&seqNum=2"]
+references = [
+"https://www.microsoftpressstore.com/articles/article.aspx?p=2762082&seqNum=2", 
+"https://github.com/rad9800/BootExecuteEDR"
+]
 risk_score = 47
 rule_id = "54902e45-3467-49a4-8abc-529f2c8cfb80"
 severity = "medium"
@@ -33,7 +38,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type in ("creation", "change") and
+registry where host.os.type == "windows" and event.type == "change" and
  length(registry.data.strings) > 0 and
  registry.path : (
       "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
@@ -77,7 +82,10 @@ registry where host.os.type == "windows" and event.type in ("creation", "change"
       "HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\Wds\\rdpwd\\StartupPrograms",
       "HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\InitialProgram",
       "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\BootExecute",
+      "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\BootExecuteNoPnpSync",
       "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\SetupExecute",
+      "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\SetupExecuteNoPnpSync",
+      "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\PlatformExecute",
       "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\Execute",
       "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\S0InitialCommand",
       "HKLM\\SYSTEM\\ControlSet*\\Control\\ServiceControlManagerExtension",
@@ -92,7 +100,20 @@ registry where host.os.type == "windows" and event.type in ("creation", "change"
                            "C:\\Windows\\SysWOW64\\msiexec.exe",
                            "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
                            "C:\\Program Files\\*.exe",
-                           "C:\\Program Files (x86)\\*.exe")
+                           "C:\\Program Files (x86)\\*.exe") and
+ not (process.name : ("TiWorker.exe", "poqexec.exe") and registry.value : "SetupExecute" and
+      registry.data.strings : (
+        "C:\\windows\\System32\\poqexec.exe /display_progress \\SystemRoot\\WinSxS\\pending.xml",
+        "C:\\Windows\\System32\\poqexec.exe /skip_critical_poq /display_progress \\SystemRoot\\WinSxS\\pending.xml"
+      )
+     ) and
+ not (process.name : "svchost.exe" and registry.value : "SCRNSAVE.EXE" and
+      registry.data.strings : (
+        "%windir%\\system32\\rundll32.exe user32.dll,LockWorkStation",
+        "scrnsave.scr",
+        "%windir%\\system32\\Ribbons.scr"
+      )
+     )
 '''
 
 

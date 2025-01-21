@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2021/07/14"
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/05/31"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects events that have a mismatch on the expected event agent ID. The status "agent_id_mismatch" occurs when the
-expected agent ID associated with the API key does not match the actual agent ID in an event. This could indicate
+Detects events that have a mismatch on the expected event agent ID. The status "agent_id_mismatch/mismatch" occurs when
+the expected agent ID associated with the API key does not match the actual agent ID in an event. This could indicate
 attempts to spoof events in order to masquerade actual activity to evade detection.
 """
 false_positives = [
@@ -29,20 +29,18 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.agent_id_status:agent_id_mismatch
+event.agent_id_status:(agent_id_mismatch or mismatch)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

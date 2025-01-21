@@ -1,9 +1,11 @@
 [metadata]
 bypass_bbr_timing = true
 creation_date = "2023/07/13"
-integration = ["endpoint"]
+integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/09"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -34,12 +36,13 @@ tags = [
     "Rule Type: BBR",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: System",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and process.args != null and
   (
     process.name :("PsList.exe", "qprocess.exe") or 
    (process.name : "powershell.exe" and process.args : ("*get-process*", "*Win32_Process*")) or 

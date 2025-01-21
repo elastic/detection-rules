@@ -27,7 +27,7 @@ from .schemas import definitions
 from .utils import get_path, unzip_to_dict
 
 
-ML_PATH = Path(get_path('machine-learning'))
+ML_PATH = get_path('machine-learning')
 
 
 def info_from_tag(tag: str) -> (Literal['ml'], definitions.MachineLearningType, str, int):
@@ -276,6 +276,10 @@ def get_ml_model_manifests_by_model_id(repo: str = 'elastic/detection-rules') ->
 @es_experimental.group('ml')
 def ml_group():
     """Experimental machine learning commands."""
+    click.secho('\n***** Deprecation Warning *****\n', fg='yellow', err=True)
+    click.secho('\n* The experiment "ml" command(s) are deprecated and will be removed in a future release. *\n',
+                fg='yellow', err=True)
+    click.secho('\n* Command Removal Timeframe: May 1, 2025 *\n', fg='yellow', err=True)
 
 
 @ml_group.command('check-files')

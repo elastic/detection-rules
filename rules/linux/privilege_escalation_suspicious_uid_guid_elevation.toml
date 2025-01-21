@@ -2,9 +2,7 @@
 creation_date = "2024/01/08"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
-min_stack_version = "8.11.0"
-updated_date = "2024/03/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +10,7 @@ description = """
 Identifies instances where a process (granted CAP_SETUID and/or CAP_SETGID capabilities) is executed, after which the
 user's access is elevated to UID/GID 0 (root). In Linux, the CAP_SETUID and CAP_SETGID capabilities allow a process to
 change its UID and GID, respectively, providing control over user and group identity management. Attackers may leverage
-a misconfiguration for exploitation in order to escalate their privileges to root. 
+a misconfiguration for exploitation in order to escalate their privileges to root.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -49,26 +47,42 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Privilege Escalation",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name != null and
    (process.thread.capabilities.effective : "CAP_SET?ID" or process.thread.capabilities.permitted : "CAP_SET?ID") and 
-   user.id != "0"]
+   user.id != "0" and not (
+     process.parent.executable : ("/tmp/newroot/*", "/opt/carbonblack*") or
+     process.parent.executable in (
+       "/opt/SolarWinds/Agent/bin/Plugins/JobEngine/SolarWinds.Agent.JobEngine.Plugin", "/usr/bin/vmware-toolbox-cmd",
+       "/usr/bin/dbus-daemon", "/usr/bin/update-notifier", "/usr/share/language-tools/language-options",
+       "/opt/SolarWinds/Agent/*", "/usr/local/sbin/lynis.sh"
+     ) or
+     process.executable : ("/opt/dynatrace/*", "/tmp/newroot/*", "/opt/SolarWinds/Agent/*") or
+     process.executable in (
+       "/bin/fgrep", "/usr/bin/sudo", "/usr/bin/pkexec", "/usr/lib/cockpit/cockpit-session", "/usr/sbin/suexec"
+     ) or
+     process.parent.name in ("update-notifier", "language-options", "osqueryd", "saposcol", "dbus-daemon", "osqueryi", "sdbrun") or
+     process.command_line like ("sudo*BECOME-SUCCESS*", "/bin/sh*sapsysinfo.sh*", "sudo su", "sudo su -") or
+     process.name == "sudo" or
+     process.parent.command_line like "/usr/bin/python*ansible*"
+   )]
   [process where host.os.type == "linux" and event.action == "uid_change" and event.type == "change" and 
    (process.thread.capabilities.effective : "CAP_SET?ID" or process.thread.capabilities.permitted : "CAP_SET?ID")
    and user.id == "0"]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
@@ -78,11 +92,12 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.001"
 name = "Setuid and Setgid"
 reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0004"

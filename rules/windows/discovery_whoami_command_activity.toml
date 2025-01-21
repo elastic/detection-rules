@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "system", "windows"]
+integration = ["endpoint", "system", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2024/10/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "logs-system.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*", "logs-system.*", "endgame-*", "logs-m365_defender.event-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Whoami Process Activity"
@@ -72,6 +74,8 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: System",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

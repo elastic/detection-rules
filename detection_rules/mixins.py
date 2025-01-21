@@ -17,7 +17,7 @@ import marshmallow_union
 import marshmallow
 from marshmallow import Schema, ValidationError, validates_schema, fields as marshmallow_fields
 
-from .misc import load_current_package_version
+from .config import load_current_package_version
 from .schemas import definitions
 from .schemas.stack_compat import get_incompatible_fields
 from semver import Version

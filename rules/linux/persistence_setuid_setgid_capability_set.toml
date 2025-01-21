@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2023/09/05"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/05/21"
+min_stack_version = "8.13.0"
+min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
+updated_date = "2025/01/08"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +41,7 @@ file owner or group. Threat actors can exploit these attributes to achieve persi
 allowing them to maintain control over a compromised system with elevated permissions.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Setcap setuid/setgid Capability Set"
@@ -138,15 +140,19 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
-process.name == "setcap" and process.args : "cap_set?id+ep" and not process.parent.name in ("jem", "vzctl")
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and 
+  process.name == "setcap" and process.args : "cap_set?id+ep" and not (
+    process.parent.name in ("jem", "vzctl") or
+    process.args like "/usr/bin/new?idmap"
+  )
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -155,21 +161,21 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1548.001"
 name = "Setuid and Setgid"
 reference = "https://attack.mitre.org/techniques/T1548/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
