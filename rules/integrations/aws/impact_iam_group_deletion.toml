@@ -2,7 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,42 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS IAM Group Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS IAM Group Deletion
+
+AWS IAM groups facilitate user management by organizing users with similar permissions. Adversaries might exploit group deletion to disrupt access controls, potentially leading to unauthorized access or service disruption. The detection rule monitors successful group deletions via AWS CloudTrail, flagging potential misuse by correlating specific IAM actions and outcomes, thus aiding in timely threat identification.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to identify the user or role that performed the DeleteGroup action by examining the userIdentity field.
+- Check the event time to determine when the group deletion occurred and correlate it with any other suspicious activities around the same timeframe.
+- Investigate the specific IAM group that was deleted to understand its purpose and the permissions it granted by reviewing historical IAM policies and group membership.
+- Assess the impact of the group deletion by identifying any users or services that might have been affected due to the loss of group-based permissions.
+- Verify if the group deletion was authorized by cross-referencing with change management records or contacting the responsible team or individual.
+- Look for any patterns or repeated occurrences of similar actions in the logs to identify potential malicious behavior or misconfigurations.
+
+### False positive analysis
+
+- Routine administrative tasks may trigger alerts when IAM groups are deleted as part of regular maintenance or restructuring. To manage this, create exceptions for known maintenance periods or specific administrative accounts.
+- Automated scripts or tools that manage IAM resources might delete groups as part of their normal operation. Identify these scripts and exclude their actions from triggering alerts by using specific user or role identifiers.
+- Temporary groups created for short-term projects or testing purposes might be deleted frequently. Document these groups and exclude their deletion from monitoring by using naming conventions or tags.
+- Changes in organizational structure or policy might necessitate the deletion of certain groups. Coordinate with relevant teams to anticipate these changes and adjust monitoring rules accordingly.
+
+### Response and remediation
+
+- Immediately revoke any active sessions and access keys for users who were part of the deleted IAM group to prevent unauthorized access.
+- Restore the deleted IAM group from a backup or recreate it with the same permissions to ensure continuity of access for legitimate users.
+- Conduct a review of recent IAM activity logs to identify any unauthorized or suspicious actions that may have preceded the group deletion.
+- Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement additional monitoring on IAM activities, especially focusing on group management actions, to detect similar threats in the future.
+- Review and tighten IAM policies and permissions to ensure that only authorized personnel can delete IAM groups.
+- If malicious intent is suspected, escalate the incident to the incident response team for a comprehensive investigation and potential legal action.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -39,6 +74,7 @@ tags = [
     "Data Source: Amazon Web Services",
     "Data Source: AWS IAM",
     "Tactic: Impact",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
