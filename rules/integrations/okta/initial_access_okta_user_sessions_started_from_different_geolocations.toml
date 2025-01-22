@@ -4,7 +4,7 @@ integration = ["okta"]
 maturity = "production"
 min_stack_comments = "Breaking change in Okta integration bumping version to ^2.0.0"
 min_stack_version = "8.10.0"
-updated_date = "2023/11/18"
+updated_date = "2025/01/15"
 
 
 [rule]
@@ -18,7 +18,43 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Okta User Sessions Started from Different Geolocations"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Okta User Sessions Started from Different Geolocations
+
+Okta is a widely used identity management service that facilitates secure user authentication and access control. Adversaries may exploit Okta by initiating sessions from multiple geolocations to bypass security measures and gain unauthorized access. The detection rule identifies suspicious activity by flagging multiple session initiations from different countries by the same user, which may indicate compromised credentials or malicious intent.
+
+### Possible investigation steps
+
+- Review the Okta logs to identify the specific user (okta.actor.id) associated with the alert and note the geolocations (client.geo.country_name) from which the sessions were initiated.
+- Check the user's recent activity history in Okta to determine if there are any other unusual patterns or anomalies, such as logins from unexpected IP addresses or devices.
+- Contact the user to verify if they have recently traveled to the countries identified in the alert or if they have used a VPN service that might explain the geolocation discrepancies.
+- Investigate if there are any known security incidents or breaches related to the IP addresses or geolocations involved in the alert.
+- Assess whether the user has any elevated privileges or access to sensitive information that could increase the risk associated with the potential compromise.
+- Consider implementing additional security measures, such as multi-factor authentication or temporary account suspension, if the investigation suggests a potential compromise.
+
+### False positive analysis
+
+- Users traveling frequently for business may trigger alerts due to legitimate logins from different countries. Implement a whitelist for known frequent travelers to reduce unnecessary alerts.
+- Employees using VPN services might appear to be logging in from various geolocations. Identify and exclude known VPN IP addresses from the rule to prevent false positives.
+- Remote workers who occasionally connect from different locations, such as home and public spaces, can be flagged. Establish a list of approved geolocations for remote employees to minimize false alerts.
+- Users participating in global projects may need to access systems from multiple international offices. Create exceptions for these users based on project requirements and expected geolocations.
+- Shared accounts used by teams across different regions can result in multiple geolocation logins. Encourage the use of individual accounts and monitor shared account usage separately to avoid false positives.
+
+### Response and remediation
+
+- Immediately terminate all active sessions for the affected user to prevent further unauthorized access.
+- Reset the password for the compromised user account and enforce multi-factor authentication (MFA) to enhance security.
+- Conduct a thorough review of recent activity logs for the affected user to identify any unauthorized access or actions taken during the compromised sessions.
+- Notify the user and relevant stakeholders about the potential compromise and advise them to monitor for any suspicious activity.
+- Escalate the incident to the security operations team for further investigation and to determine if additional accounts or systems have been affected.
+- Implement geolocation-based access restrictions to limit access from high-risk or unexpected locations.
+- Update and enhance monitoring rules to detect similar geolocation anomalies in user sessions promptly.
+
+## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -31,7 +67,7 @@ references = [
 risk_score = 47
 rule_id = "2e56e1bc-867a-11ee-b13e-f661ea17fbcd"
 severity = "medium"
-tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Initial Access"]
+tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Initial Access", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "threshold"
 query = '''
