@@ -2,7 +2,7 @@
 creation_date = "2020/10/16"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -28,6 +28,7 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -42,6 +43,41 @@ file where host.os.type == "windows" and event.type != "deletion" and
     "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Excel\\XLSTART\\*"
     )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via Microsoft Office AddIns
+
+Microsoft Office AddIns enhance productivity by allowing custom functionalities in Office applications. However, adversaries exploit this by placing malicious add-ins in specific startup directories, ensuring execution each time the application launches. The detection rule identifies suspicious files with extensions like .xll or .xlam in these directories, flagging potential persistence mechanisms on Windows systems.
+
+### Possible investigation steps
+
+- Review the file path and extension from the alert to confirm it matches the suspicious directories and extensions specified in the detection rule, such as .xll or .xlam in the Microsoft Office startup directories.
+- Check the file creation and modification timestamps to determine when the suspicious file was added or altered, which can help establish a timeline of potential malicious activity.
+- Investigate the file's origin by examining recent file downloads, email attachments, or network activity that might have introduced the file to the system.
+- Analyze the file's contents or hash against known malware databases to identify if it is a known threat or potentially malicious.
+- Review user activity and system logs around the time the file was created or modified to identify any unusual behavior or processes that could be related to the persistence mechanism.
+- Assess the impacted user's role and access level to determine the potential risk and impact of the persistence mechanism on the organization.
+
+### False positive analysis
+
+- Legitimate add-ins installed by trusted software vendors may trigger alerts. Verify the source and publisher of the add-in to determine its legitimacy.
+- Custom add-ins developed internally for business purposes can be flagged. Maintain a whitelist of known internal add-ins to prevent unnecessary alerts.
+- Frequent updates to legitimate add-ins might cause repeated alerts. Implement version control and update the whitelist accordingly to accommodate these changes.
+- User-specific add-ins for accessibility or productivity tools may be detected. Educate users on safe add-in practices and monitor for any unusual behavior.
+- Temporary add-ins used for specific projects or tasks can be mistaken for threats. Document and review these cases to ensure they are recognized as non-threatening.
+
+### Response and remediation
+
+- Isolate the affected endpoint from the network to prevent further spread of the potential threat.
+- Terminate any suspicious Microsoft Office processes that may be running add-ins from the identified directories.
+- Remove the malicious add-in files from the specified startup directories: "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Word\\Startup\\", "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\AddIns\\", and "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Excel\\XLSTART\\".
+- Conduct a full antivirus and antimalware scan on the affected system using tools like Microsoft Defender for Endpoint to ensure no other malicious files are present.
+- Review and restore any altered system configurations or settings to their default state to ensure system integrity.
+- Monitor the affected system and network for any signs of re-infection or related suspicious activity, using enhanced logging and alerting mechanisms.
+- Escalate the incident to the security operations center (SOC) or relevant IT security team for further analysis and to determine if additional systems are affected."""
 
 
 [[rule.threat]]

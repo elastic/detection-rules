@@ -2,12 +2,12 @@
 creation_date = "2024/07/12"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/08/02"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when object versioning is suspended for an Amazon S3 bucket. Object versioning allows for multiple versions of an object to exist in the same bucket. This allows for easy recovery of deleted or overwritten objects. When object versioning is suspended for a bucket, it could indicate an adversary's attempt to inhibit system recovery following malicious activity. Additionally, when versioning is suspended, buckets can then be deleted. 
+Identifies when object versioning is suspended for an Amazon S3 bucket. Object versioning allows for multiple versions of an object to exist in the same bucket. This allows for easy recovery of deleted or overwritten objects. When object versioning is suspended for a bucket, it could indicate an adversary's attempt to inhibit system recovery following malicious activity. Additionally, when versioning is suspended, buckets can then be deleted.
 """
 false_positives = [
     """
@@ -21,7 +21,7 @@ license = "Elastic License v2"
 name = "AWS S3 Object Versioning Suspended"
 note = """
 
-## Triage and Analysis
+## Triage and analysis
 
 ### Investigating AWS S3 Object Versioning Suspended
 
@@ -71,14 +71,15 @@ tags = [
     "Data Source: AWS S3",
     "Use Case: Threat Detection",
     "Tactic: Impact",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "aws.cloudtrail" 
+any where event.dataset == "aws.cloudtrail"
    and event.action == "PutBucketVersioning"
-   and event.outcome == "success" 
+   and event.outcome == "success"
    and stringContains(aws.cloudtrail.request_parameters, "Status=Suspended")
 '''
 
