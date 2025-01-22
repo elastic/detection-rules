@@ -2,7 +2,7 @@
 creation_date = "2020/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,42 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 Encryption Disabled"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EC2 Encryption Disabled
+
+Amazon EC2's EBS encryption ensures data at rest is secure by default. Disabling this feature can expose sensitive data, making it vulnerable to unauthorized access. Adversaries might exploit this by disabling encryption to access or manipulate data without detection. The detection rule monitors CloudTrail logs for successful attempts to disable EBS encryption, alerting security teams to potential misuse.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs for the specific event.action: DisableEbsEncryptionByDefault to identify the user or role that initiated the action.
+- Check the event.provider: ec2.amazonaws.com logs to gather additional context about the environment and any related activities around the time of the event.
+- Investigate the IAM policies and permissions associated with the user or role to determine if they have the necessary permissions to disable EBS encryption and if those permissions are appropriate.
+- Assess the event.outcome: success to confirm that the action was completed successfully and identify any subsequent actions taken by the same user or role.
+- Examine the AWS account's security settings and configurations to ensure that no other security features have been altered or disabled.
+- Contact the user or team responsible for the action to understand the rationale behind disabling EBS encryption and verify if it aligns with organizational policies.
+
+### False positive analysis
+
+- Routine administrative actions may trigger alerts if encryption is disabled for testing or configuration purposes. To manage this, create exceptions for specific IAM roles or users known to perform these tasks regularly.
+- Automated scripts or tools that disable encryption for specific workflows might cause false positives. Identify these scripts and exclude their associated actions from triggering alerts by using specific tags or identifiers.
+- Changes in regional settings or policies that temporarily disable encryption could be misinterpreted as threats. Monitor these changes and adjust the detection rule to account for legitimate policy updates.
+- Scheduled maintenance or updates that require temporary encryption disabling should be documented and excluded from alerts by setting time-based exceptions during known maintenance windows.
+
+### Response and remediation
+
+- Immediately isolate the affected EC2 instances to prevent further unauthorized access or data manipulation. This can be done by modifying security group rules or network ACLs to restrict access.
+- Re-enable EBS encryption by default in the affected region to ensure that all new volumes are encrypted. This can be done through the AWS Management Console or AWS CLI.
+- Conduct a thorough review of recent changes in the AWS environment to identify any unauthorized modifications or access patterns. Focus on CloudTrail logs for any suspicious activity related to EBS encryption settings.
+- Notify the security operations team and relevant stakeholders about the incident, providing them with details of the alert and any initial findings.
+- Implement additional monitoring and alerting for any future attempts to disable EBS encryption by default, ensuring that security teams are promptly notified of similar activities.
+- Review and update IAM policies to ensure that only authorized personnel have the necessary permissions to modify EBS encryption settings, reducing the risk of accidental or malicious changes.
+- If any data manipulation is detected, initiate data recovery procedures to restore affected data from backups, ensuring data integrity and availability.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -40,6 +75,7 @@ tags = [
     "Data Source: Amazon Web Services",
     "Data Source: AWS EC2",
     "Tactic: Impact",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
