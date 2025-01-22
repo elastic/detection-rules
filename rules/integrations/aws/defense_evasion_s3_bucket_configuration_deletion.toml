@@ -2,7 +2,7 @@
 creation_date = "2020/05/27"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,42 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS S3 Bucket Configuration Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS S3 Bucket Configuration Deletion
+
+Amazon S3 is a scalable storage service where configurations like policies, replication, and encryption ensure data security and compliance. Adversaries may delete these configurations to evade defenses, disrupt data protection, or conceal malicious activities. The detection rule monitors successful deletions of these configurations, signaling potential defense evasion attempts by correlating specific CloudTrail events.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs for the specific event.provider:s3.amazonaws.com and event.action values to identify the user or role responsible for the deletion actions.
+- Examine the event.outcome:success field to confirm that the deletion actions were completed successfully and not attempted or failed.
+- Investigate the IAM policies and permissions associated with the user or role identified to determine if they have legitimate access to perform such deletions.
+- Check for any recent changes in IAM roles or policies that might have inadvertently granted excessive permissions.
+- Correlate the timing of the deletion events with other suspicious activities or alerts in the AWS environment to identify potential patterns or coordinated actions.
+- Assess the impact of the deleted configurations on data security and compliance, and determine if any critical data protection mechanisms were affected.
+
+### False positive analysis
+
+- Routine administrative actions by authorized personnel may trigger alerts when they update or remove bucket configurations as part of regular maintenance. To manage this, create exceptions for specific user roles or IAM users known to perform these tasks regularly.
+- Automated scripts or tools used for infrastructure management might delete and recreate bucket configurations as part of their operation. Identify these scripts and exclude their associated actions from triggering alerts by using specific identifiers or tags.
+- Scheduled policy updates or compliance checks that involve temporary removal of configurations can also result in false positives. Implement time-based exceptions for these known activities to prevent unnecessary alerts.
+- Development and testing environments often undergo frequent configuration changes, which can mimic suspicious behavior. Exclude these environments from the rule by using environment-specific tags or identifiers.
+
+### Response and remediation
+
+- Immediately revoke any unauthorized access to the affected S3 bucket by reviewing and updating the bucket's access policies and permissions.
+- Restore the deleted configurations by applying the latest known good configuration settings for policies, replication, encryption, and other affected components.
+- Conduct a thorough audit of recent IAM activity to identify any unauthorized or suspicious actions related to the S3 bucket configurations.
+- Escalate the incident to the security operations team for further investigation and to determine if additional AWS resources or accounts have been compromised.
+- Implement additional monitoring and alerting for any future unauthorized configuration changes to S3 buckets, focusing on the specific actions identified in the detection rule.
+- Review and enhance IAM policies to enforce the principle of least privilege, ensuring only authorized users have the necessary permissions to modify S3 bucket configurations.
+- Coordinate with the incident response team to assess the impact of the configuration deletions on data security and compliance, and take necessary steps to mitigate any identified risks.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -39,6 +74,7 @@ tags = [
     "Data Source: Amazon Web Services",
     "Use Case: Asset Visibility",
     "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
