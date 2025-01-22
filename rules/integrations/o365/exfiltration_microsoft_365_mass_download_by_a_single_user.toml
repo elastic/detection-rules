@@ -2,7 +2,7 @@
 creation_date = "2021/07/15"
 integration = ["o365"]
 maturity = "development"
-updated_date = "2023/06/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Austin Songer"]
@@ -13,7 +13,42 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Mass download by a single user"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Mass download by a single user
+
+Microsoft 365 provides cloud-based productivity tools, enabling users to access and download data efficiently. However, adversaries can exploit this by performing mass downloads to exfiltrate sensitive information. The detection rule identifies suspicious activity by flagging instances where a user downloads an unusually high volume of data in a short period, indicating potential data exfiltration attempts. This helps security analysts quickly respond to and mitigate potential threats.
+
+### Possible investigation steps
+
+- Review the user's activity logs in Microsoft 365 to confirm the mass download event, focusing on the event.dataset:o365.audit and event.provider:SecurityComplianceCenter fields to ensure the event is accurately captured.
+- Check the user's recent login history and IP addresses to identify any unusual access patterns or locations that could indicate unauthorized access.
+- Analyze the specific files or data downloaded by the user to assess the sensitivity and potential impact of the data exfiltration.
+- Contact the user to verify if the downloads were legitimate and authorized, and gather any additional context or explanations for the activity.
+- Investigate any recent changes to the user's account permissions or roles that might have facilitated the mass download, ensuring that access controls are appropriately configured.
+- Review any related alerts or incidents in the security information and event management (SIEM) system to identify potential correlations or patterns with other suspicious activities.
+
+### False positive analysis
+
+- High-volume legitimate business operations may trigger the rule. Identify and whitelist users or departments known for frequent large data transfers, such as data analysts or IT personnel, to prevent unnecessary alerts.
+- Automated backup or synchronization tools can cause mass downloads. Review and exclude these activities by identifying the specific user accounts or applications involved in regular backup processes.
+- Software updates or deployments might result in mass downloads. Monitor and exclude these events by correlating them with scheduled maintenance windows or deployment activities.
+- Training or onboarding sessions that require downloading large amounts of data can be mistaken for suspicious activity. Coordinate with HR or training departments to anticipate and exclude these events from triggering alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected user account to prevent further data exfiltration. This can be done by disabling the account or changing the password.
+- Review the downloaded files to assess the sensitivity and potential impact of the data exfiltrated. This will help in understanding the scope of the breach.
+- Notify the security team and relevant stakeholders about the incident to ensure coordinated response efforts and compliance with any regulatory requirements.
+- Conduct a thorough investigation to determine if the mass download was authorized or if it indicates a compromised account. This may involve checking for unusual login locations or times.
+- If the account is confirmed to be compromised, perform a full security audit of the affected user's activities and any other potentially impacted systems.
+- Implement additional monitoring on the affected account and similar high-risk accounts to detect any further suspicious activities.
+- Review and update access controls and data download policies to prevent similar incidents in the future, ensuring that only necessary permissions are granted to users.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 """
@@ -24,7 +59,7 @@ references = [
 risk_score = 47
 rule_id = "571ff456-aa7f-4e48-8a88-39698bb5418f"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Configuration Audit", "Tactic: Exfiltration"]
+tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Configuration Audit", "Tactic: Exfiltration", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
