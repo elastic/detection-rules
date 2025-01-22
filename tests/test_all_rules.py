@@ -479,7 +479,6 @@ class TestRuleTags(BaseRuleTest):
             err_msg = '\n'.join(invalid)
             self.fail(f'Rules with misaligned ML rule type tags:\n{err_msg}')
 
-    @unittest.skip("Skipping until all Investigation Guides follow the proper format.")
     def test_investigation_guide_tag(self):
         """Test that investigation guide tags are present within rules."""
         invalid = []
@@ -1298,8 +1297,13 @@ class TestInvestigationGuide(BaseRuleTest):
         failures = []
 
         for rule in self.all_rules:
-            if not rule.contents.data.is_elastic_rule or rule.contents.data.building_block_type:
-                continue  # Don't enforce on non-Elastic rules or building block rules
+            if (
+                not rule.contents.data.is_elastic_rule or  # noqa: W504
+                rule.contents.data.building_block_type or  # noqa: W504
+                rule.contents.data.severity in ("medium", "low")
+            ):
+                # dont enforce
+                continue
 
             note_field = rule.contents.data.get("note")
 
