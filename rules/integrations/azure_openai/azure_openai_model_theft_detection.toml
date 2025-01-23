@@ -44,7 +44,8 @@ type = "esql"
 query = '''
 from logs-azure_openai.logs-*
 | where azure.open_ai.operation_name == "ListKey" and azure.open_ai.category == "Audit"
-| stats count = count(), max_data_transferred = max(azure.open_ai.properties.response_length) by azure.open_ai.properties.model_name
-| where count > 100 or max_data_transferred > 1000000
+| KEEP @timestamp, azure.open_ai.operation_name , azure.open_ai.category, azure.resource.group, azure.resource.name, azure.open_ai.properties.response_length
+| stats count = count(), max_data_transferred = max(azure.open_ai.properties.response_length) by azure.resource.group , azure.resource.name
+| where count >= 100 or max_data_transferred >= 1000000
 | sort count desc
 '''
