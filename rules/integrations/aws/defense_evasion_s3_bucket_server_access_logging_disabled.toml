@@ -2,7 +2,7 @@
 creation_date = "2024/07/12"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/07/12"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -25,7 +25,7 @@ license = "Elastic License v2"
 name = "AWS S3 Bucket Server Access Logging Disabled"
 note = """
 
-## Triage and Analysis
+## Triage and analysis
 
 ### Investigating AWS S3 Bucket Server Access Logging Disabled
 
@@ -75,14 +75,15 @@ tags = [
     "Data Source: Amazon S3",
     "Use Case: Asset Visibility",
     "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "aws.cloudtrail" 
-   and event.action == "PutBucketLogging" 
-   and event.outcome == "success" 
+any where event.dataset == "aws.cloudtrail"
+   and event.action == "PutBucketLogging"
+   and event.outcome == "success"
    and not stringContains(aws.cloudtrail.request_parameters, "LoggingEnabled")
 '''
 
