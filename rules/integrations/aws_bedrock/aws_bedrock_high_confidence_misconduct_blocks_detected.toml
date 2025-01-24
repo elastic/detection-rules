@@ -1,14 +1,14 @@
 [metadata]
 creation_date = "2024/05/05"
 maturity = "production"
-updated_date = "2024/11/21"
+updated_date = "2025/01/17"
 min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
 min_stack_version = "8.13.0"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects repeated high-confidence 'BLOCKED' actions coupled with specific 'Content Filter' policy violation having codes such as 'MISCONDUCT', 
+Detects repeated high-confidence 'BLOCKED' actions coupled with specific 'Content Filter' policy violation having codes such as 'MISCONDUCT',
 'HATE', 'SEXUAL', INSULTS', 'PROMPT_ATTACK', 'VIOLENCE' indicating persistent misuse or attempts to probe the model's ethical boundaries.
 """
 false_positives = ["New model deployments.", "Testing updates to compliance policies."]
@@ -27,13 +27,13 @@ risk_score = 47
 rule_id = "4f855297-c8e0-4097-9d97-d653f7e471c4"
 note = """## Triage and analysis
 
-### Investigating Amazon Bedrock Guardrail High Confidence Content Filter Blocks.
+### Investigating Unusual High Confidence Content Filter Blocks Detected
 
 Amazon Bedrock Guardrail is a set of features within Amazon Bedrock designed to help businesses apply robust safety and privacy controls to their generative AI applications.
 
 It enables users to set guidelines and filters that manage content quality, relevancy, and adherence to responsible AI practices.
 
-Through Guardrail, organizations can enable Content filter for Hate, Insults, Sexual Violence and Misconduct along with Prompt Attack filters prompts 
+Through Guardrail, organizations can enable Content filter for Hate, Insults, Sexual Violence and Misconduct along with Prompt Attack filters prompts
 to prevent the model from generating content on specific, undesired subjects, and they can establish thresholds for harmful content categories.
 
 #### Possible investigation steps
@@ -74,6 +74,7 @@ tags = [
     "Use Case: Policy Violation",
     "Mitre Atlas: T0051",
     "Mitre Atlas: T0054",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -82,13 +83,13 @@ query = '''
 from logs-aws_bedrock.invocation-*
 | MV_EXPAND gen_ai.compliance.violation_code
 | MV_EXPAND gen_ai.policy.confidence
-| MV_EXPAND gen_ai.policy.name 
+| MV_EXPAND gen_ai.policy.name
 | where gen_ai.policy.action == "BLOCKED" and gen_ai.policy.name == "content_policy" and gen_ai.policy.confidence LIKE "HIGH" and gen_ai.compliance.violation_code IN ("HATE", "MISCONDUCT", "SEXUAL", "INSULTS", "PROMPT_ATTACK", "VIOLENCE")
 | keep user.id, gen_ai.compliance.violation_code
-| stats block_count_per_violation = count() by user.id, gen_ai.compliance.violation_code 
-| SORT block_count_per_violation DESC 
+| stats block_count_per_violation = count() by user.id, gen_ai.compliance.violation_code
+| SORT block_count_per_violation DESC
 | keep user.id, gen_ai.compliance.violation_code, block_count_per_violation
 | STATS violation_count = SUM(block_count_per_violation) by user.id
-| WHERE violation_count > 5 
-| SORT violation_count DESC 
+| WHERE violation_count > 5
+| SORT violation_count DESC
 '''

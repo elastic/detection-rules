@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "ES|QL available in technical preview."
 min_stack_version = "8.13.0"
-updated_date = "2024/12/02"
+updated_date = "2025/01/10"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,41 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS IAM Login Profile Added for Root"
-note = """
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS IAM Login Profile Added for Root
+
+AWS IAM allows management of user access and permissions within AWS environments. A login profile enables console access using a password. Adversaries may exploit temporary root access to create a login profile, ensuring persistent access even if keys are rotated. The detection rule identifies such actions by monitoring specific API calls and conditions, flagging unauthorized profile additions to root accounts.
+
+### Possible investigation steps
+
+- Review the @timestamp field to determine when the CreateLoginProfile action occurred and correlate it with any other suspicious activities around the same time.
+- Examine the aws.cloudtrail.user_identity.arn and aws.cloudtrail.user_identity.access_key_id fields to identify the specific root account and access key involved in the action.
+- Investigate the source.address field to trace the IP address from which the CreateLoginProfile request originated, checking for any unusual or unauthorized locations.
+- Analyze the aws.cloudtrail.request_parameters and aws.cloudtrail.response_elements fields to understand the specifics of the login profile creation and verify if any unexpected parameters were used.
+- Check the cloud.account.id to confirm which AWS account was affected and assess if there are any other security incidents or alerts associated with this account.
+- Review the event.action field to ensure that no other unauthorized actions were performed by the root account around the same time.
+
+### False positive analysis
+
+- Administrative actions by trusted personnel may trigger the rule if they are performing legitimate maintenance or security tasks. To manage this, create exceptions for known administrative accounts by filtering their access key IDs.
+- Automated scripts or tools used for account management might inadvertently match the rule's conditions. Identify these scripts and exclude their specific access key IDs or user agents from the detection criteria.
+- Testing environments where root access is used for simulation or development purposes can cause false positives. Implement a tagging system for test environments and exclude logs with these tags from triggering the rule.
+- Third-party integrations that require root access for initial setup or configuration might be flagged. Document these integrations and adjust the rule to recognize and exclude their specific access patterns.
+
+### Response and remediation
+
+- Immediately revoke any active sessions and access keys associated with the root account to prevent further unauthorized access.
+- Reset the root account password and ensure that multi-factor authentication (MFA) is enabled for the root user to enhance security.
+- Review AWS CloudTrail logs to identify any other suspicious activities or changes made by the root account during the time of the incident.
+- Conduct a thorough audit of IAM policies and permissions to ensure that no other unauthorized changes have been made and that least privilege principles are enforced.
+- Notify the security operations team and relevant stakeholders about the incident for further investigation and to ensure awareness across the organization.
+- Implement additional monitoring and alerting for root account activities to detect any future unauthorized access attempts promptly.
+- Consider engaging AWS Support or a third-party security expert if the incident's scope is beyond internal capabilities or if further forensic analysis is required.
+
 ## Investigating AWS IAM Login Profile Added for Root
 
 This rule detects when a login profile is added to the AWS root account. Adding a login profile to the root account, especially if self-assigned, is highly suspicious as it might indicate an adversary trying to establish persistence in the environment.
