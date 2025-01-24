@@ -417,8 +417,11 @@ class SecurityDetectionEngine:
                       for x in asset_file_names}
         return assets
 
-    def keep_latest_versions(self, assets: dict, num_versions: int = NUM_LATEST_RULE_VERSIONS) -> dict:
-        """Keeps only the latest N versions of each rule to limit historical rule versions in our release package."""
+    def smart_load_assets(self, assets: dict, asset_count: int, smart_limits: bool, num_versions: int = NUM_LATEST_RULE_VERSIONS) -> dict:
+        """
+        With Smart Limits enabled , function removes the oldest versions of the rules to limit the number of rules in the release package to the defined asset count.
+        Else Keeps only the latest N versions of each rule to limit historical rule versions in our release package.
+        """
 
         # Dictionary to hold the sorted list of versions for each base rule ID
         rule_versions = defaultdict(list)
@@ -431,13 +434,38 @@ class SecurityDetectionEngine:
 
         # Dictionary to hold the final assets with only the specified number of latest versions
         filtered_assets = {}
-
-        # Keep only the last/latest num_versions versions for each rule
-        # Sort versions and take the last num_versions
-        # Add the latest versions of the rule to the filtered assets
-        for base_id, versions in rule_versions.items():
-            latest_versions = sorted(versions, key=lambda x: x[0], reverse=True)[:num_versions]
-            for _, key in latest_versions:
-                filtered_assets[key] = assets[key]
+        if smart_limits:
+            # Remove the excess rule count by calculating the number of excess rules
+            # Oldest rule versions are removed first
+            # Only one version per rule is removed and older rules with only one version is skipped for removal
+            
+            # Flatten the list of all versions and sort by version (older first)
+            all_versions = sorted(
+                [(base_id, version, key, len(versions)) for base_id, versions in rule_versions.items() for version, key in versions],
+                key=lambda x: x[0]
+            )
+            # Calculate the number of excess assets
+            excess_count = len(assets) - asset_count
+            processed_base_ids = set()
+            # Remove the oldest excess assets
+            for base_id, versions, key, count in all_versions:
+                if base_id not in processed_base_ids and key in assets:
+                    if count > 1: 
+                        # Rule has more than one version can be removed 
+                        print(f"Removed asset {key} of rule {base_id} and version {versions} which had total {count} versions")
+                        del assets[key]
+                    processed_base_ids.add(base_id)
+                    excess_count -= 1
+                if excess_count <= 0:
+                    break
+            filtered_assets = assets
+        else:
+            # Keep only the last/latest num_versions versions for each rule
+            # Sort versions and take the last num_versions
+            # Add the latest versions of the rule to the filtered assets
+            for base_id, versions in rule_versions.items():
+                latest_versions = sorted(versions, key=lambda x: x[0], reverse=True)[:num_versions]
+                for _, key in latest_versions:
+                    filtered_assets[key] = assets[key]
 
         return filtered_assets

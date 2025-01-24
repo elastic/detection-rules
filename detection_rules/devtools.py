@@ -65,7 +65,7 @@ NAVIGATOR_BADGE = (
 RULES_CONFIG = parse_rules_config()
 # The base package version that we will start to include all versions of historical rules
 BASE_PKG_VERSION = Version(major=8, minor=17, patch=0)
-
+ASSET_COUNT = 11500 
 
 def get_github_token() -> Optional[str]:
     """Get the current user's GitHub token."""
@@ -134,11 +134,14 @@ def build_release(ctx: click.Context, config_file, update_version_lock: bool, ge
     if current_pkg_version_no_prerelease >= BASE_PKG_VERSION:
         click.echo(f'[+] Adding all historical rule versions in our release package for version \
             {current_pkg_version_no_prerelease}')
+        if len(historical_rules) > ASSET_COUNT:
+            click.secho('[!] Asset count exceeded, applying smart limits to historical rule versions', fg='yellow')
+            limited_historical_rules = sde.smart_load_assets(historical_rules, ASSET_COUNT, smart_limits=True)
         limited_historical_rules = historical_rules
     else:
         click.echo(f'[+] Limit historical rule versions in our release package for version \
             {current_pkg_version_no_prerelease}')
-        limited_historical_rules = sde.keep_latest_versions(historical_rules)
+        limited_historical_rules = sde.smart_load_assets(historical_rules, ASSET_COUNT, smart_limits=False)
     package.add_historical_rules(limited_historical_rules, registry_data['version'])
     click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
 
