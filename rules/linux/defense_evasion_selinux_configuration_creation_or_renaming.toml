@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.16.2 for the SentinelOne Integration."
 min_stack_version = "8.16.2"
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -61,7 +61,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 file where host.os.type == "linux" and event.action in ("creation", "file_create_event", "rename", "file_rename_event")
-and file.path : "/etc/selinux/config"
+and file.path : "/etc/selinux/config" and not process.name in ("dockerd", "platform-python")
 '''
 note = """## Triage and analysis
 
