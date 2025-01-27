@@ -2,7 +2,7 @@
 creation_date = "2021/05/17"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -16,13 +16,48 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "O365 Exchange Suspicious Mailbox Right Delegation"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating O365 Exchange Suspicious Mailbox Right Delegation
+
+Microsoft 365 Exchange allows users to delegate mailbox access, enabling collaboration by granting permissions like FullAccess, SendAs, or SendOnBehalf. However, adversaries can exploit this by assigning these rights to compromised accounts, facilitating unauthorized access and message manipulation. The detection rule identifies successful permission assignments, excluding system accounts, to flag potential misuse and maintain security integrity.
+
+### Possible investigation steps
+
+- Review the event logs to identify the user account that was granted mailbox permissions, focusing on the user.id field to determine if the account is legitimate or potentially compromised.
+- Examine the o365.audit.Parameters.AccessRights field to confirm the specific permissions granted (FullAccess, SendAs, or SendOnBehalf) and assess the potential impact of these permissions.
+- Investigate the history of the user account that was granted permissions, including recent login activity and any unusual behavior, to identify signs of compromise.
+- Check for any recent changes or anomalies in the mailbox that received the permissions, such as unexpected email forwarding rules or unusual email activity.
+- Correlate the event with other security alerts or logs to identify any related suspicious activities or patterns that might indicate a broader security incident.
+
+### False positive analysis
+
+- Delegation for administrative purposes: Regular delegation of mailbox rights for administrative tasks can trigger alerts. To manage this, create exceptions for known administrative accounts that frequently require such permissions.
+- Shared mailbox access: Organizations often use shared mailboxes for collaborative purposes. Identify and exclude these shared mailboxes from the rule to prevent false positives.
+- Temporary project-based access: Temporary access granted for specific projects can be mistaken for suspicious activity. Implement a process to document and whitelist these temporary permissions.
+- Automated system processes: Some automated processes may require mailbox access rights. Review and exclude these processes from the rule to avoid unnecessary alerts.
+- Frequent delegation by specific roles: Certain roles, like executive assistants, may regularly delegate mailbox access. Identify these roles and adjust the rule to accommodate their typical behavior.
+
+### Response and remediation
+
+- Immediately revoke the delegated permissions identified in the alert to prevent further unauthorized access to the mailbox.
+- Conduct a thorough review of the affected mailbox and any associated accounts to identify any unauthorized changes or suspicious activities, such as unexpected email forwarding rules or message deletions.
+- Reset the passwords for the compromised account and any other accounts that may have been affected to prevent further unauthorized access.
+- Notify the affected user(s) and relevant stakeholders about the incident, providing guidance on recognizing phishing attempts and securing their accounts.
+- Escalate the incident to the security operations team for further investigation and to determine if additional accounts or systems have been compromised.
+- Implement additional monitoring on the affected accounts and mailboxes to detect any further suspicious activities or attempts to re-establish unauthorized access.
+- Review and update access control policies and permissions settings to ensure that only necessary permissions are granted and that they are regularly audited.
+
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 risk_score = 21
 rule_id = "0ce6487d-8069-4888-9ddd-61b52490cebc"
 severity = "low"
-tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Configuration Audit", "Tactic: Persistence"]
+tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Configuration Audit", "Tactic: Persistence", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 

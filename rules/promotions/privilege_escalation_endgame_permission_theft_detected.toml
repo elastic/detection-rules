@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 maturity = "production"
 promotion = true
-updated_date = "2024/05/21"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -29,13 +29,48 @@ To make sure this rule can generate as many alerts as it's configured in its own
 
 **NOTE:** Changing `xpack.alerting.rules.run.alerts.max` is not possible in Serverless projects."""
 severity = "high"
-tags = ["Data Source: Elastic Endgame", "Use Case: Threat Detection", "Tactic: Privilege Escalation"]
+tags = ["Data Source: Elastic Endgame", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:token_protection_event or endgame.event_subtype_full:token_protection_event)
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Permission Theft - Detected - Elastic Endgame
+
+Elastic Endgame is a security solution that monitors and detects unauthorized access attempts, focusing on privilege escalation tactics like access token manipulation. Adversaries exploit this by stealing or forging tokens to gain elevated permissions. The detection rule identifies suspicious token-related events, flagging high-risk activities indicative of permission theft, thus enabling timely threat response.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of event.kind:alert and event.module:endgame, ensuring the alert is related to Elastic Endgame's detection capabilities.
+- Examine the event.action and endgame.event_subtype_full fields for token_protection_event to identify the specific token manipulation activity that triggered the alert.
+- Investigate the source and destination user accounts involved in the alert to determine if there are any unauthorized access attempts or privilege escalations.
+- Check for any recent changes or anomalies in the permissions or roles associated with the affected accounts to assess potential impact.
+- Correlate the alert with other security events or logs to identify any patterns or additional indicators of compromise that may suggest a broader attack campaign.
+- Consult the MITRE ATT&CK framework for additional context on the Access Token Manipulation technique (T1134) to understand potential adversary behaviors and mitigation strategies.
+
+### False positive analysis
+
+- Routine administrative tasks involving token management can trigger alerts. Review and document these tasks to create exceptions for known safe activities.
+- Automated scripts or services that frequently access tokens for legitimate purposes may be flagged. Identify these scripts and whitelist them to prevent unnecessary alerts.
+- Software updates or installations that require elevated permissions might be detected as suspicious. Monitor these events and adjust detection rules to accommodate regular update schedules.
+- Internal security tools that perform token manipulation for testing or monitoring purposes can cause false positives. Ensure these tools are recognized and excluded from detection rules.
+- User behavior analytics might misinterpret legitimate user actions as threats. Regularly update user profiles and behavior baselines to minimize false alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Revoke any compromised or suspicious access tokens identified in the alert to prevent further misuse of elevated permissions.
+- Conduct a thorough review of recent account activities associated with the compromised tokens to identify any unauthorized actions or changes.
+- Reset passwords and enforce multi-factor authentication for accounts involved in the incident to enhance security and prevent future unauthorized access.
+- Restore any altered or deleted data from backups, ensuring that the restored data is free from any malicious modifications.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems or accounts have been affected.
+- Implement enhanced monitoring and logging for token-related activities to detect and respond to similar threats more effectively in the future."""
 
 
 [[rule.threat]]

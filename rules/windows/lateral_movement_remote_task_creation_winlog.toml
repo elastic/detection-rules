@@ -2,7 +2,7 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/17"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -16,7 +16,7 @@ license = "Elastic License v2"
 name = "Remote Scheduled Task Creation via RPC"
 note = """## Triage and analysis
 
-### Investigating Remote Scheduled Task Creation
+### Remote Scheduled Task Creation via RPC
 
 [Scheduled tasks](https://docs.microsoft.com/en-us/windows/win32/taskschd/about-the-task-scheduler) are a great mechanism for persistence and program execution. These features can be used remotely for a variety of legitimate reasons, but at the same time used by malware and adversaries. When investigating scheduled tasks that were set up remotely, one of the first steps should be to determine the original intent behind the configuration and to verify if the activity is tied to benign behavior such as software installation or any kind of network administrator work. One objective for these alerts is to understand the configured action within the scheduled task. This is captured within the registry event data for this rule and can be base64 decoded to view the value.
 
@@ -46,12 +46,12 @@ note = """## Triage and analysis
 risk_score = 47
 rule_id = "9c865691-5599-447a-bac9-b3f2df5f9a9d"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: System"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: System", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-iam where event.action == "scheduled-task-created" and 
+iam where event.action == "scheduled-task-created" and
  winlog.event_data.RpcCallClientLocality : "0" and winlog.event_data.ClientProcessId : "0"
 '''
 

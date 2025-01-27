@@ -2,7 +2,7 @@
 creation_date = "2024/12/17"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/20"
+updated_date = "2025/01/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,43 @@ index = ["filebeat-*", "logs-aws.cloudtrail*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS S3 Unauthenticated Bucket Access by Rare Source"
-note = """## Investigating AWS S3 Unauthenticated Bucket Access by Rare Source
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS S3 Unauthenticated Bucket Access by Rare Source
+
+Amazon S3 is a scalable storage service used for data storage and retrieval. Misconfigured bucket policies can inadvertently allow public access, posing a risk of unauthorized data exposure. Adversaries exploit this by using unauthenticated requests to access data. The detection rule identifies unusual access attempts from new IP addresses, signaling potential misuse and prompting further investigation.
+
+### Possible investigation steps
+
+- Review the CloudTrail logs to identify the specific S3 bucket involved in the unauthenticated access attempt and determine the nature of the accessed data.
+- Examine the source IP address from the `source.address` field to assess its origin and determine if it is associated with known malicious activity or if it is a legitimate but misconfigured source.
+- Check the S3 bucket policy and permissions to identify any misconfigurations that might allow public access, focusing on policies that include "Principal": "*".
+- Investigate the `aws.cloudtrail.user_identity.type` field to confirm if the access was made by an "AWSAccount" or "Unknown" identity, and determine if this aligns with expected behavior.
+- Assess the `event.action` field to understand the type of operation performed (e.g., "GetObject", "PutObject") and evaluate the potential impact of the access.
+- Review recent changes to the S3 bucket configuration or IAM policies that might have inadvertently allowed public access, and correlate these with the timing of the alert.
+- If unauthorized access is confirmed, take immediate steps to secure the bucket by updating the bucket policy to restrict access and consider enabling logging and monitoring for future access attempts.
+
+### False positive analysis
+
+- Frequent access from known internal IP addresses may trigger the rule. To manage this, create exceptions for IP addresses that are part of your organization's network and regularly access S3 buckets without authentication.
+- Automated scripts or tools used for legitimate business processes might use unauthenticated requests. Identify these scripts and exclude their IP addresses from triggering the rule by adding them to an allowlist.
+- Third-party services that require access to your S3 buckets might appear as unauthenticated sources. Verify these services and, if deemed safe, exclude their IP addresses from the rule to prevent false positives.
+- Temporary testing environments or development setups might use unauthenticated access for convenience. Ensure these environments are documented and their IP addresses are excluded from the rule to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Immediately revoke public access to the affected S3 bucket by updating the bucket policy to restrict access to only authorized users and roles.
+- Identify and terminate any unauthorized sessions or connections from the IP addresses flagged in the alert to prevent further unauthorized access.
+- Conduct a thorough review of the S3 bucket's access logs to determine the extent of data exposure and identify any sensitive data that may have been accessed.
+- Notify the security team and relevant stakeholders about the potential data exposure incident and provide them with details of the affected resources and actions taken.
+- Implement additional monitoring and alerting for unusual access patterns to S3 buckets, focusing on unauthenticated access attempts and access from rare IP addresses.
+- Escalate the incident to the organization's incident response team for further investigation and to determine if additional containment or remediation actions are necessary.
+- Review and update the organization's cloud security policies and access controls to prevent similar misconfigurations in the future, ensuring that all S3 buckets have appropriate access restrictions.
+
+## Investigating AWS S3 Unauthenticated Bucket Access by Rare Source
 
 This rule detects requests to an AWS S3 bucket by an unauthenticated source, which could indicate a misconfigured bucket policy allowing public access. Adversaries can exploit this misconfiguration by using tools or AWS CLI options like `--no-sign-request` to access bucket contents.
 
