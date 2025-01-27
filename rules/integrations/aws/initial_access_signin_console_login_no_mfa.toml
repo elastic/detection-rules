@@ -2,7 +2,7 @@
 creation_date = "2024/08/19"
 integration = ['aws']
 maturity = "production"
-updated_date = "2024/10/09"
+updated_date = "2025/01/15"
 min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
 min_stack_version = "8.13.0"
 
@@ -31,6 +31,7 @@ tags = [
     "Data Source: AWS Sign-In",
     "Use Case: Threat Detection",
     "Tactic: Initial Access",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -46,6 +47,41 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
 | where mfa_used == "No"
 | keep @timestamp, event.action, aws.cloudtrail.event_type, aws.cloudtrail.user_identity.type
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS Signin Single Factor Console Login with Federated User
+
+Federated users in AWS are granted temporary credentials to access resources, often without the need for a permanent account. This setup is convenient but can be risky if not properly secured with multi-factor authentication (MFA). Adversaries might exploit this by using stolen or misconfigured credentials to gain unauthorized access. The detection rule identifies instances where federated users log in without MFA, flagging potential security risks by analyzing specific AWS CloudTrail events and dissecting login data to check for the absence of MFA, thus helping to mitigate unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to confirm the event details, focusing on the event.provider, event.action, and aws.cloudtrail.user_identity.type fields to ensure the alert corresponds to a federated user login without MFA.
+- Identify the federated user involved by examining the aws.cloudtrail.user_identity.arn field to determine which user or service is associated with the login attempt.
+- Check the aws.cloudtrail.additional_eventdata field to verify the mfa_used value is "No" and assess if this is expected behavior for the identified user or service.
+- Investigate the source IP address and location of the login attempt to determine if it aligns with typical access patterns for the federated user.
+- Review recent activity associated with the federated user to identify any unusual or unauthorized actions that may have occurred following the login event.
+- Assess the configuration and policies of the Identity Provider (IdP) used for federated access to ensure MFA is enforced and properly configured for all users.
+
+### False positive analysis
+
+- Federated users with specific roles or permissions may frequently log in without MFA due to operational requirements. Review these roles and consider adding them to an exception list if they are deemed non-threatening.
+- Automated processes or scripts using federated credentials might trigger this rule if they are not configured to use MFA. Verify these processes and, if legitimate, exclude them from the rule to prevent unnecessary alerts.
+- Temporary testing or development accounts might be set up without MFA for convenience. Ensure these accounts are monitored and, if necessary, excluded from the rule to avoid false positives.
+- Third-party integrations or services that rely on federated access without MFA could be flagged. Assess these integrations and whitelist them if they are secure and necessary for business operations.
+- Users accessing AWS from secure, controlled environments might not use MFA as part of a risk-based authentication strategy. Evaluate the security of these environments and consider excluding them if they meet your organization's security standards.
+
+### Response and remediation
+
+- Immediately revoke the temporary credentials associated with the federated user account to prevent further unauthorized access.
+- Conduct a thorough review of AWS CloudTrail logs to identify any suspicious activities or unauthorized access attempts associated with the federated user account.
+- Notify the security team and relevant stakeholders about the potential security breach to ensure coordinated response efforts.
+- Implement or enforce multi-factor authentication (MFA) for all federated user accounts to enhance security and prevent similar incidents in the future.
+- Review and update IAM policies and roles associated with federated users to ensure they follow the principle of least privilege.
+- Escalate the incident to the incident response team if any malicious activities are detected, and initiate a full security investigation to assess the impact and scope of the breach.
+- Monitor AWS CloudTrail and other relevant logs closely for any further unauthorized access attempts or anomalies related to federated user accounts."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
