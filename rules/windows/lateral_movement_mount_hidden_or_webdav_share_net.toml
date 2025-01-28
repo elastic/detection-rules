@@ -2,7 +2,7 @@
 creation_date = "2020/11/02"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/11/02"
+updated_date = "2025/01/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -43,6 +43,7 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -57,6 +58,40 @@ process where host.os.type == "windows" and event.type == "start" and
  /* excluding shares deletion operation */
  not process.args : "/d*"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Mounting Hidden or WebDav Remote Shares
+
+WebDav and hidden remote shares facilitate file sharing and collaboration across networks, often used in enterprise environments. Adversaries exploit these to move laterally or exfiltrate data by mounting shares using tools like net.exe. The detection rule identifies suspicious share mounts by monitoring specific command patterns, excluding benign operations, to flag potential threats.
+
+### Possible investigation steps
+
+- Review the process details to confirm the use of net.exe or net1.exe for mounting shares, focusing on the process.name and process.pe.original_file_name fields.
+- Examine the process.args field to identify the specific share being accessed, noting any patterns like "\\\\\\\\*\\\\*$*", "\\\\\\\\*@SSL\\\\*", or "http*" that indicate hidden or WebDav shares.
+- Check the parent process information to determine if net1.exe was executed independently or as a child of another suspicious process, which could suggest malicious intent.
+- Investigate the user account associated with the process to verify if the activity aligns with their typical behavior or if it appears anomalous.
+- Correlate the event with other logs or alerts from the same host or user to identify any patterns of lateral movement or data exfiltration attempts.
+- Assess the network activity around the time of the alert to detect any unusual outbound connections that might indicate data exfiltration.
+
+### False positive analysis
+
+- Legitimate use of net.exe for mounting network drives in enterprise environments can trigger false positives. Users can create exceptions for known internal IP addresses or specific user accounts frequently performing these actions.
+- Automated scripts or system processes that use net.exe to connect to WebDav or hidden shares for legitimate purposes may be flagged. Identify these scripts and processes, and exclude them by their process hash or command line patterns.
+- Regular operations involving OneDrive or other cloud-based services might be misidentified as suspicious. Exclude these by specifying known service URLs or domains in the detection rule.
+- Administrative tasks involving network share management can be mistaken for threats. Document and exclude these tasks by correlating them with scheduled maintenance windows or specific admin user accounts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further lateral movement or data exfiltration.
+- Terminate any suspicious processes related to net.exe or net1.exe that are actively mounting hidden or WebDav shares.
+- Conduct a thorough review of recent file access and transfer logs to identify any unauthorized data access or exfiltration attempts.
+- Change credentials for any accounts that were used in the suspicious activity to prevent further unauthorized access.
+- Implement network segmentation to limit access to critical systems and sensitive data, reducing the risk of lateral movement.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
+- Enhance monitoring and alerting for similar activities by ensuring that all relevant security tools are configured to detect and alert on suspicious use of net.exe and net1.exe."""
 
 
 [[rule.threat]]

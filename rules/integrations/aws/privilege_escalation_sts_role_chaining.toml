@@ -2,13 +2,13 @@
 creation_date = "2024/10/23"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/10/23"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies role chaining activity. Role chaining is when you use one assumed role to assume a second role through the AWS CLI or API. 
-While this a recognized functionality in AWS, role chaining can be abused for privilege escalation if the subsequent assumed role provides additional privileges. 
+Identifies role chaining activity. Role chaining is when you use one assumed role to assume a second role through the AWS CLI or API.
+While this a recognized functionality in AWS, role chaining can be abused for privilege escalation if the subsequent assumed role provides additional privileges.
 Role chaining can also be used as a persistence mechanism as each AssumeRole action results in a refreshed session token with a 1 hour maximum duration.
 This rule looks for role chaining activity happening within a single account, to eliminate false positives produced by common cross-account behavior.
 """
@@ -21,7 +21,43 @@ from = "now-6m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS STS Role Chaining"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS STS Role Chaining
+
+AWS Security Token Service (STS) allows temporary, limited-privilege credentials for AWS resources. Role chaining involves using one temporary role to assume another, potentially escalating privileges. Adversaries exploit this by gaining elevated access or persistence. The detection rule identifies such activity by monitoring specific API calls and access patterns within a single account, flagging potential misuse.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to identify the source of the AssumeRole API call by examining the aws.cloudtrail.user_identity.arn field to determine which user or service initiated the role chaining.
+- Check the cloud.region field to understand the geographical context of the activity and assess if it aligns with expected operational regions for your organization.
+- Investigate the aws.cloudtrail.resources.account_id and aws.cloudtrail.recipient_account_id fields to confirm that the role chaining activity occurred within the same account, as cross-account role chaining is not flagged by this rule.
+- Analyze the aws.cloudtrail.user_identity.access_key_id to verify that the access key used is a temporary token starting with "ASIA", indicating the use of temporary credentials.
+- Assess the permissions associated with the roles involved in the chaining to determine if the subsequent role provides elevated privileges that could be exploited for privilege escalation or persistence.
+- Correlate the timing of the AssumeRole events with other security events or alerts to identify any suspicious patterns or activities that may indicate malicious intent.
+
+### False positive analysis
+
+- Cross-account role assumptions are common in many AWS environments and can generate false positives. To mitigate this, ensure the rule is configured to only monitor role chaining within a single account, as specified in the rule description.
+- Automated processes or applications that frequently assume roles for legitimate purposes may trigger false positives. Identify these processes and create exceptions for their specific access patterns or user identities.
+- Scheduled tasks or scripts that use temporary credentials for routine operations might be flagged. Review these tasks and whitelist their access key IDs if they consistently follow a predictable and secure pattern.
+- Development and testing environments often involve frequent role assumptions for testing purposes. Exclude these environments from monitoring or adjust the rule to account for their unique access behaviors.
+- Regularly review and update the list of exceptions to ensure that only non-threatening behaviors are excluded, maintaining the effectiveness of the detection rule.
+
+### Response and remediation
+
+- Immediately revoke the temporary credentials associated with the detected AssumeRole activity to prevent further unauthorized access.
+- Conduct a thorough review of the AWS CloudTrail logs to identify any additional suspicious activities or roles assumed using the compromised credentials.
+- Isolate the affected AWS resources and accounts to prevent lateral movement and further privilege escalation within the environment.
+- Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement stricter IAM policies and role permissions to limit the ability to assume roles unnecessarily, reducing the risk of privilege escalation.
+- Enhance monitoring and alerting for AssumeRole activities, especially those involving temporary credentials, to detect similar threats in the future.
+- Conduct a post-incident review to identify gaps in security controls and update incident response plans to improve future response efforts.
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -41,6 +77,7 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Privilege Escalation",
     "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
