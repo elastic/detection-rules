@@ -4,7 +4,7 @@ integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -77,7 +77,8 @@ process where host.os.type == "linux" and event.action in ("exec", "exec_event",
  ( (process.name == "service" and process.args == "stop") or
    (process.name == "chkconfig" and process.args == "off") or
    (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))
- ) and process.args in ("syslog", "rsyslog", "syslog-ng", "syslog.service", "rsyslog.service", "syslog-ng.service")
+ ) and process.args in ("syslog", "rsyslog", "syslog-ng", "syslog.service", "rsyslog.service", "syslog-ng.service") and
+not process.parent.name == "rsyslog-rotate"
 '''
 note = """## Triage and analysis
 
