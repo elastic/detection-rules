@@ -4,7 +4,7 @@ integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -66,11 +66,12 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
-  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2") and process.parent.name != null and
   (
     (process.name in ("dpkg", "dpkg-query") and process.args == "libpam-modules") or
     (process.name == "rpm" and process.args == "pam")
-  )
+  ) and
+not process.parent.name in ("dcservice", "inspectorssmplugin")
 '''
 note = """## Triage and analysis
 
