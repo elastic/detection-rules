@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -39,7 +39,9 @@ process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
 process.name == "setfacl" and not (
   process.command_line == "/bin/setfacl --restore=-" or
-  process.args == "/var/log/journal/"
+  process.args == "/var/log/journal/" or
+  process.parent.name in ("stats.pl", "perl", "find") or
+  process.parent.command_line like~ "/bin/sh -c *ansible*"
 )
 '''
 note = """## Triage and analysis

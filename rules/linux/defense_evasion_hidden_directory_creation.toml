@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -72,8 +72,9 @@ process.name == "mkdir" and process.parent.executable like (
 ) and process.args like (".*", "/*/.*") and process.args_count <= 3 and not (
   process.parent.executable like ("/tmp/newroot/*", "/run/containerd/*") or
   process.command_line like ("mkdir -p .", "mkdir ./*") or
+  process.args == "/root/.ssh" or
   process.parent.executable like (
-    "/tmp/pear/temp/*", "/var/tmp/buildah*", "/tmp/python-build.*", "/tmp/cliphist-wofi-img"
+    "/tmp/pear/temp/*", "/var/tmp/buildah*", "/tmp/python-build.*", "/tmp/cliphist-wofi-img", "/tmp/snap.rootfs_*"
   )
 )
 '''
