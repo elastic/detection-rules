@@ -4,7 +4,7 @@ integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -68,7 +68,8 @@ process where host.os.type == "linux" and event.type == "start" and
     "/home/*/.aws/credentials", "/home/*/.aws/config", "/home/*/.config/gcloud/*credentials.json",
     "/home/*/.config/gcloud/configurations/config_default", "/home/*/.azure/accessTokens.json",
     "/home/*/.azure/azureProfile.json"
-  )
+  ) and 
+not process.parent.name in ("wazuh-modulesd", "lynis")
 '''
 note = """## Triage and analysis
 
