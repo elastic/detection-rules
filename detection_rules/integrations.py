@@ -441,7 +441,7 @@ class SecurityDetectionEngine:
             
             # Flatten the list of all versions and sort by version (older first)
             all_versions = sorted(
-                [(base_id, version, key, len(versions)) for base_id, versions in rule_versions.items() for version, key in versions],
+                [(base_id, version, key, len(versions)) for base_id, versions in rule_versions.items() for version, key in sorted(versions)],
                 key=lambda x: x[0]
             )
             # Calculate the number of excess assets
