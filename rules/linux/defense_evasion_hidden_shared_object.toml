@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
 min_stack_version = "8.13.0"
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -77,7 +77,7 @@ type = "eql"
 
 query = '''
 file where host.os.type == "linux" and event.type == "creation" and file.extension == "so" and file.name : ".*.so" and
-not process.name == "dockerd"
+not process.name in ("dockerd", "azcopy", "podman")
 '''
 note = """## Triage and analysis
 
