@@ -1,0 +1,30 @@
+name: REACT Tests Dispatcher
+
+on:
+  push:
+    branches: [ "main", "7.*", "8.*" ]
+    paths:
+      - 'rules/**/*.toml'
+
+jobs:
+  dispatch:
+    name: Run REACT tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger REACT workflow
+        env:
+          REACT_WORKFLOW_ID: "detection-rules-test"
+        run: |
+            curl -x POST \
+            -H "Accept: application/vnd.github.everest-preview+json" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: token ${{ secrets.WRITE_REACT_DETECTION_RULES_TOKEN }}" \
+            "https://api.github.com/repos/elastic/react/actions/workflows/$REACT_WORKFLOW_ID/dispatches" \
+            -d '{
+              "ref": "github.event.pull_request.base.ref",
+              "client_parameter": {
+                "pr_branch": "${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.ref_name }}"
+                "pr_id": "${{ github.event.number }}",
+              }
+            }'
+
