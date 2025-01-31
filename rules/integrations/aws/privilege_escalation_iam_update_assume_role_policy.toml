@@ -2,13 +2,18 @@
 creation_date = "2020/07/06"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/27"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies attempts to modify an AWS IAM Assume Role Policy. An adversary may attempt to modify the AssumeRolePolicy of
-a misconfigured role in order to gain the privileges of that role.
+Identifies AWS CloudTrail events where an IAM role's trust policy has been updated. The trust policy is a JSON document
+that defines which principals are allowed to assume the role. An attacker may attempt to modify this policy to gain the
+privileges of the role. This is a [New
+Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule, which means it
+will only trigger once for each unique value of the `aws.cloudtrail.user_identity.arn` and
+`aws.cloudtrail.flattened.request_parameters.roleName` fields that has not been seen making this API request within the
+last 14 days.
 """
 false_positives = [
     """
@@ -17,9 +22,8 @@ false_positives = [
     be exempted from the rule.
     """,
 ]
-from = "now-60m"
+from = "now-9m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS IAM Assume Role Policy Update"
@@ -33,6 +37,10 @@ The role trust policy is a JSON document in which you define the principals you 
 
 #### Possible investigation steps
 
+- Review the `aws.cloudtrail.user_identity.arn` field to determine the user identity that performed the action.
+- Review the `aws.cloudtrail.flattened.request_parameters.roleName` field to confirm the role that was updated.
+- Within the `aws.cloudtrail.request_parameters` field, review the `policyDocument` to understand the changes made to the trust policy.
+- If `aws.cloudtrail.user_identity.access_key_id` is present, investigate the access key used to perform the action as it may be compromised.
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Investigate other alerts associated with the user account during the past 48 hours.
 - Contact the account and resource owners and confirm whether they are aware of this activity.
@@ -61,10 +69,7 @@ The role trust policy is a JSON document in which you define the principals you 
 - Implement security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+"""
 references = ["https://labs.bishopfox.com/tech-blog/5-privesc-attack-vectors-in-aws"]
 risk_score = 21
 rule_id = "a60326d7-dca7-4fb7-93eb-1ca03a1febbd"
@@ -73,16 +78,20 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
-    "Data Source: AWS STS",
+    "Data Source: AWS IAM",
     "Use Case: Identity and Access Audit",
     "Resources: Investigation Guide",
     "Tactic: Privilege Escalation",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:UpdateAssumeRolePolicy and event.outcome:success
+event.dataset: "aws.cloudtrail"
+    and event.provider: "iam.amazonaws.com"
+    and event.action: "UpdateAssumeRolePolicy"
+    and event.outcome: "success"
+    and not source.address: "cloudformation.amazonaws.com"
 '''
 
 
@@ -98,4 +107,12 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn", "aws.cloudtrail.flattened.request_parameters.roleName"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
 
