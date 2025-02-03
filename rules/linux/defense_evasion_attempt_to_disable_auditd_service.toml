@@ -4,7 +4,7 @@ integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -65,7 +65,8 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   (process.name == "chkconfig" and process.args == "off") or
   (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))
 ) and
-process.args in ("auditd", "auditd.service")
+process.args in ("auditd", "auditd.service") and 
+not process.parent.name == "auditd.prerm"
 '''
 note = """## Triage and analysis
 

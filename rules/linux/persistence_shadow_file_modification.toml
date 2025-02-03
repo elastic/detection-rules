@@ -2,7 +2,7 @@
 creation_date = "2024/07/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ from = "now-9m"
 index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Shadow File Modification"
+name = "Shadow File Modification by Unusual Process"
 references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
 risk_score = 21
 rule_id = "cdf1a39b-1ca5-4e2a-9739-17fc4d026029"
@@ -59,14 +59,17 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and
-file.path == "/etc/shadow" and file.Ext.original.path != null
+file.path == "/etc/shadow" and file.Ext.original.path != null and 
+not process.name in (
+  "usermod", "useradd", "passwd", "chage", "systemd-sysusers", "chpasswd", "userdel", "adduser", "update-passwd", "perl"
+)
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Shadow File Modification
+### Investigating Shadow File Modification by Unusual Process
 
 The Linux shadow file is crucial for storing hashed user passwords, ensuring system security. Adversaries may exploit this by altering the file to add users or change passwords, thus gaining unauthorized access or maintaining persistence. The detection rule identifies suspicious modifications by monitoring changes and renames of the shadow file, flagging potential unauthorized access attempts for further investigation.
 
