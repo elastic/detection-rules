@@ -2,7 +2,7 @@
 creation_date = "2021/05/17"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2025/01/27"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -96,11 +96,18 @@ event.dataset: "aws.cloudtrail"
     and event.action: "AssumeRole"
     and event.outcome: "success"
     and aws.cloudtrail.user_identity.type: "AWSService"
-    and not aws.cloudtrail.user_identity.invoked_by: (
-              "config.amazonaws.com" or
-              "securityhub.amazonaws.com" or
-              "sso.amazonaws.com"
-            )
+    and aws.cloudtrail.user_identity.invoked_by: (
+          "ec2.amazonaws.com" or
+          "lambda.amazonaws.com" or
+          "rds.amazonaws.com" or
+          "ssm.amazonaws.com" or
+          "ecs-tasks.amazonaws.com" or
+          "ecs.amazonaws.com" or
+          "eks.amazonaws.com" or
+          "eks-fargate.amazonaws.com" or
+          "codepipeline.amazonaws.com" or
+          "codebuild.amazonaws.com" or
+          "autoscaling.amazonaws.com")
 '''
 
 [rule.investigation_fields]

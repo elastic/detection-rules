@@ -2,7 +2,7 @@
 creation_date = "2023/08/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -65,9 +65,10 @@ sequence by host.id, user.id with maxspan=1m
      "/tmp/VeeamApp*", "/tmp/rajh/spack-stage/*", "plz-out/bin/vault/bridge/test/e2e/base/bridge-dev",
      "/usr/bin/ranlib", "/usr/bin/ar", "plz-out/bin/vault/bridge/test/e2e/base/local-k8s"
    )] by process.name
-  [file where host.os.type == "linux" and event.action == "deletion" and not process.name in ("rm", "ld") and
-   file.path : ("/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*",
-     "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*")] by file.name
+  [file where host.os.type == "linux" and event.action == "deletion" and
+   file.path : (
+     "/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*"
+    ) and not process.name in ("rm", "ld", "conftest", "link", "gcc", "getarch", "ld")] by file.name
 '''
 note = """## Triage and analysis
 
