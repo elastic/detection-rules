@@ -2,7 +2,7 @@
 creation_date = "2024/07/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -59,7 +59,7 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.executable : "/var/lib/dpkg/info/*" and process.session_leader.name != null and
 process.group_leader.name != null and not (
-  process.parent.name in ("dpkg", "dpkg-reconfigure") or
+  process.parent.name in ("dpkg", "dpkg-reconfigure", "frontend") or
   process.session_leader.name == "dpkg" or
   process.group_leader.name == "dpkg" or
   process.parent.executable in ("/usr/share/debconf/frontend", "/usr/bin/unattended-upgrade")
