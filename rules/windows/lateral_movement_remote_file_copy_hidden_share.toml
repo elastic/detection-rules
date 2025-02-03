@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/10/31"
+updated_date = "2025/01/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -43,6 +43,7 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -55,6 +56,41 @@ process where host.os.type == "windows" and event.type == "start" and
     process.name : "robocopy.exe"
   ) and process.args : "*\\\\*\\*$*"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Remote File Copy to a Hidden Share
+
+In Windows environments, hidden network shares are often used for legitimate administrative tasks, allowing file transfers without user visibility. However, adversaries can exploit these shares for lateral movement or data exfiltration. The detection rule identifies suspicious file copy attempts using common command-line tools like cmd.exe and powershell.exe, focusing on hidden share patterns to flag potential threats.
+
+### Possible investigation steps
+
+- Review the process details to identify the specific command-line tool used (cmd.exe, powershell.exe, xcopy.exe, or robocopy.exe) and examine the arguments to understand the nature of the file copy operation.
+- Investigate the source and destination of the file copy by analyzing the network share path in the process arguments, focusing on the hidden share pattern (e.g., \\\\*\\\\*$).
+- Check the user account associated with the process to determine if it has legitimate access to the hidden share and assess if the activity aligns with the user's typical behavior.
+- Correlate the event with other logs or alerts from the same host or user to identify any additional suspicious activities, such as unusual login attempts or privilege escalation.
+- Examine the historical activity of the involved host to identify any previous instances of similar file copy attempts or other indicators of lateral movement.
+- Consult threat intelligence sources to determine if the detected pattern or tools are associated with known adversary techniques or campaigns.
+
+### False positive analysis
+
+- Administrative tasks using hidden shares can trigger alerts. Regularly review and document legitimate administrative activities that involve file transfers to hidden shares.
+- Backup operations often use hidden shares for data storage. Identify and exclude backup processes by specifying known backup software and their typical command-line arguments.
+- Software deployment tools may utilize hidden shares for distributing updates. Create exceptions for recognized deployment tools by listing their process names and associated arguments.
+- IT maintenance scripts might copy files to hidden shares for system updates. Maintain a list of approved maintenance scripts and exclude them from triggering alerts.
+- User-initiated file transfers for legitimate purposes can be mistaken for threats. Educate users on proper file transfer methods and monitor for unusual patterns that deviate from documented procedures.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further lateral movement or data exfiltration.
+- Terminate any suspicious processes identified in the alert, such as cmd.exe, powershell.exe, xcopy.exe, or robocopy.exe, that are involved in the file copy attempt.
+- Conduct a forensic analysis of the affected system to identify any additional indicators of compromise or unauthorized access.
+- Change credentials for any accounts that were used in the suspicious activity to prevent further unauthorized access.
+- Review and restrict permissions on network shares, especially hidden shares, to ensure only authorized users have access.
+- Monitor network traffic for any further suspicious activity related to hidden shares and lateral movement attempts.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
 
 
 [[rule.threat]]

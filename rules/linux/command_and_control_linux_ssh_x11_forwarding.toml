@@ -4,7 +4,7 @@ integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/06"
+updated_date = "2025/01/17"
 
 [transform]
 [[transform.osquery]]
@@ -47,11 +47,11 @@ license = "Elastic License v2"
 name = "Linux SSH X11 Forwarding"
 note = """## Triage and analysis
 
-### Investigating Potential Linux SSH X11 Forwarding
+### Investigating Linux SSH X11 Forwarding
 
 Attackers can leverage SSH X11 forwarding to capture a user's graphical desktop session and potentially execute unauthorized GUI applications remotely.
 
-This rule looks for the execution of SSH in conjunction with command line arguments that are capable of setting up X11 forwarding. 
+This rule looks for the execution of SSH in conjunction with command line arguments that are capable of setting up X11 forwarding.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -86,7 +86,7 @@ This rule looks for the execution of SSH in conjunction with command line argume
 ### False positive analysis
 
 - If this activity is related to new benign software installation activity, consider adding exceptions — preferably with a combination of user and command line conditions.
-- If this activity is related to a system administrator or developer who uses port tunneling/forwarding for benign purposes, consider adding exceptions for specific user accounts or hosts. 
+- If this activity is related to a system administrator or developer who uses port tunneling/forwarding for benign purposes, consider adding exceptions for specific user accounts or hosts.
 - Try to understand the context of the execution by thinking about the user, machine, or business purpose. A small number of endpoints, such as servers with unique software, might appear unusual but satisfy a specific business need.
 
 ### Response and remediation
@@ -117,12 +117,13 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-process.name in ("ssh", "sshd") and process.args in ("-X", "-Y") and process.args_count >= 3 and 
+process.name in ("ssh", "sshd") and process.args in ("-X", "-Y") and process.args_count >= 3 and
 process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 '''
 
