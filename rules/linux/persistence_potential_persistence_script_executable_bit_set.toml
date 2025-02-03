@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/22"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -85,7 +85,10 @@ process.args : (
 ) and (
   (process.name == "chmod" and process.args : ("+x*", "1*", "3*", "5*", "7*")) or
   (process.name == "install" and process.args : "-m*" and process.args : ("7*", "5*", "3*", "1*"))
-) and not process.parent.executable : "/var/lib/dpkg/*"
+) and not (
+  process.parent.executable : "/var/lib/dpkg/*" or
+  process.command_line in ("chmod 777 /etc/update-motd.d/", "chmod 755 /etc/update-motd.d/")
+)
 '''
 note = """## Triage and analysis
 
