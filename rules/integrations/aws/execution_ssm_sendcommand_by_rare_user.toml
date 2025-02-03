@@ -2,7 +2,7 @@
 creation_date = "2020/07/06"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2025/01/27"
 
 [rule]
 author = ["Elastic"]
@@ -97,6 +97,11 @@ event.dataset: "aws.cloudtrail"
     and event.action: "SendCommand"
     and event.outcome: "success"
     and not aws.cloudtrail.user_identity.arn: *AWSServiceRoleForAmazonSSM/StateManagerService*
+    and not source.address: (
+      "ssm-guiconnect.amazonaws.com" or
+      "ssm.amazonaws.com" or
+      "inspector2.amazonaws.com"
+    )
 '''
 
 
