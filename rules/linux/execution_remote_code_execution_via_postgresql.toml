@@ -2,7 +2,7 @@
 creation_date = "2022/06/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -65,7 +65,10 @@ event.action in ("exec", "exec_event", "fork", "fork_event") and user.name == "p
   (process.args : "*sh" and process.args : "echo*")
 ) and not (
   process.parent.name == "puppet" or
-  process.command_line like "*BECOME-SUCCESS-*" or
+  process.command_line like (
+    "*BECOME-SUCCESS-*", "bash -c while true; do sleep 1;*", "df -l", "sleep 1", "who", "head -v -n *", "tail -v -n *",
+    "/bin/sh -c echo BECOME-SUCCESS*", "/usr/bin/python3 /var/tmp/ansible-tmp*"
+  ) or
   process.parent.command_line like "*BECOME-SUCCESS-*"
 )
 '''
