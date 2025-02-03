@@ -1340,10 +1340,11 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
                                 '(https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) '
                                 'introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display '
                                 'unrendered Markdown in this guide.')
-        invest_note_pattern = ('> This investigation guide uses the [Investigate Markdown Plugin]'
-                               '(https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html)'
-                               ' introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display '
-                               'unrendered Markdown in this guide.')
+        invest_note_pattern = (
+            '> This investigation guide uses the [Investigate Markdown Plugin]'
+            '(https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html)'
+            ' introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display '
+            'unrendered Markdown in this guide.')
 
         for rule in self.all_rules:
             if not rule.contents.get('transform'):
