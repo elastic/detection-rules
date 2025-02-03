@@ -2,7 +2,7 @@
 creation_date = "2021/12/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/01/27"
 
 [rule]
 author = ["Elastic"]
@@ -63,7 +63,14 @@ sequence by host.id with maxspan=1m
                    "python*",
                    "ruby*",
                    "php*",
-                   "wget")] by process.parent.pid
+                   "wget") and
+    not process.command_line like~ (
+      "bash -c ulimit -u",
+      "bash /opt/flutter/bin/flutter*",
+      "bash -c echo $$",
+      "/bin/bash /opt/python3/bin/jira*",
+      "/bin/sh -c env LC_ALL=C /usr/sbin/lpc status*"
+    )] by process.parent.pid
 '''
 note = """## Triage and analysis
 
