@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -65,7 +65,9 @@ process where host.os.type == "linux" and event.type == "start" and event.action
     (process.args == "s_client" and process.args : ("-connect", "*:*") and not process.args == "-showcerts") or
     (process.args == "s_server" and process.args == "-port")
   ) and
-  not process.parent.executable in ("/pro/xymon/client/ext/awsXymonCheck.sh", "/opt/antidot-svc/nrpe/plugins/check_cert")
+  not process.parent.executable in (
+    "/pro/xymon/client/ext/awsXymonCheck.sh", "/opt/antidot-svc/nrpe/plugins/check_cert", "/etc/zabbix/scripts/check_dane_tlsa.sh"
+  )
 '''
 note = """## Triage and analysis
 
