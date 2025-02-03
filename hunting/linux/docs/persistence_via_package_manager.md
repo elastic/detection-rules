@@ -59,7 +59,7 @@ SELECT
     g.groupname AS group owner,
     datetime(f.atime, 'unixepoch') AS file_last_access time,
     datetime(f.mtime, 'unixepoch') AS file last_modified time,
-    datetime(f.ctime, 'unixepoch') AS file last_status change time,
+    datetime(f.ctime, 'unixepoch') AS file last_status_change time,
     datetime(f.btime, 'unixepoch') AS file created time,
     f.size AS size bytes
 FROM
