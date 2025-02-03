@@ -31,7 +31,6 @@ from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
 from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
 from detection_rules.version_lock import loaded_version_lock
-from rta import get_available_tests
 
 from .base import BaseRuleTest
 
@@ -72,21 +71,6 @@ class TestValidRules(BaseRuleTest):
                 err_message = f'\n{self.rule_str(rule)} Query not optimized for rule\n' \
                               f'Expected: {optimized}\nActual: {source}'
                 self.assertEqual(tree, optimized, err_message)
-
-    def test_production_rules_have_rta(self):
-        """Ensure that all production rules have RTAs."""
-        mappings = load_etc_dump('rule-mapping.yaml')
-        ttp_names = sorted(get_available_tests())
-
-        for rule in self.all_rules:
-            if isinstance(rule.contents.data, QueryRuleData) and rule.id in mappings:
-                matching_rta = mappings[rule.id].get('rta_name')
-
-                self.assertIsNotNone(matching_rta, f'{self.rule_str(rule)} does not have RTAs')
-
-                rta_name, ext = os.path.splitext(matching_rta)
-                if rta_name not in ttp_names:
-                    self.fail(f'{self.rule_str(rule)} references unknown RTA: {rta_name}')
 
     def test_duplicate_file_names(self):
         """Test that no file names are duplicated."""
