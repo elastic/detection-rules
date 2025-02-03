@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -68,7 +68,7 @@ sequence by host.id with maxspan=5s
   [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
    process.parent.name == "apt" and process.args == "-c" and process.name in (
      "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
-   )
+   ) and not process.executable == "/usr/lib/venv-salt-minion/bin/python.original"
   ] by process.entity_id
   [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and process.name : (
      "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "php*",
