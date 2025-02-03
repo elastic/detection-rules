@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -33,7 +33,10 @@ type = "new_terms"
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and
 process.parent.name:(ssh or sshd) and process.args_count:2 and
-not process.command_line:(-bash or -zsh or -sh)
+not (
+  process.command_line:(-bash or -zsh or -sh) or
+  process.name:(ractrans or exectask or tty or tput or ferny-askpass or id or ip)
+)
 '''
 note = """## Triage and analysis
 
