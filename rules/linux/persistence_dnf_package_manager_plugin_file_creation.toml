@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -86,7 +86,9 @@ file.path : ("/usr/lib/python*/site-packages/dnf-plugins/*", "/etc/dnf/plugins/*
   ) or
   process.executable == null or
   (process.name == "sed" and file.name : "sed*") or
-  (process.name == "perl" and file.name : "e2scrub_all.tmp*")
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*") or
+  file.path like~ "/etc/dnf/plugins/.ansible_tmp*" or
+  process.name like~ ("ssm-agent-worker, NinjaOrbit", "python*")
 )
 '''
 note = """## Triage and analysis
