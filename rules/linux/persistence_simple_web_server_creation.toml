@@ -4,7 +4,7 @@ integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -67,7 +67,8 @@ process where host.os.type == "linux" and event.type == "start" and
   (
     (process.name regex~ """php?[0-9]?\.?[0-9]{0,2}""" and process.args == "-S") or
     (process.name like "python*" and process.args in ("--cgi", "CGIHTTPServer"))
-  )
+  ) and
+not process.parent.name in ("check_kmp_wrapper", "naemon")
 '''
 note = """## Triage and analysis
 
