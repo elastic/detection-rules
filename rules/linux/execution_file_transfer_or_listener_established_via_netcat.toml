@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/17"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -136,7 +136,8 @@ sequence by process.entity_id
           or process.args:(">","<")
           /* file transfer via pipe */
           or (process.args:("|") and process.args:("nc","ncat"))
-      )]
+      ) and
+      not process.command_line like~ ("*127.0.0.1*", "*localhost*")]
   [network where host.os.type == "linux" and (process.name == "nc" or process.name == "ncat" or process.name == "netcat" or
                   process.name == "netcat.openbsd" or process.name == "netcat.traditional")]
 '''
