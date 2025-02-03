@@ -1337,13 +1337,14 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
     def test_note_has_osquery_warning(self):
         """Test that all rules with osquery entries have the default notification of stack compatibility."""
         osquery_note_pattern = ('> **Note**:\n> This investigation guide uses the [Osquery Markdown Plugin]'
-                                '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) '
+                                '(https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) '
                                 'introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display '
                                 'unrendered Markdown in this guide.')
-        invest_note_pattern = ('> This investigation guide uses the [Investigate Markdown Plugin]'
-                               '(https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html)'
-                               ' introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display '
-                               'unrendered Markdown in this guide.')
+        invest_note_pattern = (
+            '> This investigation guide uses the [Investigate Markdown Plugin]'
+            '(https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html)'
+            ' introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display '
+            'unrendered Markdown in this guide.')
 
         for rule in self.all_rules:
             if not rule.contents.get('transform'):
