@@ -21,7 +21,7 @@ from .config import parse_rules_config
 from .main import root
 from .misc import add_params, client_error, elasticsearch_options, get_elasticsearch_client, nested_get
 from .rule import TOMLRule
-from .rule_loader import rta_mappings, RuleCollection
+from .rule_loader import RuleCollection
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 
 
@@ -58,80 +58,6 @@ def parse_unique_field_results(rule_type: str, unique_fields: List[str], search_
             parsed_results[field][match] += 1
     # if rule.type == eql, structure is different
     return {'results': parsed_results} if parsed_results else {}
-
-
-class RtaEvents:
-    """Events collected from Elasticsearch."""
-
-    def __init__(self, events):
-        self.events: dict = self._normalize_event_timing(events)
-
-    @staticmethod
-    def _normalize_event_timing(events):
-        """Normalize event timestamps and sort."""
-        for agent_type, _events in events.items():
-            events[agent_type] = normalize_timing_and_sort(_events)
-
-        return events
-
-    @staticmethod
-    def _get_dump_dir(rta_name=None, host_id=None, host_os_family=None):
-        """Prepare and get the dump path."""
-        if rta_name and host_os_family:
-            dump_dir = get_path('unit_tests', 'data', 'true_positives', rta_name, host_os_family)
-            os.makedirs(dump_dir, exist_ok=True)
-            return dump_dir
-        else:
-            time_str = time.strftime('%Y%m%dT%H%M%SL')
-            dump_dir = os.path.join(COLLECTION_DIR, host_id or 'unknown_host', time_str)
-            os.makedirs(dump_dir, exist_ok=True)
-            return dump_dir
-
-    def evaluate_against_rule_and_update_mapping(self, rule_id, rta_name, verbose=True):
-        """Evaluate a rule against collected events and update mapping."""
-        from .utils import combine_sources, evaluate
-
-        rule = RuleCollection.default().id_map.get(rule_id)
-        assert rule is not None, f"Unable to find rule with ID {rule_id}"
-        merged_events = combine_sources(*self.events.values())
-        filtered = evaluate(rule, merged_events, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
-
-        if filtered:
-            sources = [e['agent']['type'] for e in filtered]
-            mapping_update = rta_mappings.add_rule_to_mapping_file(rule, len(filtered), rta_name, *sources)
-
-            if verbose:
-                click.echo('Updated rule-mapping file with: \n{}'.format(json.dumps(mapping_update, indent=2)))
-        else:
-            if verbose:
-                click.echo('No updates to rule-mapping file; No matching results')
-
-    def echo_events(self, pager=False, pretty=True):
-        """Print events to stdout."""
-        echo_fn = click.echo_via_pager if pager else click.echo
-        echo_fn(json.dumps(self.events, indent=2 if pretty else None, sort_keys=True))
-
-    def save(self, rta_name=None, dump_dir=None, host_id=None):
-        """Save collected events."""
-        assert self.events, 'Nothing to save. Run Collector.run() method first or verify logging'
-
-        host_os_family = None
-        for key in self.events.keys():
-            if self.events.get(key, {})[0].get('host', {}).get('id') == host_id:
-                host_os_family = self.events.get(key, {})[0].get('host', {}).get('os').get('family')
-                break
-        if not host_os_family:
-            click.echo('Unable to determine host.os.family for host_id: {}'.format(host_id))
-            host_os_family = click.prompt("Please enter the host.os.family for this host_id",
-                                          type=click.Choice(["windows", "macos", "linux"]), default="windows")
-
-        dump_dir = dump_dir or self._get_dump_dir(rta_name=rta_name, host_id=host_id, host_os_family=host_os_family)
-
-        for source, events in self.events.items():
-            path = os.path.join(dump_dir, source + '.ndjson')
-            with open(path, 'w') as f:
-                f.writelines([json.dumps(e, sort_keys=True) + '\n' for e in events])
-                click.echo('{} events saved to: {}'.format(len(events), path))
 
 
 class CollectEvents(object):
@@ -322,36 +248,6 @@ class CollectEvents(object):
         return survey_results
 
 
-class CollectRtaEvents(CollectEvents):
-    """Collect RTA events from elasticsearch."""
-
-    @staticmethod
-    def _group_events_by_type(events):
-        """Group events by agent.type."""
-        event_by_type = {}
-
-        for event in events:
-            event_by_type.setdefault(event['_source']['agent']['type'], []).append(event['_source'])
-
-        return event_by_type
-
-    def run(self, dsl, indexes, start_time):
-        """Collect the events."""
-        results = self.search(dsl, language='dsl', index=indexes, start_time=start_time, end_time='now', size=5000,
-                              sort=[{'@timestamp': {'order': 'asc'}}])
-        events = self._group_events_by_type(results)
-        return RtaEvents(events)
-
-
-@root.command('normalize-data')
-@click.argument('events-file', type=click.File('r'))
-def normalize_data(events_file):
-    """Normalize Elasticsearch data timestamps and sort."""
-    file_name = os.path.splitext(os.path.basename(events_file.name))[0]
-    events = RtaEvents({file_name: [json.loads(e) for e in events_file.readlines()]})
-    events.save(dump_dir=os.path.dirname(events_file.name))
-
-
 @root.group('es')
 @add_params(*elasticsearch_options)
 @click.pass_context
@@ -366,40 +262,6 @@ def es_group(ctx: click.Context, **kwargs):
 
     else:
         ctx.obj['es'] = get_elasticsearch_client(ctx=ctx, **kwargs)
-
-
-@es_group.command('collect-events')
-@click.argument('host-id')
-@click.option('--query', '-q', help='KQL query to scope search')
-@click.option('--index', '-i', multiple=True, help='Index(es) to search against (default: all indexes)')
-@click.option('--rta-name', '-r', help='Name of RTA in order to save events directly to unit tests data directory')
-@click.option('--rule-id', help='Updates rule mapping in rule-mapping.yaml file (requires --rta-name)')
-@click.option('--view-events', is_flag=True, help='Print events after saving')
-@click.pass_context
-def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
-    """Collect events from Elasticsearch."""
-    client: Elasticsearch = ctx.obj['es']
-    dsl = kql.to_dsl(query) if query else MATCH_ALL
-    dsl['bool'].setdefault('filter', []).append({'bool': {'should': [{'match_phrase': {'host.id': host_id}}]}})
-
-    try:
-        collector = CollectRtaEvents(client)
-        start = time.time()
-        click.pause('Press any key once detonation is complete ...')
-        start_time = f'now-{round(time.time() - start) + 5}s'
-        events = collector.run(dsl, index or '*', start_time)
-        events.save(rta_name=rta_name, host_id=host_id)
-
-        if rta_name and rule_id:
-            events.evaluate_against_rule_and_update_mapping(rule_id, rta_name)
-
-        if view_events and events.events:
-            events.echo_events(pager=True)
-
-        return events
-    except AssertionError as e:
-        error_msg = 'No events collected! Verify events are streaming and that the agent-hostname is correct'
-        client_error(error_msg, e, ctx=ctx)
 
 
 @es_group.command('index-rules')
