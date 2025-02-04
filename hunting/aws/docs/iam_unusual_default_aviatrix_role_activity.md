@@ -22,7 +22,7 @@ from logs-aws.cloudtrail-*
     and aws.cloudtrail.user_identity.arn like "*aviatrix-role*"
 | stats activity_counts = count(*) by event.provider, event.action, aws.cloudtrail.user_identity.arn
 | where activity_counts < 10
-| sort by activity_counts asc
+| sort activity_counts asc
 ```
 
 ## Notes
