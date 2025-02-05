@@ -479,7 +479,6 @@ class TestRuleTags(BaseRuleTest):
             err_msg = '\n'.join(invalid)
             self.fail(f'Rules with misaligned ML rule type tags:\n{err_msg}')
 
-    @unittest.skip("Skipping until all Investigation Guides follow the proper format.")
     def test_investigation_guide_tag(self):
         """Test that investigation guide tags are present within rules."""
         invalid = []
@@ -1290,19 +1289,62 @@ class TestRiskScoreMismatch(BaseRuleTest):
             self.fail(err_msg)
 
 
+class TestInvestigationGuide(BaseRuleTest):
+    """Test investigation guide content."""
+
+    def test_note_contains_triage_and_analysis(self):
+        """Ensure the note field contains Triage and analysis content for Elastic rules."""
+        failures = []
+
+        for rule in self.all_rules:
+            if (
+                not rule.contents.data.is_elastic_rule or  # noqa: W504
+                rule.contents.data.building_block_type or  # noqa: W504
+                rule.contents.data.severity in ("medium", "low")
+            ):
+                # dont enforce
+                continue
+
+            note_field = rule.contents.data.get("note")
+
+            # Check if note field contains ## Triage and analysis
+            if not note_field or "## triage and analysis" not in note_field.casefold():
+                failures.append(f"{self.rule_str(rule)}: note field is missing ## Triage and analysis content.")
+
+        if failures:
+            fail_msg = "The following rules failed the note validation (missing investigation guide content):\n"
+            self.fail(fail_msg + "\n".join(failures))
+
+    def test_investigation_guide_uses_rule_name(self):
+        """Check if investigation guide uses rule name in the title."""
+        errors = []
+        for rule in self.all_rules.rules:
+            note = rule.contents.data.get('note')
+            if note is not None:
+                # Check if `### Investigating` is present and if so,
+                # check if it is followed by the rule name.
+                if '### Investigating' in note:
+                    results = re.search(rf'### Investigating\s+{re.escape(rule.name)}', note, re.I | re.M)
+                    if results is None:
+                        errors.append(f'{self.rule_str(rule)} investigation guide does not use rule name in the title')
+        if errors:
+            self.fail('\n'.join(errors))
+
+
 class TestNoteMarkdownPlugins(BaseRuleTest):
     """Test if a guide containing Osquery Plugin syntax contains the version note."""
 
     def test_note_has_osquery_warning(self):
         """Test that all rules with osquery entries have the default notification of stack compatibility."""
         osquery_note_pattern = ('> **Note**:\n> This investigation guide uses the [Osquery Markdown Plugin]'
-                                '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) '
+                                '(https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) '
                                 'introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display '
                                 'unrendered Markdown in this guide.')
-        invest_note_pattern = ('> This investigation guide uses the [Investigate Markdown Plugin]'
-                               '(https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html)'
-                               ' introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display '
-                               'unrendered Markdown in this guide.')
+        invest_note_pattern = (
+            '> This investigation guide uses the [Investigate Markdown Plugin]'
+            '(https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html)'
+            ' introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display '
+            'unrendered Markdown in this guide.')
 
         for rule in self.all_rules:
             if not rule.contents.get('transform'):
