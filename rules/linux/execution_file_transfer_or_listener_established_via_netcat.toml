@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/06"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +27,7 @@ license = "Elastic License v2"
 name = "File Transfer or Listener Established via Netcat"
 note = """## Triage and analysis
 
-### Investigating Netcat Network Activity
+### Investigating File Transfer or Listener Established via Netcat
 
 Netcat is a dual-use command line tool that can be used for various purposes, such as port scanning, file transfers, and connection tests. Attackers can abuse its functionality for malicious purposes such creating bind shells or reverse shells to gain access to the target system.
 
@@ -136,7 +136,8 @@ sequence by process.entity_id
           or process.args:(">","<")
           /* file transfer via pipe */
           or (process.args:("|") and process.args:("nc","ncat"))
-      )]
+      ) and
+      not process.command_line like~ ("*127.0.0.1*", "*localhost*")]
   [network where host.os.type == "linux" and (process.name == "nc" or process.name == "ncat" or process.name == "netcat" or
                   process.name == "netcat.openbsd" or process.name == "netcat.traditional")]
 '''

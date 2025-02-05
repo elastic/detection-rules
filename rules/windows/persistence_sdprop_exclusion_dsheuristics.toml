@@ -2,7 +2,7 @@
 creation_date = "2022/02/24"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/01/22"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -101,8 +101,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.action in ("Directory Service Changes", "directory-service-object-modified") and
-  event.code == "5136" and
+any where event.code == "5136" and
   winlog.event_data.AttributeLDAPDisplayName : "dSHeuristics" and
   length(winlog.event_data.AttributeValue) > 15 and
   winlog.event_data.AttributeValue regex~ "[0-9]{15}([1-9a-f]).*"

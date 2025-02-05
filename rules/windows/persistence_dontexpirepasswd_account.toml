@@ -2,7 +2,7 @@
 creation_date = "2022/02/22"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/01/22"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -23,7 +23,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Account Configured with Never-Expiring Password"
 note = """## Triage and analysis
@@ -75,11 +75,17 @@ tags = [
     "Data Source: System",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.action:"modified-user-account" and winlog.api:"wineventlog" and event.code:"4738" and
-  message:"'Don't Expire Password' - Enabled" and not user.id:"S-1-5-18"
+any where host.os.type == "windows" and
+(
+  (event.code == "4738" and winlog.event_data.NewUACList == "USER_DONT_EXPIRE_PASSWORD") or
+  (
+    event.code == "5136" and winlog.event_data.AttributeLDAPDisplayName == "userAccountControl" and
+    winlog.event_data.AttributeValue in ("66048", "66080")
+  )
+)
 '''
 
 
