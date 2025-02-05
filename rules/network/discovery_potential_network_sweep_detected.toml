@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/05/17"
-integration = ["endpoint", "network_traffic", "panw"]
+integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -11,10 +11,10 @@ This rule identifies a potential network sweep. A network sweep is a method used
 identifying active hosts, open ports, and available services to gather information on vulnerabilities and weaknesses.
 This reconnaissance helps them plan subsequent attacks and exploit potential entry points for unauthorized access, data
 theft, or other malicious activities. This rule proposes threshold logic to check for connection attempts from one
-source host to 10 or more destination hosts on commonly used network services.
+source host to 100 or more destination hosts on commonly used network services.
 """
 from = "now-9m"
-index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-endpoint.events.network-*", "logs-panw.panos*"]
+index = ["packetbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-panw.panos*"]
 language = "kuery"
 license = "Elastic License v2"
 max_signals = 5
@@ -27,16 +27,14 @@ tags = [
     "Tactic: Discovery",
     "Tactic: Reconnaissance",
     "Use Case: Network Security Monitoring",
-    "Data Source: Elastic Defend",
     "Data Source: PAN-OS",
     "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "threshold"
-
 query = '''
-destination.port : (21 or 22 or 23 or 25 or 139 or 445 or 3389 or 5985 or 5986) and
-source.ip : (10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+event.action:network_flow and destination.port:(21 or 22 or 23 or 25 or 139 or 445 or 3389 or 5985 or 5986) and
+source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
 note = """## Triage and analysis
 
@@ -80,31 +78,31 @@ Network sweeps are reconnaissance techniques where attackers scan networks to id
 
 - Document and report: Record all findings, actions taken, and lessons learned in an incident report to inform future response strategies and improve network defenses."""
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1046"
 name = "Network Service Discovery"
 reference = "https://attack.mitre.org/techniques/T1046/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1595"
 name = "Active Scanning"
 reference = "https://attack.mitre.org/techniques/T1595/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1595.001"
 name = "Scanning IP Blocks"
 reference = "https://attack.mitre.org/techniques/T1595/001/"
-
-
 
 [rule.threat.tactic]
 id = "TA0043"
@@ -114,8 +112,7 @@ reference = "https://attack.mitre.org/tactics/TA0043/"
 [rule.threshold]
 field = ["source.ip"]
 value = 1
+
 [[rule.threshold.cardinality]]
 field = "destination.ip"
 value = 100
-
-
