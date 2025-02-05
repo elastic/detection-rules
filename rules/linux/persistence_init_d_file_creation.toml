@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/06"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -57,7 +57,7 @@ Attackers can abuse files within the `/etc/init.d/` directory to run scripts, co
 This rule looks for the creation of new files within the `/etc/init.d/` directory. Executable files in these directories will automatically run at boot with root privileges.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 #### Possible Investigation Steps
 
@@ -168,17 +168,17 @@ and file.path : "/etc/init.d/*" and not (
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
     "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd"
   ) or
-  file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
+  file.extension in ("swp", "swpx", "swx", "dpkg-remove", "dpkg-new") or
   file.path like ("/etc/init.d/*beat*", "/etc/init.d/elastic-agent*") or
-  process.executable like ("/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*") or
+  process.executable like ("/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*", "/opt/puppetlabs/puppet/bin/ruby") or
   process.name in ("docker-init", "jumpcloud-agent", "crio") or
   process.executable == null or
+  process.name in ("executor", "univention-config-registry", "install", "dockerd-entrypoint.sh", "platform-python*", "ssm-agent-worker") or
   (process.name == "ln" and file.path : "/etc/init.d/rc*.d/*") or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 
 )
 '''
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 

@@ -2,7 +2,7 @@
 creation_date = "2021/01/20"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/01/15"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -32,6 +32,7 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -48,6 +49,40 @@ registry where host.os.type == "windows" and event.type == "change" and registry
   not (process.name : "msiexec.exe" and registry.data.strings : "mso.dll") and
   not (process.name : "regsvr32.exe" and registry.data.strings == "WINTRUST.DLL")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SIP Provider Modification
+
+Subject Interface Package (SIP) providers are integral to Windows' cryptographic system, ensuring file signature validation. Adversaries may modify SIP providers to bypass these checks, facilitating unauthorized code execution. The detection rule identifies suspicious registry changes linked to SIP providers, excluding benign processes, to flag potential defense evasion attempts.
+
+### Possible investigation steps
+
+- Review the registry path and value changes to confirm if they match the suspicious patterns specified in the query, such as modifications under the paths related to CryptSIPDllPutSignedDataMsg or Trust FinalPolicy.
+- Identify the process responsible for the registry change by examining the process name and compare it against the exclusions in the query, ensuring it is not a benign process like msiexec.exe or regsvr32.exe.
+- Investigate the DLL file specified in the registry change to determine its legitimacy, checking its digital signature and origin.
+- Correlate the event with other security logs or alerts from data sources like Sysmon or Microsoft Defender for Endpoint to identify any related suspicious activities or patterns.
+- Assess the risk context by considering the host's role and any recent changes or incidents that might explain the registry modification, ensuring it aligns with expected behavior or authorized changes.
+
+### False positive analysis
+
+- Installation or update processes like msiexec.exe may trigger registry changes as part of legitimate software installations. Exclude these by adding exceptions for msiexec.exe when registry data strings include mso.dll.
+- System maintenance tasks using regsvr32.exe might modify SIP provider-related registry entries. Exclude regsvr32.exe when registry data strings match WINTRUST.DLL to prevent false alerts.
+- Regular updates or patches from trusted software vendors may alter SIP provider registry entries. Monitor and document these changes to establish a baseline of expected behavior, allowing for informed exclusions.
+- Security software or endpoint protection solutions might interact with SIP provider settings as part of their normal operation. Identify and whitelist these processes to reduce unnecessary alerts.
+- Custom enterprise applications with legitimate needs to modify cryptographic settings should be reviewed and, if verified as safe, added to an exclusion list to prevent disruption.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or code execution.
+- Terminate any suspicious processes identified in the alert, such as those not typically associated with legitimate SIP provider modifications.
+- Restore the modified registry entries to their original state using a known good backup or by manually correcting the entries to ensure the integrity of the SIP providers.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious software that may have been introduced.
+- Review and update endpoint protection policies to ensure that similar unauthorized modifications are detected and blocked in the future.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Document the incident details, including the steps taken for containment and remediation, to enhance future response efforts and update threat intelligence databases."""
 
 
 [[rule.threat]]

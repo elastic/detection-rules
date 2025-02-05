@@ -2,7 +2,7 @@
 creation_date = "2025/01/08"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/09"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,43 @@ index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS SQS Queue Purge"
-note = """## Triage and Analysis
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS SQS Queue Purge
+
+AWS Simple Queue Service (SQS) is a managed message queuing service that enables decoupling and scaling of microservices, distributed systems, and serverless applications. Adversaries may exploit SQS by purging queues to erase messages, disrupt operations, or hinder monitoring. The detection rule identifies successful purge actions in AWS CloudTrail logs, signaling potential defense evasion attempts by adversaries.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs for the specific event.provider "sqs.amazonaws.com" and event.action "PurgeQueue" to identify the time and source of the purge action.
+- Identify the IAM user or role associated with the purge action by examining the user identity information in the CloudTrail logs to determine if the action was authorized or potentially malicious.
+- Check the event.outcome "success" to confirm that the purge action was completed successfully and assess the impact on the queue's message data.
+- Investigate the context around the purge event by reviewing preceding and subsequent CloudTrail logs to identify any related or suspicious activities, such as unauthorized access attempts or changes to IAM policies.
+- Assess the potential impact on operations and monitoring by determining which messages were purged and if they contained critical or sensitive information.
+- Evaluate the necessity of implementing additional security measures, such as stricter IAM policies or enhanced logging and alerting, to prevent unauthorized queue purges in the future.
+
+### False positive analysis
+
+- Routine maintenance activities by administrators may trigger the purge action. To handle this, identify and whitelist known maintenance operations or specific IAM roles used by trusted personnel.
+- Automated scripts or applications that regularly purge queues as part of their normal operation can cause false positives. Review and document these processes, then create exceptions for these specific actions in your monitoring system.
+- Testing environments where queues are frequently purged for development purposes can lead to alerts. Exclude these environments from the rule by filtering based on environment tags or specific queue names.
+- Scheduled tasks that include queue purging as a cleanup mechanism might be misinterpreted as malicious. Ensure these tasks are logged and approved, and adjust the detection rule to ignore these scheduled events.
+- Third-party integrations that manage SQS queues and perform purges as part of their functionality should be assessed. Verify the legitimacy of these integrations and exclude their actions from triggering alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected AWS SQS queue to prevent further unauthorized purging or access. This can be done by modifying the queue's access policies to restrict permissions temporarily.
+- Review AWS CloudTrail logs to identify the source of the purge action, including the IAM user or role responsible, and assess whether the action was authorized or part of a larger malicious activity.
+- Revoke or adjust permissions for the identified IAM user or role to prevent further unauthorized actions. Ensure that only necessary permissions are granted following the principle of least privilege.
+- Restore any critical messages or data that were purged, if possible, from backups or other data recovery solutions to minimize operational disruption.
+- Notify the security team and relevant stakeholders about the incident, providing details of the purge action and any identified malicious activity, to ensure coordinated response efforts.
+- Conduct a thorough review of IAM policies and access controls related to SQS to identify and remediate any potential security gaps that could be exploited in the future.
+- Enhance monitoring and alerting mechanisms for AWS SQS by implementing additional logging and anomaly detection to quickly identify and respond to similar threats in the future.
+
+## Triage and Analysis
 
 ### Investigating AWS SQS Queue Purge
 
