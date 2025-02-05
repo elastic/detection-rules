@@ -43,6 +43,7 @@ Here are the queries currently available:
 - [Persistence Through Reverse/Bind Shells](./linux/docs/persistence_reverse_bind_shells.md) (ES|QL)
 - [Persistence via Cron](./linux/docs/persistence_via_cron.md) (ES|QL)
 - [Persistence via DPKG/RPM Package](./linux/docs/persistence_via_rpm_dpkg_installer_packages.md) (ES|QL)
+- [Persistence via Desktop Bus (D-Bus)](./linux/docs/persistence_via_desktop_bus.md) (ES|QL)
 - [Persistence via Docker Container](./linux/docs/persistence_via_malicious_docker_container.md) (ES|QL)
 - [Persistence via Dynamic Linker Hijacking](./linux/docs/persistence_via_dynamic_linker_hijacking.md) (ES|QL)
 - [Persistence via GRUB Bootloader](./linux/docs/persistence_via_grub_bootloader.md) (ES|QL)
