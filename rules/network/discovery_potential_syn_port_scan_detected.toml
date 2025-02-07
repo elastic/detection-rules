@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/05/17"
-integration = ["endpoint", "network_traffic", "panw"]
+integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -12,10 +12,10 @@ target network for open ports by sending SYN packets to multiple ports and obser
 method to identify potential entry points or services that may be vulnerable to exploitation, allowing them to launch
 targeted attacks or gain unauthorized access to the system or network, compromising its security and potentially leading
 to data breaches or further malicious activities. This rule proposes threshold logic to check for connection attempts
-from one source host to 10 or more destination ports using 2 or less packets per port.
+from one source host to 250 or more destination ports using 2 or less packets per port.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.network-*", "logs-network_traffic.*", "packetbeat-*", "auditbeat-*", "filebeat-*", "logs-panw.panos*"]
+index = ["logs-network_traffic.*", "packetbeat-*", "filebeat-*", "logs-panw.panos*"]
 language = "kuery"
 license = "Elastic License v2"
 max_signals = 5
@@ -28,15 +28,13 @@ tags = [
     "Tactic: Discovery",
     "Tactic: Reconnaissance",
     "Use Case: Network Security Monitoring",
-    "Data Source: Elastic Defend",
     "Data Source: PAN-OS",
     "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "threshold"
-
 query = '''
-destination.port : * and network.packets <= 2 and source.ip : (10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+event.action:network_flow and destination.port:* and network.packets <= 2 and source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
 note = """## Triage and analysis
 
@@ -74,31 +72,31 @@ SYN-based port scanning is a reconnaissance technique where attackers send SYN p
 - Update intrusion detection and prevention systems to enhance detection capabilities for similar SYN-based port scanning activities.
 - Review and update network segmentation policies to limit the exposure of critical services and systems to internal reconnaissance activities."""
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1046"
 name = "Network Service Discovery"
 reference = "https://attack.mitre.org/techniques/T1046/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1595"
 name = "Active Scanning"
 reference = "https://attack.mitre.org/techniques/T1595/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1595.001"
 name = "Scanning IP Blocks"
 reference = "https://attack.mitre.org/techniques/T1595/001/"
-
-
 
 [rule.threat.tactic]
 id = "TA0043"
@@ -108,8 +106,7 @@ reference = "https://attack.mitre.org/tactics/TA0043/"
 [rule.threshold]
 field = ["destination.ip", "source.ip"]
 value = 1
+
 [[rule.threshold.cardinality]]
 field = "destination.port"
 value = 250
-
-
