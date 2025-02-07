@@ -64,7 +64,8 @@ NAVIGATOR_BADGE = (
 )
 RULES_CONFIG = parse_rules_config()
 
-MIN_DIFF_FEATURE_VERSION = Version(major=8, minor=18, patch=0)
+# The rule diff feature is available in 8.18 but needs to be tested in pre-release versions
+MIN_DIFF_FEATURE_VERSION = Version(major=8, minor=17, patch=0)
 
 MAX_VERSIONS_FOR_DIFF = 3
 MAX_VERSIONS_PRE_DIFF = 1
