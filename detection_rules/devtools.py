@@ -136,7 +136,7 @@ def build_release(ctx: click.Context, config_file, update_version_lock: bool, ge
                                                 minor=current_pkg_version.minor, patch=current_pkg_version.patch)
 
 
-    click.echo(f'[+] Limit historical rule versions in our release package for version {current_pkg_version_no_prerelease}')
+    click.echo(f'[+] Limit rule versions in the release package for version {current_pkg_version_no_prerelease}')
     if current_pkg_version_no_prerelease >= BASE_PKG_VERSION:
         limited_historical_rules = sde.keep_latest_versions(historical_rules, num_versions=MAX_VERSIONS_NEW_STACK)
     else:
