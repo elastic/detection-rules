@@ -26,7 +26,7 @@ from .utils import cached, get_etc_path, read_gzip, unzip
 from .schemas import definitions
 
 MANIFEST_FILE_PATH = get_etc_path('integration-manifests.json.gz')
-NUM_LATEST_RULE_VERSIONS = 1
+DEFAULT_MAX_RULE_VERSIONS = 1
 SCHEMA_FILE_PATH = get_etc_path('integration-schemas.json.gz')
 _notified_integrations = set()
 
@@ -417,7 +417,7 @@ class SecurityDetectionEngine:
                       for x in asset_file_names}
         return assets
 
-    def keep_latest_versions(self, assets: dict, num_versions: int = NUM_LATEST_RULE_VERSIONS) -> dict:
+    def keep_latest_versions(self, assets: dict, num_versions: int = DEFAULT_MAX_RULE_VERSIONS) -> dict:
         """Keeps only the latest N versions of each rule to limit historical rule versions in our release package."""
 
         # Dictionary to hold the sorted list of versions for each base rule ID
