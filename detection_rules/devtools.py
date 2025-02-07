@@ -138,9 +138,13 @@ def build_release(ctx: click.Context, config_file, update_version_lock: bool, ge
                                                 minor=current_pkg_version.minor, patch=current_pkg_version.patch)
 
     hist_versions_num = (
-        MAX_HISTORICAL_VERSIONS_FOR_DIFF if current_pkg_version_no_prerelease >= MIN_DIFF_FEATURE_VERSION else MAX_HISTORICAL_VERSIONS_PRE_DIFF
+        MAX_HISTORICAL_VERSIONS_FOR_DIFF
+        if current_pkg_version_no_prerelease >= MIN_DIFF_FEATURE_VERSION
+        else MAX_HISTORICAL_VERSIONS_PRE_DIFF
     )
-    click.echo(f'[+] Limit historical rule versions in the release package for version {current_pkg_version_no_prerelease}: {hist_versions_num} versions')
+    click.echo(
+        '[+] Limit historical rule versions in the release package for '
+        f'version {current_pkg_version_no_prerelease}: {hist_versions_num} versions')
     limited_historical_rules = sde.keep_latest_versions(historical_rules, num_versions=hist_versions_num)
 
     package.add_historical_rules(limited_historical_rules, registry_data['version'])
