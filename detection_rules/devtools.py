@@ -67,8 +67,9 @@ RULES_CONFIG = parse_rules_config()
 # The rule diff feature is available in 8.18 but needs to be tested in pre-release versions
 MIN_DIFF_FEATURE_VERSION = Version(major=8, minor=17, patch=0)
 
-MAX_VERSIONS_FOR_DIFF = 3
-MAX_VERSIONS_PRE_DIFF = 1
+# The caps for the historical versions of the rules
+MAX_HISTORICAL_VERSIONS_FOR_DIFF = 3
+MAX_HISTORICAL_VERSIONS_PRE_DIFF = 1
 
 
 def get_github_token() -> Optional[str]:
@@ -139,9 +140,9 @@ def build_release(ctx: click.Context, config_file, update_version_lock: bool, ge
 
     click.echo(f'[+] Limit rule versions in the release package for version {current_pkg_version_no_prerelease}')
     if current_pkg_version_no_prerelease >= MIN_DIFF_FEATURE_VERSION:
-        limited_historical_rules = sde.keep_latest_versions(historical_rules, num_versions=MAX_VERSIONS_FOR_DIFF)
+        limited_historical_rules = sde.keep_latest_versions(historical_rules, num_versions=MAX_HISTORICAL_VERSIONS_FOR_DIFF)
     else:
-        limited_historical_rules = sde.keep_latest_versions(historical_rules, num_versions=MAX_VERSIONS_PRE_DIFF)
+        limited_historical_rules = sde.keep_latest_versions(historical_rules, num_versions=MAX_HISTORICAL_VERSIONS_PRE_DIFF)
 
     package.add_historical_rules(limited_historical_rules, registry_data['version'])
     click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
