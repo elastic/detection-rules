@@ -2,14 +2,16 @@
 creation_date = "2024/11/01"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/01/10"
+updated_date = "2025/02/12"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies when an SNS topic is subscribed to by an email address of a user who does not typically perform this action.
 Adversaries may subscribe to an SNS topic to collect sensitive information or exfiltrate data via an external email
-address.
+address. This is a [New
+Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that only flags
+when this behavior is observed for the first time on a host in the last 14 days.
 """
 false_positives = [
     """
@@ -81,6 +83,32 @@ event.dataset: "aws.cloudtrail"
     and aws.cloudtrail.request_parameters: *protocol=email*
 '''
 
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
@@ -97,19 +125,6 @@ field_names = [
     "aws.cloudtrail.flattened.response_elements.subscriptionArn",
     "aws.cloudtrail.request_parameters"
 ]
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1567"
-name = "Exfiltration Over Web Service"
-reference = "https://attack.mitre.org/techniques/T1567/"
-
-
-[rule.threat.tactic]
-id = "TA0010"
-name = "Exfiltration"
-reference = "https://attack.mitre.org/tactics/TA0010/"
 
 [rule.new_terms]
 field = "new_terms_fields"
