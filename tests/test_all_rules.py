@@ -1450,8 +1450,8 @@ class TestAlertSuppression(BaseRuleTest):
                             found in ECS, Beats, or non-ecs schemas")
 
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.14.0") or  # noqa: W504
-                     PACKAGE_STACK_VERSION >= Version.parse("8.18.0"),  # noqa: W504
-                     "Test only applicable to 8.14 to 8.17 stacks for eql non-sequence rule alert suppression feature.")
+                     PACKAGE_STACK_VERSION >= Version.parse("8.18.0"),# noqa: W504
+                     "Test is applicable to 8.14 --> 8.17 stacks for eql non-sequence rule alert suppression feature.")
     def test_eql_non_sequence_support_only(self):
         for rule in self.all_rules:
             if (
