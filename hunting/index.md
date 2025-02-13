@@ -50,6 +50,7 @@ Here are the queries currently available:
 - [Persistence via Initramfs](./linux/docs/persistence_via_initramfs.md) (ES|QL)
 - [Persistence via Loadable Kernel Modules](./linux/docs/persistence_via_loadable_kernel_modules.md) (ES|QL)
 - [Persistence via Message-of-the-Day](./linux/docs/persistence_via_message_of_the_day.md) (ES|QL)
+- [Persistence via NetworkManager Dispatcher Script](./linux/docs/persistence_via_network_manager_dispatcher_script.md) (ES|QL)
 - [Persistence via Package Manager](./linux/docs/persistence_via_package_manager.md) (ES|QL)
 - [Persistence via Pluggable Authentication Modules (PAM)](./linux/docs/persistence_via_pluggable_authentication_module.md) (ES|QL)
 - [Persistence via PolicyKit](./linux/docs/persistence_via_policykit.md) (ES|QL)
