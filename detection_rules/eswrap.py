@@ -5,9 +5,7 @@
 
 """Elasticsearch cli commands."""
 import json
-import os
 import sys
-import time
 from collections import defaultdict
 from typing import List, Union
 
@@ -22,7 +20,7 @@ from .main import root
 from .misc import add_params, client_error, elasticsearch_options, get_elasticsearch_client, nested_get
 from .rule import TOMLRule
 from .rule_loader import RuleCollection
-from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
+from .utils import format_command_options, unix_time_to_formatted, get_path
 
 
 COLLECTION_DIR = get_path('collections')
