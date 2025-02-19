@@ -695,4 +695,3 @@ def prep_rule(author: str):
     updated_rule.write_text(json.dumps(template_rule, sort_keys=True))
     click.echo(f'Rule saved to: {updated_rule}. Import this to Kibana to create alerts on all dnstwist-* indexes')
     click.echo('Note: you only need to import and enable this rule one time for all dnstwist-* indexes')
-
