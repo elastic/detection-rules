@@ -27,7 +27,6 @@ from .config import load_current_package_version, parse_rules_config
 from .generic_loader import GenericCollection
 from .exception import (TOMLExceptionContents,
                         build_exception_objects, parse_exceptions_results_from_api)
-from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
 from .misc import (
     add_client, client_error, nested_set, parse_user_config
 )
