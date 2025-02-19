@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 min_stack_version = "8.14.0"
-updated_date = "2025/02/03"
+updated_date = "2025/02/21"
 
 [transform]
 [[transform.osquery]]
@@ -38,7 +38,7 @@ Identifies instances of an unusual process enumerating built-in Windows privileg
 Administrators or Remote Desktop users.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-system.security*", "logs-windows.forwarded*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Enumeration of Privileged Local Groups Membership"
@@ -107,12 +107,6 @@ Audit Security Group Management (Success)
 ```
 
 Microsoft introduced the [event used](https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4799) in this detection rule on Windows 10 and Windows Server 2016 or later operating systems.
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
 tags = [
@@ -121,7 +115,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Resources: Investigation Guide",
-    "Data Source: System",
+    "Data Source: Windows Security Event Logs",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
