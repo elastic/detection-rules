@@ -16,6 +16,7 @@ This repository was first announced on Elastic's blog post, [Elastic Security op
   - [Overview of this repository](#overview-of-this-repository)
   - [Getting started](#getting-started)
   - [How to contribute](#how-to-contribute)
+  - [RTAs](#rtas)
   - [Licensing](#licensing)
   - [Questions? Problems? Suggestions?](#questions-problems-suggestions)
 
@@ -131,6 +132,11 @@ For more advanced command line interface (CLI) usage, refer to the [CLI guide](C
 ## How to contribute
 
 We welcome your contributions to Detection Rules! Before contributing, please familiarize yourself with this repository, its [directory structure](#overview-of-this-repository), and our [philosophy](PHILOSOPHY.md) about rule creation. When you're ready to contribute, read the [contribution guide](CONTRIBUTING.md) to learn how we turn detection ideas into production rules and validate with testing.
+
+## RTAs
+
+Red Team Automations (RTAs) used to emulate attacker techniques and verify the rules can be found in dedicated
+repository - [Cortado](https://github.com/elastic/cortado).
 
 ## Licensing
 
