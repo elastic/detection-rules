@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/19"
-integration = ["endpoint", "windows"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/21"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -11,7 +11,7 @@ author = ["Elastic"]
 description = "Identifies execution of a suspicious program via scheduled tasks by looking at process lineage and command line usage."
 false_positives = ["Legitimate scheduled tasks running third party software."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-windows.*"]
+index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Execution via Scheduled Task"
@@ -20,14 +20,6 @@ references = [
 ]
 risk_score = 47
 rule_id = "5d1d6907-0747-4d5d-9b24-e4a18853dc0a"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
