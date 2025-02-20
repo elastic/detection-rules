@@ -1,0 +1,149 @@
+[metadata]
+creation_date = "2025/02/11"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/02/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an SNS topic is created by a user who does not typically perform this action. Adversaries may create SNS
+topics to stage capabilities for data exfiltration or other malicious activities.
+"""
+false_positives = [
+    """
+    Legitimate users may create SNS topics for legitimate purposes. Ensure that the creation is authorized before taking
+    action.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS SNS Topic Created by Rare User"
+note = """## Triage and Analysis
+
+### Investigating AWS SNS Topic Created by Rare User
+
+This rule detects the creation of an AWS Simple Notification Service (SNS) topic by a user who does not typically perform this action. Adversaries may create SNS topics to facilitate data exfiltration or other malicious activities.
+
+This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that only flags when this behavior is observed for the first time on a host in the last 10 days.
+
+#### Possible Investigation Steps
+
+### 1. Identify the Actor and Context
+- **User Identity and Role**:
+  - Examine `aws.cloudtrail.user_identity.arn` to determine **who** created the SNS topic.
+  - Identify whether the actor assumed a **privileged IAM role** (`aws.cloudtrail.user_identity.type: "AssumedRole"`).
+- **User Agent and Tooling**:
+  - Check `user_agent.name` to determine if this action was performed via the AWS CLI, SDK, or Console.
+  - If `aws-cli` was used, review whether it aligns with typical automation or administrative behavior.
+- **Source IP and Geographic Location**:
+  - Review `source.ip` and `source.geo` fields to confirm if the request originated from a **trusted** or **unexpected** location.
+
+### 2. Evaluate the SNS Topic Creation
+- **Topic Name and Purpose**:
+  - Check `aws.cloudtrail.flattened.request_parameters.name` for the **SNS topic name** and determine whether it appears suspicious (e.g., random strings, unusual keywords).
+- **Target Region and Account**:
+  - Verify `cloud.region` and `cloud.account.id` to **ensure the SNS topic was created in an expected environment**.
+- **Associated API Calls**:
+  - Identify additional actions **before or after** this event using `event.action` values like:
+    - `Subscribe`
+    - `Publish`
+    - `SetTopicAttributes`
+  - These may indicate follow-up steps taken to misuse the SNS topic.
+
+### 3. Analyze Potential Malicious Intent
+- **Is This an Isolated Action or a Pattern?**
+  - Check if this **user has previously created SNS topics** using historical CloudTrail logs.
+  - Look for **multiple topic creations in a short period**, which may suggest an automation script or malicious behavior.
+- **Unusual Role Usage**:
+  - If `aws.cloudtrail.user_identity.arn` references an **EC2 instance role**, verify whether that instance typically performs SNS operations.
+- **Potential Data Exfiltration or Persistence**:
+  - Review whether **new subscriptions** were added (`Subscribe` API action) to forward data externally.
+  - If an SNS topic was configured to trigger **Lambda functions or S3 events**, it may indicate an attempt to persist in the environment.
+
+## False Positive Analysis
+- **Legitimate Usage of SNS**:
+  - SNS is commonly used for **event-driven notifications** in AWS.
+  - Check whether the SNS topic creation aligns with known **DevOps, automation, or monitoring activities**.
+- **Routine IAM Role Activity**:
+  - If the user typically interacts with SNS, consider **allowlisting** expected IAM roles for this action.
+- **AWS Services Creating Topics Automatically**:
+  - Some AWS services may **auto-create SNS topics** for alerts and monitoring. Confirm whether the creation was system-generated.
+
+## Response and Remediation
+- **Confirm Authorization**:
+  - If the user was not expected to create SNS topics, verify whether their IAM permissions should be restricted.
+- **Revoke Unauthorized Access**:
+  - If unauthorized, disable the access keys or IAM role associated with the event.
+- **Monitor for Further SNS Modifications**:
+  - Set up additional monitoring for **SNS Publish or Subscription events** (`Publish`, `Subscribe`).
+- **Enhance IAM Policy Controls**:
+  - Consider enforcing **least privilege** IAM policies and enabling **multi-factor authentication (MFA)** where applicable.
+- **Investigate for Persistence**:
+  - Check whether the SNS topic is **being used as a notification channel for Lambda, S3, or other AWS services**.
+"""
+references = ["https://docs.aws.amazon.com/sns/latest/api/API_CreateTopic.html"]
+risk_score = 21
+rule_id = "3c3f65b8-e8b4-11ef-9511-f661ea17fbce"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS SNS",
+    "Resources: Investigation Guide",
+    "Use Case: Threat Detection",
+    "Tactic: Resource Development",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "sns.amazonaws.com"
+    and event.action: "CreateTopic"
+    and event.outcome: "success"
+    and aws.cloudtrail.user_identity.type: "AssumedRole"
+    and aws.cloudtrail.user_identity.arn: *i-*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1608"
+name = "Stage Capabilities"
+reference = "https://attack.mitre.org/techniques/T1608/"
+
+
+[rule.threat.tactic]
+id = "TA0042"
+name = "Resource Development"
+reference = "https://attack.mitre.org/tactics/TA0042/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.address",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "cloud.region",
+    "aws.cloudtrail.flattened.request_parameters.protocol",
+    "aws.cloudtrail.flattened.request_parameters.topicArn",
+    "aws.cloudtrail.request_parameters",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+
