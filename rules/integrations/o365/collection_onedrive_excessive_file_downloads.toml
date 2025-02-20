@@ -44,6 +44,7 @@ This rule leverages ES|QL aggregations which limit the field values available in
 - Check for signs of session persistence using OAuth. If Azure sign-in logs are correlated where `authentication_protocol` or `originalTransferMethod` field shows `deviceCode`, the session was established through device code authentication.
 - Look for multiple authentication attempts from different devices or locations within a short timeframe, which could indicate unauthorized access.
 - Investigate if other OAuth-related anomalies exist, such as consent grants for unfamiliar applications or unexpected refresh token activity.
+- Review the `file.directory` value from the original documents to identify the specific folders or paths where the files were downloaded.
 
 ### False Positive Analysis
 
@@ -95,10 +96,10 @@ FROM logs-o365.audit-*
     and event.outcome == "success"
 // bucket authentication attempts by 1 minute
 | EVAL target_time_window = DATE_TRUNC(1 minutes, @timestamp)
-| KEEP target_time_window, o365.audit.UserId, file.name, file.directory, source.ip
+| KEEP target_time_window, o365.audit.UserId, file.name, source.ip
 
 // aggregate on unique file names and download attempts
-| STATS unique_file_count = count_distinct(file.name), download_attempt_count = count(*) BY o365.audit.UserId, file.directory, source.ip
+| STATS unique_file_count = count_distinct(file.name), download_attempt_count = count(*) BY target_time_window, o365.audit.UserId, source.ip
 
 // adjustable range for "excessive" unique files that were downloaded
 | WHERE unique_file_count >= 25
