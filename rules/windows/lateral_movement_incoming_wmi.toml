@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/11/15"
-integration = ["endpoint", "windows"]
+integration = ["endpoint"]
 maturity = "production"
 updated_date = "2025/01/15"
 min_stack_version = "8.14.0"
@@ -13,12 +13,7 @@ Identifies processes executed via Windows Management Instrumentation (WMI) on a 
 adversary lateral movement, but could be noisy if administrators use WMI to remotely manage hosts.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.process-*",
-    "logs-endpoint.events.network-*",
-    "winlogbeat-*",
-    "logs-windows.sysmon_operational-*",
-]
+index = ["logs-endpoint.events.process-*", "logs-endpoint.events.network-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "WMI Incoming Lateral Movement"
@@ -31,7 +26,6 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Lateral Movement",
     "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
     "Resources: Investigation Guide",
 ]
 type = "eql"
@@ -48,7 +42,7 @@ sequence by host.id with maxspan = 2s
   /* Excluding Common FPs Nessus and SCCM */
 
   [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "WmiPrvSE.exe" and
-   not (?process.Ext.token.integrity_level_name : "System" or ?winlog.event_data.IntegrityLevel : "System") and
+   not process.Ext.token.integrity_level_name == "System" and
    not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
    not process.executable :
                ("?:\\Program Files\\HPWBEM\\Tools\\hpsum_swdiscovery.exe",
