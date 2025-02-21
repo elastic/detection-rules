@@ -20,6 +20,7 @@ index = [
     "logs-sentinel_one_cloud_funnel.*",
     "logs-system.security*",
     "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
     "winlogbeat-*",
 ]
 language = "eql"
@@ -76,13 +77,14 @@ tags = [
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
+    "Data Source: Sysmon",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and user.id != "S-1-5-18" and
+process where host.os.type == "windows" and event.type == "start" and
   process.executable : (
     "?:\\Windows\\System32\\curl.exe",
     "?:\\Windows\\SysWOW64\\curl.exe"
@@ -94,6 +96,11 @@ process where host.os.type == "windows" and event.type == "start" and user.id !=
     "conhost.exe", "forfiles.exe",
     "wscript.exe", "cscript.exe",
     "mshta.exe", "hh.exe", "mmc.exe"
+  ) and 
+  not (
+    user.id == "S-1-5-18" and
+    /* Don't apply the user.id exclusion to Sysmon for compatibility */
+    not event.dataset : ("windows.sysmon_operational", "windows.sysmon")
   )
 '''
 

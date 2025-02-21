@@ -27,6 +27,7 @@ index = [
     "logs-m365_defender.event-*",
     "logs-system.security*",
     "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
     "winlogbeat-*",
 ]
 language = "eql"
@@ -81,6 +82,7 @@ tags = [
     "Data Source: Windows Security Event Logs",
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: Crowdstrike",
+    "Data Source: Sysmon",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -92,8 +94,12 @@ process where host.os.type == "windows" and event.type == "start" and
         "/LSAQUERYFTI:*", "/PARENTDOMAIN",
         "/DOMAIN_TRUSTS", "/BDC_QUERY:*"
         ) and 
-not process.parent.name : "PDQInventoryScanner.exe" and 
-not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20")
+not process.parent.name : "PDQInventoryScanner.exe" and
+not (
+  user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+  /* Don't apply the user.id exclusion to Sysmon for compatibility */
+  not event.dataset : ("windows.sysmon_operational", "windows.sysmon")
+)
 '''
 
 
