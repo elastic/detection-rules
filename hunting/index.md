@@ -17,6 +17,10 @@ Here are the queries currently available:
 - [Lambda Add Permissions for Write Actions to Function](./aws/docs/lambda_add_permissions_for_write_actions_to_function.md) (ES|QL)
 - [Multiple Service Logging Deleted or Stopped](./aws/docs/multiple_service_logging_deleted_or_stopped.md) (ES|QL)
 - [S3 Public Bucket Rapid Object Access Attempts](./aws/docs/s3_public_bucket_rapid_object_access_attempts.md) (ES|QL)
+- [SNS Direct-to-Phone Messaging Spike](./aws/docs/sns_direct_to_phone_messaging_spike.md) (ES|QL)
+- [SNS Topic Created by Rare User](./aws/docs/sns_topic_created_by_rare_user.md) (ES|QL)
+- [SNS Topic Message Published by Rare User](./aws/docs/sns_topic_message_published_by_rare_user.md) (ES|QL)
+- [SNS Topic Subscription with Email by Rare User](./aws/docs/sns_email_subscription_by_rare_user.md) (ES|QL)
 - [SSM Rare SendCommand Code Execution by EC2 Instance](./aws/docs/ssm_rare_sendcommand_code_execution.md) (ES|QL)
 - [SSM SendCommand API Used by EC2 Instance](./aws/docs/ssm_sendcommand_api_used_by_ec2_instance.md) (ES|QL)
 - [SSM Start Remote Session to EC2 Instance](./aws/docs/ssm_start_remote_session_to_ec2_instance.md) (ES|QL)
@@ -24,6 +28,11 @@ Here are the queries currently available:
 - [Secrets Manager High Frequency of Programmatic GetSecretValue API Calls](./aws/docs/secretsmanager_high_frequency_get_secret_value.md) (ES|QL)
 - [Signin Single Factor Console Login via Federated Session](./aws/docs/signin_single_factor_console_login_via_federated_session.md) (ES|QL)
 - [User Creation with Administrator Policy Assigned](./aws/docs/iam_user_creation_with_administrator_policy_assigned.md) (ES|QL)
+
+
+## azure
+- [Azure Entra Authentication Attempts from Abused Hosting Service Providers](./azure/docs/entra_authentication_attempts_from_abused_hosting_service_providers.md) (ES|QL)
+- [Azure Entra Device Code Authentication from Unusual Principal](./azure/docs/entra_device_code_authentication_from_unusual_principal.md) (ES|QL)
 
 
 ## linux
