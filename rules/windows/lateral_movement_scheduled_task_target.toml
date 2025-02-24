@@ -2,7 +2,7 @@
 creation_date = "2020/11/20"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/10/15"
+updated_date = "2025/02/24"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -73,6 +73,17 @@ sequence by host.id, process.entity_id with maxspan = 1m
    [registry where host.os.type == "windows" and event.type == "change" and registry.value : "Actions" and
     registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
 '''
+setup = """## Setup
+
+This rule requires data from one of the following integrations:
+- Elastic Defend
+
+Note: This Detection Rule supports multiple datasets, but only one is required. Listed indexes and integrations should be interpreted as an OR condition, meaning any of them are supported.
+
+### Elastic Defend Setup
+
+Elastic Defend seamlessly integrates with Elastic Agent through Fleet. Once set up, it enables endpoint prevention and remediation capabilities and sends data that powers detection rules. For setup instructions, refer to our [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
 
 
 [[rule.threat]]

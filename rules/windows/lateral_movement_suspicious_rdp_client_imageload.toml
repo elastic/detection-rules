@@ -2,7 +2,7 @@
 creation_date = "2020/11/19"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/24"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -23,14 +23,6 @@ references = [
 ]
 risk_score = 47
 rule_id = "71c5cb27-eca5-4151-bb47-64bc3f883270"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -103,6 +95,17 @@ The Remote Desktop Services ActiveX Client, mstscax.dll, facilitates remote desk
 - Reset credentials for any accounts that were accessed or potentially compromised during the incident to prevent unauthorized access.
 - Implement network segmentation to limit the ability of adversaries to move laterally within the network in the future.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems or data have been affected."""
+setup = """## Setup
+
+This rule requires data from one of the following integrations:
+- Elastic Defend
+
+Note: This Detection Rule supports multiple datasets, but only one is required. Listed indexes and integrations should be interpreted as an OR condition, meaning any of them are supported.
+
+### Elastic Defend Setup
+
+Elastic Defend seamlessly integrates with Elastic Agent through Fleet. Once set up, it enables endpoint prevention and remediation capabilities and sends data that powers detection rules. For setup instructions, refer to our [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
 
 
 [[rule.threat]]
