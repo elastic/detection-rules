@@ -68,14 +68,6 @@ references = [
 ]
 risk_score = 73
 rule_id = "bfeaf89b-a2a7-48a3-817f-e41829dc61ee"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -160,6 +152,15 @@ any where host.os.type == "windows" and
   )
 )
 '''
+setup = """## Setup
+
+This Detection Rule supports multiple datasets, but only one is required unless specified otherwise.
+Listed indexes and integrations should be interpreted as an OR condition, meaning any of them are supported.
+
+### Elastic Defend Setup
+
+Elastic Defend seamlessly integrates with Elastic Agent through Fleet. Once set up, it enables endpoint prevention and remediation capabilities and sends data that powers detection rules. For setup instructions, refer to our [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
 
 
 [[rule.threat]]

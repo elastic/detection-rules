@@ -23,14 +23,6 @@ references = [
 ]
 risk_score = 73
 rule_id = "a9b05c3b-b304-4bf9-970d-acdfaef2944c"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -98,6 +90,15 @@ The Windows Registry is a critical system database that stores configuration set
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
 - Implement enhanced monitoring on the affected system and similar endpoints to detect any recurrence of the threat, focusing on registry changes and process execution.
 - Update and reinforce endpoint security configurations to prevent similar persistence techniques, such as enabling registry auditing and restricting access to critical registry paths."""
+setup = """## Setup
+
+This Detection Rule supports multiple datasets, but only one is required unless specified otherwise.
+Listed indexes and integrations should be interpreted as an OR condition, meaning any of them are supported.
+
+### Elastic Defend Setup
+
+Elastic Defend seamlessly integrates with Elastic Agent through Fleet. Once set up, it enables endpoint prevention and remediation capabilities and sends data that powers detection rules. For setup instructions, refer to our [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
 
 
 [[rule.threat]]
