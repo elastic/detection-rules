@@ -2,7 +2,7 @@
 creation_date = "2020/04/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -72,8 +72,9 @@ not (
   process.parent.name:(
     mkinitramfs or cryptroot or framebuffer or dracut or jem or thin-provisioning-tools or readykernel or lvm2 or
     vz-start or iscsi or mdadm or ovalprobes or bcache or plymouth or dkms or overlayroot or weak-modules or zfs or
-    systemd or whoopsie-upload-all or kdumpctl or apport-gtk or casper or rear or kernel-install
-  )
+    systemd or whoopsie-upload-all or kdumpctl or apport-gtk or casper or rear or kernel-install or newrelic-infra
+  ) or
+  process.parent.executable:/var/lib/dpkg/info/linux-modules*-generic.post*
 )
 '''
 note = """## Triage and analysis

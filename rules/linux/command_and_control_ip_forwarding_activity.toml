@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ forwarding can be used to route network traffic between different network interf
 pivot between networks, exfiltrate data, or establish command and control channels.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
+index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "IPv4/IPv6 Forwarding Activity"
@@ -44,7 +44,8 @@ process.parent.executable != null and process.command_line like (
     process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and process.args == "-c" and
     process.command_line like "*echo *"
   )
-)
+) and
+not process.parent.name like~ ("privsep-helper", "platform-python*", "init.ipv6-global", "wsl-bootstrap")
 '''
 note = """## Triage and analysis
 

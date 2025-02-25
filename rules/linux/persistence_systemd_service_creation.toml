@@ -2,7 +2,7 @@
 creation_date = "2023/06/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -82,7 +82,7 @@ Malicious actors can leverage systemd service files to achieve persistence by cr
 This rule monitors the creation of new systemd service files, potentially indicating the creation of a persistence mechanism.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible Investigation Steps
@@ -197,8 +197,8 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
     "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
     "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
     "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
-    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
-    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
+    "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
+    "/usr/local/sbin/apk", "/usr/bin/apt", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
     "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
     "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/bin/crio", "/usr/sbin/crond",
@@ -216,7 +216,8 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
   process.name like (
     "ssm-agent-worker", "python*", "platform-python*", "dnf_install", "cloudflared", "lxc-pve-prestart-hook",
     "convert-usrmerge", "elastic-agent", "google_metadata_script_runner", "update-alternatives", "gitlab-runner",
-    "install", "crio", "apt-get", "package-cleanup", "dcservice", "dcregister", "jumpcloud-agent", "executor"
+    "install", "crio", "apt-get", "package-cleanup", "dcservice", "dcregister", "jumpcloud-agent", "executor",
+    "pacman", "convert2rhel", "packagekitd"
   ) or
   (process.name == "sed" and file.name : "sed*") or
   (process.name == "perl" and file.name : "e2scrub_all.tmp*") 

@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Monitors for the deletion of the kernel ring buffer events through dmesg. Attack
 to evade detection after installing a Linux kernel module (LKM).
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
+index = ["auditbeat-*", "endgame-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Clear Kernel Ring Buffer"
@@ -62,7 +62,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started")
- and process.name == "dmesg" and process.args == "-c"
+ and process.name == "dmesg" and process.args in ("-c", "--clear")
 '''
 note = """## Triage and analysis
 
@@ -98,32 +98,30 @@ The kernel ring buffer logs system messages, crucial for diagnosing issues. Adve
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Conduct a post-incident review to identify gaps in detection and response, and update security policies and procedures to prevent recurrence."""
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1070.002"
 name = "Clear Linux or Mac System Logs"
 reference = "https://attack.mitre.org/techniques/T1070/002/"
 
-
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

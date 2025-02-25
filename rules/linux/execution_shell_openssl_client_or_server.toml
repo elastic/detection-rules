@@ -4,7 +4,7 @@ integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ establish a secure connection to a remote server or to create a secure server to
 may be used to exfiltrate data or establish a command and control channel.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
+index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Openssl Client or Server Activity"
@@ -65,7 +65,9 @@ process where host.os.type == "linux" and event.type == "start" and event.action
     (process.args == "s_client" and process.args : ("-connect", "*:*") and not process.args == "-showcerts") or
     (process.args == "s_server" and process.args == "-port")
   ) and
-  not process.parent.executable in ("/pro/xymon/client/ext/awsXymonCheck.sh", "/opt/antidot-svc/nrpe/plugins/check_cert")
+  not process.parent.executable in (
+    "/pro/xymon/client/ext/awsXymonCheck.sh", "/opt/antidot-svc/nrpe/plugins/check_cert", "/etc/zabbix/scripts/check_dane_tlsa.sh"
+  )
 '''
 note = """## Triage and analysis
 

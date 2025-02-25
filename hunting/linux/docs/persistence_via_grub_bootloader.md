@@ -1,0 +1,120 @@
+# Persistence via GRUB Bootloader
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** This hunt identifies potential persistence mechanisms leveraging the GRUB bootloader on Linux systems. GRUB, as the primary bootloader on many Linux distributions, can be manipulated by attackers to gain persistent access or control over the boot process. By monitoring file creations, modifications, and GRUB-related process executions, this hunt helps detect unauthorized changes that could indicate malicious activity. It also provides metadata about critical GRUB configuration files, supporting forensic analysis of potential threats.
+
+- **UUID:** `7adc1a69-3962-4f84-a46d-0b68f69e45a8`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `[ES|QL, SQL]`
+- **Source File:** [Persistence via GRUB Bootloader](../queries/persistence_via_grub_bootloader.toml)
+
+## Query
+
+```sql
+sql
+from logs-endpoint.events.file-*
+| keep @timestamp, host.os.type, event.type, event.action, file.path, process.executable, agent.id
+| where @timestamp > now() - 30 day
+| where host.os.type == "linux" and event.type == "creation" and (
+  file.path like "/etc/default/*" or
+  file.path like "/etc/grub.d/*" or
+  file.path like "/boot/grub2/*" or
+  file.path like "/boot/grub/*" or
+  file.path like "/boot/efi/EFI/*" or
+  file.path like "/etc/sysconfig/*"
+)
+| stats cc = count(), agent_count = count_distinct(agent.id) by file.path, process.executable
+| where agent_count <= 3 and cc <= 10
+| sort cc asc
+| limit 100
+```
+
+```sql
+sql
+from logs-endpoint.events.process-*
+| keep @timestamp, host.os.type, event.type, event.action, process.name, process.executable, process.parent.executable, agent.id
+| where @timestamp > now() - 30 day
+| where host.os.type == "linux" and event.action == "exec" and event.type == "start" and process.name in ("grub-mkconfig", "grub2-mkconfig", "update-grub")
+| stats cc = count(), agent_count = count_distinct(agent.id) by process.executable, process.parent.executable
+| where agent_count <= 3 and cc < 15
+| sort cc asc
+| limit 100
+```
+
+```sql
+sql
+SELECT
+    f.filename,
+    f.path,
+    u.username AS file_owner,
+    g.groupname AS group_owner,
+    datetime(f.atime, 'unixepoch') AS file_last_access_time,
+    datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
+    datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
+    datetime(f.btime, 'unixepoch') AS file_created_time,
+    f.size AS size_bytes
+FROM
+    file f
+LEFT JOIN
+    users u ON f.uid = u.uid
+LEFT JOIN
+    groups g ON f.gid = g.gid
+WHERE
+    f.path = '/etc/default/grub'
+    OR f.path LIKE '/etc/default/grub.d/%'
+    OR f.path LIKE '/etc/grub.d/%'
+    OR f.path = '/boot/grub2/grub.cfg'
+    OR f.path = '/boot/grub/grub.cfg'
+    OR f.path = '/boot/efi/EFI/%/grub.cfg'
+    OR f.path = '/etc/sysconfig/grub'
+```
+
+```sql
+sql
+SELECT
+    f.filename,
+    f.path,
+    u.username AS file_owner,
+    g.groupname AS group_owner,
+    datetime(f.atime, 'unixepoch') AS file_last_access_time,
+    datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
+    datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
+    datetime(f.btime, 'unixepoch') AS file_created_time,
+    f.size AS size_bytes
+FROM
+    file f
+LEFT JOIN
+    users u ON f.uid = u.uid
+LEFT JOIN
+    groups g ON f.gid = g.gid
+WHERE (
+        f.path = '/etc/default/grub'
+        OR f.path LIKE '/etc/default/grub.d/%'
+        OR f.path LIKE '/etc/grub.d/%'
+        OR f.path = '/boot/grub2/grub.cfg'
+        OR f.path = '/boot/grub/grub.cfg'
+        OR f.path = '/boot/efi/EFI/%/grub.cfg'
+        OR f.path = '/etc/sysconfig/grub'
+      )
+AND (mtime > strftime('%s', 'now') - (7 * 86400)); -- Modified in the last 7 days
+```
+
+## Notes
+
+- Tracks the creation of files in GRUB configuration directories such as /etc/default, /etc/grub.d, and /boot/grub* to identify unauthorized additions.
+- Monitors the execution of GRUB-related commands like grub-mkconfig and update-grub, which may indicate attempts to modify bootloader settings.
+- Queries metadata for GRUB configuration files to identify changes to ownership, access times, and file sizes, which may suggest tampering.
+- Detects recent modifications to critical GRUB configuration files, including grub.cfg and related paths, to flag potential persistence mechanisms.
+- Helps correlate events across endpoints to identify rare or anomalous activities related to GRUB, enhancing detection capabilities for bootloader persistence.
+
+## MITRE ATT&CK Techniques
+
+- [T1542](https://attack.mitre.org/techniques/T1542)
+
+## License
+
+- `Elastic License v2`

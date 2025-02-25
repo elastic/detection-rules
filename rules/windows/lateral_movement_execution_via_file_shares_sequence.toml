@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/12/12"
+updated_date = "2025/02/05"
 
 [transform]
 [[transform.osquery]]
@@ -48,7 +48,7 @@ note = """## Triage and analysis
 Adversaries can use network shares to host tooling to support the compromise of other hosts in the environment. These tools can include discovery utilities, credential dumpers, malware, etc.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -116,7 +116,8 @@ sequence with maxspan=1m
       /* Veeam related processes */
       (
         process.name : (
-          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe", "Veeam.VSS.Sharepoint20??.exe"
+          "VeeamGuestHelper.exe", "VeeamGuestIndexer.exe", "VeeamAgent.exe", "VeeamLogShipper.exe",
+          "Veeam.VSS.Sharepoint20??.exe", "OracleProxy.exe", "Veeam.SQL.Service", "VeeamDeploymentSvc.exe"
         ) and process.code_signature.trusted == true and process.code_signature.subject_name : "Veeam Software Group GmbH"
       ) or
       /* PDQ related processes */
@@ -128,7 +129,7 @@ sequence with maxspan=1m
       ) or
       /* CrowdStrike related processes */
       (
-        (process.executable : "?:\\Windows\\System32\\drivers\\CrowdStrike\\*-WindowsSensor.*.exe" and 
+        (process.executable : "?:\\Windows\\System32\\drivers\\CrowdStrike\\*Sensor*.exe" and 
          process.code_signature.trusted == true and process.code_signature.subject_name : "CrowdStrike, Inc.") or
         (process.executable : "?:\\Windows\\System32\\drivers\\CrowdStrike\\*-CsInstallerService.exe" and 
          process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Windows Hardware Compatibility Publisher")

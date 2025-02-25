@@ -4,7 +4,7 @@ integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Adversaries may attempt to disable the syslog service in an attempt to an attemp
 detection by security controls.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
+index = ["auditbeat-*", "endgame-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Disable Syslog Service"
@@ -77,7 +77,8 @@ process where host.os.type == "linux" and event.action in ("exec", "exec_event",
  ( (process.name == "service" and process.args == "stop") or
    (process.name == "chkconfig" and process.args == "off") or
    (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))
- ) and process.args in ("syslog", "rsyslog", "syslog-ng", "syslog.service", "rsyslog.service", "syslog-ng.service")
+ ) and process.args in ("syslog", "rsyslog", "syslog-ng", "syslog.service", "rsyslog.service", "syslog-ng.service") and
+not process.parent.name == "rsyslog-rotate"
 '''
 note = """## Triage and analysis
 

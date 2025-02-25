@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/01/15"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ privileges or set up malicious communication channels via Unix sockets for inter
 evade detection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
+index = ["auditbeat-*", "endgame-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unix Socket Connection"
@@ -45,7 +45,10 @@ process where host.os.type == "linux" and event.type == "start" and
   (process.name == "socat" and
    process.args == "-" and process.args : ("UNIX-CLIENT:/usr/local/*", "UNIX-CLIENT:/run/*", "UNIX-CLIENT:/var/run/*"))
 ) and
-not process.args == "/var/run/libvirt/libvirt-sock"
+not (
+  process.args == "/var/run/libvirt/libvirt-sock" or
+  process.parent.name in ("bundle", "ruby", "haproxystatus.sh")
+)
 '''
 note = """## Triage and analysis
 

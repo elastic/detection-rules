@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -67,6 +67,8 @@ event.category:process and host.os.type:linux and event.type:start and event.act
   ) or
   process.args:(/etc/apt/trusted.gpg.d/* or /tmp/apt-key-gpg*) or
   process.name:(awk or apt-config or dpkg or grep or gpgv or sed) or
+  (user.name:_apt and process.name:(sqv or apt-key or gpgconf or sort or mktemp or find or cmp or gpg-connect-agent)) or
+  (user.name:man and process.name:mandb) or
   (user.name:daemon and process.name:at)
 )
 '''
