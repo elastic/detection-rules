@@ -8,7 +8,7 @@ min_stack_version = "8.13.0"
 [rule]
 author = ["Elastic"]
 description = """
-Detects patterns indicative of Denial of Service attacks on ML models, focusing on unusually high volume and frequency
+Detects patterns indicative of Denial-of-Service (DoS) attacks on machine learning (ML) models, focusing on unusually high volume and frequency
 of requests or patterns of requests that are known to cause performance degradation or service disruption, such as
 large input sizes or rapid API calls.
 """
@@ -45,6 +45,6 @@ query = '''
 from logs-azure_openai.logs-*
 | where azure.open_ai.operation_name == "ChatCompletions_Create"
 | stats count = count(), avg_request_size = avg(azure.open_ai.properties.request_length) by azure.resource.id
-| where count > 1000 OR avg_request_size > 5000
+| where count > 1000 or avg_request_size > 5000
 | sort count desc
 '''
