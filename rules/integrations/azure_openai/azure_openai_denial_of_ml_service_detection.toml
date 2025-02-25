@@ -43,8 +43,11 @@ type = "esql"
 
 query = '''
 from logs-azure_openai.logs-*
+// truncate the timestamp to a 1-minute window
+| eval target_time_window = DATE_TRUNC(1 minutes, @timestamp)
 | where azure.open_ai.operation_name == "ChatCompletions_Create"
-| stats count = count(), avg_request_size = avg(azure.open_ai.properties.request_length) by azure.resource.id
-| where count > 1000 or avg_request_size > 5000
+| keep azure.open_ai.properties.request_length, azure.resource.name, cloud.account.id,target_time_window
+| stats count = count(), avg_request_size = avg(azure.open_ai.properties.request_length) by azure.resource.name
+| where count >= 10 or avg_request_size >= 5000
 | sort count desc
 '''
