@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/02/21"
+updated_date = "2025/02/25"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -50,11 +50,8 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (
-    process.name : ("cmd.exe", "powershell.exe", "xcopy.exe") and
-    process.args : ("copy*", "move*", "cp", "mv") or
-    process.name : "robocopy.exe"
-  ) and process.args : "*\\\\*\\*$*"
+  process.name : ("cmd.exe", "powershell.exe", "xcopy.exe", "pwsh.exe", "powershell_ise.exe") and 
+  process.args : ("copy*", "move*", "cp", "mv") and process.args : "*\\\\*\\*$*"
 '''
 note = """## Triage and analysis
 
