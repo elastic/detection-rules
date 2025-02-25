@@ -578,7 +578,7 @@ class DataValidator:
                 raise ValidationError(
                     f"{self.name} is invalid."
                     "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively "
-                    "(using the now-Xm and Xm format where x is in minuets). "
+                    "(using the now-Xm and Xm format where x is in minutes). "
                     "Please update values or bypass. " + bypass_instructions
                 )
 
