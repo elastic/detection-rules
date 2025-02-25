@@ -41,10 +41,7 @@ class RemoteConnector:
 
     def __init__(self, parse_config: bool = False, **kwargs):
         es_args = ['cloud_id', 'ignore_ssl_errors', 'elasticsearch_url', 'es_user', 'es_password', 'timeout']
-        kibana_args = [
-            'cloud_id', 'ignore_ssl_errors', 'kibana_url', 'kibana_user', 'kibana_password', 'space', 'kibana_cookie',
-            'provider_type', 'provider_name'
-        ]
+        kibana_args = ['cloud_id', 'ignore_ssl_errors', 'kibana_url', 'api_key', 'space']
 
         if parse_config:
             es_kwargs = {arg: getdefault(arg)() for arg in es_args}
