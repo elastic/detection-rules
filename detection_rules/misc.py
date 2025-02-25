@@ -352,6 +352,7 @@ def get_kibana_client(
     verify = not ignore_ssl_errors
     return Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, api_key=api_key, **kwargs)
 
+
 client_options = {
     'kibana': {
         'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
