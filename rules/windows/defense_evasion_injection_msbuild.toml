@@ -33,7 +33,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.code == "8" and process.name: "MSBuild.exe"
+process where host.os.type == "windows" and
+  event.provider == "Microsoft-Windows-Sysmon" and
+  /* CreateRemoteThread */
+  event.code == "8" and process.name: "MSBuild.exe"
 '''
 note = """## Triage and analysis
 
