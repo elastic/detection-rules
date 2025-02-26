@@ -26,5 +26,5 @@ System >
 To enable this policy on a local machine, run the following command in an elevated command prompt:
 
 ```
-auditpol /set /subcategory:"Security System Extension" /success:enable /failure:enable
+auditpol.exe /set /subcategory:"Security System Extension" /success:enable /failure:enable
 ```

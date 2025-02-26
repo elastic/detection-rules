@@ -26,5 +26,5 @@ DS Access >
 To enable this policy on a local machine, run the following command in an elevated command prompt:
 
 ```
-auditpol /set /subcategory:"Directory Service Access" /success:enable /failure:enable
+auditpol.exe /set /subcategory:"Directory Service Access" /success:enable /failure:enable
 ```

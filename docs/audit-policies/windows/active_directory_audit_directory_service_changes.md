@@ -26,7 +26,7 @@ DS Access >
 To enable this policy on a local machine, run the following command in an elevated command prompt:
 
 ```
-auditpol /set /subcategory:"Directory Service Changes" /success:enable /failure:enable
+auditpol.exe /set /subcategory:"Directory Service Changes" /success:enable /failure:enable
 ```
 
 ### Additional Settings

@@ -26,5 +26,5 @@ Logon/Logoff >
 To enable this policy on a local machine, run the following command in an elevated command prompt:
 
 ```
-auditpol /set /subcategory:"TBD" /success:enable /failure:enable
+auditpol.exe /set /subcategory:"TBD" /success:enable /failure:enable
 ```

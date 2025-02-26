@@ -26,5 +26,5 @@ Token Right Adjusted Events (Success)
 To enable this policy on a local machine, run the following command in an elevated command prompt:
 
 ```
-auditpol /set /subcategory:"Token Right Adjusted Events" /success:enable /failure:enable
+auditpol.exe /set /subcategory:"Token Right Adjusted Events" /success:enable /failure:enable
 ```

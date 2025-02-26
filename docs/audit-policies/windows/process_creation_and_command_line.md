@@ -30,10 +30,21 @@ Detailed Tracking >
 **Audit Process Creation (Success)**
 ```
 
-### Enable Audit Policy via Registry
+### Enable Locally
 
-To configure command line auditing on servers that are not domain joined, set the "IncludeCommandLine" registry key to 1. Below is an example command to enable it:
+To enable process creation and command line auditing on non-domain-joined servers, follow these steps with Administrative privileges:
 
+1. Enable Process Creation Audit
+
+Run the following command to enable auditing for process creation:
+```
+auditpol.exe /set /subcategory:"Process Creation" /success:enable /failure:enable
+```
+
+
+2. Enable Command Line Logging
+
+Modify the registry to include command-line details in process creation logs:
 ```
 reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit" /v ProcessCreationIncludeCmdLine_Enabled /t REG_DWORD /d 1 /f  
 ```
