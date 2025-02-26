@@ -9,6 +9,7 @@ import time
 import unittest
 
 from detection_rules.utils import normalize_timing_and_sort, cached
+from detection_rules.eswrap import Events
 from detection_rules.ecs import get_kql_schema
 
 
@@ -51,6 +52,13 @@ class TestTimeUtils(unittest.TestCase):
         for date_format, events in events_data.items():
             normalized = normalize_timing_and_sort(events)
             self.assert_sort(normalized, date_format)
+
+    def test_event_class_normalization(self):
+        """Test that events are normalized properly within Events."""
+        events_data = self.get_events()
+        for date_format, events in events_data.items():
+            normalized = Events({'winlogbeat': events})
+            self.assert_sort(normalized.events['winlogbeat'], date_format)
 
     def test_schema_multifields(self):
         """Tests that schemas are loading multifields correctly."""
