@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/25"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -33,8 +33,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and process.name: "MSBuild.exe" and
-    event.action:("CreateRemoteThread detected (rule: CreateRemoteThread)", "CreateRemoteThread")
+process where host.os.type == "windows" and
+  event.provider == "Microsoft-Windows-Sysmon" and
+  /* CreateRemoteThread */
+  event.code == "8" and process.name: "MSBuild.exe"
 '''
 note = """## Triage and analysis
 
