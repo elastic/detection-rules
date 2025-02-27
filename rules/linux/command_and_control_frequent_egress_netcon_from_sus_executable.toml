@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2025/02/20"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
+min_stack_version = "8.13.0"
+updated_date = "2025/02/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects a high number of egress network connections from an unusual executable on a Linux system.
+This could indicate a command and control (C2) communication attempt, a brute force attack via a malware
+infection, or other malicious activity. ES|QL rules have limited fields available in its alert documents.
+Make sure to review the original documents to aid in the investigation of this alert.
+"""
+from = "now-61m"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "High Number of Egress Network Connections from Unusual Executable"
+risk_score = 47
+rule_id = "1fa350e0-0aa2-4055-bf8f-ab8b59233e59"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-endpoint.events.network-*
+| keep @timestamp, host.os.type, event.type, event.action, process.name, process.executable, destination.ip, agent.id
+| where @timestamp > now() - 1 hours
+| where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and (
+     (
+       process.executable like "/tmp/*" or
+       process.executable like "/var/tmp/*" or
+       process.executable like "/dev/shm/*"
+     ) or
+     (process.name like ".*")
+) and not (
+     CIDR_MATCH(
+       destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32",
+       "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
+       "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::1",
+       "FE80::/10", "FF00::/8"
+     ) or
+     process.executable like "/nix/store/*" or
+     process.executable like "/tmp/newroot/*" or
+     process.executable like "/tmp/.mount*" or
+     process.executable like "/tmp/go-build*"
+   )
+| stats cc = count(), agent_count = count_distinct(agent.id) by process.executable
+| where agent_count == 1 and cc > 15
+| sort cc asc
+| limit 100
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
