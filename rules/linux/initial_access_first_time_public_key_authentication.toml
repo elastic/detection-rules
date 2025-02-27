@@ -7,15 +7,16 @@ updated_date = "2025/02/21"
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors the authentication logs for messages related to instances of a first-time public key authentication.
-Public key authentication is a secure method for authenticating users to a server. Monitoring first-time public key
-authentication events can help detect unauthorized access attempts or suspicious activity on the system.
+This rule leverages the new_terms rule type to detect successful SSH authentications via a public
+key that has not been seen in the last 10 days. Public key authentication is a secure method for
+authenticating users to a server. Monitoring unusual public key authentication events can help
+detect unauthorized access attempts or suspicious activity on the system.
 """
 from = "now-9m"
-index = ["logs-system.auth-*"]
+index = ["logs-system.auth-*", "filebeat-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "First Time Public Key Authentication"
+name = "Successful SSH Authentication from Unusual SSH Public Key"
 risk_score = 21
 rule_id = "267dace3-a4de-4c94-a7b5-dd6c0f5482e5"
 setup = """## Setup
@@ -48,10 +49,9 @@ tags = [
     "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 query = '''
-event.category:authentication and host.os.type:linux and event.action:ssh_login and event.outcome:success and
-message:"Accepted publickey"
+event.category:authentication and host.os.type:linux and event.action:ssh_login and event.outcome:success and system.auth.ssh.method:publickey
 '''
 
 [[rule.threat]]
@@ -66,3 +66,11 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["system.auth.ssh.signature"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
