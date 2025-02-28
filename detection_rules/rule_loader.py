@@ -17,7 +17,6 @@ from marshmallow.exceptions import ValidationError
 
 from . import utils
 from .config import parse_rules_config
-from .mappings import RtaMappings
 from .rule import (
     DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule, TOMLRuleContents
 )
@@ -629,8 +628,6 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
     return new, modified, errors
 
 
-rta_mappings = RtaMappings()
-
 __all__ = (
     "FILE_PATTERN",
     "DEFAULT_PREBUILT_RULES_DIRS",
@@ -643,5 +640,4 @@ __all__ = (
     "metadata_filter",
     "production_filter",
     "dict_filter",
-    "rta_mappings"
 )
