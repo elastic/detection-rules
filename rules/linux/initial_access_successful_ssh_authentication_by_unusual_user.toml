@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2025/02/21"
+integration = ["system"]
+maturity = "production"
+updated_date = "2025/02/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages the new_terms rule type to detect successful SSH authentications by a user
+who has not been authenticated in the last 10 days. This behavior may indicate an attacker
+attempting to gain access to the system using a valid account.
+"""
+false_positives = [
+    """
+    This rule may trigger in cases where a user has routine work patterns that result in infrequent authentications.
+    """,
+]
+from = "now-9m"
+index = ["logs-system.auth-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Successful SSH Authentication from Unusual User"
+risk_score = 21
+rule_id = "5b8d7b94-23c6-4e3f-baed-3a4d0da4f19d"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Defend"
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:authentication and host.os.type:linux and event.action:ssh_login and event.outcome:success
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["related.user"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
