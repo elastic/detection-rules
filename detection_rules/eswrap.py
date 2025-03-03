@@ -21,9 +21,9 @@ from .config import parse_rules_config
 from .main import root
 from .misc import add_params, client_error, elasticsearch_options, get_elasticsearch_client, nested_get
 from .rule import TOMLRule
-from .rule_loader import rta_mappings, RuleCollection
-from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 
+from .rule_loader import RuleCollection
+from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 
 COLLECTION_DIR = get_path('collections')
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
@@ -60,7 +60,7 @@ def parse_unique_field_results(rule_type: str, unique_fields: List[str], search_
     return {'results': parsed_results} if parsed_results else {}
 
 
-class RtaEvents:
+class Events:
     """Events collected from Elasticsearch."""
 
     def __init__(self, events):
@@ -322,8 +322,8 @@ class CollectEvents(object):
         return survey_results
 
 
-class CollectRtaEvents(CollectEvents):
-    """Collect RTA events from elasticsearch."""
+class CollectRTAEvents(CollectEvents):
+    """Collect events from elasticsearch."""
 
     @staticmethod
     def _group_events_by_type(events):
@@ -340,7 +340,7 @@ class CollectRtaEvents(CollectEvents):
         results = self.search(dsl, language='dsl', index=indexes, start_time=start_time, end_time='now', size=5000,
                               sort=[{'@timestamp': {'order': 'asc'}}])
         events = self._group_events_by_type(results)
-        return RtaEvents(events)
+        return Events(events)
 
 
 @root.command('normalize-data')
@@ -348,8 +348,9 @@ class CollectRtaEvents(CollectEvents):
 def normalize_data(events_file):
     """Normalize Elasticsearch data timestamps and sort."""
     file_name = os.path.splitext(os.path.basename(events_file.name))[0]
-    events = RtaEvents({file_name: [json.loads(e) for e in events_file.readlines()]})
+    events = Events({file_name: [json.loads(e) for e in events_file.readlines()]})
     events.save(dump_dir=os.path.dirname(events_file.name))
+
 
 
 @root.group('es')
@@ -383,7 +384,7 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
     dsl['bool'].setdefault('filter', []).append({'bool': {'should': [{'match_phrase': {'host.id': host_id}}]}})
 
     try:
-        collector = CollectRtaEvents(client)
+        collector = CollectRTAEvents(client)
         start = time.time()
         click.pause('Press any key once detonation is complete ...')
         start_time = f'now-{round(time.time() - start) + 5}s'
