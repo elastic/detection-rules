@@ -41,7 +41,13 @@ RULES_CONFIG = parse_rules_config()
 RULES_DIRS = RULES_CONFIG.rule_dirs
 
 
-@click.group('detection-rules', context_settings={'help_option_names': ['-h', '--help']})
+@click.group(
+    'detection-rules',
+    context_settings={
+        'help_option_names': ['-h', '--help'],
+        'max_content_width': int(os.getenv('DR_CLI_MAX_WIDTH', 120)),
+    },
+)
 @click.option('--debug/--no-debug', '-D/-N', is_flag=True, default=None,
               help='Print full exception stacktrace on errors')
 @click.pass_context

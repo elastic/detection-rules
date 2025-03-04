@@ -44,6 +44,9 @@ Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detec
 
 Using the environment variable `DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION` will bypass the timeline template id and title validation for rules. 
 
+Using the environment variable `DR_CLI_MAX_WIDTH` will set a custom max width for the click CLI. 
+For instance, some users may want to increase the default value in cases where help messages are cut off. 
+
 ## Importing rules into the repo
 
 You can import rules into the repo using the `create-rule` or `import-rules-to-repo` commands. Both of these commands will
