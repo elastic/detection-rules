@@ -87,7 +87,7 @@ class Events:
             os.makedirs(dump_dir, exist_ok=True)
             return dump_dir
 
-    def evaluate_against_rule_and_update_mapping(self, rule_id, rta_name, verbose=True):
+    def evaluate_against_rule(self, rule_id, verbose=True):
         """Evaluate a rule against collected events and update mapping."""
         from .utils import combine_sources, evaluate
 
@@ -96,15 +96,10 @@ class Events:
         merged_events = combine_sources(*self.events.values())
         filtered = evaluate(rule, merged_events, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
 
-        if filtered:
-            sources = [e['agent']['type'] for e in filtered]
-            mapping_update = rta_mappings.add_rule_to_mapping_file(rule, len(filtered), rta_name, *sources)
+        if verbose:
+            click.echo('Matching results found')
 
-            if verbose:
-                click.echo('Updated rule-mapping file with: \n{}'.format(json.dumps(mapping_update, indent=2)))
-        else:
-            if verbose:
-                click.echo('No updates to rule-mapping file; No matching results')
+        return filtered
 
     def echo_events(self, pager=False, pretty=True):
         """Print events to stdout."""
@@ -322,7 +317,7 @@ class CollectEvents(object):
         return survey_results
 
 
-class CollectRTAEvents(CollectEvents):
+class CollectEventsWithDSL(CollectEvents):
     """Collect events from elasticsearch."""
 
     @staticmethod
@@ -384,7 +379,7 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
     dsl['bool'].setdefault('filter', []).append({'bool': {'should': [{'match_phrase': {'host.id': host_id}}]}})
 
     try:
-        collector = CollectRTAEvents(client)
+        collector = CollectEventsWithDSL(client)
         start = time.time()
         click.pause('Press any key once detonation is complete ...')
         start_time = f'now-{round(time.time() - start) + 5}s'
@@ -392,7 +387,7 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
         events.save(rta_name=rta_name, host_id=host_id)
 
         if rta_name and rule_id:
-            events.evaluate_against_rule_and_update_mapping(rule_id, rta_name)
+            events.evaluate_against_rule(rule_id)
 
         if view_events and events.events:
             events.echo_events(pager=True)
