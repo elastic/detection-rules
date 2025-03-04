@@ -45,7 +45,7 @@ RULES_DIRS = RULES_CONFIG.rule_dirs
     'detection-rules',
     context_settings={
         'help_option_names': ['-h', '--help'],
-        'max_content_width': int(os.getenv('DR_CLI_MAX_WIDTH', 120)),
+        'max_content_width': int(os.getenv('DR_CLI_MAX_WIDTH', 240)),
     },
 )
 @click.option('--debug/--no-debug', '-D/-N', is_flag=True, default=None,
