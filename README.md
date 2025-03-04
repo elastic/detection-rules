@@ -133,6 +133,10 @@ For more advanced command line interface (CLI) usage, refer to the [CLI guide](C
 
 We welcome your contributions to Detection Rules! Before contributing, please familiarize yourself with this repository, its [directory structure](#overview-of-this-repository), and our [philosophy](PHILOSOPHY.md) about rule creation. When you're ready to contribute, read the [contribution guide](CONTRIBUTING.md) to learn how we turn detection ideas into production rules and validate with testing.
 
+## Detections as Code (DaC)
+
+The Detection Rules repo includes a number of commands to help one manage rules with an "as code" philosophy. We recommend starting with our [DaC Specific Documentation](https://dac-reference.readthedocs.io/en/latest/) for strategies and recommended setup information. However, if you would prefer to jump right in, please see our [custom rules documentation](docs/custom-rules.md) for information on how to configure this repo for use with custom rules followed by our [CLI documentation](CLI.md) for information on our commands to import and export rules.
+
 ## Licensing
 
 Everything in this repository — rules, code, RTA, etc. — is licensed under the [Elastic License v2](LICENSE.txt). These rules are designed to be used in the context of the Detection Engine within the Elastic Security application. If you’re using our [Elastic Cloud managed service](https://www.elastic.co/cloud/) or the default distribution of the Elastic Stack software that includes the [full set of free features](https://www.elastic.co/subscriptions), you’ll get the latest rules the first time you navigate to the detection engine.
