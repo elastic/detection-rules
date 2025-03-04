@@ -284,7 +284,7 @@ Options:
   -id, --rule-id TEXT
   -r, --replace-id           Replace rule IDs with new IDs before export
   -h, --help                 Show this message and exit.
-(detection-rules-build) (base) ➜  detection-rules git:(rule-loader) ✗
+(detection-rules-build) (base) ➜  detection-rules git:(main) ✗
 ```
 
 Alternatively, rules can be exported into a consolidated ndjson file which can be imported in the Kibana security app
@@ -624,7 +624,7 @@ Unknown field
 data_stream.dataset:osquery_manager.result and osquery_meta.counter>0 and osquery_meta.type:diff and osquery.last_run_code:0 and osquery_meta.action:removed
                                                                           ^^^^^^^^^^^^^^^^^
 stack: 8.9.0, beats: 8.9.0, ecs: 8.9.0
-- name - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}(venv312) ➜  detection-rules-fork git:(refresh-kibana-module-with-new-APIs) ✗
+- name - {'rule': [ValidationError({'type': ['Must be equal to eql.'], 'language': ['Must be equal to eql.']}), ValidationError({'type': ['Must be equal to esql.'], 'language': ['Must be equal to esql.']}), ValidationError({'type': ['Must be equal to threshold.'], 'threshold': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to threat_match.'], 'threat_mapping': ['Missing data for required field.'], 'threat_index': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to machine_learning.'], 'anomaly_threshold': ['Missing data for required field.'], 'machine_learning_job_id': ['Missing data for required field.']}), ValidationError({'type': ['Must be equal to query.']}), ValidationError({'new_terms': ['Missing data for required field.']})]}(venv312) ➜  detection-rules-fork git:(main) ✗
 ```
 
 
@@ -673,7 +673,7 @@ method specific to the transform type.
 This applies to osquery and insights for the moment but could expand in the future.
 
 ```
-(venv38) ➜  detection-rules-fork git:(2597-validate-osquery-insights) python -m detection_rules dev transforms -h
+(venv312) ➜  detection-rules-fork git:(main) python -m detection_rules dev transforms -h
 
 █▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
 █  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
@@ -695,7 +695,7 @@ Commands:
 
 
 ```
-(venv38) ➜  detection-rules-fork git:(2597-validate-osquery-insights) python -m detection_rules dev transforms guide-plugin-convert
+(venv312) ➜  detection-rules-fork git:(main) python -m detection_rules dev transforms guide-plugin-convert
 
 █▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄
 █  █ █▄▄  █  █▄▄ █    █   █  █ █ █▀▄ █      █▄▄▀ █  █ █   █▄▄ █▄▄
