@@ -347,7 +347,6 @@ def normalize_data(events_file):
     events.save(dump_dir=os.path.dirname(events_file.name))
 
 
-
 @root.group('es')
 @add_params(*elasticsearch_options)
 @click.pass_context
