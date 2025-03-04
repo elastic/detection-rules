@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/25"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -14,15 +14,15 @@ activity.
 """
 from = "now-9m"
 index = [
-    "logs-endpoint.events.process-*",
-    "winlogbeat-*",
-    "logs-windows.forwarded*",
-    "logs-windows.sysmon_operational-*",
     "endgame-*",
-    "logs-system.security*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
-    "logs-crowdstrike.fdr*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -38,7 +38,7 @@ tags = [
     "Tactic: Lateral Movement",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
-    "Data Source: System",
+    "Data Source: Windows Security Event Logs",
     "Data Source: Microsoft Defender for Endpoint",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
@@ -50,11 +50,8 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  (
-    process.name : ("cmd.exe", "powershell.exe", "xcopy.exe") and
-    process.args : ("copy*", "move*", "cp", "mv") or
-    process.name : "robocopy.exe"
-  ) and process.args : "*\\\\*\\*$*"
+  process.name : ("cmd.exe", "powershell.exe", "xcopy.exe", "pwsh.exe", "powershell_ise.exe") and 
+  process.command_line : "*\\\\*\\*$*" and process.command_line : ("*copy*", "*move*", "* cp *", "* mv *")
 '''
 note = """## Triage and analysis
 

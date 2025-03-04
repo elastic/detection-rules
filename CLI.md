@@ -25,7 +25,7 @@ Currently supported arguments:
 * elasticsearch_url
 * kibana_url
 * cloud_id
-* *_username (kibana and es)
+* *_user (kibana and es)
 * *_password (kibana and es)
 * api_key
 

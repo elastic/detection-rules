@@ -2,7 +2,7 @@
 creation_date = "2022/10/20"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/21"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -13,7 +13,7 @@ Identifies the creation of a process running as SYSTEM and impersonating a Windo
 may create a new process with a different token to escalate privileges and bypass access controls.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*", "logs-system.security*"]
+index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "SeDebugPrivilege Enabled by a Suspicious Process"
@@ -41,7 +41,14 @@ Token Right Adjusted Events (Success)
 ```
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: System", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
