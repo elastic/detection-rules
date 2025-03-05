@@ -27,7 +27,6 @@ from .config import load_current_package_version, parse_rules_config
 from .generic_loader import GenericCollection
 from .exception import (TOMLExceptionContents,
                         build_exception_objects, parse_exceptions_results_from_api)
-from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
 from .misc import (
     add_client, client_error, nested_set, parse_user_config
 )
@@ -696,29 +695,3 @@ def prep_rule(author: str):
     updated_rule.write_text(json.dumps(template_rule, sort_keys=True))
     click.echo(f'Rule saved to: {updated_rule}. Import this to Kibana to create alerts on all dnstwist-* indexes')
     click.echo('Note: you only need to import and enable this rule one time for all dnstwist-* indexes')
-
-
-@root.group('rta')
-def rta_group():
-    """Commands related to Red Team Automation (RTA) scripts."""
-
-
-# create command to show rule-rta coverage
-@rta_group.command('coverage')
-@click.option("-o", "--os-filter", default="all",
-              help="Filter rule coverage summary by OS. (E.g. windows) Default: all")
-def rta_coverage(os_filter: str):
-    """Show coverage of RTA / rules by os type."""
-
-    # get all rules
-    all_rules = RuleCollection.default()
-
-    # get rules triggered by RTA
-    triggered_rules = get_triggered_rules()
-
-    # build coverage map
-    coverage_map = build_coverage_map(triggered_rules, all_rules)
-
-    # # print summary
-    all_rule_count = len(all_rules.rules)
-    print_converage_summary(coverage_map, all_rule_count, os_filter)
