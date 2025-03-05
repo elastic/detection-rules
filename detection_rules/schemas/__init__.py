@@ -13,7 +13,6 @@ from semver import Version
 from ..config import load_current_package_version, parse_rules_config
 from ..utils import cached, get_etc_path
 from . import definitions
-from .rta_schema import validate_rta_mapping
 from .stack_compat import get_incompatible_fields
 
 
@@ -25,7 +24,6 @@ __all__ = (
     "get_min_supported_stack_version",
     "get_stack_schemas",
     "get_stack_versions",
-    "validate_rta_mapping",
     "all_versions",
 )
 
