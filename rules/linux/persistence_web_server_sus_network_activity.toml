@@ -1,25 +1,21 @@
 [metadata]
-creation_date = "2025/03/04"
+creation_date = "2025/03/05"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
-min_stack_version = "8.13.0"
-updated_date = "2025/03/04"
+updated_date = "2025/03/05"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies unusual network activity originating from a web server parent process. The rule is
-designed to detect potential web shell activity or unauthorized communication from a web server process
-to external systems. ES|QL rules have limited fields available in its alert documents. Make sure to
-review the original documents to aid in the investigation of this alert.
+This rule identifies unusual destination port network activity originating from a web server process. The
+rule is designed to detect potential web shell activity or unauthorized communication from a web server
+process to external systems.
 """
-from = "now-61m"
-interval = "1h"
-language = "esql"
+from = "now-9m"
+language = "eql"
 license = "Elastic License v2"
-name = "Unusual Network Activity from Web Server"
-risk_score = 47
+name = "Uncommon Destination Port Connection by Web Server"
+risk_score = 21
 rule_id = "00546494-5bb0-49d6-9220-5f3b4c12f26a"
 setup = """## Setup
 
@@ -46,7 +42,7 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
@@ -57,12 +53,9 @@ tags = [
     "Data Source: Elastic Defend",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "eql"
 query = '''
-from logs-endpoint.events.network-*
-| keep @timestamp, host.os.type, event.type, event.action, user.name, user.id, process.name, process.executable, destination.ip, destination.port, agent.id
-| where @timestamp > now() - 1 hours
-| where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and (
+network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and (
      user.name in (
       "apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9", "ftp", "ftpuser", "ftpd"
      ) or
@@ -73,25 +66,18 @@ from logs-endpoint.events.network-*
     "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "tornado", "hypercorn",
     "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel"
   ) or
-    process.name like "php-*" or
-    process.name like "python*" or
-    process.name like "ruby*" or
-    process.name like "perl*"
-   )
-and destination.ip IS NOT null and
-not CIDR_MATCH(destination.ip, "127.0.0.0/8", "::1","FE80::/10", "FF00::/8")
+    process.name like ("php-*", "python*", "ruby*", "perl*")
+) and
+network.direction == "egress" and destination.ip != null and
+not destination.port in (80, 443, 8080, 8443, 8000, 8888, 3128, 3306) and
+not cidrmatch(destination.ip, "127.0.0.0/8", "::1","FE80::/10", "FF00::/8")
 
 /* 
 This rule does not exclude local IP ranges by default. To exclude these, use the following exclusion statement:
-CIDR_MATCH(destination.ip, "10.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32",
+cidrmatch(destination.ip, "10.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32",
 "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
 "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4")
 */
-
-| stats cc = count(), agent_count = count_distinct(agent.id) by process.executable, destination.ip, destination.port
-| where agent_count == 1 and cc < 25
-| sort cc asc
-| limit 100
 '''
 
 [[rule.threat]]
