@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/02/18"
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has detected a sudden drop in host based traffic. This can be due to a range of security issues, such as a compromised system,
+a failed service, or a network misconfiguration.
+"""
+false_positives = [
+    """
+    Legitimate causes such as system maintenance, server shutdowns, or temporary network outages may trigger this alert.
+    """,
+]
+from = "now-45m"
+interval = "5m"
+license = "Elastic License v2"
+machine_learning_job_id = "low_count_events_for_a_host_name"
+name = "Decline in host-based traffic"
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from one of the following integrations:
+- Elastic Defend
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration to your system:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+risk_score = 21
+rule_id = "ad66db2e-1cc7-4a2c-8fa5-5f3895e44a18"
+severity = "low"
+tags = ["Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning", "Resources: Investigation Guide"]
+type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Decline in host-based traffic
+
+Host-based traffic monitoring is crucial for identifying anomalies in network activity. A sudden drop in traffic can indicate issues like system compromise, service failure, or misconfiguration. Adversaries might exploit these situations to evade detection or disrupt services. The 'Decline in host-based traffic' rule leverages machine learning to identify unexpected traffic reductions, signaling potential security threats for further investigation.
+
+### Possible investigation steps
+
+- Review the affected host's recent activity logs to identify any unusual patterns or events that coincide with the drop in traffic.
+- Check for any recent changes in network configuration or firewall settings that might have inadvertently caused the traffic decline.
+- Investigate the status of critical services on the host to determine if any have failed or been stopped unexpectedly.
+- Analyze network traffic data to identify any potential signs of compromise, such as connections to known malicious IP addresses or unusual outbound traffic.
+- Consult with system administrators to verify if any maintenance or updates were performed around the time of the traffic drop that could explain the anomaly.
+
+### False positive analysis
+
+- Scheduled maintenance or updates can cause temporary drops in host-based traffic. Users should create exceptions for known maintenance windows to prevent false alerts.
+- Network configuration changes, such as firewall rule updates or routing adjustments, might lead to expected traffic reductions. Document and exclude these changes from triggering alerts.
+- Temporary service outages due to non-security related issues, like hardware failures or software bugs, can be mistaken for threats. Implement monitoring to distinguish between these and actual security incidents.
+- Low-usage periods, such as weekends or holidays, may naturally result in reduced traffic. Adjust the machine learning model to account for these patterns by incorporating historical data.
+- Legitimate changes in user behavior, such as remote work policies or shifts in business operations, can affect traffic levels. Regularly update the model to reflect these changes and avoid false positives.
+
+### Response and remediation
+
+- Isolate the affected host from the network to prevent potential lateral movement or further compromise.
+- Verify the integrity and functionality of critical services on the affected host to identify any failures or misconfigurations.
+- Conduct a thorough malware scan on the isolated host to detect and remove any malicious software.
+- Review recent configuration changes on the host and revert any unauthorized or suspicious modifications.
+- Restore any affected services from known good backups if service failure is confirmed as the cause.
+- Monitor network traffic for any signs of unusual activity or attempts to exploit the situation further.
+- Escalate the incident to the security operations team for a deeper forensic analysis and to determine if additional hosts are affected."""
