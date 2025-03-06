@@ -566,7 +566,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
 
     ## Checklist
 
-    - [x] I have reviewed [tips for building integrations](https://github.com/elastic/integrations/blob/master/docs-dev/tips_for_building_integrations.md) and this pull request is aligned with them.
+    - [x] I have reviewed [tips for building integrations](https://github.com/elastic/integrations/blob/master/docs/tips_for_building_integrations.md) and this pull request is aligned with them.
     - [ ] ~I have verified that all data streams collect metrics or logs.~
     - [x] I have added an entry to my package's `changelog.yml` file.
     - [x] If I'm introducing a new feature, I have modified the Kibana version constraint in my package's `manifest.yml` file to point to the latest Elastic stack release (e.g. `^7.13.0`).
