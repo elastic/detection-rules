@@ -34,7 +34,7 @@ from .beats import (download_beats_schema, download_latest_beats_schema,
                     refresh_main_schema)
 from .cli_utils import single_collection
 from .config import parse_rules_config
-from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
+from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX, DOCS_DIR
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
@@ -566,7 +566,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
 
     ## Checklist
 
-    - [x] I have reviewed [tips for building integrations](https://github.com/elastic/integrations/blob/master/docs/tips_for_building_integrations.md) and this pull request is aligned with them.
+    - [x] I have reviewed [tips for building integrations](https://github.com/elastic/integrations/blob/master/docs-dev/tips_for_building_integrations.md) and this pull request is aligned with them.
     - [ ] ~I have verified that all data streams collect metrics or logs.~
     - [x] I have added an entry to my package's `changelog.yml` file.
     - [x] If I'm introducing a new feature, I have modified the Kibana version constraint in my package's `manifest.yml` file to point to the latest Elastic stack release (e.g. `^7.13.0`).
@@ -802,7 +802,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path
               help='GitHub token to push to gist', hide_input=True)
 @click.option('--gist-id', default=NAVIGATOR_GIST_ID, help='Gist ID to be updated (must exist).')
 @click.option('--print-markdown', is_flag=True, help='Print the generated urls')
-@click.option('--update-coverage', is_flag=True, help='Update the docs/ATT&CK-coverage.md file')
+@click.option('--update-coverage', is_flag=True, help='Update the docs-dev/ATT&CK-coverage.md file')
 def update_navigator_gists(directory: Path, token: str, gist_id: str, print_markdown: bool,
                            update_coverage: bool) -> list:
     """Update the gists with new navigator files."""
@@ -857,7 +857,7 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
         click.echo('\n'.join(markdown) + '\n')
 
     if update_coverage:
-        coverage_file_path = get_path('docs', 'ATT&CK-coverage.md')
+        coverage_file_path = get_path(DOCS_DIR, 'ATT&CK-coverage.md')
         header_lines = textwrap.dedent("""# Rule coverage
 
 ATT&CK navigator layer files are generated when a package is built with `make release` or
