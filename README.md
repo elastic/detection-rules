@@ -16,6 +16,7 @@ This repository was first announced on Elastic's blog post, [Elastic Security op
   - [Overview of this repository](#overview-of-this-repository)
   - [Getting started](#getting-started)
   - [How to contribute](#how-to-contribute)
+  - [RTAs](#rtas)
   - [Licensing](#licensing)
   - [Questions? Problems? Suggestions?](#questions-problems-suggestions)
 
@@ -31,7 +32,6 @@ Detection Rules contains more than just static rule files. This repository also 
 | [`hunting/`](./hunting/)                        | Root directory where threat hunting package and queries are stored                   |
 | [`kibana/`](lib/kibana)                         | Python library for handling the API calls to Kibana and the Detection Engine        |
 | [`kql/`](lib/kql)                               | Python library for parsing and validating Kibana Query Language                     |
-| [`rta/`](rta)                                   | Red Team Automation code used to emulate attacker techniques, used for rule testing |
 | [`rules/`](rules)                               | Root directory where rules are stored                                               |
 | [`rules_building_block/`](rules_building_block) | Root directory where building block rules are stored                                |
 | [`tests/`](tests)                               | Python code for unit testing rules                                                  |
@@ -133,9 +133,14 @@ For more advanced command line interface (CLI) usage, refer to the [CLI guide](C
 
 We welcome your contributions to Detection Rules! Before contributing, please familiarize yourself with this repository, its [directory structure](#overview-of-this-repository), and our [philosophy](PHILOSOPHY.md) about rule creation. When you're ready to contribute, read the [contribution guide](CONTRIBUTING.md) to learn how we turn detection ideas into production rules and validate with testing.
 
+## RTAs
+
+Red Team Automations (RTAs) used to emulate attacker techniques and verify the rules can be found in dedicated
+repository - [Cortado](https://github.com/elastic/cortado).
+
 ## Licensing
 
-Everything in this repository — rules, code, RTA, etc. — is licensed under the [Elastic License v2](LICENSE.txt). These rules are designed to be used in the context of the Detection Engine within the Elastic Security application. If you’re using our [Elastic Cloud managed service](https://www.elastic.co/cloud/) or the default distribution of the Elastic Stack software that includes the [full set of free features](https://www.elastic.co/subscriptions), you’ll get the latest rules the first time you navigate to the detection engine.
+Everything in this repository — rules, code, etc. — is licensed under the [Elastic License v2](LICENSE.txt). These rules are designed to be used in the context of the Detection Engine within the Elastic Security application. If you’re using our [Elastic Cloud managed service](https://www.elastic.co/cloud/) or the default distribution of the Elastic Stack software that includes the [full set of free features](https://www.elastic.co/subscriptions), you’ll get the latest rules the first time you navigate to the detection engine.
 
 Occasionally, we may want to import rules from another repository that already have a license, such as MIT or Apache 2.0. This is welcome, as long as the license permits sublicensing under the Elastic License v2. We keep those license notices in `NOTICE.txt` and sublicense as the Elastic License v2 with all other rules. We also require contributors to sign a [Contributor License Agreement](https://www.elastic.co/contributor-agreement) before contributing code to any Elastic repositories.
 
