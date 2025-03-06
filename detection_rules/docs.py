@@ -24,7 +24,7 @@ from .rule import DeprecatedRule, ThreatMapping, TOMLRule
 from .rule_loader import DeprecatedCollection, RuleCollection
 from .utils import load_etc_dump, save_etc_dump
 
-DOCS_DIR = "docs-dev"
+REPO_DOCS_DIR = "docs-dev"
 
 
 class PackageDocument(xlsxwriter.Workbook):
@@ -280,8 +280,8 @@ class IntegrationSecurityDocs:
         self.sorted_rules = sorted(all_rules, key=lambda rule: rule.name)
         self.registry_version_str, self.base_name, self.prebuilt_rule_base = self.parse_registry(registry_version)
         self.directory = directory
-        self.package_directory = directory / DOCS_DIR / "detections" / "prebuilt-rules" / "downloadable-packages" / self.base_name  # noqa: E501
-        self.rule_details = directory / DOCS_DIR / "detections" / "prebuilt-rules" / "rule-details"
+        self.package_directory = directory / "docs" / "detections" / "prebuilt-rules" / "downloadable-packages" / self.base_name  # noqa: E501
+        self.rule_details = directory / "docs" / "detections" / "prebuilt-rules" / "rule-details"
         self.update_message = update_message
 
         if overwrite:
@@ -349,8 +349,8 @@ class IntegrationSecurityDocs:
 
     def generate_rule_reference(self):
         """Generate rule reference page for prebuilt rules."""
-        summary = self.directory / DOCS_DIR / "detections" / "prebuilt-rules" / 'prebuilt-rules-reference.asciidoc'
-        rule_list = self.directory / DOCS_DIR / "detections" / "prebuilt-rules" / 'rule-desc-index.asciidoc'
+        summary = self.directory / "docs" / "detections" / "prebuilt-rules" / 'prebuilt-rules-reference.asciidoc'
+        rule_list = self.directory / "docs" / "detections" / "prebuilt-rules" / 'rule-desc-index.asciidoc'
 
         summary_header = textwrap.dedent("""
         [[prebuilt-rules]]
