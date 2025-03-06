@@ -802,7 +802,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path
               help='GitHub token to push to gist', hide_input=True)
 @click.option('--gist-id', default=NAVIGATOR_GIST_ID, help='Gist ID to be updated (must exist).')
 @click.option('--print-markdown', is_flag=True, help='Print the generated urls')
-@click.option('--update-coverage', is_flag=True, help='Update the docs-dev/ATT&CK-coverage.md file')
+@click.option('--update-coverage', is_flag=True, help=f'Update the {DOCS_DIR}/ATT&CK-coverage.md file')
 def update_navigator_gists(directory: Path, token: str, gist_id: str, print_markdown: bool,
                            update_coverage: bool) -> list:
     """Update the gists with new navigator files."""
