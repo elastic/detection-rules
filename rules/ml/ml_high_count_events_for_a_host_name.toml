@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/02/18"
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has detected a sudden spike in host based traffic. This can be due to a range of security issues, such as a compromised system, DDoS attacks,
+malware infections, privilege escalation, or data exfiltration.
+"""
+false_positives = [
+    """
+    System updates, scheduled backups, or misconfigured services may trigger this alert.
+    """,
+]
+from = "now-1h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "high_count_events_for_a_host_name"
+name = "Spike in host-based traffic"
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from one of the following integrations:
+- Elastic Defend
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration to your system:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+risk_score = 21
+rule_id = "fe8d6507-b543-4bbc-849f-dc0da6db29f6"
+severity = "low"
+tags = ["Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning", "Resources: Investigation Guide"]
+type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in host-based traffic
+The detection of a spike in host-based traffic leverages machine learning to identify anomalies in network behavior, which may indicate security threats like DDoS attacks or data exfiltration. Adversaries exploit this by overwhelming systems or stealthily transferring data. The rule, with a low severity score, flags unusual traffic patterns, enabling analysts to investigate potential compromises or misconfigurations.
+
+### Possible investigation steps
+
+- Review the timestamp and source of the traffic spike to determine the exact time and origin of the anomaly.
+- Analyze the affected host's network logs to identify any unusual outbound or inbound connections that coincide with the spike.
+- Check for any recent changes or updates on the affected host that might have triggered the spike, such as software installations or configuration changes.
+- Investigate any associated user accounts for signs of unauthorized access or privilege escalation activities.
+- Correlate the spike with other security alerts or logs to identify potential patterns or related incidents.
+- Assess the host for signs of malware infection or indicators of compromise that could explain the abnormal traffic behavior.
+
+### False positive analysis
+
+- Routine software updates or patch management activities can cause temporary spikes in host-based traffic. Users should monitor scheduled update times and create exceptions for these periods to avoid false positives.
+- Backup operations often generate increased network traffic. Identifying and excluding these regular backup windows from monitoring can help reduce false alerts.
+- High-volume data transfers within the organization, such as large file uploads or downloads for legitimate business purposes, may trigger the rule. Establishing baseline traffic patterns for these activities and setting exceptions can mitigate unnecessary alerts.
+- Automated scripts or batch processes that run at specific times and generate predictable traffic spikes should be documented and excluded from anomaly detection to prevent false positives.
+- Internal network scans or vulnerability assessments conducted by IT security teams can mimic malicious traffic patterns. These should be scheduled and whitelisted to avoid triggering the rule.
+
+### Response and remediation
+
+- Isolate the affected host from the network to prevent further data exfiltration or participation in a DDoS attack.
+- Conduct a thorough scan of the isolated host for malware or unauthorized software, and remove any malicious files or applications found.
+- Review and reset credentials for any accounts that may have been compromised, ensuring that privilege escalation is mitigated.
+- Monitor network traffic for any additional anomalies or spikes that could indicate further compromise or ongoing attacks.
+- Restore the affected host from a known good backup if malware or significant unauthorized changes are detected.
+- Implement network segmentation to limit the spread of potential threats and reduce the impact of similar incidents in the future.
+- Escalate the incident to the security operations center (SOC) or relevant team for further analysis and to determine if additional resources are needed for a comprehensive response."""
