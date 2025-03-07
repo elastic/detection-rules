@@ -2,7 +2,7 @@
 creation_date = "2023/06/06"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,7 @@ index = ["logs-cloud_defend*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Modification of Dynamic Linker Preload Shared Object Inside A Container"
+name = "Deprecated - Modification of Dynamic Linker Preload Shared Object Inside A Container"
 references = [
     "https://unit42.paloaltonetworks.com/hildegard-malware-teamtnt/",
     "https://www.anomali.com/blog/rocke-evolves-its-arsenal-with-a-new-malware-family-written-in-golang/",
@@ -34,12 +34,16 @@ type = "eql"
 query = '''
 file where event.module== "cloud_defend" and event.type != "deletion" and file.path== "/etc/ld.so.preload"
 '''
-note = """## Triage and analysis
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Modification of Dynamic Linker Preload Shared Object Inside A Container
+### Investigating Deprecated - Modification of Dynamic Linker Preload Shared Object Inside A Container
 
 The dynamic linker in Linux loads necessary libraries for programs at runtime, with the `ld.so.preload` file specifying libraries to load first. Adversaries exploit this by redirecting it to malicious libraries, gaining unauthorized access and evading detection. The detection rule identifies suspicious modifications to this file within containers, signaling potential hijacking attempts.
 
