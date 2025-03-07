@@ -2,7 +2,7 @@
 creation_date = "2023/04/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,7 @@ index = ["logs-cloud_defend*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Netcat Listener Established Inside A Container"
+name = "Deprecated - Netcat Listener Established Inside A Container"
 risk_score = 73
 rule_id = "a52a9439-d52c-401c-be37-2785235c6547"
 severity = "high"
@@ -53,12 +53,16 @@ process.args: ("nc","ncat","netcat","netcat.openbsd","netcat.traditional")
           or process.args:("-*l*", "--listen", "-*p*", "--source-port")
           )
 '''
-note = """## Triage and analysis
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Netcat Listener Established Inside A Container
+### Investigating Deprecated - Netcat Listener Established Inside A Container
 
 Netcat is a versatile networking tool used for reading and writing data across network connections, often employed for legitimate purposes like debugging and network diagnostics. However, adversaries can exploit Netcat to establish unauthorized backdoors or exfiltrate data from containers. The detection rule identifies suspicious Netcat activity by monitoring process events within containers, focusing on specific arguments that indicate a listening state, which is a common trait of malicious use. This proactive detection helps mitigate potential threats by flagging unusual network behavior indicative of compromise.
 
