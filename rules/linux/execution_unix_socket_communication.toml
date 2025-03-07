@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_
 maturity = "production"
 min_stack_version = "8.13.0"
 min_stack_comments = "Breaking change at 8.13.0 for SentinelOne Integration."
-updated_date = "2025/02/04"
+updated_date = "2025/03/04"
 
 [rule]
 author = ["Elastic"]
@@ -43,7 +43,8 @@ process where host.os.type == "linux" and event.type == "start" and
   (process.name in ("nc", "ncat", "netcat", "nc.openbsd") and
    process.args == "-U" and process.args : ("/usr/local/*", "/run/*", "/var/run/*")) or
   (process.name == "socat" and
-   process.args == "-" and process.args : ("UNIX-CLIENT:/usr/local/*", "UNIX-CLIENT:/run/*", "UNIX-CLIENT:/var/run/*"))
+   process.args == "-" and process.args : ("UNIX-CLIENT:/usr/local/*", "UNIX-CLIENT:/run/*", "UNIX-CLIENT:/var/run/*")) or
+  (process.name == "curl" and process.args : ("--unix-socket", "--abstract-unix-socket"))
 ) and
 not (
   process.args == "/var/run/libvirt/libvirt-sock" or
