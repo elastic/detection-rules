@@ -21,7 +21,7 @@ We welcome general questions, feature requests, and bug reports through the foll
 - **Community Slack**: For informal discussions or questions (note that message history is limited to 30 days).  
   [Elastic Security Community Slack](https://elasticstack.slack.com/archives/C06TE19EP09)
 
-Support tickets related to this DaC reference implementation can be opened with Elastic, however since the logic is just a wrapper of the underlying product API's, we will not be able to treat DaC related support requests as a Severity-1 (Immedediate time frame). Urgent DaC issues can be resolved via direct interaction with the underlying Kibana API or Elastic Security Solution UI. We will ask customers to resort to these methods to resolve downtime or urgent issues.
+Support tickets related to this DaC reference implementation can be opened with Elastic, however since the logic is just a wrapper of the underlying product API's, we ask to resolve urgent DaC issues via direct interaction with the underlying [Kibana APIs](https://www.elastic.co/docs/api/doc/kibana/v8/group/endpoint-security-detections-api) or [Elastic Security Solution UI](https://www.elastic.co/guide/en/security/current/rules-ui-management.html), as we will not be able to treat DaC related support requests as a high severity (immediate time frame).
 
 > [!TIP]
 > Questions about Kibana API usage should be directed to the Kibana repository:  
