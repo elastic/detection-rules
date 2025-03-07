@@ -10,11 +10,9 @@ import click
 import yaml
 from semver import Version
 
-from .main import root
-from .utils import get_etc_path, load_etc_dump, ROOT_DIR
 from .docs import REPO_DOCS_DIR
-
-from semver import Version
+from .main import root
+from .utils import ROOT_DIR, get_etc_path, load_etc_dump
 
 DEFAULT_CONFIG_PATH = Path(get_etc_path('_config.yaml'))
 CUSTOM_RULES_DOC_PATH = Path(ROOT_DIR).joinpath(REPO_DOCS_DIR, 'custom-rules.md')
