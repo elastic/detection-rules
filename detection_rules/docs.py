@@ -24,6 +24,8 @@ from .rule import DeprecatedRule, ThreatMapping, TOMLRule
 from .rule_loader import DeprecatedCollection, RuleCollection
 from .utils import load_etc_dump, save_etc_dump
 
+REPO_DOCS_DIR = "docs-dev"
+
 
 class PackageDocument(xlsxwriter.Workbook):
     """Excel document for summarizing a rules package."""
