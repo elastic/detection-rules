@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ index = ["logs-cloud_defend*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Container Escape via Modified notify_on_release File"
+name = "Deprecated - Potential Container Escape via Modified notify_on_release File"
 references = [
     "https://blog.trailofbits.com/2019/07/19/understanding-docker-container-escapes/",
     "https://sysdig.com/blog/detecting-mitigating-cve-2022-0492-sysdig/",
@@ -42,12 +42,16 @@ query = '''
 file where event.module == "cloud_defend" and event.action == "open" and
 event.type == "change" and file.name : "notify_on_release"
 '''
-note = """## Triage and analysis
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Potential Container Escape via Modified notify_on_release File
+### Investigating Deprecated - Potential Container Escape via Modified notify_on_release File
 
 In containerized environments, the `notify_on_release` file in cgroups can trigger host-level commands when a cgroup becomes empty. Adversaries exploit this by modifying the file from privileged containers, potentially executing unauthorized commands on the host. The detection rule monitors changes to `notify_on_release` files, flagging suspicious modifications indicative of privilege escalation attempts.
 

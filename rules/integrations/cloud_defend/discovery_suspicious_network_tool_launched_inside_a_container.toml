@@ -2,7 +2,7 @@
 creation_date = "2023/04/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,7 @@ index = ["logs-cloud_defend*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Suspicious Network Tool Launched Inside A Container"
+name = "Deprecated - Suspicious Network Tool Launched Inside A Container"
 risk_score = 47
 rule_id = "1a289854-5b78-49fe-9440-8a8096b1ab50"
 severity = "medium"
@@ -49,12 +49,16 @@ process where container.id: "*" and event.type== "start" and
 (process.args: ("nc", "ncat", "nmap", "dig", "nslookup", "tcpdump", "tshark", "ngrep", "telnet", "mitmproxy", "socat", "zmap", "masscan", "zgrab"))
 )
 '''
-note = """## Triage and analysis
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Suspicious Network Tool Launched Inside A Container
+### Investigating Deprecated - Suspicious Network Tool Launched Inside A Container
 
 Containers are lightweight, portable units that encapsulate applications and their dependencies, often used to ensure consistent environments across development and production. Adversaries exploit network tools within containers for reconnaissance or lateral movement, leveraging utilities like `nc` or `nmap` to map networks or intercept traffic. The detection rule identifies these tools' execution by monitoring process starts and arguments, flagging potential misuse for further investigation.
 
