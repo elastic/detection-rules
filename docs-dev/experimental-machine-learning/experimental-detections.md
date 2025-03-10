@@ -14,7 +14,7 @@ Rules are now stored in ndjson format and can be imported into Kibana via the se
 
 Earlier releases stored the rules in toml format. These can be uploaded using the 
 [7.12 branch](https://github.com/elastic/detection-rules/tree/7.12) CLI using the 
-[kibana upload-rule](../../CLI.md#uploading-rules-to-kibana) command
+[kibana import-rules](../../CLI.md#uploading-rules-to-kibana) command
 
 ### Uploading ML Jobs and Datafeeds
 

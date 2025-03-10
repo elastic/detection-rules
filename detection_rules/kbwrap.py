@@ -51,9 +51,14 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
 @click.pass_context
 def upload_rule(ctx, rules: RuleCollection, replace_id):
-    """Upload a list of rule .toml files to Kibana."""
+    """[Deprecated] Upload a list of rule .toml files to Kibana."""
     kibana = ctx.obj['kibana']
     api_payloads = []
+
+    click.secho(
+        "WARNING: This command is deprecated as of Elastic Stack version 9.0. Please use `kibana import-rules`.",
+        fg="yellow",
+    )
 
     for rule in rules:
         try:
