@@ -16,6 +16,7 @@ This repository was first announced on Elastic's blog post, [Elastic Security op
   - [Overview of this repository](#overview-of-this-repository)
   - [Getting started](#getting-started)
   - [How to contribute](#how-to-contribute)
+  - [Detections as Code (DaC)](#detections-as-code-dac)
   - [RTAs](#rtas)
   - [Licensing](#licensing)
   - [Questions? Problems? Suggestions?](#questions-problems-suggestions)
@@ -133,10 +134,15 @@ For more advanced command line interface (CLI) usage, refer to the [CLI guide](C
 
 We welcome your contributions to Detection Rules! Before contributing, please familiarize yourself with this repository, its [directory structure](#overview-of-this-repository), and our [philosophy](PHILOSOPHY.md) about rule creation. When you're ready to contribute, read the [contribution guide](CONTRIBUTING.md) to learn how we turn detection ideas into production rules and validate with testing.
 
+## Detections as Code (DaC)
+
+The Detection Rules repo includes a number of commands to help one manage rules with an "as code" philosophy. We recommend starting with our [DaC Specific Documentation](https://dac-reference.readthedocs.io/en/latest/) for strategies and recommended setup information. However, if you would prefer to jump right in, please see our [custom rules documentation](docs-dev/custom-rules-management.md) for information on how to configure this repo for use with custom rules followed by our [CLI documentation](CLI.md) for information on our commands to import and export rules.
+
 ## RTAs
 
 Red Team Automations (RTAs) used to emulate attacker techniques and verify the rules can be found in dedicated
 repository - [Cortado](https://github.com/elastic/cortado).
+
 
 ## Licensing
 
