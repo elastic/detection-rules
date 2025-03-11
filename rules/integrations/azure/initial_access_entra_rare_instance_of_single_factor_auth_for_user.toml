@@ -7,23 +7,23 @@ updated_date = "2025/03/10"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies rare instances of single-factor authentication (SFA) for Azure Entra ID users. An adversary with stolen
-credentials may attempt to authenticate using SFA, which is a rare event and may indicate an attempt to bypass
-conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The authentication method used may
-not be commonly used by the user based on their historical sign-in activity.
+Identifies rare instances of authentication requirements for Azure Entra ID principal users. An adversary with stolen
+credentials may attempt to authenticate with unusual authentication requirements, which is a rare event and may indicate
+an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The
+authentication requirements specified may not be commonly used by the user based on their historical sign-in activity.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Azure Entra Rare Instance of Single-Factor Authentication for User"
+name = "Azure Entra ID Rare Authentication Requirement for Principal User"
 note = """## Triage and analysis
 
-### Investigating Azure Entra Rare Instance of Single-Factor Authentication for User
+### Investigating Azure Entra ID Rare Authentication Requirement for Principal User
 
-This rule identifies rare instances of single-factor authentication (SFA) for Azure Entra ID users. An adversary with stolen credentials may attempt to authenticate using SFA, which is a rare event and may indicate an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The authentication method used may not be commonly used by the user based on their historical sign-in activity.
+Identifies rare instances of authentication requirements for Azure Entra ID principal users. An adversary with stolen credentials may attempt to authenticate with unusual authentication requirements, which is a rare event and may indicate an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The authentication requirements specified may not be commonly used by the user based on their historical sign-in activity.
 
-**This is a New Terms rule that focuses on first occurrence of an Entra principal user `azure.signinlogs.properties.user_principal_name` attempting to authenticate using SFA in the last 14-days.**
+**This is a New Terms rule that focuses on first occurrence of an Entra ID principal user `azure.signinlogs.properties.user_principal_name` and their authentication requirement `azure.signinlogs.properties.authentication_requirement` in the last 14-days.**
 
 ### Possible investigation steps
 
@@ -85,7 +85,6 @@ type = "new_terms"
 query = '''
 event.dataset: "azure.signinlogs" and event.category: "authentication"
     and azure.signinlogs.properties.user_type: "Member"
-    and azure.signinlogs.properties.authentication_requirement: "singleFactorAuthentication"
     and not azure.signinlogs.properties.client_app_used: "Browser"
     and not source.as.organization.name: "MICROSOFT-CORP-MSN-AS-BLOCK"
 '''
@@ -111,7 +110,10 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["azure.signinlogs.properties.user_principal_name"]
+value = [
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.authentication_requirement",
+]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
