@@ -55,6 +55,7 @@ from logs-azure.signinlogs*
         to_lower(user_agent.original) LIKE "%curio%" or
         to_lower(user_agent.original) LIKE "%hyper%" or
         to_lower(user_agent.original) LIKE "%kali%" or
+        to_lower(user_agent.original) LIKE "%hydra%" or
     )
 // count the number of unique user login attempts
 | stats

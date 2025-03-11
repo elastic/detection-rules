@@ -35,7 +35,7 @@ from logs-azure.signinlogs*
 | WHERE
   event.dataset == "azure.signinlogs"
   and event.category == "authentication"
-  //and azure.signinlogs.properties.is_interactive == false
+  and azure.signinlogs.properties.is_interactive == false
   and azure.signinlogs.properties.authentication_requirement == "singleFactorAuthentication"
   and source.as.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK"
   and event.outcome != "success"
