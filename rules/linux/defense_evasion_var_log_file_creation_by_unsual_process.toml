@@ -15,7 +15,7 @@ creating files in the /var/log/ directory, which is commonly used for logging sy
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "File Creation in /var/log via Suspicious Process"
 risk_score = 21
@@ -58,11 +58,11 @@ tags = [
     "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 query = '''
-file where host.os.type == "linux" and event.action in ("creation", "file_create_event", "file_rename_event", "rename", "file_write_event") and (
-  process.executable like~ ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "./*", "/boot/*") or process.name like ".*"
-) and file.path like "/var/log/*" and file.extension == null
+event.category:file and host.os.type:linux and event.action:(creation or file_create_event or file_rename_event or rename) and
+(process.executable:(/tmp/* or /var/tmp/* or /dev/shm/* or ./* or /boot/*) or process.name:.*) and
+file.path:/var/log/* and not file.extension:*
 '''
 
 [[rule.threat]]
@@ -108,3 +108,11 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["file.path", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
