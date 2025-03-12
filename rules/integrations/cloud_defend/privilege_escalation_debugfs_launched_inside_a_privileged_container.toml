@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,7 @@ index = ["logs-cloud_defend*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "File System Debugger Launched Inside a Privileged Container"
+name = "Deprecated - File System Debugger Launched Inside a Privileged Container"
 references = [
     "https://cyberark.wistia.com/medias/ygbzkzx93q?wvideo=ygbzkzx93q",
     "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation#privileged",
@@ -43,12 +43,16 @@ process where event.module == "cloud_defend" and
   process.args : "/dev/sd*" and not process.args == "-R" and
   container.security_context.privileged == true
 '''
-note = """## Triage and analysis
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating File System Debugger Launched Inside a Privileged Container
+### Investigating Deprecated - File System Debugger Launched Inside a Privileged Container
 
 DebugFS is a Linux utility for direct file system manipulation, often used for debugging. In a privileged container, which has extensive access to the host, adversaries can exploit DebugFS to access sensitive host files, potentially leading to privilege escalation or container escape. The detection rule identifies suspicious DebugFS usage by monitoring process initiation with specific arguments in privileged containers, flagging potential misuse.
 

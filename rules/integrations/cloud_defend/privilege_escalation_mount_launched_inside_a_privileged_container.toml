@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ index = ["logs-cloud_defend*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Mount Launched Inside a Privileged Container"
+name = "Deprecated - Mount Launched Inside a Privileged Container"
 references = [
     "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation#privileged",
 ]
@@ -41,12 +41,16 @@ query = '''
 process where event.module == "cloud_defend" and  event.type== "start" and
 (process.name== "mount" or process.args== "mount") and container.security_context.privileged == true
 '''
-note = """## Triage and analysis
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Mount Launched Inside a Privileged Container
+### Investigating Deprecated - Mount Launched Inside a Privileged Container
 
 In containerized environments, the `mount` utility is crucial for attaching file systems to the system's directory tree. When executed within a privileged container, which has extensive host capabilities, it can be exploited by adversaries to access sensitive host files, potentially leading to privilege escalation or container escapes. The detection rule identifies such misuse by monitoring the execution of `mount` in privileged containers, flagging potential security threats for further investigation.
 
