@@ -57,8 +57,9 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and event.action == "exec" and process.entry_leader.entry_meta.type == "container" and
-process.name in ("chmod", "chown") and process.args in ("4755", "755", "000", "777", "444", "-x", "+x")
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process.entry_leader.entry_meta.type == "container" and process.name in ("chmod", "chown") and
+process.args in ("4755", "755", "000", "777", "444", "-x", "+x")
 '''
 note = """## Triage and analysis
 

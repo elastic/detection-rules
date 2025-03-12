@@ -62,8 +62,9 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and event.action == "exec" and process.entry_leader.entry_meta.type == "container" and
-process.name == "debugfs" and process.command_line like~ "/dev/sd*" and not process.args == "-R"
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process.entry_leader.entry_meta.type == "container" and process.name == "debugfs" and
+process.command_line like~ "/dev/sd*" and not process.args == "-R"
 '''
 note = """## Triage and analysis
 
