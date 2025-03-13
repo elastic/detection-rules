@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2024/10/28"
+updated_date = "2025/02/21"
 min_stack_version = "8.14.0"
 min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
@@ -15,13 +15,7 @@ Identifies the use of Windows Management Instrumentation Command (WMIC) to disco
 such as AntiVirus or Host Firewall details.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.process-*",
-    "winlogbeat-*",
-    "logs-windows.*",
-    "endgame-*",
-    "logs-system.security*",
-]
+index = ["endgame-*", "logs-endpoint.events.process-*", "logs-system.security*", "logs-windows.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Security Software Discovery using WMIC"
@@ -55,14 +49,6 @@ This rule looks for the execution of the `wmic` utility with arguments compatibl
 """
 risk_score = 47
 rule_id = "6ea55c81-e2ba-42f2-a134-bccf857ba922"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
 tags = [
     "Domain: Endpoint",
@@ -73,7 +59,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Rule Type: BBR",
-    "Data Source: System",
+    "Data Source: Windows Security Event Logs",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

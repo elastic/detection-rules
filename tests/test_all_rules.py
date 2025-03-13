@@ -29,9 +29,8 @@ from detection_rules.rule import (AlertSuppressionMapping, EQLRuleData, QueryRul
 from detection_rules.rule_loader import FILE_PATTERN, RULES_CONFIG
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, make_git
 from detection_rules.version_lock import loaded_version_lock
-from rta import get_available_tests
 
 from .base import BaseRuleTest
 
@@ -72,21 +71,6 @@ class TestValidRules(BaseRuleTest):
                 err_message = f'\n{self.rule_str(rule)} Query not optimized for rule\n' \
                               f'Expected: {optimized}\nActual: {source}'
                 self.assertEqual(tree, optimized, err_message)
-
-    def test_production_rules_have_rta(self):
-        """Ensure that all production rules have RTAs."""
-        mappings = load_etc_dump('rule-mapping.yaml')
-        ttp_names = sorted(get_available_tests())
-
-        for rule in self.all_rules:
-            if isinstance(rule.contents.data, QueryRuleData) and rule.id in mappings:
-                matching_rta = mappings[rule.id].get('rta_name')
-
-                self.assertIsNotNone(matching_rta, f'{self.rule_str(rule)} does not have RTAs')
-
-                rta_name, ext = os.path.splitext(matching_rta)
-                if rta_name not in ttp_names:
-                    self.fail(f'{self.rule_str(rule)} references unknown RTA: {rta_name}')
 
     def test_duplicate_file_names(self):
         """Test that no file names are duplicated."""
@@ -351,6 +335,9 @@ class TestRuleTags(BaseRuleTest):
             'logs-endpoint.alerts-*': {'all': ['Data Source: Elastic Defend']},
             'logs-windows.sysmon_operational-*': {'all': ['Data Source: Sysmon']},
             'logs-windows.powershell*': {'all': ['Data Source: PowerShell Logs']},
+            'logs-system.security*': {'all': ['Data Source: Windows Security Event Logs']},
+            'logs-system.forwarded*': {'all': ['Data Source: Windows Security Event Logs']},
+            'logs-system.system*': {'all': ['Data Source: Windows System Event Logs']},
             'logs-sentinel_one_cloud_funnel.*': {'all': ['Data Source: SentinelOne']},
             'logs-fim.event-*': {'all': ['Data Source: File Integrity Monitoring']},
             'logs-m365_defender.event-*': {'all': ['Data Source: Microsoft Defender for Endpoint']},

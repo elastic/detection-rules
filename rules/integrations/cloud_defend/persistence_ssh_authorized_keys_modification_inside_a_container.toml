@@ -2,7 +2,7 @@
 creation_date = "2023/05/12"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ index = ["logs-cloud_defend*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "SSH Authorized Keys File Modified Inside a Container"
+name = "Deprecated - SSH Authorized Keys File Modified Inside a Container"
 risk_score = 73
 rule_id = "f7769104-e8f9-4931-94a2-68fc04eadec3"
 severity = "high"
@@ -37,12 +37,16 @@ query = '''
 file where container.id:"*" and
   event.type in ("change", "creation") and file.name: ("authorized_keys", "authorized_keys2", "sshd_config")
 '''
-note = """## Triage and analysis
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating SSH Authorized Keys File Modified Inside a Container
+### Investigating Deprecated - SSH Authorized Keys File Modified Inside a Container
 
 In containerized environments, SSH keys facilitate secure access, but adversaries can exploit this by altering the authorized_keys file to gain unauthorized access. This detection rule identifies suspicious changes to SSH configuration files within containers, signaling potential persistence tactics. By monitoring file modifications, it helps detect unauthorized SSH usage, a common indicator of compromise.
 
