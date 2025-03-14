@@ -90,10 +90,7 @@ process where host.os.type == "windows" and event.type == "start" and process.na
       (
         user.domain : ("NT *", "* NT", "IIS APPPOOL") and
         user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20", "S-1-5-82-*") and
-        not ?winlog.event_data.SubjectUserName : "*$" and
-
-        /* Sysmon will always populate user.id as S-1-5-18, leading to FPs */
-        not event.dataset : ("windows.sysmon_operational", "windows.sysmon")
+        not ?winlog.event_data.SubjectUserName : "*$"
       ) or
       (?process.Ext.token.integrity_level_name : "System" or ?winlog.event_data.IntegrityLevel : "System")
     ) and

@@ -96,12 +96,7 @@ process where host.os.type == "windows" and event.type == "start" and
     "conhost.exe", "forfiles.exe",
     "wscript.exe", "cscript.exe",
     "mshta.exe", "hh.exe", "mmc.exe"
-  ) and 
-  not (
-    user.id == "S-1-5-18" and
-    /* Don't apply the user.id exclusion to Sysmon for compatibility */
-    not event.dataset : ("windows.sysmon_operational", "windows.sysmon")
-  ) and
+  ) and user.id != "S-1-5-18" and
   /* Exclude System Integrity Processes for Sysmon */
   not ?winlog.event_data.IntegrityLevel == "System"
 '''
