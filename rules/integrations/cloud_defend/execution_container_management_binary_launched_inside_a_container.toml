@@ -2,7 +2,7 @@
 creation_date = "2023/04/26"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,7 @@ index = ["logs-cloud_defend*"]
 interval = "5m"
 language = "eql"
 license = "Elastic Licence v2"
-name = "Container Management Utility Run Inside A Container"
+name = "Deprecated - Container Management Utility Run Inside A Container"
 risk_score = 21
 rule_id = "6c6bb7ea-0636-44ca-b541-201478ef6b50"
 severity = "low"
@@ -43,12 +43,16 @@ query = '''
 process where container.id: "*" and event.type== "start"
   and process.name: ("dockerd", "docker", "kubelet", "kube-proxy", "kubectl", "containerd", "runc", "systemd", "crictl")
 '''
-note = """## Triage and analysis
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Container Management Utility Run Inside A Container
+### Investigating Deprecated - Container Management Utility Run Inside A Container
 
 Container management utilities like Docker and Kubernetes are essential for orchestrating and managing containerized applications. They facilitate tasks such as deployment, scaling, and networking. However, adversaries can exploit these tools to execute unauthorized commands within containers, potentially leading to system compromise. The detection rule identifies suspicious execution of these utilities within containers, signaling possible misuse or misconfiguration, by monitoring specific process activities and event types.
 

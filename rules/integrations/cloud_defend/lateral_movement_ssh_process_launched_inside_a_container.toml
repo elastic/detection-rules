@@ -2,7 +2,7 @@
 creation_date = "2023/05/12"
 integration = ["cloud_defend"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,7 @@ index = ["logs-cloud_defend*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "SSH Process Launched From Inside A Container"
+name = "Deprecated - SSH Process Launched From Inside A Container"
 references = [
     "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/techniques/SSH%20server%20running%20inside%20container/",
     "https://www.blackhillsinfosec.com/sshazam-hide-your-c2-inside-of-ssh/",
@@ -48,12 +48,16 @@ process where container.id: "*" and event.type== "start" and
 event.action in ("fork", "exec") and
 process.name: ("sshd", "ssh", "autossh")
 '''
-note = """## Triage and analysis
+note = """## Setup
+
+This rule was deprecated in the 8.18 and 9.0 versions of the Elastic Stack due to deprecation of the 'Defend For Containers' integration. Users using 8.18+ versions should disable this rule and enable linux-based rules tagged "Domain: Container".
+
+## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating SSH Process Launched From Inside A Container
+### Investigating Deprecated - SSH Process Launched From Inside A Container
 
 SSH (Secure Shell) is a protocol used for secure remote access and management of systems. Within container environments, SSH usage is atypical and can signal potential security risks. Adversaries may exploit SSH to move laterally between containers or escape to the host system. The detection rule identifies SSH processes initiated within containers, flagging potential unauthorized access or persistence attempts by monitoring process events and container identifiers.
 
