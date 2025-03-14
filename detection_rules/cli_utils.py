@@ -265,7 +265,4 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
         print('Did not set the following values because they are un-required when set to the default value')
         print(' - {}'.format('\n - '.join(skipped)))
 
-    # rta_mappings.add_rule_to_mapping_file(rule)
-    # click.echo('Placeholder added to rule-mapping.yaml')
-
     return rule

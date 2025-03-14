@@ -383,7 +383,7 @@ def setup_bundle(ctx, model_tag, repo, model_dir):
     click.echo(table)
 
     click.echo('Associated rules and jobs can be found under ML-experimental-detections releases in the repo')
-    click.echo('To upload rules, run: kibana upload-rule <ml-rule.toml>')
+    click.echo('To upload rules, run: kibana import-rules -f <ml-rule.toml>')
     click.echo('To upload ML jobs, run: es experimental upload-ml-job <ml-job.json>')
 
 
