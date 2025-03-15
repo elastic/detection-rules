@@ -51,9 +51,14 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
 @click.pass_context
 def upload_rule(ctx, rules: RuleCollection, replace_id):
-    """Upload a list of rule .toml files to Kibana."""
+    """[Deprecated] Upload a list of rule .toml files to Kibana."""
     kibana = ctx.obj['kibana']
     api_payloads = []
+
+    click.secho(
+        "WARNING: This command is deprecated as of Elastic Stack version 9.0. Please use `kibana import-rules`.",
+        fg="yellow",
+    )
 
     for rule in rules:
         try:
@@ -237,10 +242,21 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             rule_resource["author"] = rule_resource.get("author") or default_author or [rule_resource.get("created_by")]
             if isinstance(rule_resource["author"], str):
                 rule_resource["author"] = [rule_resource["author"]]
-            contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity="production")
-            threat = contents.data.get("threat")
-            first_tactic = threat[0].tactic.name if threat else ""
-            rule_name = rulename_to_filename(contents.data.name, tactic_name=first_tactic)
+            # Inherit maturity from the rule already exists
+            maturity = "development"
+            threat = rule_resource.get("threat")
+            first_tactic = threat[0].get("tactic").get("name") if threat else ""
+            rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=first_tactic)
+            # check if directory / f"{rule_name}" exists
+            if (directory / f"{rule_name}").exists():
+                rules = RuleCollection()
+                rules.load_file(directory / f"{rule_name}")
+                if rules:
+                    maturity = rules.rules[0].contents.metadata.maturity
+
+            contents = TOMLRuleContents.from_rule_resource(
+                rule_resource, maturity=maturity
+            )
             rule = TOMLRule(contents=contents, path=directory / f"{rule_name}")
         except Exception as e:
             if skip_errors:
@@ -279,7 +295,7 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             exceptions_containers,
             exceptions_items,
             exception_list_rule_table,
-            exceptions_directory,
+            exceptions_directory if exceptions_directory else None,
             save_toml=False,
             skip_errors=skip_errors,
             verbose=False,
@@ -297,7 +313,7 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
         action_connectors, ac_output, ac_errors = build_action_connector_objects(
             action_connector_results,
             action_connector_rule_table,
-            action_connectors_directory=None,
+            action_connectors_directory=action_connectors_directory if action_connectors_directory else None,
             save_toml=False,
             skip_errors=skip_errors,
             verbose=False,

@@ -2,7 +2,7 @@
 creation_date = "2023/02/24"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/10/17"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -64,7 +64,7 @@ Attackers can leverage systemd timers to run scripts, commands, or malicious sof
 This rule monitors the creation of new systemd timer files, potentially indicating the creation of a persistence mechanism.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible Investigation Steps
@@ -172,11 +172,11 @@ file where host.os.type == "linux" and event.action in ("rename", "creation") an
     "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
     "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/bin/crio", "/usr/sbin/crond",
     "/opt/puppetlabs/puppet/bin/ruby", "/usr/libexec/platform-python", "/kaniko/kaniko-executor",
-    "/usr/local/bin/dockerd", "/usr/bin/podman", "/bin/install", "/proc/self/exe"
+    "/usr/local/bin/dockerd", "/usr/bin/podman", "/bin/install", "/proc/self/exe", "/kaniko/executor"
   ) or
   process.name like (
     "python*", "crio", "apt-get", "install", "snapd", "cloudflared", "sshd", "convert-usrmerge", "docker-init",
-    "google_metadata_script_runner"
+    "google_metadata_script_runner", "ssm-agent-worker", "pacman", "convert2rhel", "platform-python"
   ) or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
   file.Ext.original.extension == "dpkg-new" or
