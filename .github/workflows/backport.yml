@@ -65,16 +65,16 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
+          token: ${{ secrets.WRITE_TRADEBOT_DETECTION_RULES_TOKEN }}
           ref: main
           fetch-depth: 100
 
       - name: Set github config
         run: |
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
+          git config --global user.email "178941316+tradebot-elastic@users.noreply.github.com"
+          git config --global user.name "tradebot-elastic"
 
       - name: Get branch histories
         run: |
@@ -98,8 +98,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip cache purge
           pip install .[dev]
-          pip install lib/kql lib/kibana
 
       - name: Prune non-${{matrix.target_branch}} rules
         env:
@@ -161,6 +161,6 @@ jobs:
       - name: "Notify slack on failure"
         uses: craftech-io/slack-action@v1
         with:
-          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          slack_webhook_url: ${{ secrets.EXTERNAL_SLACK_DETECTION_RULES_URL }}
           status: failure
         if: failure()

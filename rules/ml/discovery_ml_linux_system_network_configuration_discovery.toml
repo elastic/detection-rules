@@ -2,9 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/07/27"
+updated_date = "2025/01/15"
 
 [rule]
 anomaly_threshold = 25
@@ -26,11 +24,104 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = ["v3_linux_network_configuration_discovery"]
 name = "Unusual Linux Network Configuration Discovery"
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from one of the following integrations:
+- Elastic Defend
+- Auditd Manager
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration to your system:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+### Auditd Manager Integration Setup
+The Auditd Manager Integration receives audit events from the Linux Audit Framework which is a part of the Linux kernel.
+Auditd Manager provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "auditd_manager" to your system:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “Auditd Manager” and select the integration to see more details about it.
+- Click “Add Auditd Manager”.
+- Configure the integration name and optionally add a description.
+- Review optional and advanced settings accordingly.
+- Add the newly installed “auditd manager” to an existing or a new agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
+
+#### Rule Specific Setup Note
+Auditd Manager subscribes to the kernel and receives events as they occur without any additional configuration.
+However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+- For this detection rule no additional audit rules are required.
+"""
 risk_score = 21
 rule_id = "f9590f47-6bd5-4a49-bd49-a2f886476fb9"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning", "Tactic: Discovery"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
 type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Linux Network Configuration Discovery
+
+In Linux environments, network configuration tools are essential for managing and troubleshooting network settings. Adversaries may exploit these tools to gather network details, aiding in lateral movement or further reconnaissance. The detection rule leverages machine learning to identify atypical usage patterns of network commands by unexpected users, signaling potential account compromise or unauthorized network probing.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific network configuration commands executed and the user account involved. Focus on commands that are typically used for network discovery, such as `ifconfig`, `ip`, `netstat`, or `route`.
+- Check the user's login history and session details to determine if the account activity aligns with the user's normal behavior or if there are signs of unauthorized access, such as logins from unusual IP addresses or at odd times.
+- Investigate the user's role and responsibilities to assess whether they have a legitimate reason to perform network configuration discovery. This can help determine if the activity is expected or suspicious.
+- Examine recent changes in user permissions or group memberships that might have allowed the execution of network configuration commands by an unexpected user.
+- Correlate the alert with other security events or logs, such as authentication logs, to identify any related suspicious activities, such as failed login attempts or privilege escalation attempts.
+- If the account is suspected to be compromised, initiate a password reset and review the system for any signs of further compromise or malicious activity, such as unauthorized software installations or data exfiltration attempts.
+
+### False positive analysis
+
+- Routine administrative tasks by system administrators may trigger the rule. To manage this, create exceptions for known admin accounts performing regular network configuration checks.
+- Automated scripts or cron jobs that perform network diagnostics can be mistaken for unusual activity. Identify and whitelist these scripts to prevent false alerts.
+- Network monitoring tools running under specific service accounts might be flagged. Ensure these service accounts are documented and excluded from the rule.
+- Developers or IT staff conducting legitimate troubleshooting in non-production environments may cause alerts. Establish a process to temporarily exclude these users during known maintenance windows.
+- New employees or contractors performing onboarding tasks might trigger the rule. Implement a review process to quickly assess and exclude these cases if they are verified as non-threatening.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Terminate any suspicious processes or sessions initiated by the unusual user to halt ongoing reconnaissance activities.
+- Conduct a thorough review of the affected user's account for signs of compromise, such as unauthorized access attempts or changes in user privileges.
+- Reset the credentials of the compromised account and enforce multi-factor authentication to prevent future unauthorized access.
+- Analyze network logs and system activity to identify any additional systems that may have been accessed or probed by the adversary.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional containment measures are necessary.
+- Update detection mechanisms to include newly identified indicators of compromise (IOCs) and enhance monitoring for similar unusual network configuration discovery activities."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

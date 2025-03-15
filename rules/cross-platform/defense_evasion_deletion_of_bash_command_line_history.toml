@@ -2,9 +2,7 @@
 creation_date = "2020/05/04"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +15,7 @@ index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_mana
 language = "eql"
 license = "Elastic License v2"
 name = "Tampering of Shell Command-Line History"
+references = ["https://www.elastic.co/security-labs/detecting-log4j2-with-elastic-security"]
 risk_score = 47
 rule_id = "7bcbb3ac-e533-41ad-a612-d6c3bf666aba"
 setup = """## Setup
@@ -29,15 +28,16 @@ For more details on adding a custom ingest pipeline refer - https://www.elastic.
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "OS: macOS",
-        "Use Case: Threat Detection",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame",
-        "Data Source: Auditd Manager"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -49,27 +49,63 @@ process where event.action in ("exec", "exec_event", "executed", "process_starte
     (process.args : "truncate" and process.args : "-s0"))
     and process.args : (".bash_history", "/root/.bash_history", "/home/*/.bash_history","/Users/.bash_history", "/Users/*/.bash_history",
                         ".zsh_history", "/root/.zsh_history", "/home/*/.zsh_history", "/Users/.zsh_history", "/Users/*/.zsh_history")) or
-  (process.name : "history" and process.args : "-c") or
+  (process.args : "history" and process.args : "-c") or
   (process.args : "export" and process.args : ("HISTFILE=/dev/null", "HISTFILESIZE=0")) or
   (process.args : "unset" and process.args : "HISTFILE") or
   (process.args : "set" and process.args : "history" and process.args : "+o")
  )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Tampering of Shell Command-Line History
+
+Shell command-line history is a crucial feature in Unix-like systems, recording user commands for convenience and auditing. Adversaries may manipulate this history to hide their tracks, using commands to delete or redirect history files, clear history buffers, or disable history logging. The detection rule identifies such tampering by monitoring for suspicious command patterns and arguments indicative of history manipulation attempts.
+
+### Possible investigation steps
+
+- Review the process execution details to identify the user account associated with the suspicious command, focusing on the process.args field to determine the specific command and arguments used.
+- Check the process execution timeline to correlate the suspicious activity with other events on the system, such as logins or file modifications, to understand the context of the tampering attempt.
+- Investigate the command history files (.bash_history, .zsh_history) for the affected user accounts to assess the extent of tampering and identify any commands that may have been executed prior to the history manipulation.
+- Examine system logs and audit records for any additional indicators of compromise or related suspicious activities, such as unauthorized access attempts or privilege escalation events.
+- Verify the current configuration of the HISTFILE and HISTFILESIZE environment variables for the affected user accounts to ensure they have not been altered to disable history logging.
+
+### False positive analysis
+
+- System administrators or automated scripts may clear command-line history as part of routine maintenance or privacy measures. To handle this, identify and whitelist known scripts or user accounts that perform these actions regularly.
+- Developers or power users might redirect or unset history files to manage disk space or for personal preference. Consider excluding specific user accounts or directories from monitoring if these actions are verified as non-malicious.
+- Security tools or compliance scripts may execute commands that resemble history tampering to ensure systems are in a desired state. Review and exclude these tools from triggering alerts by adding them to an exception list.
+- Temporary testing environments or sandboxed systems might frequently clear history as part of their reset processes. Exclude these environments from the rule to prevent unnecessary alerts.
+- Users with privacy concerns might intentionally disable history logging. Engage with these users to understand their needs and adjust monitoring policies accordingly, possibly by excluding their sessions from the rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further tampering or data exfiltration.
+- Conduct a thorough review of the affected user's recent command history and system logs to identify any unauthorized or suspicious activities that may have occurred prior to the tampering.
+- Restore the tampered history files from a secure backup, if available, to aid in further forensic analysis and ensure continuity of auditing.
+- Re-enable and secure shell history logging by resetting the HISTFILE and HISTFILESIZE environment variables to their default values and ensuring they are not set to null or zero.
+- Implement stricter access controls and monitoring on the affected system to prevent unauthorized users from modifying shell history files in the future.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems may have been compromised.
+- Review and update endpoint detection and response (EDR) configurations to enhance monitoring for similar tampering attempts, ensuring alerts are generated for any future suspicious command patterns."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1070.003"
 name = "Clear Command History"
 reference = "https://attack.mitre.org/techniques/T1070/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

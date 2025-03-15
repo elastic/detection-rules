@@ -2,22 +2,24 @@
 creation_date = "2023/08/10"
 integration = ["auditd_manager"]
 maturity = "production"
-min_stack_comments = "The sampling feature within EQL was introduced in 8.6.0"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/19"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
 description = """
-This detection rule identifies a sample of suspicious Linux system file reads used for system fingerprinting, leveraged 
+This detection rule identifies a sample of suspicious Linux system file reads used for system fingerprinting, leveraged
 by the Metasploit Meterpreter shell to gather information about the target that it is executing its shell on. Detecting
-this pattern is indicative of a successful meterpreter shell connection. 
+this pattern is indicative of a successful meterpreter shell connection.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Meterpreter Reverse Shell"
+references = [
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
+    "https://www.elastic.co/security-labs/linux-detection-engineering-with-auditd",
+]
 risk_score = 47
 rule_id = "5c895b4f-9133-4e68-9e23-59902175355c"
 setup = """## Setup
@@ -60,14 +62,16 @@ However, if more advanced configuration is required to detect specific behavior,
 """
 severity = "medium"
 tags = [
-        "Data Source: Auditd Manager",
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution"
-        ]
+    "Data Source: Auditd Manager",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 sample by host.id, process.pid, user.id
   [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/etc/machine-id"]
@@ -76,34 +80,69 @@ sample by host.id, process.pid, user.id
   [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/proc/net/ipv6_route"]
   [file where host.os.type == "linux" and auditd.data.syscall == "open" and auditd.data.a2 == "1b6" and file.path == "/proc/net/if_inet6"]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Meterpreter Reverse Shell
+
+Meterpreter is a sophisticated payload within the Metasploit framework, enabling attackers to execute commands and scripts on compromised systems. Adversaries exploit it to perform system reconnaissance and data exfiltration. The detection rule identifies suspicious file access patterns typical of Meterpreter's system fingerprinting activities, such as reading key system files, indicating a potential reverse shell connection.
+
+### Possible investigation steps
+
+- Review the process associated with the alert by examining the process ID (process.pid) and user ID (user.id) to determine if the process is legitimate or potentially malicious.
+- Check the host ID (host.id) to identify the specific system where the suspicious activity was detected and assess if it is a high-value target or has been previously compromised.
+- Investigate the command history and running processes on the affected host to identify any unusual or unauthorized activities that may indicate a Meterpreter session.
+- Analyze network connections from the host to detect any suspicious outbound connections that could suggest a reverse shell communication.
+- Examine the file access patterns, particularly the access to files like /etc/machine-id, /etc/passwd, /proc/net/route, /proc/net/ipv6_route, and /proc/net/if_inet6, to understand the context and purpose of these reads and whether they align with normal system operations.
+- Correlate the alert with other security events or logs from the same timeframe to identify any additional indicators of compromise or related malicious activities.
+
+### False positive analysis
+
+- System administration scripts or tools that perform regular checks on system files like /etc/machine-id or /etc/passwd may trigger this rule. To manage this, identify and whitelist these legitimate processes by their process ID or user ID.
+- Backup or monitoring software that accesses network configuration files such as /proc/net/route or /proc/net/ipv6_route can cause false positives. Exclude these applications by adding exceptions for their specific file access patterns.
+- Security tools that perform network diagnostics or inventory checks might read files like /proc/net/if_inet6. Review these tools and exclude their known benign activities from triggering the rule.
+- Custom scripts used for system health checks or inventory management that access the flagged files should be reviewed. If deemed safe, add them to an exception list based on their host ID or user ID.
+
+### Response and remediation
+
+- Isolate the affected system from the network immediately to prevent further data exfiltration or lateral movement by the attacker.
+- Terminate any suspicious processes identified by the detection rule, particularly those associated with the process IDs flagged in the alert.
+- Conduct a thorough review of the affected system's logs and file access history to identify any additional unauthorized access or data exfiltration attempts.
+- Change all credentials and keys that may have been exposed or compromised on the affected system, especially those related to user accounts identified in the alert.
+- Restore the affected system from a known good backup to ensure any malicious changes are removed, and verify the integrity of the restored system.
+- Implement network segmentation to limit the potential impact of future attacks and enhance monitoring of critical systems for similar suspicious activities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+
 
 [rule.threat.tactic]
-name = "Command and Control"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
 id = "TA0011"
+name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat.technique]]
-name = "Application Layer Protocol"
-id = "T1071"
-reference = "https://attack.mitre.org/techniques/T1071/"

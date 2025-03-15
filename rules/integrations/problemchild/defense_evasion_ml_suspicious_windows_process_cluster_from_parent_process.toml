@@ -2,9 +2,9 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "LotL package job ID and rule removal updates"
-min_stack_version = "8.9.0"
-updated_date = "2024/04/01"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 anomaly_threshold = 75
@@ -22,9 +22,16 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "problem_child_high_sum_by_parent"
 name = "Suspicious Windows Process Cluster Spawned by a Parent Process"
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/problemchild",
+    "https://www.elastic.co/security-labs/detecting-living-off-the-land-attacks-with-new-elastic-integration",
+]
+risk_score = 21
+rule_id = "f5d9d36d-7c30-4cdb-a856-9f653c13d4e0"
 setup = """## Setup
 
-The rule requires the Living off the Land (LotL) Attack Detection integration assets to be installed, as well as Windows process events collected by integrations such as Elastic Defend or Winlogbeat.  
+The rule requires the Living off the Land (LotL) Attack Detection integration assets to be installed, as well as Windows process events collected by integrations such as Elastic Defend or Winlogbeat.
 
 ### LotL Attack Detection Setup
 The LotL Attack Detection integration detects living-off-the-land activity in Windows process events.
@@ -39,51 +46,9 @@ The LotL Attack Detection integration detects living-off-the-land activity in Wi
 #### The following steps should be executed to install assets associated with the LotL Attack Detection integration:
 - Go to the Kibana homepage. Under Management, click Integrations.
 - In the query bar, search for Living off the Land Attack Detection and select the integration to see more details about it.
-- Under Settings, click Install Living off the Land Attack Detection assets and follow the prompts to install the assets.
-
-#### Ingest Pipeline Setup
-**Before you can enable this rule**, you'll need to enrich Windows process events with predictions from the Supervised LotL Attack Detection model. This is done via the ingest pipeline named `<package_version>-problem_child_ingest_pipeline` installed with the LotL Attack Detection package.
-- If using an Elastic Beat such as Winlogbeat, add the LotL ingest pipeline to it by adding a simple configuration [setting](https://www.elastic.co/guide/en/elasticsearch/reference/current/ingest.html#pipelines-for-beats) to `winlogbeat.yml`.
-- If adding the LotL ingest pipeline to an existing pipeline, use a [pipeline processor](https://www.elastic.co/guide/en/elasticsearch/reference/current/pipeline-processor.html). For example, you can check if your winlogbeat or Elastic Defend (the [default index pattern](https://docs.elastic.co/en/integrations/endpoint#logs) being `logs-endpoint*`) already has an ingest pipeline by navigating to `Data > Index Management`, finding the index (sometimes you need to toggle "Include hidden indices"), and checking the index's settings for a default or final [pipeline](https://www.elastic.co/guide/en/elasticsearch/reference/current/ingest.html#set-default-pipeline).
-
-#### Adding Custom Mappings
-- Go to the Kibana homepage. Under Management, click Stack Management.
-- Under Data click Index Management and navigate to the Component Templates tab.
-- Templates that can be edited to add custom components will be marked with a @custom suffix. Edit the @custom component template corresponding to the beat/integration you added the LotL ingest pipeline to, by pasting the following JSON blob in the "Load JSON" flyout:
-```
-{
-  "properties": {
-    "problemchild": {
-      "properties": {
-        "prediction": {
-          "type": "long"
-        },
-        "prediction_probability": {
-          "type": "float"
-        }
-      }
-    },
-    "blocklist_label": {
-      "type": "long"
-    }
-  }
-}
-```
-
-### Anomaly Detection Setup
-**Before you can enable this rule**, you'll need to enable the corresponding Anomaly Detection job. 
-- Go to the Kibana homepage. Under Analytics, click Machine Learning.
-- Under Anomaly Detection, click Jobs, and then click "Create job". Select the Data View containing your enriched Windows process events. For example, this would be `logs-endpoint.events.*` if you used Elastic Defend to collect events, or `winlogbeat-*` if you used Winlogbeat.
-- If the selected Data View contains events that match the query in [this](https://github.com/elastic/integrations/blob/main/packages/problemchild/kibana/ml_module/problemchild-ml.json) configuration file, you will see a card for "Living off the Land Attack Detection" under "Use preconfigured jobs". Warning: if the ingest pipeline hasn't run for some reason, such as no eligible data in winlogbeat has come in yet, _you won't be able to see this card yet_. If that is the case, try troubleshooting the ingest pipeline, and if any ProblemChild predictions have been populated yet.
-- Keep the default settings and click "Create jobs" to start the anomaly detection job and datafeed.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
 """
-references = [
-    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
-    "https://docs.elastic.co/en/integrations/problemchild",
-    "https://www.elastic.co/security-labs/detecting-living-off-the-land-attacks-with-new-elastic-integration",
-]
-risk_score = 21
-rule_id = "f5d9d36d-7c30-4cdb-a856-9f653c13d4e0"
 severity = "low"
 tags = [
     "Domain: Endpoint",
@@ -92,8 +57,44 @@ tags = [
     "Rule Type: ML",
     "Rule Type: Machine Learning",
     "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Windows Process Cluster Spawned by a Parent Process
+
+In Windows environments, processes are often spawned by parent processes, forming a hierarchy. Adversaries exploit this by using legitimate processes to launch malicious ones, often leveraging Living off the Land Binaries (LOLBins) to evade detection. The detection rule employs machine learning to identify clusters of processes with high malicious probability, focusing on those sharing a common parent process. This approach helps uncover stealthy attacks that traditional methods might miss, enhancing defense against tactics like masquerading.
+
+### Possible investigation steps
+
+- Review the parent process name associated with the suspicious process cluster to identify if it is a known legitimate process or a potential masquerading attempt.
+- Examine the command line arguments and execution context of the suspicious processes to identify any use of LOLBins or unusual patterns that could indicate malicious activity.
+- Check the process creation timestamps and correlate them with any known events or user activities to determine if the process execution aligns with expected behavior.
+- Investigate the network activity of the suspicious processes to identify any unusual outbound connections or data exfiltration attempts.
+- Analyze the user account context under which the suspicious processes were executed to determine if there is any indication of compromised credentials or privilege escalation.
+- Cross-reference the detected processes with threat intelligence sources to identify any known indicators of compromise or related threat actor activity.
+
+### False positive analysis
+
+- Legitimate administrative tools may trigger false positives if they frequently spawn processes that resemble malicious activity. Users can create exceptions for known safe tools by whitelisting their parent process names.
+- Software updates or installations often generate clusters of processes that might be flagged as suspicious. Users should monitor these activities and exclude them if they are verified as legitimate.
+- Automated scripts or batch jobs that run regularly and spawn multiple processes can be mistaken for malicious clusters. Identifying these scripts and excluding their parent processes can reduce false positives.
+- Security software or monitoring tools that perform regular scans or updates might mimic malicious behavior. Users should ensure these tools are recognized and excluded from the rule's scope.
+- Custom business applications that are not widely recognized might be flagged. Users should document and exclude these applications if they are confirmed to be safe and necessary for operations.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further spread of the potential threat and to contain any ongoing malicious activity.
+- Terminate the suspicious processes identified by the alert to stop any malicious actions they may be performing.
+- Conduct a thorough review of the parent process and its associated binaries to ensure they have not been tampered with or replaced by malicious versions.
+- Restore any affected files or system components from a known good backup to ensure system integrity and functionality.
+- Update and patch the system to close any vulnerabilities that may have been exploited by the adversary, focusing on those related to LOLBins and masquerading techniques.
+- Monitor the system and network for any signs of re-infection or related suspicious activity, using enhanced logging and alerting mechanisms.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

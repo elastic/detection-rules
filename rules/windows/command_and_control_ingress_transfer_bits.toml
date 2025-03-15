@@ -2,9 +2,7 @@
 creation_date = "2023/01/13"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -31,10 +29,11 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+
 [rule]
 author = ["Elastic"]
 description = """
-Identifies downloads of executable and archive files via the Windows Background Intelligent Transfer Service (BITS). 
+Identifies downloads of executable and archive files via the Windows Background Intelligent Transfer Service (BITS).
 Adversaries could leverage Windows BITS transfer jobs to download remote payloads.
 """
 from = "now-9m"
@@ -51,7 +50,7 @@ Windows Background Intelligent Transfer Service (BITS) is a technology that allo
 This rule identifies such abuse by monitoring for file renaming events involving "svchost.exe" and "BIT*.tmp" on Windows systems.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 ### Possible investigation steps
 
@@ -115,7 +114,15 @@ references = ["https://attack.mitre.org/techniques/T1197/"]
 risk_score = 21
 rule_id = "f95972d3-c23b-463b-89a8-796b3f369b49"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Command and Control", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -133,7 +140,7 @@ file where host.os.type == "windows" and event.action == "rename" and
   not file.path : (
         "?:\\Users\\*\\AppData\\Local\\Temp*\\wct*.tmp",
         "?:\\Users\\*\\AppData\\Local\\Adobe\\ARM\\*\\RdrServicesUpdater*.exe",
-        "?:\\Users\\*\\AppData\\Local\\Adobe\\ARM\\*\\AcroServicesUpdater2_x64.exe",
+        "?:\\Users\\*\\AppData\\Local\\Adobe\\ARM\\*\\AcroServicesUpdater*.exe",
         "?:\\Users\\*\\AppData\\Local\\Docker Desktop Installer\\update-*.exe"
   )
 '''
@@ -151,8 +158,6 @@ reference = "https://attack.mitre.org/techniques/T1105/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -165,3 +170,4 @@ reference = "https://attack.mitre.org/techniques/T1197/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

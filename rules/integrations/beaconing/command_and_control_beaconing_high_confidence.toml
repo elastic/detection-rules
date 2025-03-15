@@ -2,9 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["beaconing", "endpoint", "network_traffic"]
 maturity = "production"
-min_stack_comments = "Beaconing package updates and support"
-min_stack_version = "8.10.1"
-updated_date = "2024/01/05"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +16,13 @@ index = ["ml_beaconing.all"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Statistical Model Detected C2 Beaconing Activity with High Confidence"
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/beaconing",
+    "https://www.elastic.co/security-labs/identifying-beaconing-malware-using-elastic",
+]
+risk_score = 21
+rule_id = "0ab319ef-92b8-4c7f-989b-5de93c852e93"
 setup = """## Setup
 
 The rule requires the Network Beaconing Identification integration assets to be installed, as well as network logs collected by the Elastic Defend or Network Packet Capture integrations.
@@ -35,23 +40,52 @@ The Network Beaconing Identification integration consists of a statistical frame
 #### The following steps should be executed to install assets associated with the Network Beaconing Identification integration:
 - Go to the Kibana homepage. Under Management, click Integrations.
 - In the query bar, search for Network Beaconing Identification and select the integration to see more details about it.
-- Under Settings, click "Install Network Beaconing Identification assets" and follow the prompts to install the assets.
+- Follow the instructions under the **Installation** section.
 """
-references = [
-    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
-    "https://docs.elastic.co/en/integrations/beaconing",
-    "https://www.elastic.co/security-labs/identifying-beaconing-malware-using-elastic",
-]
-risk_score = 21
-rule_id = "0ab319ef-92b8-4c7f-989b-5de93c852e93"
 severity = "low"
-tags = ["Domain: Network", "Use Case: C2 Beaconing Detection", "Tactic: Command and Control"]
-type = "query"
+tags = ["Domain: Network", "Use Case: C2 Beaconing Detection", "Tactic: Command and Control", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
+type = "query"
 
 query = '''
 beacon_stats.beaconing_score: 3
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Statistical Model Detected C2 Beaconing Activity with High Confidence
+
+Statistical models analyze network traffic patterns to identify anomalies indicative of C2 beaconing, a tactic where attackers maintain covert communication with compromised systems. Adversaries exploit this to issue commands, exfiltrate data, and sustain network presence. The detection rule leverages a high beaconing score to flag potential threats, aiding analysts in pinpointing suspicious activities linked to C2 operations.
+
+### Possible investigation steps
+
+- Review the network traffic logs to identify the source and destination IP addresses associated with the beaconing activity flagged by the beacon_stats.beaconing_score of 3.
+- Correlate the identified IP addresses with known malicious IP databases or threat intelligence feeds to determine if they are associated with known C2 servers.
+- Analyze the frequency and pattern of the beaconing activity to assess whether it aligns with typical C2 communication patterns, such as regular intervals or specific time frames.
+- Investigate the domain names involved in the communication to check for any associations with malicious activities or suspicious registrations.
+- Examine the payloads or data transferred during the flagged communication sessions to identify any potential exfiltration of sensitive information or receipt of malicious instructions.
+- Cross-reference the involved systems with internal asset inventories to determine if they are critical assets or have been previously flagged for suspicious activities.
+- Consult with the incident response team to decide on containment or remediation actions if the investigation confirms malicious C2 activity.
+
+### False positive analysis
+
+- Regularly scheduled software updates or patch management systems may generate network traffic patterns similar to C2 beaconing. Users can create exceptions for known update servers to reduce false positives.
+- Automated backup systems that frequently communicate with cloud storage services might be flagged. Identifying and excluding these backup services from the analysis can help mitigate this issue.
+- Network monitoring tools that periodically check connectivity or system health can mimic beaconing activity. Whitelisting these monitoring tools can prevent them from being incorrectly flagged.
+- Internal applications that use polling mechanisms to check for updates or status changes may trigger alerts. Documenting and excluding these applications from the rule can minimize false positives.
+- Frequent communication with trusted third-party services, such as content delivery networks, may appear as beaconing. Establishing a list of trusted domains and excluding them from the analysis can help manage this.
+
+### Response and remediation
+
+- Isolate the affected systems from the network to prevent further communication with the C2 server and contain the threat.
+- Conduct a thorough analysis of the network traffic logs to identify any additional compromised systems or lateral movement within the network.
+- Remove any malicious software or scripts identified on the compromised systems, ensuring all traces of the C2 communication channels are eradicated.
+- Apply security patches and updates to all affected systems to close any vulnerabilities exploited by the attackers.
+- Change all credentials and authentication tokens associated with the compromised systems to prevent unauthorized access.
+- Monitor the network for any signs of re-infection or continued C2 activity, using enhanced detection rules and updated threat intelligence.
+- Escalate the incident to the appropriate internal security team or external cybersecurity experts for further investigation and to assess the potential impact on the organization."""
 
 
 [[rule.threat]]

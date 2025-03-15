@@ -1,0 +1,155 @@
+[metadata]
+creation_date = "2024/06/03"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/02/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects network connections initiated through Cross-Desktop Group (XDG) autostart entries for GNOME and XFCE-based Linux
+distributions. XDG Autostart entries can be used to execute arbitrary commands or scripts when a user logs in. This rule
+helps to identify potential malicious activity where an attacker may have modified XDG autostart scripts to establish
+persistence on the system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Network Connections Initiated Through XDG Autostart Entry"
+references = [
+    "https://specifications.freedesktop.org/autostart-spec/autostart-spec-latest.html",
+    "https://hadess.io/the-art-of-linux-persistence/",
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
+]
+risk_score = 47
+rule_id = "dd52d45a-4602-4195-9018-ebe0f219c273"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Elastic Defend
+- Auditbeat
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+### Auditbeat Setup
+Auditbeat is a lightweight shipper that you can install on your servers to audit the activities of users and processes on your systems. For example, you can use Auditbeat to collect and centralize audit events from the Linux Audit Framework. You can also use Auditbeat to detect changes to critical files, like binaries and configuration files, and identify potential security policy violations.
+
+#### The following steps should be executed in order to add the Auditbeat on a Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setup-repositories.html).
+- To run Auditbeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-docker.html).
+- To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
+- For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
+
+#### Custom Ingest Pipeline
+For versions <8.2, you need to add a custom ingest pipeline to populate `event.ingested` with @timestamp for non-elastic-agent indexes, like auditbeats/filebeat/winlogbeat etc. For more details to add a custom ingest pipeline refer to the [guide](https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by host.id, process.entity_id with maxspan=1s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+     (process.parent.executable == "/usr/bin/xfce4-session") or
+     (process.executable == "/bin/sh" and process.args == "-e" and process.args == "-u" and
+      process.args == "-c" and process.args : "export GIO_LAUNCHED_DESKTOP_FILE_PID=$$;*")
+   )
+  ]
+  [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and not (
+     destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
+       destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
+       "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+       "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10",
+       "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
+       "FF00::/8", "172.31.0.0/16"
+       ) or
+       process.name in (
+         "telegram-desktop", "firefox", "gnome-calculator", "remmina", "spotify", "librewolf", "fortitraylauncher",
+         "flameshot", "thunderbird", "update-manager", "warp-terminal", "obs", "transmission-gtk"
+       )
+     )
+  ]
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Network Connections Initiated Through XDG Autostart Entry
+
+XDG Autostart entries are used in GNOME and XFCE Linux environments to automatically execute scripts or applications upon user login, facilitating user convenience. However, adversaries can exploit this feature to maintain persistence by modifying these entries to initiate unauthorized network connections. The detection rule identifies such malicious activity by monitoring processes linked to XDG autostart and subsequent suspicious network connections, excluding known benign processes and internal IP ranges.
+
+### Possible investigation steps
+
+- Review the process details from the alert, focusing on the process.entity_id and process.executable fields to identify the specific application or script that was executed through the XDG autostart entry.
+- Examine the parent process information, particularly the process.parent.executable field, to confirm if the process was initiated by a legitimate session manager like /usr/bin/xfce4-session.
+- Investigate the network connection details, paying attention to the destination.ip field to determine if the connection was attempted to an external or suspicious IP address not covered by the internal IP ranges specified in the query.
+- Check the process.args field for any unusual or unexpected command-line arguments that might indicate malicious intent or unauthorized modifications to the autostart entry.
+- Correlate the alert with other security events or logs from the same host.id to identify any additional suspicious activities or patterns that might suggest a broader compromise or persistence mechanism.
+- Validate the legitimacy of the process.executable by comparing it against known benign applications listed in the query, such as /usr/lib64/firefox/firefox, to rule out false positives.
+
+### False positive analysis
+
+- Network connections from legitimate applications like Firefox or FortiClient may trigger false positives. To handle this, add these applications to the exclusion list in the detection rule.
+- Internal network traffic within known safe IP ranges can be mistakenly flagged. Ensure these IP ranges are included in the exclusion criteria to prevent unnecessary alerts.
+- Custom scripts or applications that are part of the user's normal login process might be misidentified. Review and whitelist these processes if they are verified as non-threatening.
+- Regular updates or maintenance tasks that initiate network connections during login can cause false alerts. Identify these tasks and adjust the rule to exclude them if they are part of routine operations.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized network connections and potential lateral movement.
+- Terminate any suspicious processes identified as being initiated through XDG autostart entries to halt any ongoing malicious activity.
+- Review and remove any unauthorized or suspicious XDG autostart entries to eliminate persistence mechanisms established by the attacker.
+- Conduct a thorough scan of the affected system for additional indicators of compromise, such as unauthorized user accounts or modified system files, to ensure comprehensive remediation.
+- Restore any altered system configurations or files from a known good backup to ensure system integrity and functionality.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems may be affected.
+- Implement enhanced monitoring and logging for XDG autostart entries and network connections to detect similar threats in the future and improve overall security posture."""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+[[rule.threat.technique.subtechnique]]
+id = "T1547.013"
+name = "XDG Autostart Entries"
+reference = "https://attack.mitre.org/techniques/T1547/013/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

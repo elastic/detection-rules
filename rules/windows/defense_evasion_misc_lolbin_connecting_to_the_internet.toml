@@ -2,9 +2,9 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2025/02/03"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [transform]
 [[transform.osquery]]
@@ -31,6 +31,7 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+
 [rule]
 author = ["Elastic"]
 description = """
@@ -39,7 +40,12 @@ validation. Adversaries may use these binaries to 'live off the land' and execut
 application allowlists and signature validation.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-endpoint.events.network-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-endpoint.events.network-*",
+    "logs-windows.sysmon_operational-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Network Connection via Signed Binary"
@@ -52,7 +58,7 @@ By examining the specific traits of Windows binaries (such as process trees, com
 This rule looks for the execution of `expand.exe`, `extrac32.exe`, `ieexec.exe`, or `makecab.exe` utilities, followed by a network connection to an external address. Attackers can abuse utilities to execute malicious files or masquerade as those utilities to bypass detections and evade defenses.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -100,7 +106,15 @@ references = ["https://www.iana.org/assignments/iana-ipv4-special-registry/iana-
 risk_score = 21
 rule_id = "63e65ec3-43b1-45b0-8f2d-45b34291dc44"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 type = "eql"
 
 query = '''

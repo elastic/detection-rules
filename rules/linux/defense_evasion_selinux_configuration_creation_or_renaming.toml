@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2024/08/28"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+min_stack_comments = "Breaking change at 8.16.2 for the SentinelOne Integration."
+min_stack_version = "8.16.2"
+updated_date = "2025/01/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation or renaming of the SELinux configuration file. SELinux is a security module that
+provides access control security policies. Modifications to the SELinux configuration file may indicate an attempt to
+impair defenses by disabling or modifying security tools.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*", "endgame-*", "logs-sentinel_one_cloud_funnel.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "SELinux Configuration Creation or Renaming"
+risk_score = 21
+rule_id = "7b981906-86b7-4544-8033-c30ec6eb45fc"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Elastic Defend
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.action in ("creation", "file_create_event", "rename", "file_rename_event")
+and file.path : "/etc/selinux/config" and not process.name in ("dockerd", "platform-python")
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SELinux Configuration Creation or Renaming
+
+SELinux, a Linux kernel security module, enforces access control policies to protect systems. Adversaries may target the SELinux configuration file to disable or alter these defenses, facilitating unauthorized access or evasion of security measures. The detection rule identifies suspicious activities like file creation or renaming in the SELinux configuration path, signaling potential defense evasion attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the event action is either "creation", "file_create_event", "rename", or "file_rename_event" and that the file path is "/etc/selinux/config".
+- Check the timestamp of the event to determine when the SELinux configuration file was created or renamed.
+- Identify the user account and process responsible for the action by examining the event logs for associated user and process information.
+- Investigate the history of changes to the SELinux configuration file to determine if there have been any recent unauthorized modifications.
+- Correlate the event with other security alerts or logs to identify any related suspicious activities or patterns on the host.
+- Assess the current state of SELinux on the affected system to ensure it is configured correctly and has not been disabled or altered inappropriately.
+- If unauthorized changes are confirmed, initiate a response plan to mitigate potential security risks, which may include restoring the original configuration and conducting a broader security assessment of the system.
+
+### False positive analysis
+
+- Routine system updates or administrative tasks may trigger file creation or renaming events in the SELinux configuration path. Users can create exceptions for known update processes or trusted administrative scripts to prevent unnecessary alerts.
+- Automated configuration management tools like Ansible, Puppet, or Chef might modify the SELinux configuration file as part of their normal operations. Users should identify and whitelist these tools to reduce false positives.
+- Initial system setup or reconfiguration activities often involve legitimate changes to the SELinux configuration. Users can temporarily disable the rule during planned maintenance windows or add exceptions for specific time frames to avoid false alerts.
+- Security audits or compliance checks may involve accessing or modifying SELinux settings. Users should coordinate with audit teams to recognize these activities and adjust the rule settings accordingly.
+- Custom scripts or applications developed in-house that interact with SELinux settings should be reviewed and, if deemed safe, added to an exception list to minimize false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or potential lateral movement by the adversary.
+- Verify the integrity of the SELinux configuration file by comparing it with a known good backup. If discrepancies are found, restore the file from a trusted backup.
+- Conduct a thorough review of recent user and process activity on the affected system to identify any unauthorized changes or suspicious behavior that may have led to the SELinux configuration modification.
+- Re-enable SELinux enforcement if it has been disabled, and ensure that the correct security policies are applied to maintain system protection.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems may be affected.
+- Implement additional monitoring on the affected system and similar systems to detect any further attempts to modify SELinux configurations or other critical security settings.
+- Review and update access controls and permissions to ensure that only authorized personnel have the ability to modify SELinux configurations, reducing the risk of future unauthorized changes."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

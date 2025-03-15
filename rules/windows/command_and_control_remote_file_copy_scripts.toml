@@ -2,9 +2,9 @@
 creation_date = "2020/11/29"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/04/08"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+updated_date = "2025/02/03"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,12 @@ Identifies built-in Windows script interpreters (cscript.exe or wscript.exe) bei
 from a remote destination.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.network-*", "logs-endpoint.events.file-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.network-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote File Download via Script Interpreter"
@@ -54,7 +59,7 @@ Attackers commonly use WSH scripts as their initial access method, acting like d
 This rule looks for DLLs and executables downloaded using `cscript.exe` or `wscript.exe`.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -96,7 +101,16 @@ This rule looks for DLLs and executables downloaded using `cscript.exe` or `wscr
 risk_score = 47
 rule_id = "1d276579-3380-4095-ad38-e596a01bc64f"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 type = "eql"
 
 query = '''
@@ -120,7 +134,6 @@ reference = "https://attack.mitre.org/techniques/T1105/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

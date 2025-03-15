@@ -2,9 +2,7 @@
 creation_date = "2020/09/21"
 integration = ["gcp"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -24,14 +22,56 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP IAM Custom Role Creation"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP IAM Custom Role Creation
+
+Google Cloud Platform's IAM custom roles allow users to define specific permissions tailored to their needs, offering flexibility in access management. However, adversaries can exploit this by creating roles with excessive permissions, leading to privilege escalation. The detection rule monitors audit logs for successful custom role creation events, helping identify potential unauthorized access attempts by flagging unusual role configurations.
+
+### Possible investigation steps
+
+- Review the audit logs for the specific event.action:google.iam.admin.v*.CreateRole to identify the user or service account responsible for creating the custom role.
+- Examine the permissions assigned to the newly created custom role to determine if they are excessive or deviate from standard role configurations.
+- Check the event.outcome:success field to confirm the successful creation of the role and cross-reference with any recent changes in IAM policies or permissions.
+- Investigate the context around the role creation, such as the time of creation and any associated IP addresses or locations, to identify any unusual patterns or anomalies.
+- Assess the necessity and justification for the custom role by consulting with the relevant team or individual who requested its creation, ensuring it aligns with organizational policies and needs.
+
+### False positive analysis
+
+- Routine administrative actions by authorized personnel can trigger alerts. Regularly review and document legitimate role creation activities to establish a baseline of expected behavior.
+- Automated processes or scripts that create roles as part of deployment pipelines may cause false positives. Identify and whitelist these processes to prevent unnecessary alerts.
+- Temporary roles created for short-term projects or testing purposes might be flagged. Implement a naming convention for such roles and exclude them from alerts based on this pattern.
+- Changes in organizational structure or policy updates can lead to legitimate role creations. Ensure that these changes are communicated to the security team to adjust monitoring rules accordingly.
+- Third-party integrations that require custom roles might be misidentified as threats. Maintain an inventory of these integrations and their role requirements to differentiate between legitimate and suspicious activities.
+
+### Response and remediation
+
+- Immediately review the audit logs to confirm the creation of the custom role and identify the user or service account responsible for the action.
+- Revoke the custom role if it is determined to have excessive permissions or if it was created without proper authorization.
+- Conduct a thorough review of the permissions assigned to the custom role to ensure they align with the principle of least privilege.
+- Notify the security team and relevant stakeholders about the unauthorized role creation for further investigation and potential escalation.
+- Implement additional monitoring on the identified user or service account to detect any further suspicious activities.
+- Review and update IAM policies to prevent unauthorized role creation, ensuring that only trusted users have the necessary permissions to create custom roles.
+- Enhance detection capabilities by setting up alerts for any future custom role creation events, especially those with high-risk permissions.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/iam/docs/understanding-custom-roles"]
 risk_score = 47
 rule_id = "aa8007f0-d1df-49ef-8520-407857594827"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: GCP", "Data Source: Google Cloud Platform", "Use Case: Identity and Access Audit", "Tactic: Initial Access"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 

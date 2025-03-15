@@ -2,9 +2,9 @@
 creation_date = "2020/11/16"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/04/08"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+updated_date = "2025/02/03"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,12 @@ Identifies remote execution of Windows services over remote procedure call (RPC)
 movement, but will be noisy if commonly done by administrators.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "logs-endpoint.events.network-*", "winlogbeat-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "logs-endpoint.events.network-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Remotely Started Services via RPC"
@@ -52,7 +57,7 @@ The Service Control Manager Remote Protocol is a client/server protocol used for
 This rule detects the remote creation or start of a service by correlating a `services.exe` network connection and the spawn of a child process.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -99,11 +104,20 @@ This rule detects the remote creation or start of a service by correlating a `se
 """
 references = [
     "https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-scmr/705b624a-13de-43cc-b8a2-99573da3635f",
+    "https://www.elastic.co/security-labs/elastic-protects-against-data-wiper-malware-targeting-ukraine-hermeticwiper",
 ]
 risk_score = 47
 rule_id = "aa9a274d-6b53-424d-ac5e-cb8ca4251650"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Resources: Investigation Guide", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 type = "eql"
 
 query = '''

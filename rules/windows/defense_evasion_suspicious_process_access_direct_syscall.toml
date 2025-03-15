@@ -2,9 +2,9 @@
 creation_date = "2021/10/11"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "Build time field required_fields divergence between -8.7 and 8.8+ due to schema versions."
-min_stack_version = "8.8.0"
-updated_date = "2024/03/08"
+updated_date = "2025/02/03"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [transform]
 [[transform.osquery]]
@@ -55,7 +55,7 @@ More context and technical details can be found in this [research blog](https://
 This rule identifies suspicious process access events from an unknown memory region. Attackers can use direct system calls to bypass security solutions that rely on hooks.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -113,7 +113,15 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Sysmon",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -153,10 +161,8 @@ reference = "https://attack.mitre.org/techniques/T1055/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1106"
 name = "Native API"

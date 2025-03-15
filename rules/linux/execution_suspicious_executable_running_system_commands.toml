@@ -2,17 +2,15 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2023/11/02"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule monitors for the execution of several commonly used system commands executed by a previously unknown
-executable located in commonly abused directories. An alert from this rule can indicate the presence of potentially 
-malicious activity, such as the execution of unauthorized or suspicious processes attempting to run malicious code. 
-Detecting and investigating such behavior can help identify and mitigate potential security threats, protecting the 
+executable located in commonly abused directories. An alert from this rule can indicate the presence of potentially
+malicious activity, such as the execution of unauthorized or suspicious processes attempting to run malicious code.
+Detecting and investigating such behavior can help identify and mitigate potential security threats, protecting the
 system and its data from potential compromise.
 """
 from = "now-9m"
@@ -48,43 +46,93 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
-host.os.type:linux and event.category:process and event.action:(exec or exec_event or fork or fork_event) and 
-process.executable:(
-  /bin/* or /usr/bin/* or /usr/share/* or /tmp/* or /var/tmp/* or /dev/shm/* or
-  /etc/init.d/* or /etc/rc*.d/* or /etc/crontab or /etc/cron.*/* or /etc/update-motd.d/* or 
-  /usr/lib/update-notifier/* or /home/*/.* or /boot/* or /srv/* or /run/*) 
-  and process.args:(whoami or id or hostname or uptime or top or ifconfig or netstat or route or ps or pwd or ls) and 
-  not process.name:(sudo or which or whoami or id or hostname or uptime or top or netstat or ps or pwd or ls or apt or 
-  dpkg or yum or rpm or dnf or dockerd or docker or snapd or snap) and
-  not process.parent.executable:(/bin/* or /usr/bin/* or /run/k3s/* or /etc/network/* or /opt/Elastic/*)
+host.os.type:linux and event.category:process and event.action:(exec or exec_event or fork or fork_event) and
+process.executable:(* and (
+  /etc/crontab or /bin/* or /boot/* or /dev/shm/* or /etc/cron.*/* or /etc/init.d/* or /etc/rc*.d/* or /etc/update-motd.d/* or
+  /home/*/.* or /tmp/* or /usr/bin/* or /usr/lib/update-notifier/* or /usr/share/* or /var/tmp/*
+) and not /tmp/go-build*) and
+process.args:(hostname or id or ifconfig or ls or netstat or ps or pwd or route or top or uptime or whoami) and
+not (process.name:
+  (apt or dnf or docker or dockerd or dpkg or hostname or id or ls or netstat or ps or pwd or rpm or snap or
+  snapd or sudo or top or uptime or which or whoami or yum) or
+process.parent.executable:(
+  /opt/cassandra/bin/cassandra or /opt/nessus/sbin/nessusd or /opt/nessus_agent/sbin/nessus-agent-module or /opt/puppetlabs/puppet/bin/puppet or
+  /opt/puppetlabs/puppet/bin/ruby or /usr/libexec/platform-python or /usr/local/cloudamize/bin/CCAgent or /usr/sbin/sshd or /bin/* or
+  /etc/network/* or /opt/Elastic/* or /opt/TrendMicro* or /opt/aws/* or /opt/eset/* or /opt/rapid7/* or /run/containerd/* or /run/k3s/* or
+  /snap/* or /tmp/dpkg-licenses* or /tmp/newroot/* or /usr/bin/* or /var/lib/amagent/* or /var/lib/docker/* or /vz/*
+  ) or
+  process.executable:(/run/containerd/* or /srv/snp/docker/* or /tmp/.criu*)
+)
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious System Commands Executed by Previously Unknown Executable
+
+In Linux environments, system commands are essential for managing processes and configurations. Adversaries exploit this by executing commands via unknown executables in vulnerable directories, aiming to run unauthorized code. The detection rule identifies such anomalies by monitoring command executions from unfamiliar sources, excluding known safe processes, thus highlighting potential threats for further investigation.
+
+### Possible investigation steps
+
+- Review the process.executable path to determine if it is located in a commonly abused directory such as /tmp, /dev/shm, or /var/tmp, which may indicate malicious intent.
+- Examine the process.args to identify which specific system command was executed (e.g., hostname, id, ifconfig) and assess whether its execution is typical for the system's normal operations.
+- Check the process.parent.executable to understand the parent process that initiated the suspicious command execution, ensuring it is not a known safe process or a legitimate system service.
+- Investigate the user account associated with the process to determine if it has the necessary permissions and if the activity aligns with the user's typical behavior.
+- Correlate the event with other logs or alerts from the same host to identify any patterns or additional suspicious activities that may indicate a broader compromise.
+- Assess the risk score and severity in the context of the environment to prioritize the investigation and response efforts accordingly.
+
+### False positive analysis
+
+- System maintenance scripts or automated tasks may trigger alerts if they execute common system commands from directories like /tmp or /var/tmp. To handle this, identify these scripts and add their executables to the exclusion list.
+- Custom user scripts that perform routine checks using commands like ls or ps might be flagged. Review these scripts and consider adding their paths to the known safe processes to prevent unnecessary alerts.
+- Development or testing environments often use temporary executables in directories such as /dev/shm. If these are known and non-threatening, include their paths in the exception list to reduce false positives.
+- Some monitoring tools or agents might execute commands like uptime or whoami from non-standard locations. Verify these tools and update the exclusion criteria to include their executables or parent processes.
+- In environments with containerized applications, processes running from /run/containerd or similar paths might be incorrectly flagged. Ensure these paths are accounted for in the exclusion settings if they are part of legitimate operations.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Terminate any suspicious processes identified by the alert, especially those originating from unknown executables in commonly abused directories.
+- Conduct a thorough review of the affected directories (e.g., /tmp, /var/tmp, /dev/shm) to identify and remove any unauthorized or malicious files or executables.
+- Restore any altered system configurations or files from a known good backup to ensure system integrity.
+- Implement stricter access controls and permissions on the directories identified in the alert to prevent unauthorized executable placement.
+- Monitor the system for any signs of persistence mechanisms, such as cron jobs or startup scripts, and remove any that are unauthorized.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems may be compromised."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-  
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [[rule.threat.technique]]
-name = "Command and Scripting Interpreter"
 id = "T1059"
+name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
 [[rule.threat.technique.subtechnique]]
-name = "Unix Shell"
 id = "T1059.004"
+name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "user.id", "process.executable"]
+value = ["process.parent.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

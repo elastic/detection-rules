@@ -1,0 +1,87 @@
+[metadata]
+creation_date = "2024/04/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/01/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+This detection rule identifies when 'SCNotification.exe' loads an untrusted DLL, which is a potential indicator of an
+attacker attempt to hijack/impersonate a Windows user session.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.library-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Windows Session Hijacking via CcmExec"
+references = [
+    "https://cloud.google.com/blog/topics/threat-intelligence/windows-session-hijacking-via-ccmexec",
+    "https://mayfly277.github.io/posts/SCCM-LAB-part0x3/#impersonate-users---revshell-connected-users",
+]
+risk_score = 47
+rule_id = "e7357fec-6e9c-41b9-b93d-6e4fc40c7d47"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+library where host.os.type == "windows" and process.name : "SCNotification.exe" and
+  (dll.Ext.relative_file_creation_time < 86400 or dll.Ext.relative_file_name_modify_time <= 500) and dll.code_signature.status != "trusted"
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Windows Session Hijacking via CcmExec
+
+CcmExec, part of Microsoft's System Center Configuration Manager, manages client configurations and software updates. Adversaries may exploit it by loading malicious DLLs into SCNotification.exe, a process associated with user notifications. This detection rule identifies suspicious DLL activity, such as recent file creation or modification and untrusted signatures, indicating potential session hijacking attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm that the process name is SCNotification.exe and check the associated DLL file's creation or modification times to ensure they match the query conditions.
+- Investigate the untrusted DLL by examining its file path, hash, and any available metadata to determine its origin and legitimacy.
+- Check the code signature status of the DLL to understand why it is marked as untrusted and verify if it has been tampered with or is from an unknown publisher.
+- Analyze recent system logs and user activity around the time the DLL was loaded to identify any suspicious behavior or unauthorized access attempts.
+- Correlate the alert with other security events or alerts from the same host to identify potential patterns or related incidents that could indicate a broader attack.
+
+### False positive analysis
+
+- Legitimate software updates or installations may trigger the rule if they involve recent DLL file creation or modification. Users can create exceptions for known software update processes to prevent unnecessary alerts.
+- System maintenance activities, such as patch management or configuration changes, might cause SCNotification.exe to load new DLLs. Exclude these activities by identifying and whitelisting trusted maintenance operations.
+- Custom or in-house applications that are not signed by a recognized authority may be flagged. Ensure these applications are signed with a trusted certificate or add them to an allowlist to avoid false positives.
+- Security tools or monitoring software that interact with SCNotification.exe could be mistakenly identified. Verify these tools and exclude them from the rule if they are deemed safe and necessary for operations.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further unauthorized access or lateral movement by the attacker.
+- Terminate the SCNotification.exe process to stop the execution of the untrusted DLL and prevent further malicious activity.
+- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any additional malicious files or software.
+- Review and restore any modified or corrupted system files from a known good backup to ensure system integrity.
+- Investigate the source of the untrusted DLL and remove any unauthorized software or scripts that may have facilitated its introduction.
+- Implement application whitelisting to prevent unauthorized DLLs from being loaded by SCNotification.exe or other critical processes in the future.
+- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected."""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

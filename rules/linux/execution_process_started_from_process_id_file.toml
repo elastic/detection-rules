@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2022/05/11"
-integration = ["endpoint", "auditd_manager"]
+integration = ["endpoint", "auditd_manager", "crowdstrike"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/20"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = ["auditbeat-*", "endgame-*", "logs-auditd_manager.auditd-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Started from Process ID (PID) File"
@@ -68,15 +66,17 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "high"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Threat: BPFDoor",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend",
-        "Data Source: Auditd Manager"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Threat: BPFDoor",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -85,15 +85,17 @@ process where host.os.type == "linux" and event.type == "start" and user.id == "
   process.executable regex~ """/var/run/\w+\.(pid|lock|reboot)"""
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+

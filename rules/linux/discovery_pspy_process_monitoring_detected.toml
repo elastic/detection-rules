@@ -2,16 +2,14 @@
 creation_date = "2023/07/20"
 integration = ["auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/19"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule leverages auditd to monitor for processes scanning different processes within the /proc directory using the 
-openat syscall. This is a strong indication for the usage of the pspy utility. Attackers may leverage the pspy process 
-monitoring utility to monitor system processes without requiring root permissions, in order to find potential privilege 
+This rule leverages auditd to monitor for processes scanning different processes within the /proc directory using the
+openat syscall. This is a strong indication for the usage of the pspy utility. Attackers may leverage the pspy process
+monitoring utility to monitor system processes without requiring root permissions, in order to find potential privilege
 escalation vectors.
 """
 from = "now-9m"
@@ -48,18 +46,56 @@ However, if more advanced configuration is required to detect specific behavior,
 """
 severity = "low"
 tags = [
-        "Data Source: Auditd Manager",
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery"
-        ]
+    "Data Source: Auditd Manager",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
 type = "eql"
 query = '''
 sequence by process.pid, host.id with maxspan=5s
   [file where host.os.type == "linux" and auditd.data.syscall == "openat" and file.path == "/proc" and
-   auditd.data.a0 : ("ffffffffffffff9c", "ffffff9c") and auditd.data.a2 : ("80000", "88000") ] with runs=10
+   auditd.data.a0 : ("ffffffffffffff9c", "ffffff9c") and auditd.data.a2 : ("80000", "88000") and
+   not process.name in ("agentbeat", "packetbeat")
+  ] with runs=10
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Pspy Process Monitoring Detected
+
+Auditd is a Linux auditing system that tracks system calls, providing insights into process activities. Adversaries exploit tools like pspy to monitor processes via the /proc directory, seeking privilege escalation opportunities without root access. The detection rule identifies suspicious openat syscalls targeting /proc, excluding benign processes, to flag potential misuse of pspy for process discovery.
+
+### Possible investigation steps
+
+- Review the process details associated with the alert, focusing on the process.pid and process.name fields to identify the process attempting to access the /proc directory.
+- Investigate the host.id to determine if this activity is isolated to a single host or part of a broader pattern across multiple systems.
+- Examine the process tree and parent processes of the flagged process to understand how it was initiated and if it is part of a legitimate workflow or potentially malicious activity.
+- Check for any recent changes or installations on the host that might explain the presence of a tool like pspy, such as new software installations or updates.
+- Correlate the timing of the alert with any other suspicious activities or alerts on the same host to identify potential lateral movement or privilege escalation attempts.
+- Verify if the process name is a known benign process that might have been mistakenly excluded from the query, ensuring that the exclusion list is up-to-date and accurate.
+
+### False positive analysis
+
+- Frequent scanning by legitimate monitoring tools can trigger the rule. Identify and whitelist these tools by adding their process names to the exclusion list.
+- System management scripts that regularly access the /proc directory may cause false positives. Review these scripts and exclude their process names if they are verified as non-threatening.
+- Automated backup or security software that interacts with the /proc directory might be flagged. Confirm their legitimacy and add them to the exception list to prevent unnecessary alerts.
+- Custom applications developed in-house that require access to the /proc directory for performance monitoring should be reviewed and excluded if they are deemed safe.
+- Regularly update the exclusion list to reflect changes in legitimate software and tools used within the organization to minimize false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent potential lateral movement by the adversary.
+- Terminate any suspicious processes identified as using the pspy utility to halt further unauthorized process monitoring.
+- Conduct a thorough review of the affected system's /proc directory access logs to identify any other unauthorized access attempts or anomalies.
+- Reset credentials and review permissions for any accounts that may have been compromised or used in the attack to prevent further unauthorized access.
+- Apply patches and updates to the affected system to address any vulnerabilities that may have been exploited for privilege escalation.
+- Enhance monitoring and logging on the affected host to detect any future attempts to access the /proc directory using similar methods.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems may be affected."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,9 +2,7 @@
 creation_date = "2023/07/10"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/22"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -31,18 +29,18 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 label = "Osquery - Retrieve Process Info"
 query = "SELECT name, cmdline, parent, path, uid FROM processes"
 
+
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-Identifies potentially malicious processes communicating via a port paring typically not associated with HTTP/HTTPS.
-For example, HTTP over port 8443 or port 440 as opposed to the traditional port 80 , 443.
-Adversaries may make changes to the standard port a protocol uses to bypass filtering or
-muddle analysis/parsing of network data.
+Identifies potentially malicious processes communicating via a port paring typically not associated with HTTP/HTTPS. For
+example, HTTP over port 8443 or port 440 as opposed to the traditional port 80 , 443. Adversaries may make changes to
+the standard port a protocol uses to bypass filtering or muddle analysis/parsing of network data.
 """
 from = "now-119m"
-interval = "60m"
 index = ["logs-endpoint.events.*", "endgame-*"]
+interval = "60m"
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Non-Standard Port HTTP/HTTPS connection"
@@ -50,12 +48,12 @@ note = """## Triage and analysis
 
 ### Investigating Potential Non-Standard Port HTTP/HTTPS connection
 
-Attackers may alter standard protocol ports, like using HTTP on port 8443 instead of 80, to bypass network filtering and complicate network data analysis. 
+Attackers may alter standard protocol ports, like using HTTP on port 8443 instead of 80, to bypass network filtering and complicate network data analysis.
 
-This rule looks for HTTP/HTTPS processes where the destination port is not any of the default 80/443 HTTP/HTTPS ports. 
+This rule looks for HTTP/HTTPS processes where the destination port is not any of the default 80/443 HTTP/HTTPS ports.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible investigation steps
@@ -108,25 +106,37 @@ risk_score = 21
 rule_id = "62b68eb2-1e47-4da7-85b6-8f478db5b272"
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "OS: macOS",
-        "Use Case: Threat Detection",
-        "Tactic: Command and Control",
-        "Rule Type: BBR",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Rule Type: BBR",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 network where process.name : ("http", "https") and destination.port not in (80, 443) and event.action in (
   "connection_attempted", "ipv4_connection_attempt_event", "connection_accepted", "ipv4_connection_accept_event"
 ) and destination.ip != "127.0.0.1"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
 
 [[rule.threat.technique]]
 id = "T1571"
@@ -134,20 +144,9 @@ name = "Non-Standard Port"
 reference = "https://attack.mitre.org/techniques/T1571/"
 
 [[rule.threat.technique]]
-id = "T1071"
-name = "Application Layer Protocol"
-reference = "https://attack.mitre.org/techniques/T1071/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1071.001"
-name = "Web Protocols"
-reference = "https://attack.mitre.org/techniques/T1071/001/"
-
-[[rule.threat.technique]]
 id = "T1573"
 name = "Encrypted Channel"
 reference = "https://attack.mitre.org/techniques/T1573/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1573.001"
 name = "Symmetric Cryptography"
@@ -158,7 +157,10 @@ id = "T1573.002"
 name = "Asymmetric Cryptography"
 reference = "https://attack.mitre.org/techniques/T1573/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+

@@ -2,9 +2,7 @@
 creation_date = "2020/08/20"
 integration = ["azure"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +18,42 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "User Added as Owner for Azure Service Principal"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating User Added as Owner for Azure Service Principal
+
+Azure service principals are crucial for managing application permissions within a tenant, defining access and capabilities. Adversaries may exploit this by adding themselves as owners, gaining control over application permissions and access. The detection rule monitors audit logs for successful owner additions, flagging potential unauthorized changes to maintain security integrity.
+
+### Possible investigation steps
+
+- Review the audit log entry to confirm the event dataset is 'azure.auditlogs' and the operation name is "Add owner to service principal" with a successful outcome.
+- Identify the user account that was added as an owner and gather information about this account, including recent activity and any associated alerts.
+- Determine the service principal involved by reviewing its details, such as the application it is associated with and the permissions it holds.
+- Check the history of changes to the service principal to identify any other recent modifications or suspicious activities.
+- Investigate the context and necessity of the ownership change by contacting the user or team responsible for the service principal to verify if the change was authorized.
+- Assess the potential impact of the ownership change on the tenant's security posture, considering the permissions and access granted to the service principal.
+
+### False positive analysis
+
+- Routine administrative changes may trigger alerts when legitimate IT staff add themselves or others as owners for maintenance purposes. To manage this, create exceptions for known administrative accounts that frequently perform these actions.
+- Automated processes or scripts that manage service principal ownership as part of regular operations can cause false positives. Identify and document these processes, then exclude them from triggering alerts by using specific identifiers or tags.
+- Organizational changes, such as team restructuring, might lead to multiple legitimate ownership changes. During these periods, temporarily adjust the rule sensitivity or create temporary exceptions for specific user groups involved in the transition.
+- Third-party applications that require ownership changes for integration purposes can also trigger alerts. Verify these applications and whitelist their associated service principal changes to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately revoke the added user's ownership from the Azure service principal to prevent unauthorized access and control.
+- Conduct a thorough review of the affected service principal's permissions and access logs to identify any unauthorized changes or access attempts.
+- Reset credentials and update any secrets or keys associated with the compromised service principal to mitigate potential misuse.
+- Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement conditional access policies to restrict who can add owners to service principals, ensuring only authorized personnel have this capability.
+- Enhance monitoring and alerting for similar activities by increasing the sensitivity of alerts related to changes in service principal ownership.
+- Document the incident and response actions taken to improve future incident response and refine security policies.
+
+## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -29,7 +62,7 @@ references = [
 risk_score = 21
 rule_id = "38e5acdd-5f20-4d99-8fe4-f0a1a592077f"
 severity = "low"
-tags = ["Domain: Cloud", "Data Source: Azure", "Use Case: Configuration Audit", "Tactic: Persistence"]
+tags = ["Domain: Cloud", "Data Source: Azure", "Use Case: Configuration Audit", "Tactic: Persistence", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 

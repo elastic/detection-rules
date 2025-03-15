@@ -1,41 +1,76 @@
 [metadata]
 creation_date = "2023/05/17"
-integration = ["endpoint", "network_traffic"]
+integration = ["network_traffic", "panw"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/01/05"
+updated_date = "2025/02/28"
 
 [rule]
 author = ["Elastic"]
-description = '''
+description = """
 This rule identifies a potential SYN-Based port scan. A SYN port scan is a technique employed by attackers to scan a
-target network for open ports by sending SYN packets to multiple ports and observing the response.
-Attackers use this method to identify potential entry points or services that may be vulnerable to exploitation,
-allowing them to launch targeted attacks or gain unauthorized access to the system or network, compromising its
-security and potentially leading to data breaches or further malicious activities. This rule proposes threshold logic
-to check for connection attempts from one source host to 10 or more destination ports using 2 or less packets per port.
-'''
+target network for open ports by sending SYN packets to multiple ports and observing the response. Attackers use this
+method to identify potential entry points or services that may be vulnerable to exploitation, allowing them to launch
+targeted attacks or gain unauthorized access to the system or network, compromising its security and potentially leading
+to data breaches or further malicious activities. This rule defines a threshold-based approach to detect connection
+attempts from a single source to a large number of unique destination ports, while limiting the number of packets per port.
+"""
 from = "now-9m"
-index = ["logs-endpoint.events.network-*", "logs-network_traffic.*", "packetbeat-*", "auditbeat-*", "filebeat-*"]
+index = ["logs-network_traffic.*", "packetbeat-*", "filebeat-*", "logs-panw.panos*"]
 language = "kuery"
 license = "Elastic License v2"
 max_signals = 5
-name = "Potential SYN-Based Network Scan Detected"
+name = "Potential SYN-Based Port Scan Detected"
 risk_score = 21
 rule_id = "bbaa96b9-f36c-4898-ace2-581acb00a409"
 severity = "low"
-tags = ["Domain: Network",
-        "Tactic: Discovery",
-        "Tactic: Reconnaissance",
-        "Use Case: Network Security Monitoring"
-        ]
-type = "threshold"
+tags = [
+    "Domain: Network",
+    "Tactic: Discovery",
+    "Tactic: Reconnaissance",
+    "Use Case: Network Security Monitoring",
+    "Data Source: PAN-OS",
+    "Resources: Investigation Guide"
+]
 timestamp_override = "event.ingested"
-
+type = "threshold"
 query = '''
-destination.port : * and network.packets <= 2 and source.ip : (10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+event.action:network_flow and destination.port:* and network.packets <= 2 and source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential SYN-Based Port Scan Detected
+
+SYN-based port scanning is a reconnaissance technique where attackers send SYN packets to multiple ports to identify open services. This method helps adversaries map network vulnerabilities for potential exploitation. The detection rule identifies such scans by flagging connection attempts from internal IPs to multiple ports with minimal packet exchange, indicating a low-risk reconnaissance activity.
+
+### Possible investigation steps
+
+- Review the source IP address involved in the alert to determine if it belongs to a known or authorized device within the network. Check for any recent changes or unusual activity associated with this IP.
+- Analyze the destination ports targeted by the scan to identify any patterns or specific services that may be of interest to the attacker. Determine if these ports are associated with critical or vulnerable services.
+- Examine historical logs to identify any previous scanning activity from the same source IP or similar patterns of behavior. This can help establish whether the activity is part of a larger reconnaissance effort.
+- Correlate the alert with other security events or alerts to assess if there is a broader attack campaign underway. Look for related alerts that might indicate subsequent exploitation attempts.
+- Investigate the timing and frequency of the scan attempts to understand if they coincide with other suspicious activities or known attack windows. This can provide context on the attacker's intent and urgency.
+- Assess the network's current security posture and ensure that appropriate defenses, such as firewalls and intrusion detection systems, are configured to mitigate potential exploitation of identified open ports.
+
+### False positive analysis
+
+- Internal network scanning tools or scripts used by IT teams for legitimate network mapping can trigger this rule. To manage this, create exceptions for known internal IP addresses or subnets used by IT for network discovery.
+- Automated monitoring systems or security appliances that perform regular port checks might be flagged. Identify these systems and exclude their IP addresses from the rule to prevent false positives.
+- Software updates or patch management systems that check multiple ports for service availability can be mistaken for a SYN-based port scan. Whitelist these systems to avoid unnecessary alerts.
+- Load balancers or network devices that perform health checks across multiple ports may trigger the rule. Exclude these devices from the rule to ensure accurate detection.
+- Development or testing environments where multiple port scans are part of routine operations can cause false positives. Implement exceptions for these environments to maintain focus on genuine threats.
+
+### Response and remediation
+
+- Isolate the affected internal IP address to prevent further reconnaissance or potential exploitation of identified open ports.
+- Conduct a thorough review of firewall and network access control lists to ensure that only necessary ports are open and accessible from internal networks.
+- Implement rate limiting on SYN packets to reduce the risk of successful port scanning and reconnaissance activities.
+- Monitor the network for any unusual outbound traffic from the affected IP address, which may indicate further malicious activity or data exfiltration attempts.
+- Escalate the incident to the security operations team for further analysis and to determine if additional network segments or systems are affected.
+- Update intrusion detection and prevention systems to enhance detection capabilities for similar SYN-based port scanning activities.
+- Review and update network segmentation policies to limit the exposure of critical services and systems to internal reconnaissance activities."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

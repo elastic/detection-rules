@@ -1,15 +1,14 @@
 [metadata]
 creation_date = "2021/07/14"
 maturity = "production"
-updated_date = "2023/06/22"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
-description = """Detects when multiple hosts are using the same agent ID. This could occur in the event of an agent
-being taken over and used to inject illegitimate documents into an instance as an attempt to spoof events in order to
-masquerade actual activity to evade detection.
+description = """
+Detects when multiple hosts are using the same agent ID. This could occur in the event of an agent being taken over and
+used to inject illegitimate documents into an instance as an attempt to spoof events in order to masquerade actual
+activity to evade detection.
 """
 false_positives = [
     """
@@ -25,13 +24,47 @@ name = "Agent Spoofing - Multiple Hosts Using Same Agent"
 risk_score = 73
 rule_id = "493834ca-f861-414c-8602-150d5505b777"
 severity = "high"
-tags = ["Use Case: Threat Detection", "Tactic: Defense Evasion"]
+tags = ["Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "threshold"
 
 query = '''
-event.agent_id_status:*
+event.agent_id_status:* and not tags:forwarded
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Agent Spoofing - Multiple Hosts Using Same Agent
+
+In network environments, agents are deployed on hosts to monitor and report activities. Adversaries may exploit these agents by hijacking their IDs to inject false data, masking malicious actions. The detection rule identifies anomalies where multiple hosts report using the same agent ID, signaling potential spoofing attempts. By focusing on unique agent ID usage, it helps uncover evasion tactics aimed at concealing unauthorized activities.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific agent ID that is being reported by multiple hosts.
+- Cross-reference the agent ID with the list of known and authorized agents to determine if it has been compromised or misconfigured.
+- Examine the network logs and host activity for each host reporting the same agent ID to identify any unusual or unauthorized activities.
+- Check for any recent changes or updates to the agent software on the affected hosts that could explain the anomaly.
+- Investigate the timeline of events to determine when the agent ID started being used by multiple hosts and correlate this with any known incidents or changes in the network environment.
+- Assess the potential impact of the spoofing attempt on the network's security posture and consider isolating affected hosts if necessary to prevent further malicious activity.
+
+### False positive analysis
+
+- Legitimate load balancing or failover scenarios where multiple hosts are configured to use the same agent ID for redundancy can trigger false positives. Users should identify and document these configurations, then create exceptions in the detection rule to exclude these known non-threatening behaviors.
+- Virtualized environments where snapshots or clones of a host are created might result in multiple instances reporting the same agent ID. Users should ensure that each virtual instance is assigned a unique agent ID or adjust the rule to account for these scenarios.
+- Testing or development environments where agents are intentionally duplicated for testing purposes can also lead to false positives. Users should tag these environments appropriately and modify the rule to exclude events from these tags.
+- In cases where agents are temporarily reassigned to different hosts for maintenance or troubleshooting, users should maintain a log of these activities and adjust the detection rule to ignore these temporary changes.
+
+### Response and remediation
+
+- Isolate affected hosts immediately to prevent further spread of potentially malicious activities across the network.
+- Revoke and reissue new agent IDs for the affected hosts to ensure that compromised IDs are no longer in use.
+- Conduct a thorough forensic analysis on the isolated hosts to identify any unauthorized changes or malicious software that may have been introduced.
+- Review and update access controls and authentication mechanisms for agent deployment to prevent unauthorized access and hijacking of agent IDs.
+- Monitor network traffic and logs closely for any signs of continued spoofing attempts or related suspicious activities.
+- Escalate the incident to the security operations center (SOC) and relevant stakeholders to ensure awareness and coordinated response efforts.
+- Implement enhanced logging and alerting for agent ID anomalies to improve detection of similar threats in the future."""
 
 
 [[rule.threat]]
@@ -47,11 +80,11 @@ id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
-
 [rule.threshold]
 field = ["agent.id"]
 value = 2
-
 [[rule.threshold.cardinality]]
 field = "host.id"
 value = 2
+
+

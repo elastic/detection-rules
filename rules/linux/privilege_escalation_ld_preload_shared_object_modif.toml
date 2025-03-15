@@ -2,9 +2,7 @@
 creation_date = "2021/01/27"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/21"
+updated_date = "2025/01/27"
 
 [rule]
 author = ["Elastic"]
@@ -61,32 +59,71 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Privilege Escalation",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
-host.os.type:linux and event.category:file and event.action:(updated or renamed or rename or file_rename_event) and 
-not event.type:deletion and file.path:/etc/ld.so.preload and not process.name:(wine or oneagentinstallaction)
+host.os.type:linux and event.category:file and event.action:(file_rename_event or rename or renamed or updated) and
+not event.type:deletion and file.path:/etc/ld.so.preload and
+process.name:(* and not (oneagentinstallaction or passwd or wine))
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Modification of Dynamic Linker Preload Shared Object
+
+The dynamic linker preload mechanism in Linux, via `/etc/ld.so.preload`, allows preloading of shared libraries, influencing how executables load dependencies. Adversaries exploit this by inserting malicious libraries, hijacking execution flow for privilege escalation. The detection rule monitors changes to this file, excluding benign processes, to identify unauthorized modifications indicative of such abuse.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the file path involved is /etc/ld.so.preload and verify the event action is one of the specified actions: updated, renamed, or file_rename_event.
+- Identify the process responsible for the modification by examining the process.name field, ensuring it is not one of the excluded processes (wine or oneagentinstallaction).
+- Investigate the process that triggered the alert by gathering additional context such as process ID, command line arguments, and parent process to understand its origin and purpose.
+- Check the modification timestamp and correlate it with other system events or logs to identify any suspicious activity or patterns around the time of the modification.
+- Analyze the contents of /etc/ld.so.preload to determine if any unauthorized or suspicious libraries have been added, and assess their potential impact on the system.
+- Review user accounts and permissions associated with the process to determine if there has been any unauthorized access or privilege escalation attempt.
+- If malicious activity is confirmed, isolate the affected system and follow incident response procedures to mitigate the threat and prevent further exploitation.
+
+### False positive analysis
+
+- Legitimate software installations or updates may modify /etc/ld.so.preload. To handle this, monitor the process names associated with these activities and consider adding them to the exclusion list if they are verified as benign.
+- System management tools like configuration management software might update /etc/ld.so.preload as part of routine operations. Identify these tools and exclude their process names from the detection rule to prevent false alerts.
+- Custom scripts or administrative tasks executed by trusted users could inadvertently trigger the rule. Review these scripts and, if necessary, exclude their process names or user accounts from the detection criteria.
+- Security agents or monitoring tools that interact with system files might cause false positives. Verify these tools' activities and exclude their process names if they are known to be safe and necessary for system operations.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the adversary.
+- Terminate any suspicious processes that are not part of the baseline or known benign applications, especially those related to the modification of `/etc/ld.so.preload`.
+- Restore the `/etc/ld.so.preload` file from a known good backup to ensure no malicious libraries are preloaded.
+- Conduct a thorough review of recent system changes and installed packages to identify any unauthorized software or modifications that may have facilitated the attack.
+- Escalate the incident to the security operations team for a deeper forensic analysis to determine the scope of the compromise and identify any additional affected systems.
+- Implement additional monitoring on the affected system and similar environments to detect any further attempts to modify the dynamic linker preload file.
+- Review and enhance access controls and permissions on critical system files like `/etc/ld.so.preload` to prevent unauthorized modifications in the future."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
 
 [rule.threat.tactic]
 id = "TA0004"
@@ -96,7 +133,8 @@ reference = "https://attack.mitre.org/tactics/TA0004/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "user.id", "process.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
+
+

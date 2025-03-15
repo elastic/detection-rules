@@ -1,21 +1,21 @@
 [metadata]
-creation_date = "2022/11/01"
-integration = ["endpoint", "windows"]
-maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/05"
 bypass_bbr_timing = true
+creation_date = "2022/11/01"
+integration = ["endpoint", "windows", "system"]
+maturity = "production"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-Identifies the execution of discovery commands to enumerate system information, files, and folders using the Windows 
+Identifies the execution of discovery commands to enumerate system information, files, and folders using the Windows
 Command Shell.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*", "logs-endpoint.events.process-*"]
+index = ["endgame-*", "logs-endpoint.events.process-*", "logs-system.security*", "logs-windows.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "System Information Discovery via Windows Command Shell"
@@ -48,36 +48,41 @@ This rule identifies commands to enumerate system information, files, and folder
 """
 risk_score = 21
 rule_id = "d68e95ad-1c82-4074-a12a-125fe10ac8ba"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "low"
-tags = ["Domain: Endpoint",
-        "OS: Windows",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Tactic: Execution",
-        "Resources: Investigation Guide",
-        "Data Source: Elastic Defend",
-        "Rule Type: BBR"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+    "Data Source: Elastic Endgame",
+    "Data Source: Windows Security Event Logs",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name : "cmd.exe" and process.args : "/c" and process.args : ("set", "dir") and
-  not process.parent.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\PROGRA~1\\*")
+  not process.parent.executable : (
+    "?:\\Program Files\\*",
+    "?:\\Program Files (x86)\\*",
+    "?:\\PROGRA~1\\*",
+    "?:\\TeamCity\\jre\\bin\\java.exe"
+  ) and
+  not process.args : (
+    "*\\db\\rabbit@*", "*/db/rabbit@*",
+    "*rabbitmq/db/*", "*RabbitMQ\\db*"
+  ) and
+  not process.parent.args : "*C:\\Program Files (x86)\\Tanium\\Tanium Client\\TPython\\TPython.bat*"
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
@@ -88,25 +93,26 @@ id = "T1083"
 name = "File and Directory Discovery"
 reference = "https://attack.mitre.org/techniques/T1083/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+

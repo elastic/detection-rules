@@ -2,7 +2,7 @@
 creation_date = "2021/07/15"
 integration = ["o365"]
 maturity = "development"
-updated_date = "2023/06/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Austin Songer"]
@@ -16,7 +16,54 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Impossible travel activity"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Impossible travel activity
+
+Microsoft 365's security features monitor user sign-ins to detect anomalies like impossible travel, where a user appears to log in from geographically distant locations in a short time. Adversaries may exploit compromised credentials to access accounts from unexpected locations. The detection rule identifies such suspicious logins by analyzing audit logs for successful sign-ins flagged as impossible travel, helping to mitigate unauthorized access.
+
+### Possible investigation steps
+
+- Review the audit logs for the specific event.dataset:o365.audit to gather details about the sign-in attempt, including the timestamp, IP addresses, and user account involved.
+- Cross-reference the event.provider:SecurityComplianceCenter logs to identify any additional security alerts or anomalies associated with the same user account or IP addresses.
+- Analyze the event.category:web logs to determine the geographical locations of the sign-ins and assess the feasibility of the travel between these locations within the given timeframe.
+- Investigate the user account's recent activity to identify any other suspicious behavior or unauthorized access attempts, focusing on event.action:"Impossible travel activity".
+- Check the event.outcome:success to confirm that the sign-in was successful and assess the potential impact of the unauthorized access.
+- Contact the user to verify if they were traveling or if they recognize the sign-in activity, and advise them to change their password if the activity is deemed suspicious.
+- Consider implementing additional security measures, such as multi-factor authentication, for the affected user account to prevent future unauthorized access.
+
+### False positive analysis
+
+- Frequent travel by users can trigger false positives. Implement a policy to whitelist known travel patterns for specific users who often travel between the same locations.
+- Use of VPNs or proxy services can result in logins appearing from different geographic locations. Identify and exclude IP addresses associated with trusted VPN services used by your organization.
+- Remote work scenarios where users log in from multiple locations in a short time can be misinterpreted. Establish a baseline for remote work patterns and adjust the rule to accommodate these behaviors.
+- Shared accounts accessed by multiple users from different locations can cause false positives. Consider implementing stricter access controls or transitioning to individual accounts to reduce this risk.
+- Regularly review and update the list of known safe locations and IP addresses to ensure that legitimate activities are not flagged as suspicious.
+
+### Response and remediation
+
+- Immediately isolate the affected user account by disabling it to prevent further unauthorized access.
+- Initiate a password reset for the compromised account and enforce multi-factor authentication (MFA) to enhance security.
+- Review the audit logs for the affected account to identify any unauthorized access or data exfiltration activities and document findings for further analysis.
+- Notify the user and relevant stakeholders about the incident, providing guidance on recognizing phishing attempts and securing their credentials.
+- Escalate the incident to the security operations team for a thorough investigation to determine the root cause and potential impact.
+- Implement geo-blocking policies to restrict access from high-risk locations that are not relevant to the organization's operations.
+- Update and refine security monitoring rules to enhance detection capabilities for similar suspicious activities in the future.
+
+## Important
+
+This rule is no longer applicable based on changes to Microsoft Defender for Office 365. Please refer to the following rules for similar detections:
+
+- Microsoft 365 Portal Logins from Impossible Travel Locations (3896d4c0-6ad1-11ef-8c7b-f661ea17fbcc)
+- Microsoft 365 Portal Login from Rare Location (32d3ad0e-6add-11ef-8c7b-f661ea17fbcc)
+
+Reference: https://learn.microsoft.com/en-us/defender-cloud-apps/cloud-discovery-anomaly-detection-policy
+"""
+setup = """
+## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 """
@@ -27,7 +74,7 @@ references = [
 risk_score = 47
 rule_id = "9c49fe22-4e86-4384-a9a0-602f4d54088d"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Configuration Audit", "Tactic: Initial Access"]
+tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Configuration Audit", "Tactic: Initial Access", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -48,4 +95,3 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-

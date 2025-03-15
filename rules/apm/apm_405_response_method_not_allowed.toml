@@ -2,9 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["apm"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -27,11 +25,45 @@ references = ["https://en.wikipedia.org/wiki/HTTP_405"]
 risk_score = 47
 rule_id = "75ee75d8-c180-481c-ba88-ee50129a6aef"
 severity = "medium"
-tags = ["Data Source: APM"]
+tags = ["Data Source: APM", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 http.response.status_code:405
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Web Application Suspicious Activity: Unauthorized Method
+
+Web applications often restrict HTTP methods to protect resources, allowing only specific actions like GET or POST. Adversaries may exploit misconfigurations by attempting unauthorized methods, potentially revealing vulnerabilities or sensitive data. The detection rule identifies such attempts by flagging HTTP 405 responses, indicating a method is not permitted, thus highlighting potential misuse or probing activities.
+
+### Possible investigation steps
+
+- Review the web server logs to identify the source IP address associated with the HTTP 405 response to determine if the request originated from a known or suspicious source.
+- Analyze the request headers and payload associated with the 405 response to understand what unauthorized method was attempted and if there are any patterns or anomalies.
+- Check the application configuration to verify which HTTP methods are allowed for the resource in question and assess if there are any misconfigurations that could be exploited.
+- Investigate if there are multiple 405 responses from the same source IP or user agent, which could indicate probing or automated scanning activity.
+- Correlate the 405 response events with other security alerts or logs to identify any related suspicious activities or potential attack vectors.
+
+### False positive analysis
+
+- Routine API calls using unsupported methods may trigger 405 responses. Review API documentation to ensure correct methods are used and adjust monitoring to exclude these known patterns.
+- Automated tools or scripts might inadvertently use incorrect HTTP methods, leading to false positives. Identify and update these tools to use appropriate methods, or whitelist their IP addresses if they are known and trusted.
+- Web crawlers or bots might attempt unsupported methods as part of their scanning process. Configure your monitoring system to recognize and exclude these benign activities based on user-agent strings or IP ranges.
+- Development and testing environments often experiment with various HTTP methods, resulting in 405 responses. Implement rules to exclude these environments from production monitoring to reduce noise.
+- Legacy systems or applications might not support certain HTTP methods, causing frequent 405 errors. Document these systems and create exceptions in your monitoring to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately review the web server and application logs to identify the source IP address and user agent associated with the 405 response. Block the IP address if it is determined to be malicious or part of a known attack pattern.
+- Conduct a security assessment of the web application's configuration to ensure that only necessary HTTP methods are enabled for each resource. Disable any methods that are not required for the application's functionality.
+- Implement or update web application firewall (WAF) rules to block unauthorized HTTP methods and monitor for repeated attempts from the same source.
+- Notify the security operations team to monitor for any additional suspicious activity from the identified source or similar patterns, and escalate to incident response if further malicious activity is detected.
+- Review and update the application's security policies and access controls to ensure they align with best practices and prevent unauthorized method usage.
+- Conduct a vulnerability assessment of the web application to identify and remediate any potential security weaknesses that could be exploited by unauthorized HTTP methods.
+- Document the incident, including the response actions taken, and update the incident response plan to improve future detection and response capabilities for similar threats."""
 

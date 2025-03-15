@@ -2,9 +2,7 @@
 creation_date = "2020/04/23"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/03/08"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -53,24 +51,66 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:(exec or exec_event) and (
- (process.name:(lsmod or modinfo)) or 
- (process.name:kmod and process.args:list) or 
+ (process.name:(lsmod or modinfo)) or
+ (process.name:kmod and process.args:list) or
  (process.name:depmod and process.args:(--all or -a))
-) and not process.parent.name:(mkinitramfs or cryptroot or framebuffer or dracut or jem or thin-provisioning-tools
-or readykernel or lvm2 or vz-start or iscsi or mdadm or ovalprobes or bcache or plymouth or dkms or overlayroot or 
-weak-modules or zfs)
+) and
+not (
+  process.parent.name:(
+    mkinitramfs or cryptroot or framebuffer or dracut or jem or thin-provisioning-tools or readykernel or lvm2 or
+    vz-start or iscsi or mdadm or ovalprobes or bcache or plymouth or dkms or overlayroot or weak-modules or zfs or
+    systemd or whoopsie-upload-all or kdumpctl or apport-gtk or casper or rear or kernel-install or newrelic-infra
+  ) or
+  process.parent.executable:/var/lib/dpkg/info/linux-modules*-generic.post*
+)
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Enumeration of Kernel Modules
+
+Loadable Kernel Modules (LKMs) enhance a Linux kernel's capabilities dynamically, without requiring a system reboot. Adversaries may exploit this by enumerating kernel modules to gather system information or identify vulnerabilities. The detection rule identifies suspicious enumeration activities by monitoring specific processes and arguments associated with module listing commands, while excluding benign parent processes to reduce false positives.
+
+### Possible investigation steps
+
+- Review the process details in the alert to identify the specific command used for kernel module enumeration, such as lsmod, modinfo, kmod with list argument, or depmod with --all or -a arguments.
+- Examine the process parent name to ensure it is not one of the benign processes listed in the exclusion criteria, such as mkinitramfs, dracut, or systemd, which could indicate a false positive.
+- Investigate the user account associated with the process to determine if the activity aligns with expected behavior or if it might indicate unauthorized access.
+- Check the timing and frequency of the enumeration activity to assess whether it is part of routine system operations or an anomaly that warrants further investigation.
+- Correlate the alert with other security events or logs from the same host to identify any additional suspicious activities or patterns that could suggest a broader attack or compromise.
+
+### False positive analysis
+
+- System maintenance tools like mkinitramfs and dracut may trigger the rule during legitimate operations. To handle this, ensure these processes are included in the exclusion list to prevent unnecessary alerts.
+- Backup and recovery processes such as rear and casper can cause false positives when they interact with kernel modules. Verify these processes are part of the exclusion criteria to avoid misidentification.
+- Disk management and storage tools like lvm2 and mdadm might enumerate kernel modules as part of their normal function. Add these to the exclusion list to reduce false positives.
+- Virtualization and container management tools such as vz-start and overlayroot may also enumerate modules. Confirm these are excluded to maintain focus on genuine threats.
+- Kernel update and management utilities like dkms and kernel-install can trigger alerts during updates. Ensure these are accounted for in the exclusion list to minimize false alarms.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
+- Terminate any suspicious processes identified by the detection rule, specifically those involving unauthorized use of lsmod, modinfo, kmod, or depmod commands.
+- Conduct a thorough review of recent system logs and process execution history to identify any unauthorized access or changes made to the system.
+- Restore the system from a known good backup if any unauthorized modifications to kernel modules or system files are detected.
+- Update and patch the system to the latest security standards to mitigate any known vulnerabilities that could be exploited through kernel modules.
+- Implement stricter access controls and monitoring for kernel module management, ensuring only authorized personnel can load or unload modules.
+- Escalate the incident to the security operations team for further investigation and to assess the potential impact on other systems within the network."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -87,7 +127,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.parent.command_line", "process.command_line", "host.id"]
+value = ["process.executable", "process.parent.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

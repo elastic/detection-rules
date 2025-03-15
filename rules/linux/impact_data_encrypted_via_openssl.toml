@@ -2,9 +2,7 @@
 creation_date = "2023/06/26"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -14,13 +12,13 @@ Adversaries may encrypt data on a single or multiple systems in order to disrupt
 and may attempt to hold the organization's data to ransom for the purposes of extortion.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Data Encryption via OpenSSL Utility"
 references = [
-  "https://www.welivesecurity.com/2017/06/30/telebots-back-supply-chain-attacks-against-ukraine/",
-  "https://www.trendmicro.com/en_us/research/21/f/bash-ransomware-darkradiation-targets-red-hat--and-debian-based-linux-distributions.html",
+    "https://www.welivesecurity.com/2017/06/30/telebots-back-supply-chain-attacks-against-ukraine/",
+    "https://www.trendmicro.com/en_us/research/21/f/bash-ransomware-darkradiation-targets-red-hat--and-debian-based-linux-distributions.html",
 ]
 risk_score = 47
 rule_id = "f530ca17-153b-4a7a-8cd3-98dd4b4ddf73"
@@ -50,27 +48,71 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Impact", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, user.name, process.parent.entity_id with maxspan=5s
-  [ process where host.os.type == "linux" and event.action == "exec" and 
+  [ process where host.os.type == "linux" and event.action == "exec" and
     process.name == "openssl" and process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl*", "php*", "python*", "xargs") and
     process.args == "-in" and process.args == "-out" and
     process.args in ("-k", "-K", "-kfile", "-pass", "-iv", "-md") and
     /* excluding base64 encoding options and including encryption password or key params */
     not process.args in ("-d", "-a", "-A", "-base64", "-none", "-nosalt") ] with runs=10
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Data Encryption via OpenSSL Utility
+
+OpenSSL is a widely-used command-line tool for secure data encryption and decryption. Adversaries may exploit OpenSSL to encrypt files rapidly across systems, aiming to disrupt data availability or demand ransom. The detection rule identifies suspicious OpenSSL usage by monitoring rapid file encryption activities, focusing on specific command patterns and excluding benign operations, thus highlighting potential malicious behavior.
+
+### Possible investigation steps
+
+- Review the process execution details on the host identified by host.id to confirm the presence of the openssl command and its associated arguments, ensuring they match the suspicious pattern specified in the query.
+- Examine the user.name associated with the process to determine if the activity aligns with expected behavior for that user or if it indicates potential unauthorized access.
+- Investigate the parent process identified by process.parent.entity_id to understand the context in which the openssl command was executed, checking for any unusual or unexpected parent processes.
+- Check for any recent file modifications or creations on the host that coincide with the time window of the alert to assess the impact of the encryption activity.
+- Look for additional related alerts or logs from the same host or user within a similar timeframe to identify any patterns or further suspicious activities that could indicate a broader attack.
+
+### False positive analysis
+
+- Legitimate batch encryption operations by system administrators or automated scripts may trigger the rule. To handle this, identify and whitelist specific scripts or user accounts that perform regular encryption tasks.
+- Backup processes that use OpenSSL for encrypting data before storage can be mistaken for malicious activity. Exclude known backup processes by specifying their parent process names or paths.
+- Developers or security teams testing encryption functionalities might inadvertently match the rule's criteria. Create exceptions for development environments or specific user accounts involved in testing.
+- Automated data transfer services that encrypt files for secure transmission could be flagged. Identify these services and exclude their associated processes or user accounts from the rule.
+- Regularly review and update the exclusion list to ensure it reflects current operational practices and does not inadvertently allow malicious activities.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further spread of the encryption activity and potential lateral movement by the adversary.
+- Terminate any suspicious OpenSSL processes identified on the host to halt ongoing encryption activities.
+- Conduct a forensic analysis of the affected host to identify the scope of the encryption, including which files were encrypted and any potential data exfiltration.
+- Restore encrypted files from the most recent clean backup to ensure data availability and integrity, ensuring that the backup is free from any malicious alterations.
+- Change all credentials and keys that may have been exposed or used on the affected host to prevent unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
+- Implement enhanced monitoring and logging for OpenSSL usage across the network to detect and respond to similar threats more effectively in the future."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1486"
+name = "Data Encrypted for Impact"
+reference = "https://attack.mitre.org/techniques/T1486/"
+
 
 [rule.threat.tactic]
-name = "Impact"
 id = "TA0040"
+name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
-[[rule.threat.technique]]
-name = "Data Encrypted for Impact"
-id = "T1486"
-reference = "https://attack.mitre.org/techniques/T1486/"

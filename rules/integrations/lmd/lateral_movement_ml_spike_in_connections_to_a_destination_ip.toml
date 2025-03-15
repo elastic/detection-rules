@@ -2,9 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-min_stack_comments = "LMD package job ID and rule removal updates"
-min_stack_version = "8.9.0"
-updated_date = "2023/12/12"
+updated_date = "2025/01/15"
 
 [rule]
 anomaly_threshold = 70
@@ -19,9 +17,17 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "lmd_high_rdp_distinct_count_source_ip_for_destination"
 name = "Spike in Number of Connections Made to a Destination IP"
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/lmd",
+    "https://www.elastic.co/blog/detecting-lateral-movement-activity-a-new-kibana-integration",
+    "https://www.elastic.co/blog/remote-desktop-protocol-connections-elastic-security",
+]
+risk_score = 21
+rule_id = "18a5dd9a-e3fa-4996-99b1-ae533b8f27fc"
 setup = """## Setup
 
-The rule requires the Lateral Movement Detection integration assets to be installed, as well as file and Windows RDP process events collected by the Elastic Defend integration.  
+The rule requires the Lateral Movement Detection integration assets to be installed, as well as file and Windows RDP process events collected by the Elastic Defend integration.
 
 ### Lateral Movement Detection Setup
 The Lateral Movement Detection integration detects lateral movement activity by identifying abnormalities in file and Windows RDP events. Anomalies are detected using Elastic's Anomaly Detection feature.
@@ -35,32 +41,52 @@ The Lateral Movement Detection integration detects lateral movement activity by 
 #### The following steps should be executed to install assets associated with the Lateral Movement Detection integration:
 - Go to the Kibana homepage. Under Management, click Integrations.
 - In the query bar, search for Lateral Movement Detection and select the integration to see more details about it.
-- Under Settings, click Install Lateral Movement Detection assets and follow the prompts to install the assets.
-
-#### Anomaly Detection Setup
-Before you can enable rules for Lateral Movement Detection, you'll need to enable the corresponding Anomaly Detection jobs.
-- Before enabling the Anomaly Detection jobs, confirm that the Pivot Transform asset is installed and actively gathering data in the destination index `ml-rdp-lmd`.
-- Go to the Kibana homepage. Under Analytics, click Machine Learning.
-- Under Anomaly Detection, click Jobs, and then click "Create job". Select the Data View containing your transformed RDP process data i.e.`ml-rdp-lmd`.
-- If the selected Data View contains events that match the query in [this](https://github.com/elastic/integrations/blob/main/packages/lmd/kibana/ml_module/lmd-ml.json) configuration file, you will see a card for Lateral Movement Detection under "Use preconfigured jobs".
-- Keep the default settings and click "Create jobs" to start the anomaly detection jobs and datafeeds.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
 """
-references = [
-    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
-    "https://docs.elastic.co/en/integrations/lmd",
-    "https://www.elastic.co/blog/detecting-lateral-movement-activity-a-new-kibana-integration",
-    "https://www.elastic.co/blog/remote-desktop-protocol-connections-elastic-security",
-]
-risk_score = 21
-rule_id = "18a5dd9a-e3fa-4996-99b1-ae533b8f27fc"
 severity = "low"
 tags = [
     "Use Case: Lateral Movement Detection",
     "Rule Type: ML",
     "Rule Type: Machine Learning",
     "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in Number of Connections Made to a Destination IP
+
+Remote Desktop Protocol (RDP) is crucial for remote management and troubleshooting in IT environments. However, adversaries exploit RDP by using multiple compromised IPs to overwhelm a target, ensuring persistence even if some IPs are blocked. The detection rule leverages machine learning to identify unusual spikes in RDP connections to a single IP, signaling potential lateral movement attempts by attackers.
+
+### Possible investigation steps
+
+- Review the list of source IPs that have established RDP connections to the destination IP to identify any known malicious or suspicious IP addresses.
+- Check historical data for the destination IP to determine if it has been targeted in previous attacks or if it is a high-value asset within the network.
+- Analyze the timing and frequency of the RDP connections to identify any unusual patterns or spikes that could indicate coordinated activity.
+- Investigate the user accounts associated with the RDP connections to ensure they are legitimate and have not been compromised.
+- Correlate the detected activity with any other security alerts or logs to identify potential lateral movement or further exploitation attempts within the network.
+
+### False positive analysis
+
+- Routine administrative tasks may trigger false positives if multiple IT staff connect to a server for maintenance. Consider creating exceptions for known administrative IPs.
+- Automated scripts or monitoring tools that frequently connect to servers for health checks can cause spikes. Identify and exclude these IPs from the rule.
+- Load balancers or proxy servers that aggregate connections from multiple clients might appear as a spike. Exclude these devices from the detection rule.
+- Scheduled software updates or deployments that require multiple connections to a server can be mistaken for an attack. Whitelist the IPs involved in these processes.
+- Internal network scans or vulnerability assessments conducted by security teams can generate high connection counts. Ensure these activities are recognized and excluded.
+
+### Response and remediation
+
+- Immediately isolate the affected destination IP from the network to prevent further unauthorized RDP connections and potential lateral movement.
+- Conduct a thorough review of the logs and network traffic associated with the destination IP to identify all source IPs involved in the spike and assess the scope of the compromise.
+- Block all identified malicious source IPs at the firewall or network perimeter to prevent further connections to the destination IP.
+- Reset credentials and enforce multi-factor authentication for accounts that were accessed via RDP to mitigate unauthorized access.
+- Perform a security assessment of the affected systems to identify any signs of compromise or unauthorized changes, and restore systems from clean backups if necessary.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems or networks are affected.
+- Update and enhance monitoring rules to detect similar patterns of unusual RDP connection spikes in the future, ensuring quick identification and response to potential threats."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

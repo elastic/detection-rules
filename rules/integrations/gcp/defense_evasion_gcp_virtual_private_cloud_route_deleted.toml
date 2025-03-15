@@ -2,9 +2,7 @@
 creation_date = "2020/09/22"
 integration = ["gcp"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -24,14 +22,57 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Virtual Private Cloud Route Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP Virtual Private Cloud Route Deletion
+
+In GCP, VPC routes dictate network traffic paths between VM instances and other destinations. Adversaries may delete these routes to disrupt traffic flow, potentially evading defenses or impairing network operations. The detection rule monitors audit logs for successful route deletions, flagging potential misuse by identifying specific actions linked to route removal, thus aiding in timely threat response.
+
+### Possible investigation steps
+
+- Review the audit logs for the specific event.dataset:gcp.audit and event.action:v*.compute.routes.delete to identify the exact time and user account associated with the route deletion.
+- Check the event.outcome:success field to confirm the deletion was successful and not an attempted action.
+- Investigate the user account or service account that performed the deletion to determine if it was authorized to make such changes, including reviewing recent activity and permissions.
+- Assess the impact of the route deletion by identifying which VPC and network traffic paths were affected, and determine if any critical services were disrupted.
+- Correlate the route deletion event with other security events or alerts around the same timeframe to identify potential coordinated actions or broader attack patterns.
+- Contact the relevant stakeholders or system owners to verify if the route deletion was intentional and part of a planned change or if it was unauthorized.
+
+### False positive analysis
+
+- Routine maintenance activities by network administrators can trigger route deletions. To manage this, create exceptions for known maintenance windows or specific administrator accounts.
+- Automated scripts or tools used for network configuration updates may delete and recreate routes as part of their normal operation. Identify these scripts and exclude their actions from triggering alerts.
+- Cloud infrastructure changes during deployment processes might involve temporary route deletions. Document these processes and exclude related events from detection during deployment periods.
+- Scheduled network reconfigurations that involve route deletions should be logged and excluded from alerts by correlating with change management records.
+- Test environments often undergo frequent network changes, including route deletions. Exclude events from test environments by filtering based on project or environment tags.
+
+### Response and remediation
+
+- Immediately isolate the affected VPC to prevent further unauthorized network traffic disruptions. This can be done by temporarily disabling external access or applying restrictive firewall rules.
+- Review the audit logs to identify the user or service account responsible for the route deletion. Verify if the action was authorized and investigate any anomalies in user behavior or access patterns.
+- Restore the deleted route using the latest backup or configuration management tools to re-establish normal network traffic flow. Ensure that the restored route aligns with the intended network architecture.
+- Implement additional access controls and monitoring for the affected VPC, such as enabling more granular IAM roles and setting up alerts for any future route modifications.
+- Conduct a security review of the affected environment to identify any other potential misconfigurations or vulnerabilities that could be exploited in a similar manner.
+- Escalate the incident to the security operations team for further investigation and to determine if the route deletion was part of a larger attack campaign.
+- Document the incident, including the root cause analysis and remediation steps taken, to enhance organizational knowledge and improve future incident response efforts.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/vpc/docs/routes", "https://cloud.google.com/vpc/docs/using-routes"]
 risk_score = 47
 rule_id = "a17bcc91-297b-459b-b5ce-bc7460d8f82a"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: GCP", "Data Source: Google Cloud Platform", "Use Case: Configuration Audit", "Tactic: Defense Evasion"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Configuration Audit",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 

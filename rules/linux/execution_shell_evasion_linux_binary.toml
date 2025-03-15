@@ -2,25 +2,23 @@
 creation_date = "2022/05/06"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the abuse of a Linux binary to break out of a restricted shell or environment by spawning an interactive 
-system shell. The activity of spawning a shell from a binary is not common behavior for a user or system administrator, 
+Identifies the abuse of a Linux binary to break out of a restricted shell or environment by spawning an interactive
+system shell. The activity of spawning a shell from a binary is not common behavior for a user or system administrator,
 and may indicate an attempt to evade detection, increase capabilities or enhance the stability of an adversary.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux Restricted Shell Breakout via Linux Binary(s)"
 note = """## Triage and analysis
 
-### Investigating Shell Evasion via Linux Utilities
+### Investigating Linux Restricted Shell Breakout via Linux Binary(s)
 Detection alerts from this rule indicate that a Linux utility has been abused to breakout of restricted shells or
 environments by spawning an interactive system shell.
 Here are some possible avenues of investigation:
@@ -89,6 +87,7 @@ references = [
     "https://gtfobins.github.io/gtfobins/byebug/",
     "https://gtfobins.github.io/gtfobins/git/",
     "https://gtfobins.github.io/gtfobins/ftp/",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
 ]
 risk_score = 47
 rule_id = "52376a86-ee86-4967-97ae-1a05f55816f0"
@@ -127,21 +126,30 @@ Session View uses process data collected by the Elastic Defend integration, but 
 For more information about the additional fields collected when this setting is enabled and the usage of Session View for Analysis refer to the [helper guide](https://www.elastic.co/guide/en/security/current/session-view.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 (
   /* launching shell from capsh */
   (process.name == "capsh" and process.args == "--") or
-  
+
   /* launching shells from unusual parents or parent+arg combos */
   (process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
     (process.parent.name : "*awk" and process.parent.args : "BEGIN {system(*)}") or
-    (process.parent.name == "git" and process.parent.args : ("*PAGER*", "!*sh", "exec *sh") or 
+    (process.parent.name == "git" and process.parent.args : ("*PAGER*", "!*sh", "exec *sh") or
      process.args : ("*PAGER*", "!*sh", "exec *sh") and not process.name == "ssh" ) or
-    (process.parent.name : ("byebug", "ftp", "strace", "zip", "tar") and 
+    (process.parent.name : ("byebug", "ftp", "strace", "zip", "tar") and
     (
       process.parent.args : "BEGIN {system(*)}" or
       (process.parent.args : ("*PAGER*", "!*sh", "exec *sh") or process.args : ("*PAGER*", "!*sh", "exec *sh")) or
@@ -151,14 +159,14 @@ process where host.os.type == "linux" and event.type == "start" and
         )
       )
     ) or
-    
+
     /* shells specified in parent args */
     /* nice rule is broken in 8.2 */
     (process.parent.args : "*sh" and
       (
         (process.parent.name == "nice") or
         (process.parent.name == "cpulimit" and process.parent.args == "-f") or
-        (process.parent.name == "find" and process.parent.args == "." and process.parent.args == "-exec" and 
+        (process.parent.name == "find" and process.parent.args == "." and process.parent.args == "-exec" and
          process.parent.args == ";" and process.parent.args : "/bin/*sh") or
         (process.parent.name == "flock" and process.parent.args == "-u" and process.parent.args == "/")
       )
@@ -170,9 +178,9 @@ process where host.os.type == "linux" and event.type == "start" and
     (process.parent.name == "crash" and process.parent.args == "-h") or
     (process.name == "sensible-pager" and process.parent.name in ("apt", "apt-get") and process.parent.args == "changelog")
     /* scope to include more sensible-pager invoked shells with different parent process to reduce noise and remove false positives */
-    
+
   )) or
-  (process.name == "busybox" and event.action == "exec" and process.args_count == 2 and process.args : "*sh" and not 
+  (process.name == "busybox" and event.action == "exec" and process.args_count == 2 and process.args : "*sh" and not
    process.executable : "/var/lib/docker/overlay2/*/merged/bin/busybox" and not (process.parent.args == "init" and
    process.parent.args == "runc") and not process.parent.args in ("ls-remote", "push", "fetch") and not process.parent.name == "mkinitramfs") or
   (process.name == "env" and process.args_count == 2 and process.args : "*sh") or
@@ -184,20 +192,22 @@ process where host.os.type == "linux" and event.type == "start" and
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+

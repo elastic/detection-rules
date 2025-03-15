@@ -2,9 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/22"
+updated_date = "2025/01/24"
 
 [rule]
 author = ["Elastic"]
@@ -15,10 +13,11 @@ malicious udev rules that trigger on specific events, executing arbitrary comman
 is plugged in or recognized by the system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
-language = "kuery"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
 license = "Elastic License v2"
-name = "Potential Persistence Through Systemd-udevd"
+name = "Systemd-udevd Rule File Creation"
+references = ["https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms"]
 risk_score = 21
 rule_id = "054db96b-fd34-43b3-9af2-587b3bd33964"
 setup = """## Setup
@@ -49,23 +48,80 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend"
-        ]
-type = "new_terms"
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
+type = "eql"
 query = '''
-host.os.type:"linux" and event.category:"file" and
-event.type:("change" or "file_modify_event" or "creation" or "file_create_event") and
-file.path:/lib/udev/* and process.executable:* and not (
-   process.name:("dockerd" or "docker" or "dpkg" or "dnf" or "dnf-automatic" or "yum" or "rpm" or "systemd-hwdb" or
-     "podman" or "buildah") or file.extension : ("swp" or "swpx")
+file where host.os.type == "linux" and event.action in ("rename", "creation") and
+process.executable != null and file.extension == "rules" and
+file.path : (
+  "/lib/udev/*", "/etc/udev/rules.d/*", "/usr/lib/udev/rules.d/*", "/run/udev/rules.d/*", "/usr/local/lib/udev/rules.d/*"
+) and not (
+  process.executable in (
+    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
+    "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
+    "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
+    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
+    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
+    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
+    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
+    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/libexec/netplan/generate",
+    "/lib/systemd/system-generators/netplan", "/lib/systemd/systemd", "/usr/bin/containerd", "/usr/sbin/sshd",
+    "/kaniko/executor"
+  ) or
+  file.Ext.original.extension == "dpkg-new" or
+  process.executable : (
+    "/nix/store/*", "/var/lib/dpkg/*", "/snap/*", "/dev/fd/*", "/usr/lib/*", "/usr/libexec/*"
+  ) or
+  process.name in (
+    "systemd", "netplan", "apt-get", "vmware-config-tools.pl", "systemd-hwdb", "ssm-agent-worker", "crio", "cloud-init", "convert2rhel" 
+  ) or
+  (process.name == "sed" and file.name : "sed*") or
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*")
 )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Systemd-udevd Rule File Creation
+
+Systemd-udevd manages device nodes and handles kernel device events in Linux, using rule files to automate responses to hardware changes. Adversaries can exploit this by creating malicious rules that execute commands when specific devices are connected. The detection rule monitors the creation of these rule files, excluding legitimate processes, to identify potential abuse and ensure system integrity.
+
+### Possible investigation steps
+
+- Review the file path and name to determine if the rule file is located in a directory commonly used for udev rules, such as /etc/udev/rules.d/ or /lib/udev/.
+- Examine the process executable that created or renamed the rule file to identify if it is a known legitimate process or an unexpected one, as specified in the query.
+- Check the file extension and ensure it is .rules, confirming it is intended for udev rule configuration.
+- Investigate the process name and path to determine if it matches any of the excluded legitimate processes or paths, which could indicate a false positive.
+- Analyze the contents of the newly created or modified rule file to identify any suspicious or malicious commands that could be executed when a device is connected.
+- Correlate the event with other system logs to identify any related activities or anomalies around the time of the rule file creation or modification.
+- Assess the risk and impact of the rule file creation by considering the context of the system and any potential persistence mechanisms it might enable for an adversary.
+
+### False positive analysis
+
+- System updates and package installations can trigger rule file creations. Exclude processes like dpkg, rpm, and yum by adding them to the exception list to prevent false positives during legitimate system maintenance.
+- Container management tools such as Docker and Podman may create or modify udev rules. Exclude these processes to avoid alerts when containers are being managed.
+- Automated system configuration tools like Puppet and Chef can modify udev rules as part of their operations. Add these tools to the exception list to reduce noise from routine configuration changes.
+- Snap package installations and updates can lead to rule file changes. Exclude snapd and related processes to prevent false positives during snap operations.
+- Netplan and systemd processes may generate or modify udev rules as part of network configuration or system initialization. Exclude these processes to avoid unnecessary alerts during legitimate system activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further execution of malicious udev rules and potential lateral movement.
+- Identify and review the newly created or modified udev rule files in the specified directories to determine if they contain malicious commands or payloads.
+- Remove any unauthorized or malicious udev rule files to prevent them from executing on device connection events.
+- Restore any affected system configurations or files from a known good backup to ensure system integrity.
+- Conduct a thorough scan of the system using updated antivirus or endpoint detection tools to identify and remove any additional malware or persistence mechanisms.
+- Monitor the system for any further suspicious activity or attempts to recreate malicious udev rules, adjusting detection mechanisms as necessary.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected, ensuring comprehensive threat containment and remediation."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -75,15 +131,12 @@ id = "T1037"
 name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "process.executable", "file.path"]
-
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-14d"

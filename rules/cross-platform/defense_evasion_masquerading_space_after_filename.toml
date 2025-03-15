@@ -2,9 +2,7 @@
 creation_date = "2022/10/18"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/19"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -34,33 +32,76 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type:("linux","macos") and
-  event.type == "start" and
-  (process.executable regex~ """/[a-z0-9\s_\-\\./]+\s""") and not
-  process.name in ("ls", "find", "grep", "xkbcomp")
+process where host.os.type:("linux","macos") and event.type == "start" and
+process.executable regex~ """/[a-z0-9\s_\-\\./]+\s""" and not (
+  process.name in ("ls", "find", "grep", "xkbcomp") or
+  process.executable like ("/opt/nessus_agent/*", "/opt/gitlab/sv/gitlab-exporter/*", "/tmp/ansible-admin/*") or
+  process.parent.args in (
+    "./check_rubrik", "/usr/bin/check_mk_agent", "/etc/rubrik/start_stop_bootstrap.sh", "/etc/rubrik/start_stop_agent.sh"
+  )
+)
 '''
+note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Masquerading Space After Filename
+
+In Linux and macOS environments, file execution is determined by the file's true type rather than its extension. Adversaries exploit this by appending a space to filenames, misleading users into executing malicious files disguised as benign. The detection rule identifies such anomalies by monitoring process creation events with filenames ending in a space, excluding known safe processes and paths, thus highlighting potential masquerading attempts.
+
+### Possible investigation steps
+
+- Review the process creation event details to identify the full path and name of the executable with a space appended. This can help determine if the file is located in a suspicious or unusual directory.
+- Check the process.parent.args field to understand the parent process that initiated the execution. This can provide context on whether the execution was part of a legitimate process chain or potentially malicious activity.
+- Investigate the user account associated with the process creation event to determine if the account has a history of executing similar files or if it has been compromised.
+- Examine the file's true type and hash to verify its legitimacy and check against known malicious file databases or threat intelligence sources.
+- Look for any additional process events or network activity associated with the suspicious executable to identify potential lateral movement or data exfiltration attempts.
+- Cross-reference the event with any recent alerts or incidents involving the same host or user to identify patterns or ongoing threats.
+
+### False positive analysis
+
+- Processes like "ls", "find", "grep", and "xkbcomp" are known to be safe and can be excluded from triggering the rule by adding them to the exception list.
+- Executables located in directories such as "/opt/nessus_agent/*", "/opt/gitlab/sv/gitlab-exporter/*", and "/tmp/ansible-admin/*" are typically non-threatening and should be excluded to prevent false positives.
+- Parent processes with arguments like "./check_rubrik", "/usr/bin/check_mk_agent", "/etc/rubrik/start_stop_bootstrap.sh", and "/etc/rubrik/start_stop_agent.sh" are generally safe and can be added to the exclusion list to avoid unnecessary alerts.
+- Regularly review and update the exception list to ensure that only verified safe processes and paths are excluded, maintaining the effectiveness of the detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further execution or spread of the potentially malicious file.
+- Terminate any suspicious processes identified by the detection rule to halt any ongoing malicious activity.
+- Conduct a forensic analysis of the file with the appended space to determine its true file type and origin, using tools like file command or hex editors.
+- Remove the malicious file from the system and any other locations it may have been copied to, ensuring complete eradication.
+- Review and update endpoint protection settings to block execution of files with suspicious naming conventions, such as those ending with a space.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess potential impacts on other systems.
+- Implement additional monitoring for similar masquerading attempts by enhancing logging and alerting mechanisms to detect files with unusual naming patterns."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1036.006"
 name = "Space after Filename"
 reference = "https://attack.mitre.org/techniques/T1036/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

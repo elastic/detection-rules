@@ -1,0 +1,144 @@
+[metadata]
+creation_date = "2024/07/10"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/01/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages the new_terms rule type to identify the creation of a potentially unsafe docker container from an
+unusual parent process. Attackers can use the `--privileged` flag to create containers with escalated privileges, which
+can lead to trivial privilege escalation, docker escaping and persistence. access.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Privileged Docker Container Creation"
+risk_score = 21
+rule_id = "a80d96cd-1164-41b3-9852-ef58724be496"
+setup = """## Setup
+This rule requires data coming in from Elastic Defend.
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type:linux and event.category:process and event.type:start and event.action:exec and process.name:docker and
+process.args:(run and --privileged)
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Privileged Docker Container Creation
+
+Docker containers are lightweight, portable units that package applications and their dependencies. The `--privileged` flag grants containers extensive host access, posing security risks. Adversaries exploit this to escalate privileges or escape containers. The detection rule identifies unusual privileged container creation by monitoring specific process actions and arguments, helping to flag potential threats early.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of the `--privileged` flag in the process arguments, as indicated by the query field `process.args:(run and --privileged)`.
+- Identify the parent process of the Docker command by examining the `event.category:process` and `event.type:start` fields to determine if it originates from an unusual or unauthorized source.
+- Check the user account associated with the Docker process to verify if it has legitimate access and permissions to create privileged containers.
+- Investigate the timeline of events leading up to the container creation by reviewing related logs and events around the `event.action:exec` to identify any suspicious activities or patterns.
+- Assess the container's configuration and running processes to determine if any unauthorized or potentially harmful applications are being executed within the container.
+- Correlate the alert with other security events or alerts in the environment to identify potential indicators of compromise or broader attack patterns.
+
+### False positive analysis
+
+- Routine administrative tasks may trigger the rule if system administrators use the --privileged flag for legitimate container management. To handle this, identify and document these tasks, then create exceptions for known administrative processes.
+- Automated deployment scripts that require elevated privileges might also cause false positives. Review these scripts and whitelist them by specifying the parent process or script name in the exclusion criteria.
+- Development environments often use privileged containers for testing purposes. To reduce noise, exclude processes originating from known development machines or user accounts.
+- Some monitoring or security tools may use privileged containers for legitimate purposes. Verify these tools and add them to the exception list to prevent unnecessary alerts.
+- Regularly review and update the exclusion list to ensure it reflects current operational practices and does not inadvertently allow malicious activity.
+
+### Response and remediation
+
+- Immediately isolate the affected container to prevent further interaction with the host system. This can be done by stopping the container using `docker stop <container_id>`.
+
+- Review and revoke any unnecessary permissions or access rights granted to the container. Ensure that the `--privileged` flag is not used unless absolutely necessary.
+
+- Conduct a thorough investigation of the container's filesystem and running processes to identify any malicious activity or unauthorized changes. Use tools like `docker exec` to inspect the container's environment.
+
+- Check for any signs of container escape or host compromise by reviewing system logs and monitoring for unusual activity on the host machine.
+
+- If a compromise is confirmed, initiate a full incident response procedure, including forensic analysis and system restoration from clean backups.
+
+- Update and patch the Docker daemon and any related software to the latest versions to mitigate known vulnerabilities that could be exploited.
+
+- Enhance monitoring and alerting for privileged container creation by integrating additional security tools or services that provide real-time threat intelligence and anomaly detection."""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.parent.executable"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+

@@ -2,20 +2,19 @@
 creation_date = "2023/06/09"
 integration = ["auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/19"
+updated_date = "2024/05/21"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
-This rule monitors for a rapid enumeration of 25 different proc cmd, stat, and exe files, which suggests an abnormal 
-activity pattern. Such behavior could be an indicator of a malicious process scanning or gathering information about 
-running processes, potentially for reconnaissance, privilege escalation, or identifying vulnerable targets. 
+This rule monitors for a rapid enumeration of 25 different proc cmd, stat, and exe files, which suggests an abnormal
+activity pattern. Such behavior could be an indicator of a malicious process scanning or gathering information about
+running processes, potentially for reconnaissance, privilege escalation, or identifying vulnerable targets.
 """
 from = "now-119m"
-interval = "60m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
+interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious Proc Pseudo File System Enumeration"
@@ -47,12 +46,12 @@ tags = [
     "Data Source: Auditd Manager",
     "OS: Linux",
     "Use Case: Threat Detection",
-    "Tactic: Discovery", 
-    "Rule Type: BBR"
-    ]
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "threshold"
-building_block_type = "default"
+
 query = '''
 host.os.type:linux and event.category:file and event.action:"opened-file" and 
 file.path : (/proc/*/cmdline or /proc/*/stat or /proc/*/exe) and not process.name : (
@@ -60,9 +59,9 @@ file.path : (/proc/*/cmdline or /proc/*/stat or /proc/*/exe) and not process.nam
 ) and not process.parent.pid : 1
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
@@ -73,6 +72,7 @@ id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
@@ -81,7 +81,8 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 [rule.threshold]
 field = ["host.id", "process.pid", "process.name"]
 value = 1
-
 [[rule.threshold.cardinality]]
 field = "file.path"
 value = 100
+
+

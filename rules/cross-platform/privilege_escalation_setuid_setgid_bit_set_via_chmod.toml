@@ -2,9 +2,7 @@
 creation_date = "2020/04/23"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -17,44 +15,75 @@ future.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "lucene"
+language = "eql"
 license = "Elastic License v2"
 max_signals = 33
-name = "Setuid / Setgid Bit Set via chmod"
+name = "SUID/SGID Bit Set"
+references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
 risk_score = 21
 rule_id = "8a1b0278-0f9a-487d-96bd-d4833298e87a"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process AND event.type:(start OR process_started) AND
- process.name:chmod AND process.args:("+s" OR "u+s" OR /4[0-9]{3}/ OR g+s OR /2[0-9]{3}/) AND
- NOT process.args:
-           (
-             /.*\/Applications\/VirtualBox.app\/.+/ OR
-             /\/usr\/local\/lib\/python.+/ OR
-             /\/var\/folders\/.+\/FP.*nstallHelper/ OR
-             /\/Library\/Filesystems\/.+/ OR
-             /\/usr\/lib\/virtualbox\/.+/ OR
-             /\/Library\/Application.*/ OR
-             "/run/postgresql" OR
-             "/var/crash" OR
-             "/var/run/postgresql" OR
-             /\/usr\/bin\/.+/ OR /\/usr\/local\/share\/.+/ OR
-             /\/Applications\/.+/ OR /\/usr\/libexec\/.+/ OR
-             "/var/metrics" OR /\/var\/lib\/dpkg\/.+/ OR
-             /\/run\/log\/journal\/.*/ OR
-             \/Users\/*\/.minikube\/bin\/docker-machine-driver-hyperkit
-           ) AND
- NOT process.parent.executable:
-           (
-             /\/var\/lib\/docker\/.+/ OR
-             "/System/Library/PrivateFrameworks/PackageKit.framework/Versions/A/XPCServices/package_script_service.xpc/Contents/MacOS/package_script_service" OR
-             "/var/lib/dpkg/info/whoopsie.postinst"
-           )
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  (process.name == "chmod" and (process.args : ("+s", "u+s", "g+s") or process.args regex "[24][0-9]{3}")) or
+  (process.name == "install" and process.args : "-m" and
+  (process.args : ("+s", "u+s", "g+s") or process.args regex "[24][0-9]{3}"))
+) and not (
+  process.parent.executable : (
+    "/usr/NX/*", "/var/lib/docker/*", "/var/lib/dpkg/info*", "/tmp/newroot/*",
+    "/System/Library/PrivateFrameworks/PackageKit.framework/Versions/A/XPCServices/package_script_service.xpc/Contents/MacOS/package_script_service"
+  ) or
+  process.args : (
+    "/run/*", "/var/run/*", "/usr/bin/keybase-redirector", "/usr/local/share/fonts", "/usr/bin/ssh-agent"
+  )
+)
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SUID/SGID Bit Set
+
+The SUID/SGID bits in Unix-like systems allow files to execute with the privileges of the file owner or group, enabling necessary elevated permissions for certain applications. However, adversaries can exploit these bits to escalate privileges by modifying files to run with higher access rights. The detection rule identifies suspicious use of commands like `chmod` or `install` to set these bits, excluding known safe paths, to flag potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the process details to identify the user who executed the command, focusing on the process.name and process.args fields to understand the specific command and arguments used.
+- Check the process.parent.executable field to determine the parent process and assess whether it is a known legitimate process or potentially malicious.
+- Investigate the file or directory targeted by the SUID/SGID bit modification by examining the process.args field for any unusual or sensitive paths that could indicate privilege escalation attempts.
+- Correlate the event with other recent activities from the same user or system to identify any patterns or anomalies that could suggest malicious behavior.
+- Verify if the file or directory with modified SUID/SGID bits is part of a known safe path as listed in the exclusion criteria, and assess whether the modification is expected or authorized.
+
+### False positive analysis
+
+- System package installations or updates may trigger the rule when legitimate processes like package managers set SUID/SGID bits. To handle this, exclude paths related to package management, such as "/var/lib/dpkg/info*".
+- Docker or container-related operations might set these bits during normal operations. Exclude paths like "/var/lib/docker/*" to prevent false positives from container management activities.
+- Temporary directories used during system operations, such as "/tmp/newroot/*", can cause false alerts. Exclude these paths to avoid unnecessary alerts from temporary system processes.
+- Specific system services or applications, like "/usr/bin/ssh-agent", may require SUID/SGID bits for legitimate functionality. Exclude these known safe executables to reduce false positives.
+- Custom scripts or applications that are known to require elevated permissions should be reviewed and, if deemed safe, added to the exclusion list to prevent repeated false alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or privilege escalation.
+- Identify and terminate any suspicious processes associated with the use of `chmod` or `install` commands that have set the SUID/SGID bits, especially those not in the excluded safe paths.
+- Review and revert any unauthorized changes to file permissions, specifically those with SUID/SGID bits set, to their original state.
+- Conduct a thorough audit of user accounts and privileges on the affected system to ensure no unauthorized accounts or privilege escalations have occurred.
+- Implement additional monitoring on the affected system to detect any further attempts to exploit SUID/SGID bits, focusing on the specific commands and arguments identified in the detection query.
+- Escalate the incident to the security operations team for a deeper investigation into potential lateral movement or persistence mechanisms that may have been established by the adversary.
+- Apply patches and updates to the affected system and any vulnerable applications to mitigate known vulnerabilities that could be exploited in conjunction with SUID/SGID bit abuse."""
 
 
 [[rule.threat]]

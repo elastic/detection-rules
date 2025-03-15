@@ -1,7 +1,7 @@
 [![Supported Python versions](https://img.shields.io/badge/python-3.12+-yellow.svg)](https://www.python.org/downloads/)
 [![Unit Tests](https://github.com/elastic/detection-rules/workflows/Unit%20Tests/badge.svg)](https://github.com/elastic/detection-rules/actions)
 [![Chat](https://img.shields.io/badge/chat-%23security--detection--rules-blueviolet)](https://ela.st/slack)
-[![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)](https://ela.st/detection-rules-navigator)
+[![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)](https://ela.st/detection-rules-navigator-trade)
 
 # Detection Rules
 
@@ -16,21 +16,23 @@ This repository was first announced on Elastic's blog post, [Elastic Security op
   - [Overview of this repository](#overview-of-this-repository)
   - [Getting started](#getting-started)
   - [How to contribute](#how-to-contribute)
+  - [Detections as Code (DaC)](#detections-as-code-dac)
+  - [RTAs](#rtas)
   - [Licensing](#licensing)
   - [Questions? Problems? Suggestions?](#questions-problems-suggestions)
 
 
 ## Overview of this repository
 
-Detection Rules contains more than just static rule files. This repository also contains code for unit testing in Python and integrating with the Detection Engine in Kibana.
+Detection Rules contains more than just static rule files. This repository also contains code for building Detections-as-code pipelines, unit testing in Python and integrating with the Detection Engine in Kibana.
 
 | folder                                          |  description                                                                        |
 |------------------------------------------------ |------------------------------------------------------------------------------------ |
 | [`detection_rules/`](detection_rules)           | Python module for rule parsing, validating and packaging                            |
-| [`etc/`](detection_rules/etc)                   | Miscellaneous files, such as ECS and Beats schemas                                  |
-| [`kibana/`](lib/kibana)                             | Python library for handling the API calls to Kibana and the Detection Engine        |
-| [`kql/`](lib/kql)                                   | Python library for parsing and validating Kibana Query Language                     |
-| [`rta/`](rta)                                   | Red Team Automation code used to emulate attacker techniques, used for rule testing |
+| [`etc/`](detection_rules/etc)                   | Miscellaneous files, such as ECS and Beats schemas and configuration files          |
+| [`hunting/`](./hunting/)                        | Root directory where threat hunting package and queries are stored                  |
+| [`kibana/`](lib/kibana)                         | Python library for handling the API calls to Kibana and the Detection Engine        |
+| [`kql/`](lib/kql)                               | Python library for parsing and validating Kibana Query Language                     |
 | [`rules/`](rules)                               | Root directory where rules are stored                                               |
 | [`rules_building_block/`](rules_building_block) | Root directory where building block rules are stored                                |
 | [`tests/`](tests)                               | Python code for unit testing rules                                                  |
@@ -75,18 +77,22 @@ Collecting Click==7.0
   Downloading Click-7.0-py2.py3-none-any.whl (81 kB)
      |████████████████████████████████| 81 kB 2.6 MB/s
 ...
-pip3 install packages/kibana packages/kql
 ```
 
-Note: The `kibana` and `kql` packages are not available on PyPI and must be installed from the `packages` directory or `git`.
+Note: The `kibana` and `kql` packages are not available on PyPI and must be installed from the `lib` directory. The `hunting` package has optional dependencies to be installed with `pip3 install ".[hunting]`.
 
 ```console
+
+# Install from the repository
 pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=kibana
 pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=kql
 
-# or locally
+# Or locally for development
 pip3 install lib/kibana lib/kql
 ```
+
+Remember, make sure to activate your virtual environment if you are using one. If installed via `make`, the associated virtual environment is created in `env/detection-rules-build/`.
+If you are having trouble using a Python 3.12 environment, please see the relevant section in our [troubleshooting guide](./Troubleshooting.md).
 
 To confirm that everything was properly installed, run with the `--help` flag
 ```console
@@ -128,9 +134,19 @@ For more advanced command line interface (CLI) usage, refer to the [CLI guide](C
 
 We welcome your contributions to Detection Rules! Before contributing, please familiarize yourself with this repository, its [directory structure](#overview-of-this-repository), and our [philosophy](PHILOSOPHY.md) about rule creation. When you're ready to contribute, read the [contribution guide](CONTRIBUTING.md) to learn how we turn detection ideas into production rules and validate with testing.
 
+## Detections as Code (DaC)
+
+The Detection Rules repo includes a number of commands to help one manage rules with an "as code" philosophy. We recommend starting with our [DaC Specific Documentation](https://dac-reference.readthedocs.io/en/latest/) for strategies and recommended setup information. However, if you would prefer to jump right in, please see our local [detections as code documentation](docs-dev/detections-as-code.md) and [custom rules documentation](docs-dev/custom-rules-management.md) for information on how to configure this repo for use with custom rules followed by our [CLI documentation](CLI.md) for information on our commands to import and export rules.
+
+## RTAs
+
+Red Team Automations (RTAs) used to emulate attacker techniques and verify the rules can be found in dedicated
+repository - [Cortado](https://github.com/elastic/cortado).
+
+
 ## Licensing
 
-Everything in this repository — rules, code, RTA, etc. — is licensed under the [Elastic License v2](LICENSE.txt). These rules are designed to be used in the context of the Detection Engine within the Elastic Security application. If you’re using our [Elastic Cloud managed service](https://www.elastic.co/cloud/) or the default distribution of the Elastic Stack software that includes the [full set of free features](https://www.elastic.co/subscriptions), you’ll get the latest rules the first time you navigate to the detection engine.
+Everything in this repository — rules, code, etc. — is licensed under the [Elastic License v2](LICENSE.txt). These rules are designed to be used in the context of the Detection Engine within the Elastic Security application. If you’re using our [Elastic Cloud managed service](https://www.elastic.co/cloud/) or the default distribution of the Elastic Stack software that includes the [full set of free features](https://www.elastic.co/subscriptions), you’ll get the latest rules the first time you navigate to the detection engine.
 
 Occasionally, we may want to import rules from another repository that already have a license, such as MIT or Apache 2.0. This is welcome, as long as the license permits sublicensing under the Elastic License v2. We keep those license notices in `NOTICE.txt` and sublicense as the Elastic License v2 with all other rules. We also require contributors to sign a [Contributor License Agreement](https://www.elastic.co/contributor-agreement) before contributing code to any Elastic repositories.
 
@@ -140,3 +156,4 @@ Occasionally, we may want to import rules from another repository that already h
 - This repository includes new and updated rules that have not been released yet. To see the latest set of rules released with the stack, see the [Prebuilt rule reference](https://www.elastic.co/guide/en/security/current/prebuilt-rules-downloadable-updates.html).
 - If you’d like to report a false positive or other type of bug, please create a GitHub issue and check if there's an existing one first.
 - Need help with Detection Rules? Post an issue or ask away in our [Security Discuss Forum](https://discuss.elastic.co/c/security/) or the **#security-detection-rules** channel within [Slack workspace](https://www.elastic.co/blog/join-our-elastic-stack-workspace-on-slack).
+- For DaC specific cases, pleases see our [support and scope documentation](docs-dev/detections-as-code.md#support-and-scope) for more information. 

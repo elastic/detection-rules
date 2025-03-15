@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2024/05/02"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/02/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an incoming SMB connection followed by a suspicious file rename operation. This may indicate a remote
+ransomware attack via the SMB protocol.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*", "logs-endpoint.events.network-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious File Renamed via SMB"
+note = """## Triage and analysis
+
+## Performance
+
+- This rule may cause medium to high performance impact due to logic scoping all icoming SMB network events.
+
+#### Possible investigation steps
+
+- Investigate the source.ip address connecting to port 445 on this host.
+- Identify the user account that performed the file creation via SMB.
+- If the number of files is too high and source.ip connecting over SMB is unusual isolate the host and block the used credentials.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+
+### False positive analysis
+
+- Remote file rename over SMB.
+
+### Related rules
+
+- Third-party Backup Files Deleted via Unexpected Process - 11ea6bec-ebde-4d71-a8e9-784948f8e3e9
+- Volume Shadow Copy Deleted or Resized via VssAdmin - b5ea4bfe-a1b2-421f-9d47-22a75a6f2921
+- Volume Shadow Copy Deletion via PowerShell - d99a037b-c8e2-47a5-97b9-170d076827c4
+- Volume Shadow Copy Deletion via WMIC - dc9c1f74-dac3-48e3-b47f-eb79db358f57
+- Potential Ransomware Note File Dropped via SMB - 02bab13d-fb14-4d7c-b6fe-4a28874d37c5
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Consider isolating the involved host to prevent destructive behavior, which is commonly associated with this activity.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- If any other destructive action was identified on the host, it is recommended to prioritize the investigation and look for ransomware preparation and execution activities.
+- If any backups were affected:
+  - Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = ["https://news.sophos.com/en-us/2023/12/21/akira-again-the-ransomware-that-keeps-on-taking/"]
+risk_score = 73
+rule_id = "78e9b5d5-7c07-40a7-a591-3dbbf464c386"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=1s
+ [network where host.os.type == "windows" and
+  event.action == "connection_accepted" and destination.port == 445 and source.port >= 49152 and process.pid == 4 and
+  source.ip != "127.0.0.1" and source.ip != "::1" and
+  network.type == "ipv4" and not endswith(source.address, destination.address)]
+ [file where host.os.type == "windows" and
+  event.action == "rename" and process.pid == 4 and user.id : ("S-1-5-21*", "S-1-12-*") and
+  file.extension != null and file.Ext.entropy >= 6 and file.path : "C:\\Users\\*" and
+  file.Ext.original.name : ("*.jpg", "*.bmp", "*.png", "*.pdf", "*.doc", "*.docx", "*.xls", "*.xlsx", "*.ppt", "*.pptx", "*.lnk") and
+  not file.extension : ("jpg", "bmp", "png", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "*.lnk")] with runs=3
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.002"
+name = "SMB/Windows Admin Shares"
+reference = "https://attack.mitre.org/techniques/T1021/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+

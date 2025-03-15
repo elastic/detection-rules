@@ -2,9 +2,9 @@
 creation_date = "2020/08/24"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2025/02/03"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [transform]
 [[transform.osquery]]
@@ -41,7 +41,12 @@ masquerading attempt to evade suspicious child process behavior detections.
 """
 false_positives = ["Legit Application Crash with rare Werfault commandline value"]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-endpoint.events.network-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-endpoint.events.network-*",
+    "logs-windows.sysmon_operational-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Windows Error Manager Masquerading"
@@ -54,7 +59,7 @@ By examining the specific traits of Windows binaries -- such as process trees, c
 This rule identifies a potential malicious process masquerading as `wermgr.exe` or `WerFault.exe`, by looking for a process creation with no arguments followed by a network connection.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -99,11 +104,20 @@ references = [
     "https://twitter.com/SBousseaden/status/1235533224337641473",
     "https://www.hexacorn.com/blog/2019/09/20/werfault-command-line-switches-v0-1/",
     "https://app.any.run/tasks/26051d84-b68e-4afb-8a9a-76921a271b81/",
+    "https://www.elastic.co/security-labs/elastic-security-uncovers-blister-malware-campaign",
 ]
 risk_score = 47
 rule_id = "6ea41894-66c3-4df7-ad6b-2c5074eb3df8"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Resources: Investigation Guide", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+]
 type = "eql"
 
 query = '''
@@ -121,11 +135,11 @@ framework = "MITRE ATT&CK"
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1036.005"
 name = "Match Legitimate Name or Location"
 reference = "https://attack.mitre.org/techniques/T1036/005/"
+
 
 
 [rule.threat.tactic]

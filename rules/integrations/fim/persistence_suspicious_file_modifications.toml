@@ -1,0 +1,316 @@
+[metadata]
+creation_date = "2024/06/03"
+integration = ["fim"]
+maturity = "production"
+updated_date = "2025/01/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages the File Integrity Monitoring (FIM) integration to detect file modifications of files that are
+commonly used for persistence on Linux systems. The rule detects modifications to files that are commonly used for cron
+jobs, systemd services, message-of-the-day (MOTD), SSH configurations, shell configurations, runtime control, init
+daemon, passwd/sudoers/shadow files, Systemd udevd, and XDG/KDE autostart entries. To leverage this rule, the paths
+specified in the query need to be added to the FIM policy in the Elastic Security app.
+"""
+from = "now-9m"
+index = ["logs-fim.event-*", "auditbeat-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Persistence via File Modification"
+references = [
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
+    "https://www.elastic.co/security-labs/sequel-on-persistence-mechanisms",
+]
+risk_score = 21
+rule_id = "192657ba-ab0e-4901-89a2-911d611eee98"
+setup = """## Setup
+
+This rule requires data coming in from the Elastic File Integrity Monitoring (FIM) integration.
+
+### Elastic FIM Integration Setup
+To configure the Elastic FIM integration, follow these steps:
+
+1. Install and configure the Elastic Agent on your Linux system. You can refer to the [Elastic Agent documentation](https://www.elastic.co/guide/en/fleet/current/elastic-agent-installation.html) for detailed instructions.
+2. Once the Elastic Agent is installed, navigate to the Elastic Security app in Kibana.
+3. In the Kibana home page, click on "Integrations" in the left sidebar.
+4. Search for "File Integrity Monitoring" in the search bar and select the integration.
+5. Provide a name and optional description for the integration.
+6. Select the appropriate agent policy for your Linux system or create a new one.
+7. Configure the FIM policy by specifying the paths that you want to monitor for file modifications. You can use the same paths mentioned in the `query` field of the rule. Note that FIM does not accept wildcards in the paths, so you need to specify the exact paths you want to monitor.
+8. Save the configuration and the Elastic Agent will start monitoring the specified paths for file modifications.
+
+For more details on configuring the Elastic FIM integration, you can refer to the [Elastic FIM documentation](https://docs.elastic.co/integrations/fim).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Credential Access",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Data Source: File Integrity Monitoring",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "linux" and event.dataset == "fim.event" and event.action == "updated" and
+file.path : (
+  // cron, anacron & at
+  "/etc/cron.d/*", "/etc/cron.daily/*", "/etc/cron.hourly/*", "/etc/cron.monthly/*",
+  "/etc/cron.weekly/*", "/etc/crontab", "/var/spool/cron/crontabs/*", "/etc/cron.allow",
+  "/etc/cron.deny",  "/var/spool/anacron/*", "/var/spool/cron/atjobs/*",
+
+  // systemd services & timers
+  "/etc/systemd/system/*", "/usr/local/lib/systemd/system/*", "/lib/systemd/system/*",
+  "/usr/lib/systemd/system/*", "/home/*/.config/systemd/user/*", "/home/*/.local/share/systemd/user/*",
+  "/root/.config/systemd/user/*", "/root/.local/share/systemd/user/*",
+
+  // LD_PRELOAD
+  "/etc/ld.so.preload", "/etc/ld.so.conf.d/*", "/etc/ld.so.conf",
+
+  // Dynamic linker
+  "/lib/ld-linux*.so*", "/lib64/ld-linux*.so*", "/usr/lib/ld-linux*.so*", "/usr/lib64/ld-linux*.so*",
+
+  // message-of-the-day (MOTD)
+  "/etc/update-motd.d/*",
+
+  // SSH
+  "/home/*/.ssh/*", "/root/.ssh/*", "/etc/ssh/*",
+
+  // system-wide shell configurations
+  "/etc/profile", "/etc/profile.d/*", "/etc/bash.bashrc", "/etc/zsh/*", "/etc/csh.cshrc",
+  "/etc/csh.login", "/etc/fish/config.fish", "/etc/ksh.kshrc",
+
+  // root and user shell configurations
+  "/home/*/.profile", "/home/*/.bashrc", "/home/*/.bash_login", "/home/*/.bash_logout",
+  "/root/.profile", "/root/.bashrc", "/root/.bash_login", "/root/.bash_logout",
+  "/home/*/.zprofile", "/home/*/.zshrc", "/root/.zprofile", "/root/.zshrc",
+  "/home/*/.cshrc", "/home/*/.login", "/home/*/.logout", "/root/.cshrc", "/root/.login", "/root/.logout",
+  "/home/*/.config/fish/config.fish", "/root/.config/fish/config.fish",
+  "/home/*/.kshrc", "/root/.kshrc",
+
+  // runtime control
+  "/etc/rc.common", "/etc/rc.local",
+
+  // System V init/Upstart
+  "/etc/init.d/*", "/etc/init/*",
+
+  // passwd/sudoers/shadow
+  "/etc/passwd", "/etc/shadow", "/etc/sudoers", "/etc/sudoers.d/*",
+
+  // Systemd udevd
+  "/lib/udev/*", "/etc/udev/rules.d/*", "/usr/lib/udev/rules.d/*", "/run/udev/rules.d/*", "/usr/local/lib/udev/rules.d/*",
+
+  // XDG/KDE autostart entries
+  "/home/*/.config/autostart/*", "/root/.config/autostart/*", "/etc/xdg/autostart/*", "/usr/share/autostart/*",
+  "/home/*/.kde/Autostart/*", "/root/.kde/Autostart/*",
+  "/home/*/.kde4/Autostart/*", "/root/.kde4/Autostart/*",
+  "/home/*/.kde/share/autostart/*", "/root/.kde/share/autostart/*",
+  "/home/*/.kde4/share/autostart/*", "/root/.kde4/share/autostart/*",
+  "/home/*/.local/share/autostart/*", "/root/.local/share/autostart/*",
+  "/home/*/.config/autostart-scripts/*", "/root/.config/autostart-scripts/*",
+
+  // LKM configuration files
+  "/etc/modules", "/etc/modprobe.d/*", "/usr/lib/modprobe.d/*", "/etc/modules-load.d/*",
+  "/run/modules-load.d/*", "/usr/local/lib/modules-load.d/*", "/usr/lib/modules-load.d/*",
+
+  // PAM modules & configuration files
+  "/lib/security/*", "/lib64/security/*", "/usr/lib/security/*", "/usr/lib64/security/*",
+  "/lib/x86_64-linux-gnu/security/*", "/usr/lib/x86_64-linux-gnu/security/*",
+  "/etc/pam.d/*", "/etc/security/pam_*", "/etc/pam.conf",
+
+  // Polkit Rule files
+  "/etc/polkit-1/rules.d/*", "/usr/share/polkit-1/rules.d/*",
+
+  // Polkit pkla files
+  "/etc/polkit-1/localauthority/*", "/var/lib/polkit-1/localauthority/*",
+
+  // Polkit Action files
+  "/usr/share/polkit-1/actions/*",
+
+  // Polkit Legacy paths
+  "/lib/polkit-1/rules.d/*", "/lib64/polkit-1/rules.d/*", "/var/lib/polkit-1/rules.d/*",
+
+  // NetworkManager
+  "/etc/NetworkManager/dispatcher.d/*",
+
+  // D-bus Service files
+  "/usr/share/dbus-1/system-services/*", "/etc/dbus-1/system.d/*",
+  "/lib/dbus-1/system-services/*", "/run/dbus/system.d/*",
+  "/home/*/.local/share/dbus-1/services/*", "/home/*/.dbus/session-bus/*",
+  "/usr/share/dbus-1/services/*", "/etc/dbus-1/session.d/*",
+
+  // GRUB
+  "/etc/default/grub.d/*", "/etc/default/grub", "/etc/grub.d/*", "/boot/grub2/grub.cfg",
+  "/boot/grub/grub.cfg", "/boot/efi/EFI/*/grub.cfg", "/etc/sysconfig/grub",
+
+  // Dracut
+  "/lib/dracut/modules.d/*", "/usr/lib/dracut/modules.d/*",
+
+  // Misc.
+  "/etc/shells"
+
+) and not (
+  file.path : (
+    "/var/spool/cron/crontabs/tmp.*", "/run/udev/rules.d/*rules.*", "/home/*/.ssh/known_hosts.*", "/root/.ssh/known_hosts.*"
+  ) or
+  file.extension in ("dpkg-new", "dpkg-remove", "SEQ")
+)
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Persistence via File Modification
+
+File Integrity Monitoring (FIM) is crucial for detecting unauthorized changes to critical files, often targeted by adversaries for persistence. Attackers may modify cron jobs, systemd services, or shell configurations to maintain access or escalate privileges. The detection rule monitors these files for updates, flagging potential persistence attempts by identifying suspicious modifications outside normal operations.
+
+### Possible investigation steps
+
+- Review the file path from the alert to determine which specific file was modified and assess its role in the system, focusing on paths commonly used for persistence such as cron jobs, systemd services, or shell configurations.
+- Check the timestamp of the modification event to correlate it with any known legitimate changes or scheduled maintenance activities, ensuring the modification was not part of normal operations.
+- Investigate the user or process responsible for the modification by examining the associated user ID or process ID, and verify if the user or process has legitimate reasons to alter the file.
+- Analyze recent login and session activity for the user or process involved in the modification to identify any unusual patterns or unauthorized access attempts.
+- Cross-reference the modification event with other security logs or alerts to identify any related suspicious activities, such as privilege escalation attempts or unauthorized access to sensitive files.
+- If the modified file is a configuration file, review its contents for any unauthorized or suspicious entries that could indicate persistence mechanisms, such as new cron jobs or altered systemd service configurations.
+
+### False positive analysis
+
+- Routine system updates or package installations may modify files monitored by the rule, such as those in /etc/cron.d or /etc/systemd/system. To manage these, consider excluding specific file paths or extensions like dpkg-new and dpkg-remove during known maintenance windows.
+- User-specific configuration changes, such as updates to shell profiles in /home/*/.bashrc, can trigger alerts. Implement exceptions for user directories where frequent legitimate changes occur, ensuring these are well-documented and reviewed regularly.
+- Automated scripts or management tools that update system configurations, like /etc/ssh/sshd_config, can cause false positives. Identify these tools and create exceptions for their expected file modification patterns.
+- Temporary files created during system operations, such as /var/spool/cron/crontabs/tmp.*, may be flagged. Exclude these temporary paths to reduce noise while maintaining security oversight.
+- Regular updates to known_hosts files in /home/*/.ssh/known_hosts can be mistaken for suspicious activity. Exclude these files from monitoring to prevent unnecessary alerts while ensuring SSH configurations are still monitored.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the attacker.
+- Review the specific file modifications flagged by the alert to determine if they are unauthorized or malicious. Restore any altered files to their last known good state using backups or system snapshots.
+- Change all passwords and SSH keys associated with the affected system to prevent unauthorized access using compromised credentials.
+- Conduct a thorough scan of the system for additional indicators of compromise, such as unauthorized user accounts or unexpected running processes, and remove any malicious artifacts found.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems may be affected.
+- Implement additional monitoring on the affected system and similar systems to detect any further unauthorized file modifications or suspicious activities.
+- Review and update access controls and permissions on critical files and directories to minimize the risk of unauthorized modifications in the future."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1037.004"
+name = "RC Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/004/"
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1574.006"
+name = "Dynamic Linker Hijacking"
+reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

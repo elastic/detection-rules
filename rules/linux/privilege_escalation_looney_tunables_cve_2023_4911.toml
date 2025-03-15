@@ -2,9 +2,7 @@
 creation_date = "2023/10/05"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Linux environment variable capture feature via the Elastic Defend Integration was added in 8.6."
-min_stack_version = "8.6.0"
-updated_date = "2024/03/08"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -13,11 +11,13 @@ This rule detects potential privilege escalation attempts through Looney Tunable
 buffer overflow vulnerability in GNU C Library's dynamic loader's processing of the GLIBC_TUNABLES environment variable.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via CVE-2023-4911"
-references = ["https://blog.qualys.com/vulnerabilities-threat-research/2023/10/03/cve-2023-4911-looney-tunables-local-privilege-escalation-in-the-glibcs-ld-so"]
+references = [
+    "https://blog.qualys.com/vulnerabilities-threat-research/2023/10/03/cve-2023-4911-looney-tunables-local-privilege-escalation-in-the-glibcs-ld-so",
+]
 risk_score = 73
 rule_id = "6d8685a1-94fa-4ef7-83de-59302e7c4ca8"
 setup = """## Setup
@@ -60,29 +60,68 @@ For more information on capturing environment variables refer to the [helper gui
 """
 severity = "high"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Privilege Escalation",
-        "Use Case: Vulnerability",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.parent.entity_id, process.executable with maxspan=5s
- [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
+ [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
   process.env_vars : "*GLIBC_TUNABLES=glibc.*=glibc.*=*"] with runs=5
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via CVE-2023-4911
+
+CVE-2023-4911 exploits a buffer overflow in the GNU C Library's dynamic loader, specifically targeting the GLIBC_TUNABLES environment variable. Adversaries can manipulate this to gain elevated privileges on Linux systems. The detection rule identifies suspicious activity by monitoring processes with specific environment variables, flagging repeated execution attempts within a short timeframe, indicating potential exploitation efforts.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host.id and process.parent.entity_id associated with the suspicious activity.
+- Examine the process.executable path to determine if it is a legitimate application or potentially malicious.
+- Check the process.env_vars for any unusual or unexpected GLIBC_TUNABLES values that could indicate manipulation attempts.
+- Investigate the host's recent process execution history to identify any patterns or anomalies, focusing on processes with the GLIBC_TUNABLES environment variable set.
+- Correlate the alert with other security events or logs from the same host to identify any additional indicators of compromise or related suspicious activities.
+- Assess the system for any signs of privilege escalation or unauthorized access, such as new user accounts or changes in user privileges.
+
+### False positive analysis
+
+- Frequent legitimate use of GLIBC_TUNABLES environment variable by system administrators or automated scripts can trigger false positives. Users should identify and whitelist these known benign processes to prevent unnecessary alerts.
+- Some Linux distributions or specific applications may use GLIBC_TUNABLES for performance tuning or compatibility reasons. Review and document these cases, and create exceptions for these processes to avoid false alarms.
+- Development environments where GLIBC_TUNABLES is used for testing purposes might also cause false positives. Implement a policy to exclude these environments from monitoring or adjust the rule to account for these specific use cases.
+- Scheduled tasks or cron jobs that utilize GLIBC_TUNABLES for legitimate purposes can be mistaken for exploitation attempts. Ensure these tasks are recognized and excluded from the rule's scope to reduce noise.
+- If a particular user or group frequently triggers the rule due to their role or activities, consider creating a user-based exception to minimize false positives while maintaining security oversight.
+
+### Response and remediation
+
+- Immediately isolate the affected Linux system from the network to prevent further exploitation or lateral movement by the adversary.
+- Terminate any suspicious processes identified with the GLIBC_TUNABLES environment variable to halt ongoing exploitation attempts.
+- Apply the latest security patches and updates to the GNU C Library on all affected systems to remediate the buffer overflow vulnerability.
+- Conduct a thorough review of system logs and process execution history to identify any unauthorized changes or additional indicators of compromise.
+- Restore affected systems from a known good backup taken before the exploitation attempt, ensuring that the backup is free from any malicious modifications.
+- Implement enhanced monitoring and alerting for unusual process executions and environment variable manipulations to detect similar threats in the future.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems within the network."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

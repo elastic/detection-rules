@@ -1,0 +1,79 @@
+[hunt]
+author = "Elastic"
+description = """
+This hunt identifies potential persistence mechanisms leveraging Pluggable Authentication Modules (PAM) on Linux systems. PAM is a powerful framework for managing authentication-related tasks, but its flexibility can be abused by attackers to introduce malicious modules or modify configurations to gain unauthorized access or establish persistence. This hunt monitors for modifications to PAM-related files, directories, and modules.
+"""
+integration = ["endpoint"]
+uuid = "2a3c46b8-7bd6-4bc4-a4a8-a1af114ea152"
+name = "Persistence via Pluggable Authentication Modules (PAM)"
+language = ["ES|QL", "SQL"]
+license = "Elastic License v2"
+notes = [
+    "PAM modules are critical to Linux authentication workflows, but they can be abused to establish persistence or execute malicious actions.",
+    "This hunt identifies suspicious file creation or modification events in PAM directories, such as /etc/pam.d/, /lib/security/, and related paths.",
+    "Uses ES|QL queries to track file events and identify potentially malicious activity based on process activity and file paths.",
+    "Complemented by OSQuery queries to provide detailed file metadata for modified PAM-related files, including timestamps and ownership information."
+]
+mitre = ["T1556.003"]
+
+query = [
+'''
+from logs-endpoint.events.file-*
+| keep @timestamp, host.os.type, event.type, event.action, file.path, process.executable, agent.id
+| where @timestamp > now() - 7 days
+| where host.os.type == "linux" and event.action in ("rename", "creation") and (
+  file.path like "/lib/security/*" or
+  file.path like "/lib64/security/*" or
+  file.path like "/usr/lib64/security/*" or
+  file.path like "/usr/lib/x86_64-linux-gnu/security/*" or
+  file.path like "/lib/x86_64-linux-gnu/security/*" or
+  file.path like "/etc/pam.d/*" or
+  file.path == "/etc/pam.conf"
+)
+| stats cc = count(), agent_count = count_distinct(agent.id) by file.path, process.executable
+| where agent_count <= 3
+| sort cc asc
+| limit 100
+''', 
+'''
+SELECT
+    f.filename,
+    f.path,
+    u.username AS file_owner,
+    g.groupname AS group_owner,
+    datetime(f.atime, 'unixepoch') AS file_last_access_time,
+    datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
+    datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
+    datetime(f.btime, 'unixepoch') AS file_created_time,
+    f.size AS size_bytes
+FROM
+    file f
+LEFT JOIN
+    users u ON f.uid = u.uid
+LEFT JOIN
+    groups g ON f.gid = g.gid
+WHERE
+    f.path LIKE '/lib/security/%'
+    OR f.path LIKE '/lib64/security/%'
+    OR f.path LIKE '/usr/lib/security/%'
+    OR f.path LIKE '/usr/lib64/security/%'
+    OR f.path LIKE '/usr/lib/x86_64-linux-gnu/security/%'
+    OR f.path LIKE '/lib/x86_64-linux-gnu/security/%'
+    OR f.path like '/etc/pam.d/%'
+    OR f.path = '/etc/pam.conf'
+''',  
+'''
+SELECT * FROM file
+WHERE (
+       path LIKE '/lib/security/%'
+       OR path LIKE '/lib64/security/%'
+       OR path LIKE '/usr/lib/security/%'
+       OR path LIKE '/usr/lib64/security/%'
+       OR path LIKE '/usr/lib/x86_64-linux-gnu/security/%'
+       OR path LIKE '/lib/x86_64-linux-gnu/security/%'
+       OR path like '/etc/pam.d/%'
+       OR path = '/etc/pam.conf'
+     )
+AND (mtime > strftime('%s', 'now') - (7 * 86400)); -- Modified in the last 7 days
+'''
+]

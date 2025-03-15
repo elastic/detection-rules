@@ -2,9 +2,7 @@
 creation_date = "2020/03/25"
 integration = ["auditd_manager", "endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/07/27"
+updated_date = "2025/01/15"
 
 [rule]
 anomaly_threshold = 50
@@ -29,10 +27,94 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "packetbeat_rare_server_domain"
 name = "Unusual Network Destination Domain Name"
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from one of the following integrations:
+- Elastic Defend
+- Auditd Manager
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration to your system:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+### Auditd Manager Integration Setup
+The Auditd Manager Integration receives audit events from the Linux Audit Framework which is a part of the Linux kernel.
+Auditd Manager provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "auditd_manager" to your system:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “Auditd Manager” and select the integration to see more details about it.
+- Click “Add Auditd Manager”.
+- Configure the integration name and optionally add a description.
+- Review optional and advanced settings accordingly.
+- Add the newly installed “auditd manager” to an existing or a new agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
+
+#### Rule Specific Setup Note
+Auditd Manager subscribes to the kernel and receives events as they occur without any additional configuration.
+However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+- For this detection rule no additional audit rules are required.
+"""
 references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
 risk_score = 21
 rule_id = "17e68559-b274-4948-ad0b-f8415bb31126"
 severity = "low"
-tags = ["Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning", ]
+tags = ["Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning", "Resources: Investigation Guide"]
 type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Network Destination Domain Name
+
+Machine learning models analyze network traffic to identify atypical domain names, which may indicate malicious activities like phishing or malware communication. Adversaries exploit uncommon domains for initial access or command-and-control. This detection rule leverages ML to flag these anomalies, aiding analysts in identifying potential threats early.
+
+### Possible investigation steps
+
+- Review the domain name flagged by the alert to determine if it is known for malicious activity or if it is newly registered, using threat intelligence sources and domain reputation services.
+- Analyze the network traffic associated with the domain to identify the source IP address and any related communication patterns, such as frequency and data volume.
+- Check the user or system that initiated the connection to the unusual domain for any recent changes or suspicious activities, such as software installations or configuration changes.
+- Investigate any related alerts or logs that might provide additional context, such as other unusual domain requests or failed login attempts, to identify potential patterns or correlations.
+- Assess the endpoint security logs for signs of malware or unauthorized access attempts that could be linked to the unusual domain activity.
+
+### False positive analysis
+
+- Legitimate software updates or downloads from uncommon domains can trigger false positives. Users should maintain a list of known software vendors and their associated domains to exclude these from alerts.
+- Internal testing or development environments may use non-standard domain names. Organizations should document these domains and configure exceptions to prevent unnecessary alerts.
+- Newly registered domains for legitimate business purposes might be flagged. Regularly update the list of approved domains as new business initiatives arise.
+- Third-party services or APIs that use unique domain names can cause false positives. Identify and whitelist these services to reduce noise in alerts.
+- Temporary or one-time use domains for events or campaigns should be monitored and excluded as needed to avoid repeated false positives.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further communication with the suspicious domain and potential spread of malware.
+- Conduct a thorough scan of the isolated system using updated antivirus and anti-malware tools to identify and remove any malicious software.
+- Review and analyze network logs to identify any other systems that may have communicated with the unusual domain and apply similar isolation and scanning procedures to those systems.
+- Change passwords and credentials associated with the affected system and any potentially compromised accounts to prevent unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional containment measures are necessary.
+- Implement network-level blocking of the identified unusual domain across the organization to prevent future access attempts.
+- Update threat intelligence feeds and detection systems with indicators of compromise (IOCs) related to the unusual domain to enhance future detection capabilities."""
 

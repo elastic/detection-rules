@@ -2,9 +2,7 @@
 creation_date = "2020/07/06"
 integration = ["network_traffic"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/16"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +21,42 @@ index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "lucene"
 license = "Elastic License v2"
 name = "Halfbaked Command and Control Beacon"
-note = """## Threat intel
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Halfbaked Command and Control Beacon
+
+Halfbaked malware exploits common network protocols to maintain persistence and facilitate command and control (C2) operations within compromised networks. Adversaries leverage HTTP and TLS protocols to disguise malicious traffic as legitimate, often targeting specific ports like 53, 80, 8080, and 443. The detection rule identifies suspicious network patterns, such as unusual URL structures and specific transport protocols, to flag potential C2 beaconing activities.
+
+### Possible investigation steps
+
+- Review the network traffic logs to identify any connections to IP addresses matching the pattern specified in the query (e.g., http://[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}/cd) and determine if these IPs are known or suspicious.
+- Analyze the destination ports (53, 80, 8080, 443) used in the flagged traffic to assess if they align with typical usage patterns for the affected systems or if they indicate potential misuse.
+- Examine the HTTP and TLS traffic details to identify any unusual URL structures or anomalies in the network.protocol field that could suggest malicious activity.
+- Correlate the detected network activity with endpoint logs to identify any associated processes or applications that may have initiated the suspicious traffic.
+- Investigate any related alerts or historical data for patterns of similar activity, which could indicate a persistent threat or ongoing compromise within the network.
+
+### False positive analysis
+
+- Legitimate software updates or patch management systems may use similar URL structures and ports, leading to false positives. Users can create exceptions for known update servers by whitelisting their IP addresses or domain names.
+- Internal web applications or services that use non-standard ports like 8080 for HTTP traffic might trigger the rule. Identify these applications and exclude their traffic from the rule by specifying their IP addresses or domain names.
+- Network monitoring tools or security appliances that perform regular scans or health checks over HTTP or TLS might mimic the detected patterns. Exclude these tools by adding their IP addresses to an exception list.
+- Content delivery networks (CDNs) often use IP-based URLs for load balancing and might be mistaken for malicious activity. Verify the legitimacy of the CDN traffic and exclude it by whitelisting the associated IP ranges.
+- Automated scripts or bots within the network that access external resources using IP-based URLs could trigger alerts. Review these scripts and, if deemed safe, exclude their traffic by specifying their source IP addresses.
+
+### Response and remediation
+
+- Isolate the affected systems from the network immediately to prevent further communication with the command and control server.
+- Conduct a thorough scan of the isolated systems using updated antivirus and anti-malware tools to identify and remove the Halfbaked malware.
+- Analyze network traffic logs to identify other potentially compromised systems by looking for similar suspicious network patterns and URL structures.
+- Block the identified malicious IP addresses and domains at the network perimeter to prevent further communication attempts.
+- Apply security patches and updates to all systems and applications to close vulnerabilities exploited by the malware.
+- Restore affected systems from clean backups, ensuring that the backups are free from any signs of compromise.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the scope of the breach.
+
+## Threat intel
 
 This activity has been observed in FIN7 campaigns."""
 references = [
@@ -33,7 +66,7 @@ references = [
 risk_score = 73
 rule_id = "2e580225-2a58-48ef-938b-572933be06fe"
 severity = "high"
-tags = ["Use Case: Threat Detection", "Tactic: Command and Control", "Domain: Endpoint"]
+tags = ["Use Case: Threat Detection", "Tactic: Command and Control", "Domain: Endpoint", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 

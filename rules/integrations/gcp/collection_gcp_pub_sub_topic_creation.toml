@@ -2,9 +2,7 @@
 creation_date = "2020/09/23"
 integration = ["gcp"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -24,14 +22,58 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Pub/Sub Topic Creation"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP Pub/Sub Topic Creation
+
+Google Cloud Pub/Sub is a messaging service that enables asynchronous communication between independent applications. It uses topics to route messages from publishers to subscribers. Adversaries might exploit this by creating unauthorized topics to exfiltrate data or disrupt services. The detection rule monitors successful topic creation events, helping identify potential misuse by flagging unexpected or suspicious activity.
+
+### Possible investigation steps
+
+- Review the event details to confirm the presence of the event.action field with the value google.pubsub.v*.Publisher.CreateTopic and ensure the event.outcome is success.
+- Identify the user or service account associated with the topic creation by examining the actor information in the event logs.
+- Check the project and resource details to determine the context and environment where the topic was created, including the project ID and resource name.
+- Investigate the purpose and necessity of the newly created topic by consulting with relevant stakeholders or reviewing documentation related to the project.
+- Analyze historical logs to identify any unusual patterns or anomalies in topic creation activities by the same user or within the same project.
+- Assess the permissions and roles assigned to the user or service account to ensure they align with the principle of least privilege.
+- If suspicious activity is confirmed, consider implementing additional monitoring or access controls to prevent unauthorized topic creation in the future.
+
+### False positive analysis
+
+- Routine topic creation by automated processes or scripts can trigger false positives. Identify and document these processes to create exceptions in the monitoring system.
+- Development and testing environments often involve frequent topic creation. Exclude these environments from alerts by using environment-specific tags or labels.
+- Scheduled maintenance or updates by cloud administrators may result in legitimate topic creation. Coordinate with the operations team to whitelist these activities during known maintenance windows.
+- Third-party integrations or services that rely on Pub/Sub for communication might create topics as part of their normal operation. Review and approve these integrations to prevent unnecessary alerts.
+- Internal applications with dynamic topic creation as part of their workflow should be assessed and, if deemed non-threatening, added to an exception list to reduce noise.
+
+### Response and remediation
+
+- Immediately review the audit logs to confirm the unauthorized creation of the Pub/Sub topic and identify the user or service account responsible for the action.
+- Revoke or limit permissions for the identified user or service account to prevent further unauthorized actions, ensuring that only necessary permissions are granted.
+- Delete the unauthorized Pub/Sub topic to prevent any potential data exfiltration or disruption of services.
+- Conduct a thorough review of other Pub/Sub topics and related resources to ensure no additional unauthorized topics have been created.
+- Notify the security team and relevant stakeholders about the incident for further investigation and to assess potential impacts on the organization.
+- Implement additional monitoring and alerting for Pub/Sub topic creation events to detect and respond to similar threats more quickly in the future.
+- Consider enabling organization-wide policies that restrict who can create Pub/Sub topics to reduce the risk of unauthorized actions.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/pubsub/docs/admin"]
 risk_score = 21
 rule_id = "a10d3d9d-0f65-48f1-8b25-af175e2594f5"
 severity = "low"
-tags = ["Domain: Cloud", "Data Source: GCP", "Data Source: Google Cloud Platform", "Use Case: Log Auditing", "Tactic: Collection"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Log Auditing",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 

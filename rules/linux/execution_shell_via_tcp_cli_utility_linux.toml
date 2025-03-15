@@ -2,9 +2,7 @@
 creation_date = "2023/07/04"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -14,12 +12,12 @@ activity consists of a parent-child relationship where a network event is follow
 An attacker may establish a Linux TCP reverse shell to gain remote access to a target system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Reverse Shell"
 references = [
-    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
+    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md",
 ]
 risk_score = 47
 rule_id = "48b3d2e3-f4e8-41e6-95e6-9b2091228db3"
@@ -50,51 +48,90 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
+
 query = '''
 sequence by host.id with maxspan=5s
-  [network where event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
-   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and destination.ip != null and 
-   not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")] by process.entity_id
-  [process where event.type == "start" and event.action in ("exec", "fork") and 
-   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
-     (process.args : ("-i", "-l")) or (process.parent.name == "socat" and process.parent.args : "*exec*")
+  [network where event.type == "start" and host.os.type == "linux" and
+     event.action in ("connection_attempted", "connection_accepted") and
+     process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and destination.ip != null and
+     not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")] by process.entity_id
+  [process where event.type == "start" and host.os.type == "linux" and event.action in ("exec", "fork") and
+     process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
+       (process.args : ("-i", "-l")) or (process.parent.name == "socat" and process.parent.args : "*exec*")
    )] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Reverse Shell
+
+Reverse shells are tools that adversaries use to gain remote access to a system by initiating a connection from the target back to the attacker. This detection rule identifies such activity by monitoring for network events followed by shell process creation on Linux systems. It flags suspicious patterns, such as shell processes with interactive flags or spawned by tools like socat, indicating potential unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the network event details to identify the source and destination IP addresses involved in the connection attempt or acceptance. Pay special attention to any external IP addresses that are not part of the internal network ranges.
+- Examine the process tree to understand the parent-child relationship, focusing on the shell process creation following the network event. Verify if the shell process was spawned by a known tool like socat.
+- Check the process arguments for interactive flags such as "-i" or "-l" to determine if the shell was intended to be interactive, which could indicate malicious intent.
+- Investigate the user account associated with the process to determine if it is a legitimate user or if there are signs of compromise, such as unusual login times or locations.
+- Correlate the event with other security logs or alerts to identify any additional suspicious activities or patterns that might indicate a broader attack campaign.
+- Assess the risk and impact of the potential reverse shell by determining if any sensitive data or critical systems could have been accessed or compromised.
+
+### False positive analysis
+
+- Legitimate administrative tasks using interactive shells may trigger this rule. System administrators often use shells with interactive flags for maintenance. To mitigate, create exceptions for known administrator accounts or specific IP addresses.
+- Automated scripts or cron jobs that use shell commands with interactive flags can be mistaken for reverse shells. Review and whitelist these scripts by process name or parent process ID to prevent false alerts.
+- Tools like socat are used in legitimate network troubleshooting and testing. If socat is frequently used in your environment, consider excluding specific command patterns or user accounts associated with its legitimate use.
+- Development environments may spawn shell processes as part of testing or deployment workflows. Identify and exclude these environments by host ID or process name to reduce noise.
+- Internal network connections that match the rule's criteria but are part of normal operations can be excluded by specifying internal IP ranges or known service accounts.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious shell processes identified by the detection rule, especially those initiated by socat or with interactive flags.
+- Conduct a forensic analysis of the affected system to identify any additional indicators of compromise, such as unauthorized user accounts or modified files.
+- Review and secure network configurations to ensure that only authorized IP addresses can initiate connections to critical systems.
+- Update and patch the affected system and any related software to close vulnerabilities that may have been exploited.
+- Implement enhanced monitoring and logging on the affected host and network to detect any further attempts at reverse shell activity.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if broader organizational impacts exist."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+
 
 [rule.threat.tactic]
-name = "Command and Control"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
 id = "TA0011"
+name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat.technique]]
-name = "Application Layer Protocol"
-id = "T1071"
-reference = "https://attack.mitre.org/techniques/T1071/"

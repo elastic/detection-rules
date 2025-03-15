@@ -2,9 +2,7 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2023/12/12"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -31,14 +29,15 @@ query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.u
 label = "Osquery - Retrieve Process Info"
 query = "SELECT name, cmdline, parent, path, uid FROM processes"
 
+
 [rule]
 author = ["Elastic"]
 description = """
 This rule monitors for network connectivity to the internet from a previously unknown executable located in a suspicious
-directory to a previously unknown destination ip. An alert from this rule can indicate the presence of potentially
-malicious activity, such as the execution of unauthorized or suspicious processes attempting to establish connections to
-unknown or suspicious destinations such as a command and control server. Detecting and investigating such behavior can
-help identify and mitigate potential security threats, protecting the system and its data from potential compromise.
+directory. An alert from this rule can indicate the presence of potentially malicious activity, such as the execution of
+unauthorized or suspicious processes attempting to establish connections to unknown or suspicious destinations such as a
+command and control server. Detecting and investigating such behavior can help identify and mitigate potential security
+threats, protecting the system and its data from potential compromise.
 """
 from = "now-59m"
 index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*", "endgame-*"]
@@ -54,7 +53,7 @@ After being installed, malware will often call out to its command and control se
 This rule leverages the new terms rule type to detect previously unknown processes, initiating network connections to external IP-addresses. 
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible investigation steps
@@ -169,35 +168,42 @@ Packetbeat is a real-time network packet analyzer that you can use for applicati
 """
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Command and Control",
-        "Data Source: Elastic Endgame",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:linux and event.category:network and event.action:(connection_attempted or ipv4_connection_attempt_event) and 
-process.executable:(
-  (/etc/crontab or /etc/rc.local or ./* or /boot/* or /dev/shm/* or /etc/cron.*/* or /etc/init.d/* or /etc/rc*.d/* or 
-   /etc/update-motd.d/* or /home/*/.* or /run/* or /srv/* or /tmp/* or /usr/lib/update-notifier/* or /var/tmp/*
-  ) and not (/tmp/newroot/* or /tmp/snap.rootfs*)
- ) and 
-source.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and 
-not process.name:(
- apt or chrome or curl or dnf or dockerd or dpkg or firefox-bin or java or kite-update or kited or node or rpm or
- saml2aws or wget or yum or ansible* or aws* or php* or pip* or python* or steam* or terraform*
-) and 
-not destination.ip:(
-   10.0.0.0/8 or 100.64.0.0/10 or 127.0.0.0/8 or 169.254.0.0/16 or 172.16.0.0/12 or 192.0.0.0/24 or 192.0.0.0/29 or 
-   192.0.0.10/32 or 192.0.0.170/32 or 192.0.0.171/32 or 192.0.0.8/32 or 192.0.0.9/32 or 192.0.2.0/24 or 
-   192.168.0.0/16 or 192.175.48.0/24 or 192.31.196.0/24 or 192.52.193.0/24 or 192.88.99.0/24 or 198.18.0.0/15 or 
-   198.51.100.0/24 or 203.0.113.0/24 or 224.0.0.0/4 or 240.0.0.0/4 or "::1" or "FE80::/10" or "FF00::/8" or 0.0.0.0
-) and
-not destination.port:(22 or 80 or 443)
+host.os.type:linux and event.category:network and event.action:(connection_attempted or ipv4_connection_attempt_event) and
+process.executable : (
+  /etc/crontab or /etc/rc.local or ./* or /boot/* or /dev/shm/* or /etc/cron.*/* or /etc/init.d/* or /etc/rc*.d/* or
+  /etc/update-motd.d/* or /home/*/.* or /tmp/* or /usr/lib/update-notifier/* or /var/log/* or /var/tmp/*
+) and process.name : * and
+not (
+  process.executable : (
+    /tmp/newroot/* or /tmp/snap.rootfs* or /etc/cron.hourly/BitdefenderRedline or /tmp/go-build* or /srv/snp/docker/* or
+    /run/containerd/* or /tmp/.mount* or /run/k3s/containerd/* or /tmp/selenium* or /tmp/tmp.*/juliainstaller or
+    /tmp/.criu.mntns* or /home/*/.local/share/containers/* or /etc/update-motd.d/*
+  ) or
+  source.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) or
+  process.name : (
+    apt or chrome or curl or dnf or dockerd or dpkg or firefox-bin or git-remote-https or java or kite-update or
+    kited or node or rpm or saml2aws or selenium-manager or solana-validator or wget or yum or ansible* or aws* or
+    php* or pip* or python* or steam* or terraform* or filebeat or apk or cursor or http
+  ) or
+  destination.ip:(
+    0.0.0.0 or 10.0.0.0/8 or 100.64.0.0/10 or 127.0.0.0/8 or 169.254.0.0/16 or 172.16.0.0/12 or 192.0.0.0/24 or
+    192.0.0.0/29 or 192.0.0.10/32 or 192.0.0.170/32 or 192.0.0.171/32 or 192.0.0.8/32 or 192.0.0.9/32 or 192.0.2.0/24 or
+    192.168.0.0/16 or 192.175.48.0/24 or 192.31.196.0/24 or 192.52.193.0/24 or 192.88.99.0/24 or 198.18.0.0/15 or
+    198.51.100.0/24 or 203.0.113.0/24 or 224.0.0.0/4 or 240.0.0.0/4 or "::1" or "FE80::/10" or "FF00::/8"
+  )
+)
 '''
 
 [[rule.threat]]
@@ -215,8 +221,8 @@ reference = "https://attack.mitre.org/tactics/TA0011/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "destination.ip", "process.executable"]
+value = ["process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-20d"

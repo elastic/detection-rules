@@ -2,10 +2,8 @@
 creation_date = "2023/01/15"
 integration = ["google_workspace"]
 maturity = "production"
-min_stack_comments = "Google Workspace feature only present in 8.4+ stack versions"
-min_stack_version = "8.4.0"
-updated_date = "2023/06/22"
 promotion = true
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -33,12 +31,22 @@ note = """## Setup
 This is a promotion rule for Google Workspace security events, which are alertable events per the vendor.
 Consult vendor documentation on interpreting specific events.
 """
-references = ["https://workspace.google.com/products/admin/alert-center/"]
+references = [
+    "https://workspace.google.com/products/admin/alert-center/",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-two"
+]
 risk_score = 73
 rule_id = "f1a6d0f4-95b8-11ed-9517-f661ea17fbcc"
 rule_name_override = "google_workspace.alert.type"
 severity = "high"
-tags = ["Domain: Cloud", "Data Source: Google Workspace", "Use Case: Log Auditing", "Use Case: Threat Detection"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Log Auditing",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -46,21 +54,23 @@ query = '''
 event.dataset: google_workspace.alert
 '''
 
+
 [[rule.severity_mapping]]
 field = "google_workspace.alert.metadata.severity"
-value = "LOW"
 operator = "equals"
 severity = "low"
+value = "LOW"
 
 [[rule.severity_mapping]]
 field = "google_workspace.alert.metadata.severity"
-value = "MEDIUM"
 operator = "equals"
 severity = "medium"
+value = "MEDIUM"
 
 [[rule.severity_mapping]]
 field = "google_workspace.alert.metadata.severity"
-value = "HIGH"
 operator = "equals"
 severity = "high"
+value = "HIGH"
+
 

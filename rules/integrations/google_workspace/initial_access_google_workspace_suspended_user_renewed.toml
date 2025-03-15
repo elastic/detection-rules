@@ -2,9 +2,7 @@
 creation_date = "2020/11/17"
 integration = ["google_workspace"]
 maturity = "production"
-min_stack_comments = "Breaking changes for Google Workspace integration."
-min_stack_version = "8.4.0"
-updated_date = "2023/06/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +24,40 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Google Workspace Suspended User Account Renewed"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Google Workspace Suspended User Account Renewed
+
+Google Workspace manages user identities and access, crucial for organizational security. Adversaries may exploit the renewal of suspended accounts to regain unauthorized access, bypassing security measures. The detection rule identifies such events by monitoring specific administrative actions, helping analysts spot potential misuse and maintain secure access controls.
+
+### Possible investigation steps
+
+- Review the event logs for the specific action `UNSUSPEND_USER` to identify the user account that was renewed and gather details about the timing and context of the action.
+- Check the identity of the administrator or service account that performed the `UNSUSPEND_USER` action to determine if the action was authorized or if there are signs of account compromise.
+- Investigate the history of the suspended user account to understand why it was initially suspended and assess any potential risks associated with its renewal.
+- Examine recent activity logs for the renewed user account to identify any suspicious behavior or unauthorized access attempts following the account's reactivation.
+- Cross-reference the event with other security alerts or incidents to determine if the renewal is part of a broader pattern of suspicious activity within the organization.
+
+### False positive analysis
+
+- Routine administrative actions may trigger the rule when IT staff unsuspend accounts for legitimate reasons, such as resolving a temporary issue. To manage this, create exceptions for known IT personnel or specific administrative actions that are part of regular account maintenance.
+- Automated processes or scripts that unsuspend accounts as part of a workflow can also lead to false positives. Identify and document these processes, then exclude them from triggering alerts by using specific identifiers or tags associated with the automation.
+- User accounts that are temporarily suspended due to policy violations or inactivity and later reinstated can cause false positives. Implement a review process to verify the legitimacy of these reinstatements and adjust the rule to exclude such cases when they are part of a documented policy.
+
+### Response and remediation
+
+- Immediately review the user account activity logs to determine if any unauthorized actions were taken after the account was unsuspended. Focus on sensitive data access and changes to security settings.
+- Temporarily suspend the user account again to prevent further unauthorized access while the investigation is ongoing.
+- Notify the security team and relevant stakeholders about the potential security incident to ensure coordinated response efforts.
+- Conduct a thorough review of the account's permissions and access levels to ensure they align with the user's current role and responsibilities. Adjust as necessary to follow the principle of least privilege.
+- If malicious activity is confirmed, initiate a password reset for the affected account and any other accounts that may have been compromised.
+- Implement additional monitoring on the affected account and similar accounts to detect any further suspicious activity.
+- Review and update security policies and procedures related to account suspension and reactivation to prevent similar incidents in the future.
+
+## Setup
 
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 
@@ -38,11 +69,21 @@ The Google Workspace Fleet integration, Filebeat module, or similarly structured
 - See the following references for further information:
   - https://support.google.com/a/answer/7061566
   - https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-google_workspace.html"""
-references = ["https://support.google.com/a/answer/1110339"]
+references = [
+    "https://support.google.com/a/answer/1110339",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-two"
+]
 risk_score = 21
 rule_id = "00678712-b2df-11ed-afe9-f661ea17fbcc"
 severity = "low"
-tags = ["Domain: Cloud", "Data Source: Google Workspace", "Use Case: Identity and Access Audit", "Tactic: Initial Access"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 

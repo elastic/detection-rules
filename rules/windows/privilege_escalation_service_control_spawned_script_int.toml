@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "system", "windows"]
+integration = ["endpoint", "system", "windows", "m365_defender", "crowdstrike"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/28"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [transform]
 [[transform.osquery]]
@@ -27,6 +27,7 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+
 [rule]
 author = ["Elastic"]
 description = """
@@ -34,7 +35,15 @@ Identifies Service Control (sc.exe) spawning from script interpreter processes t
 This can potentially indicate an attempt to elevate privileges or maintain persistence.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "logs-system.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "winlogbeat-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Service Control Spawned via Script Interpreter"
@@ -47,7 +56,7 @@ Windows services are background processes that run with SYSTEM privileges and pr
 The `sc.exe` command line utility is used to manage and control Windows services on a local or remote computer. Attackers may use `sc.exe` to create, modify, and start services to elevate their privileges from administrator to SYSTEM.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -77,10 +86,24 @@ The `sc.exe` command line utility is used to manage and control Windows services
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+references = ["https://www.elastic.co/security-labs/invisible-miners-unveiling-ghostengine"]
 risk_score = 21
 rule_id = "e8571d5f-bea1-46c2-9f56-998de2d3ed95"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Defense Evasion", "Tactic: Execution", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Crowdstrike",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -88,7 +111,7 @@ query = '''
 /* This rule is not compatible with Sysmon due to user.id issues */
 
 process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "sc.exe" or process.pe.original_file_name == "sc.exe") and
+  (process.name : "sc.exe" or ?process.pe.original_file_name == "sc.exe") and
   process.parent.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe",
                          "wmic.exe", "mshta.exe","powershell.exe", "pwsh.exe") and
   process.args:("config", "create", "start", "delete", "stop", "pause") and
@@ -108,13 +131,19 @@ id = "T1543.003"
 name = "Windows Service"
 reference = "https://attack.mitre.org/techniques/T1543/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1047"
+name = "Windows Management Instrumentation"
+reference = "https://attack.mitre.org/techniques/T1047/"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
@@ -123,35 +152,29 @@ reference = "https://attack.mitre.org/techniques/T1059/"
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.005"
 name = "Visual Basic"
 reference = "https://attack.mitre.org/techniques/T1059/005/"
 
 
-[[rule.threat.technique]]
-id = "T1047"
-name = "Windows Management Instrumentation"
-reference = "https://attack.mitre.org/techniques/T1047/"
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1218"
 name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1218.010"
 name = "Regsvr32"
@@ -161,6 +184,7 @@ reference = "https://attack.mitre.org/techniques/T1218/010/"
 id = "T1218.011"
 name = "Rundll32"
 reference = "https://attack.mitre.org/techniques/T1218/011/"
+
 
 
 [rule.threat.tactic]

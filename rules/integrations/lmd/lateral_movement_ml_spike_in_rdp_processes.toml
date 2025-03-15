@@ -2,9 +2,7 @@
 creation_date = "2023/10/12"
 integration = ["lmd", "endpoint"]
 maturity = "production"
-min_stack_comments = "LMD package job ID and rule removal updates"
-min_stack_version = "8.9.0"
-updated_date = "2023/12/12"
+updated_date = "2025/01/15"
 
 [rule]
 anomaly_threshold = 70
@@ -18,9 +16,17 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "lmd_high_sum_rdp_number_of_processes"
 name = "Spike in Number of Processes in an RDP Session"
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/lmd",
+    "https://www.elastic.co/blog/detecting-lateral-movement-activity-a-new-kibana-integration",
+    "https://www.elastic.co/blog/remote-desktop-protocol-connections-elastic-security",
+]
+risk_score = 21
+rule_id = "19e9daf3-f5c5-4bc2-a9af-6b1e97098f03"
 setup = """## Setup
 
-The rule requires the Lateral Movement Detection integration assets to be installed, as well as file and Windows RDP process events collected by the Elastic Defend integration.  
+The rule requires the Lateral Movement Detection integration assets to be installed, as well as file and Windows RDP process events collected by the Elastic Defend integration.
 
 ### Lateral Movement Detection Setup
 The Lateral Movement Detection integration detects lateral movement activity by identifying abnormalities in file and Windows RDP events. Anomalies are detected using Elastic's Anomaly Detection feature.
@@ -34,32 +40,52 @@ The Lateral Movement Detection integration detects lateral movement activity by 
 #### The following steps should be executed to install assets associated with the Lateral Movement Detection integration:
 - Go to the Kibana homepage. Under Management, click Integrations.
 - In the query bar, search for Lateral Movement Detection and select the integration to see more details about it.
-- Under Settings, click Install Lateral Movement Detection assets and follow the prompts to install the assets.
-
-#### Anomaly Detection Setup
-Before you can enable rules for Lateral Movement Detection, you'll need to enable the corresponding Anomaly Detection jobs.
-- Before enabling the Anomaly Detection jobs, confirm that the Pivot Transform asset is installed and actively gathering data in the destination index `ml-rdp-lmd`.
-- Go to the Kibana homepage. Under Analytics, click Machine Learning.
-- Under Anomaly Detection, click Jobs, and then click "Create job". Select the Data View containing your transformed RDP process data i.e.`ml-rdp-lmd`.
-- If the selected Data View contains events that match the query in [this](https://github.com/elastic/integrations/blob/main/packages/lmd/kibana/ml_module/lmd-ml.json) configuration file, you will see a card for Lateral Movement Detection under "Use preconfigured jobs".
-- Keep the default settings and click "Create jobs" to start the anomaly detection jobs and datafeeds.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
 """
-references = [
-    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
-    "https://docs.elastic.co/en/integrations/lmd",
-    "https://www.elastic.co/blog/detecting-lateral-movement-activity-a-new-kibana-integration",
-    "https://www.elastic.co/blog/remote-desktop-protocol-connections-elastic-security",
-]
-risk_score = 21
-rule_id = "19e9daf3-f5c5-4bc2-a9af-6b1e97098f03"
 severity = "low"
 tags = [
     "Use Case: Lateral Movement Detection",
     "Rule Type: ML",
     "Rule Type: Machine Learning",
     "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in Number of Processes in an RDP Session
+
+Remote Desktop Protocol (RDP) allows users to connect to other computers over a network, facilitating remote work and administration. However, adversaries can exploit RDP for lateral movement by executing numerous processes on a target machine. The detection rule leverages machine learning to identify anomalies in process activity during RDP sessions, flagging potential exploitation attempts indicative of lateral movement tactics.
+
+### Possible investigation steps
+
+- Review the specific RDP session details, including the source and destination IP addresses, to identify the involved machines and users.
+- Analyze the list of processes that were started during the RDP session to identify any unusual or suspicious processes that are not typically associated with legitimate remote work activities.
+- Check the user account associated with the RDP session for any signs of compromise, such as recent password changes or unusual login times.
+- Correlate the detected spike in processes with other security events or logs, such as firewall logs or intrusion detection system alerts, to identify any related suspicious activities.
+- Investigate the network traffic between the source and destination machines during the RDP session to detect any anomalies or unauthorized data transfers.
+- Review historical data for the involved user and machines to determine if similar spikes in process activity have occurred in the past, which could indicate a pattern of malicious behavior.
+
+### False positive analysis
+
+- High-volume automated tasks or scripts executed during RDP sessions can trigger false positives. Identify and document these tasks, then create exceptions in the detection rule to exclude them from analysis.
+- Routine administrative activities, such as software updates or system maintenance, may result in a spike in processes. Regularly review and whitelist these activities to prevent unnecessary alerts.
+- Scheduled batch jobs or data processing tasks that run during RDP sessions can be mistaken for lateral movement. Ensure these are logged and excluded from the rule's scope by setting up appropriate filters.
+- Development or testing environments where multiple processes are frequently started as part of normal operations can lead to false positives. Clearly define these environments and adjust the rule to ignore such sessions.
+
+### Response and remediation
+
+- Isolate the affected machine from the network to prevent further lateral movement and contain the threat.
+- Terminate any suspicious or unauthorized processes identified during the RDP session to halt potential malicious activity.
+- Conduct a thorough review of the affected machine's security logs to identify any additional indicators of compromise or related suspicious activity.
+- Reset credentials for any accounts that were used during the suspicious RDP session to prevent unauthorized access.
+- Apply security patches and updates to the affected machine and any other vulnerable systems to mitigate exploitation of known vulnerabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
+- Enhance monitoring and detection capabilities for RDP sessions by implementing stricter access controls and logging to detect similar anomalies in the future."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

@@ -46,7 +46,7 @@ jobs:
                 core.setFailed('Forbidden branch')
               }
         - name: Checkout detection-rules
-          uses: actions/checkout@v3
+          uses: actions/checkout@v4
           with:
             path: detection-rules
             fetch-depth: 0
@@ -66,9 +66,9 @@ jobs:
             git checkout $COMMIT_HASH
 
         - name: Checkout elastic/integrations
-          uses: actions/checkout@v3
+          uses: actions/checkout@v4
           with:
-            token: ${{ secrets.READ_WRITE_RELEASE_FLEET }}
+            token: ${{ secrets.WRITE_INTEGRATIONS_DETECTION_RULES_TOKEN }}
             repository: ${{github.event.inputs.target_repo}}
             path: integrations
             fetch-depth: 0
@@ -84,7 +84,6 @@ jobs:
             python -m pip install --upgrade pip
             pip cache purge
             pip install .[dev]
-            pip install lib/kql lib/kibana
 
         - name: Bump prebuilt rules package version
           env:
@@ -101,7 +100,7 @@ jobs:
           if: github.event.inputs.package_maturity == 'ga'
           run: |
             cd detection-rules
-            output=$(cat detection_rules/etc/packages.yml | grep -oP '(?<=\sversion: )\S+')
+            output=$(cat detection_rules/etc/packages.yaml | grep -oP '(?<=\sversion: )\S+')
             echo "pkg_version=$output" >> $GITHUB_ENV
 
         - name: Create release tag
@@ -120,8 +119,8 @@ jobs:
 
         - name: Set github config
           run: |
-            git config --global user.email "72879786+protectionsmachine@users.noreply.github.com"
-            git config --global user.name "protectionsmachine"
+            git config --global user.email "178941316+tradebot-elastic@users.noreply.github.com"
+            git config --global user.name "tradebot-elastic"
 
         - name: Setup go
           uses: actions/setup-go@v3
@@ -139,7 +138,7 @@ jobs:
             TARGET_REPO: "${{github.event.inputs.target_repo}}"
             TARGET_BRANCH: "${{github.event.inputs.target_branch}}"
             LOCAL_REPO: "../integrations"
-            GITHUB_TOKEN: "${{ secrets.READ_WRITE_RELEASE_FLEET }}"
+            GITHUB_TOKEN: "${{ secrets.WRITE_INTEGRATIONS_DETECTION_RULES_TOKEN }}"
           run: |
             cd detection-rules
             python -m detection_rules dev integrations-pr \
@@ -150,7 +149,7 @@ jobs:
               $DRAFT_ARGS
 
         - name: Archive production artifacts
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           with:
             name: release-files
             path: |

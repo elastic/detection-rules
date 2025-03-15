@@ -2,9 +2,7 @@
 creation_date = "2020/09/22"
 integration = ["gcp"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -24,14 +22,56 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Virtual Private Cloud Network Deletion"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP Virtual Private Cloud Network Deletion
+
+Google Cloud Platform's Virtual Private Cloud (VPC) networks are essential for managing isolated network environments within a project, encompassing subnets, routes, and firewalls. Adversaries may target VPC deletions to disrupt operations and evade defenses. The detection rule monitors audit logs for successful VPC deletions, flagging potential malicious activity by correlating specific event actions and outcomes.
+
+### Possible investigation steps
+
+- Review the audit logs for the specific event.action value "v*.compute.networks.delete" to identify the exact time and user account associated with the VPC network deletion.
+- Check the event.outcome field to confirm the success of the deletion and correlate it with any other suspicious activities around the same timeframe.
+- Investigate the user account or service account that performed the deletion to determine if it was authorized and if there are any signs of compromise or misuse.
+- Examine the project and network configurations to assess the impact of the VPC deletion on the organization's operations and identify any critical resources that were affected.
+- Look for any recent changes in IAM roles or permissions that might have allowed unauthorized users to delete the VPC network.
+- Cross-reference the deletion event with other security alerts or incidents to identify potential patterns or coordinated attacks.
+
+### False positive analysis
+
+- Routine maintenance activities may involve the deletion of VPC networks as part of infrastructure updates or reconfigurations. To manage this, create exceptions for known maintenance windows or specific user accounts responsible for these tasks.
+- Automated scripts or tools used for environment cleanup might trigger false positives if they delete VPC networks as part of their operation. Identify these scripts and exclude their actions from triggering alerts by using specific service accounts or tags associated with these tools.
+- Development and testing environments often undergo frequent changes, including VPC deletions. Consider excluding these environments from alerts by filtering based on project IDs or environment tags to reduce noise.
+- Organizational policy changes might lead to the intentional deletion of VPC networks. Ensure that such policy-driven actions are documented and that the responsible teams are excluded from triggering alerts by using role-based access controls or specific user identifiers.
+
+### Response and remediation
+
+- Immediately isolate the affected project by restricting network access to prevent further unauthorized deletions or modifications.
+- Review the audit logs to identify the source of the deletion request, including the user account and IP address, and verify if it was authorized.
+- Recreate the deleted VPC network using the latest backup or configuration snapshot to restore network operations and minimize downtime.
+- Implement additional access controls, such as multi-factor authentication and least privilege principles, to prevent unauthorized access to VPC management.
+- Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
+- Escalate the incident to Google Cloud Platform support if necessary, especially if there are indications of a broader compromise or if assistance is needed in recovery.
+- Enhance monitoring and alerting for VPC-related activities to detect and respond to similar threats more effectively in the future.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/vpc/docs/vpc"]
 risk_score = 47
 rule_id = "c58c3081-2e1d-4497-8491-e73a45d1a6d6"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: GCP", "Data Source: Google Cloud Platform", "Use Case: Configuration Audit", "Tactic: Defense Evasion"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Configuration Audit",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 

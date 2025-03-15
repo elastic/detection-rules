@@ -2,9 +2,7 @@
 creation_date = "2020/12/22"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -20,16 +18,19 @@ name = "SSH Authorized Keys File Modification"
 risk_score = 47
 rule_id = "2215b8bd-1759-4ffa-8ab8-55c8e6b32e7f"
 severity = "medium"
-tags = ["Domain: Endpoint",
-        "OS: Linux",
-        "OS: macOS",
-        "Use Case: Threat Detection",
-        "Tactic: Lateral Movement",
-        "Tactic: Persistence",
-        "Data Source: Elastic Defend"
-        ]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:file and event.type:(change or creation) and
  file.name:("authorized_keys" or "authorized_keys2" or "/etc/ssh/sshd_config" or "/root/.ssh") and
@@ -44,53 +45,89 @@ event.category:file and event.type:(change or creation) and
               /usr/bin/scp or
               /usr/bin/touch or
               /var/lib/docker/* or
-              /usr/bin/google_guest_agent or 
-              /opt/jc/bin/jumpcloud-agent or 
+              /usr/bin/google_guest_agent or
+              /opt/jc/bin/jumpcloud-agent or
               /opt/puppetlabs/puppet/bin/puppet or
               /usr/bin/chef-client
 )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SSH Authorized Keys File Modification
+
+SSH authorized_keys files are crucial for secure, password-less authentication, allowing users to log into servers using public keys. Adversaries exploit this by adding their keys, ensuring persistent access. The detection rule identifies unauthorized changes to these files, excluding benign processes, to flag potential threats, focusing on persistence and lateral movement tactics.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific file that was modified, focusing on "authorized_keys", "authorized_keys2", "/etc/ssh/sshd_config", or "/root/.ssh".
+- Examine the process that triggered the alert by checking the process executable path to ensure it is not one of the benign processes listed in the exclusion criteria.
+- Investigate the user account associated with the modification to determine if it is a legitimate user or potentially compromised.
+- Check the timestamp of the file modification to correlate with any known user activity or scheduled tasks that might explain the change.
+- Analyze recent login attempts and SSH connections to the server to identify any suspicious activity or unauthorized access.
+- Review the contents of the modified authorized_keys file to identify any unfamiliar or unauthorized public keys that have been added.
+- If unauthorized keys are found, remove them and consider resetting credentials or keys for affected accounts to prevent further unauthorized access.
+
+### False positive analysis
+
+- Development tools like git and maven may modify SSH authorized_keys files during legitimate operations. To prevent these from triggering alerts, add their paths to the exclusion list in the detection rule.
+- System utilities such as vim and touch are often used by administrators to manually update authorized_keys files. Consider excluding these processes if they are part of regular maintenance activities.
+- Automation tools like puppet and chef-client might update SSH configurations as part of their deployment scripts. Verify these changes are expected and exclude these processes if they are part of routine operations.
+- Docker-related processes may alter SSH configurations when containers are being managed. If these changes are part of standard container operations, include the relevant paths in the exclusion list.
+- Google Guest Agent and JumpCloud Agent might modify SSH settings as part of their management tasks. Confirm these actions are legitimate and exclude these processes if they align with normal system management activities.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized access or lateral movement.
+- Review the SSH authorized_keys file and remove any unauthorized or suspicious public keys that have been added.
+- Change the passwords for all user accounts on the affected host to prevent adversaries from regaining access using compromised credentials.
+- Conduct a thorough review of user accounts and permissions on the affected host to identify and disable any unauthorized accounts or privilege escalations.
+- Restore the affected system from a known good backup if unauthorized changes are extensive or if the integrity of the system is in question.
+- Implement additional monitoring on the affected host and network to detect any further unauthorized access attempts or suspicious activities.
+- Escalate the incident to the security operations team for further investigation and to determine if other systems may be affected."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.004"
 name = "SSH Authorized Keys"
 reference = "https://attack.mitre.org/techniques/T1098/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
 
 [[rule.threat.technique]]
 id = "T1563"
 name = "Remote Service Session Hijacking"
 reference = "https://attack.mitre.org/techniques/T1563/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1563.001"
 name = "SSH Hijacking"
 reference = "https://attack.mitre.org/techniques/T1563/001/"
 
-[[rule.threat.technique]]
-id = "T1021"
-name = "Remote Services"
-reference = "https://attack.mitre.org/techniques/T1021/"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1021.004"
-name = "SSH"
-reference = "https://attack.mitre.org/techniques/T1021/004/"
 
 [rule.threat.tactic]
 id = "TA0008"
@@ -100,7 +137,8 @@ reference = "https://attack.mitre.org/tactics/TA0008/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id", "process.executable"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
+
+

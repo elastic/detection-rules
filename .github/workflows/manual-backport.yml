@@ -9,7 +9,7 @@ on:
           description: 'Sha256 hash of the merge commit to use in backporting'
           required: true
         exceptions:
-          description: 'Comma seperated list of files to skip staging e.g. detection_rules/etc/packages.yml,detection_rules/attack.py)'
+          description: 'Comma seperated list of files to skip staging e.g. detection_rules/etc/packages.yaml,detection_rules/attack.py)'
           required: false
 
 jobs:
@@ -19,15 +19,15 @@ jobs:
     steps:
 
       - name: Checkout detection-rules
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
+          token: ${{ secrets.WRITE_TRADEBOT_DETECTION_RULES_TOKEN }}
           fetch-depth: 0
 
       - name: Set github config
         run: |
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
+          git config --global user.email "178941316+tradebot-elastic@users.noreply.github.com"
+          git config --global user.name "tradebot-elastic"
 
       - name: Get branch histories
         run: |
@@ -55,13 +55,12 @@ jobs:
           python -m pip install --upgrade pip
           pip cache purge
           pip install .[dev]
-          pip install lib/kql lib/kibana
 
       - name: Prune non-"${{github.event.inputs.target_branch}}" rules
         env:
           UNSTAGED_LIST_FILE: "../unstaged-rules.txt"
         run: |
-          VERSION=$(cat detection_rules/etc/packages.yml | grep -oP "(?<=name:\s')[\d\.]+[-\w\.]*(?=')")
+          VERSION=$(cat detection_rules/etc/packages.yaml | grep -oP "(?<=name:\s')[\d\.]+[-\w\.]*(?=')")
           python -m detection_rules dev unstage-incompatible-rules --target-stack-version "$VERSION" --exception-list "${{github.event.inputs.exceptions}}"
 
           # Track which rules were unstaged
@@ -82,6 +81,6 @@ jobs:
       - name: "Notify slack on failure"
         uses: craftech-io/slack-action@v1
         with:
-          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          slack_webhook_url: ${{ secrets.READ_DETECTION_RULES_SLACK_WEBHOOK_TOKEN }}
           status: failure
         if: failure()

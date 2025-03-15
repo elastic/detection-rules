@@ -1,10 +1,8 @@
 [metadata]
 creation_date = "2024/02/01"
-maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
 integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +14,7 @@ or commands, or by replacing legitimate systemd binaries with compromised ones, 
 automatically executed at system startup or during certain system events.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Network Connection via systemd"
@@ -50,14 +48,15 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Tactic: Command and Control",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Command and Control",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
 query = '''
 sequence by host.id with maxspan=5s
@@ -66,9 +65,44 @@ sequence by host.id with maxspan=5s
      "python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk"
    )
   ] by process.entity_id
-  [network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start"
-  ] by process.parent.entity_id
+  [network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start" and
+   not process.executable == "/tmp/newroot/bin/curl"] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Network Connection via systemd
+
+Systemd is a critical component in Linux, managing system processes and services. Adversaries exploit it by altering unit files or replacing binaries to ensure malicious scripts run at startup, achieving persistence. The detection rule identifies unusual network activities initiated by systemd, flagging potential backdoor usage by monitoring specific processes and network attempts, thus aiding in early threat detection.
+
+### Possible investigation steps
+
+- Review the process details to identify the specific script or command executed by systemd, focusing on the process names such as "python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk".
+- Examine the parent process information to confirm that the suspicious process was indeed initiated by systemd, ensuring the parent process name is "systemd".
+- Investigate the network connection attempt details, including the destination IP address and port, to determine if the connection is to a known malicious or suspicious endpoint.
+- Check the process executable path to ensure it is not a known legitimate path, especially looking for unusual paths that might indicate a compromised binary, excluding "/tmp/newroot/bin/curl".
+- Analyze the systemd unit files on the host to identify any unauthorized modifications or additions that could indicate persistence mechanisms.
+- Correlate the event with other security alerts or logs from the same host to identify any patterns or additional indicators of compromise.
+- Consult threat intelligence sources to gather more context on the IP addresses or domains involved in the network connection attempt.
+
+### False positive analysis
+
+- Legitimate administrative scripts or maintenance tasks that use scripting languages like Python, PHP, or Perl may trigger the rule. To handle this, identify and document these scripts, then create exceptions for their specific process names or paths.
+- Automated system monitoring tools that perform network checks using utilities like netcat or telnet might be flagged. Review these tools and whitelist their process names or executable paths to prevent false alerts.
+- Custom applications or services that are legitimately started by systemd and initiate network connections could be misidentified. Verify these applications and add them to an allowlist based on their process names or parent entity IDs.
+- Development or testing environments where developers frequently use scripting languages for network operations may cause false positives. Consider excluding these environments from monitoring or creating specific rules that account for their unique behaviors.
+
+### Response and remediation
+
+- Isolate the affected host immediately from the network to prevent further malicious activity and lateral movement.
+- Terminate any suspicious processes identified in the alert, particularly those initiated by systemd that match the specified process names (e.g., python, php, perl).
+- Review and restore any modified or suspicious systemd unit files to their original state, ensuring no unauthorized scripts or commands are set to execute at startup.
+- Conduct a thorough scan of the affected system for additional indicators of compromise, focusing on persistence mechanisms and unauthorized network connections.
+- Reinstall or verify the integrity of systemd binaries to ensure they have not been replaced or tampered with by malicious actors.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for systemd-related activities and network connections to detect similar threats in the future."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

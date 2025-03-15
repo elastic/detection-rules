@@ -1,27 +1,26 @@
 [metadata]
 creation_date = "2023/07/27"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors for the execution of the systemd-run command by a user with a UID that is larger than the maximum 
-allowed UID size (INT_MAX). Some older Linux versions were affected by a bug which allows user accounts with a UID 
-greater than INT_MAX to escalate privileges by spawning a shell through systemd-run. 
+This rule monitors for the execution of the systemd-run command by a user with a UID that is larger than the maximum
+allowed UID size (INT_MAX). Some older Linux versions were affected by a bug which allows user accounts with a UID
+greater than INT_MAX to escalate privileges by spawning a shell through systemd-run.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["endgame-*", "logs-crowdstrike.fdr*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via UID INT_MAX Bug Detected"
 references = [
-    "https://twitter.com/paragonsec/status/1071152249529884674", 
+    "https://twitter.com/paragonsec/status/1071152249529884674",
     "https://github.com/mirchr/security-research/blob/master/vulnerabilities/CVE-2018-19788.sh",
-    "https://gitlab.freedesktop.org/polkit/polkit/-/issues/74"]
+    "https://gitlab.freedesktop.org/polkit/polkit/-/issues/74",
+]
 risk_score = 47
 rule_id = "d55436a8-719c-445f-92c4-c113ff2f9ba5"
 setup = """## Setup
@@ -51,29 +50,69 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Privilege Escalation",
-        "Data Source: Elastic Defend",
-        "Data Source: Elastic Endgame"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
-process.name == "systemd-run" and process.args == "-t" and process.args_count >= 3 and user.id >= "1000000000"
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "ProcessRollup2") and
+  process.name == "systemd-run" and process.args == "-t" and process.args_count >= 3 and user.id >= "1000000000"
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via UID INT_MAX Bug Detected
+
+In certain Linux environments, systemd-run is a utility that allows users to create and start a transient service or scope unit. A bug in older Linux versions permits users with a UID exceeding INT_MAX to exploit this utility for privilege escalation, potentially gaining unauthorized access. The detection rule identifies suspicious executions of systemd-run by monitoring for processes initiated by users with unusually high UIDs, signaling potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of a user with a UID greater than INT_MAX, as indicated by the user.id field in the query.
+- Examine the process execution context, including the process.args and process.args_count fields, to verify the use of systemd-run with the specified arguments, which may indicate an exploitation attempt.
+- Check the system logs for any other suspicious activities or anomalies around the time of the alert, focusing on processes initiated by the same user or related to systemd-run.
+- Investigate the history and purpose of the user account with the high UID to determine if it was intentionally created or if it appears to be an anomaly.
+- Assess the affected system's Linux version to determine if it is one of the older versions known to be vulnerable to this bug, and consider updating or patching if necessary.
+- Look for any additional indicators of compromise or privilege escalation attempts on the system, such as unauthorized access to sensitive files or changes in user permissions.
+
+### False positive analysis
+
+- High UID service accounts: Some legitimate service accounts may have UIDs exceeding INT_MAX for specific operational purposes. Review these accounts and, if verified as non-threatening, add them to an exception list to prevent unnecessary alerts.
+- Custom scripts or automation tools: Organizations may use scripts or tools that invoke systemd-run with high UID accounts for legitimate tasks. Identify these scripts and whitelist their execution paths or specific user IDs to reduce false positives.
+- Testing environments: In testing or development environments, users might intentionally create accounts with high UIDs to test system behavior. Ensure these environments are isolated and consider excluding them from monitoring to avoid false alerts.
+- Legacy systems: Older systems might have configurations that inadvertently trigger this rule. Conduct a thorough review of these systems and apply exceptions where the behavior is deemed safe and necessary for operational continuity.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Terminate any suspicious processes initiated by users with UIDs exceeding INT_MAX, especially those involving systemd-run, to halt potential privilege escalation.
+- Conduct a thorough review of user accounts on the affected system to identify and disable any accounts with UIDs greater than INT_MAX.
+- Apply available patches or updates to the Linux operating system to address the specific bug related to UID handling in systemd-run.
+- Review and adjust user account creation policies to ensure no new accounts are created with UIDs exceeding the standard range.
+- Monitor for any further attempts to exploit this vulnerability by setting up alerts for similar suspicious activities, focusing on high UID values and systemd-run usage.
+- Report the incident to the appropriate internal security team or external authorities if necessary, providing details of the exploit and actions taken."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

@@ -1,0 +1,44 @@
+# Suspicious Network Connections by Unsigned Mach-O
+
+---
+
+## Metadata
+
+- **Author:** Elastic
+- **Description:** This hunt aggregates by process ID and destination IP by the number of connections per hour over a period of time greater than a defined threshold. This may indicate suspicious network connections by unsigned Mach-O binaries.
+
+- **UUID:** `dc04d70a-80aa-4c3f-ad02-2b18d54af6d4`
+- **Integration:** [endpoint](https://docs.elastic.co/integrations/endpoint)
+- **Language:** `[ES|QL]`
+- **Source File:** [Suspicious Network Connections by Unsigned Mach-O](../queries/suspicious_network_connections_by_unsigned_macho.toml)
+
+## Query
+
+```sql
+from logs-endpoint.events.network-*
+| where @timestamp > now() - 7 day
+| where host.os.family == "macos" and event.category == "network" and
+  (process.code_signature.exists == false or process.code_signature.trusted != true) and
+  /* excluding private IP ranges */
+  not CIDR_MATCH(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1","FE80::/10", "FF00::/8")
+| keep source.bytes, destination.address, process.name, process.entity_id, @timestamp
+ /* calc total duration, total MB out, and the number of connections per hour */
+| stats total_bytes_out = sum(source.bytes), count_connections = count(*), start_time = min(@timestamp), end_time = max(@timestamp) by process.entity_id, destination.address, process.name
+| eval dur = TO_DOUBLE(end_time)-TO_DOUBLE(start_time), duration_hours=TO_INT(dur/3600000), MB_out=TO_DOUBLE(total_bytes_out) / (1024*1024), number_of_con_per_hour = (count_connections / duration_hours)
+| keep process.entity_id, process.name, duration_hours, destination.address, MB_out, count_connections, number_of_con_per_hour
+/* threshold is set to 120 connections per minute, you can adjust it to your env/FP rate */
+| where duration_hours >= 8 and number_of_con_per_hour >= 120
+```
+
+## Notes
+
+- This hunt returns a list of processes by entity_id and name that have a high number of connections per hour over a period of time greater than a defined threshold.
+- Pivoting by `process.entity_id` will allow further investigation (parent process, hash, child processes, other network events etc.).
+
+## MITRE ATT&CK Techniques
+
+- [T1071](https://attack.mitre.org/techniques/T1071)
+
+## License
+
+- `Elastic License v2`

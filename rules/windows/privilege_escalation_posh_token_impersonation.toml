@@ -2,9 +2,9 @@
 creation_date = "2022/08/17"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2025/02/03"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [transform]
 [[transform.osquery]]
@@ -31,6 +31,7 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+
 [rule]
 author = ["Elastic"]
 description = """
@@ -52,7 +53,7 @@ PowerShell is one of the main tools system administrators use for automation, re
 Adversaries can abuse PowerShell to perform token impersonation, which involves duplicating and impersonating another user's token to escalate privileges and bypass access controls. This rule identifies scripts containing PowerShell functions, structures, or Windows API functions related to token impersonation/theft.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 ### Possible investigation steps
 
@@ -129,7 +130,14 @@ references = [
 risk_score = 47
 rule_id = "11dd9713-0ec6-4110-9707-32daae1ee68c"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: PowerShell Logs"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -163,6 +171,10 @@ event.category:process and host.os.type:windows and
   ) and
   not powershell.file.script_block_text : (
     "sentinelbreakpoints" and "Set-PSBreakpoint" and "PowerSploitIndicators"
+  ) and
+  not (
+    powershell.file.script_block_text : "New-HPPrivateToastNotificationLogo" and
+    file.path : "C:\Program Files\HPConnect\hp-cmsl-wl\modules\HP.Notifications\HP.Notifications.psm1"
   )
 '''
 

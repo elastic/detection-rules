@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2024/04/30"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/01/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an Lambda Layer is added to an existing Lambda function. AWS layers are a way to share code and data
+across multiple functions. By adding a layer to an existing function, an attacker can persist or execute code in the
+context of the function.
+"""
+false_positives = ["Lambda function owners may add layers to their functions for legitimate purposes."]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Lambda Layer Added to Existing Function"
+note = """
+## Triage and analysis
+
+### Investigating AWS Lambda Layer Added to Existing Function
+
+This rule detects when a Lambda layer is added to an existing Lambda function. AWS Lambda layers are a mechanism for sharing code and data across multiple functions. By adding a layer to an existing function, an attacker can persist or execute code in the context of the function. Understanding the context and legitimacy of such changes is crucial to determine if the action is benign or malicious.
+
+#### Possible Investigation Steps:
+
+- **Identify the Actor**: Review the `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id` fields to identify who made the change. Verify if this actor typically performs such actions and if they have the necessary permissions.
+- **Review the Request Details**: Examine the `aws.cloudtrail.request_parameters` to understand the specific layer added to the Lambda function. Look for any unusual parameters that could suggest unauthorized or malicious modifications.
+- **Analyze the Source of the Request**: Investigate the `source.ip` and `source.geo` fields to determine the geographical origin of the request. An external or unexpected location might indicate compromised credentials or unauthorized access.
+- **Contextualize with Timestamp**: Use the `@timestamp` field to check when the change occurred. Modifications during non-business hours or outside regular maintenance windows might require further scrutiny.
+- **Correlate with Other Activities**: Search for related CloudTrail events before and after this change to see if the same actor or IP address engaged in other potentially suspicious activities.
+
+### False Positive Analysis:
+
+- **Legitimate Administrative Actions**: Confirm if the addition of the Lambda layer aligns with scheduled updates, development activities, or legitimate administrative tasks documented in change management systems.
+- **Consistency Check**: Compare the action against historical data of similar actions performed by the user or within the organization. If the action is consistent with past legitimate activities, it might indicate a false alarm.
+- **Verify through Outcomes**: Check the `aws.cloudtrail.response_elements` and the `event.outcome` to confirm if the change was successful and intended according to policy.
+
+### Response and Remediation:
+
+- **Immediate Review and Reversal if Necessary**: If the change was unauthorized, remove the added layer from the Lambda function to mitigate any unintended code execution or persistence.
+- **Enhance Monitoring and Alerts**: Adjust monitoring systems to alert on similar actions, especially those involving sensitive functions or layers.
+- **Educate and Train**: Provide additional training to users with administrative rights on the importance of security best practices concerning Lambda function management and the use of layers.
+- **Audit Lambda Functions and Policies**: Conduct a comprehensive audit of all Lambda functions and associated policies to ensure they adhere to the principle of least privilege.
+- **Incident Response**: If there's an indication of malicious intent or a security breach, initiate the incident response protocol to mitigate any damage and prevent future occurrences.
+
+### Additional Information:
+
+For further guidance on managing Lambda functions and securing AWS environments, refer to the [AWS Lambda documentation](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html) and AWS best practices for security. Additionally, consult the following resources for specific details on Lambda layers and persistence techniques:
+- [AWS Lambda Layers Persistence](https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-lambda-persistence/aws-lambda-layers-persistence)
+- [AWS API PublishLayerVersion](https://docs.aws.amazon.com/lambda/latest/api/API_PublishLayerVersion.html)
+- [AWS API UpdateFunctionConfiguration](https://docs.aws.amazon.com/lambda/latest/api/API_UpdateFunctionConfiguration.html)
+
+"""
+references = [
+    "https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-persistence/aws-lambda-persistence/aws-lambda-layers-persistence",
+    "https://docs.aws.amazon.com/lambda/latest/api/API_PublishLayerVersion.html",
+    "https://docs.aws.amazon.com/lambda/latest/api/API_UpdateFunctionConfiguration.html",
+]
+risk_score = 21
+rule_id = "7d091a76-0737-11ef-8469-f661ea17fbcc"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: aws.cloudtrail
+    and event.provider: lambda.amazonaws.com
+    and event.outcome: success
+    and event.action: (PublishLayerVersion* or UpdateFunctionConfiguration)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

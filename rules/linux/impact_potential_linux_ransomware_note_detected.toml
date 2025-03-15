@@ -2,21 +2,19 @@
 creation_date = "2023/03/20"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/21"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies a sequence of a mass file encryption event in conjunction with the creation of a .txt file with 
-a file name containing ransomware keywords executed by the same process in a 1 second timespan. Ransomware is a type of
+This rule identifies a sequence of a mass file encryption event in conjunction with the creation of a .txt file with a
+file name containing ransomware keywords executed by the same process in a 1 second timespan. Ransomware is a type of
 malware that encrypts a victim's files or systems and demands payment (usually in cryptocurrency) in exchange for the
 decryption key. One important indicator of a ransomware attack is the mass encryption of the file system, after which a
-new file extension is added to the file. 
+new file extension is added to the file.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Linux Ransomware Note Creation Detected"
@@ -49,31 +47,67 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Impact",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
 query = '''
-sequence by process.entity_id, host.id with maxspan=1s 
-  [file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and file.extension : "?*" 
-   and process.executable : ("./*", "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/var/run/*", "/boot/*", "/srv/*", "/run/*") and
+sequence by process.entity_id, host.id with maxspan=1s
+  [file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and file.extension : "?*"
+   and process.executable : ("./*", "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/var/run/*", "/boot/*") and
    file.path : (
      "/home/*/Downloads/*", "/home/*/Documents/*", "/root/*", "/bin/*", "/usr/bin/*", "/var/log/*", "/var/lib/log/*",
      "/var/backup/*", "/var/www/*") and
    not process.name : (
      "dpkg", "yum", "dnf", "rpm", "dockerd", "go", "java", "pip*", "python*", "node", "containerd", "php", "p4d",
      "conda", "chrome", "imap", "cmake", "firefox", "semanage", "semodule", "ansible-galaxy", "fc-cache", "jammy", "git",
-     "systemsettings", "vmis-launcher", "bundle", "kudu-tserver", "suldownloader"
+     "systemsettings", "vmis-launcher", "bundle", "kudu-tserver", "suldownloader", "rustup-init", "bun"
     )
   ] with runs=25
-  [file where host.os.type == "linux" and event.action == "creation" and file.name : (
-     "*crypt*", "*restore*", "*lock*", "*recovery*", "*data*", "*read*", "*instruction*", "*how_to*", "*ransom*"
-    )
+  [file where host.os.type == "linux" and event.action == "creation" and
+   file.name : ("*restore*", "*lock*", "*recovery*", "*read*", "*instruction*", "*how_to*", "*ransom*")
   ]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Linux Ransomware Note Creation Detected
+
+Ransomware encrypts files, demanding payment for decryption. Adversaries exploit Linux systems by executing mass file renaming and creating ransom notes. This detection rule identifies such behavior by monitoring rapid file changes and the creation of text files with ransom-related keywords, indicating potential ransomware activity. It focuses on unusual file operations in critical directories, excluding benign processes, to flag suspicious activities.
+
+### Possible investigation steps
+
+- Review the process.entity_id and host.id to identify the specific process and host involved in the alert. This will help in understanding the scope and potential impact of the activity.
+- Examine the process.executable path to determine if the executable is located in a suspicious directory such as /tmp, /var/tmp, or /dev/shm, which are commonly used by adversaries for malicious activities.
+- Analyze the file paths involved in the rename events to assess if critical directories like /home/*/Documents, /root, or /var/www are affected, indicating a higher risk of data compromise.
+- Check the process.name against the list of excluded benign processes to ensure the activity is not a false positive caused by legitimate software updates or installations.
+- Investigate the content and metadata of the created .txt files with names containing keywords like *restore*, *lock*, or *ransom* to confirm if they contain ransom notes or instructions, which would indicate a ransomware attack.
+- Correlate the timing of the file rename and creation events to verify if they occurred within the 1-second timespan, supporting the hypothesis of a rapid mass encryption event typical of ransomware behavior.
+- Assess the risk score and severity level to prioritize the response and determine if immediate containment actions are necessary to prevent further damage.
+
+### False positive analysis
+
+- Frequent software updates or installations can trigger the rule due to mass file renaming in critical directories. Exclude processes like dpkg, yum, dnf, and rpm if they are part of regular system maintenance.
+- Development activities involving compilers or interpreters such as go, java, python, and node may cause false positives. Consider excluding these processes if they are part of routine development work.
+- Automated backup or logging processes might create files with names similar to ransom notes. Exclude directories or processes associated with legitimate backup or logging activities to reduce false alerts.
+- System administration tasks using tools like ansible-galaxy or semodule can mimic ransomware behavior. Exclude these processes if they are part of scheduled or known administrative operations.
+- Web server operations in directories like /var/www/* might involve file creation and renaming. Exclude specific web server processes if they are identified as non-threatening and part of regular operations.
+
+### Response and remediation
+
+- Isolate the affected Linux system from the network immediately to prevent further spread of the ransomware and protect other systems.
+- Identify and terminate the malicious process responsible for the mass file renaming and ransom note creation using the process.entity_id and host.id from the alert.
+- Backup any unencrypted files and critical data from the affected system to a secure location to prevent data loss.
+- Conduct a forensic analysis of the affected system to determine the entry point and scope of the ransomware attack, focusing on the directories and processes identified in the alert.
+- Restore the affected system from a known good backup prior to the ransomware attack to ensure system integrity and data recovery.
+- Apply security patches and updates to the affected system and any other vulnerable systems to close any exploited vulnerabilities.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to enhance detection capabilities for similar threats in the future."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

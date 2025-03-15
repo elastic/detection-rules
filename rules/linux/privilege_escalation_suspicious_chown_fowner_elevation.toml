@@ -2,20 +2,18 @@
 creation_date = "2024/01/08"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
-min_stack_version = "8.11.0"
-updated_date = "2024/03/08"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies instances where a processes (granted CAP_CHOWN and/or CAP_FOWNER capabilities) is executed, after which the
 ownership of a suspicious file or binary is changed. In Linux, the CAP_CHOWN capability allows a process to change the
-owner of a file, while CAP_FOWNER permits it to bypass permission checks on operations that require file ownership
-(like reading, writing, and executing). Attackers may abuse these capabilities to obtain unauthorized access to files.
+owner of a file, while CAP_FOWNER permits it to bypass permission checks on operations that require file ownership (like
+reading, writing, and executing). Attackers may abuse these capabilities to obtain unauthorized access to files.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*", "logs-endpoint.events.file*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Privilege Escalation via CAP_CHOWN/CAP_FOWNER Capabilities"
@@ -49,14 +47,16 @@ However, if more advanced configuration is required to detect specific behavior,
 """
 severity = "medium"
 tags = [
-        "Data Source: Auditd Manager",
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Privilege Escalation",
-        "Data Source: Elastic Defend"
-        ]
+    "Data Source: Auditd Manager",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.pid with maxspan=1s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
@@ -71,14 +71,49 @@ sequence by host.id, process.pid with maxspan=1s
    ) and user.id != "0"
   ]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Privilege Escalation via CAP_CHOWN/CAP_FOWNER Capabilities
+
+In Linux, CAP_CHOWN and CAP_FOWNER are capabilities that allow processes to change file ownership and bypass file permission checks, respectively. Adversaries exploit these to gain unauthorized access to sensitive files, such as password or configuration files. The detection rule identifies suspicious processes with these capabilities that alter ownership of critical files, signaling potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the process details, including process.name and process.command_line, to understand the context of the executed process and its intended function.
+- Check the user.id associated with the process to determine if the process was executed by a non-root user, which could indicate unauthorized privilege escalation attempts.
+- Investigate the file.path that had its ownership changed to assess the potential impact, focusing on critical files like /etc/passwd, /etc/shadow, /etc/sudoers, and /root/.ssh/*.
+- Analyze the sequence of events by examining the host.id and process.pid to identify any related processes or activities that occurred within the maxspan=1s timeframe.
+- Correlate the event with other logs or alerts from the same host to identify any patterns or additional suspicious activities that might indicate a broader attack or compromise.
+
+### False positive analysis
+
+- System administration scripts or automated processes may legitimately use CAP_CHOWN or CAP_FOWNER capabilities to manage file permissions or ownership. Review and whitelist these processes if they are verified as non-malicious.
+- Backup or restoration operations often require changing file ownership and permissions. Identify and exclude these operations from triggering alerts by specifying known backup tools or scripts.
+- Software installation or update processes might alter file ownership as part of their normal operation. Monitor and exclude these processes if they are part of a trusted software management system.
+- Development or testing environments may have scripts that modify file ownership for testing purposes. Ensure these environments are properly segmented and exclude known development scripts from detection.
+- Custom user scripts that require elevated permissions for legitimate tasks should be reviewed and, if deemed safe, added to an exception list to prevent false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious processes identified with CAP_CHOWN or CAP_FOWNER capabilities that are altering file ownership, especially those targeting critical files like /etc/passwd or /etc/shadow.
+- Revert any unauthorized changes to file ownership or permissions on critical files to their original state to restore system integrity.
+- Conduct a thorough review of user accounts and privileges on the affected system to identify and disable any unauthorized accounts or privilege escalations.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
+- Implement additional monitoring on the affected host and similar systems to detect any further attempts to exploit CAP_CHOWN or CAP_FOWNER capabilities.
+- Review and update security policies and configurations to restrict the assignment of CAP_CHOWN and CAP_FOWNER capabilities to only trusted and necessary processes."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
+
 
 [rule.threat.tactic]
 id = "TA0004"

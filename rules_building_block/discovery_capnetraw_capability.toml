@@ -3,20 +3,18 @@ bypass_bbr_timing = true
 creation_date = "2024/01/10"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "Linux effective and permitted process capability data sources were added in version 8.11.0"
-min_stack_version = "8.11.0"
-updated_date = "2024/03/08"
+updated_date = "2024/11/07"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
 Identifies the ability of a process to be able to create RAW and PACKET socket types for the available network
-namespaces by a non-root user. A malicious process with this capability may exploit routing between hosts,
-bypass network access controls, and otherwise tamper with host networking if a firewall is not in place
-to limit the packet types and contents. The CAP_NET_RAW capability allows the process to bind to any address within
-the available namespaces, which allows network traffic sniffing by a non root user. The rule identifies previously
-unknown processes executing with CAP_NET_RAW capabilities through the use of the new terms rule type.
+namespaces by a non-root user. A malicious process with this capability may exploit routing between hosts, bypass
+network access controls, and otherwise tamper with host networking if a firewall is not in place to limit the packet
+types and contents. The CAP_NET_RAW capability allows the process to bind to any address within the available
+namespaces, which allows network traffic sniffing by a non root user. The rule identifies previously unknown processes
+executing with CAP_NET_RAW capabilities through the use of the new terms rule type.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -26,7 +24,6 @@ name = "Network Traffic Capture via CAP_NET_RAW"
 risk_score = 21
 rule_id = "e28b8093-833b-4eda-b877-0873d134cf3c"
 setup = """## Setup
-
 
 This rule requires data coming in from Elastic Defend.
 
@@ -52,22 +49,31 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:"process" and host.os.type:"linux" and event.type:"start" and event.action:"exec" and process.name:* and
 (process.thread.capabilities.effective:"CAP_NET_RAW" or process.thread.capabilities.permitted:"CAP_NET_RAW") and
 not user.id:"0"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1040"
 name = "Network Sniffing"
 reference = "https://attack.mitre.org/techniques/T1040/"
+
 
 [rule.threat.tactic]
 id = "TA0007"
@@ -76,8 +82,9 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "user.id", "process.executable"]
-
+value = ["process.executable"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

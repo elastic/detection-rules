@@ -2,9 +2,7 @@
 creation_date = "2020/08/11"
 integration = ["network_traffic"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/16"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +21,42 @@ index = ["packetbeat-*", "logs-network_traffic.*"]
 language = "lucene"
 license = "Elastic License v2"
 name = "Inbound Connection to an Unsecure Elasticsearch Node"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Inbound Connection to an Unsecure Elasticsearch Node
+
+Elasticsearch is a powerful search and analytics engine often used for log and data analysis. When improperly configured without TLS or authentication, it becomes vulnerable to unauthorized access. Adversaries can exploit these weaknesses to gain initial access, exfiltrate data, or disrupt services. The detection rule identifies unsecured nodes by monitoring inbound HTTP traffic on the default port, flagging connections lacking authentication headers, thus highlighting potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the source IP address of the inbound connection to determine if it is from a known or trusted entity. Cross-reference with internal asset inventories or threat intelligence sources.
+- Examine the network traffic logs for any unusual patterns or repeated access attempts from the same source IP, which might indicate a brute force or scanning activity.
+- Check for any data exfiltration attempts by analyzing outbound traffic from the Elasticsearch node, focusing on large data transfers or connections to unfamiliar external IPs.
+- Investigate the absence of authentication headers in the HTTP requests to confirm if the Elasticsearch node is indeed misconfigured and lacks proper security controls.
+- Assess the configuration of the Elasticsearch node to ensure that TLS is enabled and authentication mechanisms are properly implemented to prevent unauthorized access.
+- Look for any other alerts or logs related to the same Elasticsearch node or source IP to identify potential coordinated attack activities or previous incidents.
+
+### False positive analysis
+
+- Internal monitoring tools or scripts that regularly check Elasticsearch node status without authentication can trigger false positives. Exclude these specific IP addresses or user agents from the rule to reduce noise.
+- Automated backup systems that interact with Elasticsearch nodes without using authentication headers might be flagged. Identify these systems and create exceptions based on their IP addresses or network segments.
+- Development or testing environments where Elasticsearch nodes are intentionally left unsecured for testing purposes can generate alerts. Use network segmentation or specific tags to differentiate these environments and exclude them from the rule.
+- Security scans or vulnerability assessments conducted by internal teams may access Elasticsearch nodes without authentication, leading to false positives. Whitelist the IP ranges used by these security tools to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected Elasticsearch node from the network to prevent further unauthorized access or data exfiltration.
+- Conduct a thorough review of access logs to identify any unauthorized access or data exfiltration attempts, focusing on connections lacking authentication headers.
+- Implement Transport Layer Security (TLS) and enable authentication mechanisms on the Elasticsearch node to secure communications and restrict access to authorized users only.
+- Reset credentials and API keys associated with the Elasticsearch node to prevent further unauthorized access using potentially compromised credentials.
+- Notify the security team and relevant stakeholders about the incident, providing details of the unauthorized access and steps taken to contain the threat.
+- Monitor the network for any signs of continued unauthorized access attempts or related suspicious activity, adjusting detection rules as necessary to capture similar threats.
+- Document the incident, including the response actions taken, and conduct a post-incident review to identify any gaps in security controls and improve future response efforts.
+
+## Setup
 
 This rule requires the addition of port `9200` and `send_all_headers` to the `HTTP` protocol configuration in `packetbeat.yml`. See the References section for additional configuration documentation."""
 references = [
@@ -33,7 +66,7 @@ references = [
 risk_score = 47
 rule_id = "31295df3-277b-4c56-a1fb-84e31b4222a9"
 severity = "medium"
-tags = ["Use Case: Threat Detection", "Tactic: Initial Access", "Domain: Endpoint"]
+tags = ["Use Case: Threat Detection", "Tactic: Initial Access", "Domain: Endpoint", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "query"
 

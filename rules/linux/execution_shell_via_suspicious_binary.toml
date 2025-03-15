@@ -2,25 +2,23 @@
 creation_date = "2023/07/05"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 This detection rule detects the creation of a shell through a chain consisting of the execution of a suspicious binary
 (located in a commonly abused location or executed manually) followed by a network event and ending with a shell being
-spawned. Stageless reverse tcp shells display this behaviour. Attackers may spawn reverse shells to establish 
+spawned. Stageless reverse tcp shells display this behaviour. Attackers may spawn reverse shells to establish
 persistence onto a target system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Reverse Shell via Suspicious Binary"
 references = [
-    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
+    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md",
 ]
 risk_score = 47
 rule_id = "fa3a59dc-33c3-43bf-80a9-e8437a922c7f"
@@ -51,13 +49,15 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
 [ process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
@@ -74,38 +74,74 @@ sequence by host.id, process.entity_id with maxspan=1s
   "/etc/crontab", "/etc/cron.*", "/etc/update-motd.d/*", "/usr/lib/update-notifier/*",
   "/boot/*", "/srv/*", "/run/*", "/root/*", "/etc/rc.local"
    ) and destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" ]
-[ process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
-  process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
+[ process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
   process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") ]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Reverse Shell via Suspicious Binary
+
+Reverse shells are a common technique used by attackers to gain persistent access to a compromised system. They exploit legitimate shell environments to execute commands remotely. Adversaries often deploy binaries in unusual directories to evade detection. The detection rule identifies suspicious binaries executed in these locations, followed by network activity and shell spawning, indicating potential reverse shell activity. This approach helps in identifying unauthorized access attempts on Linux systems.
+
+### Possible investigation steps
+
+- Review the process execution details to identify the suspicious binary's path and name, focusing on the directories specified in the query such as /tmp, /var/tmp, and /dev/shm.
+- Examine the parent process of the suspicious binary to determine if it was spawned by a legitimate shell process like bash or sh, as indicated in the query.
+- Analyze the network activity associated with the suspicious binary, paying attention to the destination IP address to identify any external connections that are not local (i.e., not 127.0.0.1 or ::1).
+- Check the process tree to see if a new shell was spawned following the network activity, which could indicate a reverse shell attempt.
+- Investigate the user account under which the suspicious process was executed to assess if it aligns with expected behavior or if it might be compromised.
+- Correlate the event timestamps to understand the sequence of actions and verify if they align with typical reverse shell behavior patterns.
+
+### False positive analysis
+
+- Legitimate administrative scripts or binaries may be executed from directories like /tmp or /var/tmp during maintenance tasks. To handle this, create exceptions for known scripts or binaries used by trusted administrators.
+- Automated deployment tools might temporarily use directories such as /dev/shm or /run for staging files. Identify these tools and exclude their processes from triggering the rule.
+- Custom monitoring or backup scripts could initiate network connections from non-standard directories. Review these scripts and whitelist their activities if they are verified as safe.
+- Development or testing environments might involve executing binaries from unusual locations. Ensure these environments are well-documented and exclude their processes from the detection rule.
+- Some legitimate applications may spawn shells as part of their normal operation. Identify these applications and add them to an exception list to prevent false alerts.
+
+### Response and remediation
+
+- Isolate the affected system from the network immediately to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious processes identified by the detection rule, especially those originating from unusual directories or involving shell spawning.
+- Conduct a thorough review of the system's scheduled tasks, startup scripts, and cron jobs to identify and remove any unauthorized entries that may have been added by the attacker.
+- Analyze network logs to identify any external IP addresses involved in the suspicious network activity and block these IPs at the firewall to prevent further connections.
+- Restore the affected system from a known good backup to ensure that any malicious changes are reverted.
+- Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited.
+- Escalate the incident to the security operations team for further investigation and to assess the potential impact on other systems within the network."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+
 
 [rule.threat.tactic]
-name = "Command and Control"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
 id = "TA0011"
+name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat.technique]]
-name = "Application Layer Protocol"
-id = "T1071"
-reference = "https://attack.mitre.org/techniques/T1071/"

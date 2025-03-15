@@ -1,0 +1,171 @@
+[metadata]
+creation_date = "2024/05/31"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/01/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for at jobs being created or renamed. Linux at jobs are scheduled tasks that can be leveraged by
+system administrators to set up scheduled tasks, but may be abused by malicious actors for persistence, privilege
+escalation and command execution. By creating or modifying cron job configurations, attackers can execute malicious
+commands or scripts at predefined intervals, ensuring their continued presence and enabling unauthorized activities.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "At Job Created or Modified"
+references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
+risk_score = 47
+rule_id = "84755a05-78c8-4430-8681-89cd6c857d71"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "linux" and
+event.action in ("rename", "creation") and file.path : "/var/spool/cron/atjobs/*" and not (
+  process.executable in (
+    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
+    "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
+    "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
+    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
+    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
+    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
+    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
+    "/bin/pamac-daemon", "/usr/local/bin/dockerd"
+  ) or
+  file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
+  file.Ext.original.extension == "dpkg-new" or
+  process.executable : ("/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*") or
+  process.executable == null or
+  (process.name == "sed" and file.name : "sed*") or
+  (process.name == "perl" and file.name : "e2scrub_all.tmp*")
+)
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating At Job Created or Modified
+
+The 'at' command in Linux schedules tasks for future execution, aiding system admins in automating routine jobs. However, attackers can exploit this for persistence, privilege escalation, or executing unauthorized commands. The detection rule identifies suspicious 'at' job creations or modifications by monitoring specific file paths and excluding benign processes, helping to flag potential malicious activities.
+
+### Possible investigation steps
+
+- Review the file path of the created or modified 'at' job to confirm it is within the monitored directory: /var/spool/cron/atjobs/*. Determine if the file path is expected or unusual for the system's typical operations.
+- Identify the process that triggered the alert by examining the process.executable field. Check if the process is known and expected in the context of the system's normal operations.
+- Investigate the user account associated with the process that created or modified the 'at' job. Determine if the account has legitimate reasons to schedule tasks or if it might be compromised.
+- Check the contents of the 'at' job file to understand the commands or scripts scheduled for execution. Look for any suspicious or unauthorized commands that could indicate malicious intent.
+- Correlate the event with other recent alerts or logs from the same host to identify any patterns or additional indicators of compromise, such as privilege escalation attempts or unauthorized access.
+- Verify if there are any known vulnerabilities or exploits associated with the processes or commands involved in the alert, which could provide further context on the potential threat.
+
+### False positive analysis
+
+- System package managers like dpkg, rpm, and yum can trigger false positives when they create or modify at jobs during software installations or updates. To manage this, ensure these processes are included in the exclusion list within the detection rule.
+- Automated system management tools such as Puppet and Chef may also create or modify at jobs as part of their routine operations. Add these tools to the exclusion list to prevent unnecessary alerts.
+- Temporary files with extensions like swp or dpkg-remove can be mistakenly flagged. Exclude these file extensions from the rule to reduce false positives.
+- Processes running from directories like /nix/store or /snap can be benign and should be considered for exclusion if they are part of regular system operations.
+- If the process executable is null, it might indicate a benign system process that lacks a defined executable path. Consider reviewing these cases to determine if they are legitimate and adjust the rule accordingly.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or execution of malicious tasks.
+- Terminate any suspicious processes associated with the creation or modification of 'at' jobs that are not part of the excluded benign processes.
+- Review and remove any unauthorized 'at' jobs found in the /var/spool/cron/atjobs/ directory to eliminate persistence mechanisms.
+- Conduct a thorough examination of the system for additional indicators of compromise, such as unauthorized user accounts or unexpected network connections.
+- Restore the system from a known good backup if malicious activity is confirmed and cannot be fully remediated.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for 'at' job activities to detect similar threats in the future, ensuring that alerts are promptly reviewed and acted upon."""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.002"
+name = "At"
+reference = "https://attack.mitre.org/techniques/T1053/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.002"
+name = "At"
+reference = "https://attack.mitre.org/techniques/T1053/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.002"
+name = "At"
+reference = "https://attack.mitre.org/techniques/T1053/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

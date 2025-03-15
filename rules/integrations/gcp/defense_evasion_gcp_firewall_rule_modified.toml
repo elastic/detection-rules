@@ -2,9 +2,7 @@
 creation_date = "2020/09/21"
 integration = ["gcp"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +22,44 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Firewall Rule Modification"
-note = """## Setup
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GCP Firewall Rule Modification
+
+In GCP, firewall rules regulate network traffic to and from VPCs and App Engine applications, crucial for maintaining security. Adversaries may alter these rules to weaken defenses, enabling unauthorized access or data exfiltration. The detection rule monitors audit logs for modifications to firewall rules, identifying potential defense evasion attempts by flagging suspicious changes in network configurations.
+
+### Possible investigation steps
+
+- Review the audit logs for entries with the event.dataset field set to gcp.audit to confirm the source of the alert.
+- Examine the event.action field for values such as *.compute.firewalls.patch or google.appengine.*.Firewall.Update*Rule to identify the specific type of firewall rule modification.
+- Identify the user or service account responsible for the modification by checking the actor information in the audit logs.
+- Assess the changes made to the firewall rule, including the before and after states, to determine if the modification allows more permissive ingress or egress traffic.
+- Investigate the context of the modification by reviewing related activities in the audit logs around the same time to identify any suspicious patterns or sequences of actions.
+- Check for any recent security incidents or alerts involving the affected VPC or App Engine application to understand potential motives or impacts of the rule change.
+- If unauthorized or suspicious activity is confirmed, initiate incident response procedures to mitigate any potential security risks.
+
+### False positive analysis
+
+- Routine updates or maintenance activities by authorized personnel can trigger alerts. To manage this, create exceptions for known IP addresses or user accounts that regularly perform these tasks.
+- Automated scripts or tools used for infrastructure management might modify firewall rules as part of their normal operation. Identify these scripts and exclude their actions from triggering alerts by using specific service accounts or tags.
+- Changes made during scheduled maintenance windows can be considered non-threatening. Implement time-based exceptions to ignore modifications during these periods.
+- Modifications related to scaling operations in App Engine or VPCs might be legitimate. Review and whitelist specific actions associated with scaling events to prevent unnecessary alerts.
+- Regular audits or compliance checks might involve temporary rule changes. Document these activities and exclude them from detection by correlating with audit logs or change management records.
+
+### Response and remediation
+
+- Immediately isolate the affected VPC or App Engine application by applying a restrictive firewall rule to prevent further unauthorized access or data exfiltration.
+- Review the audit logs to identify the source of the modification, including user accounts and IP addresses involved, and revoke any suspicious credentials or access.
+- Restore the firewall rule to its previous secure state using backup configurations or documented baselines to ensure the network is protected.
+- Conduct a thorough security assessment of the affected environment to identify any additional unauthorized changes or indicators of compromise.
+- Notify the security operations team and relevant stakeholders about the incident, providing details of the modification and actions taken.
+- Implement enhanced monitoring and alerting for future firewall rule changes to detect and respond to similar threats more quickly.
+- Consider engaging with Google Cloud support or a third-party security expert if the incident scope is beyond internal capabilities or if further expertise is required.
+
+## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -34,7 +69,14 @@ references = [
 risk_score = 47
 rule_id = "2783d84f-5091-4d7d-9319-9fceda8fa71b"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: GCP", "Data Source: Google Cloud Platform", "Use Case: Configuration Audit", "Tactic: Defense Evasion"]
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Configuration Audit",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 

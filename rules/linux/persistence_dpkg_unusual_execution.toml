@@ -1,0 +1,147 @@
+[metadata]
+creation_date = "2024/07/09"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/02/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of the DPKG command by processes not associated with the DPKG package manager. The DPKG
+command is used to install, remove, and manage Debian packages on a Linux system. Attackers can abuse the DPKG command
+to install malicious packages on a system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual DPKG Execution"
+references = ["https://www.makeuseof.com/how-deb-packages-are-backdoored-how-to-detect-it/"]
+risk_score = 21
+rule_id = "d6241c90-99f2-44db-b50f-299b6ebd7ee9"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Data Source: Elastic Defend",
+        "Resources: Investigation Guide"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process.executable : "/var/lib/dpkg/info/*" and process.session_leader.name != null and
+process.group_leader.name != null and not (
+  process.parent.name in ("dpkg", "dpkg-reconfigure", "frontend") or
+  process.session_leader.name == "dpkg" or
+  process.group_leader.name == "dpkg" or
+  process.parent.executable in ("/usr/share/debconf/frontend", "/usr/bin/unattended-upgrade")
+)
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual DPKG Execution
+
+DPKG is a core utility in Debian-based Linux systems for managing software packages. While essential for legitimate software management, adversaries can exploit DPKG to install or manipulate packages for malicious purposes, potentially gaining persistence or executing unauthorized code. The detection rule identifies anomalies by flagging DPKG executions initiated by unexpected processes, which may indicate unauthorized package management activities.
+
+### Possible investigation steps
+
+- Review the process details to identify the unexpected process that initiated the DPKG execution. Pay attention to the process.executable field to understand which script or binary was executed.
+- Examine the process.parent.name and process.parent.executable fields to determine the parent process that launched the DPKG command. This can provide insights into whether the execution was part of a legitimate process chain or potentially malicious.
+- Investigate the process.session_leader.name and process.group_leader.name fields to understand the broader context of the session and group leaders involved in the execution. This can help identify if the execution was part of a larger, coordinated activity.
+- Check the system logs and any available audit logs around the time of the alert to gather additional context on the activities occurring on the system. Look for any other suspicious or related events.
+- Assess the system for any unauthorized or unexpected package installations or modifications that may have occurred as a result of the DPKG execution. This can help determine if the system has been compromised.
+
+### False positive analysis
+
+- System maintenance scripts may trigger the rule if they execute DPKG commands outside of typical package management processes. To handle this, identify and whitelist these scripts by adding their parent process names or executables to the exception list.
+- Automated software update tools, other than the ones specified in the rule, might cause false positives. Review the tools used in your environment and consider adding their executables to the exclusion criteria if they are verified as safe.
+- Custom administrative scripts that manage packages could be flagged. Ensure these scripts are reviewed for legitimacy and then exclude their process names or paths from the rule to prevent unnecessary alerts.
+- Development or testing environments where package manipulation is frequent might generate alerts. In such cases, consider creating environment-specific exceptions to reduce noise while maintaining security in production systems.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized package installations or potential lateral movement by the adversary.
+- Terminate any suspicious processes identified as executing the DPKG command from unexpected sources to halt any ongoing malicious activities.
+- Conduct a thorough review of recently installed or modified packages on the affected system to identify and remove any unauthorized or malicious software.
+- Restore the system from a known good backup if malicious packages have been installed and cannot be safely removed without compromising system integrity.
+- Update and patch the affected system to ensure all software is up-to-date, reducing the risk of exploitation through known vulnerabilities.
+- Implement stricter access controls and monitoring on package management utilities to prevent unauthorized use, ensuring only trusted processes can execute DPKG commands.
+- Escalate the incident to the security operations team for further investigation and to assess the potential impact on other systems within the network."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.016"
+name = "Installer Packages"
+reference = "https://attack.mitre.org/techniques/T1546/016/"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+[rule.threat.tactic]
+name = "Initial Access"
+id = "TA0001"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

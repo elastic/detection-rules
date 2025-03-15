@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2023/03/07"
+integration = ["google_workspace"]
+maturity = "production"
+updated_date = "2025/02/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a user copies a Google spreadsheet, form, document or script from an external drive. Sequence logic has
+been added to also detect when a user grants a custom Google application permission via OAuth shortly after. An
+adversary may send a phishing email to the victim with a Drive object link where "copy" is included in the URI, thus
+copying the object to the victim's drive. If a container-bound script exists within the object, execution will require
+permission access via OAuth in which the user has to accept.
+"""
+false_positives = [
+    """
+    Google Workspace users typically share Drive resources with a shareable link where parameters are edited to indicate
+    when it is viewable or editable by the intended recipient. It is uncommon for a user in an organization to manually
+    copy a Drive object from an external drive to their corporate drive. This may happen where users find a useful
+    spreadsheet in a public drive, for example, and replicate it to their Drive. It is uncommon for the copied object to
+    execute a container-bound script either unless the user was intentionally aware, suggesting the object uses
+    container-bound scripts to accomplish a legitimate task.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-google_workspace*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Google Workspace Object Copied to External Drive with App Consent"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Object Copied to External Drive with App Consent
+
+Google Workspace users can share access to Drive objects such as documents, sheets, and forms via email delivery or a shared link. Shared link URIs have parameters like `view` or `edit` to indicate the recipient's permissions. The `copy` parameter allows the recipient to copy the object to their own Drive, which grants the object with the same privileges as the recipient. Specific objects in Google Drive allow container-bound scripts that run on Google's Apps Script platform. Container-bound scripts can contain malicious code that executes with the recipient's privileges if in their Drive.
+
+This rule aims to detect when a user copies an external Drive object to their Drive storage and then grants permissions to a custom application via OAuth prompt.
+
+#### Possible investigation steps
+- Identify user account(s) associated by reviewing `user.name` or `source.user.email` in the alert.
+- Identify the name of the file copied by reviewing `file.name` as well as the `file.id` for triaging.
+- Identify the file type by reviewing `google_workspace.drive.file.type`.
+- With the information gathered so far, query across data for the file metadata to determine if this activity is isolated or widespread.
+- Within the OAuth token event, identify the application name by reviewing `google_workspace.token.app_name`.
+    - Review the application ID as well from `google_workspace.token.client.id`.
+    - This metadata can be used to report the malicious application to Google for permanent blacklisting.
+- Identify the permissions granted to the application by the user by reviewing `google_workspace.token.scope.data.scope_name`.
+    - This information will help pivot and triage into what services may have been affected.
+- If a container-bound script was attached to the copied object, it will also exist in the user's drive.
+    - This object should be removed from all users affected and investigated for a better understanding of the malicious code.
+
+### False positive analysis
+- Communicate with the affected user to identify if these actions were intentional
+- If a container-bound script exists, review code to identify if it is benign or malicious
+
+### Response and remediation
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Assess the criticality of affected services and servers.
+    - Work with your IT team to identify and minimize the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
+    - Resetting passwords will revoke OAuth tokens which could have been stolen.
+- Reactivate multi-factor authentication for the user.
+- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Implement security defaults [provided by Google](https://cloud.google.com/security-command-center/docs/how-to-investigate-threats).
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
+
+The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
+### Important Information Regarding Google Workspace Event Lag Times
+- As per Google's documentation, Google Workspace administrators may observe lag times ranging from minutes up to 3 days between the time of an event's occurrence and the event being visible in the Google Workspace admin/audit logs.
+- To reduce the risk of false negatives, consider reducing the interval that the Google Workspace (formerly G Suite) Filebeat module polls Google's reporting API for new events.
+- By default, `var.interval` is set to 2 hours (2h). Consider changing this interval to a lower value, such as 10 minutes (10m).
+- See the following references for further information:
+  - https://support.google.com/a/answer/7061566
+  - https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-google_workspace.html"""
+references = [
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-two",
+    "https://developers.google.com/apps-script/guides/bound",
+    "https://support.google.com/a/users/answer/13004165#share_make_a_copy_links",
+]
+risk_score = 47
+rule_id = "f33e68a4-bd19-11ed-b02f-f661ea17fbcc"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by source.user.email with maxspan=3m
+[file where event.dataset == "google_workspace.drive" and event.action == "copy" and
+
+    /* Should only match if the object lives in a Drive that is external to the user's GWS organization */
+    google_workspace.drive.owner_is_team_drive == "false" and google_workspace.drive.copy_type == "external" and
+
+    /* Google Script, Forms, Sheets and Document can have container-bound scripts */
+    google_workspace.drive.file.type: ("script", "form", "spreadsheet", "document")]
+
+[any where event.dataset == "google_workspace.token" and event.action == "authorize" and
+
+    /* Ensures application ID references custom app in Google Workspace and not GCP */
+    google_workspace.token.client.id : "*apps.googleusercontent.com"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

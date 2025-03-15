@@ -2,21 +2,19 @@
 creation_date = "2023/09/05"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This detection rule monitors for the execution of a system command with setuid or setgid capabilities via Python, 
+This detection rule monitors for the execution of a system command with setuid or setgid capabilities via Python,
 followed by a uid or gid change to the root user. This sequence of events may indicate successful privilege escalation.
-Setuid (Set User ID) and setgid (Set Group ID) are Unix-like OS features that enable processes to run with elevated 
-privileges, based on the file owner or group. Threat actors can exploit these attributes to escalate privileges to the 
-privileges that are set on the binary that is being executed. 
+Setuid (Set User ID) and setgid (Set Group ID) are Unix-like OS features that enable processes to run with elevated
+privileges, based on the file owner or group. Threat actors can exploit these attributes to escalate privileges to the
+privileges that are set on the binary that is being executed.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via Python cap_setuid"
@@ -49,19 +47,62 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.args : "import os;os.set?id(0);os.system(*)" and process.args : "*python*" and user.id != "0"]
-  [process where host.os.type == "linux" and event.action in ("uid_change", "gid_change") and event.type == "change" and 
+  [process where host.os.type == "linux" and event.action in ("uid_change", "gid_change") and event.type == "change" and
    (user.id == "0" or group.id == "0")]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via Python cap_setuid
+
+In Unix-like systems, setuid and setgid allow processes to execute with elevated privileges, often exploited by adversaries to gain unauthorized root access. Attackers may use Python scripts to invoke system commands with these capabilities, followed by changing user or group IDs to root. The detection rule identifies this sequence by monitoring Python processes executing system commands with setuid/setgid, followed by a root user or group ID change, signaling potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the process details, including process.entity_id and process.args, to confirm the execution of a Python script with setuid or setgid capabilities.
+- Check the user.id and group.id fields to verify if there was an unauthorized change to root (user.id == "0" or group.id == "0").
+- Investigate the host.id to determine if other suspicious activities or alerts have been associated with the same host.
+- Examine the timeline of events to see if the uid_change or gid_change occurred immediately after the Python process execution, indicating a potential privilege escalation attempt.
+- Look into the source of the Python script or command executed to identify if it was a known or unknown script, and assess its legitimacy.
+- Analyze any related network activity or connections from the host around the time of the alert to identify potential lateral movement or data exfiltration attempts.
+
+### False positive analysis
+
+- Development and testing environments may trigger this rule when developers use Python scripts to test setuid or setgid functionalities. To manage this, exclude specific user accounts or host IDs associated with development activities.
+- Automated scripts or maintenance tasks that require temporary privilege escalation might be flagged. Identify and whitelist these scripts by their process names or paths to prevent false positives.
+- System administrators using Python scripts for legitimate administrative tasks could inadvertently trigger the rule. Consider excluding known administrator accounts or specific scripts used for routine maintenance.
+- Security tools or monitoring solutions that simulate attacks for testing purposes may cause alerts. Exclude these tools by their process signatures or host IDs to avoid unnecessary alerts.
+- Custom applications that use Python for legitimate privilege management should be reviewed and, if safe, added to an exception list based on their unique process identifiers or execution paths.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized access or lateral movement.
+- Terminate any suspicious Python processes identified by the detection rule to halt potential privilege escalation activities.
+- Review and revoke any unauthorized setuid or setgid permissions on binaries or scripts to prevent exploitation.
+- Conduct a thorough investigation of the affected system to identify any additional signs of compromise or persistence mechanisms.
+- Reset credentials and review access permissions for any accounts that may have been affected or used in the attack.
+- Apply security patches and updates to the operating system and installed software to mitigate known vulnerabilities.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
@@ -71,11 +112,12 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.001"
 name = "Setuid and Setgid"
 reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0004"

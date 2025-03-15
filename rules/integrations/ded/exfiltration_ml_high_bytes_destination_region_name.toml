@@ -2,9 +2,7 @@
 creation_date = "2023/09/22"
 integration = ["ded", "endpoint", "network_traffic"]
 maturity = "production"
-min_stack_comments = "New rule"
-min_stack_version = "8.9.0"
-updated_date = "2023/12/12"
+updated_date = "2025/01/15"
 
 [rule]
 anomaly_threshold = 75
@@ -19,12 +17,19 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "ded_high_sent_bytes_destination_region_name"
 name = "Potential Data Exfiltration Activity to an Unusual Region"
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/ded",
+    "https://www.elastic.co/blog/detect-data-exfiltration-activity-with-kibanas-new-integration",
+]
+risk_score = 21
+rule_id = "bfba5158-1fd6-4937-a205-77d96213b341"
 setup = """## Setup
 
-The rule requires the Data Exfiltration Detection integration assets to be installed, as well as network and file events collected by integrations such as Elastic Defend and Network Packet Capture (for network events only).  
+The rule requires the Data Exfiltration Detection integration assets to be installed, as well as network and file events collected by integrations such as Elastic Defend and Network Packet Capture (for network events only).
 
 ### Data Exfiltration Detection Setup
-The Data Exfiltration Detection integration detects data exfiltration activity by identifying abnormalities in network and file events. Anomalies are detected using Elastic's Anomaly Detection feature. 
+The Data Exfiltration Detection integration detects data exfiltration activity by identifying abnormalities in network and file events. Anomalies are detected using Elastic's Anomaly Detection feature.
 
 #### Prerequisite Requirements:
 - Fleet is required for Data Exfiltration Detection.
@@ -36,30 +41,53 @@ The Data Exfiltration Detection integration detects data exfiltration activity b
 #### The following steps should be executed to install assets associated with the Data Exfiltration Detection integration:
 - Go to the Kibana homepage. Under Management, click Integrations.
 - In the query bar, search for Data Exfiltration Detection and select the integration to see more details about it.
-- Under Settings, click Install Data Exfiltration Detection assets and follow the prompts to install the assets.
-
-#### Anomaly Detection Setup
-Before you can enable rules for Data Exfiltration Detection, you'll need to enable the corresponding Anomaly Detection jobs. 
-- Go to the Kibana homepage. Under Analytics, click Machine Learning.
-- Under Anomaly Detection, click Jobs, and then click "Create job". Select the Data View containing your network data. For example, this would be `logs-endpoint.events.*` if you used Elastic Defend to collect events, or `logs-network_traffic.*` if you used Network Packet Capture.
-- If the selected Data View contains events that match the query in [this](https://github.com/elastic/integrations/blob/main/packages/ded/kibana/ml_module/ded-ml.json) configuration file, you will see a card for Data Exfiltration Detection under "Use preconfigured jobs".
-- Keep the default settings and click "Create jobs" to start the anomaly detection jobs and datafeeds.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
 """
-references = [
-    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
-    "https://docs.elastic.co/en/integrations/ded",
-    "https://www.elastic.co/blog/detect-data-exfiltration-activity-with-kibanas-new-integration",
-]
-risk_score = 21
-rule_id = "bfba5158-1fd6-4937-a205-77d96213b341"
 severity = "low"
 tags = [
     "Use Case: Data Exfiltration Detection",
     "Rule Type: ML",
     "Rule Type: Machine Learning",
     "Tactic: Exfiltration",
+    "Resources: Investigation Guide",
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Data Exfiltration Activity to an Unusual Region
+
+Machine learning models analyze network traffic patterns to identify anomalies, such as data transfers to atypical regions. Adversaries exploit command and control channels to exfiltrate data to these regions, bypassing traditional security measures. This detection rule leverages ML to flag unusual geo-locations, indicating potential exfiltration activities, thus aiding in early threat identification.
+
+### Possible investigation steps
+
+- Review the geo-location details flagged by the alert to determine if the region is indeed unusual for the organization's typical network traffic patterns.
+- Analyze the network traffic logs associated with the alert to identify the volume and type of data being transferred to the unusual region.
+- Cross-reference the IP addresses involved in the data transfer with threat intelligence databases to check for any known malicious activity or associations.
+- Investigate the user accounts and devices involved in the data transfer to assess if they have been compromised or are exhibiting other suspicious behaviors.
+- Check for any recent changes in network configurations or security policies that might have inadvertently allowed data transfers to atypical regions.
+- Collaborate with the organization's IT and security teams to verify if there are legitimate business reasons for the data transfer to the flagged region.
+
+### False positive analysis
+
+- Legitimate business operations involving data transfers to new or infrequent regions may trigger false positives. Users should review and whitelist these regions if they are part of regular business activities.
+- Scheduled data backups or transfers to cloud services located in atypical regions can be mistaken for exfiltration. Identify and exclude these services from the rule's scope.
+- Remote work scenarios where employees connect from different regions might cause alerts. Maintain an updated list of remote work locations to prevent unnecessary alerts.
+- Partner or vendor data exchanges that occur outside usual geographic patterns should be documented and excluded if they are verified as non-threatening.
+- Temporary projects or collaborations with international teams may result in unusual data flows. Ensure these are accounted for in the rule's configuration to avoid false positives.
+
+### Response and remediation
+
+- Isolate the affected systems immediately to prevent further data exfiltration. Disconnect them from the network to stop ongoing communication with the unusual geo-location.
+- Conduct a thorough analysis of the network traffic logs to identify the scope of the exfiltration and determine which data was accessed or transferred.
+- Revoke any compromised credentials and enforce a password reset for affected accounts to prevent unauthorized access.
+- Implement geo-blocking measures to restrict data transfers to the identified unusual region, ensuring that only approved regions can communicate with the network.
+- Review and update firewall and intrusion detection system (IDS) rules to detect and block similar command and control traffic patterns in the future.
+- Escalate the incident to the security operations center (SOC) and relevant stakeholders, providing them with detailed findings and actions taken for further investigation and response.
+- Conduct a post-incident review to assess the effectiveness of the response and identify any gaps in the security posture, implementing necessary improvements to prevent recurrence."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

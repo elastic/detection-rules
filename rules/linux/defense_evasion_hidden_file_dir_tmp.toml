@@ -2,9 +2,7 @@
 creation_date = "2020/04/29"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/20"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 max_signals = 33
@@ -69,21 +67,59 @@ For versions <8.2, you need to add a custom ingest pipeline to populate `event.i
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Defense Evasion",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.working_directory in ("/tmp", "/var/tmp", "/dev/shm") and
 process.args regex~ """\.[a-z0-9_\-][a-z0-9_\-\.]{1,254}""" and
-not process.name in ("ls", "find", "grep", "git", "jq", "basename")
+not process.name in (
+  "ls", "find", "grep", "git", "jq", "basename", "check_snmp", "snmpget", "snmpwalk", "cc1plus", "snap",
+  "command-not-found", "sqlite", "apk", "fgrep", "locate", "objdump"
+)
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Creation of Hidden Files and Directories via CommandLine
+
+In Linux environments, files and directories prefixed with a dot (.) are hidden by default, a feature often exploited by adversaries to conceal malicious activities. Attackers may create hidden files in writable directories like /tmp to evade detection. The detection rule identifies suspicious processes creating such hidden files, excluding benign commands, to flag potential threats. This helps in uncovering stealthy persistence and defense evasion tactics.
+
+### Possible investigation steps
+
+- Review the process details to identify the command executed, focusing on the process.working_directory field to confirm if the hidden file was created in a common writable directory like /tmp, /var/tmp, or /dev/shm.
+- Examine the process.args field to determine the specific hidden file or directory name created, and assess if it matches known malicious patterns or naming conventions.
+- Check the process lineage by investigating the parent process to understand the context of how the hidden file creation was initiated and identify any potential malicious parent processes.
+- Investigate the user account associated with the process to determine if it is a legitimate user or potentially compromised, and review recent activities by this user for any anomalies.
+- Search for any additional hidden files or directories created around the same time or by the same process to identify further suspicious activities or artifacts.
+- Correlate this event with other security alerts or logs from the same host to identify any related suspicious activities or patterns that could indicate a broader attack or compromise.
+
+### False positive analysis
+
+- System maintenance scripts may create hidden files in directories like /tmp for temporary storage. Review these scripts and consider excluding them if they are verified as non-threatening.
+- Development tools and processes, such as version control systems or build scripts, might generate hidden files for configuration or state tracking. Identify these tools and add them to the exclusion list if they are part of regular operations.
+- Monitoring and logging tools may use hidden files to store temporary data or logs. Verify these tools and exclude them if they are essential for system monitoring.
+- User-specific applications or scripts might create hidden files for legitimate purposes. Conduct a review of user activities and exclude known benign applications to reduce noise.
+- Automated backup or synchronization services could generate hidden files as part of their operation. Confirm these services and exclude them if they are part of the expected environment setup.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity or lateral movement.
+- Terminate any suspicious processes identified by the detection rule that are creating hidden files in the specified directories.
+- Remove any hidden files or directories created by unauthorized processes in the /tmp, /var/tmp, and /dev/shm directories to eliminate potential persistence mechanisms.
+- Conduct a thorough review of system logs and process execution history to identify any additional indicators of compromise or related malicious activities.
+- Restore any affected files or system components from a known good backup to ensure system integrity.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
+- Implement enhanced monitoring and alerting for similar activities to improve detection and response capabilities for future incidents."""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -110,4 +146,3 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

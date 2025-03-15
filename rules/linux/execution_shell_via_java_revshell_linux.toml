@@ -2,9 +2,7 @@
 creation_date = "2023/07/04"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/12/13"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -13,12 +11,12 @@ This detection rule identifies the execution of a Linux shell process from a Jav
 network connection. This behavior may indicate reverse shell activity via a Java application.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Reverse Shell via Java"
 references = [
-    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
+    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md",
 ]
 risk_score = 47
 rule_id = "5a3d5447-31c9-409a-aed1-72f9921594fd"
@@ -49,17 +47,19 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
+
 query = '''
 sequence by host.id with maxspan=5s
-  [network where host.os.type == "linux" and event.action in ("connection_accepted", "connection_attempted") and 
-   process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and 
+  [network where host.os.type == "linux" and event.action in ("connection_accepted", "connection_attempted") and
+   process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
    not (destination.ip == null or destination.ip == "0.0.0.0" or cidrmatch(
      destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
      "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
@@ -68,7 +68,7 @@ sequence by host.id with maxspan=5s
      "FF00::/8"
     )
   )] by process.entity_id
-  [process where host.os.type == "linux" and event.action == "exec" and 
+  [process where host.os.type == "linux" and event.action == "exec" and
    process.parent.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
    process.parent.args : "-jar" and process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
    and not process.parent.args in (
@@ -76,34 +76,68 @@ sequence by host.id with maxspan=5s
      "/usr/lib64/NetExtender.jar", "/usr/lib/jenkins/jenkins.war"
    )] by process.parent.entity_id
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Reverse Shell via Java
+
+Java applications, often run on Linux systems, can be exploited by adversaries to establish reverse shells, allowing remote control over a compromised system. Attackers may execute shell commands via Java processes post-network connection. The detection rule identifies suspicious Java activity by monitoring for shell executions following network connections, excluding benign processes, to flag potential reverse shell attempts.
+
+### Possible investigation steps
+
+- Review the network connection details, focusing on the destination IP address to determine if it is external or potentially malicious, as the rule excludes common internal and reserved IP ranges.
+- Examine the Java process that initiated the network connection, including its executable path and arguments, to identify any unusual or unauthorized JAR files being executed.
+- Investigate the child shell process spawned by the Java application, checking its command-line arguments and execution context to assess if it aligns with known reverse shell patterns.
+- Cross-reference the parent Java process and the child shell process with known benign applications or services, such as Jenkins or NetExtender, to rule out false positives.
+- Analyze historical data for the host to identify any previous similar activities or patterns that might indicate a persistent threat or repeated exploitation attempts.
+
+### False positive analysis
+
+- Java-based administrative tools like Jenkins may trigger false positives when executing shell commands. Exclude known benign Java applications such as Jenkins by adding their specific JAR paths to the exception list.
+- Automated scripts or maintenance tasks that use Java to execute shell commands can be mistaken for reverse shell activity. Identify and exclude these scripts by specifying their unique process arguments or executable paths.
+- Development environments where Java applications frequently execute shell commands for testing purposes can generate false alerts. Consider excluding these environments by filtering based on specific host identifiers or network segments.
+- Security tools that utilize Java for network operations and shell executions might be flagged. Verify and exclude these tools by adding their process names or executable paths to the exception list.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious Java processes identified in the alert to stop potential reverse shell activity.
+- Conduct a thorough review of the affected system's logs to identify any additional indicators of compromise or lateral movement attempts.
+- Remove any unauthorized or malicious Java JAR files and associated scripts from the system.
+- Apply security patches and updates to the Java environment and any other vulnerable software on the affected host.
+- Restore the system from a known good backup if any unauthorized changes or persistent threats are detected.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems within the network."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+
 
 [rule.threat.tactic]
-name = "Command and Control"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
 id = "TA0011"
+name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat.technique]]
-name = "Application Layer Protocol"
-id = "T1071"
-reference = "https://attack.mitre.org/techniques/T1071/"

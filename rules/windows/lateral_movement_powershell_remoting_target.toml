@@ -2,9 +2,9 @@
 creation_date = "2020/11/24"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/04/08"
+updated_date = "2025/01/15"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,12 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.process-*", "logs-endpoint.events.network-*", "logs-windows.sysmon_operational-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-endpoint.events.network-*",
+    "logs-windows.sysmon_operational-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Incoming Execution via PowerShell Remoting"
@@ -29,16 +34,60 @@ references = [
 risk_score = 47
 rule_id = "2772264c-6fb9-4d9d-9014-b416eed21254"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Tactic: Execution", "Data Source: Elastic Defend", "Data Source: Sysmon"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
 type = "eql"
 
 query = '''
 sequence by host.id with maxspan = 30s
    [network where host.os.type == "windows" and network.direction : ("incoming", "ingress") and destination.port in (5985, 5986) and
     network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"]
-   [process where host.os.type == "windows" and 
+   [process where host.os.type == "windows" and
     event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.executable : "?:\\Windows\\System32\\conhost.exe"]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Incoming Execution via PowerShell Remoting
+
+PowerShell Remoting enables administrators to execute commands on remote Windows systems, facilitating efficient management. However, adversaries can exploit this feature for lateral movement within a network. The detection rule identifies suspicious activity by monitoring network traffic on specific ports and processes initiated by PowerShell Remoting, flagging potential unauthorized remote executions.
+
+### Possible investigation steps
+
+- Review the network traffic logs to identify the source IP address involved in the alert, ensuring it is not a known or authorized management system.
+- Check the destination port (5985 or 5986) to confirm it aligns with PowerShell Remoting activity and verify if the connection was expected or authorized.
+- Investigate the process tree on the affected host to determine if the process initiated by wsmprovhost.exe is legitimate or if it shows signs of suspicious activity.
+- Examine the parent process of wsmprovhost.exe to identify any unusual or unauthorized processes that may have triggered the PowerShell Remoting session.
+- Correlate the event with user activity logs to determine if the remote execution was performed by a legitimate user or if there are signs of compromised credentials.
+- Assess the risk score and severity in the context of the organization's environment to prioritize the response and determine if further containment or remediation actions are necessary.
+
+### False positive analysis
+
+- Legitimate administrative tasks using PowerShell Remoting can trigger the rule. To manage this, identify and whitelist known administrative IP addresses or user accounts that frequently perform remote management tasks.
+- Automated scripts or scheduled tasks that use PowerShell Remoting for system maintenance might be flagged. Review and document these scripts, then create exceptions for their specific process names or execution paths.
+- Security tools or monitoring solutions that leverage PowerShell Remoting for legitimate purposes may cause alerts. Verify these tools and exclude their associated network traffic or processes from the detection rule.
+- Internal IT support activities that involve remote troubleshooting using PowerShell Remoting can be mistaken for threats. Maintain a list of support personnel and their IP addresses to exclude them from triggering alerts.
+- Regular software updates or patch management processes that utilize PowerShell Remoting should be considered. Identify these processes and exclude their network traffic or process executions to prevent false positives.
+
+### Response and remediation
+
+- Isolate the affected host immediately from the network to prevent further lateral movement by the adversary.
+- Terminate any suspicious PowerShell processes identified, especially those initiated by wsmprovhost.exe, to stop unauthorized remote executions.
+- Conduct a thorough review of recent user activity and access logs on the affected host to identify any unauthorized access or changes.
+- Reset credentials for any accounts that were used in the suspicious activity to prevent further unauthorized access.
+- Apply patches and updates to the affected systems to address any vulnerabilities that may have been exploited.
+- Enhance monitoring on the network for unusual activity on ports 5985 and 5986 to detect any future attempts at unauthorized PowerShell Remoting.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised."""
 
 
 [[rule.threat]]
@@ -52,11 +101,12 @@ id = "T1021.006"
 name = "Windows Remote Management"
 reference = "https://attack.mitre.org/techniques/T1021/006/"
 
+
+
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -67,6 +117,7 @@ reference = "https://attack.mitre.org/techniques/T1059/"
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
+
 
 
 [rule.threat.tactic]

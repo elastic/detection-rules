@@ -17,15 +17,17 @@ from elasticsearch import Elasticsearch
 from elasticsearch.client import AsyncSearchClient
 
 import kql
+from .config import parse_rules_config
 from .main import root
 from .misc import add_params, client_error, elasticsearch_options, get_elasticsearch_client, nested_get
 from .rule import TOMLRule
-from .rule_loader import rta_mappings, RuleCollection
-from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 
+from .rule_loader import RuleCollection
+from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 
 COLLECTION_DIR = get_path('collections')
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
+RULES_CONFIG = parse_rules_config()
 
 
 def add_range_to_dsl(dsl_filter, start_time, end_time='now'):
@@ -58,7 +60,7 @@ def parse_unique_field_results(rule_type: str, unique_fields: List[str], search_
     return {'results': parsed_results} if parsed_results else {}
 
 
-class RtaEvents:
+class Events:
     """Events collected from Elasticsearch."""
 
     def __init__(self, events):
@@ -85,24 +87,19 @@ class RtaEvents:
             os.makedirs(dump_dir, exist_ok=True)
             return dump_dir
 
-    def evaluate_against_rule_and_update_mapping(self, rule_id, rta_name, verbose=True):
+    def evaluate_against_rule(self, rule_id, verbose=True):
         """Evaluate a rule against collected events and update mapping."""
         from .utils import combine_sources, evaluate
 
         rule = RuleCollection.default().id_map.get(rule_id)
         assert rule is not None, f"Unable to find rule with ID {rule_id}"
         merged_events = combine_sources(*self.events.values())
-        filtered = evaluate(rule, merged_events)
+        filtered = evaluate(rule, merged_events, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
 
-        if filtered:
-            sources = [e['agent']['type'] for e in filtered]
-            mapping_update = rta_mappings.add_rule_to_mapping_file(rule, len(filtered), rta_name, *sources)
+        if verbose:
+            click.echo('Matching results found')
 
-            if verbose:
-                click.echo('Updated rule-mapping file with: \n{}'.format(json.dumps(mapping_update, indent=2)))
-        else:
-            if verbose:
-                click.echo('No updates to rule-mapping file; No matching results')
+        return filtered
 
     def echo_events(self, pager=False, pretty=True):
         """Print events to stdout."""
@@ -320,8 +317,8 @@ class CollectEvents(object):
         return survey_results
 
 
-class CollectRtaEvents(CollectEvents):
-    """Collect RTA events from elasticsearch."""
+class CollectEventsWithDSL(CollectEvents):
+    """Collect events from elasticsearch."""
 
     @staticmethod
     def _group_events_by_type(events):
@@ -338,7 +335,7 @@ class CollectRtaEvents(CollectEvents):
         results = self.search(dsl, language='dsl', index=indexes, start_time=start_time, end_time='now', size=5000,
                               sort=[{'@timestamp': {'order': 'asc'}}])
         events = self._group_events_by_type(results)
-        return RtaEvents(events)
+        return Events(events)
 
 
 @root.command('normalize-data')
@@ -346,7 +343,7 @@ class CollectRtaEvents(CollectEvents):
 def normalize_data(events_file):
     """Normalize Elasticsearch data timestamps and sort."""
     file_name = os.path.splitext(os.path.basename(events_file.name))[0]
-    events = RtaEvents({file_name: [json.loads(e) for e in events_file.readlines()]})
+    events = Events({file_name: [json.loads(e) for e in events_file.readlines()]})
     events.save(dump_dir=os.path.dirname(events_file.name))
 
 
@@ -371,7 +368,7 @@ def es_group(ctx: click.Context, **kwargs):
 @click.option('--query', '-q', help='KQL query to scope search')
 @click.option('--index', '-i', multiple=True, help='Index(es) to search against (default: all indexes)')
 @click.option('--rta-name', '-r', help='Name of RTA in order to save events directly to unit tests data directory')
-@click.option('--rule-id', help='Updates rule mapping in rule-mapping.yml file (requires --rta-name)')
+@click.option('--rule-id', help='Updates rule mapping in rule-mapping.yaml file (requires --rta-name)')
 @click.option('--view-events', is_flag=True, help='Print events after saving')
 @click.pass_context
 def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
@@ -381,7 +378,7 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
     dsl['bool'].setdefault('filter', []).append({'bool': {'should': [{'match_phrase': {'host.id': host_id}}]}})
 
     try:
-        collector = CollectRtaEvents(client)
+        collector = CollectEventsWithDSL(client)
         start = time.time()
         click.pause('Press any key once detonation is complete ...')
         start_time = f'now-{round(time.time() - start) + 5}s'
@@ -389,7 +386,7 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
         events.save(rta_name=rta_name, host_id=host_id)
 
         if rta_name and rule_id:
-            events.evaluate_against_rule_and_update_mapping(rule_id, rta_name)
+            events.evaluate_against_rule(rule_id)
 
         if view_events and events.events:
             events.echo_events(pager=True)

@@ -2,19 +2,17 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/03/08"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule monitors for a sequence of 20 "id" command executions within 1 second by the same parent process. This
-behavior is unusual, and may be indicative of the execution of an enumeration script such as LinPEAS or LinEnum. These 
+behavior is unusual, and may be indicative of the execution of an enumeration script such as LinPEAS or LinEnum. These
 scripts leverage the "id" command to enumerate the privileges of all users present on the system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual User Privilege Enumeration via id"
@@ -46,24 +44,71 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.parent.entity_id with maxspan=1s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
-   process.name == "id" and process.args_count == 2 and 
-   not (process.parent.name == "rpm" or process.parent.args : "/var/tmp/rpm-tmp*")] with runs=20
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+   process.name == "id" and process.args_count == 2 and
+   not (
+     process.parent.name in ("rpm", "snarftmp", "quota_copy", "java") or
+     process.parent.args : "/var/tmp/rpm-tmp*"
+    )] with runs=20
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual User Privilege Enumeration via id
+
+The `id` command in Linux environments is used to display user identity information, including user and group IDs. Adversaries may exploit this command in enumeration scripts to gather extensive user privilege data rapidly, which can aid in lateral movement or privilege escalation. The detection rule identifies suspicious activity by flagging rapid, repeated executions of the `id` command, suggesting potential misuse by scripts like LinPEAS or LinEnum.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host.id and process.parent.entity_id associated with the suspicious activity.
+- Examine the parent process of the 'id' command executions to determine if it is a known or legitimate process, and check for any unusual or unexpected parent process names or arguments.
+- Investigate the timeline of events on the affected host around the time of the alert to identify any other suspicious activities or related processes that may indicate a broader attack or script execution.
+- Check the user account associated with the process executions to verify if it has legitimate access and if there are any signs of compromise or misuse.
+- Look for any additional indicators of compromise on the host, such as unauthorized file modifications, network connections, or other unusual command executions, to assess the scope of potential malicious activity.
+
+### False positive analysis
+
+- System management scripts or automated tasks may execute the id command frequently for legitimate purposes. Review the parent process to determine if it is a known management tool or script.
+- Software installation or update processes might trigger the rule if they use the id command to verify user permissions. Consider excluding processes with parent names like rpm or similar package managers.
+- Custom scripts developed in-house for system monitoring or auditing could inadvertently match the rule's criteria. Identify these scripts and add exceptions for their parent process entity IDs.
+- Security tools or compliance checks that perform regular user enumeration might cause false positives. Verify the source of these tools and exclude them if they are part of a trusted security suite.
+- In environments with high user account turnover, scripts that manage user accounts might execute the id command in rapid succession. Evaluate these scripts and exclude them if they are part of routine account management.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent potential lateral movement by the adversary.
+- Terminate any suspicious processes associated with the parent process identified in the alert to halt further enumeration activities.
+- Conduct a thorough review of the parent process and its associated scripts to determine if they are legitimate or malicious.
+- If malicious activity is confirmed, perform a comprehensive scan of the system for additional indicators of compromise, such as unauthorized user accounts or altered system files.
+- Reset credentials for any user accounts that may have been exposed or compromised during the enumeration activity.
+- Escalate the incident to the security operations team for further investigation and to assess the potential impact on other systems within the network.
+- Implement enhanced monitoring and logging for similar enumeration activities to improve detection and response capabilities for future incidents."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1033"
 name = "System Owner/User Discovery"
 reference = "https://attack.mitre.org/techniques/T1033/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+

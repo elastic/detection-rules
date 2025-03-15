@@ -2,21 +2,20 @@
 creation_date = "2023/06/08"
 integration = ["auditd_manager"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2024/02/22"
+updated_date = "2024/10/18"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
-Detects file events involving kernel modules in modprobe configuration files, which may indicate unauthorized access or 
+Detects file events involving kernel modules in modprobe configuration files, which may indicate unauthorized access or
 manipulation of critical kernel modules. Attackers may tamper with the modprobe files to load malicious or unauthorized
-kernel modules, potentially bypassing security measures, escalating privileges, or hiding their activities within the 
+kernel modules, potentially bypassing security measures, escalating privileges, or hiding their activities within the
 system.
 """
 from = "now-119m"
-interval = "60m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
+interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious Modprobe File Event"
@@ -46,19 +45,19 @@ Add the newly installed `auditd manager` to an agent policy, and deploy the agen
 """
 severity = "low"
 tags = [
-        "Data Source: Auditd Manager",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Discovery",
-        "Rule Type: BBR"
-        ]
+    "Data Source: Auditd Manager",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Rule Type: BBR",
+]
 timestamp_override = "event.ingested"
 type = "new_terms"
-building_block_type = "default"
+
 query = '''
 host.os.type:linux and event.category:file and event.action:"opened-file" and
 file.path : ("/etc/modprobe.conf" or "/etc/modprobe.d" or /etc/modprobe.d/*) and not process.name:(
-  cp or dpkg or dockerd or lynis or mkinitramfs or snapd or systemd-udevd or grep or borg or auditbeat or lspci or
+  cp or dpkg or dockerd or lynis or mkinitramfs or snapd or systemd-udevd or borg or auditbeat or lspci or
   aide or modprobe or python*
 )
 '''
@@ -78,7 +77,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.executable"]
+value = ["process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

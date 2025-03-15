@@ -2,9 +2,9 @@
 creation_date = "2021/01/09"
 integration = ["system", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2025/02/21"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [rule]
 author = ["Elastic", "Skoetting"]
@@ -14,7 +14,7 @@ Directory are those to which powerful rights, privileges, and permissions are gr
 any action in Active Directory and on domain-joined systems.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
+index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "User Added to Privileged Group"
@@ -52,29 +52,54 @@ references = [
 ]
 risk_score = 47
 rule_id = "5cd8e1f7-0050-4afc-b2df-904e40b2f5ae"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Resources: Investigation Guide", "Use Case: Active Directory Monitoring", "Data Source: Active Directory"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Use Case: Active Directory Monitoring",
+    "Data Source: Active Directory",
+    "Data Source: Windows Security Event Logs",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-iam where winlog.api:"wineventlog" and event.action == "added-member-to-group" and
-  group.name : ("Admin*",
-                "Local Administrators",
-                "Domain Admins",
-                "Enterprise Admins",
-                "Backup Admins",
-                "Schema Admins",
-                "DnsAdmins",
-                "Exchange Organization Administrators")
+iam where winlog.api == "wineventlog" and event.action == "added-member-to-group" and
+(
+    (
+        group.name : (
+            "Admin*",
+            "Local Administrators",
+            "Domain Admins",
+            "Enterprise Admins",
+            "Backup Admins",
+            "Schema Admins",
+            "DnsAdmins",
+            "Exchange Organization Administrators",
+            "Print Operators",
+            "Server Operators",
+            "Account Operators"
+        )
+    ) or
+    (
+        group.id : (
+            "S-1-5-32-544",
+            "S-1-5-21-*-544",
+            "S-1-5-21-*-512",
+            "S-1-5-21-*-519",
+            "S-1-5-21-*-551",
+            "S-1-5-21-*-518",
+            "S-1-5-21-*-1101",
+            "S-1-5-21-*-1102",
+            "S-1-5-21-*-550",
+            "S-1-5-21-*-549",
+            "S-1-5-21-*-548"
+        )
+    )
+)
 '''
 
 

@@ -2,9 +2,7 @@
 creation_date = "2023/02/13"
 integration = ["system"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -23,11 +21,10 @@ query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
 label = "Osquery - Retrieve Running Processes by User"
 query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER BY username"
 
+
 [rule]
 author = ["Elastic"]
-description = """
-Identifies attempts to create a new group. Attackers may create new groups to establish persistence on a system.
-"""
+description = "Identifies attempts to create a new group. Attackers may create new groups to establish persistence on a system.\n"
 from = "now-9m"
 index = ["filebeat-*", "logs-system.auth-*"]
 language = "eql"
@@ -44,7 +41,7 @@ Attackers may create new groups to maintain access to victim systems or escalate
 This rule identifies the usages of `groupadd` and `addgroup` to create new groups.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible investigation steps
@@ -80,6 +77,7 @@ This rule identifies the usages of `groupadd` and `addgroup` to create new group
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+references = ["https://www.elastic.co/security-labs/primer-on-persistence-mechanisms"]
 risk_score = 21
 rule_id = "a1c2589e-0c8c-4ca8-9eb6-f83c4bbdbe8f"
 setup = """## Setup
@@ -103,28 +101,37 @@ Filebeat is a lightweight shipper for forwarding and centralizing log data. Inst
 - To run the system module of Filebeat on Linux follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-system.html).
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 iam where host.os.type == "linux" and (event.type == "group" and event.type == "creation") and
 process.name in ("groupadd", "addgroup") and group.name != null
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1136.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1136/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

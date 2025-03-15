@@ -2,24 +2,22 @@
 creation_date = "2023/07/04"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/12/13"
+updated_date = "2025/02/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This detection rule detects the creation of a shell through a suspicious process chain. Any reverse shells spawned by 
-the specified utilities that are initialized from a single process followed by a network connection attempt will be 
+This detection rule detects the creation of a shell through a suspicious process chain. Any reverse shells spawned by
+the specified utilities that are initialized from a single process followed by a network connection attempt will be
 captured through this rule. Attackers may spawn reverse shells to establish persistence onto a target system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Reverse Shell via Suspicious Child Process"
 references = [
-    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
+    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md",
 ]
 risk_score = 47
 rule_id = "76e4d92b-61c1-4a95-ab61-5fd94179a1ee"
@@ -50,13 +48,15 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
 type = "eql"
+
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
   [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "fork") and (
@@ -72,47 +72,83 @@ sequence by host.id, process.entity_id with maxspan=1s
     (process.name : "lua*" and process.args : "-e" and process.args : "*socket.tcp*" and process.args : (
      "*io.popen*", "*os.execute*"
     )) or
-    (process.name : "php*" and process.args : "-r" and process.args : "*fsockopen*" and process.args : "*/bin/*sh*") or 
+    (process.name : "php*" and process.args : "-r" and process.args : "*fsockopen*" and process.args : "*/bin/*sh*") or
     (process.name : ("awk", "gawk", "mawk", "nawk") and process.args : "*/inet/tcp/*") or
     (process.name : "openssl" and process.args : "-connect") or
-    (process.name : ("nc", "ncat", "netcat") and process.args == "-e" and process.args_count >= 3 and 
+    (process.name : ("nc", "ncat", "netcat") and process.args == "-e" and process.args_count >= 3 and
      not process.args == "-z") or
     (process.name : "telnet" and process.args_count >= 3)
   ) and process.parent.name : (
     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "php*", "perl", "ruby", "lua*",
     "openssl", "nc", "netcat", "ncat", "telnet", "awk")]
-  [network where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
-    process.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") and 
+  [network where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and
+    process.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") and
     destination.ip != null and not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Reverse Shell via Suspicious Child Process
+
+Reverse shells are a common technique used by attackers to gain remote access to a compromised system. They exploit scripting languages and utilities like Python, Perl, and Netcat to execute commands remotely. The detection rule identifies suspicious process chains and network activities, such as unexpected shell spawns and outbound connections, to flag potential reverse shell attempts, leveraging process and network event analysis to detect anomalies.
+
+### Possible investigation steps
+
+- Review the process chain to identify the parent process and determine if it is expected behavior for the system. Check the process.parent.name field for any unusual or unauthorized parent processes.
+- Analyze the process arguments captured in the alert, such as process.args, to understand the command being executed and assess if it aligns with known reverse shell patterns.
+- Investigate the network connection details, focusing on the destination.ip field, to determine if the connection is to a known malicious IP or an unexpected external address.
+- Check the process.name field to identify the specific utility used (e.g., python, perl, nc) and verify if its usage is legitimate or if it indicates a potential compromise.
+- Correlate the alert with other security events or logs from the same host.id to identify any additional suspicious activities or patterns that may indicate a broader attack.
+- Consult threat intelligence sources to gather information on any identified IP addresses or domains involved in the network connection to assess their reputation and potential threat level.
+
+### False positive analysis
+
+- Development and testing environments may frequently execute scripts using languages like Python, Perl, or Ruby, which can trigger the rule. To manage this, consider excluding specific host IDs or process names associated with known development activities.
+- Automated scripts or cron jobs that utilize network connections for legitimate purposes, such as data backups or updates, might be flagged. Identify these processes and add them to an exception list based on their parent process names or specific arguments.
+- System administrators might use tools like Netcat or OpenSSL for troubleshooting or monitoring network connections. If these activities are routine and verified, exclude them by specifying the administrator's user ID or the specific command patterns used.
+- Security tools or monitoring solutions that simulate attack scenarios for testing purposes can also trigger this rule. Ensure these tools are recognized and excluded by their process names or associated network activities.
+- Custom scripts that use shell commands to interact with remote systems for maintenance tasks may appear suspicious. Review these scripts and exclude them by their unique process arguments or parent process names.
+
+### Response and remediation
+
+- Immediately isolate the affected host from the network to prevent further unauthorized access or data exfiltration.
+- Terminate any suspicious processes identified by the detection rule, particularly those involving scripting languages or utilities like Python, Perl, or Netcat.
+- Conduct a forensic analysis of the affected system to identify any additional indicators of compromise, such as unauthorized user accounts or modified system files.
+- Review and reset credentials for any accounts that may have been accessed or compromised during the incident.
+- Apply security patches and updates to the affected system to address any vulnerabilities that may have been exploited.
+- Monitor network traffic for any signs of further suspicious activity, focusing on outbound connections from the affected host.
+- Escalate the incident to the security operations center (SOC) or relevant security team for further investigation and to ensure comprehensive remediation efforts."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+
 
 [rule.threat.tactic]
-name = "Command and Control"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
 id = "TA0011"
+name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat.technique]]
-name = "Application Layer Protocol"
-id = "T1071"
-reference = "https://attack.mitre.org/techniques/T1071/"

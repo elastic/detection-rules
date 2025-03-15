@@ -2,14 +2,12 @@
 creation_date = "2023/10/26"
 integration = ["system"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2024/02/22"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule monitors the syslog log file for messages related to instances of a out-of-tree kernel module load, indicating 
+This rule monitors the syslog log file for messages related to instances of a out-of-tree kernel module load, indicating
 the taining of the kernel. Rootkits often leverage kernel modules as their main defense evasion technique. Detecting
 tainted kernel module loads is crucial for ensuring system security and integrity, as malicious or unauthorized modules
 can compromise the kernel and lead to system vulnerabilities or unauthorized access.
@@ -44,46 +42,84 @@ Filebeat is a lightweight shipper for forwarding and centralizing log data. Inst
 """
 severity = "low"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Persistence",
-        "Tactic: Defense Evasion"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
+
 query = '''
-host.os.type:linux and event.dataset:"system.syslog" and process.name:kernel and 
+host.os.type:linux and event.dataset:"system.syslog" and process.name:kernel and
 message:"loading out-of-tree module taints kernel."
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Tainted Out-Of-Tree Kernel Module Load
+
+Kernel modules extend the functionality of the Linux kernel without rebooting the system. While beneficial, out-of-tree modules, not included in the official kernel source, can taint the kernel, posing security risks. Adversaries exploit this by loading malicious modules to evade detection and maintain persistence. The detection rule monitors syslog for specific messages indicating such module loads, helping identify potential threats early.
+
+### Possible investigation steps
+
+- Review the syslog entries around the time of the alert to gather additional context about the module load event, focusing on messages with "loading out-of-tree module taints kernel."
+- Identify the specific out-of-tree kernel module that was loaded by examining the syslog message details and cross-reference with known legitimate modules.
+- Check the system for any recent changes or installations that might have introduced the out-of-tree module, such as software updates or new applications.
+- Investigate the source and integrity of the module by verifying its origin and comparing its hash against known good or malicious hashes.
+- Assess the system for any signs of compromise or unauthorized access, focusing on persistence mechanisms and defense evasion tactics, as indicated by the MITRE ATT&CK framework references.
+- Consult with system administrators or relevant stakeholders to determine if the module load was authorized or expected as part of normal operations.
+
+### False positive analysis
+
+- Legitimate third-party drivers or hardware support modules may trigger alerts when loaded as out-of-tree modules. Users should verify the source and purpose of these modules to ensure they are not malicious.
+- Custom-built modules for specific applications or hardware optimizations can also cause false positives. Users can create exceptions for these modules by adding them to an allowlist if they are verified as safe and necessary for system operations.
+- Development and testing environments often load experimental or custom modules that are not part of the official kernel. In such cases, users should document these modules and exclude them from alerts to avoid unnecessary noise.
+- Regularly updated or patched modules from trusted vendors might not be immediately recognized as safe. Users should maintain a list of trusted vendors and update their exception lists accordingly to prevent false positives.
+- Some security tools or monitoring solutions may use out-of-tree modules for enhanced functionality. Users should ensure these tools are from reputable sources and exclude their modules from detection rules if they are confirmed to be secure.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent potential lateral movement by the adversary.
+- Identify and unload the suspicious out-of-tree kernel module using the `rmmod` command to remove it from the kernel.
+- Conduct a thorough review of the system's kernel module load history and verify the legitimacy of all loaded modules.
+- Perform a comprehensive malware scan on the affected system to detect and remove any additional malicious software.
+- Restore the system from a known good backup if the integrity of the system cannot be assured after module removal.
+- Implement stricter access controls and monitoring for kernel module loading to prevent unauthorized module loads in the future.
+- Escalate the incident to the security operations team for further investigation and to assess the need for broader organizational response measures."""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1547.006"
 name = "Kernel Modules and Extensions"
 reference = "https://attack.mitre.org/techniques/T1547/006/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-name = "Rootkit"
 id = "T1014"
+name = "Rootkit"
 reference = "https://attack.mitre.org/techniques/T1014/"
+
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
