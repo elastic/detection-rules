@@ -2,7 +2,7 @@
 creation_date = "2023/01/17"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,9 @@ index = ["logs-endpoint.events.library-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unsigned DLL Loaded by Svchost"
+references = [
+    "https://www.elastic.co/security-labs/Hunting-for-Suspicious-Windows-Libraries-for-Execution-and-Evasion",
+]
 risk_score = 47
 rule_id = "78ef0c95-9dc2-40ac-a8da-5deb6293a14e"
 severity = "medium"
@@ -26,6 +29,7 @@ tags = [
     "Tactic: Defense Evasion",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -33,19 +37,19 @@ type = "eql"
 query = '''
 library where host.os.type == "windows" and
 
- process.executable : 
-     ("?:\\Windows\\System32\\svchost.exe", "?:\\Windows\\Syswow64\\svchost.exe") and 
-     
- dll.code_signature.trusted != true and 
- 
- not dll.code_signature.status : ("trusted", "errorExpired", "errorCode_endpoint*") and 
- 
- dll.hash.sha256 != null and 
- 
+ process.executable :
+     ("?:\\Windows\\System32\\svchost.exe", "?:\\Windows\\Syswow64\\svchost.exe") and
+
+ dll.code_signature.trusted != true and
+
+ not dll.code_signature.status : ("trusted", "errorExpired", "errorCode_endpoint*") and
+
+ dll.hash.sha256 != null and
+
  (
        /* DLL created within 5 minutes of the library load event - compatible with Elastic Endpoint 8.4+ */
-       dll.Ext.relative_file_creation_time <= 300 or 
-   
+       dll.Ext.relative_file_creation_time <= 300 or
+
        /* unusual paths */
        dll.path :("?:\\ProgramData\\*",
                   "?:\\Users\\*",
@@ -114,15 +118,51 @@ library where host.os.type == "windows" and
                   "?:\\Windows\\ModemLogs\\*",
                   "?:\\Windows\\ImmersiveControlPanel\\*",
                   "?:\\$Recycle.Bin\\*")
-  ) and 
-  
-  not dll.hash.sha256 : 
-            ("3ed33e71641645367442e65dca6dab0d326b22b48ef9a4c2a2488e67383aa9a6", 
-             "b4db053f6032964df1b254ac44cb995ffaeb4f3ade09597670aba4f172cf65e4", 
-             "214c75f678bc596bbe667a3b520aaaf09a0e50c364a28ac738a02f867a085eba", 
-             "23aa95b637a1bf6188b386c21c4e87967ede80242327c55447a5bb70d9439244", 
+  ) and
+
+  not dll.hash.sha256 :
+            ("3ed33e71641645367442e65dca6dab0d326b22b48ef9a4c2a2488e67383aa9a6",
+             "b4db053f6032964df1b254ac44cb995ffaeb4f3ade09597670aba4f172cf65e4",
+             "214c75f678bc596bbe667a3b520aaaf09a0e50c364a28ac738a02f867a085eba",
+             "23aa95b637a1bf6188b386c21c4e87967ede80242327c55447a5bb70d9439244",
              "5050b025909e81ae5481db37beb807a80c52fc6dd30c8aa47c9f7841e2a31be7")
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unsigned DLL Loaded by Svchost
+
+Svchost.exe is a critical Windows process that hosts multiple services, allowing efficient resource management. Adversaries exploit this by loading unsigned DLLs to gain persistence or execute code with elevated privileges. The detection rule identifies such threats by monitoring DLLs recently created and loaded by svchost, focusing on untrusted signatures and unusual file paths, thus highlighting potential malicious activity.
+
+### Possible investigation steps
+
+- Review the specific DLL file path and hash (dll.path and dll.hash.sha256) to determine if it is known to be associated with legitimate software or if it is potentially malicious.
+- Check the creation time of the DLL (dll.Ext.relative_file_creation_time) to understand the timeline of events and correlate it with other activities on the system around the same time.
+- Investigate the process that loaded the DLL (process.executable) to determine if it is a legitimate instance of svchost.exe or if it has been tampered with or replaced.
+- Analyze the code signature status (dll.code_signature.trusted and dll.code_signature.status) to verify if the DLL is unsigned or has an untrusted signature, which could indicate tampering or a malicious origin.
+- Cross-reference the DLL's hash (dll.hash.sha256) against known malware databases or threat intelligence sources to identify if it is associated with known threats.
+- Examine the system for other indicators of compromise, such as unusual network activity or additional suspicious files, to assess the scope of potential malicious activity.
+- Consider isolating the affected system to prevent further potential compromise while conducting a deeper forensic analysis.
+
+### False positive analysis
+
+- System maintenance or updates may trigger the rule by loading legitimate unsigned DLLs. Users can create exceptions for known update processes or maintenance activities to prevent unnecessary alerts.
+- Custom or in-house applications might load unsigned DLLs from unusual paths. Verify the legitimacy of these applications and consider adding their specific paths to the exclusion list if they are deemed safe.
+- Security or monitoring tools might use unsigned DLLs for legitimate purposes. Identify these tools and exclude their associated DLLs by hash or path to reduce false positives.
+- Temporary files created by legitimate software in monitored directories can be mistaken for threats. Regularly review and update the exclusion list to include hashes of these known benign files.
+- Development environments often generate unsigned DLLs during testing phases. Ensure that development paths are excluded from monitoring to avoid false alerts during software development cycles.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate the svchost.exe process that loaded the unsigned DLL to stop any ongoing malicious actions.
+- Remove the identified unsigned DLL from the system to eliminate the immediate threat.
+- Conduct a full antivirus and anti-malware scan on the affected system to detect and remove any additional threats.
+- Review and restore any modified system configurations or settings to their original state to ensure system integrity.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for svchost.exe and DLL loading activities to detect similar threats in the future."""
 
 
 [[rule.threat]]

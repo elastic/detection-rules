@@ -2,7 +2,7 @@
 creation_date = "2021/07/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/01/15"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,10 @@ index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Parent Process PID Spoofing"
-references = ["https://blog.didierstevens.com/2017/03/20/"]
+references = [
+    "https://blog.didierstevens.com/2017/03/20/",
+    "https://www.elastic.co/security-labs/elastic-security-labs-steps-through-the-r77-rootkit",
+]
 risk_score = 73
 rule_id = "c88d4bd0-5649-4c52-87ea-9be59dbfbcf2"
 severity = "high"
@@ -26,50 +29,87 @@ tags = [
     "Tactic: Defense Evasion",
     "Tactic: Privilege Escalation",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 type = "eql"
 
 query = '''
 /* This rule is compatible with Elastic Endpoint only */
 
-sequence by host.id, user.id with maxspan=3m 
+sequence by host.id, user.id with maxspan=3m
 
  [process where host.os.type == "windows" and event.type == "start" and
-  process.Ext.token.integrity_level_name != "system" and 
+  process.Ext.token.integrity_level_name != "system" and
   (
     process.pe.original_file_name : ("winword.exe", "excel.exe", "outlook.exe", "powerpnt.exe", "eqnedt32.exe",
                                      "fltldr.exe", "mspub.exe", "msaccess.exe", "powershell.exe", "pwsh.exe",
                                      "cscript.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe", "msbuild.exe",
-                                     "mshta.exe", "wmic.exe", "cmstp.exe", "msxsl.exe") or 
-                                     
+                                     "mshta.exe", "wmic.exe", "cmstp.exe", "msxsl.exe") or
+
     (process.executable : ("?:\\Users\\*.exe",
                            "?:\\ProgramData\\*.exe",
                            "?:\\Windows\\Temp\\*.exe",
-                           "?:\\Windows\\Tasks\\*") and 
-      (process.code_signature.exists == false or process.code_signature.status : "errorBadDigest")) or 
-                          
-    process.executable : "?:\\Windows\\Microsoft.NET\\*.exe"                      
-  ) and 
-  
-  not process.executable : 
-             ("?:\\Windows\\System32\\WerFaultSecure.exe", 
+                           "?:\\Windows\\Tasks\\*") and
+      (process.code_signature.exists == false or process.code_signature.status : "errorBadDigest")) or
+
+    process.executable : "?:\\Windows\\Microsoft.NET\\*.exe"
+  ) and
+
+  not process.executable :
+             ("?:\\Windows\\System32\\WerFaultSecure.exe",
               "?:\\WINDOWS\\SysWOW64\\WerFaultSecure.exe",
               "?:\\Windows\\System32\\WerFault.exe",
               "?:\\Windows\\SysWOW64\\WerFault.exe")
   ] by process.pid
  [process where host.os.type == "windows" and event.type == "start" and
-  process.parent.Ext.real.pid > 0 and 
- 
+  process.parent.Ext.real.pid > 0 and
+
   /* process.parent.Ext.real.pid is only populated if the parent process pid doesn't match */
-  not (process.name : "msedge.exe" and process.parent.name : "sihost.exe") and 
-  
-   not process.executable : 
-             ("?:\\Windows\\System32\\WerFaultSecure.exe", 
+  not (process.name : "msedge.exe" and process.parent.name : "sihost.exe") and
+
+   not process.executable :
+             ("?:\\Windows\\System32\\WerFaultSecure.exe",
               "?:\\WINDOWS\\SysWOW64\\WerFaultSecure.exe",
               "?:\\Windows\\System32\\WerFault.exe",
               "?:\\Windows\\SysWOW64\\WerFault.exe")
  ] by process.parent.Ext.real.pid
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Parent Process PID Spoofing
+
+Parent Process PID Spoofing involves manipulating the parent process identifier to disguise the origin of a process, often to bypass security measures or gain elevated privileges. Adversaries exploit this by launching processes with falsified parent PIDs, making them appear benign. The detection rule identifies such anomalies by monitoring process creation events, focusing on unexpected parent-child relationships and unsigned executables, thus flagging potential spoofing attempts.
+
+### Possible investigation steps
+
+- Review the process creation event details to identify the specific executable and its path that triggered the alert. Pay attention to the process.executable field to determine if it matches any suspicious patterns like "?:\\\\Users\\\\*.exe" or "?:\\\\Windows\\\\Temp\\\\*.exe".
+- Check the process.parent.Ext.real.pid field to confirm if the parent process PID has been spoofed. Investigate the legitimacy of the parent process by examining its name and executable path.
+- Analyze the process.code_signature.status field to determine if the executable is unsigned or has a bad digest, which could indicate tampering or a lack of authenticity.
+- Investigate the user context by reviewing the user.id field to understand which user account was associated with the process creation. This can help determine if the activity aligns with expected user behavior.
+- Correlate the process creation event with other related events on the same host.id within the maxspan of 3 minutes to identify any additional suspicious activities or patterns.
+- Examine the integrity level of the process using the process.Ext.token.integrity_level_name field to assess if the process is running with elevated privileges unexpectedly.
+- Cross-reference the process with known legitimate applications by checking if the process.pe.original_file_name matches common applications like "winword.exe" or "powershell.exe" to rule out false positives.
+
+### False positive analysis
+
+- Processes like msedge.exe with sihost.exe as the parent may trigger false positives. Consider adding exceptions for these specific parent-child relationships if they are common in your environment.
+- Executables located in user directories or temporary folders may be flagged if they lack valid code signatures. Regularly review and whitelist known benign applications that operate from these paths.
+- Processes with a parent PID mismatch due to legitimate software updates or installations can be mistaken for spoofing. Monitor and document such activities to refine detection rules and reduce false alerts.
+- WerFault.exe and its variants are excluded by default, but if other legitimate system processes are frequently flagged, consider expanding the exclusion list to include them.
+- Regularly update the list of known safe executables and their expected parent processes to ensure the rule remains effective without generating unnecessary alerts.
+
+### Response and remediation
+
+- Isolate the affected host immediately to prevent further spread of the threat. Disconnect the host from the network to contain any potential malicious activity.
+- Terminate any suspicious processes identified by the alert, especially those with spoofed parent PIDs or unsigned executables, to halt any ongoing malicious actions.
+- Conduct a thorough review of the affected system's process tree and logs to identify any additional malicious processes or indicators of compromise that may have been missed.
+- Restore the affected system from a known good backup if any critical system files or configurations have been altered by the threat.
+- Update and patch the affected system to the latest security standards to close any vulnerabilities that may have been exploited by the adversary.
+- Implement enhanced monitoring on the affected host and similar systems to detect any recurrence of the threat, focusing on process creation events and parent-child process relationships.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]

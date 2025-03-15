@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -48,7 +48,7 @@ note = """## Triage and analysis
 Adversaries may achieve persistence by referencing a program with a registry run key. Adding an entry to the run keys in the registry will cause the program referenced to be executed when a user logs in. These programs will executed under the context of the user and will have the account's permissions. This rule looks for this behavior by monitoring a range of registry run keys.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -98,6 +98,7 @@ Adversaries may achieve persistence by referencing a program with a registry run
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+references = ["https://www.elastic.co/security-labs/elastic-security-uncovers-blister-malware-campaign"]
 risk_score = 21
 rule_id = "97fc44d3-8dae-4019-ae83-298c3015600f"
 severity = "low"
@@ -116,7 +117,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and registry.data.strings != null and
+registry where host.os.type == "windows" and event.type == "change" and 
+ registry.data.strings != null and registry.hive : ("HKEY_USERS", "HKLM") and
  registry.path : (
      /* Machine Hive */
      "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\*",

@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2021/09/22"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/01/15"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = "Identifies when a user has updated a SAML provider in AWS. SAML providers are used to enable federated access to the AWS Management Console. This activity could be an indication of an attacker attempting to escalate privileges."
+false_positives = [
+    """
+    SAML Provider could be updated by a system administrator. Verify whether the user identity, user agent, and/or
+    hostname should be making changes in your environment. SAML Provider updates by unfamiliar users should be
+    investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM SAML Provider Updated"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS IAM SAML Provider Updated
+
+AWS IAM SAML providers facilitate federated access, allowing users to authenticate via external identity providers. Adversaries may exploit this by updating SAML providers to gain unauthorized access or escalate privileges. The detection rule monitors successful updates to SAML providers, flagging potential privilege escalation attempts by correlating specific AWS CloudTrail events.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to identify the user or role associated with the UpdateSAMLProvider event. Check for any unusual or unauthorized users making changes.
+- Examine the context of the UpdateSAMLProvider event, including the time of the event and any associated IP addresses or locations, to identify any anomalies or suspicious patterns.
+- Investigate the history of changes to the specific SAML provider to determine if there have been any recent unauthorized or unexpected modifications.
+- Check for any other related AWS CloudTrail events around the same timeframe, such as changes to IAM roles or policies, which might indicate a broader privilege escalation attempt.
+- Assess the permissions and access levels of the user or role that performed the update to ensure they align with expected privileges and responsibilities.
+- If suspicious activity is confirmed, consider revoking or limiting access for the involved user or role and review the security posture of the AWS environment to prevent future incidents.
+
+### False positive analysis
+
+- Routine administrative updates to SAML providers by authorized personnel can trigger alerts. To manage this, maintain a list of known administrators and their expected activities, and create exceptions for these users in the detection rule.
+- Scheduled updates or maintenance activities involving SAML providers may also result in false positives. Document these activities and adjust the detection rule to exclude events occurring during these scheduled times.
+- Automated scripts or tools used for managing SAML providers can generate alerts if they perform updates. Identify these scripts and their expected behavior, then configure the detection rule to recognize and exclude these specific actions.
+- Changes made by trusted third-party services integrated with AWS IAM might be flagged. Verify the legitimacy of these services and consider adding them to an allowlist to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately revoke any unauthorized changes to the SAML provider by restoring the previous configuration from backups or logs.
+- Conduct a thorough review of recent IAM activity logs to identify any unauthorized access or privilege escalation attempts associated with the updated SAML provider.
+- Temporarily disable the affected SAML provider to prevent further unauthorized access while the investigation is ongoing.
+- Notify the security team and relevant stakeholders about the incident for awareness and further investigation.
+- Implement additional monitoring and alerting for any future changes to SAML providers to ensure rapid detection of unauthorized modifications.
+- Review and tighten IAM policies and permissions to ensure that only authorized personnel can update SAML providers.
+- Consider implementing multi-factor authentication (MFA) for all users with permissions to modify IAM configurations to enhance security.
+
+## Setup
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateSAMLProvider.html",
+]
+risk_score = 47
+rule_id = "979729e7-0c52-4c4c-b71e-88103304a79f"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail
+    and event.provider: iam.amazonaws.com
+    and event.action: UpdateSAMLProvider
+    and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+[[rule.threat.technique.subtechnique]]
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

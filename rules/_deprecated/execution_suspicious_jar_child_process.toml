@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2021/01/19"
+integration = ["endpoint"]
+maturity = "deprecated"
+deprecation_date = "2025/01/17"
+updated_date = "2025/01/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious child processes of the Java interpreter process. This may indicate an attempt to execute a
+malicious JAR file or an exploitation attempt via a JAVA specific vulnerability.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Deprecated - Suspicious JAVA Child Process"
+note = """## Triage and analysis
+
+### Investigating Suspicious Java Child Process
+
+This rule identifies a suspicious child process of the Java interpreter process. It may indicate an attempt to execute a malicious JAR file or an exploitation attempt via a Java specific vulnerability.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence and whether they are located in expected locations.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Investigate any abnormal account behavior, such as command executions, file creations or modifications, and network connections.
+- Investigate any abnormal behavior by the subject process such as network connections, file modifications, and any spawned child processes.
+- Examine the command line to determine if the command executed is potentially harmful or malicious.
+- Inspect the host for suspicious or abnormal behavior in the alert timeframe.
+
+### False positive analysis
+
+- If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination of process and command line conditions.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Remove and block malicious artifacts identified during triage.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://www.lunasec.io/docs/blog/log4j-zero-day/",
+    "https://github.com/christophetd/log4shell-vulnerable-app",
+    "https://www.blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE.pdf",
+    "https://www.elastic.co/security-labs/detecting-log4j2-with-elastic-security",
+    "https://www.elastic.co/security-labs/analysis-of-log4shell-cve-2021-45046",
+]
+risk_score = 47
+rule_id = "8acb7614-1d92-4359-bfcf-478b6d9de150"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category:process and event.type:("start" or "process_started") and process.parent.name:"java" and process.name:(
+  bash or dash or sh or tcsh or csh or zsh or ksh or fish or python* or php* or perl or ruby or lua* or openssl or
+  nc or netcat or ncat or telnet or awk or socat or wget or curl
+) and process.args :(
+  whoami or id or uname or cat or hostname or ip or curl or wget or pwd or ls or cd or python* or php* or perl or
+  ruby or lua* or openssl or nc or netcat or ncat or telnet or awk or socat
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.command_line"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

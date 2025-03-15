@@ -2,7 +2,9 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/02/03"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
 
 [transform]
 [[transform.osquery]]
@@ -55,7 +57,7 @@ Attackers can abuse certain trusted developer utilities to proxy the execution o
 This rule identifies network connections established by trusted developer utilities, which can indicate abuse to execute payloads or process masquerading.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -133,6 +135,7 @@ sequence by process.entity_id with maxspan=5m
       process.name : "MSBuild.exe" or
       process.name : "msdt.exe" or
       process.name : "mshta.exe" or
+      process.name : "wscript.exe" or
       process.name : "msiexec.exe" or
       process.name : "msxsl.exe" or
       process.name : "odbcconf.exe" or
@@ -171,7 +174,16 @@ sequence by process.entity_id with maxspan=5m
       process.name : "odbcconf.exe" or
       process.name : "rcsi.exe" or
       process.name : "regsvr32.exe" or
-      process.name : "xwizard.exe")]
+      process.name : "xwizard.exe") and 
+      
+      not dns.question.name : ("localhost", "setup.officetimeline.com", "us.deployment.endpoint.ingress.rapid7.com", 
+        "ctldl.windowsupdate.com", "crl?.digicert.com", "ocsp.digicert.com", "addon-cms-asl.eu.goskope.com", "crls.ssl.com", 
+        "evcs-ocsp.ws.symantec.com", "s.symcd.com", "s?.symcb.com", "crl.verisign.com", "oneocsp.microsoft.com", "crl.verisign.com", 
+        "aka.ms", "crl.comodoca.com", "acroipm2.adobe.com", "sv.symcd.com") and 
+
+      /* host query itself */
+      not startswith~(dns.question.name, host.name)
+      ]
 '''
 
 

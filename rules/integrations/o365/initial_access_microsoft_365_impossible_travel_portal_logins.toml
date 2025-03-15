@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2024/09/04"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2025/01/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful Microsoft 365 portal logins from impossible travel locations. Impossible travel locations are defined
+as two different countries within a short time frame. This behavior may indicate an adversary attempting to access a
+Microsoft 365 account from a compromised account or a malicious actor attempting to access a Microsoft 365 account from
+a different location.
+"""
+false_positives = [
+    """
+    False positives may occur when users are using a VPN or when users are traveling to different locations for
+    legitimate purposes.
+    """,
+]
+from = "now-15m"
+index = ["filebeat-*", "logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft 365 Portal Logins from Impossible Travel Locations"
+references = ["https://www.huntress.com/blog/time-travelers-busted-how-to-detect-impossible-travel-"]
+risk_score = 47
+rule_id = "3896d4c0-6ad1-11ef-8c7b-f661ea17fbcc"
+severity = "medium"
+tags = ["Domain: Cloud", "Data Source: Microsoft 365", "Use Case: Threat Detection", "Tactic: Initial Access", "Resources: Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+event.dataset: "o365.audit"
+    and event.provider: "AzureActiveDirectory"
+    and event.action: "UserLoggedIn"
+    and event.outcome: "success"
+    and not o365.audit.UserId: "Not Available"
+    and o365.audit.Target.Type: ("0" or "2" or "3" or "5" or "6" or "10")
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Microsoft 365 Portal Logins from Impossible Travel Locations
+
+Microsoft 365's cloud-based services enable global access, but this can be exploited by adversaries logging in from disparate locations within short intervals, indicating potential account compromise. The detection rule identifies such anomalies by analyzing login events for rapid geographic shifts, flagging suspicious activity that may suggest unauthorized access attempts.
+
+### Possible investigation steps
+
+- Review the login events associated with the specific UserId flagged in the alert to confirm the occurrence of logins from different countries within a short time frame.
+- Check the IP addresses associated with the login events to determine if they are from known or suspicious sources, and verify if they are consistent with the user's typical login behavior.
+- Investigate the user's recent activity in Microsoft 365 to identify any unusual or unauthorized actions that may indicate account compromise.
+- Contact the user to verify if they were traveling or using a VPN service that could explain the login from an unexpected location.
+- Examine any recent changes to the user's account settings or permissions that could suggest unauthorized access or tampering.
+- Review the organization's security logs and alerts for any other suspicious activities or patterns that might correlate with the detected anomaly.
+
+### False positive analysis
+
+- Frequent business travelers may trigger false positives due to legitimate logins from different countries within short time frames. To manage this, create exceptions for users with known travel patterns by whitelisting their accounts or using conditional access policies.
+- Use of VPNs or proxy services can result in logins appearing from different geographic locations. Identify and exclude IP ranges associated with trusted VPN services to reduce false positives.
+- Employees working remotely from different countries may cause alerts. Implement user-based exceptions for remote workers who regularly log in from multiple locations.
+- Automated systems or services that log in from various locations for legitimate reasons can be mistaken for suspicious activity. Exclude these service accounts from the rule to prevent unnecessary alerts.
+- Consider time zone differences that might affect the perceived timing of logins. Adjust the rule's sensitivity to account for legitimate time zone shifts that could appear as impossible travel.
+
+### Response and remediation
+
+- Immediately isolate the affected user account by disabling it to prevent further unauthorized access.
+- Initiate a password reset for the compromised account and enforce multi-factor authentication (MFA) to enhance security.
+- Review recent login activity and audit logs for the affected account to identify any unauthorized access or data exfiltration attempts.
+- Notify the user of the suspicious activity and advise them to verify any recent changes or actions taken on their account.
+- Escalate the incident to the security operations team for further investigation and to determine if other accounts or systems have been compromised.
+- Implement geo-blocking for high-risk countries or regions where the organization does not typically conduct business to prevent similar unauthorized access attempts.
+- Update and refine security monitoring rules to enhance detection of similar anomalous login patterns in the future."""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.threshold]
+field = ["o365.audit.UserId"]
+value = 1
+[[rule.threshold.cardinality]]
+field = "source.geo.country_name"
+value = 2
+
+

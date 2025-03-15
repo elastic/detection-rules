@@ -2,12 +2,12 @@
 creation_date = "2024/07/12"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/07/12"
+updated_date = "2025/02/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when object versioning is suspended for an Amazon S3 bucket. Object versioning allows for multiple versions of an object to exist in the same bucket. This allows for easy recovery of deleted or overwritten objects. When object versioning is suspended for a bucket, it could indicate an adversary's attempt to inhibit system recovery following malicious activity. Additionally, when versioning is suspended, buckets can then be deleted. 
+Identifies when object versioning is suspended for an Amazon S3 bucket. Object versioning allows for multiple versions of an object to exist in the same bucket. This allows for easy recovery of deleted or overwritten objects. When object versioning is suspended for a bucket, it could indicate an adversary's attempt to inhibit system recovery following malicious activity. Additionally, when versioning is suspended, buckets can then be deleted.
 """
 false_positives = [
     """
@@ -15,17 +15,18 @@ false_positives = [
     """,
 ]
 from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AWS S3 Object Versioning Suspended"
 note = """
 
-## Triage and Analysis
+## Triage and analysis
 
 ### Investigating AWS S3 Object Versioning Suspended
 
 This rule detects when object versioning for an S3 bucket is suspended. Adversaries with access to a misconfigured S3 bucket may disable object versioning prior to replacing or deleting S3 objects, inhibiting recovery initiatives.
-This rule uses [EQL](https://www.elastic.co/guide/en/security/master/rules-ui-create.html#create-eql-rule) to look for use of the `PutBucketVersioning` operation where the `request_parameters` include `Status=Suspended`.
+This rule uses [EQL](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-eql-rule) to look for use of the `PutBucketVersioning` operation where the `request_parameters` include `Status=Suspended`.
 
 #### Possible Investigation Steps:
 
@@ -70,14 +71,15 @@ tags = [
     "Data Source: AWS S3",
     "Use Case: Threat Detection",
     "Tactic: Impact",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "aws.cloudtrail" 
+any where event.dataset == "aws.cloudtrail"
    and event.action == "PutBucketVersioning"
-   and event.outcome == "success" 
+   and event.outcome == "success"
    and stringContains(aws.cloudtrail.request_parameters, "Status=Suspended")
 '''
 

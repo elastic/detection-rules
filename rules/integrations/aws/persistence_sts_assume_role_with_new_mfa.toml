@@ -1,0 +1,143 @@
+[metadata]
+creation_date = "2024/10/25"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/01/15"
+
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a user has assumed a role using a new MFA device. Users can assume a role to obtain temporary credentials and access AWS resources using the AssumeRole API of AWS Security Token Service (STS).
+While a new MFA device is not always indicative of malicious behavior it should be verified as adversaries can use this technique for persistence and privilege escalation.
+"""
+false_positives = [
+    "AWS administrators or automated processes might regularly assume roles for legitimate administrative purposes and to perform periodic tasks such as data backups, updates, or deployments.",
+]
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS STS AssumeRole with New MFA Device"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS STS AssumeRole with New MFA Device
+
+AWS Security Token Service (STS) allows users to assume roles and gain temporary credentials for accessing AWS resources. This process can involve Multi-Factor Authentication (MFA) for enhanced security. However, adversaries may exploit new MFA devices to maintain persistence or escalate privileges. The detection rule identifies successful role assumptions with new MFA devices, flagging potential misuse for further investigation.
+
+### Possible investigation steps
+
+- Review the event details in AWS CloudTrail to identify the user who assumed the role, focusing on the user.id field to determine if the user is legitimate and authorized to use the new MFA device.
+- Check the serialNumber in the aws.cloudtrail.flattened.request_parameters to verify the registration and legitimacy of the new MFA device associated with the role assumption.
+- Investigate the context of the AssumeRole action by examining the event.action field to understand if it was part of a legitimate workflow or an unusual activity.
+- Analyze the event.outcome field to confirm the success of the role assumption and cross-reference with any recent changes in user permissions or MFA device registrations.
+- Correlate the event with other logs or alerts to identify any patterns of suspicious behavior, such as multiple role assumptions or changes in MFA devices within a short timeframe.
+- Contact the user or relevant team to confirm if the new MFA device registration and role assumption were expected and authorized.
+
+### False positive analysis
+
+- New employee onboarding processes may trigger this rule when new MFA devices are issued. To manage this, create exceptions for known onboarding activities by correlating with HR records or onboarding schedules.
+- Routine device replacements or upgrades can result in new MFA devices being registered. Implement a process to track and verify device changes through IT support tickets or asset management systems.
+- Users with multiple roles or responsibilities might frequently switch roles using different MFA devices. Establish a baseline of normal behavior for these users and create exceptions for their typical activity patterns.
+- Organizational policy changes that require MFA updates can lead to multiple new MFA device registrations. Coordinate with security teams to whitelist these events during policy rollout periods.
+- Temporary contractors or third-party vendors may use new MFA devices when accessing AWS resources. Ensure that their access is logged and reviewed, and create temporary exceptions for their known access periods.
+
+### Response and remediation
+
+- Immediately revoke the temporary credentials associated with the assumed role to prevent unauthorized access to AWS resources.
+- Verify the legitimacy of the new MFA device by contacting the user or administrator associated with the role assumption. Confirm whether the device was intentionally registered and used.
+- If the new MFA device is determined to be unauthorized, disable or remove it from the user's account to prevent further misuse.
+- Conduct a review of recent AWS CloudTrail logs to identify any suspicious activities or patterns associated with the user or role in question, focusing on privilege escalation or lateral movement attempts.
+- Escalate the incident to the security operations team for further investigation and to determine if additional containment measures are necessary.
+- Implement additional monitoring and alerting for unusual MFA device registrations and role assumptions to enhance detection of similar threats in the future.
+- Review and update IAM policies and MFA device management procedures to ensure they align with best practices for security and access control.
+
+## Setup
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html",
+    "https://github.com/RhinoSecurityLabs/cloudgoat/blob/d5863b80afd082d853f2e8df1955c6393695a4da/scenarios/iam_privesc_by_key_rotation/README.md",
+]
+risk_score = 21
+rule_id = "a22f566b-5b23-4412-880d-c6c957acd321"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS STS",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset:aws.cloudtrail
+    and event.provider:sts.amazonaws.com
+    and event.action:(AssumeRole or AssumeRoleWithSAML or AssumeRoleWithWebIdentity)
+    and event.outcome:success
+    and user.id:*
+    and aws.cloudtrail.flattened.request_parameters.serialNumber:*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.id", "aws.cloudtrail.flattened.request_parameters.serialNumber"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+

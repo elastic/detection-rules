@@ -242,7 +242,7 @@ class Kibana(object):
     def verify_space(self, space):
         """Verify a space is valid."""
         spaces = self.get('/api/spaces/space')
-        space_names = [s['name'] for s in spaces]
+        space_names = [s['id'] for s in spaces]
         if space not in space_names:
             raise ValueError(f'Unknown Kibana space: {space}')
 

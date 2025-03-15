@@ -2,9 +2,9 @@
 creation_date = "2023/07/06"
 integration = ["windows"]
 maturity = "production"
-min_stack_comments = "KQL handles backslash and ? characters differently in 8.12+."
-min_stack_version = "8.12.0"
-updated_date = "2024/04/05"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+min_stack_version = "8.14.0"
+updated_date = "2025/01/13"
 
 
 [rule]
@@ -63,7 +63,7 @@ event.category:process and host.os.type:windows and
       ("Get-WmiObject" or "gwmi" or "Get-CimInstance" or
        "gcim" or "Management.ManagementObjectSearcher" or
        "System.Management.ManagementClass" or
-       "[WmiClass]" or "[WMI]") and
+       "[WmiClass]") and
       (
         "AntiVirusProduct" or "CIM_BIOSElement" or "CIM_ComputerSystem" or "CIM_Product" or "CIM_DiskDrive" or
         "CIM_LogicalDisk" or "CIM_NetworkAdapter" or "CIM_StorageVolume" or "CIM_OperatingSystem" or
@@ -136,7 +136,8 @@ event.category:process and host.os.type:windows and
       "Microsoft.PowerShell.Core\Export-ModuleMember" and
       "Microsoft.PowerShell.Cmdletization.Cim.CimCmdletAdapter"
     ) or
-    "CmdletsToExport=@(\"Add-Content\","
+    "CmdletsToExport=@(\"Add-Content\"," or
+    ("cmdletization" and "cdxml-Help.xml")
   ) and
   not user.id : ("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
 '''

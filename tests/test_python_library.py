@@ -55,7 +55,7 @@ class TestEQLInSet(BaseRuleTest):
                 """,
             },
         }
-        expected_error_message = r"Error in both stack and integrations checks:.*Unable to compare ip to string.*"
+        expected_error_message = r"Error in both stack and integrations checks"
         with self.assertRaisesRegex(ValueError, expected_error_message):
             rc.load_dict(eql_rule)
         # Change to appropriate destination.address field

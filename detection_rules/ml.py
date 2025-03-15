@@ -276,6 +276,10 @@ def get_ml_model_manifests_by_model_id(repo: str = 'elastic/detection-rules') ->
 @es_experimental.group('ml')
 def ml_group():
     """Experimental machine learning commands."""
+    click.secho('\n***** Deprecation Warning *****\n', fg='yellow', err=True)
+    click.secho('\n* The experiment "ml" command(s) are deprecated and will be removed in a future release. *\n',
+                fg='yellow', err=True)
+    click.secho('\n* Command Removal Timeframe: May 1, 2025 *\n', fg='yellow', err=True)
 
 
 @ml_group.command('check-files')
@@ -379,7 +383,7 @@ def setup_bundle(ctx, model_tag, repo, model_dir):
     click.echo(table)
 
     click.echo('Associated rules and jobs can be found under ML-experimental-detections releases in the repo')
-    click.echo('To upload rules, run: kibana upload-rule <ml-rule.toml>')
+    click.echo('To upload rules, run: kibana import-rules -f <ml-rule.toml>')
     click.echo('To upload ML jobs, run: es experimental upload-ml-job <ml-job.json>')
 
 
