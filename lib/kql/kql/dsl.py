@@ -48,7 +48,8 @@ def boolean(**kwargs):
     elif boolean_type == "must_not" and len(children) == 1:
         # must_not: [{bool: {must: x}}] -> {must_not: x}
         child = children[0]
-        if list(child) == ["bool"] and list(child["bool"]) in (["filter"], ["must"]):
+        if list(child) == ["bool"] and list(child["bool"]) in (["filter"], ["must"]) and \
+            (len(child.get("bool", {}).get("filter", 1)) == 1 and len(child.get("bool", {}).get("must", 1)) == 1):
             negated, = child["bool"].values()
             dsl = {"must_not": negated}
         else:
@@ -73,7 +74,7 @@ class ToDsl(Walker):
         return lambda field: {"exists": {"field": field}}
 
     def _walk_wildcard(self, tree):
-        return lambda field: {"query_string": {"fields": [field], "query": tree.value}}
+        return lambda field: {"wildcard": {field: { "value": tree.value}}}
 
     def _walk_value(self, tree):
         return lambda field: {"match": {field: tree.value}}
