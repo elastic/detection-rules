@@ -24,6 +24,8 @@ from .rule import DeprecatedRule, ThreatMapping, TOMLRule
 from .rule_loader import DeprecatedCollection, RuleCollection
 from .utils import load_etc_dump, save_etc_dump
 
+REPO_DOCS_DIR = "docs-dev"
+
 
 class PackageDocument(xlsxwriter.Workbook):
     """Excel document for summarizing a rules package."""
@@ -77,7 +79,6 @@ class PackageDocument(xlsxwriter.Workbook):
         self.add_summary()
         self.add_rule_details()
         self.add_attack_matrix()
-        self.add_rta_mapping()
         self.add_rule_details(self.deprecated_rules, 'Deprecated Rules')
 
     def add_summary(self):
@@ -171,27 +172,6 @@ class PackageDocument(xlsxwriter.Workbook):
             worksheet.set_column(index, index, width)
 
         worksheet.autofilter(0, 0, len(rules) + 1, len(headers) - 1)
-
-    def add_rta_mapping(self):
-        """Add a worksheet for the RTA/Rule RTA mapping."""
-        from .rule_loader import rta_mappings
-
-        worksheet = self.add_worksheet('RTA Mapping')
-        worksheet.freeze_panes(1, 0)
-        headers = ('Rule ID', 'Rule Name', 'RTA')
-        for column, header in enumerate(headers):
-            worksheet.write(0, column, header, self.default_header_format)
-
-        row = 1
-        for rule_id, mapping in rta_mappings.get_rta_mapping().items():
-            worksheet.write(row, 0, rule_id)
-            worksheet.write(row, 1, mapping['rule_name'])
-            worksheet.write(row, 2, mapping['rta_name'])
-            row += 1
-
-        worksheet.set_column(0, 0, 35)
-        worksheet.set_column(1, 1, 50)
-        worksheet.set_column(2, 2, 35)
 
     def add_attack_matrix(self):
         """Add a worksheet for ATT&CK coverage."""

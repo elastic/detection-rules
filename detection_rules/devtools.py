@@ -34,7 +34,7 @@ from .beats import (download_beats_schema, download_latest_beats_schema,
                     refresh_main_schema)
 from .cli_utils import single_collection
 from .config import parse_rules_config
-from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
+from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX, REPO_DOCS_DIR
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
@@ -802,7 +802,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path
               help='GitHub token to push to gist', hide_input=True)
 @click.option('--gist-id', default=NAVIGATOR_GIST_ID, help='Gist ID to be updated (must exist).')
 @click.option('--print-markdown', is_flag=True, help='Print the generated urls')
-@click.option('--update-coverage', is_flag=True, help='Update the docs/ATT&CK-coverage.md file')
+@click.option('--update-coverage', is_flag=True, help=f'Update the {REPO_DOCS_DIR}/ATT&CK-coverage.md file')
 def update_navigator_gists(directory: Path, token: str, gist_id: str, print_markdown: bool,
                            update_coverage: bool) -> list:
     """Update the gists with new navigator files."""
@@ -857,7 +857,7 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
         click.echo('\n'.join(markdown) + '\n')
 
     if update_coverage:
-        coverage_file_path = get_path('docs', 'ATT&CK-coverage.md')
+        coverage_file_path = get_path(REPO_DOCS_DIR, 'ATT&CK-coverage.md')
         header_lines = textwrap.dedent("""# Rule coverage
 
 ATT&CK navigator layer files are generated when a package is built with `make release` or
