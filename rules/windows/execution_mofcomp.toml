@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/08/23"
-integration = ["endpoint"]
+integration = ["endpoint", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/02/21"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,13 @@ files to build their own namespaces and classes into the Windows Management Inst
 establish persistence using WMI Event Subscription.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*"]
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-system.security*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Mofcomp Activity"
@@ -25,6 +31,11 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Elastic Endgame",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -43,6 +54,38 @@ process where host.os.type == "windows" and event.type == "start" and
     )
   )
 '''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Mofcomp Activity
+Mofcomp.exe is a tool used to compile Managed Object Format (MOF) files, which define classes and namespaces in the Windows Management Instrumentation (WMI) repository. Adversaries exploit this by creating malicious WMI scripts for persistence or execution. The detection rule identifies suspicious mofcomp.exe activity by filtering out legitimate processes and focusing on unusual executions, excluding known safe parent processes and system accounts.
+
+### Possible investigation steps
+
+- Review the process execution details to confirm the presence of mofcomp.exe and verify the command-line arguments used, focusing on any unusual or unexpected MOF file paths.
+- Investigate the user account associated with the process execution, especially if it is not the system account (S-1-5-18), to determine if the account has been compromised or is being misused.
+- Examine the parent process of mofcomp.exe to ensure it is not a known safe process like ScenarioEngine.exe, and assess whether the parent process is legitimate or potentially malicious.
+- Check for any recent changes or additions to the WMI repository, including new namespaces or classes, which could indicate malicious activity or persistence mechanisms.
+- Correlate the alert with other security events or logs from data sources like Microsoft Defender for Endpoint or Crowdstrike to identify any related suspicious activities or patterns.
+
+### False positive analysis
+
+- Legitimate SQL Server operations may trigger the rule when SQL Server components compile MOF files. To handle this, exclude processes with parent names like ScenarioEngine.exe and specific MOF file paths related to SQL Server.
+- System maintenance tasks executed by trusted system accounts can cause false positives. Exclude activities initiated by the system account with user ID S-1-5-18 to reduce noise.
+- Regular administrative tasks involving WMI may appear suspicious. Identify and document these tasks, then create exceptions for known safe parent processes or specific MOF file paths to prevent unnecessary alerts.
+- Software installations or updates that involve MOF file compilation might be flagged. Monitor installation logs and exclude these processes if they are verified as part of legitimate software updates.
+
+### Response and remediation
+
+- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
+- Terminate the mofcomp.exe process if it is confirmed to be executing malicious MOF files.
+- Conduct a thorough review of the WMI repository to identify and remove any unauthorized namespaces or classes that may have been created by the attacker.
+- Remove any malicious MOF files from the system to prevent re-execution.
+- Restore the system from a known good backup if unauthorized changes to the WMI repository or system files are detected.
+- Monitor for any recurrence of similar activity by setting up alerts for unusual mofcomp.exe executions and unauthorized WMI modifications.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
 
 
 [[rule.threat]]

@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/05/21"
+updated_date = "2025/02/04"
 
 [transform]
 [[transform.osquery]]
@@ -40,7 +40,7 @@ channels, bypass network restrictions, and carry out malicious activities by cre
 access to internal systems.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Protocol Tunneling via Chisel Client"
@@ -53,7 +53,7 @@ Attackers can leverage `chisel` to clandestinely tunnel network communications a
 This rule looks for a sequence of command line arguments that are consistent with `chisel` client tunneling behavior, followed by a network event by an uncommon process. 
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible investigation steps
@@ -143,14 +143,16 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 type = "eql"
 
 query = '''
-sequence by host.id, process.entity_id with maxspan=1s
+sequence by host.id, process.entity_id with maxspan=3s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
    process.args == "client" and process.args : ("R*", "*:*", "*socks*", "*.*") and process.args_count >= 4 and 
-   process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")]
+   process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+   not process.name in ("velociraptor", "nbemmcmd", "redis-cli", "ipa")]
   [network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start" and 
    destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" and 
    not process.name : (
@@ -158,17 +160,15 @@ sequence by host.id, process.entity_id with maxspan=1s
      "ftp", "socat", "curl", "wget", "dpkg", "docker", "dockerd", "yum", "apt", "rpm", "dnf", "ssh", "sshd")]
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1572"
 name = "Protocol Tunneling"
 reference = "https://attack.mitre.org/techniques/T1572/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-

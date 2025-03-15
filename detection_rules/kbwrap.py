@@ -51,9 +51,14 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
 @click.pass_context
 def upload_rule(ctx, rules: RuleCollection, replace_id):
-    """Upload a list of rule .toml files to Kibana."""
+    """[Deprecated] Upload a list of rule .toml files to Kibana."""
     kibana = ctx.obj['kibana']
     api_payloads = []
+
+    click.secho(
+        "WARNING: This command is deprecated as of Elastic Stack version 9.0. Please use `kibana import-rules`.",
+        fg="yellow",
+    )
 
     for rule in rules:
         try:
@@ -94,6 +99,45 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
                         overwrite_exceptions: Optional[bool] = False,
                         overwrite_action_connectors: Optional[bool] = False) -> (dict, List[RuleResource]):
     """Import custom rules into Kibana."""
+    def _handle_response_errors(response: dict):
+        """Handle errors from the import response."""
+        def _parse_list_id(s: str):
+            """Parse the list ID from the error message."""
+            match = re.search(r'list_id: "(.*?)"', s)
+            return match.group(1) if match else None
+
+        # Re-try to address known Kibana issue: https://github.com/elastic/kibana/issues/143864
+        workaround_errors = []
+
+        flattened_exceptions = [e for sublist in exception_dicts for e in sublist]
+        all_exception_list_ids = {exception["list_id"] for exception in flattened_exceptions}
+
+        click.echo(f'{len(response["errors"])} rule(s) failed to import!')
+
+        for error in response['errors']:
+            click.echo(f' - {error["rule_id"]}: ({error["error"]["status_code"]}) {error["error"]["message"]}')
+
+            if "references a non existent exception list" in error["error"]["message"]:
+                list_id = _parse_list_id(error["error"]["message"])
+                if list_id in all_exception_list_ids:
+                    workaround_errors.append(error["rule_id"])
+
+        if workaround_errors:
+            workaround_errors = list(set(workaround_errors))
+            click.echo(f'Missing exception list errors detected for {len(workaround_errors)} rules. '
+                       'Try re-importing using the following command and rule IDs:\n')
+            click.echo('python -m detection_rules kibana import-rules -o ', nl=False)
+            click.echo(' '.join(f'-id {rule_id}' for rule_id in workaround_errors))
+            click.echo()
+
+    def _process_imported_items(imported_items_list, item_type_description, item_key):
+        """Displays appropriately formatted success message that all items imported successfully."""
+        all_ids = {item[item_key] for sublist in imported_items_list for item in sublist}
+        if all_ids:
+            click.echo(f'{len(all_ids)} {item_type_description} successfully imported')
+            ids_str = '\n - '.join(all_ids)
+            click.echo(f' - {ids_str}')
+
     kibana = ctx.obj['kibana']
     rule_dicts = [r.contents.to_api_format() for r in rules]
     with kibana:
@@ -113,43 +157,15 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
             overwrite_action_connectors=overwrite_action_connectors
         )
 
-    def handle_response_errors(response: dict):
-        """Handle errors from the import response."""
-        def parse_list_id(s: str):
-            """Parse the list ID from the error message."""
-            match = re.search(r'list_id: "(.*?)"', s)
-            return match.group(1) if match else None
-
-        # Re-try to address known Kibana issue: https://github.com/elastic/kibana/issues/143864
-        workaround_errors = []
-
-        flattened_exceptions = [e for sublist in exception_dicts for e in sublist]
-        all_exception_list_ids = {exception["list_id"] for exception in flattened_exceptions}
-
-        click.echo(f'{len(response["errors"])} rule(s) failed to import!')
-
-        for error in response['errors']:
-            click.echo(f' - {error["rule_id"]}: ({error["error"]["status_code"]}) {error["error"]["message"]}')
-
-            if "references a non existent exception list" in error["error"]["message"]:
-                list_id = parse_list_id(error["error"]["message"])
-                if list_id in all_exception_list_ids:
-                    workaround_errors.append(error["rule_id"])
-
-        if workaround_errors:
-            workaround_errors = list(set(workaround_errors))
-            click.echo(f'Missing exception list errors detected for {len(workaround_errors)} rules. '
-                       'Try re-importing using the following command and rule IDs:\n')
-            click.echo('python -m detection_rules kibana import-rules -o ', nl=False)
-            click.echo(' '.join(f'-id {rule_id}' for rule_id in workaround_errors))
-            click.echo()
-
     if successful_rule_ids:
         click.echo(f'{len(successful_rule_ids)} rule(s) successfully imported')
         rule_str = '\n - '.join(successful_rule_ids)
         click.echo(f' - {rule_str}')
     if response['errors']:
-        handle_response_errors(response)
+        _handle_response_errors(response)
+    else:
+        _process_imported_items(exception_dicts, 'exception list(s)', 'list_id')
+        _process_imported_items(action_connectors_dicts, 'action connector(s)', 'id')
 
     return response, results
 
@@ -226,10 +242,21 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             rule_resource["author"] = rule_resource.get("author") or default_author or [rule_resource.get("created_by")]
             if isinstance(rule_resource["author"], str):
                 rule_resource["author"] = [rule_resource["author"]]
-            contents = TOMLRuleContents.from_rule_resource(rule_resource, maturity="production")
-            threat = contents.data.get("threat")
-            first_tactic = threat[0].tactic.name if threat else ""
-            rule_name = rulename_to_filename(contents.data.name, tactic_name=first_tactic)
+            # Inherit maturity from the rule already exists
+            maturity = "development"
+            threat = rule_resource.get("threat")
+            first_tactic = threat[0].get("tactic").get("name") if threat else ""
+            rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=first_tactic)
+            # check if directory / f"{rule_name}" exists
+            if (directory / f"{rule_name}").exists():
+                rules = RuleCollection()
+                rules.load_file(directory / f"{rule_name}")
+                if rules:
+                    maturity = rules.rules[0].contents.metadata.maturity
+
+            contents = TOMLRuleContents.from_rule_resource(
+                rule_resource, maturity=maturity
+            )
             rule = TOMLRule(contents=contents, path=directory / f"{rule_name}")
         except Exception as e:
             if skip_errors:
@@ -268,7 +295,7 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             exceptions_containers,
             exceptions_items,
             exception_list_rule_table,
-            exceptions_directory,
+            exceptions_directory if exceptions_directory else None,
             save_toml=False,
             skip_errors=skip_errors,
             verbose=False,
@@ -286,7 +313,7 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
         action_connectors, ac_output, ac_errors = build_action_connector_objects(
             action_connector_results,
             action_connector_rule_table,
-            action_connectors_directory=None,
+            action_connectors_directory=action_connectors_directory if action_connectors_directory else None,
             save_toml=False,
             skip_errors=skip_errors,
             verbose=False,

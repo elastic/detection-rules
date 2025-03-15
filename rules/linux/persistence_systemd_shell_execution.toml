@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2025/01/16"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/01/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of shell commands by systemd during the boot process on Linux systems. Systemd
+is a system and service manager for Linux operating systems. Attackers may execute shell commands during the
+boot process to maintain persistence on the system. This may be a sign of malicious systemd services, initramfs
+or GRUB bootloader manipulation, or other persistence mechanisms.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Systemd Shell Execution During Boot"
+risk_score = 47
+rule_id = "0b76ad27-c3f3-4769-9e7e-3237137fdf06"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "info" and event.action == "already_running" and
+process.parent.name == "systemd" and process.name in ("bash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+process.parent.command_line == "/sbin/init" and process.args_count >= 2
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Systemd Shell Execution During Boot
+
+Systemd is a critical component in Linux, managing system and service initialization during boot. Adversaries may exploit systemd to execute shell commands at startup, ensuring persistence and potential privilege escalation. The detection rule identifies suspicious shell executions by monitoring processes initiated by systemd, focusing on those with specific characteristics indicative of unauthorized activity.
+
+### Possible investigation steps
+
+- Review the process details to confirm the parent process is indeed systemd and the command line used is "/sbin/init" to ensure the alert is not a false positive.
+- Examine the specific shell process name (e.g., bash, sh, etc.) and its arguments to identify any unusual or suspicious commands being executed.
+- Investigate the history and configuration of the systemd service or unit file associated with the suspicious process to determine if it has been modified or created recently.
+- Check for any recent changes or anomalies in the initramfs or GRUB bootloader configurations that could indicate tampering or unauthorized modifications.
+- Correlate the alert with other security events or logs from the same host to identify any patterns or additional indicators of compromise that might suggest a broader attack or persistence mechanism.
+
+### False positive analysis
+
+- Legitimate system maintenance scripts may trigger this rule if they are executed by systemd during boot. Users can create exceptions for known maintenance scripts by identifying their specific command lines and excluding them from the detection rule.
+- Custom user scripts that are intentionally set to run at boot for automation purposes might be flagged. To handle this, users should document these scripts and adjust the rule to exclude their specific process names or command lines.
+- Some Linux distributions may use shell scripts for legitimate boot-time operations. Users should verify the distribution's default boot scripts and exclude them if they are known to be safe and necessary for system operation.
+- System updates or package installations that modify boot processes could cause false positives. Users should monitor for these events and temporarily adjust the rule to prevent unnecessary alerts during known update windows.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Terminate any suspicious shell processes identified as being executed by systemd during boot to halt potential malicious activity.
+- Conduct a thorough review of systemd service files and configurations to identify and remove any unauthorized or malicious entries.
+- Restore any modified system files or configurations from a known good backup to ensure system integrity.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring on the affected system and similar environments to detect any recurrence of the threat.
+- Review and update access controls and permissions to limit the ability of unauthorized users to modify systemd configurations or execute shell commands during boot."""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

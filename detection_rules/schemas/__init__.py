@@ -13,7 +13,6 @@ from semver import Version
 from ..config import load_current_package_version, parse_rules_config
 from ..utils import cached, get_etc_path
 from . import definitions
-from .rta_schema import validate_rta_mapping
 from .stack_compat import get_incompatible_fields
 
 
@@ -25,7 +24,6 @@ __all__ = (
     "get_min_supported_stack_version",
     "get_stack_schemas",
     "get_stack_versions",
-    "validate_rta_mapping",
     "all_versions",
 )
 
@@ -284,6 +282,24 @@ def migrate_to_8_13(version: Version, api_contents: dict) -> dict:
 @migrate("8.14")
 def migrate_to_8_14(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.14."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.15")
+def migrate_to_8_15(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.15."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.16")
+def migrate_to_8_16(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.16."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.17")
+def migrate_to_8_17(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.17."""
     return strip_additional_properties(version, api_contents)
 
 

@@ -2,27 +2,25 @@
 creation_date = "2024/09/12"
 integration = ["jamf_protect"]
 maturity = "production"
-min_stack_comments = "The jamf integration is available for stack versions 8.12 and above"
-min_stack_version = "8.12.0"
-updated_date = "2024/09/12"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.investigate]]
 label = "Show events after Privilege Escalation"
-relativeFrom = "now"
-relativeTo = "now+30m"
 providers = [
   [
-    {field = "host.hostname", excluded = false, queryType = "phrase", value = "{{host.hostname}}", valueType = "string"}
+    { excluded = false, field = "host.hostname", queryType = "phrase", value = "{{host.hostname}}", valueType = "string" }
   ]
 ]
+relativeFrom = "now"
+relativeTo = "now+30m"
 
 [[transform.investigate]]
 label = "Show events having the same reponsible process"
 providers = [
   [
-    {field = "host.hostname", excluded = false, queryType = "phrase", value = "{{host.hostname}}", valueType = "string"},
-    {field = "process.entity_id", excluded = false, queryType = "phrase", value = "{{process.group_leader.entity_id}}", valueType = "string"}
+    { excluded = false, field = "host.hostname", queryType = "phrase", value = "{{host.hostname}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.group_leader.entity_id}}", valueType = "string" }
   ]
 ]
 
@@ -30,32 +28,26 @@ providers = [
 label = "Show events having the same parent process"
 providers = [
   [
-    {field = "host.hostname", excluded = false, queryType = "phrase", value = "{{host.hostname}}", valueType = "string"},
-    {field = "process.entity_id", excluded = false, queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string"}
+    { excluded = false, field = "host.hostname", queryType = "phrase", value = "{{host.hostname}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" }
   ]
 ]
 
+
 [rule]
 author = ["Thijs Xhaflaire"]
-description = """
-Identifies users being added to the admin group. This could be an indication of privilege
-escalation activity.
-"""
+description = "Identifies users being added to the admin group. This could be an indication of privilege\nescalation activity.\n"
 from = "now-9m"
 index = ["logs-jamf_protect*"]
 language = "eql"
 license = "Elastic License v2"
 name = "User Added to the Admin Group"
-references = [
-    "https://www.loobins.io/binaries/dscl/",
-    "https://managingosx.wordpress.com/2010/01/14/add-a-user-to-the-admin-group-via-command-line-3-0/"
-]
 note = """## Triage and analysis
 
 To thoroughly investigate the actions that occurred **after a user was elevated to administrator**, it's essential to conduct a search on the Timeline. This allows you to review and understand the sequence of events that followed the elevation, helping to identify any potentially malicious or unauthorized activities that might have taken place. **Analyzing these actions is crucial for maintaining security and ensuring that the elevation was not exploited for harmful purposes.**
 
 > **Note**:
-> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 **Consider reviewing these actions:**
 
@@ -67,6 +59,10 @@ $investigate_0
 $investigate_1
 $investigate_2
 """
+references = [
+    "https://www.loobins.io/binaries/dscl/",
+    "https://managingosx.wordpress.com/2010/01/14/add-a-user-to-the-admin-group-via-command-line-3-0/",
+]
 risk_score = 21
 rule_id = "04e65517-16e9-4fc4-b7f1-94dc21ecea0d"
 setup = """## Setup
@@ -94,6 +90,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
     "Data Source: Jamf Protect",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

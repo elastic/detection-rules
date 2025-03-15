@@ -29,9 +29,8 @@ from detection_rules.rule import (AlertSuppressionMapping, EQLRuleData, QueryRul
 from detection_rules.rule_loader import FILE_PATTERN, RULES_CONFIG
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_min_supported_stack_version, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump, make_git
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, make_git
 from detection_rules.version_lock import loaded_version_lock
-from rta import get_available_tests
 
 from .base import BaseRuleTest
 
@@ -72,21 +71,6 @@ class TestValidRules(BaseRuleTest):
                 err_message = f'\n{self.rule_str(rule)} Query not optimized for rule\n' \
                               f'Expected: {optimized}\nActual: {source}'
                 self.assertEqual(tree, optimized, err_message)
-
-    def test_production_rules_have_rta(self):
-        """Ensure that all production rules have RTAs."""
-        mappings = load_etc_dump('rule-mapping.yaml')
-        ttp_names = sorted(get_available_tests())
-
-        for rule in self.all_rules:
-            if isinstance(rule.contents.data, QueryRuleData) and rule.id in mappings:
-                matching_rta = mappings[rule.id].get('rta_name')
-
-                self.assertIsNotNone(matching_rta, f'{self.rule_str(rule)} does not have RTAs')
-
-                rta_name, ext = os.path.splitext(matching_rta)
-                if rta_name not in ttp_names:
-                    self.fail(f'{self.rule_str(rule)} references unknown RTA: {rta_name}')
 
     def test_duplicate_file_names(self):
         """Test that no file names are duplicated."""
@@ -351,9 +335,13 @@ class TestRuleTags(BaseRuleTest):
             'logs-endpoint.alerts-*': {'all': ['Data Source: Elastic Defend']},
             'logs-windows.sysmon_operational-*': {'all': ['Data Source: Sysmon']},
             'logs-windows.powershell*': {'all': ['Data Source: PowerShell Logs']},
+            'logs-system.security*': {'all': ['Data Source: Windows Security Event Logs']},
+            'logs-system.forwarded*': {'all': ['Data Source: Windows Security Event Logs']},
+            'logs-system.system*': {'all': ['Data Source: Windows System Event Logs']},
             'logs-sentinel_one_cloud_funnel.*': {'all': ['Data Source: SentinelOne']},
             'logs-fim.event-*': {'all': ['Data Source: File Integrity Monitoring']},
-            'logs-m365_defender.event-*': {'all': ['Data Source: Microsoft Defender for Endpoint']}
+            'logs-m365_defender.event-*': {'all': ['Data Source: Microsoft Defender for Endpoint']},
+            'logs-crowdstrike.fdr*': {'all': ['Data Source: Crowdstrike']}
         }
 
         for rule in self.all_rules:
@@ -478,7 +466,6 @@ class TestRuleTags(BaseRuleTest):
             err_msg = '\n'.join(invalid)
             self.fail(f'Rules with misaligned ML rule type tags:\n{err_msg}')
 
-    @unittest.skip("Skipping until all Investigation Guides follow the proper format.")
     def test_investigation_guide_tag(self):
         """Test that investigation guide tags are present within rules."""
         invalid = []
@@ -791,24 +778,39 @@ class TestRuleMetadata(BaseRuleTest):
                 else:
                     # checks if rule has index pattern integration and the integration tag exists
                     # ignore the External Alerts rule, Threat Indicator Matching Rules, Guided onboarding
-                    ignore_ids = [
-                        "eb079c62-4481-4d6e-9643-3ca499df7aaa",
-                        "699e9fdb-b77c-4c01-995c-1c15019b9c43",
-                        "0c9a14d9-d65d-486f-9b5b-91e4e6b22bd0",
-                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce",
-                        "0c41e478-5263-4c69-8f9e-7dfd2c22da64",
-                        "aab184d3-72b3-4639-b242-6597c99d8bca",
-                        "a61809f3-fb5b-465c-8bff-23a8a068ac60",
-                        "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
-                    ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.get('index') or []]):
-                        if not rule.contents.metadata.integration and rule.id not in ignore_ids and \
+                        if not rule.contents.metadata.integration and rule.id not in definitions.IGNORE_IDS and \
                                 rule.contents.data.type not in definitions.MACHINE_LEARNING:
                             err_msg = f'substrings {non_dataset_packages} found in '\
                                       f'{self.rule_str(rule)} rule index patterns are {rule.contents.data.index},' \
                                       f'but no integration tag found'
                             failures.append(err_msg)
+
+                # checks for a defined index pattern, the related integration exists in metadata
+                expected_integrations, missing_integrations = set(), set()
+                ignore_ml_packages = any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
+                                         for ri in rule_integrations)
+                for index in indices:
+                    if index in definitions.IGNORE_INDICES or ignore_ml_packages or \
+                            rule.id in definitions.IGNORE_IDS or rule.contents.data.type == 'threat_match':
+                        continue
+                    # Outlier integration log pattern to identify integration
+                    if index == 'apm-*-transaction*':
+                        index_map = ['apm']
+                    else:
+                        # Split by hyphen to get the second part of index
+                        index_part1, _, index_part2 = index.partition('-')
+                        #  Use regular expression to extract alphanumeric words, which is integration name
+                        parsed_integration = re.search(r'\b\w+\b', index_part2 or index_part1)
+                        index_map = [parsed_integration.group(0) if parsed_integration else None]
+                    if not index_map:
+                        self.fail(f'{self.rule_str(rule)} Could not determine the integration from Index {index}')
+                    expected_integrations.update(index_map)
+                missing_integrations.update(expected_integrations.difference(set(rule_integrations)))
+                if missing_integrations:
+                    error_msg = f'{self.rule_str(rule)} Missing integration metadata: {", ".join(missing_integrations)}'
+                    failures.append(error_msg)
 
         if failures:
             err_msg = """
@@ -1274,19 +1276,62 @@ class TestRiskScoreMismatch(BaseRuleTest):
             self.fail(err_msg)
 
 
+class TestInvestigationGuide(BaseRuleTest):
+    """Test investigation guide content."""
+
+    def test_note_contains_triage_and_analysis(self):
+        """Ensure the note field contains Triage and analysis content for Elastic rules."""
+        failures = []
+
+        for rule in self.all_rules:
+            if (
+                not rule.contents.data.is_elastic_rule or  # noqa: W504
+                rule.contents.data.building_block_type or  # noqa: W504
+                rule.contents.data.severity in ("medium", "low")
+            ):
+                # dont enforce
+                continue
+
+            note_field = rule.contents.data.get("note")
+
+            # Check if note field contains ## Triage and analysis
+            if not note_field or "## triage and analysis" not in note_field.casefold():
+                failures.append(f"{self.rule_str(rule)}: note field is missing ## Triage and analysis content.")
+
+        if failures:
+            fail_msg = "The following rules failed the note validation (missing investigation guide content):\n"
+            self.fail(fail_msg + "\n".join(failures))
+
+    def test_investigation_guide_uses_rule_name(self):
+        """Check if investigation guide uses rule name in the title."""
+        errors = []
+        for rule in self.all_rules.rules:
+            note = rule.contents.data.get('note')
+            if note is not None:
+                # Check if `### Investigating` is present and if so,
+                # check if it is followed by the rule name.
+                if '### Investigating' in note:
+                    results = re.search(rf'### Investigating\s+{re.escape(rule.name)}', note, re.I | re.M)
+                    if results is None:
+                        errors.append(f'{self.rule_str(rule)} investigation guide does not use rule name in the title')
+        if errors:
+            self.fail('\n'.join(errors))
+
+
 class TestNoteMarkdownPlugins(BaseRuleTest):
     """Test if a guide containing Osquery Plugin syntax contains the version note."""
 
     def test_note_has_osquery_warning(self):
         """Test that all rules with osquery entries have the default notification of stack compatibility."""
         osquery_note_pattern = ('> **Note**:\n> This investigation guide uses the [Osquery Markdown Plugin]'
-                                '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) '
+                                '(https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) '
                                 'introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display '
                                 'unrendered Markdown in this guide.')
-        invest_note_pattern = ('> This investigation guide uses the [Investigate Markdown Plugin]'
-                               '(https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html)'
-                               ' introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display '
-                               'unrendered Markdown in this guide.')
+        invest_note_pattern = (
+            '> This investigation guide uses the [Investigate Markdown Plugin]'
+            '(https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html)'
+            ' introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display '
+            'unrendered Markdown in this guide.')
 
         for rule in self.all_rules:
             if not rule.contents.get('transform'):
@@ -1391,8 +1436,9 @@ class TestAlertSuppression(BaseRuleTest):
                         self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
                             found in ECS, Beats, or non-ecs schemas")
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.14.0"),
-                     "Test only applicable to 8.14+ stacks for eql non-sequence rule alert suppression feature.")
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.14.0") or  # noqa: W504
+                     PACKAGE_STACK_VERSION >= Version.parse("8.18.0"),  # noqa: W504
+                     "Test is applicable to 8.14 --> 8.17 stacks for eql non-sequence rule alert suppression feature.")
     def test_eql_non_sequence_support_only(self):
         for rule in self.all_rules:
             if (

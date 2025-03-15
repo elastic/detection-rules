@@ -2,7 +2,7 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/07/23"
+updated_date = "2025/02/03"
 
 [transform]
 [[transform.osquery]]
@@ -53,7 +53,7 @@ After being installed, malware will often call out to its command and control se
 This rule leverages the new terms rule type to detect previously unknown processes, initiating network connections to external IP-addresses. 
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 > This investigation guide uses [placeholder fields](https://www.elastic.co/guide/en/security/current/osquery-placeholder-fields.html) to dynamically pass alert data into Osquery queries. Placeholder fields were introduced in Elastic Stack version 8.7.0. If you're using Elastic Stack version 8.6.0 or earlier, you'll need to manually adjust this investigation guide's queries to ensure they properly run.
 
 #### Possible investigation steps
@@ -174,40 +174,45 @@ tags = [
     "Tactic: Command and Control",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
 host.os.type:linux and event.category:network and event.action:(connection_attempted or ipv4_connection_attempt_event) and
-process.executable:(
-  (/etc/crontab or /etc/rc.local or ./* or /boot/* or /dev/shm/* or /etc/cron.*/* or /etc/init.d/* or /etc/rc*.d/* or
+process.executable : (
+  /etc/crontab or /etc/rc.local or ./* or /boot/* or /dev/shm/* or /etc/cron.*/* or /etc/init.d/* or /etc/rc*.d/* or
   /etc/update-motd.d/* or /home/*/.* or /tmp/* or /usr/lib/update-notifier/* or /var/log/* or /var/tmp/*
-) and
-not (/tmp/newroot/* or /tmp/snap.rootfs*) and
-not /etc/cron.hourly/BitdefenderRedline) and
-source.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
-not process.name:(
-  apt or chrome or curl or dnf or dockerd or dpkg or firefox-bin or git-remote-https or java or kite-update or kited or node
-  or rpm or saml2aws or selenium-manager or solana-validator or wget or yum or ansible* or aws* or php* or pip* or python*
-  or steam* or terraform*
-) and
-not destination.ip:(
-  0.0.0.0 or 10.0.0.0/8 or 100.64.0.0/10 or 127.0.0.0/8 or 169.254.0.0/16 or 172.16.0.0/12 or 192.0.0.0/24 or 192.0.0.0/29 or
-  192.0.0.10/32 or 192.0.0.170/32 or 192.0.0.171/32 or 192.0.0.8/32 or 192.0.0.9/32 or 192.0.2.0/24 or 192.168.0.0/16 or
-  192.175.48.0/24 or 192.31.196.0/24 or 192.52.193.0/24 or 192.88.99.0/24 or 198.18.0.0/15 or 198.51.100.0/24 or 203.0.113.0/24
-  or 224.0.0.0/4 or 240.0.0.0/4 or "::1" or "FE80::/10" or "FF00::/8"
+) and process.name : * and
+not (
+  process.executable : (
+    /tmp/newroot/* or /tmp/snap.rootfs* or /etc/cron.hourly/BitdefenderRedline or /tmp/go-build* or /srv/snp/docker/* or
+    /run/containerd/* or /tmp/.mount* or /run/k3s/containerd/* or /tmp/selenium* or /tmp/tmp.*/juliainstaller or
+    /tmp/.criu.mntns* or /home/*/.local/share/containers/* or /etc/update-motd.d/*
+  ) or
+  source.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) or
+  process.name : (
+    apt or chrome or curl or dnf or dockerd or dpkg or firefox-bin or git-remote-https or java or kite-update or
+    kited or node or rpm or saml2aws or selenium-manager or solana-validator or wget or yum or ansible* or aws* or
+    php* or pip* or python* or steam* or terraform* or filebeat or apk or cursor or http
+  ) or
+  destination.ip:(
+    0.0.0.0 or 10.0.0.0/8 or 100.64.0.0/10 or 127.0.0.0/8 or 169.254.0.0/16 or 172.16.0.0/12 or 192.0.0.0/24 or
+    192.0.0.0/29 or 192.0.0.10/32 or 192.0.0.170/32 or 192.0.0.171/32 or 192.0.0.8/32 or 192.0.0.9/32 or 192.0.2.0/24 or
+    192.168.0.0/16 or 192.175.48.0/24 or 192.31.196.0/24 or 192.52.193.0/24 or 192.88.99.0/24 or 198.18.0.0/15 or
+    198.51.100.0/24 or 203.0.113.0/24 or 224.0.0.0/4 or 240.0.0.0/4 or "::1" or "FE80::/10" or "FF00::/8"
+  )
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
-
 
 [rule.threat.tactic]
 id = "TA0011"
@@ -217,8 +222,7 @@ reference = "https://attack.mitre.org/tactics/TA0011/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-20d"
-
-
