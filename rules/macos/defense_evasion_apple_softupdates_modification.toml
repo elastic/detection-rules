@@ -2,7 +2,7 @@
 creation_date = "2021/01/15"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ an attempt to disable security updates.
 false_positives = ["Authorized SoftwareUpdate Settings Changes"]
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "SoftwareUpdate Preferences Modification"
 references = ["https://blog.checkpoint.com/2017/07/13/osxdok-refuses-go-away-money/"]
@@ -54,12 +54,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:macos and event.type:(start or process_started) and
- process.name:defaults and
- process.args:(write and "-bool" and (com.apple.SoftwareUpdate or /Library/Preferences/com.apple.SoftwareUpdate.plist) and not (TRUE or true))
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
+ process.name == "defaults" and
+ process.args like "write" and process.args like "-bool" and process.args like~ ("com.apple.SoftwareUpdate", "/Library/Preferences/com.apple.SoftwareUpdate.plist") and not process.args like ("TRUE", "true"))
 '''
 note = """## Triage and analysis
 

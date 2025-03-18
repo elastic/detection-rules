@@ -2,14 +2,14 @@
 creation_date = "2020/08/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
 description = "Detects use of the systemsetup command to enable remote SSH Login."
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Remote SSH Login Enabled via systemsetup Command"
 references = [
@@ -54,13 +54,15 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:macos and event.type:(start or process_started) and
- process.name:systemsetup and
- process.args:("-setremotelogin" and on) and
- not process.parent.executable : /usr/local/jamf/bin/jamf
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
+ process.name == "systemsetup" and
+ process.args like~ "-setremotelogin" and 
+ process.args like~ "on" and
+ process.parent.executable != null and
+ not process.parent.executable like ("/usr/local/jamf/bin/jamf, "/usr/libexec/xpcproxy", "/usr/bin/sudo")
 '''
 note = """## Triage and analysis
 
