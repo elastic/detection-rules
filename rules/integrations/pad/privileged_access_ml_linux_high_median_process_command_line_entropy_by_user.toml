@@ -47,9 +47,45 @@ tags = [
     "Use Case: Privileged Access Detection",
     "Rule Type: ML",
     "Rule Type: Machine Learning",
-    "Tactic: Privilege Escalation"
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide"
 ]
 type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating High Command Line Entropy Detected for Privileged Commands
+
+Machine learning models analyze command line inputs to identify high entropy, which may indicate obfuscation or complexity in privileged commands. Adversaries exploit this by using intricate or encoded commands to mask unauthorized activities. The detection rule leverages this analysis to flag potential privilege escalation attempts, aiding in early threat identification and response.
+
+### Possible investigation steps
+
+- Review the command line inputs flagged by the alert to identify any patterns or specific obfuscation techniques used.
+- Cross-reference the user account associated with the alert against known valid accounts and recent access logs to determine if the activity aligns with expected behavior.
+- Analyze the context of the commands executed, including the time of execution and the systems targeted, to assess the potential impact and scope of the activity.
+- Check for any recent changes in user privileges or roles that might explain the execution of privileged commands.
+- Investigate any related alerts or logs that might provide additional context or corroborate the suspicious activity, such as failed login attempts or unusual network connections.
+- Consult with the user or relevant personnel to verify if the commands were part of legitimate administrative tasks or if they indicate unauthorized access.
+
+### False positive analysis
+
+- Legitimate administrative scripts may have high entropy due to complex or encoded commands. Review and whitelist these scripts to prevent unnecessary alerts.
+- Automated deployment tools often use obfuscated commands for security reasons. Identify and exclude these tools from the rule to reduce false positives.
+- Security software updates might execute encoded commands as part of their process. Monitor and create exceptions for these updates to avoid misclassification.
+- Developers and IT staff may use complex command lines for testing or debugging. Establish a baseline of normal activity for these users and adjust the rule accordingly.
+- Scheduled tasks or cron jobs with encoded commands can trigger alerts. Document and exclude these tasks if they are verified as non-threatening.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
+- Review and terminate any suspicious or unauthorized processes running under privileged accounts on the affected system.
+- Reset passwords for all privileged accounts involved, ensuring they meet strong password policies to prevent unauthorized access.
+- Conduct a thorough audit of recent privileged command executions to identify any unauthorized changes or data access, and revert any malicious modifications.
+- Implement additional monitoring on the affected system and related accounts to detect any further suspicious activities.
+- Escalate the incident to the security operations center (SOC) for a comprehensive investigation and to determine if other systems are affected.
+- Update and reinforce endpoint protection measures to detect and block similar obfuscation or high-entropy command line activities in the future."""
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
