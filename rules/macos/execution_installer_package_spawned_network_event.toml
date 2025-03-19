@@ -69,7 +69,7 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=15s
+sequence by host.id, process.entity_id with maxspan=15s
 [process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and process.parent.name like~ ("installer", "package_script_service") and ((process.name in ("bash", "sh", "zsh") and process.args == "-c") or (process.name like~ ("python*", "osascript", "tclsh*", "curl", "nscurl")))]
 [network where host.os.type == "macos" and event.type == "start"]
 '''
