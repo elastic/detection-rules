@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad", "endpoint", "windows"]
+maturity = "production"
+updated_date = "2025/02/18"
+min_stack_version = "8.18.0"
+min_stack_comments = "New PAD integration only available starting at 8.18.0."
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has identified a user performing privileged operations in Windows from an uncommon source IP, indicating potential privileged access activity.
+This could suggest an account compromise, misuse of administrative privileges, or an attacker leveraging a new network location to escalate privileges.
+"""
+from = "now-1h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_windows_rare_source_ip_by_user"
+name = "Unusual Source IP for Windows Privileged Operations Detected"
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad"
+]
+risk_score = 21
+rule_id = "08be5599-3719-4bbd-8cbc-7e9cff556881"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Windows logs collected by integrations such as Elastic Defend and Windows.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Windows events collected by the [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) and [Windows](https://docs.elastic.co/en/integrations/windows) integration.
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+- To add the Windows integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide"
+]
+type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Source IP for Windows Privileged Operations Detected
+
+Machine learning models analyze network patterns to identify anomalies, such as privileged operations from uncommon IPs. Adversaries may exploit this by using compromised accounts or new network locations to escalate privileges. This detection rule leverages ML to flag such deviations, indicating potential misuse or compromise, aiding in early threat identification and response.
+
+### Possible investigation steps
+
+- Review the source IP address flagged by the alert to determine if it is associated with known or trusted locations, such as corporate offices or VPN endpoints.
+- Check the user account involved in the alert for any recent changes or unusual activity, such as password resets, privilege changes, or login attempts from other uncommon locations.
+- Analyze the timeline of the privileged operations performed to identify any patterns or sequences that may indicate malicious intent or unauthorized access.
+- Correlate the alert with other security events or logs, such as firewall logs, VPN logs, or endpoint security alerts, to gather additional context about the source IP and user activity.
+- Investigate any recent changes in network configurations or access policies that might explain the unusual source IP, such as new VPN configurations or changes in IP address allocations.
+
+### False positive analysis
+
+- Employees working remotely or traveling may trigger alerts due to accessing systems from new IP addresses. Regularly update the list of known IP addresses for remote workers to reduce false positives.
+- Use of VPNs or proxy services can result in unusual IP addresses being flagged. Maintain a whitelist of IP addresses associated with approved VPN or proxy services.
+- Scheduled maintenance or administrative tasks performed by IT staff from different network locations might be misidentified. Document and exclude these known activities from triggering alerts.
+- Cloud service providers often use dynamic IP ranges that can appear unusual. Identify and whitelist IP ranges associated with trusted cloud services to prevent unnecessary alerts.
+- Implement a review process for flagged events to quickly identify and dismiss benign activities, ensuring that only genuine threats are escalated for further investigation.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Verify the legitimacy of the source IP by cross-referencing with known IP addresses and geolocations associated with the user. If the IP is confirmed to be malicious, block it at the firewall and update threat intelligence feeds.
+- Reset the credentials of the compromised account and enforce a password change for all accounts with similar access levels to prevent further unauthorized access.
+- Conduct a thorough review of recent privileged operations performed by the affected account to identify any unauthorized changes or data access, and revert any malicious modifications.
+- Escalate the incident to the security operations center (SOC) for further investigation and to determine if additional systems or accounts have been compromised.
+- Implement additional monitoring on the affected system and user account to detect any further suspicious activity, leveraging enhanced logging and alerting mechanisms.
+- Review and update access controls and privilege management policies to ensure that only necessary privileges are granted, reducing the risk of privilege escalation in the future."""
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
