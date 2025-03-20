@@ -178,7 +178,7 @@ EXPECTED_RULE_TAGS = [
     'Use Case: Vulnerability'
 ]
 NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
-MACHINE_LEARNING_PACKAGES = ['LMD', 'DGA', 'DED', 'ProblemChild', 'Beaconing', 'PAD']
+MACHINE_LEARNING_PACKAGES = ['LMD', 'DGA', 'DED', 'ProblemChild', 'Beaconing']
 AlertSuppressionGroupBy = NewType('AlertSuppressionGroupBy', List[NonEmptyStr], validate=validate.Length(min=1, max=3))
 AlertSuppressionMissing = NewType('AlertSuppressionMissing', str,
                                   validate=validate.OneOf(['suppress', 'doNotSuppress']))
