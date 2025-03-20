@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad", "endpoint", "windows"]
+maturity = "production"
+updated_date = "2025/02/18"
+min_stack_version = "8.18.0"
+min_stack_comments = "New PAD integration only available starting at 8.18.0."
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has identified a spike in user account management events for a user, indicating potential privileged access activity.
+This indicates an unusual increase in actions related to managing user accounts (such as creating, modifying, or deleting accounts),
+which could be a sign of an attempt to escalate privileges or unauthorized activity involving account management.
+"""
+from = "now-3h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_windows_high_count_user_account_management_events"
+name = "Spike in User Account Management Events"
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad"
+]
+risk_score = 21
+rule_id = "37cca4d4-92ab-4a33-a4f8-44a7a380ccda"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Windows logs collected by integrations such as Elastic Defend and Windows.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Windows events collected by the [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) and [Windows](https://docs.elastic.co/en/integrations/windows) integration.
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+- To add the Windows integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide"
+]
+type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in User Account Management Events
+
+The detection rule leverages machine learning to identify unusual spikes in user account management activities, such as account creation or modification, which may indicate privilege escalation attempts. Adversaries exploit these activities to gain unauthorized access or elevate privileges. By analyzing patterns and deviations from normal behavior, the rule helps detect potential misuse, enabling timely intervention.
+
+### Possible investigation steps
+
+- Review the specific user account(s) involved in the spike to determine if the activity aligns with their typical behavior or role within the organization.
+- Examine the timestamps of the account management events to identify any patterns or anomalies, such as activity occurring outside of normal business hours.
+- Check for any recent changes in user permissions or roles that could explain the spike in account management events.
+- Investigate any associated IP addresses or devices used during the account management activities to determine if they are known and trusted within the organization.
+- Look for any correlated alerts or logs that might indicate concurrent suspicious activities, such as failed login attempts or access to sensitive resources.
+- Consult with the user or their manager to verify if the account management activities were authorized and legitimate.
+
+### False positive analysis
+
+- Routine administrative tasks can trigger spikes in user account management events. Regularly scheduled account audits or bulk updates by IT staff may appear as unusual activity. To manage this, create exceptions for known maintenance periods or specific administrative accounts.
+- Automated scripts or tools used for user provisioning and de-provisioning can cause false positives. Identify these scripts and exclude their activity from the rule to prevent unnecessary alerts.
+- Onboarding or offboarding processes that involve creating or deleting multiple user accounts in a short period can be mistaken for privilege escalation attempts. Document these processes and adjust the rule to recognize these patterns as normal behavior.
+- Changes in organizational structure, such as mergers or departmental shifts, may lead to increased account management activities. Update the rule to accommodate these changes by temporarily adjusting thresholds or excluding specific user groups during transition periods.
+
+### Response and remediation
+
+- Immediately isolate the affected user account to prevent further unauthorized access or privilege escalation. This can be done by disabling the account or changing its password.
+- Review recent account management activities for the affected user to identify any unauthorized changes or suspicious patterns. This includes checking for new account creations, modifications, or deletions.
+- Conduct a thorough audit of the affected system and network segment to identify any additional compromised accounts or systems. Look for signs of lateral movement or further exploitation attempts.
+- Revert any unauthorized changes made to user accounts or system configurations to their original state, ensuring that no backdoors or unauthorized access points remain.
+- Notify the security team and relevant stakeholders about the incident, providing them with details of the spike in user account management events and any identified malicious activities.
+- Implement additional monitoring and alerting for the affected user account and related systems to detect any further suspicious activities promptly.
+- Review and update access controls and user account management policies to prevent similar incidents in the future, ensuring that only authorized personnel have the necessary privileges."""
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
