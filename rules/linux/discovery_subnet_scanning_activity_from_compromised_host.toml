@@ -2,21 +2,17 @@
 creation_date = "2025/03/04"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
-min_stack_version = "8.13.0"
-updated_date = "2025/03/04"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects potential subnet scanning activity from a compromised host. Subnet scanning is
-a common reconnaissance technique used by attackers to identify live hosts within a network range.
-A compromised host may exhibit subnet scanning behavior when an attacker is attempting to map out
-the network topology, identify vulnerable hosts, or prepare for further exploitation. This rule
-identifies potential subnet scanning activity by monitoring network connection attempts from a
-single host to a large number of hosts within a short time frame. ES|QL rules have limited fields
-available in its alert documents. Make sure to review the original documents to aid in the
-investigation of this alert.
+This rule detects potential subnet scanning activity from a compromised host. Subnet scanning is a common reconnaissance
+technique used by attackers to identify live hosts within a network range. A compromised host may exhibit subnet
+scanning behavior when an attacker is attempting to map out the network topology, identify vulnerable hosts, or prepare
+for further exploitation. This rule identifies potential subnet scanning activity by monitoring network connection
+attempts from a single host to a large number of hosts within a short time frame. ES|QL rules have limited fields
+available in its alert documents. Make sure to review the original documents to aid in the investigation of this alert.
 """
 from = "now-61m"
 interval = "1h"
@@ -60,6 +56,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 from logs-endpoint.events.network-*
 | keep @timestamp, host.os.type, event.type, event.action, process.executable, destination.ip, agent.id
@@ -71,15 +68,17 @@ from logs-endpoint.events.network-*
 | limit 100
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1046"
 name = "Network Service Discovery"
 reference = "https://attack.mitre.org/techniques/T1046/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
