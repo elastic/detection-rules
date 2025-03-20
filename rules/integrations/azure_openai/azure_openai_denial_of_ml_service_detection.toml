@@ -1,16 +1,14 @@
 [metadata]
 creation_date = "2025/02/25"
 maturity = "production"
-updated_date = "2025/02/25"
-min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration in tech preview"
-min_stack_version = "8.13.0"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects patterns indicative of Denial-of-Service (DoS) attacks on machine learning (ML) models, focusing on unusually high volume and frequency
-of requests or patterns of requests that are known to cause performance degradation or service disruption, such as
-large input sizes or rapid API calls.
+Detects patterns indicative of Denial-of-Service (DoS) attacks on machine learning (ML) models, focusing on unusually
+high volume and frequency of requests or patterns of requests that are known to cause performance degradation or service
+disruption, such as large input sizes or rapid API calls.
 """
 false_positives = ["Unexpected system errors", "Legitimate spikes in usage due to business processes"]
 from = "now-60m"
@@ -20,7 +18,7 @@ license = "Elastic License v2"
 name = "Potential Denial of Azure OpenAI ML Service"
 references = [
     "https://genai.owasp.org/llmrisk/llm04-model-denial-of-service",
-    "https://atlas.mitre.org/techniques/AML.T0029"
+    "https://atlas.mitre.org/techniques/AML.T0029",
 ]
 risk_score = 47
 rule_id = "b0450411-46e5-46d2-9b35-8b5dd9ba763e"
@@ -36,7 +34,7 @@ tags = [
     "Data Source: Azure OpenAI",
     "Data Source: Azure Event Hubs",
     "Use Case: Denial of Service",
-    "Mitre Atlas: T0029"
+    "Mitre Atlas: T0029",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -51,3 +49,4 @@ from logs-azure_openai.logs-*
 | where count >= 10 and avg_request_size >= 5000
 | sort count desc
 '''
+

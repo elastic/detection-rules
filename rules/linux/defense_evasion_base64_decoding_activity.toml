@@ -2,17 +2,15 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
-min_stack_version = "8.13.0"
-updated_date = "2025/02/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule leverages ES|QL to detect unusual base64 encoding/decoding activity on Linux systems. Attackers may
-use base64 encoding/decoding to obfuscate data, such as command and control traffic or payloads, to evade
-detection by host- or network-based security controls. ES|QL rules have limited fields available in its alert
-documents. Make sure to review the original documents to aid in the investigation of this alert.
+This rule leverages ES|QL to detect unusual base64 encoding/decoding activity on Linux systems. Attackers may use base64
+encoding/decoding to obfuscate data, such as command and control traffic or payloads, to evade detection by host- or
+network-based security controls. ES|QL rules have limited fields available in its alert documents. Make sure to review
+the original documents to aid in the investigation of this alert.
 """
 from = "now-61m"
 interval = "1h"
@@ -57,6 +55,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 from logs-endpoint.events.process-*
 | keep @timestamp, host.os.type, event.type, event.action, process.name, process.args, process.command_line, agent.id
@@ -77,48 +76,49 @@ from logs-endpoint.events.process-*
 | limit 100
 '''
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-  [rule.threat.tactic]
-  name = "Defense Evasion"
-  id = "TA0005"
-  reference = "https://attack.mitre.org/tactics/TA0005/"
-
-    [[rule.threat.technique]]
-    name = "Obfuscated Files or Information"
-    id = "T1027"
-    reference = "https://attack.mitre.org/techniques/T1027/"
-
-    [[rule.threat.technique]]
-    name = "Deobfuscate/Decode Files or Information"
-    id = "T1140"
-    reference = "https://attack.mitre.org/techniques/T1140/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
 
-  [rule.threat.tactic]
-  name = "Execution"
-  id = "TA0002"
-  reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
 
-    [[rule.threat.technique]]
-    id = "T1059"
-    name = "Command and Scripting Interpreter"
-    reference = "https://attack.mitre.org/techniques/T1059/"
 
-      [[rule.threat.technique.subtechnique]]
-      name = "Unix Shell"
-      id = "T1059.004"
-      reference = "https://attack.mitre.org/techniques/T1059/004/"
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-    [[rule.threat.technique]]
-    name = "User Execution"
-    id = "T1204"
-    reference = "https://attack.mitre.org/techniques/T1204/"
 
-      [[rule.threat.technique.subtechnique]]
-      name = "Malicious File"
-      id = "T1204.002"
-      reference = "https://attack.mitre.org/techniques/T1204/002/"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
