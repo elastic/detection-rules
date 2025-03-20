@@ -2,17 +2,14 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "ES|QL rule type in technical preview as of 8.13"
-min_stack_version = "8.13.0"
-updated_date = "2025/02/21"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule leverages ES|QL to detect the execution of unusual file transfer utilities on Linux systems.
-Attackers may use these utilities to exfiltrate data from a compromised system. ES|QL rules have
-limited fields available in its alert documents. Make sure to review the original documents to aid
-in the investigation of this alert.
+This rule leverages ES|QL to detect the execution of unusual file transfer utilities on Linux systems. Attackers may use
+these utilities to exfiltrate data from a compromised system. ES|QL rules have limited fields available in its alert
+documents. Make sure to review the original documents to aid in the investigation of this alert.
 """
 from = "now-61m"
 interval = "1h"
@@ -58,6 +55,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 from logs-endpoint.events.process-*
 | keep @timestamp, host.os.type, event.type, event.action, process.name, process.executable, process.parent.executable, process.command_line, agent.id
@@ -70,18 +68,19 @@ from logs-endpoint.events.process-*
 | limit 100
 '''
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-  [rule.threat.tactic]
-  name = "Exfiltration"
-  id = "TA0010"
-  reference = "https://attack.mitre.org/tactics/TA0010/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-  [rule.threat.tactic]
-  name = "Execution"
-  id = "TA0002"
-  reference = "https://attack.mitre.org/tactics/TA0002/"
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
