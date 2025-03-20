@@ -81,6 +81,7 @@ You can optionally choose to refresh your index mapping from within Kibana:
 
 ### 6. Upload detection rule(s)
 
+
 You can upload the rules associated with the *URL Spoofing* framework using the instructions provided [here](https://github.com/elastic/detection-rules/blob/main/docs-dev/experimental-machine-learning/experimental-detections.md)
 
 
