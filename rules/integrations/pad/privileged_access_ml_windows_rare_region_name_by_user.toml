@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad", "endpoint", "windows"]
+maturity = "production"
+updated_date = "2025/02/18"
+min_stack_version = "8.18.0"
+min_stack_comments = "New PAD integration only available starting at 8.18.0."
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has identified a user performing privileged operations in Windows from an uncommon geographical location, indicating potential privileged access activity.
+This could suggest a compromised account, unauthorized access, or an attacker using stolen credentials to escalate privileges.
+"""
+from = "now-1h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_windows_rare_region_name_by_user"
+name = "Unusual Region Name for Windows Privileged Operations Detected"
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad"
+]
+risk_score = 21
+rule_id = "d2703b82-f92c-4489-a4a7-62aa29a62542"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Windows logs collected by integrations such as Elastic Defend and Windows.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Windows events collected by the [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) and [Windows](https://docs.elastic.co/en/integrations/windows) integration.
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+- To add the Windows integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide"
+]
+type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Region Name for Windows Privileged Operations Detected
+
+The detection leverages machine learning to identify privileged operations from atypical geographic locations, which may indicate compromised accounts or unauthorized access. Adversaries exploit this by using stolen credentials to perform privilege escalation. The rule flags such anomalies, aiding in early detection of potential security breaches.
+
+### Possible investigation steps
+
+- Review the alert details to identify the user account involved and the specific geographic location flagged as unusual.
+- Check the user's recent login history and patterns to determine if the location is indeed uncommon for this user.
+- Investigate any recent changes to the user's account, such as password resets or modifications to account permissions, that could indicate compromise.
+- Correlate the alert with other security events or logs, such as VPN connections or remote access logs, to identify any unauthorized access attempts.
+- Contact the user to verify if they were traveling or using a legitimate remote access method from the flagged location.
+- Assess the risk by determining if the privileged operations performed align with the user's role and responsibilities within the organization.
+
+### False positive analysis
+
+- Users traveling for business or personal reasons may trigger alerts when accessing systems from uncommon locations. To manage this, create exceptions for known travel patterns or use a VPN to simulate access from a common location.
+- Remote employees or contractors working from different regions might cause false positives. Regularly update the list of approved remote work locations to prevent unnecessary alerts.
+- Use of cloud services or VPNs that route traffic through different geographic locations can lead to false positives. Implement a whitelist for known IP addresses associated with these services.
+- Scheduled maintenance or administrative tasks performed by IT staff from different locations can be mistaken for unauthorized access. Document and schedule these activities to avoid triggering alerts.
+- Employees using personal devices with location services disabled may appear to be accessing from unusual regions. Encourage the use of company-approved devices with location tracking enabled to ensure accurate detection.
+
+### Response and remediation
+
+- Immediately isolate the affected user account to prevent further unauthorized access. Disable the account temporarily until the investigation is complete.
+- Review recent login activity and privileged operations performed by the affected account to identify any unauthorized changes or actions.
+- Reset the password for the compromised account and enforce multi-factor authentication (MFA) to enhance security.
+- Conduct a thorough review of the affected system and network for any signs of additional compromise or lateral movement by the attacker.
+- Notify the security team and relevant stakeholders about the incident for awareness and further action if needed.
+- Restore any unauthorized changes made during the incident from backups or logs, ensuring system integrity is maintained.
+- Update security policies and access controls to prevent similar incidents, focusing on restricting privileged operations from uncommon geographic locations."""
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

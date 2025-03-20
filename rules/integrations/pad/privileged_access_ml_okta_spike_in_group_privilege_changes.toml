@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad","okta"]
+maturity = "production"
+updated_date = "2025/02/18"
+min_stack_version = "8.18.0"
+min_stack_comments = "New PAD integration only available starting at 8.18.0."
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has identified an unusual spike in Okta group privilege change events, indicating potential privileged access activity.
+Attackers might be elevating privileges by adding themselves or compromised accounts to high-privilege groups, enabling further access or persistence.
+"""
+from = "now-3h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_okta_spike_in_group_privilege_changes"
+name = "Spike in Group Privilege Change Events"
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad"
+]
+risk_score = 21
+rule_id = "02b4420d-eda2-4529-9e46-4a60eccb7e2d"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Okta logs collected by integrations such as Okta.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Okta events collected by [Okta](https://docs.elastic.co/en/integrations/okta) integration.
+- To add the Okta integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide"
+]
+type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Spike in Group Privilege Change Events
+
+In environments using Okta, group privilege changes are crucial for managing access. Adversaries may exploit this by adding themselves to privileged groups, gaining unauthorized access. The detection rule leverages machine learning to identify unusual spikes in these events, signaling potential privilege escalation attempts, thus aiding in early threat detection and response.
+
+### Possible investigation steps
+
+- Review the specific group privilege change events identified by the machine learning job to determine which accounts were added to privileged groups.
+- Cross-reference the accounts involved in the privilege changes with recent login activity to identify any unusual or suspicious access patterns.
+- Check the history of privilege changes for the affected groups to see if there is a pattern of unauthorized access or if this is an isolated incident.
+- Investigate the source IP addresses and locations associated with the privilege change events to identify any anomalies or unexpected geolocations.
+- Examine any recent changes to the accounts involved, such as password resets or multi-factor authentication (MFA) modifications, to assess if they have been compromised.
+- Collaborate with the affected users or their managers to verify if the privilege changes were authorized and legitimate.
+
+### False positive analysis
+
+- Routine administrative tasks may trigger spikes in group privilege changes. Regularly scheduled audits or updates to group memberships should be documented and excluded from alerts.
+- Automated scripts or tools that manage user access can cause frequent changes. Identify these scripts and create exceptions for their activity to prevent false positives.
+- Organizational restructuring or mergers often lead to bulk updates in group privileges. During these periods, temporarily adjust the sensitivity of the detection rule or whitelist specific activities.
+- Onboarding or offboarding processes can result in a high volume of legitimate group changes. Coordinate with HR and IT to anticipate these events and adjust monitoring accordingly.
+- Changes in security policies or compliance requirements might necessitate widespread privilege adjustments. Ensure these policy-driven changes are communicated to the security team to avoid unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected accounts by removing them from any high-privilege groups to prevent further unauthorized access.
+- Conduct a thorough review of recent group membership changes in Okta to identify any other unauthorized privilege escalations.
+- Reset passwords and enforce multi-factor authentication for the affected accounts to secure them against further compromise.
+- Notify the security team and relevant stakeholders about the incident for awareness and potential escalation if further suspicious activity is detected.
+- Implement additional monitoring on the affected accounts and privileged groups to detect any further unauthorized changes or access attempts.
+- Review and update access control policies to ensure that only authorized personnel can modify group memberships, reducing the risk of future privilege escalation.
+- Document the incident, including all actions taken, to improve response strategies and inform future security measures."""
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad","okta"]
+maturity = "production"
+updated_date = "2025/02/18"
+min_stack_version = "8.18.0"
+min_stack_comments = "New PAD integration only available starting at 8.18.0."
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has identified a user performing privileged operations in Okta from an uncommon source IP, indicating potential privileged access activity.
+This could suggest an account compromise, misuse of administrative privileges, or an attacker leveraging a new network location to escalate privileges.
+"""
+from = "now-1h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_okta_rare_source_ip_by_user"
+name = "Unusual Source IP for Okta Privileged Operations Detected"
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad"
+]
+risk_score = 21
+rule_id = "fbb10f1e-77cb-42f9-994e-5da17fc3fc15"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Okta logs collected by integrations such as Okta.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Okta events collected by [Okta](https://docs.elastic.co/en/integrations/okta) integration.
+- To add the Okta integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide"
+]
+type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Source IP for Okta Privileged Operations Detected
+
+Okta is a widely used identity management service that controls access to applications and data. Adversaries may exploit Okta by using stolen credentials to perform privileged operations from unfamiliar IP addresses, indicating potential misuse or compromise. The detection rule leverages machine learning to identify deviations in IP usage patterns, flagging unusual access attempts that could signify privilege escalation or account compromise.
+
+### Possible investigation steps
+
+- Review the source IP address flagged by the alert to determine its geolocation and assess if it aligns with the user's typical access patterns or known locations.
+- Check the Okta logs for the specific user account to identify any other recent activities from the same IP address or any other unusual IP addresses.
+- Investigate the timing and nature of the privileged operations performed to determine if they align with the user's normal behavior or job responsibilities.
+- Correlate the flagged IP address with any known threat intelligence feeds to check for any history of malicious activity associated with it.
+- Contact the user to verify if they were aware of the access attempt and if they have recently used a new network location or VPN service.
+- Examine any recent changes to the user's account settings or permissions that could indicate unauthorized modifications.
+
+### False positive analysis
+
+- Employees traveling or working remotely may trigger alerts due to accessing Okta from new IP addresses. To manage this, maintain a list of known IP ranges for remote work and travel, and configure exceptions for these ranges.
+- Use of VPNs or proxy services can result in access from unfamiliar IPs. Regularly update the list of approved VPN or proxy IP addresses and exclude them from triggering alerts.
+- Changes in corporate network infrastructure, such as new IP allocations, can cause false positives. Ensure that any changes in network configurations are communicated to the security team to update the detection rule's exceptions.
+- Scheduled maintenance or testing activities by IT staff might appear as unusual access. Document and whitelist IP addresses used during these activities to prevent unnecessary alerts.
+- Third-party integrations or services that access Okta on behalf of users can be mistaken for suspicious activity. Identify and whitelist these services' IP addresses to avoid false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected user account by temporarily disabling it to prevent further unauthorized access.
+- Conduct a thorough review of recent privileged operations performed by the affected account to identify any unauthorized changes or data access.
+- Reset the password for the compromised account and enforce multi-factor authentication (MFA) to enhance security.
+- Notify the security team and relevant stakeholders about the potential compromise for further investigation and monitoring.
+- Review and update access logs to ensure all unusual IP addresses are flagged and monitored for any future access attempts.
+- Implement network-based restrictions to block the identified unusual IP address from accessing the Okta environment.
+- Conduct a post-incident analysis to identify the root cause and update security policies and procedures to prevent similar incidents in the future."""
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
