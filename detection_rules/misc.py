@@ -357,7 +357,7 @@ client_options = {
     'kibana': {
         'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
         'cloud_id': click.Option(['--cloud-id'], default=getdefault('cloud_id'), help="ID of the cloud instance."),
-        'api_key': click.Option(['--api-key'], default=getdefault('api_key'), required=True),
+        'api_key': click.Option(['--api-key'], default=getdefault('api_key')),
         'space': click.Option(['--space'], default=None, help='Kibana space'),
         'ignore_ssl_errors': click.Option(['--ignore-ssl-errors'], default=getdefault('ignore_ssl_errors'))
     },
