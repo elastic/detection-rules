@@ -2,9 +2,7 @@
 creation_date = "2020/10/29"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/01/15"
-min_stack_version = "8.14.0"
-min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -13,45 +11,17 @@ Identifies a suspicious Windows explorer child process. Explorer.exe can be abus
 executables from a trusted parent process.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*", "winlogbeat-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*"]
+index = [
+    "logs-endpoint.events.process-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Explorer Child Process"
-risk_score = 47
-rule_id = "9a5b4e31-6cde-4295-9ff7-6be1b8567e1b"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Initial Access",
-    "Tactic: Defense Evasion",
-    "Tactic: Execution",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Data Source: SentinelOne",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  (
-   process.name : ("cscript.exe", "wscript.exe", "powershell.exe", "rundll32.exe", "cmd.exe", "mshta.exe", "regsvr32.exe") or
-   ?process.pe.original_file_name in ("cscript.exe", "wscript.exe", "PowerShell.EXE", "RUNDLL32.EXE", "Cmd.Exe", "MSHTA.EXE", "REGSVR32.EXE")
-  ) and
-  /* Explorer started via DCOM */
-  process.parent.name : "explorer.exe" and process.parent.args : "-Embedding" and
-  not process.parent.args:
-          (
-            /* Noisy CLSID_SeparateSingleProcessExplorerHost Explorer COM Class IDs   */
-            "/factory,{5BD95610-9434-43C2-886C-57852CC8A120}",
-            "/factory,{ceff45ee-c862-41de-aee2-a022c81eda92}"
-          )
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -87,6 +57,41 @@ Windows Explorer, a core component of the Windows OS, manages file and folder na
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat is part of a larger attack campaign.
 - Implement additional monitoring and alerting for similar suspicious activities involving explorer.exe to enhance detection capabilities and prevent recurrence.
 - Review and update endpoint security policies to restrict the execution of potentially malicious scripts or executables from explorer.exe, especially when initiated via DCOM."""
+risk_score = 47
+rule_id = "9a5b4e31-6cde-4295-9ff7-6be1b8567e1b"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  (
+   process.name : ("cscript.exe", "wscript.exe", "powershell.exe", "rundll32.exe", "cmd.exe", "mshta.exe", "regsvr32.exe") or
+   ?process.pe.original_file_name in ("cscript.exe", "wscript.exe", "PowerShell.EXE", "RUNDLL32.EXE", "Cmd.Exe", "MSHTA.EXE", "REGSVR32.EXE")
+  ) and
+  /* Explorer started via DCOM */
+  process.parent.name : "explorer.exe" and process.parent.args : "-Embedding" and
+  not process.parent.args:
+          (
+            /* Noisy CLSID_SeparateSingleProcessExplorerHost Explorer COM Class IDs   */
+            "/factory,{5BD95610-9434-43C2-886C-57852CC8A120}",
+            "/factory,{ceff45ee-c862-41de-aee2-a022c81eda92}"
+          )
+'''
 
 
 [[rule.threat]]
