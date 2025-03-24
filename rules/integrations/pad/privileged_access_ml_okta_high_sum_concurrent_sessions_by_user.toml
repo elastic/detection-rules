@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2025/02/18"
+integration = ["pad","okta"]
+maturity = "production"
+updated_date = "2025/02/18"
+min_stack_version = "8.18.0"
+min_stack_comments = "New PAD integration only available starting at 8.18.0."
+
+[rule]
+anomaly_threshold = 75
+author = ["Elastic"]
+description = """
+A machine learning job has detected an unusually high number of active concurrent sessions initiated by a user, indicating potential privileged access activity.
+A sudden surge in concurrent active sessions by a user may indicate an attempt to abuse valid credentials for privilege escalation or maintain persistence.
+Adversaries might be leveraging multiple sessions to execute privileged operations, evade detection, or perform unauthorized actions across different systems.
+"""
+from = "now-3h"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "pad_okta_high_sum_concurrent_sessions_by_user"
+name = "Unusual Spike in Concurrent Active Sessions by a User"
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/pad"
+]
+risk_score = 21
+rule_id = "a300dea6-e228-40e1-9123-a339e207378b"
+setup = """## Setup
+
+The rule requires the Privileged Access Detection integration assets to be installed, as well as Okta logs collected by integrations such as Okta.
+
+### Privileged Access Detection Setup
+The Privileged Access Detection integration detects privileged access activity by identifying abnormalities in Windows, Linux and Okta events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Privileged Access Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Okta events collected by [Okta](https://docs.elastic.co/en/integrations/okta) integration.
+- To add the Okta integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Privileged Access Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Privileged Access Detection and select the integration to see more details about it.
+- Follow the instructions under the **Installation** section.
+- For this rule to work, complete the instructions through **Add preconfigured anomaly detection jobs**.
+"""
+severity = "low"
+tags = [
+    "Use Case: Privileged Access Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide"
+]
+type = "machine_learning"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Spike in Concurrent Active Sessions by a User
+
+The detection of unusual spikes in concurrent active sessions leverages machine learning to identify anomalies in user behavior, particularly those suggesting privilege misuse. Adversaries may exploit valid credentials to initiate multiple sessions, aiming to escalate privileges or evade detection. This rule identifies such anomalies, flagging potential unauthorized access or privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the user's recent activity logs to identify any unusual patterns or deviations from their typical behavior, focusing on the timestamps and systems accessed during the spike in concurrent sessions.
+- Check for any recent changes in the user's access privileges or roles that might explain the increase in session activity, ensuring that these changes were authorized and documented.
+- Investigate the source IP addresses and geolocations associated with the concurrent sessions to determine if they align with the user's known locations or if they suggest potential unauthorized access.
+- Analyze the specific actions performed during the concurrent sessions to identify any attempts at privilege escalation or unauthorized access to sensitive systems or data.
+- Correlate the user's session activity with any other security alerts or incidents to assess if this behavior is part of a larger pattern of suspicious activity.
+
+### False positive analysis
+
+- High-volume legitimate activities such as system updates or batch processing can trigger false positives. Exclude these activities by identifying and whitelisting known processes or users involved in such operations.
+- Users with roles that require multiple concurrent sessions, like system administrators or developers, may naturally exhibit this behavior. Create exceptions for these roles by defining baseline session patterns and adjusting thresholds accordingly.
+- Automated scripts or tools that require multiple logins for monitoring or maintenance tasks can be mistaken for suspicious activity. Document and exclude these scripts by associating them with specific user accounts or service accounts.
+- Temporary spikes due to legitimate business needs, such as end-of-quarter financial processing, can be misinterpreted. Implement a process to temporarily adjust detection parameters during known high-activity periods.
+- Shared accounts used by multiple team members can lead to an increase in concurrent sessions. Encourage the use of individual accounts and implement monitoring to differentiate between shared and individual account activities.
+
+### Response and remediation
+
+- Immediately isolate the user account showing unusual concurrent session activity to prevent further unauthorized access or privilege escalation.
+- Conduct a thorough review of the affected systems and sessions to identify any unauthorized changes or actions performed during the spike in activity.
+- Reset the credentials of the compromised user account and enforce a password change policy to ensure the account is secured.
+- Analyze logs and session data to determine the source of the unauthorized access, identifying any potential entry points or vulnerabilities exploited.
+- Escalate the incident to the security operations team for further investigation and to assess the need for additional security measures or incident response actions.
+- Implement additional monitoring on the affected systems and user accounts to detect any further suspicious activity or attempts to regain access.
+- Review and update access controls and permissions to ensure that only authorized users have the necessary privileges, reducing the risk of future privilege escalation attempts."""
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
