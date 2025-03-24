@@ -135,7 +135,7 @@ class TestValidRules(BaseRuleTest):
         """Ensure the max_signals note is present and max_signals <= 1000."""
         max_signal_standard_setup = 'For information about troubleshooting maximum alerts warning '\
                                     'please refer to this [guide]'\
-                                    '(https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).'
+                                    '(https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).' # noqa: E501
         failures = []
 
         for rule in self.all_rules:
@@ -151,7 +151,7 @@ class TestValidRules(BaseRuleTest):
                 if setup_note is None or max_signal_standard_setup not in setup_note:
                     failures.append(
                         f'{self.rule_str(rule)} expected max_signals note missing\n\n'
-                    )   
+                    )
 
         if failures:
             fail_msg = "The following rules failed the max_signals validation:\n"
