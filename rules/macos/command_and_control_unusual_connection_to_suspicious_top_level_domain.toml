@@ -1,0 +1,69 @@
+[metadata]
+creation_date = "2025/03/25"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2025/03/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the unusual occurrence of outbound network connections to suspicious top level domains. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Network Connection to Suspicious Top Level Domain"
+risk_score = 67
+rule_id = "ffa676dc-09b0-11f0-94ba-b66272739ecb"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:"network" and host.os.type:"macos" and event.type:"start" and
+destination.domain like~ ("*.team" or "*.team." or "*.lol" or "*.lol." or "*.kr" or "*.kr." or "*.ke" or "*.ke." or "*.nu" or "*.nu." or "*.space" or 
+                          "*.space." or "*.capital" or "*.capital." or "*.in" or "*.in." or "*.cfd" or "*.cfd." or "*.online" or "*.online." or "*.ru" or 
+                          "*.ru." or "*.info" or "*.info." or "*.top" or "*.top." or "*.buzz" or "*.buzz." or "*.xyz" or "*.xyz." or "*.rest" or 
+                          "*.rest." or "*.ml" or "*.ml." or "*.cf" or "*.cf." or "*.gq" or "*.gq." or "*.ga" or "*.ga." or "*.onion" or "*.onion." or 
+                          "*.network" or "*.network." or "*.monster" or "*.monster." or "*.marketing" or "*.marketing." or "*.cyou" or "*.cyou." or 
+                          "*.quest" or "*.quest." or "*.cc" or "*.cc." or "*.bar" or "*.bar." or "*.click" or "*.click." or "*.cam" or "*.cam." or 
+                          "*.surf" or "*.surf." or "*.tk" or "*.tk." or "*.shop" or "*.shop." or "*.club" or "*.club." or "*.icu" or "*.icu." or 
+                          "*.pw" or "*.pw." or "*.ws" or "*.ws." or "*.rest" or "*.rest." or "*.hair" or "*.hair." or "*.mom" or "*.mom." or 
+                          "*.beauty" or "*.beauty." or "*.boats" or "*.boats." or "*.online" or "*.online." or "*.fun" or "*.fun." or "*.life" or 
+                          "*.life." or "*.store" or "*.store.")
+'''
+note = """"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
