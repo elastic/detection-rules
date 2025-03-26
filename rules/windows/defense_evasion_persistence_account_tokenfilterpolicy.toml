@@ -2,9 +2,7 @@
 creation_date = "2022/11/01"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
-min_stack_version = "8.14.0"
-updated_date = "2025/01/15"
+updated_date = "2025/03/20"
 
 [rule]
 author = ["Elastic"]
@@ -14,43 +12,17 @@ default) and is set to 1, then remote connections from all local members of Admi
 high-integrity tokens during negotiation.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.registry-*", "logs-windows.sysmon_operational-*", "endgame-*", "logs-sentinel_one_cloud_funnel.*", "logs-m365_defender.event-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Local Account TokenFilter Policy Disabled"
-references = [
-    "https://www.stigviewer.com/stig/windows_server_2008_r2_member_server/2014-04-02/finding/V-36439",
-    "https://posts.specterops.io/pass-the-hash-is-dead-long-live-localaccounttokenfilterpolicy-506c25a7c167",
-    "https://www.welivesecurity.com/wp-content/uploads/2018/01/ESET_Turla_Mosquito.pdf",
-]
-risk_score = 47
-rule_id = "07b1ef73-1fde-4a49-a34a-5dd40011b076"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Tactic: Lateral Movement",
-    "Data Source: Elastic Endgame",
-    "Data Source: Elastic Defend",
-    "Data Source: Sysmon",
-    "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Resources: Investigation Guide"
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-registry where host.os.type == "windows" and event.type == "change" and
-  registry.value : "LocalAccountTokenFilterPolicy" and
-  registry.path : (
-    "HKLM\\*\\LocalAccountTokenFilterPolicy",
-    "\\REGISTRY\\MACHINE\\*\\LocalAccountTokenFilterPolicy",
-    "MACHINE\\*\\LocalAccountTokenFilterPolicy"
-  ) and registry.data.strings : ("1", "0x00000001")
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -85,6 +57,39 @@ The LocalAccountTokenFilterPolicy is a Windows registry setting that, when enabl
 - Deploy endpoint detection and response (EDR) tools to monitor for any further suspicious activities or attempts to modify registry settings.
 - Escalate the incident to the security operations center (SOC) for further investigation and to determine if the threat is part of a larger attack campaign.
 - Implement additional network segmentation and access controls to limit administrative access to critical systems and reduce the risk of similar threats."""
+references = [
+    "https://www.stigviewer.com/stig/windows_server_2008_r2_member_server/2014-04-02/finding/V-36439",
+    "https://posts.specterops.io/pass-the-hash-is-dead-long-live-localaccounttokenfilterpolicy-506c25a7c167",
+    "https://www.welivesecurity.com/wp-content/uploads/2018/01/ESET_Turla_Mosquito.pdf",
+]
+risk_score = 47
+rule_id = "07b1ef73-1fde-4a49-a34a-5dd40011b076"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.value : "LocalAccountTokenFilterPolicy" and
+  registry.path : (
+    "HKLM\\*\\LocalAccountTokenFilterPolicy",
+    "\\REGISTRY\\MACHINE\\*\\LocalAccountTokenFilterPolicy",
+    "MACHINE\\*\\LocalAccountTokenFilterPolicy"
+  ) and registry.data.strings : ("1", "0x00000001")
+'''
 
 
 [[rule.threat]]
@@ -104,8 +109,6 @@ reference = "https://attack.mitre.org/techniques/T1562/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
