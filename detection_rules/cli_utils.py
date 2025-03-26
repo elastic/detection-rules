@@ -185,7 +185,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
         if name == "new_terms":
             # patch to allow new_term imports
             result = {"field": "new_terms_fields"}
-            result["value"] = schema_prompt("new_terms_fields", value=kwargs.pop("new_terms_fields"))
+            result["value"] = schema_prompt("new_terms_fields", value=kwargs.pop("new_terms_fields", None))
             history_window_start_value = kwargs.pop("history_window_start", None)
             result["history_window_start"] = [
                 {
