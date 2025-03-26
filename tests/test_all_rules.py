@@ -132,30 +132,21 @@ class TestValidRules(BaseRuleTest):
             build_rule(query=query, from_field="now-10m", interval="10m")
 
     def test_max_signals_note(self):
-        """Ensure the max_signals note is present and max_signals <= 1000."""
+        """Ensure the max_signals note is present when max_signals > 1000."""
         max_signal_standard_setup = 'For information about troubleshooting maximum alerts warning '\
                                     'please refer to this [guide]'\
                                     '(https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).'  # noqa: E501
-        failures = []
-
         for rule in self.all_rules:
-            max_signals = rule.contents.data.get('max_signals')
-            setup_note = rule.contents.data.get('setup')
-
-            # Check if max_signals is defined
-            if max_signals is not None:
-                # Fail if max_signals > 1000
-                if max_signals > 1000:
-                    failures.append(f'{self.rule_str(rule)} max_signals cannot exceed 1000.')
-                # Check if the predefined note is present in the setup field
-                if setup_note is None or max_signal_standard_setup not in setup_note:
-                    failures.append(
-                        f'{self.rule_str(rule)} expected max_signals note missing\n\n'
-                    )
-
-        if failures:
-            fail_msg = "The following rules failed the max_signals validation:\n"
-            self.fail(fail_msg + '\n'.join(failures))
+            if rule.contents.data.max_signals and rule.contents.data.max_signals > 1000:
+                error_message = f'{self.rule_str(rule)} max_signals cannot exceed 1000.'
+                self.fail(f'{self.rule_str(rule)} max_signals cannot exceed 1000.')
+            if rule.contents.data.max_signals and rule.contents.data.max_signals == 1000:
+                error_message = f'{self.rule_str(rule)} note required for max_signals == 1000'
+                self.assertIsNotNone(rule.contents.data.setup, error_message)
+                if max_signal_standard_setup not in rule.contents.data.setup:
+                    self.fail(f'{self.rule_str(rule)} expected max_signals note missing\n\n'
+                              f'Expected: {max_signal_standard_setup}\n\n'
+                              f'Actual: {rule.contents.data.setup}')
 
     def test_from_filed_value(self):
         """ Add "from" Field Validation for All Rules"""
