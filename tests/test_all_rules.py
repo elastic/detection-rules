@@ -133,7 +133,7 @@ class TestValidRules(BaseRuleTest):
 
     def test_max_signals_note(self):
         """Ensure the max_signals note is present when max_signals > 1000."""
-        max_signal_standard_setup = 'For information about troubleshooting maximum alerts warning '\
+        max_signal_standard_setup = 'For information on troubleshooting the maximum alerts warning '\
                                     'please refer to this [guide]'\
                                     '(https://www.elastic.co/guide/en/security/current/alerts-ui-monitor.html#troubleshoot-max-alerts).'  # noqa: E501
         for rule in self.all_rules:
