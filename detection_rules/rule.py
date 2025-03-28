@@ -915,7 +915,7 @@ class ESQLRuleData(QueryRuleData):
 
         # Combine both patterns using an OR operator and compile the regex
         combined_pattern = re.compile(
-            r'(from\s+\S+\s+metadata\s+_id,\s*_version,\s*_index)|(\bstats\b.*?\bby\b)', re.DOTALL
+            r'(from\s+\S+\s+metadata\s+(_id,\s*_version,\s*_index|_id,\s*_index,\s*_version|_version,\s*_id,\s*_index|_version,\s*_index,\s*_id|_index,\s*_id,\s*_version|_index,\s*_version,\s*_id))|(\bstats\b.*?\bby\b)', re.DOTALL
         )
 
         # Ensure that non-aggregate queries have metadata
