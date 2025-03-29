@@ -182,7 +182,8 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
 @click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
-@click.option("--local-dates", "-ld", is_flag=True, help="Strip the version fields from all rules")
+@click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
+@click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
 @click.pass_context
 def kibana_export_rules(
     ctx: click.Context,
@@ -195,7 +196,8 @@ def kibana_export_rules(
     export_exceptions: bool = False,
     skip_errors: bool = False,
     strip_version: bool = False,
-    local_dates: bool = False,
+    local_creation_date: bool = False,
+    local_updated_date: bool = False,
 ) -> List[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj["kibana"]
@@ -235,10 +237,10 @@ def kibana_export_rules(
 
         # Parse rules results and exception results from API return
         rules_results = results[:rules_count]
-        exception_results = results[rules_count : rules_count + exception_list_count + exception_list_item_count]
+        exception_results = results[rules_count:rules_count + exception_list_count + exception_list_item_count]
         rules_and_exceptions_count = rules_count + exception_list_count + exception_list_item_count
         action_connector_results = results[
-            rules_and_exceptions_count : rules_and_exceptions_count + action_connector_count
+            rules_and_exceptions_count: rules_and_exceptions_count + action_connector_count
         ]
 
     errors = []
@@ -274,9 +276,10 @@ def kibana_export_rules(
                 "maturity": maturity,
             }
 
-            if local_dates and creation_date and updated_date:
-                params["updated_date"] = updated_date
+            if local_creation_date and creation_date:
                 params["creation_date"] = creation_date
+            if local_updated_date and updated_date:
+                params["updated_date"] = updated_date
 
             contents = TOMLRuleContents.from_rule_resource(**params)
             rule = TOMLRule(contents=contents, path=directory / f"{rule_name}")
