@@ -185,20 +185,11 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
 @click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
 @click.pass_context
-def kibana_export_rules(
-    ctx: click.Context,
-    directory: Path,
-    action_connectors_directory: Optional[Path],
-    exceptions_directory: Optional[Path],
-    default_author: str,
-    rule_id: Optional[Iterable[str]] = None,
-    export_action_connectors: bool = False,
-    export_exceptions: bool = False,
-    skip_errors: bool = False,
-    strip_version: bool = False,
-    local_creation_date: bool = False,
-    local_updated_date: bool = False,
-) -> List[TOMLRule]:
+def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_directory: Optional[Path],
+                        exceptions_directory: Optional[Path], default_author: str,
+                        rule_id: Optional[Iterable[str]] = None, export_action_connectors: bool = False,
+                        export_exceptions: bool = False, skip_errors: bool = False, strip_version: bool = False,
+                        local_creation_date: bool = False, local_updated_date: bool = False) -> List[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj["kibana"]
     kibana_include_details = export_exceptions or export_action_connectors
