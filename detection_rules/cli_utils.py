@@ -212,8 +212,8 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
     path = Path(path or input(f'File path for rule [{suggested_path}]: ') or suggested_path).resolve()
     # Inherit maturity and optionally local dates from the rule already exists
     meta = {
-        "creation_date": creation_date or kwargs.get("creation_date"),
-        "updated_date": creation_date or kwargs.get("updated_date"),
+        "creation_date": kwargs.get("creation_date") or creation_date,
+        "updated_date": kwargs.get("updated_date") or creation_date,
         "maturity": "development" or kwargs.get("maturity"),
     }
 

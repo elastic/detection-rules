@@ -182,7 +182,7 @@ def import_rules_into_repo(input_file: click.Path, required_only: bool, action_c
         if isinstance(contents["author"], str):
             contents["author"] = [contents["author"]]
 
-        local_metadata = get_rule_metadata_from_file(rule_path)
+        local_metadata = get_rule_metadata_from_file(Path(rule_path))
         if local_metadata:
             contents["maturity"] = local_metadata.get("maturity", "development")
             contents.update(
