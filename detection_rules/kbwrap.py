@@ -24,7 +24,7 @@ from .generic_loader import GenericCollection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
 from .rule import downgrade_contents_from_rule, TOMLRuleContents, TOMLRule
-from .rule_loader import RuleCollection
+from .rule_loader import RuleCollection, get_rule_metadata_from_file
 from .utils import format_command_options, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
@@ -256,30 +256,31 @@ def kibana_export_rules(
             if isinstance(rule_resource["author"], str):
                 rule_resource["author"] = [rule_resource["author"]]
             # Inherit maturity and optionally local dates from the rule already exists
-            maturity = "development"
-            creation_date = None
-            updated_date = None
+            params = {
+                "rule": rule_resource,
+                "maturity": "development",
+            }
             threat = rule_resource.get("threat")
             first_tactic = threat[0].get("tactic").get("name") if threat else ""
             rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=first_tactic)
-            # check if directory / f"{rule_name}" exists
-            if (directory / f"{rule_name}").exists():
-                rules = RuleCollection()
-                rules.load_file(directory / f"{rule_name}")
-                if rules:
-                    maturity = rules.rules[0].contents.metadata.maturity
-                    creation_date = rules.rules[0].contents.metadata.creation_date
-                    updated_date = rules.rules[0].contents.metadata.updated_date
 
-            params = {
-                "rule": rule_resource,
-                "maturity": maturity,
-            }
-
-            if local_creation_date and creation_date:
-                params["creation_date"] = creation_date
-            if local_updated_date and updated_date:
-                params["updated_date"] = updated_date
+            local_metadata = get_rule_metadata_from_file(directory / f"{rule_name}")
+            if local_metadata:
+                params["maturity"] = local_metadata.get("maturity", "development")
+                params.update(
+                    {
+                        **(
+                            {"creation_date": local_metadata.creation_date}
+                            if local_creation_date and local_metadata.creation_date
+                            else {}
+                        ),
+                        **(
+                            {"updated_date": local_metadata.updated_date}
+                            if local_updated_date and local_metadata.updated_date
+                            else {}
+                        ),
+                    }
+                )
 
             contents = TOMLRuleContents.from_rule_resource(**params)
             rule = TOMLRule(contents=contents, path=directory / f"{rule_name}")

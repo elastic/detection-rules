@@ -18,7 +18,8 @@ from marshmallow.exceptions import ValidationError
 from . import utils
 from .config import parse_rules_config
 from .rule import (
-    DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule, TOMLRuleContents
+    DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule,
+    TOMLRuleContents, RuleMeta
 )
 from .schemas import definitions
 from .utils import cached, get_path
@@ -114,6 +115,15 @@ def load_locks_from_tag(remote: str, tag: str, version_lock: str = 'detection_ru
         # Adding resiliency to account for the old directory structure
         deprecated = json.loads(git('show', f'{tag}:etc/deprecated_rules.json'))
     return commit_hash, version, deprecated
+
+
+def get_rule_metadata_from_file(rule_path: Path) -> Union[RuleMeta, None]:
+    """Get local fields from a rule file."""
+    if rule_path.exists():
+        rules = RuleCollection()
+        rules.load_file(rule_path)
+        if rules:
+            return rules.rules[0].contents.metadata
 
 
 @dataclass

@@ -32,7 +32,7 @@ from .misc import (
 )
 from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
 from .rule_formatter import toml_write
-from .rule_loader import RuleCollection
+from .rule_loader import RuleCollection, get_rule_metadata_from_file
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
 from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents, rulename_to_filename
 
@@ -128,10 +128,13 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 @click.option("--skip-errors", "-ske", is_flag=True, help="Skip rule import errors")
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 @click.option("--strip-none-values", "-snv", is_flag=True, help="Strip None values from the rule")
+@click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
+@click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
 def import_rules_into_repo(input_file: click.Path, required_only: bool, action_connector_import: bool,
                            exceptions_import: bool, directory: click.Path, save_directory: click.Path,
                            action_connectors_directory: click.Path, exceptions_directory: click.Path,
-                           skip_errors: bool, default_author: str, strip_none_values: bool):
+                           skip_errors: bool, default_author: str, strip_none_values: bool, local_creation_date: bool,
+                           local_updated_date: bool):
     """Import rules from json, toml, or yaml files containing Kibana exported rule(s)."""
     errors = []
     rule_files = glob.glob(os.path.join(directory, "**", "*.*"), recursive=True) if directory else []
@@ -178,6 +181,24 @@ def import_rules_into_repo(input_file: click.Path, required_only: bool, action_c
         contents["author"] = contents.get("author") or default_author or [contents.get("created_by")]
         if isinstance(contents["author"], str):
             contents["author"] = [contents["author"]]
+
+        local_metadata = get_rule_metadata_from_file(rule_path)
+        if local_metadata:
+            contents["maturity"] = local_metadata.get("maturity", "development")
+            contents.update(
+                {
+                    **(
+                        {"creation_date": local_metadata.creation_date}
+                        if local_creation_date and local_metadata.creation_date
+                        else {}
+                    ),
+                    **(
+                        {"updated_date": local_metadata.updated_date}
+                        if local_updated_date and local_metadata.updated_date
+                        else {}
+                    ),
+                }
+            )
 
         output = rule_prompt(
             rule_path,
