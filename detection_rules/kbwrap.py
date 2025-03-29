@@ -182,12 +182,21 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
 @click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
+@click.option("--local-dates", "-ld", is_flag=True, help="Strip the version fields from all rules")
 @click.pass_context
-def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_directory: Optional[Path],
-                        exceptions_directory: Optional[Path], default_author: str,
-                        rule_id: Optional[Iterable[str]] = None, export_action_connectors: bool = False,
-                        export_exceptions: bool = False, skip_errors: bool = False, strip_version: bool = False
-                        ) -> List[TOMLRule]:
+def kibana_export_rules(
+    ctx: click.Context,
+    directory: Path,
+    action_connectors_directory: Optional[Path],
+    exceptions_directory: Optional[Path],
+    default_author: str,
+    rule_id: Optional[Iterable[str]] = None,
+    export_action_connectors: bool = False,
+    export_exceptions: bool = False,
+    skip_errors: bool = False,
+    strip_version: bool = False,
+    local_dates: bool = False,
+) -> List[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj["kibana"]
     kibana_include_details = export_exceptions or export_action_connectors
@@ -215,6 +224,8 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
         return []
 
     rules_results = results
+    action_connector_results = []
+    exception_results = []
     if kibana_include_details:
         # Assign counts to variables
         rules_count = results[-1]["exported_rules_count"]
@@ -224,10 +235,10 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
 
         # Parse rules results and exception results from API return
         rules_results = results[:rules_count]
-        exception_results = results[rules_count:rules_count + exception_list_count + exception_list_item_count]
+        exception_results = results[rules_count : rules_count + exception_list_count + exception_list_item_count]
         rules_and_exceptions_count = rules_count + exception_list_count + exception_list_item_count
         action_connector_results = results[
-            rules_and_exceptions_count: rules_and_exceptions_count + action_connector_count
+            rules_and_exceptions_count : rules_and_exceptions_count + action_connector_count
         ]
 
     errors = []
@@ -242,8 +253,10 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             rule_resource["author"] = rule_resource.get("author") or default_author or [rule_resource.get("created_by")]
             if isinstance(rule_resource["author"], str):
                 rule_resource["author"] = [rule_resource["author"]]
-            # Inherit maturity from the rule already exists
+            # Inherit maturity and optionally local dates from the rule already exists
             maturity = "development"
+            creation_date = None
+            updated_date = None
             threat = rule_resource.get("threat")
             first_tactic = threat[0].get("tactic").get("name") if threat else ""
             rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=first_tactic)
@@ -253,10 +266,19 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
                 rules.load_file(directory / f"{rule_name}")
                 if rules:
                     maturity = rules.rules[0].contents.metadata.maturity
+                    creation_date = rules.rules[0].contents.metadata.creation_date
+                    updated_date = rules.rules[0].contents.metadata.updated_date
 
-            contents = TOMLRuleContents.from_rule_resource(
-                rule_resource, maturity=maturity
-            )
+            params = {
+                "rule": rule_resource,
+                "maturity": maturity,
+            }
+
+            if local_dates and creation_date and updated_date:
+                params["updated_date"] = updated_date
+                params["creation_date"] = creation_date
+
+            contents = TOMLRuleContents.from_rule_resource(**params)
             rule = TOMLRule(contents=contents, path=directory / f"{rule_name}")
         except Exception as e:
             if skip_errors:
