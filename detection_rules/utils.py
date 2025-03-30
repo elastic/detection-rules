@@ -74,6 +74,25 @@ def dict_hash(obj: dict) -> str:
     return hashlib.sha256(raw_bytes).hexdigest()
 
 
+def ensure_list_of_strings(value: str) -> list[str]:
+    if isinstance(value, str):
+        # Check if the string looks like a JSON list
+        if value.startswith('[') and value.endswith(']'):
+            try:
+                # Attempt to parse the string as a JSON list
+                parsed_value = json.loads(value)
+                if isinstance(parsed_value, list):
+                    return [str(v) for v in parsed_value]
+            except json.JSONDecodeError:
+                pass
+        # If it's not a JSON list, return it as a single-element list
+        return [value]
+    elif isinstance(value, list):
+        return [str(v) for v in value]
+    else:
+        return []
+
+
 def get_json_iter(f):
     """Get an iterator over a JSON file."""
     first = f.read(2)

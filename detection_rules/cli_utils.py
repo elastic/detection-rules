@@ -22,7 +22,7 @@ from .rule_loader import (DEFAULT_PREBUILT_BBR_DIRS,
                           DEFAULT_PREBUILT_RULES_DIRS, RuleCollection,
                           dict_filter)
 from .schemas import definitions
-from .utils import clear_caches, rulename_to_filename
+from .utils import clear_caches, ensure_list_of_strings, rulename_to_filename
 
 
 def single_collection(f):
@@ -185,7 +185,8 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
         if name == "new_terms":
             # patch to allow new_term imports
             result = {"field": "new_terms_fields"}
-            result["value"] = schema_prompt("new_terms_fields", value=kwargs.pop("new_terms_fields", None))
+            new_terms_fields_value = schema_prompt("new_terms_fields", value=kwargs.pop("new_terms_fields", None))
+            result["value"] = ensure_list_of_strings(new_terms_fields_value)
             history_window_start_value = kwargs.pop("history_window_start", None)
             result["history_window_start"] = [
                 {
