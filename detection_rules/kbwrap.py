@@ -108,6 +108,7 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 
         # Re-try to address known Kibana issue: https://github.com/elastic/kibana/issues/143864
         workaround_errors = []
+        workaround_error_types = []
 
         flattened_exceptions = [e for sublist in exception_dicts for e in sublist]
         all_exception_list_ids = {exception["list_id"] for exception in flattened_exceptions}
@@ -121,13 +122,27 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
                 list_id = _parse_list_id(error["error"]["message"])
                 if list_id in all_exception_list_ids:
                     workaround_errors.append(error["rule_id"])
+                    workaround_error_types.append("non existent exception list")
 
-        if workaround_errors:
+            if (
+                "Error validating create data" in error["error"]["message"]
+                and "expected value of type [string] but got [undefined]" in error["error"]["message"]
+            ):
+                workaround_error_types.append("connector still being built")
+        if workaround_errors and "non existent exception list" in workaround_error_types:
             workaround_errors = list(set(workaround_errors))
-            click.echo(f'Missing exception list errors detected for {len(workaround_errors)} rules. '
-                       'Try re-importing using the following command and rule IDs:\n')
-            click.echo('python -m detection_rules kibana import-rules -o ', nl=False)
-            click.echo(' '.join(f'-id {rule_id}' for rule_id in workaround_errors))
+            click.echo(
+                f"Missing exception list errors detected for {len(workaround_errors)} rules. "
+                "Try re-importing using the following command and rule IDs:\n"
+            )
+            click.echo("python -m detection_rules kibana import-rules -o ", nl=False)
+            click.echo(" ".join(f"-id {rule_id}" for rule_id in workaround_errors))
+            click.echo()
+        if workaround_errors and "connector still being built" in workaround_error_types:
+            click.echo(
+                f"Connector still being built errors detected for {len(workaround_errors)} rules. "
+                "Please try re-importing the rules again."
+            )
             click.echo()
 
     def _process_imported_items(imported_items_list, item_type_description, item_key):
