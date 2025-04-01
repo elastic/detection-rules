@@ -24,7 +24,7 @@ from .generic_loader import GenericCollection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
 from .rule import downgrade_contents_from_rule, TOMLRuleContents, TOMLRule
-from .rule_loader import RuleCollection, get_rule_metadata_from_file
+from .rule_loader import RuleCollection, get_rule_metadata_from_file, update_metadata_with_local_contents
 from .utils import format_command_options, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
@@ -256,23 +256,11 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=first_tactic)
 
             local_metadata = get_rule_metadata_from_file(directory / f"{rule_name}")
-            if local_metadata:
-                params["maturity"] = local_metadata.get("maturity", "development")
-                params.update(
-                    {
-                        **(
-                            {"creation_date": local_metadata.creation_date}
-                            if local_creation_date and local_metadata.creation_date
-                            else {}
-                        ),
-                        **(
-                            {"updated_date": local_metadata.updated_date}
-                            if local_updated_date and local_metadata.updated_date
-                            else {}
-                        ),
-                    }
+            params.update(
+                update_metadata_with_local_contents(
+                    local_metadata, {"creation_date": local_creation_date, "updated_date": local_updated_date}
                 )
-
+            )
             contents = TOMLRuleContents.from_rule_resource(**params)
             rule = TOMLRule(contents=contents, path=directory / f"{rule_name}")
         except Exception as e:

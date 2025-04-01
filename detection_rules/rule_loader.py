@@ -126,6 +126,17 @@ def get_rule_metadata_from_file(rule_path: Path) -> Union[RuleMeta, None]:
             return rules.rules[0].contents.metadata
 
 
+def update_metadata_with_local_contents(local_metadata: RuleMeta, fields_to_update: dict) -> dict:
+    """Update metadata fields for a rule with local contents."""
+    contents = {}
+    if local_metadata:
+        contents["maturity"] = local_metadata.get("maturity", "development")
+        for field_name, should_update in fields_to_update.items():
+            if should_update and field_name in local_metadata:
+                contents[field_name] = local_metadata[field_name]
+    return contents
+
+
 @dataclass
 class BaseCollection:
     """Base class for collections."""
