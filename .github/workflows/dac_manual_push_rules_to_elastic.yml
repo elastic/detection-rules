@@ -8,18 +8,6 @@ on:
       - '**/*.toml'
   workflow_dispatch:
     inputs:
-      overwrite:
-        description: 'Overwrite existing rules'
-        required: false
-        default: 'true'
-      overwrite_exceptions:
-        description: 'Overwrite existing exceptions'
-        required: false
-        default: 'true'
-      overwrite_action_connectors:
-        description: 'Overwrite existing action connectors'
-        required: false
-        default: 'true'
       space:
         description: 'Kibana space to use (dev or prod)'
         required: false
@@ -45,10 +33,13 @@ jobs:
         python -m pip install --upgrade pip
         pip cache purge
         pip install .[dev]
-
+    
+    - name: Setup config file
+      run: |
+        python -m detection_rules custom-rules setup-config rules_custom
+        
     - name: Import Rules to Kibana
       run: |
-
         SPACE_FLAG="--space $SPACE"
         python -m detection_rules kibana $SPACE_FLAG import-rules $FLAGS
       env:
