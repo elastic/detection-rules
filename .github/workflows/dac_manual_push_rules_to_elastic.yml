@@ -16,8 +16,8 @@ on:
 jobs:
   push-to-dev:
     runs-on: ubuntu-latest
-    #env:
-     # CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
+    env:
+      CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
 
     steps:
     - name: Checkout Repository
@@ -40,7 +40,7 @@ jobs:
         
     - name: Import Rules to Kibana
       run: |
-        python -m detection_rules kibana --space dac_dev import-rules --overwrite -e -ac -d rules_custom/rules
+        python -m detection_rules kibana --space dac_dev import-rules --overwrite -e -ac -d ${{ env.CUSTOM_RULES_DIR }}/rules
       env:
         DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
         DR_API_KEY: ${{ secrets.ELASTIC_API_KEY }}
