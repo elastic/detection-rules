@@ -6,8 +6,10 @@ from datetime import datetime
 from faker import Faker
 
 # Elastic Security SIEM Configuration
+
 ELASTIC_URL = os.environ["ELASTIC_URL"]
 ELASTIC_API_KEY = os.environ["ELASTIC_API_KEY"]
+
 
 # Faker instance to generate random data
 faker = Faker()
