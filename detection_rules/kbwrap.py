@@ -178,6 +178,7 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @click.option("--exceptions-directory", "-ed", required=False, type=Path, help="Directory to export exceptions to")
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 @click.option("--rule-id", "-r", multiple=True, help="Optional Rule IDs to restrict export to")
+@click.option("--rule-name", "-rn", required=False, help="Optional Rule name to restrict export to (case-insensitive, supports wildcards)")
 @click.option("--export-action-connectors", "-ac", is_flag=True, help="Include action connectors in export")
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
@@ -185,13 +186,22 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @click.pass_context
 def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_directory: Optional[Path],
                         exceptions_directory: Optional[Path], default_author: str,
-                        rule_id: Optional[Iterable[str]] = None, export_action_connectors: bool = False,
+                        rule_id: Optional[Iterable[str]] = None, rule_name: Optional[str] = None, export_action_connectors: bool = False,
                         export_exceptions: bool = False, skip_errors: bool = False, strip_version: bool = False
                         ) -> List[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj["kibana"]
     kibana_include_details = export_exceptions or export_action_connectors
+
+    # Only allow one of rule_id or rule_name
+    if rule_name and rule_id:
+        raise click.UsageError("Cannot use --rule-id and --rule-name together. Please choose one.")
+    
     with kibana:
+        # Look up rule IDs by name if --rule-name was provided
+        if rule_name:
+            found = RuleResource.find(filter=f"alert.attributes.name:{rule_name}")
+            rule_id = [r["rule_id"] for r in found]
         results = RuleResource.export_rules(list(rule_id), exclude_export_details=not kibana_include_details)
 
     # Handle Exceptions Directory Location
