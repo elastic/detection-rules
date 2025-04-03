@@ -520,6 +520,7 @@ Options:
   -e, --export-exceptions         Include exceptions in export
   -s, --skip-errors               Skip errors when exporting rules
   -sv, --strip-version            Strip the version fields from all rules
+  -nt, --no-tactic-filename       Exclude tactic prefix in exported filenames for rules
   -h, --help                      Show this message and exit.
 
 ```

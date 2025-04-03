@@ -182,7 +182,7 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
 @click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
-@click.option("--no-tactic-filename", is_flag=True, help="Exclude tactic prefix in exported filenames")
+@click.option("--no-tactic-filename", "-nt", is_flag=True, help="Exclude tactic prefix in exported filenames for rules")
 @click.pass_context
 def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_directory: Optional[Path],
                         exceptions_directory: Optional[Path], default_author: str,
