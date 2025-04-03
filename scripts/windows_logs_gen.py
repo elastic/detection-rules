@@ -7,8 +7,9 @@ from faker import Faker
 
 # Elastic Security SIEM Configuration
 #ELASTIC_URL = os.getenv("ELASTIC_URL", "https://your-elasticsearch-instance.com")
+ELASTIC_URL = os.getenv("ELASTIC_URL", "https://demo-security.es.us-west2.gcp.elastic-cloud.com")
 #ELASTIC_API_KEY = os.getenv("ELASTIC_API_KEY", "your-api-key")
-ELASTIC_URL = os.environ["ELASTIC_URL"]
+#ELASTIC_URL = os.environ["ELASTIC_URL"]
 ELASTIC_API_KEY = os.environ["ELASTIC_API_KEY"]
 
 print(f"url : {ELASTIC_URL}")
