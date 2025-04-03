@@ -1,4 +1,4 @@
-name: Push Latest Rules to Elastic Security Space
+name: DAC - SIEM CI/CD Workflow
 
 on:
   push:
@@ -20,8 +20,10 @@ on:
       #  default: 'dac-dev'
 
 jobs:
-  push-to-dev:
-    name: Deploy to Dev SIEM Space
+  
+
+  deploy-to-dev:
+    name: Deploy to Kibana Dev SIEM Space
     runs-on: ubuntu-latest
     env:
       CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
@@ -52,9 +54,62 @@ jobs:
         DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
         DR_API_KEY: ${{ secrets.ELASTIC_API_KEY }}
 
-  push-to-staging:
-    name: Deploy to Prod SIEM Space
-    needs: push-to-dev
+  deploy-to-staging:
+    name: Deploy to Staging SIEM Space
+    needs: deploy-to-dev
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    env:
+      CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.12'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip cache purge
+        pip install .[dev]
+        
+    
+    #- name: Setup config file
+    #  run: |
+    #    python -m detection_rules custom-rules setup-config rules_custom --overwrite
+        
+    - name: Import Rules to Kibana
+      run: |
+        python -m detection_rules kibana --space dac-staging import-rules --overwrite -e -ac -d ${{ env.CUSTOM_RULES_DIR }}/rules
+      env:
+        DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
+        DR_API_KEY: ${{ secrets.ELASTIC_API_KEY }}
+
+  generate-auth-logs:
+    name: Generate Authentication Logs & Send to Elastic SIEM
+    needs: deploy-to-staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Python Dependencies
+        run: pip install elasticsearch requests faker
+
+      - name: Run Authentication Log Generator
+        env:
+          ELASTIC_URL: ${{ secrets.ELASTIC_URL }}
+          ELASTIC_API_KEY: ${{ secrets.ELASTIC_API_KEY }}
+        run: python scripts/generate_auth_logs.py
+
+
+  deploy-to-production:
+    name: Deploy to Production SIEM Space
+    needs: deploy-to-staging
     if: github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
     env:
@@ -81,7 +136,7 @@ jobs:
         
     - name: Import Rules to Kibana
       run: |
-        python -m detection_rules kibana --space dac-staging import-rules --overwrite -e -ac -d ${{ env.CUSTOM_RULES_DIR }}/rules
+        python -m detection_rules kibana --space dac-prod import-rules --overwrite -e -ac -d ${{ env.CUSTOM_RULES_DIR }}/rules
       env:
         DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
         DR_API_KEY: ${{ secrets.ELASTIC_API_KEY }}
