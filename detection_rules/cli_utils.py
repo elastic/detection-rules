@@ -66,11 +66,13 @@ def multi_collection(f):
     @click.option("--directory", "-d", multiple=True, type=click.Path(file_okay=False), required=False,
                   help="Recursively load rules from a directory")
     @click.option("--rule-id", "-id", multiple=True, required=False)
+    @click.option("--no-tactic-filename", "-nt", is_flag=True, required=False, help="Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.")
     @functools.wraps(f)
     def get_collection(*args, **kwargs):
         rule_id: List[str] = kwargs.pop("rule_id", [])
         rule_files: List[str] = kwargs.pop("rule_file")
         directories: List[str] = kwargs.pop("directory")
+        no_tactic_filename: bool = kwargs.pop("no_tactic_filename", False)
 
         rules = RuleCollection()
 
@@ -99,7 +101,8 @@ def multi_collection(f):
         for rule in rules:
             threat = rule.contents.data.get("threat")
             first_tactic = threat[0].tactic.name if threat else ""
-            rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=first_tactic)
+            tactic_name = None if no_tactic_filename else first_tactic
+            rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
             if rule.path.name != rule_name:
                 click.secho(
                     f"WARNING: Rule path does not match required path: {rule.path.name} != {rule_name}", fg="yellow"

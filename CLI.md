@@ -265,6 +265,7 @@ Options:
   -e, --overwrite-exceptions      Overwrite exceptions in existing rules
   -ac, --overwrite-action-connectors
                                   Overwrite action connectors in existing rules
+  -nt, --no-tactic-filename       Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
   -h, --help                      Show this message and exit.
 ```
 
@@ -520,7 +521,7 @@ Options:
   -e, --export-exceptions         Include exceptions in export
   -s, --skip-errors               Skip errors when exporting rules
   -sv, --strip-version            Strip the version fields from all rules
-  -nt, --no-tactic-filename       Exclude tactic prefix in exported filenames for rules
+  -nt, --no-tactic-filename       Exclude tactic prefix in exported filenames for rules. Use same flag for import-rules to prevent warnings.
   -h, --help                      Show this message and exit.
 
 ```
