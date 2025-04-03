@@ -96,15 +96,14 @@ jobs:
 
       - name: Run Authentication Log Generator
         env:
-          ELASTIC_URL: ${{ secrets.ELASTIC_URL }}
+          ELASTIC_URL: "https://demo-security.es.us-west2.gcp.elastic-cloud.com"
           ELASTIC_API_KEY: ${{ secrets.ELASTIC_API_KEY }}
         run: python scripts/windows_logs_gen.py
-
 
   deploy-to-production:
     name: Deploy to Production SIEM Space
     needs: deploy-to-staging
-    if: github.ref == 'refs/heads/staging'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
