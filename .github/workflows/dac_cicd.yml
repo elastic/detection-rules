@@ -1,1 +1,87 @@
-name : DAC CI/CD
+name: Push Latest Rules to Elastic Security Space
+
+on:
+  push:
+    branches:
+      - "dev"  # Dedicated for new rules implementatioln
+      - "staging" # Dedicated for rules evalation and fine tuning      
+      - "main" # Decicated for production rules
+    paths:
+      - '**/*.toml'
+  pull_request:
+    branches:
+      - "staging"
+      - "main"
+ # workflow_dispatch:
+  #  inputs:
+   #   space:
+    #    description: 'Kibana space to use (dev or prod)'
+     #   required: false
+      #  default: 'dac-dev'
+
+jobs:
+  push-to-dev:
+    name: Deploy to Dev SIEM Space
+    runs-on: ubuntu-latest
+    env:
+      CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.12'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip cache purge
+        pip install .[dev]
+    
+    #- name: Setup config file
+    #  run: |
+    #    python -m detection_rules custom-rules setup-config rules_custom --overwrite
+        
+    - name: Import Rules to Kibana
+      run: |
+        python -m detection_rules kibana --space dac-dev import-rules --overwrite -e -ac -d ${{ env.CUSTOM_RULES_DIR }}/rules
+      env:
+        DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
+        DR_API_KEY: ${{ secrets.ELASTIC_API_KEY }}
+
+  push-to-staging:
+    name: Deploy to Prod SIEM Space
+    needs: push-to-dev
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    env:
+      CUSTOM_RULES_DIR: ${{ secrets.CUSTOM_RULES_DIR }}
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.12'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip cache purge
+        pip install .[dev]
+    
+    #- name: Setup config file
+    #  run: |
+    #    python -m detection_rules custom-rules setup-config rules_custom --overwrite
+        
+    - name: Import Rules to Kibana
+      run: |
+        python -m detection_rules kibana --space dac-staging import-rules --overwrite -e -ac -d ${{ env.CUSTOM_RULES_DIR }}/rules
+      env:
+        DR_CLOUD_ID: ${{ secrets.ELASTIC_CLOUD_ID }}
+        DR_API_KEY: ${{ secrets.ELASTIC_API_KEY }}
