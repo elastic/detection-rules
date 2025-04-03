@@ -15,7 +15,7 @@ ELASTIC_API_KEY = os.environ["ELASTIC_API_KEY"]
 faker = Faker()
 
 # List of example user accounts and source IPs
-USER_ACCOUNTS = ["admin", "john.doe", "jane.smith", "guest", "user123"]
+USER_ACCOUNTS = ["admin", "john.doe", "jane.smith", "guest", "user123", "adminfake"]
 SOURCE_IPS = ["192.168.1.10", "192.168.1.50", "10.0.0.100", "172.16.0.20"]
 
 # Generate a random authentication log entry in ECS format
@@ -69,5 +69,5 @@ def send_logs_to_elastic(logs):
 
 # Generate and send multiple logs
 if __name__ == "__main__":
-    logs = [generate_auth_log() for _ in range(10)]
+    logs = [generate_auth_log() for _ in range(50)]
     send_logs_to_elastic(logs)
