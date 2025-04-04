@@ -178,7 +178,7 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @click.option("--exceptions-directory", "-ed", required=False, type=Path, help="Directory to export exceptions to")
 @click.option("--default-author", "-da", type=str, required=False, help="Default author for rules missing one")
 @click.option("--rule-id", "-r", multiple=True, help="Optional Rule IDs to restrict export to")
-@click.option("--rule-name", "-rn", required=False, help="Optional Rule name to restrict export to (case-insensitive, supports wildcards)")
+@click.option("--rule-name", "-rn", required=False, help="Optional Rule name to restrict export to (KQL, case-insensitive, supports wildcards)")
 @click.option("--export-action-connectors", "-ac", is_flag=True, help="Include action connectors in export")
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")

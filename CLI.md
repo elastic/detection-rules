@@ -515,7 +515,7 @@ Options:
                                   Directory to export exceptions to
   -da, --default-author TEXT      Default author for rules missing one
   -r, --rule-id TEXT              Optional Rule IDs to restrict export to
-  -rn, --rule-name TEXT           Optional Rule name to restrict export to (case-insensitive, supports wildcards)
+  -rn, --rule-name TEXT           Optional Rule name to restrict export to (KQL, case-insensitive, supports wildcards)
   -ac, --export-action-connectors
                                   Include action connectors in export
   -e, --export-exceptions         Include exceptions in export
