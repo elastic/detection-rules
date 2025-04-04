@@ -182,11 +182,15 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
 @click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
+@click.option("--no-tactic-filename", "-nt", is_flag=True,
+              help="Exclude tactic prefix in exported filenames for rules. "
+              "Use same flag for import-rules to prevent warnings and disable its unit test.")
 @click.pass_context
 def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_directory: Optional[Path],
                         exceptions_directory: Optional[Path], default_author: str,
                         rule_id: Optional[Iterable[str]] = None, export_action_connectors: bool = False,
-                        export_exceptions: bool = False, skip_errors: bool = False, strip_version: bool = False
+                        export_exceptions: bool = False, skip_errors: bool = False, strip_version: bool = False,
+                        no_tactic_filename: bool = False
                         ) -> List[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj["kibana"]
@@ -246,7 +250,11 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             maturity = "development"
             threat = rule_resource.get("threat")
             first_tactic = threat[0].get("tactic").get("name") if threat else ""
-            rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=first_tactic)
+            # Check if flag or config is set to not include tactic in the filename
+            no_tactic_filename = no_tactic_filename or RULES_CONFIG.no_tactic_filename
+            # Check if the flag is set to not include tactic in the filename
+            tactic_name = first_tactic if not no_tactic_filename else None
+            rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=tactic_name)
             # check if directory / f"{rule_name}" exists
             if (directory / f"{rule_name}").exists():
                 rules = RuleCollection()
