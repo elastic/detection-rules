@@ -42,7 +42,8 @@ class BaseResource(dict):
         if per_page is None:
             per_page = DEFAULT_PAGE_SIZE
 
-        params.setdefault("sort_field", "_id")
+        # _id is no valid sort field so we sort by name by default
+        params.setdefault("sort_field", "name")
         params.setdefault("sort_order", "asc")
 
         return ResourceIterator(cls, cls.BASE_URI + "/_find", per_page=per_page, **params)
