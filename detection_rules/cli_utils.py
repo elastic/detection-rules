@@ -23,6 +23,9 @@ from .rule_loader import (DEFAULT_PREBUILT_BBR_DIRS,
                           dict_filter)
 from .schemas import definitions
 from .utils import clear_caches, rulename_to_filename
+from .config import parse_rules_config
+
+RULES_CONFIG = parse_rules_config()
 
 
 def single_collection(f):
@@ -66,7 +69,9 @@ def multi_collection(f):
     @click.option("--directory", "-d", multiple=True, type=click.Path(file_okay=False), required=False,
                   help="Recursively load rules from a directory")
     @click.option("--rule-id", "-id", multiple=True, required=False)
-    @click.option("--no-tactic-filename", "-nt", is_flag=True, required=False, help="Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.")
+    @click.option("--no-tactic-filename", "-nt", is_flag=True, required=False,
+                  help="Allow rule filenames without tactic prefix. "
+                  "Use this if rules have been exported with this flag.")
     @functools.wraps(f)
     def get_collection(*args, **kwargs):
         rule_id: List[str] = kwargs.pop("rule_id", [])
@@ -101,6 +106,8 @@ def multi_collection(f):
         for rule in rules:
             threat = rule.contents.data.get("threat")
             first_tactic = threat[0].tactic.name if threat else ""
+            # Check if flag or config is set to not include tactic in the filename
+            no_tactic_filename = no_tactic_filename or RULES_CONFIG.no_tactic_filename
             tactic_name = None if no_tactic_filename else first_tactic
             rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
             if rule.path.name != rule_name:
