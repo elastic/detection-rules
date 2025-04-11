@@ -2,7 +2,7 @@
 creation_date = "2020/12/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/02/04"
+updated_date = "2025/03/18"
 
 [rule]
 author = ["Elastic"]
@@ -57,11 +57,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name : "osascript" and
-  process.command_line : "osascript*with administrator privileges" and
-  not process.parent.name : "Electron" and
-  not process.Ext.effective_parent.executable : ("/Applications/Visual Studio Code.app/Contents/MacOS/Electron",
-                                                 "/Applications/OpenVPN Connect/Uninstall OpenVPN Connect.app/Contents/MacOS/uninstaller")
+process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "osascript" and
+ process.command_line : "osascript*with administrator privileges" and
+ ((process.parent.code_signature.trusted == false or process.parent.code_signature.exists == false) or process.Ext.effective_parent.executable like ("/tmp/*", "/private/tmp/*", "/Users/Shared/*"))
 '''
 note = """## Triage and analysis
 
