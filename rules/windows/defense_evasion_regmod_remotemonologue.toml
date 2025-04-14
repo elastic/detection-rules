@@ -1,0 +1,89 @@
+[metadata]
+creation_date = "2025/04/14"
+integration = ["endpoint", "m365_defender", "sentinel_one_cloud_funnel", "windows"]
+maturity = "production"
+updated_date = "2025/04/14"
+min_stack_version = "8.14.0"
+min_stack_comments = "Breaking change at 8.14.0 for the Windows Integration."
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempt to perform session hijack via COM object registry modification by setting the RunAs value to Interactive User.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-m365_defender.event-*", "logs-sentinel_one_cloud_funnel.*", "logs-windows.sysmon_operational-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential RemoteMonologue Attack"
+references = [
+    "https://www.ibm.com/think/x-force/remotemonologue-weaponizing-dcom-ntlm-authentication-coercions#1",
+    "https://github.com/xforcered/RemoteMonologue"
+]
+risk_score = 73
+rule_id = "c18975f5-676c-4091-b626-81e8938aa2ee"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.action != "deletion" and registry.value == "RunAs" and registry.data.strings : "Interactive User"
+'''
+note = """## Triage and analysis
+
+### Investigating Potential RemoteMonologue Attack
+
+
+### Possible investigation steps
+
+- Review the registry event logs to confirm the modification of the RunAs value in the specified registry paths, ensuring the change was not part of a legitimate administrative action.
+- Identify the user account and process responsible for the registry modification by examining the event logs for associated user and process information.
+- Check for any recent remote authentication attempts or sessions on the affected host to determine if this activity is associated with lateral movement or not.
+- Investigate the timeline of the registry change to correlate with any other suspicious activities or alerts on the host, such as the execution of unusual processes or network connections.
+
+
+### False positive analysis
+
+- Software updates or installations that modify COM settings.
+- Automated scripts or management tools that adjust COM configurations.
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
+- Modify the registry value back to its secure state, ensuring that "RunAs" value is not set to "Interactive User".
+- Conduct a thorough review of recent user activity and system logs to identify any unauthorized access or changes made during the period NLA was disabled.
+- Reset passwords for all accounts that have accessed the affected system to mitigate potential credential compromise.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring on the affected system and similar endpoints to detect any further attempts to disable NLA or other suspicious activities.
+"""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
