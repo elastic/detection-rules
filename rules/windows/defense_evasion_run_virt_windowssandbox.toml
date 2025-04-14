@@ -1,0 +1,73 @@
+[metadata]
+creation_date = "2025/04/14"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2025/04/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Windows sanfbox processes indicating the start of a new container with sensitive configurations like write
+access to the host file system, network connection and automatic execution via logon command. Malware may abuse the
+sandbox feature to evade detection.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process-*",
+    "winlogbeat-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Windows Sandbox with Sensitive Configuration"
+references = ["https://blog-en.itochuci.co.jp/entry/2025/03/12/140000"]
+risk_score = 47
+rule_id = "56d9cf6c-46ea-4019-9c7f-b1fdb855fee3"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : ("wsb.exe", "WindowsSandboxClient.exe") and
+  process.command_line : ("*<Networking>Enable</Networking>*",
+                          "*<HostFolder>C:\\*<ReadOnly>false*",
+                          "*<LogonCommand>*",
+                          "*<NetworkingEnabled>true*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.006"
+name = "Run Virtual Instance"
+reference = "https://attack.mitre.org/techniques/T1564/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
