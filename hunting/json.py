@@ -19,8 +19,8 @@ class JSONGenerator:
         hunt_config = load_toml(file_path)
         json_content = self.convert_toml_to_json(hunt_config, file_path)
 
-        docs_folder = self.create_docs_folder(file_path)
-        json_path = docs_folder / f"{file_path.stem}.json"
+        json_folder = self.create_json_folder(file_path)
+        json_path = json_folder / f"{file_path.stem}.json"
         self.save_json(json_path, json_content)
 
         self.update_or_add_entry(hunt_config, file_path)
@@ -28,10 +28,10 @@ class JSONGenerator:
     def process_folder(self, folder: str) -> None:
         """Process all TOML files in a specified folder and generate their JSON representations."""
         folder_path = self.base_path / folder / "queries"
-        docs_folder = self.base_path / folder / "docs"
+        json_folder = self.base_path / folder / "docs"
 
-        if not folder_path.is_dir() or not docs_folder.is_dir():
-            raise ValueError(f"Queries folder {folder_path} or docs folder {docs_folder} does not exist.")
+        if not folder_path.is_dir() or not json_folder.is_dir():
+            raise ValueError(f"Queries folder {folder_path} or docs folder {json_folder} does not exist.")
 
         click.echo(f"Processing all TOML files in folder: {folder_path}")
         toml_files = folder_path.rglob("*.toml")
@@ -49,42 +49,13 @@ class JSONGenerator:
 
     def convert_toml_to_json(self, hunt_config: Hunt, file_path: Path) -> dict:
         """Convert a Hunt configuration to JSON format."""
-        integration_links = self.generate_integration_links(hunt_config.integration)
-        integration_data = []
-        
-        for integration in hunt_config.integration:
-            link = None
-            for link_entry in integration_links:
-                if integration in link_entry:
-                    link = link_entry.split('(')[1].rstrip(')')
-                    break
-            
-            integration_data.append({
-                "name": integration,
-                "link": link
-            })
-            
-        mitre_data = []
-        if hunt_config.mitre:
-            for tech in hunt_config.mitre:
-                url = ATLAS_URL if tech.startswith('AML') else ATTACK_URL
-                if tech.startswith('T'):
-                    url += tech.replace('.', '/')
-                else:
-                    url += tech
-                    
-                mitre_data.append({
-                    "technique": tech,
-                    "url": url
-                })
-                
         json_data = {
             "name": hunt_config.name,
             "metadata": {
                 "author": hunt_config.author,
                 "description": hunt_config.description,
                 "uuid": hunt_config.uuid,
-                "integrations": integration_data,
+                "integration": hunt_config.integration,
                 "language": str(hunt_config.language).replace("'", "").replace('"', ""),
                 "source_file": {
                     "name": hunt_config.name,
@@ -93,7 +64,7 @@ class JSONGenerator:
             },
             "queries": hunt_config.query,
             "notes": hunt_config.notes if hunt_config.notes else [],
-            "mitre_techniques": mitre_data,
+            "mitre_techniques": hunt_config.mitre,
             "references": hunt_config.references if hunt_config.references else [],
             "license": hunt_config.license
         }
@@ -125,11 +96,11 @@ class JSONGenerator:
 
         save_index_file(self.base_path, self.hunting_index)
 
-    def create_docs_folder(self, file_path: Path) -> Path:
+    def create_json_folder(self, file_path: Path) -> Path:
         """Create the docs folder if it doesn't exist and return the path."""
-        docs_folder = file_path.parent.parent / "docs"
-        docs_folder.mkdir(parents=True, exist_ok=True)
-        return docs_folder
+        json_folder = file_path.parent.parent / "json"
+        json_folder.mkdir(parents=True, exist_ok=True)
+        return json_folder
 
     def generate_integration_links(self, integrations: list[str]) -> list[str]:
         """Generate integration links for the documentation."""
