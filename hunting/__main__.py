@@ -16,6 +16,7 @@ from detection_rules.misc import parse_user_config
 
 from .definitions import HUNTING_DIR
 from .markdown import MarkdownGenerator
+from .json import JSONGenerator
 from .run import QueryRunner
 from .search import QueryIndex
 from .utils import (filter_elasticsearch_params, get_hunt_path, load_all_toml,
@@ -50,6 +51,26 @@ def generate_markdown(path: Path = None):
 
     # After processing, update the index
     markdown_generator.update_index_md()
+
+@hunting.command('generate-json')
+@click.argument('path', required=False)
+def generate_json(path: Path = None):
+    """Convert TOML hunting queries to JSON format."""
+    json_generator = JSONGenerator(HUNTING_DIR)
+
+    if path:
+        path = Path(path)
+        if path.is_file() and path.suffix == '.toml':
+            click.echo(f"Generating JSON for single file: {path}")
+            json_generator.process_file(path)
+        elif (HUNTING_DIR / path).is_dir():
+            click.echo(f"Generating JSON for folder: {path}")
+            json_generator.process_folder(path)
+        else:
+            raise ValueError(f"Invalid path provided: {path}")
+    else:
+        click.echo("Generating JSON for all files.")
+        json_generator.process_all_files()
 
 
 @hunting.command('refresh-index')
