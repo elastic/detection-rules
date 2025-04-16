@@ -24,7 +24,7 @@ from .generic_loader import GenericCollection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
 from .rule import downgrade_contents_from_rule, TOMLRuleContents, TOMLRule
-from .rule_loader import RuleCollection, get_rule_metadata_from_file, update_metadata_with_local_contents
+from .rule_loader import RuleCollection, update_metadata_from_file
 from .utils import format_command_options, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
@@ -272,14 +272,14 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             first_tactic = threat[0].get("tactic").get("name") if threat else ""
             rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=first_tactic)
 
-            local_metadata = get_rule_metadata_from_file(directory / f"{rule_name}")
+            save_path = directory / f"{rule_name}"
             params.update(
-                update_metadata_with_local_contents(
-                    local_metadata, {"creation_date": local_creation_date, "updated_date": local_updated_date}
+                update_metadata_from_file(
+                    save_path, {"creation_date": local_creation_date, "updated_date": local_updated_date}
                 )
             )
             contents = TOMLRuleContents.from_rule_resource(**params)
-            rule = TOMLRule(contents=contents, path=directory / f"{rule_name}")
+            rule = TOMLRule(contents=contents, path=save_path)
         except Exception as e:
             if skip_errors:
                 print(f'- skipping {rule_resource.get("name")} - {type(e).__name__}')

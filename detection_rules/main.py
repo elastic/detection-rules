@@ -32,7 +32,7 @@ from .misc import (
 )
 from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
 from .rule_formatter import toml_write
-from .rule_loader import RuleCollection, get_rule_metadata_from_file, update_metadata_with_local_contents
+from .rule_loader import RuleCollection, update_metadata_from_file
 from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
 from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents, rulename_to_filename
 
@@ -182,10 +182,9 @@ def import_rules_into_repo(input_file: click.Path, required_only: bool, action_c
         if isinstance(contents["author"], str):
             contents["author"] = [contents["author"]]
 
-        local_metadata = get_rule_metadata_from_file(Path(rule_path))
         contents.update(
-            update_metadata_with_local_contents(
-                local_metadata, {"creation_date": local_creation_date, "updated_date": local_updated_date}
+            update_metadata_from_file(
+                Path(rule_path), {"creation_date": local_creation_date, "updated_date": local_updated_date}
             )
         )
 

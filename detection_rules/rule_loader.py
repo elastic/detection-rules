@@ -19,7 +19,7 @@ from . import utils
 from .config import parse_rules_config
 from .rule import (
     DeprecatedRule, DeprecatedRuleContents, DictRule, TOMLRule,
-    TOMLRuleContents, RuleMeta
+    TOMLRuleContents
 )
 from .schemas import definitions
 from .utils import cached, get_path
@@ -117,16 +117,10 @@ def load_locks_from_tag(remote: str, tag: str, version_lock: str = 'detection_ru
     return commit_hash, version, deprecated
 
 
-def get_rule_metadata_from_file(rule_path: Path) -> Union[RuleMeta, None]:
-    """Get metadata fields from a rule file."""
-    if rule_path.exists():
-        return RuleCollection().load_file(rule_path).contents.metadata
-
-
-def update_metadata_with_local_contents(local_metadata: Union[RuleMeta, dict], fields_to_update: dict) -> dict:
+def update_metadata_from_file(rule_path: Path, fields_to_update: dict) -> dict:
     """Update metadata fields for a rule with local contents."""
     contents = {}
-    local_metadata = local_metadata.to_dict() if isinstance(local_metadata, RuleMeta) else local_metadata
+    local_metadata = RuleCollection().load_file(rule_path).contents.metadata.to_dict()
     if local_metadata:
         contents["maturity"] = local_metadata.get("maturity", "development")
         for field_name, should_update in fields_to_update.items():
