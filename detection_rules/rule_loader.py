@@ -123,9 +123,10 @@ def get_rule_metadata_from_file(rule_path: Path) -> Union[RuleMeta, None]:
         return RuleCollection().load_file(rule_path).contents.metadata
 
 
-def update_metadata_with_local_contents(local_metadata: RuleMeta, fields_to_update: dict) -> dict:
+def update_metadata_with_local_contents(local_metadata: Union[RuleMeta, dict], fields_to_update: dict) -> dict:
     """Update metadata fields for a rule with local contents."""
     contents = {}
+    local_metadata = local_metadata.to_dict() if isinstance(local_metadata, RuleMeta) else local_metadata
     if local_metadata:
         contents["maturity"] = local_metadata.get("maturity", "development")
         for field_name, should_update in fields_to_update.items():
