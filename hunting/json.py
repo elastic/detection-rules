@@ -55,53 +55,6 @@ class JSONGenerator:
     def convert_toml_to_json(self, hunt_config: Hunt) -> dict:
         """Convert a Hunt configuration to JSON format."""
         return json.dumps(asdict(hunt_config), indent=4)
-    
-    @staticmethod
-    def extract_indices_from_esql(esql_query):
-        """
-        Extract indices from an ESQL query.
-        
-        Args:
-            esql_query (str): The ESQL query.
-            
-        Returns:
-            list: A list of indices found in the query.
-        """
-        # Normalize whitespace by removing extra spaces and newlines
-        normalized_query = ' '.join(esql_query.split())
-        
-        # Check if the query starts with "from"
-        if not normalized_query.lower().startswith('from '):
-            return []
-        
-        # Extract the part after "from" and before the first pipe (|)
-        from_part = normalized_query[5:].split('|', 1)[0].strip()
-        
-        # Split by commas if multiple indices are provided
-        indices = [index.strip() for index in from_part.split(',')]
-        
-        return indices
-    
-    def format_queries(self, queries: list[str]) -> list[dict]:
-        """
-        Format the queries for JSON output.
-        
-        Args:
-            queries (list[str]): List of ESQL queries.
-        Returns:
-            list[dict]: List of dictionaries containing the query and its indices.
-        """
-        formatted_queries = []
-
-        for query in queries:
-            formatted_queries.append({
-                "query": query,
-                "indices": self.extract_indices_from_esql(query),
-            })
-
-        return formatted_queries
-
-
 
     def save_json(self, json_path: Path, content: dict) -> None:
         """Save the JSON content to a file."""
