@@ -15,14 +15,15 @@ false_positives = [
     Some CI/CD pipelines or administrative users may use session tokens. Review user context, IP, and timing to validate.
     """,
 ]
-from = "now-15m"
+from = "now-9m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Sensitive IAM API Calls via Temporary Session Tokens"
+name = "AWS IAM or STS API Calls via Temporary Session Tokens"
 note = """
 ## Triage and Analysis
 
-### Investigating Sensitive IAM API Calls via Temporary Session Tokens
+### Investigating AWS IAM or STS API Calls via Temporary Session Tokens
 
 This rule identifies use of temporary AWS credentials (session tokens with prefix `ASIA`) used to perform sensitive IAM API operations.
 These actions may indicate unauthorized privilege escalation or persistence attempts.
@@ -39,7 +40,6 @@ These actions may indicate unauthorized privilege escalation or persistence atte
 - Invalidate the credentials used and disable the associated IAM user or role if malicious.
 - Rotate secrets and audit permission boundaries.
 - Review activity around the same time and on other AWS services.
-
 """
 references = ["https://www.sygnia.co/blog/sygnia-investigation-bybit-hack/"]
 risk_score = 47
@@ -62,6 +62,7 @@ type = "query"
 query = '''
 event.dataset: aws.cloudtrail and
     and event.provider: ("iam.amazonaws.com" or "sts.amazonaws.com")
+    and aws.cloudtrail.user_identity.type == "IAMUser"
     and aws.cloudtrail.user_identity.access_key_id: ASIA*
 '''
 
