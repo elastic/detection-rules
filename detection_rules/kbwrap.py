@@ -24,7 +24,7 @@ from .generic_loader import GenericCollection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
 from .rule import downgrade_contents_from_rule, TOMLRuleContents, TOMLRule
-from .rule_loader import RuleCollection
+from .rule_loader import RuleCollection, update_metadata_from_file
 from .utils import format_command_options, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
@@ -108,27 +108,44 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 
         # Re-try to address known Kibana issue: https://github.com/elastic/kibana/issues/143864
         workaround_errors = []
+        workaround_error_types = set()
 
         flattened_exceptions = [e for sublist in exception_dicts for e in sublist]
         all_exception_list_ids = {exception["list_id"] for exception in flattened_exceptions}
 
         click.echo(f'{len(response["errors"])} rule(s) failed to import!')
 
+        action_connector_validation_error = "Error validating create data"
+        action_connector_type_error = "expected value of type [string] but got [undefined]"
         for error in response['errors']:
-            click.echo(f' - {error["rule_id"]}: ({error["error"]["status_code"]}) {error["error"]["message"]}')
+            error_message = error["error"]["message"]
+            click.echo(f' - {error["rule_id"]}: ({error["error"]["status_code"]}) {error_message}')
 
-            if "references a non existent exception list" in error["error"]["message"]:
-                list_id = _parse_list_id(error["error"]["message"])
+            if "references a non existent exception list" in error_message:
+                list_id = _parse_list_id(error_message)
                 if list_id in all_exception_list_ids:
                     workaround_errors.append(error["rule_id"])
+                    workaround_error_types.add("non existent exception list")
+
+            if action_connector_validation_error in error_message and action_connector_type_error in error_message:
+                workaround_error_types.add("connector still being built")
 
         if workaround_errors:
             workaround_errors = list(set(workaround_errors))
-            click.echo(f'Missing exception list errors detected for {len(workaround_errors)} rules. '
-                       'Try re-importing using the following command and rule IDs:\n')
-            click.echo('python -m detection_rules kibana import-rules -o ', nl=False)
-            click.echo(' '.join(f'-id {rule_id}' for rule_id in workaround_errors))
-            click.echo()
+            if "non existent exception list" in workaround_error_types:
+                click.echo(
+                    f"Missing exception list errors detected for {len(workaround_errors)} rules. "
+                    "Try re-importing using the following command and rule IDs:\n"
+                )
+                click.echo("python -m detection_rules kibana import-rules -o ", nl=False)
+                click.echo(" ".join(f"-id {rule_id}" for rule_id in workaround_errors))
+                click.echo()
+            if "connector still being built" in workaround_error_types:
+                click.echo(
+                    f"Connector still being built errors detected for {len(workaround_errors)} rules. "
+                    "Please try re-importing the rules again."
+                )
+                click.echo()
 
     def _process_imported_items(imported_items_list, item_type_description, item_key):
         """Displays appropriately formatted success message that all items imported successfully."""
@@ -184,13 +201,15 @@ def kibana_import_rules(ctx: click.Context, rules: RuleCollection, overwrite: Op
 @click.option("--export-exceptions", "-e", is_flag=True, help="Include exceptions in export")
 @click.option("--skip-errors", "-s", is_flag=True, help="Skip errors when exporting rules")
 @click.option("--strip-version", "-sv", is_flag=True, help="Strip the version fields from all rules")
+@click.option("--local-creation-date", "-lc", is_flag=True, help="Preserve the local creation date of the rule")
+@click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
 @click.pass_context
 def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_directory: Optional[Path],
                         exceptions_directory: Optional[Path], default_author: str,
                         rule_id: Optional[Iterable[str]] = None, rule_name: Optional[str] = None,
                         export_action_connectors: bool = False,
-                        export_exceptions: bool = False, skip_errors: bool = False, strip_version: bool = False
-                        ) -> List[TOMLRule]:
+                        export_exceptions: bool = False, skip_errors: bool = False, strip_version: bool = False,
+                        local_creation_date: bool = False, local_updated_date: bool = False) -> List[TOMLRule]:
     """Export custom rules from Kibana."""
     kibana = ctx.obj["kibana"]
     kibana_include_details = export_exceptions or export_action_connectors
@@ -227,6 +246,8 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
         return []
 
     rules_results = results
+    action_connector_results = []
+    exception_results = []
     if kibana_include_details:
         # Assign counts to variables
         rules_count = results[-1]["exported_rules_count"]
@@ -254,22 +275,23 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             rule_resource["author"] = rule_resource.get("author") or default_author or [rule_resource.get("created_by")]
             if isinstance(rule_resource["author"], str):
                 rule_resource["author"] = [rule_resource["author"]]
-            # Inherit maturity from the rule already exists
-            maturity = "development"
+            # Inherit maturity and optionally local dates from the rule if it already exists
+            params = {
+                "rule": rule_resource,
+                "maturity": "development",
+            }
             threat = rule_resource.get("threat")
             first_tactic = threat[0].get("tactic").get("name") if threat else ""
             rule_name = rulename_to_filename(rule_resource.get("name"), tactic_name=first_tactic)
-            # check if directory / f"{rule_name}" exists
-            if (directory / f"{rule_name}").exists():
-                rules = RuleCollection()
-                rules.load_file(directory / f"{rule_name}")
-                if rules:
-                    maturity = rules.rules[0].contents.metadata.maturity
 
-            contents = TOMLRuleContents.from_rule_resource(
-                rule_resource, maturity=maturity
+            save_path = directory / f"{rule_name}"
+            params.update(
+                update_metadata_from_file(
+                    save_path, {"creation_date": local_creation_date, "updated_date": local_updated_date}
+                )
             )
-            rule = TOMLRule(contents=contents, path=directory / f"{rule_name}")
+            contents = TOMLRuleContents.from_rule_resource(**params)
+            rule = TOMLRule(contents=contents, path=save_path)
         except Exception as e:
             if skip_errors:
                 print(f'- skipping {rule_resource.get("name")} - {type(e).__name__}')
