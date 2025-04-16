@@ -14,6 +14,7 @@ from tabulate import tabulate
 
 from detection_rules.misc import parse_user_config
 
+from .upload import upload_data
 from .definitions import HUNTING_DIR
 from .markdown import MarkdownGenerator
 from .json import JSONGenerator
@@ -27,6 +28,12 @@ from .utils import (filter_elasticsearch_params, get_hunt_path, load_all_toml,
 def hunting():
     """Commands for managing hunting queries and converting TOML to Markdown."""
     pass
+
+@hunting.command('upload')
+def upload():
+    """Upload hunting queries to Elasticsearch."""
+    # This function is not implemented in the provided code.
+    upload_data()
 
 
 @hunting.command('generate-markdown')
