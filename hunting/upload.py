@@ -12,158 +12,75 @@ ELASTICSEARCH_INDEX = "threat-hunting-queries"             # Target index name
 # Directory containing JSON files
 DIRECTORY_PATH = "/Users/mark/dev/detection-rules/hunting"
 MAPPING = {
-    "mappings": {
+  "mappings": {
+    "properties": {
+      "author": {
+        "type": "keyword"
+      },
+      "description": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "integration": {
+        "type": "keyword"
+      },
+      "uuid": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "language": {
+        "type": "keyword"
+      },
+      "license": {
+        "type": "keyword"
+      },
+      "notes": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "mitre": {
+        "type": "keyword"
+      },
+      "references": {
+        "type": "keyword"
+      },
+      "queries": {
+        "type": "nested",
         "properties": {
-            "author": {
-                "type": "keyword"
-            },
-            "description": {
-                "type": "text",
-                "fields": {
-                    "keyword": {
-                        "type": "keyword",
-                        "ignore_above": 256
-                    }
-                }
-            },
-            "from": {
-                "type": "keyword"
-            },
-            "index": {
-                "type": "keyword"
-            },
-            "language": {
-                "type": "keyword"
-            },
-            "license": {
-                "type": "keyword"
-            },
-            "name": {
-                "type": "text",
-                "fields": {
-                    "keyword": {
-                        "type": "keyword",
-                        "ignore_above": 256
-                    }
-                }
-            },
-            "note": {
-                "type": "text"
-            },
-            "queries": {
-                "properties": {
-                    "query": {
-                        "type": "text"
-                    },
-                    "indices": {
-                        "type": "keyword"
-                    }
-                }
-            },
-            "references": {
-                "type": "keyword"
-            },
-            "related_integrations": {
-                "properties": {
-                    "package": {
-                        "type": "keyword"
-                    },
-                    "version": {
-                        "type": "keyword"
-                    }
-                }
-            },
-            "required_fields": {
-                "properties": {
-                    "ecs": {
-                        "type": "boolean"
-                    },
-                    "name": {
-                        "type": "keyword"
-                    },
-                    "type": {
-                        "type": "keyword"
-                    }
-                }
-            },
-            "risk_score": {
-                "type": "integer"
-            },
-            "rule_id": {
-                "type": "keyword"
-            },
-            "setup": {
-                "type": "text"
-            },
-            "severity": {
-                "type": "keyword"
-            },
-            "tags": {
-                "type": "keyword"
-            },
-            "threat": {
-                "properties": {
-                    "framework": {
-                        "type": "keyword"
-                    },
-                    "tactic": {
-                        "properties": {
-                            "id": {
-                                "type": "keyword"
-                            },
-                            "name": {
-                                "type": "keyword"
-                            },
-                            "reference": {
-                                "type": "keyword"
-                            }
-                        }
-                    },
-                    "technique": {
-                        "properties": {
-                            "id": {
-                                "type": "keyword"
-                            },
-                            "name": {
-                                "type": "keyword"
-                            },
-                            "reference": {
-                                "type": "keyword"
-                            },
-                            "subtechnique": {
-                                "properties": {
-                                    "id": {
-                                        "type": "keyword"
-                                    },
-                                    "name": {
-                                        "type": "keyword"
-                                    },
-                                    "reference": {
-                                        "type": "keyword"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "timestamp_override": {
-                "type": "keyword"
-            },
-            "type": {
-                "type": "keyword"
-            },
-            "version": {
-                "type": "integer"
+          "query": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 8192
+              }
             }
+          },
+          "indices": {
+            "type": "keyword"
+          }
         }
-    },
-    "settings": {
-        "index": {
-            "number_of_shards": 1,
-            "number_of_replicas": 1
-        }
+      }
     }
+  }
 }
 
 

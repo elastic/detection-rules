@@ -54,7 +54,10 @@ class JSONGenerator:
 
     def convert_toml_to_json(self, hunt_config: Hunt) -> str:
         """Convert a Hunt configuration to JSON format."""
-        return json.dumps(asdict(hunt_config), indent=4)
+        hunt_config_dict = asdict(hunt_config)
+        hunt_config_dict["queries"] = self.format_queries(hunt_config_dict["query"])
+        hunt_config_dict.pop("query")
+        return json.dumps(hunt_config_dict, indent=4)
     
     @staticmethod
     def extract_indices_from_esql(esql_query):
