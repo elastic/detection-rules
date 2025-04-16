@@ -1123,10 +1123,19 @@ class BaseRuleContents(ABC):
     def to_api_format(self, include_version: bool = True) -> dict:
         """Convert the rule to the API format."""
 
+
+    def get_hashable_content(self, include_version: bool = False, include_integrations: bool = True) -> dict:
+        # get the API dict without the version by default, otherwise it'll always be dirty.
+        hashable_dict = self.to_api_format(include_version=include_version)
+
+        # drop related integrations if present
+        if not include_integrations:
+            hashable_dict.pop("related_integrations", None)
+        return hashable_dict
+
     @cached
-    def sha256(self, include_version=False) -> str:
-        # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
-        hashable_contents = self.to_api_format(include_version=include_version)
+    def sha256(self, include_version : bool = False) -> str:
+        hashable_contents = self.get_hashable_content(include_version=include_version, include_integrations=False)
         return utils.dict_hash(hashable_contents)
 
 
