@@ -120,10 +120,7 @@ def load_locks_from_tag(remote: str, tag: str, version_lock: str = 'detection_ru
 def get_rule_metadata_from_file(rule_path: Path) -> Union[RuleMeta, None]:
     """Get metadata fields from a rule file."""
     if rule_path.exists():
-        rules = RuleCollection()
-        rules.load_file(rule_path)
-        if rules:
-            return rules.rules[0].contents.metadata
+        return RuleCollection().load_file(rule_path).contents.metadata
 
 
 def update_metadata_with_local_contents(local_metadata: RuleMeta, fields_to_update: dict) -> dict:
