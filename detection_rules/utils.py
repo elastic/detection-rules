@@ -74,7 +74,8 @@ def dict_hash(obj: dict) -> str:
     return hashlib.sha256(raw_bytes).hexdigest()
 
 
-def ensure_list_of_strings(value: str) -> list[str]:
+def ensure_list_of_strings(value: Union[str, list]) -> list[str]:
+    """Ensure or convert a value is a list of strings."""
     if isinstance(value, str):
         # Check if the string looks like a JSON list
         if value.startswith('[') and value.endswith(']'):
@@ -85,8 +86,9 @@ def ensure_list_of_strings(value: str) -> list[str]:
                     return [str(v) for v in parsed_value]
             except json.JSONDecodeError:
                 pass
-        # If it's not a JSON list, return it as a single-element list
-        return [value]
+        # If it's not a JSON list, split by commas if present
+        # Else return a list with the original string
+        return list(map(lambda x: x.strip(), value.split(',')))
     elif isinstance(value, list):
         return [str(v) for v in value]
     else:
