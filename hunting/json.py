@@ -52,14 +52,14 @@ class JSONGenerator:
         for toml_file in toml_files:
             self.process_file(toml_file)
 
-    def convert_toml_to_json(self, hunt_config: Hunt) -> dict:
+    def convert_toml_to_json(self, hunt_config: Hunt) -> str:
         """Convert a Hunt configuration to JSON format."""
         return json.dumps(asdict(hunt_config), indent=4)
 
-    def save_json(self, json_path: Path, content: dict) -> None:
+    def save_json(self, json_path: Path, content: str) -> None:
         """Save the JSON content to a file."""
         with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(content, f, indent=2, ensure_ascii=False)
+            f.write(content)
         click.echo(f"JSON generated: {json_path}")
 
     def create_json_folder(self, file_path: Path) -> Path:
