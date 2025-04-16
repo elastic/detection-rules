@@ -88,7 +88,7 @@ def ensure_list_of_strings(value: Union[str, list]) -> list[str]:
                 pass
         # If it's not a JSON list, split by commas if present
         # Else return a list with the original string
-        return list(map(lambda x: x.strip(), value.split(',')))
+        return list(map(lambda x: x.strip().strip('"'), value.split(',')))
     elif isinstance(value, list):
         return [str(v) for v in value]
     else:
