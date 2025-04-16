@@ -3,6 +3,8 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+from dataclasses import asdict
+import json
 from pathlib import Path
 import click
 from .definitions import ATLAS_URL, ATTACK_URL, STATIC_INTEGRATION_LINK_MAP, Hunt
@@ -22,7 +24,7 @@ class JSONGenerator:
 
         click.echo(f"Processing specific TOML file: {file_path}")
         hunt_config = load_toml(file_path)
-        json_content = self.convert_toml_to_json(hunt_config, file_path)
+        json_content = self.convert_toml_to_json(hunt_config)
 
         json_folder = self.create_json_folder(file_path)
         json_path = json_folder / f"{file_path.stem}.json"
@@ -50,29 +52,12 @@ class JSONGenerator:
         for toml_file in toml_files:
             self.process_file(toml_file)
 
-    def convert_toml_to_json(self, hunt_config: Hunt, file_path: Path) -> dict:
+    def convert_toml_to_json(self, hunt_config: Hunt) -> dict:
         """Convert a Hunt configuration to JSON format."""
-        json_data = {
-            "name": hunt_config.name,
-            "metadata": {
-                "author": hunt_config.author,
-                "description": hunt_config.description,
-                "uuid": hunt_config.uuid,
-                "integration": hunt_config.integration,
-                "language": str(hunt_config.language).replace("'", "").replace('"', ""),
-                "source_file": {
-                    "name": hunt_config.name,
-                    "path": (Path('../queries') / file_path.name).as_posix()
-                }
-            },
-            "queries": self.format_queries(hunt_config.query),
-            "notes": hunt_config.notes if hunt_config.notes else [],
-            "mitre_techniques": hunt_config.mitre,
-            "references": hunt_config.references if hunt_config.references else [],
-            "license": hunt_config.license
-        }
         
-        return json_data
+        hunt_config_dict = asdict(hunt_config)
+        hunt_config_dict["queries"] = self.format_queries(hunt_config_dict["queries"])
+        return json.dumps(asdict(hunt_config), indent=4)
     
     @staticmethod
     def extract_indices_from_esql(esql_query):
@@ -123,7 +108,6 @@ class JSONGenerator:
 
     def save_json(self, json_path: Path, content: dict) -> None:
         """Save the JSON content to a file."""
-        import json
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(content, f, indent=2, ensure_ascii=False)
         click.echo(f"JSON generated: {json_path}")
