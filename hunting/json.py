@@ -3,10 +3,12 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+from dataclasses import asdict
+import json
 from pathlib import Path
 import click
-from .definitions import ATLAS_URL, ATTACK_URL, STATIC_INTEGRATION_LINK_MAP, Hunt
-from .utils import load_index_file, load_toml, validate_link
+from .definitions import Hunt
+from .utils import load_index_file, load_toml
 
 class JSONGenerator:
     """Class to generate or update JSON documentation from TOML or YAML files."""
@@ -22,7 +24,7 @@ class JSONGenerator:
 
         click.echo(f"Processing specific TOML file: {file_path}")
         hunt_config = load_toml(file_path)
-        json_content = self.convert_toml_to_json(hunt_config, file_path)
+        json_content = self.convert_toml_to_json(hunt_config)
 
         json_folder = self.create_json_folder(file_path)
         json_path = json_folder / f"{file_path.stem}.json"
@@ -50,33 +52,59 @@ class JSONGenerator:
         for toml_file in toml_files:
             self.process_file(toml_file)
 
-    def convert_toml_to_json(self, hunt_config: Hunt, file_path: Path) -> dict:
+    def convert_toml_to_json(self, hunt_config: Hunt) -> dict:
         """Convert a Hunt configuration to JSON format."""
-        json_data = {
-            "name": hunt_config.name,
-            "metadata": {
-                "author": hunt_config.author,
-                "description": hunt_config.description,
-                "uuid": hunt_config.uuid,
-                "integration": hunt_config.integration,
-                "language": str(hunt_config.language).replace("'", "").replace('"', ""),
-                "source_file": {
-                    "name": hunt_config.name,
-                    "path": (Path('../queries') / file_path.name).as_posix()
-                }
-            },
-            "queries": hunt_config.query,
-            "notes": hunt_config.notes if hunt_config.notes else [],
-            "mitre_techniques": hunt_config.mitre,
-            "references": hunt_config.references if hunt_config.references else [],
-            "license": hunt_config.license
-        }
+        return json.dumps(asdict(hunt_config), indent=4)
+    
+    @staticmethod
+    def extract_indices_from_esql(esql_query):
+        """
+        Extract indices from an ESQL query.
         
-        return json_data
+        Args:
+            esql_query (str): The ESQL query.
+            
+        Returns:
+            list: A list of indices found in the query.
+        """
+        # Normalize whitespace by removing extra spaces and newlines
+        normalized_query = ' '.join(esql_query.split())
+        
+        # Check if the query starts with "from"
+        if not normalized_query.lower().startswith('from '):
+            return []
+        
+        # Extract the part after "from" and before the first pipe (|)
+        from_part = normalized_query[5:].split('|', 1)[0].strip()
+        
+        # Split by commas if multiple indices are provided
+        indices = [index.strip() for index in from_part.split(',')]
+        
+        return indices
+    
+    def format_queries(self, queries: list[str]) -> list[dict]:
+        """
+        Format the queries for JSON output.
+        
+        Args:
+            queries (list[str]): List of ESQL queries.
+        Returns:
+            list[dict]: List of dictionaries containing the query and its indices.
+        """
+        formatted_queries = []
+
+        for query in queries:
+            formatted_queries.append({
+                "query": query,
+                "indices": self.extract_indices_from_esql(query),
+            })
+
+        return formatted_queries
+
+
 
     def save_json(self, json_path: Path, content: dict) -> None:
         """Save the JSON content to a file."""
-        import json
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(content, f, indent=2, ensure_ascii=False)
         click.echo(f"JSON generated: {json_path}")
