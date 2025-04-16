@@ -263,7 +263,7 @@ def kibana_export_rules(ctx: click.Context, directory: Path, action_connectors_d
             rule_resource["author"] = rule_resource.get("author") or default_author or [rule_resource.get("created_by")]
             if isinstance(rule_resource["author"], str):
                 rule_resource["author"] = [rule_resource["author"]]
-            # Inherit maturity and optionally local dates from the rule already exists
+            # Inherit maturity and optionally local dates from the rule if it already exists
             params = {
                 "rule": rule_resource,
                 "maturity": "development",

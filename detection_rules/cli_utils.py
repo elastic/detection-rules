@@ -210,7 +210,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
     # DEFAULT_PREBUILT_RULES_DIRS[0] is a required directory just as a suggestion
     suggested_path = Path(DEFAULT_PREBUILT_RULES_DIRS[0]) / contents['name']
     path = Path(path or input(f'File path for rule [{suggested_path}]: ') or suggested_path).resolve()
-    # Inherit maturity and optionally local dates from the rule already exists
+    # Inherit maturity and optionally local dates from the rule if it already exists
     meta = {
         "creation_date": kwargs.get("creation_date") or creation_date,
         "updated_date": kwargs.get("updated_date") or creation_date,

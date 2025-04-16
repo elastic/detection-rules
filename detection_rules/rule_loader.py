@@ -120,6 +120,8 @@ def load_locks_from_tag(remote: str, tag: str, version_lock: str = 'detection_ru
 def update_metadata_from_file(rule_path: Path, fields_to_update: dict) -> dict:
     """Update metadata fields for a rule with local contents."""
     contents = {}
+    if not rule_path.exists():
+        return contents
     local_metadata = RuleCollection().load_file(rule_path).contents.metadata.to_dict()
     if local_metadata:
         contents["maturity"] = local_metadata.get("maturity", "development")
