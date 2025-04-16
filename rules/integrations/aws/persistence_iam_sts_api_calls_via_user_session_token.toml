@@ -1,0 +1,79 @@
+[metadata]
+creation_date = "2025/04/16"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/04/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects use of sensitive AWS STS or IAM API operations using temporary credentials (session tokens starting with 'ASIA').
+This may indicate credential theft or abuse of elevated access via a stolen session. It is not common for legitimate users to perform sensitive IAM operations with temporary session tokens.
+"""
+false_positives = [
+    """
+    Some CI/CD pipelines or administrative users may use session tokens. Review user context, IP, and timing to validate.
+    """,
+]
+from = "now-15m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Sensitive IAM API Calls via Temporary Session Tokens"
+note = """
+## Triage and Analysis
+
+### Investigating Sensitive IAM API Calls via Temporary Session Tokens
+
+This rule identifies use of temporary AWS credentials (session tokens with prefix `ASIA`) used to perform sensitive IAM API operations.
+These actions may indicate unauthorized privilege escalation or persistence attempts.
+
+#### Possible Investigation Steps
+
+- Identify the IAM user or assumed role and determine if session-based API calls are expected for this user.
+- Review the source IP and user agent for signs of attacker infrastructure (e.g., Kali, VPN).
+- Investigate whether this was preceded by GetSessionToken or credential harvesting activity.
+- Check if the same key or session token was used in other suspicious calls (e.g., CreateAccessKey, PutUserPolicy).
+
+### Response and Remediation
+
+- Invalidate the credentials used and disable the associated IAM user or role if malicious.
+- Rotate secrets and audit permission boundaries.
+- Review activity around the same time and on other AWS services.
+
+"""
+references = ["https://www.sygnia.co/blog/sygnia-investigation-bybit-hack/"]
+risk_score = 47
+rule_id = "c70d9f0d-8cb6-4cfc-85df-a95c1ccf4eab"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS IAM",
+    "Data Source: AWS STS",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: aws.cloudtrail and
+    and event.provider: ("iam.amazonaws.com" or "sts.amazonaws.com")
+    and aws.cloudtrail.user_identity.access_key_id: ASIA*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
