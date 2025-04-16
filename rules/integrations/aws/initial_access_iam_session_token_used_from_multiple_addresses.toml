@@ -17,7 +17,7 @@ false_positives = [
     appear from multiple IPs. Review the geolocation and automation context to rule out benign use.
     """,
 ]
-from = "now-15m"
+from = "now-30m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS STS Temporary IAM Session Token Used from Multiple Addresses"
@@ -75,7 +75,7 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
     // filter on CloudTrail logs for STS temporary session tokens used by IAM users
     event.dataset == "aws.cloudtrail"
     and aws.cloudtrail.user_identity.arn is not null
-    and aws.cloudtrail.user_identity.type == "IAMUser"
+    and aws.cloudtrail.user_identity.type in ("IAMUser", "AssumedRole")
     and source.ip is not null
 
     // exclude known benign IaC tools and automation frameworks
@@ -89,7 +89,7 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
     and starts_with(aws.cloudtrail.user_identity.access_key_id, "ASIA")
 
   // create a time window for aggregation
-| eval time_window = DATE_TRUNC(1 hours, @timestamp)
+| eval time_window = DATE_TRUNC(30 minutes, @timestamp)
 | keep source.ip, aws.cloudtrail.user_identity.arn
 
 // aggregate unique source IPs per user within the time window
